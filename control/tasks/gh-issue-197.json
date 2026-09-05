@@ -1,0 +1,144 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-197",
+  "project": "mythos-prod",
+  "objective": "Poser la fondation du MYTHOS Communication Core dans MYTHOS-WP (Option D de #196) : merger la branche `mythos/wp-20260905` dans `main`, ajouter le modèle de données conversationnel (contacts, conversations, messages, pièces jointes, événements, tags, runs et suggestions IA) sous forme de migrations idempotentes et testées, avec stratégie de rétention documentée. Aucune donnée client, aucun webhook, aucune instance WhatsApp dans cette tâche. Le panneau `wp.mythosprod.xyz` doit ensuite être servi depuis `main`.",
+  "scope": [
+    "PR de merge de `mythos/wp-20260905` (réconciliée avec `origin/main`) — le service `mythos-wp.service` est repointé sur un checkout de `main`",
+    "`projects/mythos-wp/database/schema.sql` : tables `wp_contacts`, `wp_conversations`, `wp_messages`, `wp_message_attachments`, `wp_conversation_events`, `wp_tags` + `wp_contact_tags` + `wp_conversation_tags`, `wp_ai_runs`, `wp_ai_suggestions` ; `wp_handoffs.conversation_id` ; index ; contraintes d'unicité `(project_id, inbox_id, provider_message_id)`",
+    "`projects/mythos-wp/database/migrations/` : migration `up` + `down` testée sur `mythos_wp_test`",
+    "`tests/mythos-wp-comms-schema-test.js` : apply / rollback / re-apply, contraintes, unicité, FK, absence de colonnes secrètes",
+    "`docs/MYTHOS_COMMUNICATION_OS_ARCHITECTURE.md` (modèle de données + rétention) ; `docs/AI_HANDOVER.md`"
+  ],
+  "constraints": [
+    "`mythos-bridge` reste exclusivement notification ; aucune instance client créée ici ; aucun webhook ; aucun message envoyé",
+    "Aucun secret de provider en base ; identifiants WhatsApp limités au nécessaire (`wa_id` chiffres, `lid`) ; pas de contenu media en base (références seulement)",
+    "Pas de `git reset --hard`, pas de force push, pas de modification du checkout de production hors fast-forward ; les fichiers ERP non committés du checkout de production ne sont pas touchés",
+    "Exécutée par la session opérateur ; toute tentative du bridge sur cette Issue est une revue en lecture seule"
+  ],
+  "priority": "high",
+  "requested_action": "review",
+  "action_raw": "review",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "`node tests/mythos-wp-comms-schema-test.js` (apply → rollback → re-apply sur `mythos_wp_test`) passe",
+    "`node tests/mythos-wp-test.js` passe (non-régression)",
+    "`main` contient `projects/mythos-wp` ; `wp.mythosprod.xyz/healthz` répond 200 depuis le checkout de `main`",
+    "Base `mythos_wp` : tables créées, 0 ligne client"
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-05T15:31:29.155Z",
+  "created_by": "github-issue:othoth77",
+  "depends_on": [
+    "gh-issue-196"
+  ],
+  "notes": "Source: GitHub Issue #197 https://github.com/othoth77/mythos-prod/issues/197 — \"MYTHOS-COMMS-1 — Communication Core Foundation\"\n\nrequested_action: review — source explicit_current_issue (written as \"review\") → execution profile repo-read",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 197,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/197",
+    "issue_id": 5358969227,
+    "issue_node_id": "I_kwDOTnlaF88AAAABP2thiw",
+    "issue_title": "MYTHOS-COMMS-1 — Communication Core Foundation",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-05T15:30:14Z",
+    "issue_updated_at": "2026-09-05T15:30:14Z",
+    "issue_labels": [
+      "enhancement",
+      "task",
+      "whatsapp"
+    ],
+    "content_sha256": "40d3e36251a75a3a7f16867049c79ae1754be593569028bfb6c6ac3c52cc2c44",
+    "attempt": 1,
+    "attempt_id": "gh-issue-197#1",
+    "idempotency_key": "f46cc1c8803df5a853c11e8daa7db389e5c96a2433334dc62ac1c79d51390b46",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "review",
+      "action_raw": "review",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "review",
+          "action": "review",
+          "form": "inline",
+          "line": 23
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-05T15:31:29.157Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-05T15:31:29.157Z",
+        "event": "issue_received",
+        "reason": "open Issue #197 with label task",
+        "content_sha256": "40d3e36251a75a3a7f16867049c79ae1754be593569028bfb6c6ac3c52cc2c44"
+      },
+      {
+        "at": "2026-09-05T15:31:29.157Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → review (raw \"review\")"
+      },
+      {
+        "at": "2026-09-05T15:31:29.157Z",
+        "event": "profile_resolved",
+        "reason": "review → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-05T15:31:29.157Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-05T15:31:30.815Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-197.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-05T15:31:29.157Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5552844033,
+        "url": "https://github.com/othoth77/mythos-prod/issues/197#issuecomment-5552844033",
+        "at": "2026-09-05T15:31:30.019Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
