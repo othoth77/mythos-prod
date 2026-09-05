@@ -3,8 +3,8 @@
 **Stage:** MYTHOS-TELEGRAM-0 (2026-09-05). **Branch:** `mythos/telegram-channel-20260905` (not merged).
 **Code:** `projects/mythos-ai-executor/bridge/telegram.js`. **CLI:** `bin/mythos-github-bridge telegram-*`.
 **Tests:** `tests/mythos-telegram-channel-test.js` (62 checks, offline, fake Bot API, no real token).
-**Classification (this document's §7): BLOCKED** — implementation and automated tests are complete; the live
-end-to-end test cannot run because no Telegram bot credential exists on the host.
+**Classification (this document's §7): COMPLETE** — implementation, automated tests (66/66) and the live end-to-end test
+(§9, 2026-09-05) are done; the branch is not merged and no production unit was changed.
 
 ## 1. Architecture map (Phase 1 — inspected, nothing modified)
 
@@ -140,20 +140,20 @@ branch beyond additive `source` fields.
 
 | Item | Value |
 |---|---|
-| implementation status | complete on the branch, not merged |
+| implementation status | complete on the branch, not merged; live E2E passed (§9) |
 | files changed | `bridge/telegram.js`, `bin/mythos-github-bridge`, `bridge/schemas/task.schema.json`, `bridge/systemd/…/telegram.conf.example`, `tests/mythos-telegram-channel-test.js`, this document |
 | tests executed / results | see §4 |
-| Telegram update_id | none (live test not run) |
-| MYTHOS correlation ID | none |
-| OTHMODE ID | none |
-| Executor ID | none |
-| final Telegram delivery result | none |
+| Telegram update_id | 611867278 (message_id 192, chat/user 5005015506) |
+| MYTHOS correlation ID | control TASK `tg-611867278` (attempt `tg-611867278#1`) |
+| OTHMODE ID | `OTH-2026-00172` (RUNNING at claim → COMPLETED 02:15:51Z, closed by the bridge) |
+| Executor ID | `t-20260905015410-5s8mok` (repo-read, claude-haiku-4-5, execution x-mtnr1kuq, COMPLETED) |
+| final Telegram delivery result | three replies delivered: queued message_id 193, started 194, report 195 |
 | governance result (mocked flow) | READ task ran under `repo-read`, OTHMODE record opened/closed by the bridge, main untouched |
 | security / secret-redaction result | proven in the suite: token in no file, log, request body, reply or CLI output |
 | WhatsApp untouched | yes — `bridge/notify/*` unchanged; both WhatsApp suites pass unchanged |
 | production | untouched — no unit restarted, no drop-in installed, no credential created |
-| exact blocker | **no Telegram bot token exists on the host** (owner-supplied credential required, see §5) |
-| classification | **BLOCKED** (E2E gates `telegram_received … telegram_response_sent` unproven; `secrets_exposed = false` proven only for the mocked flow) |
+| exact blocker | none (token supplied by the owner 2026-09-05 01:25Z; webhook removed with approval, §9.1) |
+| classification | **COMPLETE** — E2E gates `telegram_received → task_created → claimed (OTHMODE, executor) → started_notified → executor COMPLETED → REPORT → report reply` all proven live (§9.2); `secrets_exposed = false` (token in no file, log, task, report or reply) |
 
 ## 8. Existing bot `othoth77/telegram-bot` — inspection and integration plan (2026-09-05, design only)
 
@@ -258,3 +258,24 @@ from `~deploy/mythos-ai-executor/secrets/telegram-bot.env` (deploy, 0600) and ne
 Production untouched during the transfer: `mythos-github-bridge.timer` active (runs `tick` from the main checkout,
 which has no Telegram code), `mythos-ai-executor.service` active, `/health` ok at 01:45 UTC; no unit reloaded or
 restarted, no drop-in installed, WhatsApp drop-in unchanged.
+
+### 9.2 Live E2E result (2026-09-05, one private message from user 5005015506, text "test mythos")
+
+| Gate | Evidence (verbatim from Meta-free sources: control branch, bridge `events.log`, executor `events.log`) |
+|---|---|
+| telegram_received | `getUpdates` → update_id **611867278**, message_id 192, chat_id = user_id = 5005015506, message_date 2026-09-05T01:52:04Z; dry run reported `would_create tg-611867278` (nothing written) |
+| normalised control TASK | `control/tasks/tg-611867278.json`, `created_by: telegram:5005015506`, `source.kind: telegram`, content_sha256 `177a3d0e…b6e5`, resolution `default → investigate → repo-read (server-side map)`; control commit `4dc7f7f8` (`control: telegram → tg-611867278`); queued reply message_id **193** at 01:54:08.740Z |
+| GitHub/control bridge | unchanged `github-bridge.tick()` from the branch worktree (runtime head `06021f43`, verified, not stale): claim `tg-611867278#1`, fence 5553, control commit `f08aac7f`; the same tick also acknowledged the pre-existing CANCELLED state of `gh-issue-164` (`cancelled_before_claim`, no file of that task changed) |
+| Governance / OTHMODE | `OTH-2026-00172` created at claim (actor `github-bridge`, command `othmode tg-611867278: Test mythos`, activation `othmode`, RUNNING) |
+| executor | `t-20260905015410-5s8mok` created 01:54:10Z QUEUED (model auto → claude-haiku-4-5, `mcp_capabilities_resolved: allowed []`); started reply message_id **194** at 01:54:11Z; waited behind the running `gh-issue-173` (`t-20260905014252-3igcmy`, single-slot daemon — no supported pause/defer exists, nothing was touched); RUNNING 02:14:03Z (execution x-mtnr1kuq) → COMPLETED 02:15:27Z |
+| REPORT | written by the production 1-minute tick at 02:15:51Z: `control/reports/tg-611867278.{json,md}`, status COMPLETED, `Git verified: true`, commits none (READ task), control commit `0b29505f`; `OTH-2026-00172` closed COMPLETED 02:15:51.053Z by the bridge; production bridge also queued its usual WhatsApp ledger entry `tg-611867278__COMPLETED` (gateway HTTP 500, breaker open — pre-existing, nothing delivered) |
+| Telegram reply | `telegram-tick` (branch worktree, 02:16:06Z, after the production tick released the bridge lock): `notify report` → `sendMessage` message_id **195**, control commit `b9c5b40e`; `telegram-status`: status COMPLETED, report_file `control/reports/tg-611867278.json`, notifications {queued 193, started 194, report 195}; `trail tg-611867278`: `found: true`, `Git verified` |
+| tests after the live run | `tests/mythos-telegram-channel-test.js` **66 passed, 0 failed** (as deploy) |
+| gh-issue-173 intact | completed on its own at 02:13:54Z (executor `t-20260905014252-3igcmy` COMPLETED, OTHMODE `OTH-2026-00171` COMPLETED, report with 2 commits) — not cancelled, not deferred, not edited |
+| secrets | token read only from the 0600 file; appears in no task file, report, reply, `events.log` line or CLI output (`telegram-check` prints id/username only) |
+| production | no unit restarted or reloaded; no drop-in installed; timer + executor daemon ran throughout; bridge lock serialised the worktree ticks with the production ticks (one attempt refused with `another bridge process holds the lock`, retried) |
+
+**Final classification: COMPLETE.** Remaining owner steps to make the channel permanent: install
+`bridge/systemd/mythos-github-bridge.service.d/telegram.conf.example` as a drop-in with
+`MYTHOS_TELEGRAM_ALLOWED_USER_IDS=5005015506` and `daemon-reload` (§6), and merge this branch so the production
+checkout carries `bridge/telegram.js`; until then the channel only runs when `telegram-tick` is invoked from this worktree.

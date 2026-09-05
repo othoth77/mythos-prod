@@ -29,6 +29,20 @@ Durable findings of the 2026-09-04 master backlog audit (Fable 5.1), condensed s
 | Owner actions remaining | merge #168; close PR #108 + Issues in main/superseded; ff checkout; governed restart; install Dagu service; publish Status Center; session-guard reinstall + enable decision + MemoryMax; WhatsApp gateway/config/recipient then #164; remove sudoers residue | OWNER ACTION |
 | Safety constraints learned | checkout = deployment (never reset/clean/add . there, never ff as agent); one `sudo -u deploy git` action per call; edit deploy files in place; suites one at a time with `timeout`; IN_USE test failures are real; no WhatsApp sends; `Action:`/`Model:` plain lines and ≤300-char validation strings for bridge tasks; Dagu step approval ≠ authorization | VERIFIED |
 
+## MYTHOS-TELEGRAM-0 — Telegram private-message channel: bot identity transferred, live E2E COMPLETE (2026-09-05, Fable 5.1)
+
+Branch `mythos/telegram-channel-20260905` (not merged). Full record: `docs/MYTHOS_TELEGRAM_CHANNEL.md` §9.
+
+| Item | Verified state |
+|---|---|
+| Bot | `@Othoth77_bot` (id 7598630137); token in `~deploy/mythos-ai-executor/secrets/telegram-bot.env` (deploy, 0600, key `TELEGRAM_BOT_TOKEN`, accepted since `e3d6024`) |
+| Webhook transfer | owner-approved: `getWebhookInfo` recorded (webhook.sherlock.st, 0 pending) → `deleteWebhook drop_pending_updates=false` → `getWebhookInfo` url "" (01:45–01:46Z) |
+| Live E2E | update_id 611867278 → `tg-611867278` → OTHMODE `OTH-2026-00172` → executor `t-20260905015410-5s8mok` (repo-read, haiku) → REPORT COMPLETED → replies 193/194/195. Classification **COMPLETE** |
+| Tests | telegram-channel 66/0 before and after the live run |
+| Production | untouched (no restart/reload, no drop-in); the channel is active only when `telegram-tick` runs from the branch worktree |
+| Scheduler finding | the executor daemon is single-slot and has **no supported pause/defer/priority-change for a RUNNING task** (only `/cancel`, `/resume`, creation-time priority for QUEUED order, Resource Guard deferral of QUEUED); the Telegram task simply waited ~20 min behind `gh-issue-173` |
+| Owner actions | install the Telegram drop-in (`MYTHOS_TELEGRAM_ALLOWED_USER_IDS=5005015506`) + `daemon-reload`; merge the branch; optional: widen `MYTHOS_TELEGRAM_ALLOWED_ACTIONS` by a separate decision |
+
 ## WA-GATEWAY-PREP — WhatsApp production gateway: provisioning kit delivered, host steps blocked on owner (GitHub Issue #170, 2026-09-04, Fable 5.1)
 
 **Objective.** Issue #170: provision one private WhatsApp gateway (Evolution), create/store the credential securely, configure the bridge's `MYTHOS_BRIDGE_WHATSAPP_*` settings, define one test recipient, pair by QR, keep sending disabled, send nothing, restart nothing, and record verified non-secret state — so that #164 can be rerun safely. Task `t-20260904205253-8yl808`, OTHMODE `OTH-2026-00169`, execution profile `repo-write`, branch `mythos/gh/gh-issue-170` over `e3a19a3` (`origin/main`). Delivery by the governance relay; not merged; nothing deployed.
