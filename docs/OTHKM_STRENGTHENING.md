@@ -15,3 +15,4 @@ Full existing OTHK suite green: othk-0 (89), othk-1 (30), othk-2 (97), othk-3 (6
 |---|---|---|---|
 | 1 Protect core · 2 Namespaces | `lib/namespace.js` (global/personal/projects/<slug>); optional `namespace` on records (absent=global); search namespace isolation; invariant regression tests | othk-10: 23/23 | baa80fb |
 | 4 Bi-temporal | optional `valid_from`/`valid_to` (event time); derived `expiredAt` (transaction time); `validAt`/`validAndKnownAt`; `suggestValidTo` (invalidate-don't-delete, pure) | othk-12: 17/17 | (this) |
+| 5 Embeddings · 6 Hybrid+constraints · 12 Trust · 13 Recency | `lib/embeddings.js` (pluggable provider seam: zero-dep hashed default + optional real local-model adapter, fail-closed; deterministic persistent VectorCache = rebuildable retrieval-only index); `lib/retrieve.js` (namespace + bi-temporal asOf + supersession exclusion + trust-weighted ranking + optional recency decay) | othk-13: 14/14 | (this) |
