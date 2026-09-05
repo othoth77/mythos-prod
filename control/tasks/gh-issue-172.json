@@ -1,0 +1,149 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-172",
+  "project": "mythos-prod",
+  "objective": "Continue the existing MYTHOS AUTO / WhatsApp work by establishing the reusable architecture for **customer-facing WhatsApp communication and CRM**, without replacing or breaking the existing MYTHOS operational WhatsApp notification system.\n\nFirst commercial target: `ssangyong.autos`. Future targets: `piece.autos`, `casse.autos`, and other MYTHOS AUTO services.\n\nMYTHOS remains the intelligence/orchestration layer. A mature CRM/inbox component may provide the communication/UI layer.",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implement",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "[ ] Task was picked up through the normal Bridge/OTHMODE/Governance/Executor path.",
+    "[ ] Current repository state was inspected before modification.",
+    "[ ] Customer communication is separated from operational notifications.",
+    "[ ] WhatsApp provider boundary remains replaceable.",
+    "[ ] MYTHOS remains the intelligence/orchestration layer.",
+    "[ ] Mature CRM functionality is not unnecessarily duplicated.",
+    "[ ] No second uncontrolled WhatsApp gateway was created.",
+    "[ ] Official WhatsApp API preference and provider trade-offs are documented.",
+    "[ ] VPS resource/permission constraints were verified before deployment.",
+    "[ ] No secrets were committed or exposed.",
+    "[ ] No governance/security boundary was bypassed.",
+    "[ ] Relevant tests pass.",
+    "[ ] Existing Bridge/OTHMODE/Governance functionality has no regression.",
+    "[ ] `docs/AI_HANDOVER.md` is updated.",
+    "[ ] Implementation is committed and pushed through the governed relay."
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-05T01:05:09.656Z",
+  "created_by": "github-issue:othoth77",
+  "model": "fable-5.1",
+  "model_raw": "Fable 5.1",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #172 https://github.com/othoth77/mythos-prod/issues/172 — \"MYTHOS AUTO — WhatsApp CRM / Business Communication Architecture\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\nmodel: fable-5.1 — source explicit_current_issue (written as \"Fable 5.1\")\n\n[task: mythos auto — whatsapp crm / business communication architecture]\n**Model: Fable 5.1**  \n**Action: implement**  \n**Execution profile: implementation / governed production execution**  \n**Owner: othoth77 — PROCEED**\n\n[important — this is an executable task]\nThe MYTHOS Bridge MUST pick up this TASK through the normal governed workflow.\n\nDo not treat this as a research-only task or a manual recommendation.\n\nThe execution must follow:\n\n`GitHub → Bridge → OTHMODE → Governance → Executor → Fable 5.1`\n\nGitHub/repository state is the source of truth.\n\n---\n\n[1. inspect before modifying]\nInspect the actual current `mythos-prod` state before making changes. Do not assume previous tasks were completed.\n\nVerify the current state of:\n\n- MYTHOS Bridge\n- WhatsApp notification adapter\n- WhatsApp provider adapter\n- HostOps\n- OTHMODE\n- Governance\n- Executor\n- Action Resolution\n- Skill Trust\n- Resource Guard\n- existing WhatsApp configuration/deployment\n- tests\n- `docs/AI_HANDOVER.md`\n\nDetermine what exists, what is merged, what is production-ready, what remains incomplete, what can be reused, and what must not be duplicated.\n\n---\n\n[2. strict separation — notifications vs customer crm]\nDo NOT convert the existing operational WhatsApp notification path into a customer CRM.\n\n[operational notifications remain unchanged]\nExamples:\n\n- deployment notifications\n- HostOps alerts\n- Resource Guard alerts\n- Bridge failures\n- execution status\n- system events\n\n[customer communication is a separate layer]\nExamples:\n\n- customer messages\n- vehicle inquiries\n- spare-parts requests\n- quotations\n- order discussions\n- follow-ups\n- customer assignment\n- sales pipeline\n- conversation history\n\nNo mixing of the two paths.\n\n---\n\n[3. open-source first]\nDo not build a WhatsApp CRM from zero if a mature component can safely provide it.\n\nEvaluate, at minimum where relevant:\n\n- WaCRM\n- Chatwoot\n- Evolution API\n- WAHA\n- other maintained suitable open-source projects\n\nEvaluate:\n\n- license\n- maintenance/activity\n- official WhatsApp API compatibility\n- architecture\n- RAM/CPU requirements\n- deployment complexity\n- persistence\n- restart/recovery\n- webhook/API quality\n- multi-agent support\n- CRM functionality\n- security\n- provider lock-in\n- VPS suitability\n\nPopularity alone is not sufficient for selection.\n\nRecord the evaluation and decision in `docs/AI_HANDOVER.md`.\n\n---\n\n[4. target architecture]\n```text\nCUSTOMER\n   ↓\nWHATSAPP BUSINESS\n   ↓\nWHATSAPP / CRM ADAPTER\n   ↓\nMYTHOS BRIDGE\n   ↓\nOTHMODE\n   ↓\nGOVERNANCE\n   ↓\nEXECUTOR\n   ↓\nAI / BUSINESS LOGIC\n   ├── Catalogue\n   ├── Stock\n   ├── Prices\n   ├── Orders\n   ├── Suppliers\n   ├── CRM\n   └── Vehicle data\n   ↓\nWHATSAPP / CRM ADAPTER\n   ↓\nCUSTOMER\n```\n\nMYTHOS must not become permanently dependent on one WhatsApp provider.\n\n---\n\n[5. provider-independent boundary]\nPreserve or implement a clean WhatsApp provider boundary where justified by the existing code.\n\nThe logical MYTHOS interface should allow providers such as:\n\n- Meta WhatsApp Cloud API\n- Evolution\n- WAHA\n- another compliant provider\n\nwithout rewriting MYTHOS core logic.\n\nDo not add abstraction for theoretical purity if an existing adapter already provides the correct boundary.\n\nReuse existing code.\n\n---\n\n[6. official whatsapp api preference]\nFor commercial customer communication, prefer the official **WhatsApp Business Platform / Cloud API** whenever practical.\n\nDo not make unofficial WhatsApp Web automation the hidden foundation of the commercial architecture.\n\nIf an unofficial provider is evaluated or retained for a specific infrastructure reason, document its status and trade-offs explicitly.\n\n---\n\n[7. crm / inbox role]\nEvaluate whether WaCRM, Chatwoot, or another mature component should provide:\n\n- shared inbox\n- multiple agents\n- assignment\n- contacts\n- tags\n- notes\n- conversation history\n- customer status\n- sales pipeline\n- templates\n- API\n- webhooks\n- authentication\n- permissions\n\nMYTHOS should provide the intelligence/orchestration side:\n\n- AI reasoning\n- intent detection\n- product lookup\n- stock lookup\n- price lookup\n- vehicle compatibility\n- order processing\n- automation\n- business rules\n- governed execution\n\nDo not duplicate mature CRM functionality unnecessarily.\n\n---\n\n[8. mythos auto flow]\nThe architecture must support a future flow such as:\n\n```text\nCustomer: \"عندي Korando 2020 نحب filtre huile\"\n        ↓\nWhatsApp\n        ↓\nCRM / Inbox\n        ↓\nMYTHOS\n        ↓\nVehicle recognition\n        ↓\nCatalogue / compatible parts\n        ↓\nStock / price\n        ↓\nCustomer response\n```\n\nDo not implement the entire automotive business engine if it does not yet exist. Establish the correct integration boundary so it can be connected later without architectural rework.\n\n---\n\n[9. multi-project design]\nDo not hard-code the communication layer only for `ssangyong.autos`.\n\nTarget:\n\n```text\nMYTHOS AUTO\n├── ssangyong.autos\n├── piece.autos\n├── casse.autos\n└── future automotive services\n```\n\nProjects may have independent catalogue, stock, prices, suppliers, agents, and business rules while sharing the common communication/orchestration layer.\n\n---\n\n[10. security]\nPreserve all existing security boundaries.\n\nDo NOT:\n\n- commit secrets;\n- expose WhatsApp credentials;\n- bypass Governance;\n- bypass HostOps;\n- grant arbitrary root access;\n- introduce Docker socket access without explicit justification;\n- weaken `NoNewPrivileges`;\n- expose unauthenticated management interfaces;\n- hide an unofficial provider as an implicit dependency.\n\nUse the existing configuration/secrets mechanism.\n\n---\n\n[11. vps constraints]\nPrevious WhatsApp deployment work encountered VPS resource/permission limitations.\n\nBefore deploying any new component, verify actual:\n\n- RAM\n- CPU\n- storage\n- running services\n- ports\n- permissions\n- persistence\n- restart behavior\n- operational overhead\n\nIf resources or permissions are insufficient, do NOT deploy.\n\nReturn an exact `BLOCKED` result with evidence.\n\n---\n\n[12. no second whatsapp gateway]\nDo not create a parallel WhatsApp gateway merely for experimentation.\n\nReuse the existing provider/gateway architecture when appropriate.\n\nIf Evolution is unsuitable, evaluate the lighter alternative with evidence before changing production architecture.\n\nNo uncontrolled parallel gateways.\n\n---\n\n[13. implementation]\nAfter inspection/evaluation, implement only changes justified by the real repository state.\n\nPotential areas:\n\n- provider-independent adapter\n- CRM integration boundary\n- webhook/event boundary\n- customer-message routing\n- configuration model\n- API integration\n- tests\n- documentation\n- deployment preparation\n\nDo not implement speculative features.\nDo not rebuild mature OSS CRM functionality inside MYTHOS.\nDo not restart unrelated production services.\n\n---\n\n[14. regression safety]\nNo regression is permitted in:\n\n- OTHMODE\n- Governance\n- Executor\n- Bridge\n- Action Resolution\n- Skill Trust\n- Resource Guard\n- HostOps\n- existing Telegram/WhatsApp operational notifications\n- Git Relay\n- existing production workflows\n\nRun relevant existing tests before and after implementation.\n\n---\n\n[15. git / delivery]\nGitHub is the source of truth.\n\nAccepted implementation must follow:\n\n`implemented → tested → committed → pushed → documented`\n\nLocal-only work is not complete.\n\nUse the existing governed `mythos/*` workflow. Do not perform destructive Git operations or bypass protected governance controls.\n\nDo not auto-merge.\n\n---\n\n[16. handover]\nUpdate `docs/AI_HANDOVER.md` with the actual verified state, including:\n\n- task ID\n- current architecture\n- implementation performed\n- OSS projects evaluated\n- selected solution and reasons\n- rejected alternatives and reasons\n- provider architecture\n- VPS/resource findings\n- security conclusion\n- tests and results\n- commit SHA\n- remote HEAD\n- remaining work\n- exact next Task\n\n---\n\n[failure / blocker rule]\nIf any required prerequisite, governance condition, resource requirement, security check, or test fails:\n\n```text\nBLOCKED\n```\n\nStop before unrelated changes and report exact evidence.\n\nNever fabricate success.\n\n[final report]\n```text\nSTATUS: COMPLETE / PARTIAL / BLOCKED\n\nSEARCHED:\nVERIFIED:\nEXECUTED:\nREUSED:\nCHANGED:\n\nCRM:\nWHATSAPP PROVIDER:\nMYTHOS INTEGRATION:\nPROVIDER ABSTRACTION:\n\nOSS EVALUATED:\nSELECTED:\nREJECTED:",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 172,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/172",
+    "issue_id": 5354555331,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPygHww",
+    "issue_title": "TASK: MYTHOS AUTO — WhatsApp CRM / Business Communication Architecture",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-05T00:54:15Z",
+    "issue_updated_at": "2026-09-05T01:04:59Z",
+    "issue_labels": [
+      "enhancement",
+      "task"
+    ],
+    "content_sha256": "083fb5495ff9df3ad4ec20d6a455c91c0765e954e27cb00eef14fa0083841027",
+    "attempt": 1,
+    "attempt_id": "gh-issue-172#1",
+    "idempotency_key": "0235803798f074b09ed435485249a67227e15feb0ee6ea0dbc10f780e4441a20",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implement",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "implement",
+          "action": "implement",
+          "form": "inline",
+          "line": 4
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": "fable-5.1",
+      "model_id": "claude-fable-5-1",
+      "model_raw": "Fable 5.1",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:fable-5.1 (requested \"Fable 5.1\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-05T01:05:09.657Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-05T01:05:09.657Z",
+        "event": "issue_received",
+        "reason": "open Issue #172 with label task",
+        "content_sha256": "083fb5495ff9df3ad4ec20d6a455c91c0765e954e27cb00eef14fa0083841027"
+      },
+      {
+        "at": "2026-09-05T01:05:09.657Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → implement (raw \"implement\")"
+      },
+      {
+        "at": "2026-09-05T01:05:09.657Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-05T01:05:09.657Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → fable-5.1 (available)"
+      },
+      {
+        "at": "2026-09-05T01:05:11.381Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-172.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-05T01:05:09.657Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5548281538,
+        "url": "https://github.com/othoth77/mythos-prod/issues/172#issuecomment-5548281538",
+        "at": "2026-09-05T01:05:10.773Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
