@@ -58,7 +58,7 @@ docker run -d --name "$C" -P -e POSTGRES_USER=erp_owner -e POSTGRES_DB=mythos_er
 # start; a single pg_isready success can land in that window. Require two in a row.
 OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
-for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
 done
@@ -348,6 +348,37 @@ R=$(A "$B/accounting/entries"); check "acme entries: the acme invoice of §5 was
 A -X POST "$B/auth/logout" >/dev/null
 check "audit rows for journal_entries exist (created/updated)" "[ \"$(q "select count(*) from audit_log where entity_table='journal_entries'")\" -ge 6 ]" "$(q "select count(*) from audit_log where entity_table='journal_entries'")"
 check "no password in the API log (accounting)" "! grep -qF \"$ADMIN_PW\" $WORK/api.log" ""
+
+echo "§9 agenda: schema, RLS, permissions, API, links, calendar range, isolation"
+login "$ADMIN_EMAIL" "$ADMIN_PW"; [ "$R" = 200 ] || bad "owner login for agenda" "$R"
+check "agenda_events has RLS + tenant_isolation policy" "[ \"$(q "select relrowsecurity from pg_class where relname='agenda_events'")\" = t ] && [ \"$(q "select count(*) from pg_policies where tablename='agenda_events'")\" = 1 ]" ""
+check "agenda module enabled for mythos" "[ \"$(q "select enabled from tenant_modules tm join tenants t on t.id=tm.tenant_id where t.key='mythos' and module_key='agenda'")\" = t ]" ""
+check "3 agenda permissions; read_only has read only" "[ \"$(q "select count(*) from permissions where key like 'agenda.%'")\" = 3 ] && [ \"$(q "select string_agg(p.key,',' order by p.key) from role_permissions rp join roles r on r.id=rp.role_id join permissions p on p.id=rp.permission_id where r.key='read_only' and p.key like 'agenda.%'")\" = agenda.read ]" ""
+check "erp_app on agenda_events: SELECT/INSERT/UPDATE only (no DELETE)" "[ \"$(q "select string_agg(privilege_type,',' order by privilege_type) from information_schema.role_table_grants where grantee='erp_app' and table_name='agenda_events'")\" = INSERT,SELECT,UPDATE ]" "$(q "select string_agg(privilege_type,',') from information_schema.role_table_grants where grantee='erp_app' and table_name='agenda_events'")"
+R=$(A "$B/meta"); check "meta publishes agenda_events with kind/status/priority enums" "[ $R = 200 ] && grep -q '\"agenda_events\"' $J && grep -q '\"reminder\"' $J" ""
+R=$(A -X POST "$B/agenda_events" -d "{\"kind\":\"event\",\"title\":\"Réunion chantier\",\"starts_at\":\"$(date -u +%FT%T)Z\",\"ends_at\":\"$(date -u -d '+1 hour' +%FT%T 2>/dev/null || date -u -v+1H +%FT%T)Z\",\"location\":\"Site A\",\"client_id\":\"$A_CLIENT\"}"); check "event created, linked to a client (201)" "[ $R = 201 ] && [ \"$(jget client_id)\" = \"$A_CLIENT\" ]" "$R $(cat $J)"; EV1=$(jget id)
+R=$(A -X POST "$B/agenda_events" -d '{"kind":"task","title":"Relancer devis","starts_at":"2026-09-06T09:00:00Z","priority":"high"}'); check "task created (201)" "[ $R = 201 ] && [ \"$(jget priority)\" = high ]" "$R"
+R=$(A -X POST "$B/agenda_events" -d '{"kind":"reminder","title":"Appeler client","starts_at":"2026-09-07T09:00:00Z"}'); check "reminder created (201)" "[ $R = 201 ]" "$R"
+R=$(A -X POST "$B/agenda_events" -d '{"kind":"bogus","title":"x","starts_at":"2026-09-06T09:00:00Z"}'); check "unknown kind → 422" "[ $R = 422 ]" "$R"
+R=$(A -X POST "$B/agenda_events" -d '{"title":"x","starts_at":"2026-09-06T10:00:00Z","ends_at":"2026-09-06T09:00:00Z"}'); check "ends_at before starts_at → 422" "[ $R = 422 ]" "$R"
+R=$(A -X POST "$B/agenda_events" -d '{"title":"x","starts_at":"2026-09-06T09:00:00Z","client_id":"00000000-0000-4000-8000-000000000000"}'); check "dangling client_id → 422 invalid_reference (real FK, not 500)" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A "$B/agenda_events?kind=task"); check "filter by kind" "[ $R = 200 ] && [ \"$(jget total)\" = 1 ]" "$(jget total)"
+R=$(A "$B/agenda_events?from=2026-09-06&to=2026-09-06"); check "calendar date-range filter (from/to on starts_at)" "[ $R = 200 ] && [ \"$(jget total)\" = 1 ]" "$(jget total)"
+R=$(A -X PATCH "$B/agenda_events/$EV1" -d '{"status":"done"}'); check "mark event done (200)" "[ $R = 200 ] && [ \"$(jget status)\" = done ]" "$R"
+R=$(A -X DELETE "$B/agenda_events/$EV1"); check "retire agenda item (soft delete) → 200" "[ $R = 200 ] && [ \"$(q "select deleted_at is not null from agenda_events where id='$EV1'")\" = t ]" "$R"
+R=$(A "$B/agenda_events"); check "retired item hidden from the list" "! grep -q \"$EV1\" $J" ""
+check "audit rows for agenda_events (created/updated)" "[ \"$(q "select count(*) from audit_log where entity_table='agenda_events'")\" -ge 4 ]" "$(q "select count(*) from audit_log where entity_table='agenda_events'")"
+A -X POST "$B/auth/logout" >/dev/null
+login rita@mythos.test "$OTHER_PW"; R=$(A "$B/agenda_events"); check "read_only can list agenda" "[ $R = 200 ]" "$R"
+R=$(A -X POST "$B/agenda_events" -d '{"title":"nope","starts_at":"2026-09-06T09:00:00Z"}'); check "read_only cannot create agenda items (403)" "[ $R = 403 ]" "$R"
+A -X POST "$B/auth/logout" >/dev/null
+login bob@acme.test "$OTHER_PW"
+R=$(A "$B/agenda_events"); check "acme: agenda module not enabled (created after migration) → 404" "[ $R = 404 ]" "$R"
+q "insert into tenant_modules (tenant_id, module_key, enabled) select id,'agenda',true from tenants where key='acme'" >/dev/null
+R=$(A "$B/agenda_events"); check "acme, module on: 0 mythos items visible" "[ $R = 200 ] && [ \"$(jget total)\" = 0 ]" "$(cat $J)"
+check "no mythos agenda leakage into acme's list" "[ \"$(q "select count(*) from agenda_events where tenant_id=(select id from tenants where key='acme')")\" = 0 ]" ""
+A -X POST "$B/auth/logout" >/dev/null
+check "no password in the API log (agenda)" "! grep -qF \"$ADMIN_PW\" $WORK/api.log" ""
 
 echo
 echo "erp-core-e2e-drill: $PASS passed, $FAIL failed"

@@ -27,7 +27,8 @@ function def(o) {
     defaultSort: o.defaultSort || 'created_at',
     filters: o.filters || [],
     check: o.check || null,
-    enums: o.enums || {}
+    enums: o.enums || {},
+    range: o.range || null
   };
 }
 
@@ -46,6 +47,9 @@ var ACCOUNT_TYPES = ['asset', 'liability', 'equity', 'revenue', 'expense'];
 var ACCOUNT_SYSTEM_KEYS = ['receivable', 'payable', 'bank', 'cash', 'vat_collected', 'vat_deductible', 'sales', 'purchases'];
 var JOURNAL_KINDS = ['sales', 'purchases', 'bank', 'cash', 'general'];
 var ENTRY_STATUSES = ['draft', 'posted', 'reversed', 'void'];
+var AGENDA_KINDS = ['event', 'task', 'reminder'];
+var AGENDA_STATUSES = ['scheduled', 'done', 'cancelled'];
+var AGENDA_PRIORITIES = ['low', 'normal', 'high'];
 
 var DEFS = {
   clients: def({
@@ -186,6 +190,29 @@ var DEFS = {
     sortable: ['label'], defaultSort: 'label', label: 'label'
   }),
 
+  /* Agenda (0006-agenda.sql): events, tasks and reminders, one kind field.
+     Calendar range queries use def.range (lib/resource.js): ?from&?to filter
+     on starts_at. */
+  agenda_events: def({
+    module: 'agenda', table: 'agenda_events',
+    columns: ['legacy_id', 'kind', 'title', 'description', 'starts_at', 'ends_at', 'all_day', 'location',
+              'status', 'priority', 'client_id', 'project_id', 'prospect_id', 'invoice_id', 'quote_id',
+              'assigned_to', 'remind_at', 'deleted_at'],
+    fields: ['kind', 'title', 'description', 'starts_at', 'ends_at', 'all_day', 'location', 'status', 'priority',
+             'client_id', 'project_id', 'prospect_id', 'invoice_id', 'quote_id', 'assigned_to', 'remind_at', 'legacy_id'],
+    required: ['title', 'starts_at'], searchable: ['title', 'location', 'description'],
+    sortable: ['starts_at', 'title', 'priority', 'status'], defaultSort: 'starts_at', range: 'starts_at',
+    filters: ['kind', 'status', 'priority', 'client_id', 'project_id', 'assigned_to'], label: 'title',
+    enums: { kind: AGENDA_KINDS, status: AGENDA_STATUSES, priority: AGENDA_PRIORITIES },
+    check: function (v) {
+      if (!oneOf(AGENDA_KINDS)(v.kind)) return 'kind must be one of ' + AGENDA_KINDS.join('|');
+      if (!oneOf(AGENDA_STATUSES)(v.status)) return 'status must be one of ' + AGENDA_STATUSES.join('|');
+      if (!oneOf(AGENDA_PRIORITIES)(v.priority)) return 'priority must be one of ' + AGENDA_PRIORITIES.join('|');
+      if (v.ends_at && v.starts_at && String(v.ends_at) < String(v.starts_at)) return 'ends_at precedes starts_at';
+      return null;
+    }
+  }),
+
   bank_accounts: def({
     module: 'finance', table: 'bank_accounts',
     columns: ['label', 'iban', 'currency', 'deleted_at'],
@@ -262,7 +289,7 @@ function publicMeta() {
   });
   return {
     resources: out,
-    statuses: { invoice: STATUS_INVOICE, quote: STATUS_QUOTE, prospect: STATUS_PROSPECT, project: ['planned', 'active', 'closed'], entry: ENTRY_STATUSES },
+    statuses: { invoice: STATUS_INVOICE, quote: STATUS_QUOTE, prospect: STATUS_PROSPECT, project: ['planned', 'active', 'closed'], entry: ENTRY_STATUSES, agenda: AGENDA_STATUSES, agenda_kind: AGENDA_KINDS, agenda_priority: AGENDA_PRIORITIES },
     invoice_user_settable: ['draft', 'sent', 'cancelled']
   };
 }

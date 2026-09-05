@@ -24,14 +24,15 @@ const LABELS = {
   sha256: 'SHA-256', storage_key: 'Clé de stockage', uploaded_by: 'Déposé par',
   contact_name: 'Contact', score: 'Score', expected_value: 'Valeur estimée', next_action_on: 'Prochaine action',
   converted_client_id: 'Client converti', converted_at: 'Converti le',
-  code: 'Code', type: 'Type', parent_code: 'Compte parent', system_key: 'Rôle système', is_active: 'Actif'
+  code: 'Code', type: 'Type', parent_code: 'Compte parent', system_key: 'Rôle système', is_active: 'Actif',
+  kind: 'Type', description: 'Description', all_day: 'Journée entière', priority: 'Priorité', remind_at: 'Rappel', assigned_to: 'Assigné à'
 };
 export const RESOURCE_TITLES = {
   clients: 'Clients', contacts: 'Contacts', suppliers: 'Fournisseurs', collaborators: 'Collaborateurs',
   projects: 'Projets', appointments: 'Rendez-vous', representations: 'Représentations', contracts: 'Contrats',
   quotes: 'Devis', purchases: 'Achats', expenses: 'Dépenses', documents: 'Documents', inventory_items: 'Articles',
   natures: 'Natures de projet', expense_categories: 'Catégories de dépense', bank_accounts: 'Comptes bancaires',
-  prospects: 'Prospects', accounts: 'Plan comptable', journals: 'Journaux'
+  prospects: 'Prospects', accounts: 'Plan comptable', journals: 'Journaux', agenda_events: 'Agenda'
 };
 const HIDDEN_COLUMNS = ['id', 'deleted_at', 'legacy_id', 'notes', 'updated_at', 'storage_key', 'sha256', 'uploaded_by', 'address', 'postal_code'];
 const DATE_FIELDS = /(_on|_at)$/;

@@ -62,7 +62,7 @@ echo "[frontend-drill] throwaway PostgreSQL 15: $C"
 docker run -d --name "$C" -P -e POSTGRES_USER=erp_owner -e POSTGRES_DB=mythos_erp -e POSTGRES_PASSWORD="$PW" postgres:15-alpine >/dev/null
 OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
-for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
 done
@@ -122,6 +122,7 @@ R=$(auth -X PATCH "$B/api/v1/invoices/$INV" -H 'content-type: application/json' 
 R=$(auth -X POST "$B/api/v1/invoices/$INV/payments" -H 'content-type: application/json' -d "{\"paid_on\":\"$(date -u +%F)\",\"amount\":100,\"method\":\"virement\"}"); check "partial payment → 201, status part_paid" "[ $R = 201 ] && grep -q part_paid $J" "$R $(cat $J)"
 # Seed everything BEFORE the browser runs: the SPA restores its session via GET /session, which rotates the CSRF token.
 R=$(auth -X POST "$B/api/v1/prospects" -H 'content-type: application/json' -d '{"name":"Prospect Drill","status":"qualified","source":"web","expected_value":1200}'); check "seed prospect → 201" "[ $R = 201 ]" "$R $(cat $J)"
+R=$(auth -X POST "$B/api/v1/agenda_events" -H 'content-type: application/json' -d '{"kind":"event","title":"Drill Event","starts_at":"2026-09-06T09:00:00Z"}'); check "seed agenda event → 201" "[ $R = 201 ]" "$R $(cat $J)"
 
 echo "§3 headless Chromium renders the authenticated app (cookie-injecting proxy)"
 ERP_PROXY_COOKIE="$COOKIE" ERP_PROXY_CSRF="$CSRF" node "$ROOT/tests/lib/erp-cookie-proxy.js" "$PROXY_PORT" "$API_PORT" >"$WORK/proxy.log" 2>&1 &
@@ -195,6 +196,10 @@ dom "$P/#/accounting"
 check "comptabilité view: tabs, automatic entries from the seeded invoice + payment, VT/BQ journals, posted" "has 'data-module=\"accounting\"' && txt 'Grand livre' && txt 'Balance' && txt 'posted' && txt 'invoices' && txt 'payments'" "$(grep -o 'Comptabilit.\{0,300\}' $WORK/dom.txt | head -c 300)"
 dom "$P/#/accounting/trial-balance"
 check "balance view: totals balanced, 411 / 706 / 4367 present" "txt 'équilibrée' && txt '411' && txt '706' && txt '4367'" "$(grep -o 'Balance.\{0,300\}' $WORK/dom.txt | head -c 300)"
+dom "$P/#/agenda"
+check "agenda view: rail entry, list/calendar tabs, seeded item" "has 'data-module=\"agenda\"' && txt 'Liste' && txt 'Calendrier' && txt 'Drill Event'" "$(grep -o 'Agenda.\{0,300\}' $WORK/dom.txt | head -c 300)"
+dom "$P/#/agenda/calendar"
+check "calendar view: month grid with the seeded event" "has 'class=\"calendar-grid\"' && txt 'Drill Event'" "$(grep -o 'calendar.\{0,200\}' $WORK/dom.html | head -c 200)"
 dom "$P/#/planning"
 check "planning: honest empty state" "txt 'Aucun enregistrement'" ""
 dom "$P/#/nope/../x"

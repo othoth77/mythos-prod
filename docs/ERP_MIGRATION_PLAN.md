@@ -147,10 +147,10 @@ SELECT count(*) FROM information_schema.tables
   WHERE table_schema='public' AND table_type='BASE TABLE';   -- 38
 SELECT count(*) FROM information_schema.views
   WHERE table_schema='public';                               -- 1 (user_effective_permissions)
-SELECT count(*) FROM pg_tables WHERE schemaname='public' AND rowsecurity;  -- 36  (29 + prospects + 6 accounting tables)
-SELECT count(*) FROM pg_policies WHERE schemaname='public';               -- 37  (30 + prospects + 6 accounting)
+SELECT count(*) FROM pg_tables WHERE schemaname='public' AND rowsecurity;  -- 37  (29 + prospects + 6 accounting + agenda_events)
+SELECT count(*) FROM pg_policies WHERE schemaname='public';               -- 38  (30 + prospects + 6 accounting + agenda_events)
 SELECT count(*) FROM roles;        -- 6
-SELECT count(*) FROM permissions;  -- 39  (28 + 3 invoices.* + 4 prospects.* (0004) + 4 accounting.* (0005))
+SELECT count(*) FROM permissions;  -- 42  (28 + 3 invoices.* + 4 prospects.* (0004) + 4 accounting.* (0005) + 3 agenda.* (0006))
 SELECT count(*) FROM tenants;      -- 1   (Mythos Prod, tenant #1)
 SELECT count(*) FROM users;        -- 0  ← there must be no seeded account
 ```
