@@ -830,3 +830,16 @@ runs on explicit request. Path: GitHub Issue → bridge → executor, not rebuil
 - Verification: GitHub contents and commit metadata confirm the snapshot update is present on `main`.
 - Limitation: the review engine could not be executed from this environment and the live VPS/status host could not be reached. Therefore no new immutable `REVIEW-*` snapshot, `data/current.json` publication, live `/health` verification, or production deployment is claimed by this handover entry.
 - Next step: execute `node projects/status-center/bin/review.js`, verify the generated immutable review/current data, run `node tests/stc-1-status-center-test.js`, and publish the resulting Status Center snapshot through the sanctioned production deployment path.
+
+## 2026-09-05 — GitHub → Telegram reconciliation / PR #188 closure
+
+| Item | State |
+|---|---|
+| Main HEAD | `a929a156781dd1c9867a78fc626c7e3a351ad975` (`origin/main` aligned) |
+| PR #188 | **CLOSED, NOT MERGED** |
+| PR #188 resolution | Superseded/obsolete implementation; newer GitHub → Telegram path already exists on main, so PR #188 was not merged or cherry-picked |
+| Production bridge | **NOT ACTIVATED / NOT VERIFIED** — no `mythos-github-bridge` systemd service, process, or cron entry found |
+| Regression tests | GitHub bridge **150/0** · timer **PASS** · GitHub Issues **208/0** · Telegram events **52/0** |
+| Diff hygiene | `git status --short`, `git diff --check`, and `git diff --stat` clean before this documentation update |
+| Issue #180 | **OPEN** — production integration verification remains outstanding |
+| Next step | Commit and push this reconciliation/handover update after final diff review |
