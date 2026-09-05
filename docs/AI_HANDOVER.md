@@ -2,6 +2,21 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-05 — MYTHOS-COMMS-9 — Communication Provider Contract & Event Ledger Hardening (#222): **IMPLEMENTED, PR OPEN (not merged, not deployed)**
+
+| Item | State |
+|---|---|
+| Governance | Research PR #219 merged (`68bbcb6`, review APPROVED WITH CHANGES → amended). Issue #222 (`Action: review`, `Depends on: #217`). Branch `mythos/comms-9-provider-contract-20260905` (base `68bbcb6`, `origin/main` merged in at `894de8f`). PR left open for owner review. |
+| Provider contract | `reference/comms/provider.js` (contract, registry, `validate`/`register`/`can`), capability descriptor (channel, official, text, media{inbound,outbound,fetch,kinds}, templates, reactions, quotes, conversation_window_hours, signed_webhooks, webhook_retries, delivery_states, limitations); Evolution adapter conformed (`describe`, `capabilities`, `verifyWebhook` = existing shared-token check moved into the provider, `fetchMedia` = NOT_SUPPORTED until Phase H, `health` via `connectionState`); `GET /api/comms/providers`. Receiver and outbound use the registry; verification is provider-specific (unsigned providers before the body, signed providers after with the raw body + `deps.secretFor`) — Meta HMAC can plug in later without weakening the token path. |
+| Events | `reference/comms/events.js` neutral catalogue; `event_name` on `wp_inbound_events` and `wp_conversation_events` (backfilled), `event` field on the SSE bus. |
+| Identities | migration `0005_identities_reconciliation`: `wp_contact_identities` (phone/lid/bsuid/provider_user, unique per project), backfill of `wa_id`/`lid`, `wa_id` nullable with partial unique index; `core.resolveContact()` (identity first, legacy phone second, create last; later identifiers attach). |
+| Ordering | `COALESCE(provider_timestamp, created_at)`, `created_at`, `id` in timeline and previews; index `wp_messages_order_idx`. |
+| Assistant gate | 412 + `ai.refused` journal on `needs_human` or open handoff; no run row. |
+| Reconciliation / heartbeat / replay | `reference/comms/reconcile.js` + `mythos-wp comms reconcile|heartbeat|replay-list|replay <id> [--apply]`: one `delivery.alarm` per stale outbound (no resend), heartbeat_state per inbox (audited on change, status untouched), dry-run-by-default idempotent audited replay of kept dead-letters. |
+| Tests | contract **51/0** (Evolution + fake signed provider, same checks) · hardening **48/0** · schema 64/0 · receiver 61/0 · inboxes 12/0 · inbox 38/0 · outbound 34/0 · assistant 28/0 · multiservice 37/0 · panel 317/0 · gateway-verify 24/0 · whatsapp-notify 131/0 · redaction governance PASS (199) · governance invariant 111/0 · `tools/check.sh` GREEN. |
+| Production | **unchanged**: HEAD of the production checkout followed other sessions' merges only; migration 0005 NOT applied; `ssangyong-autos` closed/off/unpaired; `mythos-bridge` open, webhook null; Telegram OFF; Evolution untouched. |
+| Next | Owner review/merge of the COMMS-9 PR → deploy from main + `migrate up` (0005) → then Gate 3 pilot on `ssangyong-autos` with its dedicated number; COMMS-10 handoff UI; Phase L Meta Cloud API adapter on this contract. |
+
 ## 2026-09-05 — PHASE 8 PROSPECTS: **PROSPECTS=PASS (pending merge + production migration)** (Fable 5.1, 19:10–19:45 UTC)
 
 ### 8.0 Read-only disk-space audit (owner request: VPS ~91 %)

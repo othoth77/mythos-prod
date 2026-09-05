@@ -54,7 +54,7 @@ new Promise(function (resolve) { server.listen(0, '127.0.0.1', function () { POR
   .then(function (x) {
     ok(x.status === 200 && x.body.data && x.body.data.receiver, 'receiver status served');
     var d = x.body.data.receiver;
-    ok(d.enabled === false && d.token_present === false && d.route === '/hooks/evolution', 'status: disabled, no token, route named');
+    ok(d.enabled === false && d.token_present === false && (d.route === '/hooks/<provider>' && d.providers.indexOf('evolution') !== -1), 'status: disabled, no token, route named');
     ok(JSON.stringify(x.body).indexOf('token_value') === -1 && !/[0-9a-f]{32,}/.test(JSON.stringify(x.body.data.receiver)), 'no secret value in the status');
     ok(Array.isArray(x.body.data.inboxes), 'inbox rows listed (' + x.body.data.inboxes.length + (TEST_URL ? ', db' : ', no db') + ')');
   })

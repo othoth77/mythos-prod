@@ -28,7 +28,7 @@ if (!TEST_URL) { console.error('MYTHOS_WP_TEST_DB_URL not set — database tests
 var Pool = require(path.join(WP, 'node_modules/pg')).Pool;
 var migrate = require(path.join(WP, 'reference/migrate'));
 var pool = new Pool({ connectionString: TEST_URL, max: 2 });
-var NEW_TABLES = ['wp_inboxes', 'wp_contacts', 'wp_conversations', 'wp_messages', 'wp_message_attachments', 'wp_conversation_events', 'wp_tags', 'wp_contact_tags', 'wp_conversation_tags', 'wp_ai_runs', 'wp_ai_suggestions', 'wp_inbound_events', 'wp_schema_migrations'];
+var NEW_TABLES = ['wp_inboxes', 'wp_contacts', 'wp_conversations', 'wp_messages', 'wp_message_attachments', 'wp_conversation_events', 'wp_tags', 'wp_contact_tags', 'wp_conversation_tags', 'wp_ai_runs', 'wp_ai_suggestions', 'wp_inbound_events', 'wp_contact_identities', 'wp_schema_migrations'];
 var SECRET_COL = /(^|_)(token|secret|password|passwd|apikey|api_key|private_key|session_key|credential)($|_)/i; // token COUNTS (input_tokens) are not secrets
 
 function q(sql, params) { return pool.query(sql, params || []); }
@@ -74,7 +74,7 @@ cleanup()
   .then(function (r) { ok(r.rows[0].inbound_enabled === false && r.rows[0].outbound_enabled === false && r.rows[0].status === 'inactive', 'inbox defaults are OFF/inactive'); })
   .then(function () { return expectError(q("INSERT INTO wp_contacts (project_id, wa_id) VALUES ('comms-test','+216 99 000')"), /wa_id_digits/, 'wa_id must be digits'); })
   .then(function () { return q("INSERT INTO wp_contacts (project_id, wa_id, display_name) VALUES ('comms-test','21699000000','Client Test') RETURNING id"); })
-  .then(function (r) { ids.contact = r.rows[0].id; return expectError(q("INSERT INTO wp_contacts (project_id, wa_id) VALUES ('comms-test','21699000000')"), /wp_contacts_unique/, 'one contact per (project, wa_id)'); })
+  .then(function (r) { ids.contact = r.rows[0].id; return expectError(q("INSERT INTO wp_contacts (project_id, wa_id) VALUES ('comms-test','21699000000')"), /wp_contacts_unique|wp_contacts_wa_id_uidx/, 'one contact per (project, wa_id)'); })
   .then(function () { return q("INSERT INTO wp_conversations (project_id, inbox_id, contact_id, provider_chat_id) VALUES ('comms-test',$1,$2,'21699000000') RETURNING id", [ids.inbox, ids.contact]); })
   .then(function (r) { ids.conv = r.rows[0].id; return expectError(q("INSERT INTO wp_conversations (project_id, inbox_id, contact_id, provider_chat_id) VALUES ('comms-test',$1,$2,'21699000000')", [ids.inbox, ids.contact]), /wp_conversations_live_uidx/, 'only one live conversation per contact+inbox'); })
   .then(function () { return q("UPDATE wp_conversations SET status='resolved', resolved_at=now() WHERE id=$1", [ids.conv]); })
@@ -130,7 +130,7 @@ cleanup()
   })
   .then(function (r) { ok(r.rows.length === 0, 'wp_handoffs.conversation_id removed on rollback'); })
   .then(function () { return migrate.up(pool); })
-  .then(function (r) { ok(r.applied.indexOf('0001_comms_core') !== -1 && r.applied.indexOf('0002_inbound_events') !== -1 && r.applied.indexOf('0003_outbound') !== -1, 're-apply after rollback (0001 + 0002 + 0003)'); return migrate.up(pool); })
+  .then(function (r) { ok(r.applied.indexOf('0001_comms_core') !== -1 && r.applied.indexOf('0002_inbound_events') !== -1 && r.applied.indexOf('0003_outbound') !== -1 && r.applied.indexOf('0005_identities_reconciliation') !== -1, 're-apply after rollback (0001 … 0005)'); return migrate.up(pool); })
   .then(function (r) { ok(r.applied.length === 0, 'second up is a no-op (idempotent ledger)'); return migrate.status(pool); })
   .then(function (s) { ok(s.pending.length === 0 && s.applied.indexOf('0001_comms_core') !== -1, 'status reports applied/pending'); })
   .then(function () { return q("DELETE FROM wp_projects WHERE id='comms-test'"); })

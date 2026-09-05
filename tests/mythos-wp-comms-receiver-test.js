@@ -92,7 +92,7 @@ var imageMsg = { key: { remoteJid: '21699000001@s.whatsapp.net', fromMe: false, 
   ok(provider.parseInbound(body('connection.update', { state: 'weird' })).reason === 'CONNECTION_STATE_UNKNOWN', 'unknown connection state refused');
   ok(!provider.parseInbound(null).ok && !provider.parseInbound([]).ok, 'non-object bodies refused');
   var d = receiver.describe();
-  ok(d.enabled === false && d.token_present === true && d.route === '/hooks/evolution', 'describe(): disabled by default, token readable');
+  ok(d.enabled === false && d.token_present === true && (d.route === '/hooks/<provider>' && d.providers.indexOf('evolution') !== -1), 'describe(): disabled by default, token readable');
   fs.chmodSync(tokenFile, 0o644);
   ok(receiver.readToken(tokenFile).present === false, 'world-readable token file refused');
   fs.chmodSync(tokenFile, 0o600);

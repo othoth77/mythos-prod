@@ -146,7 +146,8 @@ function parseInbound(body) {
     event: {
       provider: ID, instance: instance,
       provider_message_id: String(key.id),
-      contact: { wa_id: who.wa_id, lid: who.lid || null, display_name: typeof data.pushName === 'string' ? data.pushName.slice(0, 120) : null },
+      contact: { wa_id: who.wa_id, lid: who.lid || null, display_name: typeof data.pushName === 'string' ? data.pushName.slice(0, 120) : null,
+        identities: [{ kind: 'phone', value: who.wa_id }].concat(who.lid ? [{ kind: 'lid', value: who.lid }] : []) },
       chat_id: who.wa_id,
       message_type: c.message_type,
       text: typeof c.text === 'string' ? c.text.slice(0, MAX_TEXT) : '',
@@ -191,5 +192,58 @@ function readApiKey() {
   try { var st = fs.statSync(f); if ((st.mode & 0o077) !== 0) return { present: false, reason: 'key file must be 0600' }; var v = fs.readFileSync(f, 'utf8').trim(); return v.length >= 8 ? { present: true, value: v } : { present: false, reason: 'key too short' }; } catch (e) { return { present: false, reason: 'key file unreadable' }; }
 }
 function baseUrl() { return String(process.env.MYTHOS_WP_EVOLUTION_BASE_URL || 'http://127.0.0.1:8080').replace(/\/+$/, ''); }
+// ---- contract: describe / capabilities / verifyWebhook / fetchMedia / health -----------
+var CHANNEL = 'whatsapp';
+var TOKEN_HEADER = 'x-mythos-webhook-token';
+function capabilities() {
+  return {
+    channel: CHANNEL, official: false, text: true,
+    media: { inbound: true, outbound: false, fetch: false, kinds: ['image', 'audio', 'video', 'document', 'sticker'] },
+    templates: false, reactions: true, quotes: true, conversation_window_hours: null,
+    signed_webhooks: false, webhook_retries: false,
+    delivery_states: ['sent', 'delivered', 'read', 'failed'],
+    limitations: ['unofficial WhatsApp Web protocol (Baileys)', 'webhooks are unsigned and never retried by the provider', 'no template messages', 'cold outbound to unknown contacts is refused by policy (reachout timelock risk)', 'media fetch arrives with Phase H']
+  };
+}
+function describe() {
+  var key = readApiKey();
+  return { id: ID, channel: CHANNEL, base_url_host: (function () { try { return new URL(baseUrl()).host; } catch (e) { return null; } })(), credential_present: key.present, problems: key.present ? [] : [key.reason] };
+}
+function timingSafeEqualStr(a, b) { var ab = Buffer.from(String(a), 'utf8'), bb = Buffer.from(String(b), 'utf8'); if (ab.length !== bb.length) return false; return crypto.timingSafeEqual(ab, bb); }
+// verifyWebhook(req, ctx) — Evolution signs nothing: the MYTHOS shared token (header or ?token=) is the only proof. ctx = { query, expectedToken }
+function verifyWebhook(req, ctx) {
+  ctx = ctx || {};
+  var expected = ctx.expectedToken;
+  if (typeof expected !== 'string' || expected.length < 16) return { ok: false, reason: 'WEBHOOK_TOKEN_NOT_CONFIGURED' };
+  var q = ctx.query || {};
+  var presented = typeof q.token === 'string' && q.token ? q.token : (req && req.headers ? req.headers[TOKEN_HEADER] : undefined);
+  if (typeof presented !== 'string' || !presented) return { ok: false, reason: 'WEBHOOK_TOKEN_MISSING' };
+  return timingSafeEqualStr(presented, expected) ? { ok: true, reason: null } : { ok: false, reason: 'WEBHOOK_TOKEN_MISMATCH' };
+}
+// fetchMedia(o) — contract-complete but disabled until Phase H (media pipeline): never downloads bytes today.
+function fetchMedia(o) {
+  o = o || {};
+  if (!capabilities().media.fetch) return Promise.resolve({ ok: false, reason: 'NOT_SUPPORTED', detail: 'media fetch arrives with Phase H' });
+  return Promise.resolve({ ok: false, reason: 'NOT_IMPLEMENTED' });
+}
+// health(o) → { ok, state } from GET /instance/connectionState/{instance}; never throws
+function health(o) {
+  o = o || {};
+  if (!INSTANCE_RE.test(String(o.instance || ''))) return Promise.resolve({ ok: false, state: 'unknown', reason: 'CONFIG: instance' });
+  var key = readApiKey();
+  if (!key.present) return Promise.resolve({ ok: false, state: 'unknown', reason: 'CONFIG: ' + key.reason });
+  var u = new URL(baseUrl() + '/instance/connectionState/' + encodeURIComponent(o.instance));
+  var mod = u.protocol === 'https:' ? https : http;
+  return new Promise(function (resolve) {
+    var done = false; var finish = function (r) { if (!done) { done = true; resolve(r); } };
+    var req = mod.request({ host: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname, method: 'GET', headers: { apikey: key.value }, timeout: o.timeoutMs || 8000 }, function (res) {
+      var b = ''; res.on('data', function (c) { if (b.length < 65536) b += c; });
+      res.on('end', function () { var j = null; try { j = JSON.parse(b); } catch (e) {} var st = j && j.instance && typeof j.instance.state === 'string' ? j.instance.state : null; finish(st ? { ok: res.statusCode < 300, state: st } : { ok: false, state: 'unknown', reason: 'HTTP ' + res.statusCode }); });
+    });
+    req.on('timeout', function () { req.destroy(new Error('timeout')); });
+    req.on('error', function (e) { finish({ ok: false, state: 'unreachable', reason: 'TRANSPORT: ' + String(e && e.message || e).slice(0, 80) }); });
+    req.end();
+  });
+}
 function payloadHash(rawBody) { return crypto.createHash('sha256').update(String(rawBody)).digest('hex'); }
-module.exports = { ID: ID, parseInbound: parseInbound, sendText: sendText, readApiKey: readApiKey, baseUrl: baseUrl, redactDeep: redactDeep, payloadHash: payloadHash, content: content, STRIP_KEYS: STRIP_KEYS };
+module.exports = { id: ID, ID: ID, channel: CHANNEL, describe: describe, capabilities: capabilities, verifyWebhook: verifyWebhook, fetchMedia: fetchMedia, health: health, TOKEN_HEADER: TOKEN_HEADER, parseInbound: parseInbound, sendText: sendText, readApiKey: readApiKey, baseUrl: baseUrl, redactDeep: redactDeep, payloadHash: payloadHash, content: content, STRIP_KEYS: STRIP_KEYS };
