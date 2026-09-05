@@ -361,3 +361,35 @@ Also confirmed as **target only**: the dead-letter replay tool (§10.5) and the 
 ## 14. Recommended next implementation task
 
 **MYTHOS-COMMS-9 — Provider contract and event ledger hardening**: formalise `CommunicationProvider` (`describe`, `parseInbound`, `sendText`, `fetchMedia`, `verifyWebhook`), provider-neutral event names in `wp_inbound_events` and `wp_conversation_events`, `wp_contact_identities` (phone, BSUID, LID, future channel ids) with contact resolution by identity, delivery-state reconciliation alarm, dead-letter replay CLI, contract test suite runnable against a fake provider. It unblocks Cloud API, multi-channel and safe auto-reply, and it does not depend on Gate 3.
+
+## 15. Shared WhatsApp Account Mode (amendment, 2026-09-05 — MYTHOS-COMMS-11, #228)
+
+**Status.** Explicit exception to §10.2 / §11. The recommended architecture stays **one number = one Evolution instance = one customer-facing service**. Shared-account mode is intended for controlled/internal deployments only (the owner's existing account carrying MYTHOS notifications *and* a first customer service) and carries additional privacy complexity. It is not the default and must never be enabled implicitly.
+
+**Topology (the only safe one).**
+
+```
+WhatsApp account (one number)
+  └─ ONE Evolution instance (`mythos-bridge`) — one session, never a second linked device
+       └─ CommunicationProvider (Evolution adapter: own messages, self-chat, groups, broadcasts dropped pre-content)
+            └─ PRIVACY GUARD  (routing.resolve → DROP before any ledger row)
+                 └─ ROUTING POLICY  (wp_inbox_routes: allowlist | opt_in, priority, enabled, window)
+                      └─ LOGICAL INBOX  (wp_inboxes.account_mode = 'shared', one per service)
+                           └─ PROJECT (members, conversations, AI suggestions, handoffs)
+```
+
+The instance identifies the *session*; the routing rule identifies the *service*. The rejected alternative — the same account paired to a second Evolution instance — is a second linked device: duplicate ingestion of every message, doubled exposure of the personal history, session conflicts between two Baileys clients, and the notification channel exposed to any anti-abuse signal. It is **not** a supported topology.
+
+**Data model (migration 0006, additive).** `wp_inboxes.account_mode` `dedicated|shared` (shared requires `account_ref`; several logical inboxes may share one `(provider, instance)` only when all are shared; a dedicated inbox keeps the COMMS-1..9 1:1 rule). `wp_inbox_routes` binds one sender identity (`phone|lid|bsuid|provider_user`) on one instance to one inbox, with a composite foreign key on `(inbox, project, provider, instance)` so a rule can never point across projects or instances; `kind` `allowlist` (routes at once) or `opt_in` (identity pre-registered by an operator, optional second-factor code that must appear in the text, expiry window, `activated_at` on first routed inbound). `wp_routing_drops` is the only trace of a dropped event: decision, reason, `sha256(kind:value:instance)` and `sha256(payload)` — no number, no message id, no text.
+
+**Default deny.** No matching enabled rule → `UNROUTED` → drop. There is no "default inbox", no keyword-only entry (the opt-in code without a pre-registered identity is `UNROUTED`), and every fault (malformed rule, rule outside the instance, dedicated + shared on one instance, missing identity, expired window, missing code) fails closed with its own reason. Dead-letter replay goes through the same decision.
+
+**Owner exclusion.** The account's own number (the inbox `account_ref`) and every `wp_reserved_accounts` entry can neither be routed (`wp_inbox_routes_owner_excluded` trigger + 412 in the API) nor ingested (`OWNER_EXCLUDED` drop). The adapter already drops `fromMe`, self-chat, groups and broadcasts before reading content; delivery/read events for messages the Core did not send are ignored with hash only. Consequence documented as a limitation: **replies typed by the owner on the phone are own messages and are not mirrored into the inbox** (future product decision, not part of COMMS-11).
+
+**Internal notification separation.** The bridge sends notifications from the account *to itself* (`MYTHOS_BRIDGE_WHATSAPP_TO` = the owner number): they never enter an inbox, the Core never answers them, and the outbound path of the bridge is untouched by COMMS-11. Human replies from a shared inbox go out through the same instance and come back as own messages, which the adapter drops — no outbound → inbound loop; the assistant remains suggest-only; reconciliation never resends.
+
+**Reserved-account guard (made explicit).** Reserved account + `account_mode='shared'` + `settings.allow_personal_account=true` is the only accepted combination; every accepted opt-in writes an audit row (`db:wp_inboxes_guard`, number masked). Reserved account in dedicated mode, shared mode without the opt-in, shared mode without `account_ref`, and `mythos-bridge` outside shared mode are all refused. `mythos-bridge` may host **only** shared inboxes.
+
+**Limitations.** Unknown-instance dead-letters keep a redacted payload (COMMS-2 semantics) — the shared inbox row and its rules must exist *before* the instance webhook is enabled, otherwise personal traffic from that instance would be dead-lettered; identity matching is by phone/LID/BSUID only (no name heuristics by design); an opt-in code is a second factor, never a first; the inbox resource still refuses `mythos-bridge` on creation — shared inboxes are created through the audited CLI/API path.
+
+**Risks.** Every message to the shared account reaches the receiver (hashes are recorded for all drops — volume, not content); a mis-registered identity would route a personal contact into a business inbox (mitigated by explicit per-identity rules, audit, and one-target uniqueness); the personal account's WhatsApp standing is shared with the business use (unofficial protocol); rollback of 0006 refuses while shared inboxes exist.

@@ -23,6 +23,7 @@ var providerRegistry = require('./provider');
 providerRegistry.register(require('./providers/evolution'));
 var events = require('./events');
 var core = require('./core');
+var routing = require('./routing');
 var bus = require('./bus');
 var TOKEN_HEADER = 'x-mythos-webhook-token';
 
@@ -99,20 +100,33 @@ function handle(req, res, deps) {
       return core.recordInbound(pool, { provider: provider.id, instance: instance, event: eventName, provider_message_id: pmid, status: ignorable ? 'ignored' : 'rejected', reason: parsed.reason, event_name: 'event.rejected', payload_sha256: sha, payload: ignorable ? null : provider.redactDeep(body) })
         .then(function () { log({ level: ignorable ? 'info' : 'warn', receiver: ignorable ? 'ignored' : 'rejected', reason: parsed.reason, instance: instance, event: eventName, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: false, reason: parsed.reason }); });
     }
-    return core.findInbox(pool, provider.ID, parsed.event.instance).then(function (inbox) {
-      if (!inbox) {
-        return core.recordInbound(pool, { provider: provider.id, instance: instance, event: eventName, provider_message_id: pmid, status: 'rejected', reason: 'INBOX_UNKNOWN', event_name: 'event.rejected', payload_sha256: sha, payload: provider.redactDeep(body) })
+    // ---- PRIVACY GUARD (COMMS-11): instance → inboxes → routing decision BEFORE any ledger row.
+    // connection/status events never carry customer content: they go to the instance's inboxes.
+    // message events on a shared instance are routed by explicit rule or DROPPED (hashes only).
+    return routing.inboxesOn(pool, provider.id, parsed.event.instance).then(function (inboxes) {
+      if (!inboxes.length) {
+        // unknown instance: only for message events, keep the dead-letter (content redacted) — a dedicated instance being set up
+        return core.recordInbound(pool, { provider: provider.id, instance: instance, event: eventName, provider_message_id: pmid, status: 'rejected', reason: 'INBOX_UNKNOWN', event_name: 'event.rejected', payload_sha256: sha, payload: parsed.kind === 'message' ? provider.redactDeep(body) : null })
           .then(function () { log({ level: 'warn', receiver: 'rejected', reason: 'INBOX_UNKNOWN', instance: instance, request_id: deps.requestId }); return send(res, 202, { ok: true, accepted: false, reason: 'INBOX_UNKNOWN' }); });
       }
       if (parsed.kind === 'connection') {
-        return core.setInboxState(pool, inbox.id, parsed.event.status, null)
-          .then(function () { return core.recordInbound(pool, { provider: provider.id, instance: instance, inbox_id: inbox.id, event: eventName, status: 'persisted', reason: 'CONNECTION:' + parsed.event.status, event_name: 'inbox.status', payload_sha256: sha }); })
-          .then(function () { bus.publish({ type: 'inbox.status', project_id: inbox.project_id, inbox_id: inbox.id, status: parsed.event.status }); log({ level: 'info', receiver: 'connection', instance: instance, status: parsed.event.status, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: true, kind: 'connection', status: parsed.event.status }); });
+        return Promise.all(inboxes.map(function (ib) { return core.setInboxState(pool, ib.id, parsed.event.status, null); }))
+          .then(function () { return core.recordInbound(pool, { provider: provider.id, instance: instance, inbox_id: inboxes[0].id, event: eventName, status: 'persisted', reason: 'CONNECTION:' + parsed.event.status, event_name: 'inbox.status', payload_sha256: sha }); })
+          .then(function () { inboxes.forEach(function (ib) { bus.publish({ type: 'inbox.status', project_id: ib.project_id, inbox_id: ib.id, status: parsed.event.status }); }); log({ level: 'info', receiver: 'connection', instance: instance, status: parsed.event.status, inboxes: inboxes.length, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: true, kind: 'connection', status: parsed.event.status }); });
       }
       if (parsed.kind === 'status') {
-        return core.updateStatus(pool, inbox, parsed.event)
-          .then(function (r) { return core.recordInbound(pool, { provider: provider.id, instance: instance, inbox_id: inbox.id, event: eventName, provider_message_id: parsed.event.provider_message_id, status: r.updated ? 'persisted' : 'ignored', reason: r.updated ? 'STATUS:' + r.status : r.reason, event_name: r.updated ? events.forStatus(r.status) : 'message.status', message_id: r.message_id || null, payload_sha256: sha }).then(function () { log({ level: 'info', receiver: 'status', instance: instance, updated: r.updated, status: parsed.event.status, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: true, kind: 'status', updated: r.updated, status: parsed.event.status }); }); });
+        // delivery state for OUR outbound rows only (looked up by instance); the bridge's own notifications match nothing → ignored, hash only
+        return core.updateStatusOnInstance(pool, provider.id, parsed.event.instance, parsed.event)
+          .then(function (r) { return core.recordInbound(pool, { provider: provider.id, instance: instance, inbox_id: r.inbox_id || null, event: eventName, provider_message_id: parsed.event.provider_message_id, status: r.updated ? 'persisted' : 'ignored', reason: r.updated ? 'STATUS:' + r.status : r.reason, event_name: r.updated ? events.forStatus(r.status) : 'message.status', message_id: r.message_id || null, payload_sha256: sha }).then(function () { log({ level: 'info', receiver: 'status', instance: instance, updated: r.updated, status: parsed.event.status, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: true, kind: 'status', updated: r.updated, status: parsed.event.status }); }); });
       }
+      return routing.resolve(pool, provider.id, parsed.event.instance, parsed.event).then(function (d) {
+        if (!d.routed) {
+          // DROP BEFORE LEDGER: no contact, no conversation, no message, no payload, no wp_inbound_events row.
+          return routing.dropAudit(pool, { provider: provider.id, instance: instance, reason: d.reason, identity_sha256: d.identity_sha256, payload_sha256: sha })
+            .then(function (dropId) { log({ level: 'info', receiver: 'dropped', reason: d.reason, instance: instance, drop_id: dropId, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: false, dropped: true, reason: d.reason }); });
+        }
+        var inbox = d.inbox;
+        if (d.rule) log({ level: 'info', receiver: 'routed', instance: instance, inbox_id: inbox.id, rule_id: d.rule.id, kind: d.rule.kind, activated: d.activated, request_id: deps.requestId });
       if (!inbox.inbound_enabled) {
         return core.recordInbound(pool, { provider: provider.id, instance: instance, inbox_id: inbox.id, event: eventName, provider_message_id: pmid, status: 'dry_run', reason: 'INBOX_INBOUND_DISABLED', event_name: 'message.dry_run', payload_sha256: sha })
           .then(function () { log({ level: 'info', receiver: 'dry_run', instance: instance, message_type: parsed.event.message_type, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: true, mode: 'dry_run', persisted: false }); });
@@ -126,6 +140,7 @@ function handle(req, res, deps) {
       }, function (e) {
         return core.recordInbound(pool, { provider: provider.id, instance: instance, inbox_id: inbox.id, event: eventName, provider_message_id: pmid, status: 'failed', reason: 'INGEST:' + String(e && e.code || e && e.message || 'error').slice(0, 60), event_name: 'event.rejected', payload_sha256: sha, payload: provider.redactDeep(body) })
           .then(function () { log({ level: 'error', receiver: 'failed', instance: instance, reason: String(e && e.message || e).slice(0, 120), request_id: deps.requestId }); return send(res, 500, { ok: false, error: 'ingest_failed' }); });
+      });
       });
     });
   }).catch(function (e) {

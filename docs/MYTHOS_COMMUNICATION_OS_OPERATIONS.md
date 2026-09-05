@@ -61,3 +61,14 @@ node projects/mythos-wp/bin/mythos-wp comms replay <event_id> --apply      # re-
 ```
 
 Scheduling (owner): the two probes are safe every 5–10 minutes from the deploy user's timer of choice once customer traffic exists; they change no provider state. Alarms and heartbeat changes appear as `delivery.alarm` / `inbox.heartbeat` events on the SSE feed and in the conversation journal.
+
+## 9. Shared-account routing (COMMS-11)
+
+Order of operations for a shared instance (never enable the instance webhook first):
+
+1. `bin/mythos-wp comms route shared-inbox <project> --instance <instance> --account-ref <digits> --display-name "<name>"` — explicit, audited opt-in (refused unless the reserved-account rules are met).
+2. `bin/mythos-wp comms route add <project> --inbox <id> --kind allowlist --identity phone:<digits>` for known customers, or `--kind opt_in --identity phone:<digits> [--code <CODE>] [--ttl-hours N]` for a customer who will write in (identity first; the code is a second factor only).
+3. `bin/mythos-wp comms route list <project>`, `enable|disable <project> <rule_id>`, `drops [--limit N]` (hash-only records of what was dropped, with reason).
+4. Only then may the owner enable the instance webhook (owner step) and, later, `inbound_enabled` on the logical inbox (dry-run until then).
+
+API: `GET/POST /api/projects/<p>/comms/routes`, `POST …/routes/<id>/enable|disable` (owner), `GET /api/comms/routing-drops` (owner). Replay honours the same routing decision. Never create a route for the account owner or a reserved number (refused). Never pair the shared account to a second instance.

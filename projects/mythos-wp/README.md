@@ -134,3 +134,7 @@ Tests: `node tests/mythos-wp-comms-outbound-test.js` (fake Evolution on loopback
 `sendText`, `fetchMedia`, `verifyWebhook`, `health`, …). `GET /api/comms/providers` shows the registry and capabilities.
 Contract tests: `node tests/mythos-wp-comms-contract-test.js`; hardening tests (identities, ordering, assistant gate,
 reconciliation, replay): `node tests/mythos-wp-comms-hardening-test.js`. Ops: `mythos-wp comms reconcile|heartbeat|replay`.
+
+### Shared-account routing & privacy guard (COMMS-11)
+
+`reference/comms/routing.js` — `resolve()` runs before any ledger write: dedicated instance → its inbox (unchanged); shared instance → explicit `wp_inbox_routes` rule or hash-only drop (`wp_routing_drops`). Migration `0006_shared_account_routing` adds `wp_inboxes.account_mode`, the routes table (composite FK to inbox/project/provider/instance), the drops table and the explicit reserved-account/shared-mode guard. CLI: `mythos-wp comms route shared-inbox|add|list|enable|disable|drops`. Tests: `tests/mythos-wp-comms-routing-test.js`.
