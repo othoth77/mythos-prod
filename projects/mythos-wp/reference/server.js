@@ -128,6 +128,8 @@ function handle(req, res) {
   req.requestId = requestId;
   var parsed = url.parse(req.url);
   var pathname = parsed.pathname || '/';
+  // Route parameters may arrive percent-encoded (e.g. a product uid with ':'); match on the decoded path.
+  if (pathname.indexOf('%') !== -1) { try { pathname = decodeURIComponent(pathname); } catch (e) { return sendJSON(res, 400, { ok: false, error: 'bad_request', detail: 'malformed path encoding' }); } }
   var method = req.method;
   var session = auth.sessionFor(req);
   req.session = session;

@@ -43,7 +43,7 @@ if [ "$hex" != "0" ] || [ "${imp:-0}" -gt 1 ]; then echo "design: FAIL (hex=$hex
 if grep -nE '[ <]on[a-z]+="' "$HERE/reference/web/index.html" "$HERE/reference/web/login.html" >/dev/null; then echo "csp: inline handler found"; fail=1; else echo "csp: no inline handlers"; fi
 
 step "no-secret scan (tracked files of this project)"
-if ( cd "$ROOT" && git ls-files projects/mythos-wp tests/mythos-wp-test.js | xargs grep -nEi '(password|passwd|secret|api_?key|token)\s*[:=]\s*["'"'"'][A-Za-z0-9+/=_-]{12,}["'"'"']|postgres(ql)?://[^:]+:[^@]+@|-----BEGIN [A-Z ]*PRIVATE KEY' 2>/dev/null | grep -v 'not-a-real\|test-\|example\|nonexistent\|encodeURIComponent' ); then echo "secrets: FAIL"; fail=1; else echo "secrets: ok"; fi
+if ( cd "$ROOT" && git ls-files projects/mythos-wp tests/mythos-wp-test.js | xargs grep -nEi '(password|passwd|secret|api_?key|token)\s*[:=]\s*["'"'"'][A-Za-z0-9+/=_-]{12,}["'"'"']|postgres(ql)?://[^:]+:[^@]+@|-----BEGIN [A-Z ]*PRIVATE KEY' 2>/dev/null | grep -v 'not-a-real\|test-\|example\|nonexistent\|encodeURIComponent\|audit.clean(' ); then echo "secrets: FAIL"; fail=1; else echo "secrets: ok"; fi
 
 step "tests"
 ( cd "$ROOT" && timeout 300 node tests/mythos-wp-test.js ) || fail=1

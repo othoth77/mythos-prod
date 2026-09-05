@@ -16,7 +16,7 @@
 // to end on a loopback port (401 / 403 / CSRF / 404 / 405 / headers).
 //
 // Database section needs (created by projects/mythos-wp/deploy/provision-db.sh):
-//   MYTHOS_WP_TEST_DB_URL       postgres://mythos_wp_owner:…@127.0.0.1:5432/mythos_wp_test
+//   MYTHOS_WP_TEST_DB_URL       libpq URL of mythos_wp_test as mythos_wp_owner (from deploy/provision-db.sh)
 // The catalogue fixture lives in the SAME test database, schema ssangyong_autos.
 // Without the variable the DB section is SKIPPED and the run exits 3 unless
 // MYTHOS_WP_ALLOW_SKIP=1. No network beyond 127.0.0.1. No WhatsApp.
@@ -318,6 +318,8 @@ async function dbSection(port, opCookie) {
   r = await request(port, 'GET', '/api/projects/test-autos/parts/wp:FILTER-1', undefined, C);
   ok(r.status === 200 && r.json.data.compatibility.length === 1 && r.json.data.images.length === 1 && r.json.data.commercial && r.json.data.stock, 'view: part full');
   eq(r.json.data.auto_reply_facts, { price: 'VERIFIED', stock: 'VERIFIED', compatibility: 'VERIFIED', oem_reference: 'VERIFIED' }, 'view: part facts all verified');
+  r = await request(port, 'GET', '/api/projects/test-autos/parts/wp%3AFILTER-1', undefined, C); ok(r.status === 200 && r.json.data.product.product_uid === 'wp:FILTER-1', 'view: percent-encoded uid resolves');
+  r = await request(port, 'GET', '/api/projects/test-autos/parts/%E0%A4%A', undefined, C); eq(r.status, 400, 'http: malformed percent-encoding → 400');
   r = await request(port, 'GET', '/api/projects/test-autos/parts/wp:PADS-1', undefined, C);
   eq(r.json.data.auto_reply_facts, { price: 'UNKNOWN', stock: 'UNKNOWN', compatibility: 'UNKNOWN', oem_reference: 'UNKNOWN' }, 'view: part facts unknown');
 

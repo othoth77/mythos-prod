@@ -51,6 +51,7 @@ kbd { font-family: var(--mythos-font-mono); font-size: 11px; padding: 1px 6px; b
 .rail-brand { display: flex; align-items: baseline; gap: var(--mythos-space-3); padding: 0 var(--mythos-space-3) var(--mythos-space-5); }
 .rail-brand .wordmark { font-family: var(--mythos-font-display); font-weight: var(--mythos-weight-semibold); font-size: 17px; letter-spacing: 0.02em; color: var(--mythos-text-primary); text-decoration: none; }
 .rail-brand .unit { font-size: 11px; letter-spacing: 0.10em; text-transform: uppercase; color: var(--mythos-accent); font-weight: var(--mythos-weight-medium); }
+.rail-nav { display: flex; flex-direction: column; gap: var(--mythos-space-1); min-width: 0; }
 .rail-section { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--mythos-text-secondary); padding: var(--mythos-space-4) var(--mythos-space-4) var(--mythos-space-2); opacity: 0.8; }
 .rail a { display: flex; align-items: center; gap: var(--mythos-space-3); min-height: 38px; padding: 0 var(--mythos-space-4); border-radius: var(--mythos-radius-control); color: var(--mythos-text-secondary); text-decoration: none; font-size: 13.5px; font-weight: var(--mythos-weight-medium); transition: background var(--mythos-motion-micro) var(--mythos-ease-move); }
 .rail a:hover { background: var(--mythos-surface); color: var(--mythos-text-primary); }
@@ -252,7 +253,7 @@ dialog::backdrop { background: rgba(11, 11, 10, 0.6); }
 @media (max-width: 1024px) {
   .app { grid-template-columns: 64px 1fr; }
   .rail a span:not(.glyph) { display: none; }
-  .rail-brand .unit, .rail-brand .wordmark, .rail-section, .rail-foot .who span { display: none; }
+  .rail-brand .unit, .rail-brand .wordmark, .rail-section, .rail-foot { display: none; }
   .rail a { justify-content: center; padding: 0; }
   .search-btn { min-width: 0; } .search-btn .label { display: none; }
   .project-switch .select { min-width: 120px; }
@@ -261,7 +262,8 @@ dialog::backdrop { background: rgba(11, 11, 10, 0.6); }
   .app { grid-template-columns: 1fr; grid-template-areas: "topbar" "main" "rail"; }
   .rail { flex-direction: row; overflow-x: auto; border-right: 0; border-top: 1px solid var(--mythos-border-hairline); position: sticky; bottom: 0; top: auto; height: auto; padding: var(--mythos-space-2); z-index: 20; }
   .rail-brand, .rail-foot, .rail-section { display: none; }
-  .rail a { min-width: 52px; }
+  .rail-nav { flex-direction: row; flex: 1; }
+  .rail a { min-width: 52px; flex: none; }
   main { padding: var(--mythos-space-4); }
   .topbar { padding: 0 var(--mythos-space-4); }
   .crumbs { display: none; }

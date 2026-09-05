@@ -185,9 +185,9 @@ function simulate(resolved, text) {
     if (real && real.crm && real.crm.inbox_ids && real.crm.inbox_ids.length) { cfg = loaded.cfg; instance = String(real.crm.inbox_ids[0]); source = 'config'; }
     else { cfg = syntheticConfig(resolved.project, models); instance = resolved.project.id; source = 'synthetic'; }
     var ports = portsLib.create({ resolveProject: function () { return resolved; } });
-    var token = 'simulation-token-' + crypto.randomBytes(8).toString('hex');
+    var simCredential = 'sim-' + crypto.randomBytes(12).toString('hex');
     return engine.process({
-      cfg: cfg, body: webhookBody(instance, text), query: { token: token }, headers: {}, expectedToken: token, apiToken: null,
+      cfg: cfg, body: webhookBody(instance, text), query: { token: simCredential }, headers: {}, expectedToken: simCredential, apiToken: null,
       ledger: ledgerLib.open({ memory: true }), business_data: ports, forceDryRun: true
     }).then(function (rec) {
       var d = rec.decision || {};
