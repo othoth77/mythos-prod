@@ -45,6 +45,8 @@ CSRF=$(python3 -c "import json; print(json.load(open('$J')).get('csrf',''))" 2>/
 TENANT=$(python3 -c "import json; print(json.load(open('$J')).get('active_tenant_id',''))" 2>/dev/null || true)
 echo "  info  active tenant id: ${TENANT:-none}; tenants listed: $(python3 -c "import json; print(','.join(t['key'] for t in json.load(open('$J')).get('tenants',[])))" 2>/dev/null)"
 t "GET /session" "$(code -H "Cookie: $COOKIE" "$B/session")" 200
+# GET /session rotates the CSRF token (server stores only its hash); use the new one from here on.
+NEWCSRF=$(python3 -c "import json; print(json.load(open('$J')).get('csrf',''))" 2>/dev/null || true); [ -n "$NEWCSRF" ] && CSRF="$NEWCSRF"
 t "GET /tenants" "$(code -H "Cookie: $COOKIE" "$B/tenants")" 200
 t "GET /users (users.read)" "$(code -H "Cookie: $COOKIE" "$B/users")" 200
 t "GET /audit (audit.read)" "$(code -H "Cookie: $COOKIE" "$B/audit")" 200

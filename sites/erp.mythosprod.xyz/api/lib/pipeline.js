@@ -37,6 +37,7 @@ var PUBLIC_ROUTES = {
 /* Authenticated but deliberately NOT tenant-scoped: choosing which company to
    act in cannot itself require a company. */
 var TENANT_FREE_ROUTES = {
+  'GET /api/v1/meta': true,
   'GET /api/v1/session': true,
   'GET /api/v1/tenants': true,
   'POST /api/v1/session/tenant': true,
