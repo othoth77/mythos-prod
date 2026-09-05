@@ -189,4 +189,28 @@ var DEFS = {
   }),
 };
 
-module.exports = { DEFS: DEFS, def: def, STATUS_INVOICE: STATUS_INVOICE, STATUS_QUOTE: STATUS_QUOTE };
+
+/* Public metadata for the frontend: what each resource is called, which module
+   gates it, which fields may be written, which are required, which filters and
+   sorts exist, and the closed status vocabularies. The browser builds its
+   forms and tables from this, so the UI cannot drift from the API contract. */
+function publicMeta() {
+  var out = {};
+  Object.keys(DEFS).forEach(function (name) {
+    var d = DEFS[name];
+    out[name] = {
+      module: d.module, label: d.label, columns: d.columns, fields: d.fields,
+      required: d.required, searchable: d.searchable, sortable: d.sortable,
+      defaultSort: d.defaultSort, filters: d.filters,
+      createable: name !== 'documents'
+    };
+  });
+  return {
+    resources: out,
+    statuses: { invoice: STATUS_INVOICE, quote: STATUS_QUOTE, project: ['planned', 'active', 'closed'] },
+    invoice_user_settable: ['draft', 'sent', 'cancelled']
+  };
+}
+
+module.exports = {
+  publicMeta: publicMeta, DEFS: DEFS, def: def, STATUS_INVOICE: STATUS_INVOICE, STATUS_QUOTE: STATUS_QUOTE };

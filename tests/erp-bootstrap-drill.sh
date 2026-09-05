@@ -163,7 +163,9 @@ TENANT=$(python3 -c "import json; print(json.load(open('$J'))['active_tenant_id'
 check "session cookie is __Host- HttpOnly Secure" "grep -q '__Host-erp_session=' <<<\"$COOKIE\" && grep -qi 'httponly' $H && grep -qi 'secure' $H" "$(grep -i set-cookie $H)"
 check "login lists tenant mythos and sets it active" "python3 -c \"import json; d=json.load(open('$J')); m=[t for t in d['tenants'] if t['key']=='mythos']; assert m and d['active_tenant_id']==m[0]['id']\"" "$(cat $J)"
 check "login body carries no hash and no password" "! grep -q 'scrypt' $J && ! grep -qF \"$ADMIN_PW\" $J" ""
-R=$(code -H "Cookie: $COOKIE" "$B/session");            check "GET /session with cookie → 200, same tenant" "[ $R = 200 ] && grep -q \"$TENANT\" $J" "$R $(cat $J)"
+R=$(code -H "Cookie: $COOKIE" "$B/session");            check "GET /session with cookie → 200, same tenant, fresh csrf" "[ $R = 200 ] && grep -q \"$TENANT\" $J && grep -q '\"csrf\"' $J" "$R $(cat $J)"
+# GET /session rotates the CSRF token (only its hash is stored); adopt the new one.
+CSRF=$(python3 -c "import json; print(json.load(open('$J')).get('csrf',''))")
 R=$(code "$B/users");                                   check "GET /users without cookie → 401" "[ $R = 401 ]" "$R"
 R=$(code -H "Cookie: $COOKIE" "$B/users");              check "GET /users as super_admin (users.read) → 200" "[ $R = 200 ]" "$R $(cat $J)"
 R=$(code -H "Cookie: $COOKIE" "$B/dashboard");          check "GET /dashboard → 200 with all seven counters" "[ $R = 200 ] && python3 -c \"import json; d=json.load(open('$J')); assert set(d)=={'clients','open_projects','unpaid_invoices','invoiced_ttc_ytd','collected_ytd','appointments_next_7d','items_below_reorder'}, d\"" "$R $(cat $J)"
