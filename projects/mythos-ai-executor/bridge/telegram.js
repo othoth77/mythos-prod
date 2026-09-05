@@ -67,6 +67,7 @@ var httpJson = require('./notify/http-json');
 var redact = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'redact'));
 var modelPolicy = require(path.join(EXEC_ROOT, 'lib', 'model-policy'));
 var engine = require('./action-resolution');
+var presenter = require('./notify/presenter');
 
 var BY = 'telegram';
 var TASK_RE = /^tg-(\d{1,20})$/;
@@ -449,21 +450,12 @@ function startedText(task) {
 }
 
 function reportText(task, report) {
+  // Shared presenter (gh-issue-191): same short owner-facing format as the
+  // WhatsApp channel. No report path in a chat reply (details_ref 'none'),
+  // model name when recorded, guard only described.
   var ex = report.execution || {};
-  var lines = ['MYTHOS: ' + report.status + ' ' + task.task_id, ''];
-  lines.push(short(String(report.summary || ''), LIMITS.summary));
-  if (Array.isArray(report.tests) && report.tests.length) lines.push('', 'tests: ' + report.tests.slice(0, 5).map(function (t) { return short(t, 120); }).join(' | '));
-  if (Array.isArray(report.files_changed) && report.files_changed.length) lines.push('files changed: ' + report.files_changed.length);
-  if (Array.isArray(report.commits) && report.commits.length) lines.push('commits: ' + report.commits.map(function (c) { return String(c.sha).slice(0, 12); }).join(', '));
-  if (Array.isArray(report.problems) && report.problems.length) lines.push('', 'problems: ' + report.problems.slice(0, 3).map(function (p) { return short(p, 200); }).join(' | '));
-  if (report.blocker && report.blocker.code) lines.push('blocker: ' + report.blocker.code);
-  if (report.next_recommended_action) lines.push('', 'next: ' + short(report.next_recommended_action, 300));
-  var tail = [];
-  if (ex.model) tail.push('model ' + ex.model);
-  var g = guardLine(task.execution);
-  if (g) tail.push(g);
-  if (tail.length) lines.push('', tail.join(' · '));
-  return lines.join('\n');
+  var kind = report.blocker && report.blocker.code === 'HUMAN_APPROVAL' ? 'HUMAN_APPROVAL' : report.status;
+  return presenter.presentReport(report, kind, { model: ex.model || null, guard: !!guardLine(task.execution), details_ref: 'none' }).text;
 }
 
 function rejectedText(taskId, errors, secret) {

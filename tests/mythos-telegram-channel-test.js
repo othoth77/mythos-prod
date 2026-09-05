@@ -304,8 +304,8 @@ async function run() {
   var rep6 = reportOnDisk(tid);
   ok(rep6 && rep6.status === 'COMPLETED' && rep6.execution.executor_task_id === t6.execution.executor_task_id, 'flow: bridge wrote control/reports/' + tid + '.json COMPLETED with the executor id');
   var rp6 = sentTo(OWNER).filter(function (m) { return /COMPLETED/.test(m.text); });
-  ok(rp6.length === 1 && rp6[0].text.indexOf(tid) !== -1 && rp6[0].text.indexOf('fixture HEAD ' + MAIN_AT_START.slice(0, 12)) !== -1 && /mock: pass/.test(rp6[0].text) && /guard: MYTHOS protection\/monitoring active/.test(rp6[0].text),
-    'flow: one report reply with status, summary, tests and the guard described');
+  ok(rp6.length === 1 && rp6[0].text.indexOf(tid) !== -1 && rp6[0].text.indexOf('fixture HEAD ' + MAIN_AT_START.slice(0, 12)) !== -1 && /الاختبارات: /.test(rp6[0].text) && /ببساطة: /.test(rp6[0].text) && /المطلوب منك: /.test(rp6[0].text) && /guard: MYTHOS protection\/monitoring active/.test(rp6[0].text),
+    'flow: one report reply with status, summary, a tests summary, the simple Arabic explanation + owner action (gh-issue-191 presenter) and the guard described');
   ok(rp6[0].text.indexOf(t6.execution.executor_task_id) === -1 && rp6[0].text.indexOf(t6.execution.othmode_task_id) === -1 && rp6[0].text.indexOf('control/reports/') === -1 && (!rep6.execution.model || rp6[0].text.indexOf('model ' + rep6.execution.model) !== -1),
     'flow: the report reply carries NO executor id, NO OTHMODE number, NO report path; the model name when the executor recorded one');
   t6 = taskOnDisk(tid);

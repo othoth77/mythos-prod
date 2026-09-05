@@ -230,10 +230,14 @@ function run() {
         cases.forEach(function (c) {
           var msg = received.filter(function (r) { return r.body.text.indexOf(c.id) !== -1; })[0];
           ok(!!msg && msg.body.text.indexOf('MYTHOS ' + c.kind) !== -1, 'notify: the ' + c.kind + ' message names the kind and the task');
-          ok(!!msg && msg.body.text.indexOf('control/reports/' + c.id + '.json') !== -1, 'notify: the ' + c.kind + ' message points at the REPORT on the control branch');
+          ok(!!msg && msg.body.text.indexOf('control/reports/' + c.id + '.md') !== -1, 'notify: the ' + c.kind + ' message points at the REPORT on the control branch');
+          // gh-issue-191: shared presenter — simple Arabic explanation + explicit "what you must do", no technical detail lines.
+          ok(!!msg && msg.body.text.indexOf('ببساطة: ') !== -1 && msg.body.text.indexOf('المطلوب منك: ') !== -1, 'notify: the ' + c.kind + ' message carries the simple Arabic explanation and the owner action');
+          ok(!!msg && !/^(Branch|Files changed|OTHMODE|Commits): /m.test(msg.body.text), 'notify: the ' + c.kind + ' message carries no branch/file/commit/OTHMODE detail lines');
+          ok(!!msg && msg.body.text.indexOf(c.kind === 'COMPLETED' ? '🟢' : c.kind === 'HUMAN_APPROVAL' ? '🟠' : '🔴') === 0, 'notify: the ' + c.kind + ' message starts with its level icon');
         });
         var appr = received.filter(function (r) { return r.body.text.indexOf('gh-wa-appr-0001') !== -1; })[0];
-        ok(appr.body.text.indexOf('A human decision is required') !== -1, 'notify: the HUMAN_APPROVAL message says a human decision is required');
+        ok(appr.body.text.indexOf('قرارك مطلوب') !== -1 && appr.body.text.indexOf('بانتظار قرارك') !== -1, 'notify: the HUMAN_APPROVAL message says a human decision is required');
         var led = entriesByKey();
         ok(led['gh-wa-done-0001__COMPLETED'].state === 'SENT' && led['gh-wa-appr-0001__HUMAN_APPROVAL'].state === 'SENT',
           'notify: the ledger records SENT for delivered notifications');

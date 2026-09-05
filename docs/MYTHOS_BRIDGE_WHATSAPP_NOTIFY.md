@@ -89,6 +89,11 @@ own kind and its own message line. The control task status is still
 `BLOCKED` — the notification kind is a notification concept only, and never
 leaks back into the protocol.
 
+**Message text (2026-09-05, gh-issue-191):** rendered by the shared presenter
+`bridge/notify/presenter.js` — level icon, state, one "what happened" line, a
+simple Arabic explanation, an explicit owner action and a report reference;
+no branch/file/commit/id detail. See `docs/MYTHOS_NOTIFICATION_PRESENTER.md`.
+
 `MYTHOS_BRIDGE_WHATSAPP_EVENTS` can narrow the set further (e.g.
 `FAILED,BLOCKED,HUMAN_APPROVAL` to drop success noise). It can never widen it.
 

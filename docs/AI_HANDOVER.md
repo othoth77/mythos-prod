@@ -2,6 +2,18 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-05 — #191 shared notification presenter: short format + simple Arabic explanation (Fable 5.1, `mythos/notification-presenter-20260905`, stacked on PR #195)
+
+| Item | State |
+|---|---|
+| Objective (Issue #191) | Owner-facing notifications short, readable on a phone, with a simple non-technical Arabic explanation; one presentation logic for WhatsApp and Telegram; technical detail stays in reports/handover/ledgers. |
+| Delivered | `projects/mythos-ai-executor/bridge/notify/presenter.js` — `presentReport(report, kind, opts)` / `presentEvent(evt)` / `stripInternal`. Levels 🔴 CRITICAL (FAILED, BLOCKED, failing checks, conflicts, sync/governance/bridge failures) · 🟠 IMPORTANT (HUMAN_APPROVAL) · 🟢 INFO/SUCCESS. Template: header (icon · kind · task id) → `الحالة` → `ماذا حدث` → tests as counts → (`السبب` / `الخطوة التالية` for non-INFO) → `ببساطة:` → `المطلوب منك:` (always explicit, "لا شيء حالياً." when nothing) → model/guard tail → `📄 التفاصيل` reference. No branch/file/commit/id/path detail; identifiers stripped and governance redactor applied on every text; deterministic (WhatsApp `message_sha256` unchanged in meaning). |
+| Wiring | `notify/whatsapp.js buildMessage` → presenter (`details_ref: 'path'`); `notify/telegram-events.js formatEvent` → `presentEvent` (`stripInternal` re-exported); `telegram.js reportText` → presenter (`details_ref: 'none'`, guard described). Telegram stays **OFF** (`MYTHOS_TELEGRAM_ENABLED=0`); nothing activated, no live Telegram test. WhatsApp production config untouched; no message sent. |
+| Tests | new `tests/notification-presenter-test.js` **70/0** (kinds, levels, Arabic + owner action, length, no id/path/secret/sha/file/branch leak, redaction in summary/next/problems, determinism, WhatsApp buildMessage = presenter, WhatsApp ledger dedup, HUMAN_APPROVAL = IMPORTANT, every Telegram event kind, Telegram compatibility without activation: `notifyEvent` → `disabled`, no ledger). Updated to the format: whatsapp-notify **143/0**, telegram-events **54/0**, telegram-channel **68/0**. Regression: github-bridge 169/0, github-issues 208/0, redact PASS, whatsapp-resilience 101/0. |
+| Docs | `docs/MYTHOS_NOTIFICATION_PRESENTER.md` (format, levels, API, tests); pointers in `MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md` §2 and `MYTHOS_TELEGRAM_CHANNEL.md`. |
+| Not done | No live send. First real message in the new format arrives with the next terminal task (e.g. #196) once the branch is merged and the checkout fast-forwarded (bridge = fresh process per tick, no restart needed). |
+| Next | Owner merge (PR stacked on #195; GitHub retargets to main after #195 merges). |
+
 ## 2026-09-05 — MASTER REMAINING WORK ORDER: reconciliation, WhatsApp verified active, Status Center live, #114 follow-ups, Issue cleanup (Fable 5.1, `mythos/master-remaining-20260905`)
 
 Sequential execution of the owner's "master remaining work order" against production checkout = `origin/main` **52c449e** (clean). Everything below was re-verified on the host; nothing was reset, force-pushed or deleted; no Telegram activation; no WhatsApp message sent by this run.

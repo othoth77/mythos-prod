@@ -70,21 +70,10 @@ var EVENT_DEFS = {
 };
 var DEFAULT_EVENTS = Object.keys(EVENT_DEFS);
 
-// Internal identifiers that must never leave this module, even if a caller
-// passes them by mistake inside free text (title / summary / next_action).
-var EXECUTOR_ID_RE = /\bt-\d{8,}-[a-z0-9]{4,10}\b/g;
-var OTHMODE_ID_RE = /\bOTH-\d{4}-\d{3,8}\b/g;
-var EXECUTION_ID_RE = /\bx-[a-z0-9]{6,16}\b/g;
-var PATH_RE = /(?:\/home\/[^\s]+|~\/[^\s]+|\/srv\/[^\s]+)/g;
-
-function stripInternal(text) {
-  if (typeof text !== 'string' || !text) return text;
-  return text
-    .replace(EXECUTOR_ID_RE, '[task ref]')
-    .replace(OTHMODE_ID_RE, '[guard ref]')
-    .replace(EXECUTION_ID_RE, '[run ref]')
-    .replace(PATH_RE, '[path]');
-}
+// Identifier/path stripping lives in the shared presenter (gh-issue-191);
+// kept exported here for compatibility.
+var presenter = require('./presenter');
+var stripInternal = presenter.stripInternal;
 
 function nowIso() { return new Date().toISOString(); }
 function nowMs() { return Date.now(); }
@@ -150,20 +139,11 @@ function log(event, fields) { bridge.log('telegram-events:' + event, fields || {
 
 // --- Message format (unified, plain text, no secrets, no internal ids) --------------
 
+// Rendered by the shared presenter (gh-issue-191): level icon, unified
+// header, short title/result, simple Arabic explanation, what the owner must
+// do, model/guard tail. Identical presentation logic to WhatsApp.
 function formatEvent(evt) {
-  var label = CATEGORY_LABEL[evt.category] || evt.category.toUpperCase();
-  var lines = [];
-  var head = 'MYTHOS ' + label + ': ' + evt.event.split(':').pop() + (evt.id !== undefined && evt.id !== null ? ' ' + evt.id : '');
-  if (evt.status) head += ' (' + evt.status + ')';
-  lines.push(head);
-  if (evt.title) lines.push('', short(String(evt.title), 600));
-  var tail = [];
-  if (evt.model) tail.push('model ' + evt.model);
-  if (evt.result) lines.push('', 'result: ' + short(String(evt.result), 500));
-  if (evt.next_action) lines.push('', 'next: ' + short(String(evt.next_action), 400));
-  if (evt.guard) tail.push('guard: MYTHOS protection/monitoring active');
-  if (tail.length) lines.push('', tail.join(' · '));
-  return lines.join('\n');
+  return presenter.presentEvent(evt).text;
 }
 
 // --- Send -----------------------------------------------------------------------------
