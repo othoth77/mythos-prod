@@ -1,0 +1,147 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-222",
+  "project": "mythos-prod",
+  "objective": "Durcir le socle du MYTHOS Communication OS selon la revue d'architecture approuvée (artefact `docs/research/MYTHOS_COMMUNICATION_OS_DEEP_RESEARCH_2026-09-05.md`, §10.7–10.8, PR #219) : contrat `CommunicationProvider` formel avec descripteur de capacités et vérification de webhook par provider ; adaptateur Evolution conforme ; noms d'événements neutres vis-à-vis du provider dans le ledger ; identités de contact (`wp_contact_identities` : WhatsApp ID, LID, BSUID, futurs identifiants) avec résolution sans doublon et migration des `wa_id`/`lid` existants ; unicité de contact fondée sur les identités ; ordre de la timeline par horodatage provider puis `created_at` ; garde de sécurité de l'assistant (`needs_human` / handoff ouvert) ; réconciliation de livraison (alarme « aucun accusé dans le délai ») et heartbeat d'inbox ; rejeu contrôlé des dead-letters ; suite de tests de contrat avec un faux provider. Tout reste derrière les flags existants.",
+  "scope": [
+    "`reference/comms/provider.js` (contrat + registre + validation), `providers/evolution.js` conformé, `providers/fake.js` (tests)",
+    "`reference/comms/events.js` (noms neutres, mapping) ; ledger et journal persistent ces noms ; idempotence conservée",
+    "Migration `0005_identities_reconciliation` : `wp_contact_identities`, copie des `wa_id`/`lid`, unicité par identité, `wp_messages` index d'ordre, colonnes de réconciliation, `wp_inbound_events.replayed_*`",
+    "`core.js` : résolution de contact par identités (upsert sans doublon), ordre d'ingestion",
+    "`inbox.js` : ordre `provider_timestamp` puis `created_at`",
+    "`assistant.js` : refus `needs_human` / handoff ouvert (412)",
+    "`receiver.js` : `verifyWebhook` du provider (comportement Evolution inchangé)",
+    "`reconcile.js` + CLI `mythos-wp comms reconcile|heartbeat|replay` (réconciliation, heartbeat, rejeu idempotent et audité)"
+  ],
+  "constraints": [
+    "Aucun adaptateur Meta Cloud API, aucune auto-réponse, aucun média, aucun appairage, aucun trafic client, aucun changement Telegram / `mythos-bridge` / n8n / état Evolution",
+    "`ssangyong-autos` reste `closed`, inbound/outbound off ; `mythos-bridge` intouché",
+    "Migration additive, contacts existants préservés ; pas de force push ; travail étranger protégé",
+    "Exécutée par la session opérateur ; toute tentative du bridge sur cette Issue est une revue en lecture seule"
+  ],
+  "priority": "high",
+  "requested_action": "review",
+  "action_raw": "review",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "Docs : architecture §14, runbook, `AI_HANDOVER.md`",
+    "`tests/mythos-wp-comms-contract-test.js` et `tests/mythos-wp-comms-hardening-test.js` passent ; suites existantes (schema, receiver, inboxes, inbox, outbound, assistant, multiservice, panel, gateway-verify, whatsapp-notify, governance/redaction) sans régression",
+    "Migration 0005 appliquée en production ; `wp_contact_identities` = copie des contacts existants (0 aujourd'hui) ; `ssangyong-autos` inchangé ; `mythos-bridge` open, webhook null",
+    "Sur un payload synthétique : `POST /hooks/evolution` toujours 401 sans jeton et `dry_run` avec jeton ; `suggest` sur une conversation `needs_human` → 412"
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-05T18:54:59.441Z",
+  "created_by": "github-issue:othoth77",
+  "depends_on": [
+    "gh-issue-217"
+  ],
+  "notes": "Source: GitHub Issue #222 https://github.com/othoth77/mythos-prod/issues/222 — \"MYTHOS-COMMS-9 — Communication Provider Contract & Event Ledger Hardening\"\n\nrequested_action: review — source explicit_current_issue (written as \"review\") → execution profile repo-read",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 222,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/222",
+    "issue_id": 5360225800,
+    "issue_node_id": "I_kwDOTnlaF88AAAABP36OCA",
+    "issue_title": "MYTHOS-COMMS-9 — Communication Provider Contract & Event Ledger Hardening",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-05T18:54:13Z",
+    "issue_updated_at": "2026-09-05T18:54:13Z",
+    "issue_labels": [
+      "enhancement",
+      "task",
+      "whatsapp"
+    ],
+    "content_sha256": "f54e11db2d6642d62da58726dd67ee1bf69616d35b53e3ff34490ad94233785b",
+    "attempt": 1,
+    "attempt_id": "gh-issue-222#1",
+    "idempotency_key": "3bbb22a1149c7a4a5b145e6372ecd86e9f774b4956aed43fa48177865a5aa46a",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "review",
+      "action_raw": "review",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "review",
+          "action": "review",
+          "form": "inline",
+          "line": 27
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-05T18:54:59.442Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-05T18:54:59.442Z",
+        "event": "issue_received",
+        "reason": "open Issue #222 with label task",
+        "content_sha256": "f54e11db2d6642d62da58726dd67ee1bf69616d35b53e3ff34490ad94233785b"
+      },
+      {
+        "at": "2026-09-05T18:54:59.442Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → review (raw \"review\")"
+      },
+      {
+        "at": "2026-09-05T18:54:59.442Z",
+        "event": "profile_resolved",
+        "reason": "review → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-05T18:54:59.442Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-05T18:55:00.863Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-222.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-05T18:54:59.442Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5554053712,
+        "url": "https://github.com/othoth77/mythos-prod/issues/222#issuecomment-5554053712",
+        "at": "2026-09-05T18:55:00.261Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
