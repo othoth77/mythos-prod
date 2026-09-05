@@ -1,0 +1,141 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-211",
+  "project": "mythos-prod",
+  "objective": "Brancher l'intelligence MYTHOS existante (moteur #173 : intents, ports Knowledge / Products / Stock vérifiés, Business Rules, fact guard, policy gate) sur les conversations du Communication Core pour produire des **suggestions de réponse** (jamais un envoi automatique) : à la demande depuis l'Inbox ou automatiquement à chaque message entrant quand l'inbox l'autorise. Chaque exécution est enregistrée dans `wp_ai_runs` (décision, confiance, faits utilisés, version de prompt, latence) et ses textes dans `wp_ai_suggestions` ; l'opérateur peut Envoyer / Modifier / Régénérer / Rejeter, et le résultat est tracé. L'IA n'invente jamais prix, stock, politiques ou délais : sans fait vérifié → question ou handoff.",
+  "scope": [
+    "`reference/comms/assistant.js` : `suggest(pool, projectId, convId, actor, { message_id, mode })` → contexte (N derniers messages + mémoire contact) → `engine.process` (#173, dry-run forcé, ports du panneau) → `wp_ai_runs` + `wp_ai_suggestions` (rank 1) ; `decision` suggest | handoff ; handoff → ligne `wp_handoffs` liée + statut `needs_human`",
+    "Déclencheur automatique : sur `message.in` si `wp_inboxes.settings.ai_suggest = true` (OFF par défaut)",
+    "API : `POST …/conversations/:id/suggest`, `GET …/conversations/:id/suggestions`, `POST …/suggestions/:sid/decide` `{ action: accept | edit | reject, text? }` (accept/edit renvoie vers l'envoi humain de COMMS-5 avec `ai_run_id`)",
+    "UI : bouton « AI suggestion » actif, carte suggestion avec [Send] [Edit] [Regenerate] [Reject], faits vérifiés / manquants, confiance"
+  ],
+  "constraints": [
+    "Aucun envoi automatique ; aucune clé IA externe requise (générateur template du moteur #173) ; un générateur LLM éventuel reste derrière configuration hors Git",
+    "Le texte client n'altère jamais instructions, règles, permissions ; les faits viennent uniquement des ports",
+    "Pas de prompt brut ni de secret en base ; `outbound_enabled`/`inbound_enabled` inchangés en production"
+  ],
+  "priority": "high",
+  "requested_action": "review",
+  "action_raw": "review",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "Docs : architecture §11–12, `AI_HANDOVER.md`",
+    "`node tests/mythos-wp-comms-assistant-test.js` passe ; suites existantes en non-régression",
+    "Gate 8/9 (après Gate 4/6) : une suggestion réelle issue des données MYTHOS, validée par un humain, atteint WhatsApp"
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-05T16:09:19.210Z",
+  "created_by": "github-issue:othoth77",
+  "depends_on": [
+    "gh-issue-209"
+  ],
+  "notes": "Source: GitHub Issue #211 https://github.com/othoth77/mythos-prod/issues/211 — \"MYTHOS-COMMS-7 — AI Assistant (suggest-only) on the Communication Core\"\n\nrequested_action: review — source explicit_current_issue (written as \"review\") → execution profile repo-read",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 211,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/211",
+    "issue_id": 5359183947,
+    "issue_node_id": "I_kwDOTnlaF88AAAABP26oSw",
+    "issue_title": "MYTHOS-COMMS-7 — AI Assistant (suggest-only) on the Communication Core",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-05T16:08:08Z",
+    "issue_updated_at": "2026-09-05T16:08:08Z",
+    "issue_labels": [
+      "enhancement",
+      "task",
+      "whatsapp"
+    ],
+    "content_sha256": "c2e2fe8ee8c8802f005996db604b2ad6321b17d19307d7ca93809c37bc9f141a",
+    "attempt": 1,
+    "attempt_id": "gh-issue-211#1",
+    "idempotency_key": "17785ae83a1b37496869130fd4d23dceac59a22733e05959ef75e5abc8d2e9d2",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "review",
+      "action_raw": "review",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "review",
+          "action": "review",
+          "form": "inline",
+          "line": 21
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-05T16:09:19.213Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-05T16:09:19.213Z",
+        "event": "issue_received",
+        "reason": "open Issue #211 with label task",
+        "content_sha256": "c2e2fe8ee8c8802f005996db604b2ad6321b17d19307d7ca93809c37bc9f141a"
+      },
+      {
+        "at": "2026-09-05T16:09:19.213Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → review (raw \"review\")"
+      },
+      {
+        "at": "2026-09-05T16:09:19.213Z",
+        "event": "profile_resolved",
+        "reason": "review → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-05T16:09:19.213Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-05T16:09:20.678Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-211.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-05T16:09:19.213Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5553070458,
+        "url": "https://github.com/othoth77/mythos-prod/issues/211#issuecomment-5553070458",
+        "at": "2026-09-05T16:09:20.031Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
