@@ -147,6 +147,16 @@
         "at": "2026-09-05T01:42:53.939Z",
         "existed": false,
         "executor_task_id": "t-20260905014252-3igcmy"
+      },
+      "report": {
+        "comment_id": 5548668647,
+        "url": "https://github.com/othoth77/mythos-prod/issues/173#issuecomment-5548668647",
+        "at": "2026-09-05T02:14:31.755Z",
+        "existed": false,
+        "status": "COMPLETED",
+        "control_status": "COMPLETED",
+        "report_file": "control/reports/gh-issue-173.json",
+        "commits_on_origin": true
       }
     },
     "labels": {
@@ -154,7 +164,8 @@
         "mythos:queued"
       ],
       "removed": []
-    }
+    },
+    "issue_state": "COMPLETED"
   },
   "execution": {
     "executor_task_id": "t-20260905014252-3igcmy",
