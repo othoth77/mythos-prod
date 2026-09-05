@@ -21,17 +21,20 @@ const LABELS = {
   amount: 'Montant', description: 'Description', original_name: 'Fichier', mime_type: 'Type', byte_size: 'Taille',
   category: 'Catégorie', sku: 'SKU', label: 'Libellé', unit: 'Unité', min_quantity: 'Seuil de réappro.', kind: 'Type',
   iban: 'IBAN', created_at: 'Créé le', updated_at: 'Modifié le', user_id: 'Utilisateur', quote_id: 'Devis',
-  sha256: 'SHA-256', storage_key: 'Clé de stockage', uploaded_by: 'Déposé par'
+  sha256: 'SHA-256', storage_key: 'Clé de stockage', uploaded_by: 'Déposé par',
+  contact_name: 'Contact', score: 'Score', expected_value: 'Valeur estimée', next_action_on: 'Prochaine action',
+  converted_client_id: 'Client converti', converted_at: 'Converti le'
 };
 export const RESOURCE_TITLES = {
   clients: 'Clients', contacts: 'Contacts', suppliers: 'Fournisseurs', collaborators: 'Collaborateurs',
   projects: 'Projets', appointments: 'Rendez-vous', representations: 'Représentations', contracts: 'Contrats',
   quotes: 'Devis', purchases: 'Achats', expenses: 'Dépenses', documents: 'Documents', inventory_items: 'Articles',
-  natures: 'Natures de projet', expense_categories: 'Catégories de dépense', bank_accounts: 'Comptes bancaires'
+  natures: 'Natures de projet', expense_categories: 'Catégories de dépense', bank_accounts: 'Comptes bancaires',
+  prospects: 'Prospects'
 };
 const HIDDEN_COLUMNS = ['id', 'deleted_at', 'legacy_id', 'notes', 'updated_at', 'storage_key', 'sha256', 'uploaded_by', 'address', 'postal_code'];
 const DATE_FIELDS = /(_on|_at)$/;
-const NUM_FIELDS = /^(amount|amount_ht|amount_ttc|vat_rate|capacity|min_quantity|byte_size)$/;
+const NUM_FIELDS = /^(amount|amount_ht|amount_ttc|vat_rate|capacity|min_quantity|byte_size|score|expected_value)$/;
 const LOOKUPS = { client_id: 'clients', project_id: 'projects', supplier_id: 'suppliers', nature_id: 'natures', category_id: 'expense_categories' };
 
 export function label(k) { return LABELS[k] || k; }
@@ -41,7 +44,7 @@ function render(col, row) {
   if (v === null || v === undefined) return '—';
   if (col === 'status') return statusBadge(v);
   if (DATE_FIELDS.test(col)) return fmtDate(v);
-  if (NUM_FIELDS.test(col)) return fmtNum(v, col === 'capacity' || col === 'byte_size' ? 0 : 3);
+  if (NUM_FIELDS.test(col)) return fmtNum(v, /^(capacity|byte_size|score)$/.test(col) ? 0 : 3);
   if (/_id$/.test(col)) return h('span', { class: 'mono', title: v, text: shortId(v) });
   return String(v);
 }
@@ -89,6 +92,12 @@ export function resourceView(name, container, opts = {}) {
         (r) => [
           h('button', { type: 'button', class: 'btn btn-ghost btn-sm', text: 'Détail', onClick: () => openDetail(r) }),
           h('button', { type: 'button', class: 'btn btn-secondary btn-sm', text: 'Modifier', onClick: () => openForm(r) }),
+          name === 'prospects' && !r.converted_client_id
+            ? h('button', { type: 'button', class: 'btn btn-primary btn-sm', text: 'Convertir en client', onClick: () => convertProspect(r) })
+            : null,
+          name === 'prospects' && r.converted_client_id
+            ? h('a', { class: 'btn btn-ghost btn-sm', href: '#/clients', title: r.converted_client_id, text: 'Client ✓' })
+            : null,
           h('button', { type: 'button', class: 'btn btn-danger btn-sm', text: 'Retirer', onClick: () => retire(r) })
         ]));
       body.appendChild(pagination({ total: page.total, limit: page.limit, offset: page.offset, onPage: (o) => { state.offset = o; load(); } }));
@@ -152,6 +161,15 @@ export function resourceView(name, container, opts = {}) {
     submit.addEventListener('click', () => form.requestSubmit());
   }
 
+  /* Prospect → client: one server action, audited on both tables. */
+  async function convertProspect(row) {
+    const ok = await confirmDialog({ title: 'Convertir « ' + row.name + ' » en client ?', confirmLabel: 'Convertir',
+      text: 'Un client est créé à partir du prospect (nom, contact, e-mail, téléphone, ville, notes) ; le prospect passe au statut « won » et reste consultable.' });
+    if (!ok) return;
+    try { const out = await api.post('/prospects/' + row.id + '/convert', {}); toast('Client créé : ' + (out.client && out.client.name || ''), 'ok'); load(); }
+    catch (e) { toast(describeError(e), 'danger'); }
+  }
+
   async function retire(row) {
     const ok = await confirmDialog({ title: 'Retirer cet enregistrement ?', danger: true, confirmLabel: 'Retirer',
       text: 'L\'enregistrement est retiré (marqué supprimé, jamais effacé) et tracé dans le journal d\'audit.' });
@@ -169,5 +187,6 @@ function statusesFor(name) {
   if (name === 'quotes') return st.quote;
   if (name === 'projects') return st.project;
   if (name === 'contracts') return ['draft', 'signed', 'cancelled'];
+  if (name === 'prospects') return st.prospect;
   return null;
 }

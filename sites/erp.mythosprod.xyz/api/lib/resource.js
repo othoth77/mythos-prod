@@ -80,7 +80,10 @@ function list(def, client, query) {
   var cols = def.columns.map(ident).join(', ');
   var sql = 'SELECT ' + cols + ' FROM ' + ident(def.table) +
             ' WHERE ' + where.join(' AND ') +
-            ' ORDER BY ' + ident(order) + ' ' + dir +
+            // NULLS LAST in both directions: a nullable sort column (score,
+            // expected_value, next_action_on…) must not float empty rows to
+            // the top of a descending list (Phase 8 E2E).
+            ' ORDER BY ' + ident(order) + ' ' + dir + ' NULLS LAST' +
             ' LIMIT ' + limit + ' OFFSET ' + offset;
   return client.query(sql, params).then(function (r) {
     return client.query('SELECT count(*)::int AS n FROM ' + ident(def.table) +

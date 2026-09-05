@@ -27,7 +27,7 @@ PASS=0; FAIL=0
 ok()    { PASS=$((PASS+1)); echo "  PASS $1"; }
 bad()   { FAIL=$((FAIL+1)); echo "  FAIL $1 — $2"; }
 check() { if eval "$2"; then ok "$1"; else bad "$1" "$3"; fi; }
-cleanup() { [ -n "$API_PID" ] && kill "$API_PID" >/dev/null 2>&1 || true; docker rm -f "$C" >/dev/null 2>&1 || true; rm -rf "$WORK"; }
+cleanup() { [ -n "$API_PID" ] && kill "$API_PID" >/dev/null 2>&1 || true; docker rm -f -v "$C" >/dev/null 2>&1 || true; rm -rf "$WORK"; }
 trap cleanup EXIT
 if [ ! -d "$API/node_modules/pg" ]; then
   export NODE_PATH="${ERP_NODE_MODULES:-/home/deploy/projects/mythos-prod/sites/erp.mythosprod.xyz/api/node_modules}"
@@ -54,9 +54,11 @@ PYEOF
 
 echo "[e2e] throwaway PostgreSQL 15: $C"
 docker run -d --name "$C" -P -e POSTGRES_USER=erp_owner -e POSTGRES_DB=mythos_erp -e POSTGRES_PASSWORD="$PW" postgres:15-alpine >/dev/null
-for i in $(seq 1 60); do docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null && break; sleep 1; [ "$i" -lt 60 ] || { echo "db never ready" >&2; exit 1; }; done
+# postgres:15 initdb starts a temporary server, then shuts it down before the real
+# start; a single pg_isready success can land in that window. Require two in a row.
+OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
-for f in schema.sql schema-auth.sql schema-tenant.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
 done
@@ -212,6 +214,50 @@ login "$ADMIN_EMAIL" "$ADMIN_PW"; [ "$R" = 200 ] || bad "owner final login" "$R"
 R=$(A "$B/session"); check "fresh login still works after the expiries" "[ $R = 200 ]" "$R"
 A -X POST "$B/auth/logout" >/dev/null
 check "no password in the API log" "! grep -qF \"$ADMIN_PW\" $WORK/api.log && ! grep -qF \"$OTHER_PW\" $WORK/api.log" ""
+
+echo "§7 prospects: schema, RLS, permissions, API, search/filter, conversion, audit"
+login "$ADMIN_EMAIL" "$ADMIN_PW"; [ "$R" = 200 ] || bad "owner login for prospects" "$R"
+check "prospects module enabled for the tenant by the migration" "[ \"$(q "select enabled from tenant_modules tm join tenants t on t.id=tm.tenant_id where t.key='mythos' and module_key='prospects'")\" = t ]" ""
+check "prospects table has RLS + tenant_isolation policy" "[ \"$(q "select relrowsecurity from pg_class where relname='prospects'")\" = t ] && [ \"$(q "select count(*) from pg_policies where tablename='prospects'")\" = 1 ]" ""
+check "4 prospects permissions seeded; read_only has read only" "[ \"$(q "select count(*) from permissions where key like 'prospects.%'")\" = 4 ] && [ \"$(q "select string_agg(p.key,',' order by p.key) from role_permissions rp join roles r on r.id=rp.role_id join permissions p on p.id=rp.permission_id where r.key='read_only' and p.key like 'prospects.%'")\" = prospects.read ]" ""
+check "erp_app: SELECT/INSERT/UPDATE on prospects, no DELETE" "[ \"$(q "select string_agg(privilege_type,',' order by privilege_type) from information_schema.role_table_grants where grantee='erp_app' and table_name='prospects'")\" = INSERT,SELECT,UPDATE ]" "$(q "select string_agg(privilege_type,',') from information_schema.role_table_grants where grantee='erp_app' and table_name='prospects'")"
+R=$(A "$B/meta"); check "meta publishes the prospects resource and status vocabulary" "[ $R = 200 ] && grep -q '\"prospects\"' $J && grep -q '\"qualified\"' $J" ""
+R=$(A -X POST "$B/prospects" -d '{"name":"Festival Carthage","contact_name":"Leila B.","email":"leila@festival.test","phone":"+216 20 000 000","city":"Carthage","source":"referral","status":"new","score":70,"expected_value":15000,"next_action_on":"2026-09-15","notes":"Rencontre au salon"}'); check "prospect created (201)" "[ $R = 201 ]" "$R $(cat $J)"; PROSPECT=$(jget id)
+R=$(A -X POST "$B/prospects" -d '{"name":"Cold Lead","source":"web","status":"contacted"}'); check "second prospect created" "[ $R = 201 ]" "$R"; P2=$(jget id)
+R=$(A -X POST "$B/prospects" -d '{"name":"Bad","status":"won"}'); check "status won cannot be set directly (422)" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/prospects" -d '{"name":"Bad","score":150}'); check "score outside 0..100 → 422" "[ $R = 422 ]" "$R"
+R=$(A -X POST "$B/prospects" -d '{"name":"Bad","status":"maybe"}'); check "unknown status → 422" "[ $R = 422 ]" "$R"
+R=$(A "$B/prospects?search=carthage"); check "search by name (trigram-indexed) finds it" "[ $R = 200 ] && [ \"$(jget total)\" = 1 ]" "$(cat $J | head -c 200)"
+R=$(A "$B/prospects?search=leila"); check "search by contact name" "[ $R = 200 ] && [ \"$(jget total)\" = 1 ]" ""
+R=$(A "$B/prospects?status=contacted"); check "filter by status" "[ $R = 200 ] && [ \"$(jget total)\" = 1 ] && [ \"$(jget rows.0.name)\" = 'Cold Lead' ]" ""
+R=$(A "$B/prospects?source=referral"); check "filter by source" "[ $R = 200 ] && [ \"$(jget total)\" = 1 ]" ""
+R=$(A "$B/prospects?sort=expected_value&dir=desc"); check "sort by expected_value" "[ $R = 200 ] && [ \"$(jget rows.0.name)\" = 'Festival Carthage' ]" ""
+R=$(A -X PATCH "$B/prospects/$PROSPECT" -d '{"status":"qualified","score":85}'); check "prospect updated (qualified, 85)" "[ $R = 200 ] && [ \"$(jget status)\" = qualified ] && [ \"$(jget score)\" = 85 ]" "$R $(cat $J)"
+N_CL_BEFORE=$(q "select count(*) from clients where tenant_id=(select id from tenants where key='mythos')")
+R=$(A -X POST "$B/prospects/$PROSPECT/convert" -d '{}'); check "convert → 201 with client + prospect" "[ $R = 201 ] && [ \"$(jget client.name)\" = 'Festival Carthage' ] && [ \"$(jget prospect.status)\" = won ]" "$R $(cat $J)"; NEWCLIENT=$(jget client.id)
+check "one client created in mythos, with the prospect's email/city" "[ \"$(q "select count(*) from clients where tenant_id=(select id from tenants where key='mythos')")\" = $((N_CL_BEFORE+1)) ] && [ \"$(q "select email||'|'||city from clients where id='$NEWCLIENT'")\" = 'leila@festival.test|Carthage' ]" ""
+check "prospect links to the client (converted_client_id, converted_at)" "[ \"$(q "select converted_client_id::text||' '||(converted_at is not null)::text from prospects where id='$PROSPECT'")\" = \"$NEWCLIENT true\" ]" "$(q "select converted_client_id::text||' '||(converted_at is not null)::text from prospects where id='$PROSPECT'")"
+R=$(A -X POST "$B/prospects/$PROSPECT/convert" -d '{}'); check "second conversion → 409 already_converted" "[ $R = 409 ] && grep -q already_converted $J" "$R $(cat $J)"
+R=$(A -X PATCH "$B/prospects/$PROSPECT" -d '{"converted_client_id":null}'); check "converted_client_id is not writable through PATCH (ignored)" "[ $R = 200 ] && [ \"$(q "select converted_client_id is not null from prospects where id='$PROSPECT'")\" = t ]" "$R"
+R=$(A "$B/audit?entity_table=prospects"); check "audit: prospects rows (created ×2, updated ×2 incl. conversion)" "[ $R = 200 ] && [ \"$(python3 -c "import json; d=json.load(open('$J')); print(len(d['rows']))")\" -ge 4 ] && grep -q '\"converted\":true' $J" "$(head -c 300 $J)"
+R=$(A "$B/audit?entity_table=clients"); check "audit: client creation from the prospect is its own row" "grep -q 'from_prospect' $J" ""
+R=$(A -X PATCH "$B/prospects/$P2" -d '{"status":"lost"}'); R=$(A -X POST "$B/prospects/$P2/convert" -d '{}'); check "a lost prospect cannot be converted (409)" "[ $R = 409 ]" "$R"
+R=$(A -X DELETE "$B/prospects/$P2"); check "retire (soft delete) → 200" "[ $R = 200 ] && [ \"$(q "select deleted_at is not null from prospects where id='$P2'")\" = t ]" "$R"
+R=$(A "$B/prospects"); check "retired prospect hidden from the list (total 1)" "[ \"$(jget total)\" = 1 ]" "$(jget total)"
+A -X POST "$B/auth/logout" >/dev/null
+login rita@mythos.test "$OTHER_PW"; [ "$R" = 200 ] || bad "rita login" "$R"
+R=$(A "$B/prospects"); check "read_only can list prospects" "[ $R = 200 ]" "$R"
+R=$(A -X POST "$B/prospects" -d '{"name":"Nope"}'); check "read_only cannot create a prospect (403)" "[ $R = 403 ]" "$R"
+A -X POST "$B/auth/logout" >/dev/null
+# manager-level user: write yes, convert yes; acme admin: cannot see mythos prospects
+login bob@acme.test "$OTHER_PW"; [ "$R" = 200 ] || bad "bob login" "$R"
+R=$(A "$B/prospects"); check "module gate: acme (created after the migration) has no prospects module → 404" "[ $R = 404 ] && grep -q module_not_enabled $J" "$R $(cat $J)"
+q "insert into tenant_modules (tenant_id, module_key, enabled) select id, 'prospects', true from tenants where key='acme'" >/dev/null
+R=$(A "$B/prospects"); check "acme, module enabled: sees 0 mythos prospects" "[ $R = 200 ] && [ \"$(jget total)\" = 0 ]" "$(cat $J)"
+R=$(A "$B/prospects/$PROSPECT"); check "acme GET mythos prospect → 404" "[ $R = 404 ]" "$R"
+R=$(A -X POST "$B/prospects/$PROSPECT/convert" -d '{}'); check "acme convert mythos prospect → 404 (invisible), no client created" "[ $R = 404 ] && [ \"$(q "select count(*) from clients where tenant_id=(select id from tenants where key='acme')")\" = 1 ]" "$R"
+A -X POST "$B/auth/logout" >/dev/null
+check "no password in the API log (prospects)" "! grep -qF \"$ADMIN_PW\" $WORK/api.log" ""
 
 echo
 echo "erp-core-e2e-drill: $PASS passed, $FAIL failed"

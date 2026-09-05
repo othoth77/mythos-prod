@@ -29,7 +29,7 @@ check() { if eval "$2"; then ok "$1"; else bad "$1" "$3"; fi; }
 cleanup() {
   [ -n "$PROXY_PID" ] && kill "$PROXY_PID" >/dev/null 2>&1 || true
   [ -n "$API_PID" ] && kill "$API_PID" >/dev/null 2>&1 || true
-  docker rm -f "$C" >/dev/null 2>&1 || true
+  docker rm -f -v "$C" >/dev/null 2>&1 || true
   rm -rf "$WORK"
 }
 trap cleanup EXIT
@@ -60,9 +60,9 @@ PYEOF
 
 echo "[frontend-drill] throwaway PostgreSQL 15: $C"
 docker run -d --name "$C" -P -e POSTGRES_USER=erp_owner -e POSTGRES_DB=mythos_erp -e POSTGRES_PASSWORD="$PW" postgres:15-alpine >/dev/null
-for i in $(seq 1 60); do docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null && break; sleep 1; [ "$i" -lt 60 ] || { echo "db never ready" >&2; exit 1; }; done
+OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
-for f in schema.sql schema-auth.sql schema-tenant.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
 done
@@ -118,6 +118,8 @@ R=$(auth -X POST "$B/api/v1/invoices" -H 'content-type: application/json' -d "{\
 INV=$(python3 -c "import json; print(json.load(open('$J'))['id'])"); INVNUM=$(python3 -c "import json; print(json.load(open('$J'))['number'])")
 R=$(auth -X PATCH "$B/api/v1/invoices/$INV" -H 'content-type: application/json' -d '{"status":"sent"}'); check "invoice → sent" "[ $R = 200 ]" "$R $(cat $J)"
 R=$(auth -X POST "$B/api/v1/invoices/$INV/payments" -H 'content-type: application/json' -d "{\"paid_on\":\"$(date -u +%F)\",\"amount\":100,\"method\":\"virement\"}"); check "partial payment → 201, status part_paid" "[ $R = 201 ] && grep -q part_paid $J" "$R $(cat $J)"
+# Seed everything BEFORE the browser runs: the SPA restores its session via GET /session, which rotates the CSRF token.
+R=$(auth -X POST "$B/api/v1/prospects" -H 'content-type: application/json' -d '{"name":"Prospect Drill","status":"qualified","source":"web","expected_value":1200}'); check "seed prospect → 201" "[ $R = 201 ]" "$R $(cat $J)"
 
 echo "§3 headless Chromium renders the authenticated app (cookie-injecting proxy)"
 ERP_PROXY_COOKIE="$COOKIE" ERP_PROXY_CSRF="$CSRF" node "$ROOT/tests/lib/erp-cookie-proxy.js" "$PROXY_PORT" "$API_PORT" >"$WORK/proxy.log" 2>&1 &
@@ -185,6 +187,8 @@ dom "$P/#/audit"
 # login.success / logout are platform-level rows (tenant_id NULL): the tenant
 # journal cannot see them by RLS design, so the assertion uses tenant-tagged rows.
 check "audit: tenant journal shows record.created and record.updated" "txt 'record.created' && txt 'record.updated'" "$(grep -o 'Journal.\{0,400\}' $WORK/dom.txt | head -c 400) | api: $(auth "$B/api/v1/audit?limit=3" >/dev/null; head -c 300 $J)"
+dom "$P/#/prospects"
+check "prospects view: rail entry, row, status badge, convert action" "has 'data-module=\"prospects\"' && txt 'Prospect Drill' && txt 'qualified' && txt 'Convertir en client'" "$(grep -o 'Prospects.\{0,300\}' $WORK/dom.txt | head -c 300)"
 dom "$P/#/planning"
 check "planning: honest empty state" "txt 'Aucun enregistrement'" ""
 dom "$P/#/nope/../x"
