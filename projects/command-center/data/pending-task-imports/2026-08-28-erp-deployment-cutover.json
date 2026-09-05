@@ -1,0 +1,28 @@
+{
+  "command": "OTHMODE — MYTHOS ERP — FINAL DEPLOYMENT + CUTOVER: deploy the secure backend to erp.mythosprod.xyz, migrate, verify security gates, cut the frontend over, keep production locked until secure",
+  "status": "BLOCKED",
+  "phase": "DEPLOYMENT",
+  "project": "mythos-os",
+  "source": "claude-code-remote/claude/mythos-erp-modernization-l1ptyo",
+  "sections": {
+    "preflight": {"environment": "Claude Code remote sandbox — NO SSH/host access to the production VPS; egress proxy blocks erp.mythosprod.xyz. Per §24/§26: prepare every artifact + exact host commands, identify host-only steps, do NOT claim deployment complete (§25)."},
+    "status_center": "UNREACHABLE — egress proxy blocks *.mythosprod.xyz.",
+    "search_first": {"reuse": "existing deploy artifacts (nginx vhost, .env.example); existing ops/backup off-host pipeline (backup is a capture primitive, not a new system); existing probes.json monitoring; existing import-localstorage migration tool; systemd (already on host) for future jobs. No new deployment/monitoring/backup mechanism introduced."},
+    "execution": {
+      "built_this_phase": "deploy/DEPLOY_RUNBOOK.md (authoritative ordered host package, §2-§22); deploy/preflight-check.sh (§3 host prereq audit); deploy/verify-deployed.sh (§9/§18 on-host security gate); deploy/rollback.sh (§17).",
+      "self_tested": "preflight-check.sh runs + self-corrected a fileinfo check; verify-deployed.sh run against a deployed instance -> 16/0; rollback.sh lints; full battery re-run (unit 13 / security 24 / migration 11 / backup 8 / e2e 19 = 75) + node gate PASS."
+    },
+    "changes": {"added": "projects/erp-backend/deploy/{DEPLOY_RUNBOOK.md,preflight-check.sh,verify-deployed.sh,rollback.sh}. No production code touched; frontend secure flag stays OFF; legacy api.php/upload.php/cleanup.php disabled+untouched; nothing exposed; static-preservation route intact.", "commit": "148c6f4"},
+    "validation": {"verify-deployed (host gate, against a deployed instance)": "16/0", "preflight-check": "runs correctly (FAILs only on nginx/certbot, host-provided)", "full battery": "75/0", "node gate": "PASS"},
+    "deployment": "NOT DEPLOYED — erp.mythosprod.xyz is NOT live and remains correctly locked. Host-only steps remaining (require SSH + owner): DNS A record (owner) -> file placement -> env file -> migrate -> admin user -> data import+verify -> nginx enable+FPM -> run verify-deployed.sh gate -> certbot/TLS -> monitor probe -> backup wiring + restore test -> rollback rehearsal -> production E2E -> frontend flag cutover. All commands are in DEPLOY_RUNBOOK.md.",
+    "problems": "BLOCKED at DEPLOYMENT solely by lack of host access + the owner DNS gate (§24 real-stop condition). Not a development gap: every locally-buildable + verifiable artifact is complete and green. §25 no-false-completion respected — the site is not claimed live.",
+    "outcome": "Complete, ordered host execution package delivered and self-tested where possible. Development is DONE and verified (75 checks); deployment awaits a host operator running DEPLOY_RUNBOOK.md + owner DNS approval. The secure backend, migration, backup/restore, and integration are all proven in-repo.",
+    "evolution": "No new Evolution capsule — packaging + host-blocked deployment."
+  },
+  "evidence_texts": [
+    "verify-deployed.sh vs deployed instance: 16 passed, 0 failed (SECURITY GATE PASSED)",
+    "preflight-check.sh: 12 ok / warn / 2 fail (nginx+certbot absent in sandbox, host-provided)",
+    "full battery 75/0; node mos-v2 gate SUCCESS",
+    "erp.mythosprod.xyz still 403 static-preservation — deliberately NOT changed"
+  ]
+}

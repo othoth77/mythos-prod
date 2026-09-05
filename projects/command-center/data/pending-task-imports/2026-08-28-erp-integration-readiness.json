@@ -1,0 +1,39 @@
+{
+  "command": "OTHMODE — MYTHOS ERP — COMPLETE BACKEND INTEGRATION + PRODUCTION READINESS: integrate the secure backend with the frontend; migration, security, e2e, backup; keep production locked",
+  "status": "COMPLETED",
+  "phase": "COMPLETED",
+  "project": "mythos-os",
+  "source": "claude-code-remote/claude/mythos-erp-modernization-l1ptyo",
+  "sections": {
+    "preflight": {"environment": "Claude Code remote sandbox — PHP 8.4 + Playwright/chromium available; no host/SSH; production stays locked (§0)."},
+    "status_center": "UNREACHABLE — egress proxy blocks *.mythosprod.xyz.",
+    "search_first": {
+      "data_flow": "Frontend business modules persist via STORE (localStorage) + sync.js; transport (js/core/api.js) points at api.php. Single well-contained integration point.",
+      "reuse": "OTHMODE session pattern; existing api.php collection shape (compat); existing ops/backup off-host pipeline (backup is a capture primitive plugged in, not a new system); import-localstorage tool (no second migration system)."
+    },
+    "execution": {
+      "integration": "js/core/secure-client.js (window.MythosSecure) — DORMANT by default (localStorage flag), so the live app is unchanged (§0/§8/§24). Registered as an inert <script> in index.html. Carries session cookie + CSRF; login/logout/me/getCollection/putCollection/upload + applyRbac UX helper.",
+      "versioning": "§16 schema_migrations (001-initial), idempotent migrate().",
+      "backup": "§17 cli/backup.php (VACUUM INTO + uploads + sha256 manifest) / cli/restore.php (verify-then-restore, fail-closed) — capture primitive for the existing off-host pipeline."
+    },
+    "changes": {"added": "js/core/secure-client.js; projects/erp-backend/{cli/backup,cli/restore}.php; tests/{migration,backup}-test.sh; tests/e2e/*; schema_migrations. index.html gains a dormant script tag (CRLF preserved). No production code touched; legacy api.php/upload.php disabled+untouched; nothing exposed.", "commits": ["43b34d3 integration+e2e+migration", "fd2fb84 versioning+backup"]},
+    "validation": {
+      "e2e (Playwright, real client vs real backend)": "19/0 — 3-role login, read/create/update, upload, RBAC UX, viewer write 403, logout 401, session+data persist across reload, 0 uncaught JS errors",
+      "migration (§7)": "11/0 — IDs/dates/financial values preserved, traversal/unknown rejected, non-destructive re-import, audited",
+      "backup/restore (§17)": "8/0 — disaster→restore round-trip byte-for-byte, tampered snapshot refused",
+      "security (§18)": "24/0", "unit": "13/0", "schema versioning (§16)": "001-initial idempotent",
+      "live app boot": "login screen unchanged, 0 new console errors (dormant client inert)",
+      "node gate (mos-v2)": "PASS, 0 new failures"
+    },
+    "deployment": "GATED (§0/§28): production stays locked. Artifacts ready (nginx vhost, .env.example, migrate/create-user/backup/restore CLIs). Public activation needs: owner DNS approval (erp.mythosprod.xyz -> 51.68.226.211) + host access + on-host §17 re-run + enable the erp monitor probe + flip the frontend flag module-by-module. Legacy insecure PHP stays disabled (§24).",
+    "problems": "Not blocked for development (all locally-verifiable work done + tested). Genuinely host/owner-gated: public deployment + DNS/TLS; the module-by-module frontend cutover happens during deployment; server-side notification jobs (§13) need data migrated first + deployment (architecture documented). Backup off-host transfer reuses existing tooling (not rebuilt).",
+    "outcome": "Frontend↔backend integration built and verified end-to-end in a real browser; migration, backup/restore, schema versioning, and the full security suite all green (75 checks). Production correctly kept locked. The ERP is development-complete and deployment-ready pending owner DNS + host access.",
+    "evolution": "Candidate Evolution event (secure integration capability, PASS) — reference on host import if the rules qualify it."
+  },
+  "evidence_texts": [
+    "e2e 19/0; migration 11/0; backup 8/0; security 24/0; unit 13/0 — total 75",
+    "live boot: dormant secure-client adds 0 new console errors",
+    "backup-test: disaster→restore restores collection byte-for-byte; tampered set refused",
+    "node mos-v2 gate: SUCCESS, 0 new failures"
+  ]
+}

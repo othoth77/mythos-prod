@@ -187,9 +187,9 @@ function removePersonRow(btn) {
 
 // addOmPerson → js/shared/mission-orders.js
 
-function addLine() {
-  alert('Fonctionnalité en développement');
-}
+// addLine, removeLine, getLines → js/shared/invoices.js
+// (the legacy "Fonctionnalité en développement" stub was a dead duplicate:
+//  invoices.js loads after app.js and owns the working implementation)
 
 function setOmDateQuick(offsetDays) {
   const d = new Date();
@@ -211,7 +211,8 @@ function setOmTimeQuick(time) {
   }
 }
 
-function applyOmMissionType() {}
+// applyOmMissionType -> js/shared/mission-orders.js (owns the real
+// implementation; this empty stub was a dead duplicate shadowed at runtime)
 
 
 // ── OM FUNCTIONS → js/shared/mission-orders.js ──
@@ -704,6 +705,18 @@ function closeModalFromOutsideClick(event) {
   }
 }
 
+// Keyboard parity with the backdrop click above (WCAG 2.1.1): Escape closes
+// the top-most open modal, using the same close mechanism (hide the overlay).
+function closeTopModalOnEscape(event) {
+  if (event.key !== 'Escape') return;
+  var open = Array.prototype.filter.call(
+    document.querySelectorAll('.modal-overlay'),
+    function (m) { return m.style.display !== 'none' && getComputedStyle(m).display !== 'none'; }
+  );
+  if (!open.length) return;
+  open[open.length - 1].style.display = 'none';
+}
+
 // ── SANITIZE INPUT ──
 // [utils.js] sanitizeInput
 
@@ -859,11 +872,11 @@ const _origShowViewForLogs = showView;
   window.showView = function(viewName) {
     if (viewName === 'logs') {
       document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(el => { el.classList.remove('active'); el.removeAttribute('aria-current'); });
       const target = document.getElementById('view-logs');
       if (target) target.classList.add('active');
       const nav = document.getElementById('nav-logs');
-      if (nav) nav.classList.add('active');
+      if (nav) { nav.classList.add('active'); nav.setAttribute('aria-current', 'page'); }
       renderLogs();
       updateSidebarStats();
       location.hash = 'logs';
@@ -875,6 +888,7 @@ const _origShowViewForLogs = showView;
 
 document.addEventListener('DOMContentLoaded', bootstrapStableApp);
 document.addEventListener('click', closeModalFromOutsideClick);
+document.addEventListener('keydown', closeTopModalOnEscape);
 
 // ── Gestion rotation / arrière-plan / retour cache mobile ────────────
 // Sur iOS/Android, pageshow se déclenche aussi quand la page revient

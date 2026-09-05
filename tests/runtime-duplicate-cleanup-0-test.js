@@ -34,12 +34,16 @@ ok(countFunctionDefs(app, 'editInvoice') === 0, 'app.js has zero editInvoice def
 ok(countFunctionDefs(app, 'deleteInvoice') === 0, 'app.js has zero deleteInvoice definitions');
 ok(countFunctionDefs(invoicesSrc, 'editInvoice') === 1, 'invoices.js has exactly one editInvoice definition');
 ok(countFunctionDefs(invoicesSrc, 'deleteInvoice') === 1, 'invoices.js has exactly one deleteInvoice definition');
+ok(countFunctionDefs(app, 'addLine') === 0, 'app.js has zero addLine definitions (the dead "Fonctionnalité en développement" stub is removed)');
+ok(countFunctionDefs(invoicesSrc, 'addLine') === 1, 'invoices.js has exactly one addLine definition');
 
 console.log('\n5-6. Mission-order ownership: canonical in mission-orders.js');
 ok(countFunctionDefs(app, 'addOmPerson') === 0, 'app.js has zero addOmPerson definitions');
 ok(countFunctionDefs(app, 'cancelOM') === 0, 'app.js has zero cancelOM definitions');
 ok(countFunctionDefs(moSrc, 'addOmPerson') === 1, 'mission-orders.js has exactly one addOmPerson definition');
 ok(countFunctionDefs(moSrc, 'cancelOM') === 1, 'mission-orders.js has exactly one cancelOM definition');
+ok(countFunctionDefs(app, 'applyOmMissionType') === 0, 'app.js has zero applyOmMissionType definitions (the dead empty stub is removed)');
+ok(countFunctionDefs(moSrc, 'applyOmMissionType') === 1, 'mission-orders.js has exactly one applyOmMissionType definition');
 
 console.log('\n7. Comments do not count as active definitions');
 ok(app.indexOf('editInvoice, deleteInvoice') >= 0, 'app.js carries an ownership comment, not a reimplementation');

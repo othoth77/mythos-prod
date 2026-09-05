@@ -1,0 +1,629 @@
+{
+  "_note": "SYNTHETIC TEST FIXTURE — placeholder amounts, NOT real invoice data. Structure mirrors the documented recovery set to test the import/verify/review mechanism.",
+  "candidates": [
+    {
+      "id": "inv_official_001",
+      "num": "2026/001",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 100,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 108.0,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 100,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "official",
+      "provenance": "synthetic-fixture:official",
+      "duplicateCandidate": false,
+      "assessment": "sample"
+    },
+    {
+      "id": "test_inv_001",
+      "num": "2026/001",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 1,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 2.07,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 1,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "test",
+      "provenance": "synthetic-fixture:test",
+      "duplicateCandidate": true,
+      "assessment": "test record — keep in recovery only"
+    },
+    {
+      "id": "inv_official_002",
+      "num": "2026/002",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 200,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 215.0,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 200,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "official",
+      "provenance": "synthetic-fixture:official",
+      "duplicateCandidate": false,
+      "assessment": "sample"
+    },
+    {
+      "id": "inv_recovery_002",
+      "num": "2026/002",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 200,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 215.0,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 200,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "recovery",
+      "provenance": "synthetic-fixture:recovery",
+      "duplicateCandidate": true,
+      "assessment": "possible duplicate of 002"
+    },
+    {
+      "id": "inv_official_003",
+      "num": "2026/003",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 300,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 322.0,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 300,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "official",
+      "provenance": "synthetic-fixture:official",
+      "duplicateCandidate": false,
+      "assessment": "sample"
+    },
+    {
+      "id": "inv_recovery_003",
+      "num": "2026/003",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 300,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 322.0,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 300,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "recovery",
+      "provenance": "synthetic-fixture:recovery",
+      "duplicateCandidate": false,
+      "assessment": "extra candidate"
+    },
+    {
+      "id": "inv_official_004",
+      "num": "2026/004",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 400,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 429.0,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 400,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "official",
+      "provenance": "synthetic-fixture:official",
+      "duplicateCandidate": false,
+      "assessment": "sample"
+    },
+    {
+      "id": "inv_recovery_004",
+      "num": "2026/004",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 400,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 429.0,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 400,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "recovery",
+      "provenance": "synthetic-fixture:recovery",
+      "duplicateCandidate": false,
+      "assessment": "extra candidate"
+    },
+    {
+      "id": "inv_official_005",
+      "num": "2026/005",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 500,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 536.0,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 500,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "official",
+      "provenance": "synthetic-fixture:official",
+      "duplicateCandidate": false,
+      "assessment": "sample"
+    },
+    {
+      "id": "anarca_005",
+      "num": "2026/005",
+      "date": "2026-08-02",
+      "client": "Anarca",
+      "clientName": "Anarca",
+      "ht": 100.0,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 108.0,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 100.0,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "legacy",
+      "provenance": "synthetic-fixture:legacy",
+      "duplicateCandidate": true,
+      "assessment": "legacy Anarca — preserve, not a 2nd real 005"
+    },
+    {
+      "id": "inv_official_006",
+      "num": "2026/006",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 600,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 643.0,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 600,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "official",
+      "provenance": "synthetic-fixture:official",
+      "duplicateCandidate": false,
+      "assessment": "sample"
+    },
+    {
+      "id": "demo_inv_001",
+      "num": "2026/006",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 100.0,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 108.0,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 100.0,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "demo",
+      "provenance": "synthetic-fixture:demo",
+      "duplicateCandidate": true,
+      "assessment": "demo record — recovery only"
+    },
+    {
+      "id": "inv_007_a",
+      "num": "2026/007",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 700,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 750.0,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 700,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "candidateA",
+      "provenance": "synthetic-fixture:candidateA",
+      "duplicateCandidate": true,
+      "assessment": "real-looking A — owner review"
+    },
+    {
+      "id": "inv_007_b",
+      "num": "2026/007",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 705,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 755.35,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 705,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "candidateB",
+      "provenance": "synthetic-fixture:candidateB",
+      "duplicateCandidate": true,
+      "assessment": "real-looking B — owner review"
+    },
+    {
+      "id": "inv_008_a",
+      "num": "2026/008",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 800,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 857.0,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 800,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "candidateA",
+      "provenance": "synthetic-fixture:candidateA",
+      "duplicateCandidate": true,
+      "assessment": "real-looking A — owner review"
+    },
+    {
+      "id": "inv_008_b",
+      "num": "2026/008",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 808,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 865.56,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 808,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "candidateB",
+      "provenance": "synthetic-fixture:candidateB",
+      "duplicateCandidate": true,
+      "assessment": "real-looking B — owner review"
+    },
+    {
+      "id": "inv_recovered-verified_009",
+      "num": "2026/009",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 109,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 117.63,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 109,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "recovered-verified",
+      "provenance": "synthetic-fixture:recovered-verified",
+      "duplicateCandidate": false,
+      "assessment": "verified real invoice 009-016"
+    },
+    {
+      "id": "inv_recovered-verified_010",
+      "num": "2026/010",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 110,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 118.7,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 110,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "recovered-verified",
+      "provenance": "synthetic-fixture:recovered-verified",
+      "duplicateCandidate": false,
+      "assessment": "verified real invoice 009-016"
+    },
+    {
+      "id": "inv_recovered-verified_011",
+      "num": "2026/011",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 111,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 119.77,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 111,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "recovered-verified",
+      "provenance": "synthetic-fixture:recovered-verified",
+      "duplicateCandidate": false,
+      "assessment": "verified real invoice 009-016"
+    },
+    {
+      "id": "inv_recovered-verified_012",
+      "num": "2026/012",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 112,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 120.84,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 112,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "recovered-verified",
+      "provenance": "synthetic-fixture:recovered-verified",
+      "duplicateCandidate": false,
+      "assessment": "verified real invoice 009-016"
+    },
+    {
+      "id": "inv_recovered-verified_013",
+      "num": "2026/013",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 113,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 121.91,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 113,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "recovered-verified",
+      "provenance": "synthetic-fixture:recovered-verified",
+      "duplicateCandidate": false,
+      "assessment": "verified real invoice 009-016"
+    },
+    {
+      "id": "inv_recovered-verified_014",
+      "num": "2026/014",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 114,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 122.98,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 114,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "recovered-verified",
+      "provenance": "synthetic-fixture:recovered-verified",
+      "duplicateCandidate": false,
+      "assessment": "verified real invoice 009-016"
+    },
+    {
+      "id": "inv_recovered-verified_015",
+      "num": "2026/015",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 115,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 124.05,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 115,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "recovered-verified",
+      "provenance": "synthetic-fixture:recovered-verified",
+      "duplicateCandidate": false,
+      "assessment": "verified real invoice 009-016"
+    },
+    {
+      "id": "inv_recovered-verified_016",
+      "num": "2026/016",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 116,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 125.12,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 116,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "recovered-verified",
+      "provenance": "synthetic-fixture:recovered-verified",
+      "duplicateCandidate": false,
+      "assessment": "verified real invoice 009-016"
+    },
+    {
+      "id": "inv_current-protected_017",
+      "num": "2026/017",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 1700,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 1820.0,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 1700,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "current-protected",
+      "provenance": "synthetic-fixture:current-protected",
+      "duplicateCandidate": false,
+      "assessment": "CURRENT — protected"
+    },
+    {
+      "id": "inv_current-protected_018",
+      "num": "2026/018",
+      "date": "2026-08-02",
+      "client": "SAMPLE CLIENT",
+      "clientName": "SAMPLE CLIENT",
+      "ht": 1800,
+      "tva": 7,
+      "timbre": 1.0,
+      "ttc": 1927.0,
+      "lines": [
+        {
+          "desc": "Sample line",
+          "qty": 1,
+          "pu": 1800,
+          "unit": "Forfait"
+        }
+      ],
+      "status": "pending",
+      "source": "current-protected",
+      "provenance": "synthetic-fixture:current-protected",
+      "duplicateCandidate": false,
+      "assessment": "CURRENT — protected"
+    }
+  ]
+}

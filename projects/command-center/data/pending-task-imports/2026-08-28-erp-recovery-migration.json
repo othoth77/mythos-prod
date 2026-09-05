@@ -1,0 +1,33 @@
+{
+  "command": "OTHMODE — CONTINUE MYTHOS ERP DATA MIGRATION: backup, import all 26 invoice recovery candidates into staging, preserve everything, verify 001-018, then continue deployment; do not force 007/008",
+  "status": "BLOCKED",
+  "phase": "EXECUTION",
+  "project": "mythos-os",
+  "source": "claude-code-remote/claude/mythos-erp-modernization-l1ptyo",
+  "sections": {
+    "preflight": {"environment": "Claude Code remote sandbox. SEARCHED the whole machine for the named recovery files (COMPLETE_INVOICE_REVIEW_ASSESSED.json, mythos-invoices-009-016-RECOVERY.json, etc.) and their content signatures (duplicateCandidate, RECOVERY_REVIEW, demo_inv_001, Anarca) — NONE present; only unrelated docs/design-recovery. The files are on the owner's machine, not here."},
+    "status_center": "UNREACHABLE — egress proxy blocks *.mythosprod.xyz.",
+    "search_first": {"verdict": "EXTEND existing (no parallel system)", "finding": "The ERP has NO existing recovery/staging mechanism (invoices use status paid/pending only). Reused the backend's own collections model + the import-localstorage pattern; added a dedicated SEPARATE staging collection rather than a new subsystem."},
+    "execution": {
+      "blocker": "The recovery SOURCE files are not accessible from this environment, and per the owner's explicit rule they must NOT be recreated from memory (fabricating 26 real invoice financial records is forbidden and unsafe). So the REAL import + real-value verification cannot run here.",
+      "built_and_verified": "The complete recovery mechanism, tested on a CLEARLY SYNTHETIC fixture: mp_invoices_recovery (separate collection); cli/import-recovery.php (schema-tolerant, preserve-everything, RECOVERY_REVIEW, no dedup/delete, never touches official invoices, audited); cli/verify-recovery.php (read-only 001-018 + 007/008 dual + provenance/status integrity); tools/recovery-review.html (KEEP/DELETE/MERGE, non-destructive, shows N°/Date/Client/Amount/Source/OriginalID/RecoveryStatus); DEPLOY_RUNBOOK §F.1 with the exact command for the REAL file."
+    },
+    "changes": {"added": "projects/erp-backend/{cli/import-recovery.php,cli/verify-recovery.php,tools/recovery-review.html,tests/recovery-test.sh,tests/fixtures/recovery-sample.json}; api.php +mp_invoices_recovery key; runbook §F.1. No production code touched; official mp_invoices logic untouched; nothing exposed.", "commit": "c938e75"},
+    "validation": {
+      "recovery-test (synthetic fixture)": "14/0 — backup-first; 26 imported; 8 duplicateCandidate flagged (no dedup); official 017/018 byte-for-byte untouched; all fields+provenance+RECOVERY_REVIEW preserved; 007/008 both kept; KEEP decision round-trips, nothing deleted",
+      "review UI (browser)": "26 rows with the specified columns; KEEP marks a row; count stays 26; 0 errors",
+      "battery re-run": "security 24 / migration 11 / backup 8 / unit 13 / e2e 19",
+      "node gate": "PASS"
+    },
+    "deployment": "Phase 6 (production) remains host-gated: no host access + owner DNS. erp.mythosprod.xyz NOT live, still locked. The recovery import + deployment are both one-command-away in DEPLOY_RUNBOOK.md.",
+    "problems": "TWO genuine blockers (both anticipated by the owner's own rules): (1) recovery SOURCE FILES not in this environment -> real import cannot run here and must not be fabricated; (2) production deployment host-gated. All buildable+verifiable work is done.",
+    "outcome": "Recovery/staging import + verification + review mechanism built and fully verified on a synthetic fixture, preserving everything and forcing no decision on 007/008. To run for real: place COMPLETE_INVOICE_REVIEW_ASSESSED.json where a host operator can reach it and run cli/import-recovery.php + cli/verify-recovery.php (runbook §F.1), then review in tools/recovery-review.html.",
+    "evolution": "No new Evolution capsule — blocked on external source data."
+  },
+  "evidence_texts": [
+    "find / for the named recovery files -> none present; content signatures -> none",
+    "recovery-test.sh -> 14 passed, 0 failed (official 017/018 untouched; 26 preserved; 007/008 dual)",
+    "review UI browser: 26 rows, columns N°/Date/Client/Amount/Source/OriginalID/RecoveryStatus, KEEP non-destructive",
+    "battery: security 24 / migration 11 / backup 8 / unit 13 / e2e 19; node gate SUCCESS"
+  ]
+}
