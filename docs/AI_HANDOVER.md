@@ -2,6 +2,22 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-05 — Notification policy change: WhatsApp ON, Telegram OFF (owner-approved; host-local systemd state)
+
+| Item | State |
+|---|---|
+| Decision | Owner-approved policy: the MYTHOS bridge notifies over **WhatsApp** (provider `evolution`, instance `mythos-bridge`, single recipient `21698999660`, all four supported kinds `COMPLETED / FAILED / BLOCKED / HUMAN_APPROVAL`); the **Telegram** channel is **disabled** (credentials, allowlist and drop-in kept). |
+| Where the policy lives | Host-local, outside Git by design (`docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md` §4.1, `docs/MYTHOS_TELEGRAM_CHANNEL.md` §6): `~deploy/.config/systemd/user/mythos-github-bridge.service.d/20-whatsapp.conf` now carries `Environment=MYTHOS_BRIDGE_WHATSAPP_ENABLED=1` (uncommented 13:36 UTC; pre-activation copy kept as `20-whatsapp.conf.pre-activation-20260905`, 0600); `telegram.conf` now carries `Environment=MYTHOS_TELEGRAM_ENABLED=0` (was `1`) — the project's own off switch (`enabled: process.env.MYTHOS_TELEGRAM_ENABLED === '1'` in `bridge/telegram.js`; `tick` skips intake, notify and gov-notify when it is not `1`). No Git file, no Evolution/Postgres container, no WhatsApp session and no log level changed. |
+| Loaded unit = authoritative | `systemctl --user daemon-reload` as deploy at 13:36; `NeedDaemonReload=no`; loaded Environment shows `MYTHOS_BRIDGE_WHATSAPP_ENABLED=1`, `MYTHOS_TELEGRAM_ENABLED=0`, 6 WhatsApp variables; md5 of the on-disk `Environment=` set equals md5 of the loaded set (no drift). Timer active. |
+| Verified as deploy against the loaded env | `notify-config`: enabled true, provider evolution, base URL `http://127.0.0.1:8080` (private), instance set, recipients 1, credential from file, kinds = all four, breaker closed 0 failures, `problems: []`, `queue_problems: []`. `verify.js`: `READY_AND_SENDING_ENABLED`, instance `open`, auth ok. `telegram-config`: enabled false (token still present, 1 allowlisted id). `notify-events-status`: enabled false. |
+| Live router state | First real tick after activation (13:37): `notifications.enabled:true`, attempted 0 / sent 0 (nothing new to deliver), breaker closed; `telegram_intake`, `telegram_notify` and `gov_notify` phases absent from the tick output; 0 Telegram log lines since the change. Ledger unchanged at 11 entries. |
+| Live test | **Not sent, deliberately.** Real delivery was proven earlier today by 6 real messages to `21698999660` (owner-confirmed); `notify-test --confirm` would only add a duplicate. |
+| Side effect to know | `MYTHOS_TELEGRAM_ENABLED=0` also stops Telegram **intake** (owner → task via the bot) and Telegram governance alerts, because the project has one switch for the whole channel. Re-enable: set it back to `1` + `daemon-reload`. |
+| Gateway | `evolution-api` v2.3.7 healthy, 0 restarts (container from 13:18), `LOG_LEVEL=ERROR,WARN`, `LOG_BAILEYS=error`; `mythos-bridge` open, owner `21698999660@s.whatsapp.net`. |
+| Tests (as deploy, offline) | `mythos-bridge-whatsapp-notify-test.js` 131/0 · `mythos-telegram-channel-test.js` 68/0 · `mythos-telegram-events-test.js` 52/0 · `whatsapp-gateway-verify-test.js` 24/0. |
+| Git | This entry only (`mythos/wa-notification-policy-20260905`); production checkout clean at `a929a15`. |
+| Rollback | WhatsApp off: comment the `ENABLED` line + `daemon-reload`. Telegram back on: `MYTHOS_TELEGRAM_ENABLED=1` + `daemon-reload`. |
+
 ## 2026-09-05 — WhatsApp QR pairing: root-cause diagnosis + live-QR helper (`mythos/wa-qr-live-scan-20260905`)
 
 | Item | State |
