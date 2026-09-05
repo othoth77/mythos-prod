@@ -2,6 +2,17 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-05 — MYTHOS-COMMS-8 — Multi-Service Foundation (#217): **DEPLOYED; Gate 3 still suspended**
+
+| Item | State |
+|---|---|
+| Decision applied | Architecture review after the owner's clarification that `+216…660` is the notification account, not a customer account: one project = one service (tenant), one WhatsApp account per inbox by default, `mythos-bridge` never an inbox, its account reserved. |
+| Governance | Issue #217 (`Action: review`, `Depends on: #211`). Branch `mythos/comms-8-multiservice-20260905` → PR merged to `main`. |
+| Delivered | Migration `0004_multiservice` (`wp_projects.kind` + catalogue optional except automotive; `wp_inboxes.account_ref` + shape CHECK + partial unique index with `allow_personal_account` opt-in; `wp_reserved_accounts` + guard trigger; `wp_inbox_members`), project/inbox resource validation (kind rule, settings keys), `inbox_members` resource (actor-managed `added_by`), membership scope in conversations / messages / contacts, `GET /api/comms/my-inboxes`, meta carries `kind`, catalogue/commercial navigation hidden for non-automotive projects, CLI `mythos-wp reserve-account`, runbook `docs/MYTHOS_COMMUNICATION_OS_OPERATIONS.md`, architecture §13. |
+| Tests | multiservice **37/0** · schema 62/0 · receiver 61/0 · inboxes 12/0 · inbox 38/0 · outbound 34/0 · assistant 28/0 · wp 317/0 (registry 14) · check.sh GREEN. Fixtures of the comms suites now declare `kind = 'service'`. |
+| Deployment | main worktree advanced, `migrate up` applied `0004_multiservice` on production `mythos_wp`, notification account reserved with `reserve-account` (stored as digits, reported masked), service restarted, `/healthz` 200. Verified: an inbox claiming the reserved account is refused by the trigger (rolled-back probe); `ssangyong-autos` unchanged (`closed`, inbound off, outbound off, not paired); `mythos-bridge` open, webhook null; Telegram OFF. |
+| Not done | No pairing, no message, no Evolution change. Gate 3 for SSANGYONG.AUTOS resumes only with a dedicated number and the owner's explicit go. |
+
 ## 2026-09-05 — PHASE 5 PRODUCTION API: **DEPLOYED, running as erp_app — API=BLOCKED until authenticated login=200** (Fable 5.1, 16:45–17:05 UTC)
 
 | Item | Evidence |

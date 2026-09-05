@@ -1,0 +1,20 @@
+DROP TABLE IF EXISTS wp_inbox_members;
+DROP TRIGGER IF EXISTS wp_inboxes_guard_trg ON wp_inboxes;
+DROP FUNCTION IF EXISTS wp_inboxes_guard();
+DROP TABLE IF EXISTS wp_reserved_accounts;
+DROP INDEX IF EXISTS wp_inboxes_account_uidx;
+ALTER TABLE wp_inboxes DROP CONSTRAINT IF EXISTS wp_inboxes_account_ref_shape;
+ALTER TABLE wp_inboxes DROP COLUMN IF EXISTS account_ref;
+ALTER TABLE wp_projects DROP CONSTRAINT IF EXISTS wp_projects_catalog_required;
+-- non-destructive: rows without a catalogue get placeholder names so the 0001 NOT NULL rules hold again
+UPDATE wp_projects SET catalog_dsn_env = COALESCE(catalog_dsn_env, 'MYTHOS_WP_CATALOG_UNSET'), catalog_schema = COALESCE(catalog_schema, 'unset');
+ALTER TABLE wp_projects DROP CONSTRAINT IF EXISTS wp_projects_env_shape;
+ALTER TABLE wp_projects ADD CONSTRAINT wp_projects_env_shape CHECK (catalog_dsn_env ~ '^[A-Z][A-Z0-9_]{2,62}$');
+ALTER TABLE wp_projects DROP CONSTRAINT IF EXISTS wp_projects_schema_shape;
+ALTER TABLE wp_projects ADD CONSTRAINT wp_projects_schema_shape CHECK (catalog_schema ~ '^[a-z_][a-z0-9_]{0,62}$');
+ALTER TABLE wp_projects ALTER COLUMN catalog_schema SET DEFAULT 'ssangyong_autos';
+ALTER TABLE wp_projects ALTER COLUMN catalog_schema SET NOT NULL;
+ALTER TABLE wp_projects ALTER COLUMN catalog_dsn_env SET NOT NULL;
+ALTER TABLE wp_projects DROP CONSTRAINT IF EXISTS wp_projects_kind_domain;
+ALTER TABLE wp_projects DROP COLUMN IF EXISTS kind;
+DELETE FROM wp_schema_migrations WHERE version = '0004_multiservice';
