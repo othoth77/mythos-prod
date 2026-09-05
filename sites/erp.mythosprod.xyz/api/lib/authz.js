@@ -18,6 +18,7 @@ var REQUIRE = {
   // module      → { GET: key, POST: key, PATCH: key, DELETE: key }
   dashboard:  { GET: 'dashboard.read' },
   clients:    { GET: 'clients.read',    POST: 'clients.write',    PATCH: 'clients.write',    DELETE: 'clients.delete' },
+  prospects:  { GET: 'prospects.read',  POST: 'prospects.write',  PATCH: 'prospects.write',  DELETE: 'prospects.delete' },
   projects:   { GET: 'projects.read',   POST: 'projects.write',   PATCH: 'projects.write',   DELETE: 'projects.delete' },
   planning:   { GET: 'planning.read',   POST: 'planning.write',   PATCH: 'planning.write' },
   production: { GET: 'production.read', POST: 'production.write', PATCH: 'production.write' },

@@ -16,21 +16,19 @@ TS="$(date -u +%Y%m%dT%H%M%SZ)"
 C="erp-acceptance-$TS"
 PW="$(head -c 18 /dev/urandom | base64 | tr -dc 'A-Za-z0-9')"
 
-cleanup() { [ "$KEEP" = true ] || docker rm -f "$C" >/dev/null 2>&1 || true; }
+cleanup() { [ "$KEEP" = true ] || docker rm -f -v "$C" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 echo "[acceptance] starting throwaway PostgreSQL 15: $C"
 docker run -d --name "$C" -P \
   -e POSTGRES_USER=erp_owner -e POSTGRES_DB=mythos_erp -e POSTGRES_PASSWORD="$PW" \
   postgres:15-alpine >/dev/null
-for i in $(seq 1 60); do
-  docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null && break
-  sleep 1
-  [ "$i" -lt 60 ] || { echo "container never became ready" >&2; exit 1; }
-done
+# postgres:15 initdb starts a temporary server, then shuts it down before the real
+# start; a single pg_isready success can land in that window. Require two in a row.
+OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
 
-for f in schema.sql schema-auth.sql schema-tenant.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
   echo "[acceptance] applied $f"

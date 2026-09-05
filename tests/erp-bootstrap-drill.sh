@@ -29,7 +29,7 @@ check() { if eval "$2"; then ok "$1"; else bad "$1" "$3"; fi; }
 
 cleanup() {
   [ -n "$API_PID" ] && kill "$API_PID" >/dev/null 2>&1 || true
-  docker rm -f "$C" >/dev/null 2>&1 || true
+  docker rm -f -v "$C" >/dev/null 2>&1 || true
   rm -rf "$WORK"
 }
 trap cleanup EXIT
@@ -74,12 +74,11 @@ echo "[bootstrap-drill] starting throwaway PostgreSQL 15: $C"
 docker run -d --name "$C" -P \
   -e POSTGRES_USER=erp_owner -e POSTGRES_DB=mythos_erp -e POSTGRES_PASSWORD="$PW" \
   postgres:15-alpine >/dev/null
-for i in $(seq 1 60); do
-  docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null && break
-  sleep 1; [ "$i" -lt 60 ] || { echo "container never became ready" >&2; exit 1; }
-done
+# postgres:15 initdb starts a temporary server, then shuts it down before the real
+# start; a single pg_isready success can land in that window. Require two in a row.
+OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
-for f in schema.sql schema-auth.sql schema-tenant.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
 done
@@ -132,7 +131,7 @@ check "one user exists" "[ $N_USERS = 1 ]" "$N_USERS"
 check "user has a scrypt hash and no plaintext" "[ $N_HASH = 1 ] && [ $N_PLAIN = 0 ]" "hash=$N_HASH plain=$N_PLAIN"
 check "membership in mythos, active, default" "[ $N_MEMB = 1 ]" "$N_MEMB"
 check "super_admin role scoped to mythos" "[ $N_ROLE = 1 ]" "$N_ROLE"
-check "31 effective permissions in mythos" "[ $N_PERM = 31 ]" "$N_PERM"
+check "35 effective permissions in mythos (31 + 4 prospects.*)" "[ $N_PERM = 35 ]" "$N_PERM"
 check "audit: user.created + membership.granted + role.assigned, tenant-tagged" "[ $N_AUD = 3 ]" "$(q 'select action from audit_log' | tr '\n' ' ')"
 check "audit detail carries no password" "[ $N_AUDPW = 0 ]" ""
 

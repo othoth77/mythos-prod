@@ -40,6 +40,7 @@ function oneOf(list) {
 
 var STATUS_INVOICE = ['draft', 'sent', 'part_paid', 'paid', 'cancelled'];
 var STATUS_QUOTE   = ['draft', 'sent', 'accepted', 'refused', 'expired'];
+var STATUS_PROSPECT = ['new', 'contacted', 'qualified', 'proposal', 'won', 'lost'];
 
 var DEFS = {
   clients: def({
@@ -187,6 +188,29 @@ var DEFS = {
     required: ['label'], searchable: ['label'], sortable: ['label'],
     defaultSort: 'label', label: 'label'
   }),
+
+  /* Prospects (0004-prospects.sql). converted_client_id / converted_at are
+     READ-ONLY here: they are written only by POST /prospects/:id/convert
+     (modules/prospects.js), which is what keeps "won" and "has a client" the
+     same fact. `won` is therefore not settable through PATCH either. */
+  prospects: def({
+    module: 'prospects', table: 'prospects',
+    columns: ['legacy_id', 'name', 'contact_name', 'email', 'phone', 'city', 'source', 'status', 'score',
+              'expected_value', 'next_action_on', 'notes', 'converted_client_id', 'converted_at', 'deleted_at'],
+    fields: ['name', 'contact_name', 'email', 'phone', 'city', 'source', 'status', 'score',
+             'expected_value', 'next_action_on', 'notes', 'legacy_id'],
+    required: ['name'], searchable: ['name', 'contact_name', 'email', 'city'],
+    sortable: ['name', 'status', 'next_action_on', 'expected_value', 'score'],
+    defaultSort: 'created_at', filters: ['status', 'source'], label: 'name',
+    check: function (v) {
+      if (!oneOf(STATUS_PROSPECT)(v.status)) return 'status must be one of ' + STATUS_PROSPECT.join('|');
+      if (String(v.status) === 'won') return 'won is reached by converting the prospect, not by setting the status';
+      if (!isDate(v.next_action_on)) return 'next_action_on must be YYYY-MM-DD';
+      if (!isNum(v.score) || (v.score !== undefined && v.score !== null && v.score !== '' && (Number(v.score) < 0 || Number(v.score) > 100))) return 'score must be 0..100';
+      if (!isNum(v.expected_value) || (v.expected_value && Number(v.expected_value) < 0)) return 'expected_value must be a non-negative number';
+      return null;
+    }
+  }),
 };
 
 
@@ -207,10 +231,10 @@ function publicMeta() {
   });
   return {
     resources: out,
-    statuses: { invoice: STATUS_INVOICE, quote: STATUS_QUOTE, project: ['planned', 'active', 'closed'] },
+    statuses: { invoice: STATUS_INVOICE, quote: STATUS_QUOTE, prospect: STATUS_PROSPECT, project: ['planned', 'active', 'closed'] },
     invoice_user_settable: ['draft', 'sent', 'cancelled']
   };
 }
 
 module.exports = {
-  publicMeta: publicMeta, DEFS: DEFS, def: def, STATUS_INVOICE: STATUS_INVOICE, STATUS_QUOTE: STATUS_QUOTE };
+  publicMeta: publicMeta, DEFS: DEFS, def: def, STATUS_INVOICE: STATUS_INVOICE, STATUS_QUOTE: STATUS_QUOTE, STATUS_PROSPECT: STATUS_PROSPECT };
