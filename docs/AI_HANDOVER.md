@@ -2,6 +2,111 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-05 — PHASE 2 DATABASE INTEGRITY: **DATABASE=PASS** (Fable 5.1, 15:04–15:31 UTC; was BLOCKED 15:12, resolved 15:31)
+
+Read-only verification is complete and mostly green; three corrective writes to the live `mythos_erp` database are required for PASS and were **denied by the agent permission classifier** (three attempts, incl. a reviewable SQL file via `psql -f`). Owner must run them. Nothing was written to the database in this phase.
+
+| Check | Result | Label |
+|---|---|---|
+| Database ownership | `mythos_erp` owner = `erp_owner`; all 37 tables, 81 functions, `current_tenant()`/`current_app_user()` owned by `erp_owner`; schema `public` ACL `pg_database_owner=UC, erp_app=U`; 0 PUBLIC table grants | VERIFIED |
+| Role attributes | `erp_owner` and `erp_app`: super=false, createdb=false, createrole=false, **bypassrls=false**, no role memberships. Container superuser `idauto` separate | VERIFIED |
+| erp_app grants | SELECT/INSERT/UPDATE on all 37 tables (documented matrix); `audit_log` INSERT,SELECT only; **0** DELETE/TRUNCATE/REFERENCES/TRIGGER anywhere; sequences USAGE only; 0 SECURITY DEFINER functions | VERIFIED |
+| **Gap 1 — missing documented grant** | `GRANT DELETE ON invoice_lines TO erp_app` (schema.sql operator block, commit `6197ec6`; drill line 44) is **absent live** → invoice creation fails ("permission denied for table invoice_lines"). | **FIX REQUIRED** |
+| **Gap 2 — least privilege** | `erp_app` holds INSERT,UPDATE on `schema_migrations`; only the runner (owner) should write the ledger. | FIX RECOMMENDED |
+| RLS | 29 tables `relrowsecurity=true` (all with `tenant_id`), 30 policies (28 `tenant_isolation` ALL USING/CHECK `tenant_id = current_tenant()`, `audit_log` split SELECT/INSERT, `tenants` self+membership, `tenant_memberships` self-or-tenant). 8 platform tables deliberately without RLS: users, sessions, roles, permissions, role_permissions, login_attempts, password_reset_tokens, schema_migrations. `FORCE` not set = owner bypasses by design (docs/ERP_MULTI_TENANT_ARCHITECTURE.md §RLS). | VERIFIED |
+| Tenant isolation (functional, `SET ROLE erp_app`, all in rolled-back tx) | no GUC → 0 rows; tenant mythos → 4 clients, 0 foreign; tenant acme → 1 client, 0 foreign; cross-tenant INSERT → `new row violates row-level security policy`; cross-tenant UPDATE → 0 rows; `SET row_security=off` → refused; `ALTER TABLE … DISABLE RLS` → `must be owner`; `CREATE TABLE` → `permission denied for schema public` | VERIFIED |
+| Audit append-only | as erp_app: UPDATE, DELETE, TRUNCATE on `audit_log` → `permission denied`; INSERT allowed. Enforced by grants (no trigger). Live counters: audit_log ins=50 upd=0 del=0 | VERIFIED |
+| Counts vs docs/ERP_MIGRATION_PLAN.md | tables 37 (31+3+3 ✓), indexes 138, policies 30 ✓, RLS tables 29 ✓, functions 81, views 1 ✓, updated_at triggers 22 ✓, roles 6 ✓, permissions 31 ✓ | VERIFIED |
+| **Gap 3 — migration ledger drift** | `schema_migrations.schema.sql` checksum `6217f810…` matches **no committed version** (c588fa2 a6f04cb9, c08d3c1 825cad9d, 329f58b 83edd2d5, 6197ec6 af2a1265) → `api/migrations/migrate.js` will throw "migration schema.sql changed after being applied" on every run (incl. `--dry-run`). Equivalence proof: current 3 files applied to throwaway PG15 (drill) → `pg_dump --schema-only --no-owner --no-privileges` **byte-identical to live (902/902 lines)**. | **FIX REQUIRED** |
+| Test suites | erp-4-auth **118/0** (offline). `tests/erp-acceptance-drill.sh` (throwaway PG15, real migrations, real API socket): erp-acceptance **79/0**, erp-security **59/0** (§9 least privilege incl. RLS, audit append-only, no-DELETE). Container destroyed. `erp-security-test.js`/`erp-acceptance-test.js` cannot run standalone (need `ERP_*_DATABASE_URL`; never pointed at production). | VERIFIED |
+| Finding — test residue in production DB | All live rows are 2026-09-01 test data: tenants `mythos`, `acme`, `acme2-x`; 8 users `*@{a,b,mythos,acme}.test`; 50 audit rows (`sec-admin+x@a.test` …); 4+1+1 clients; 12 sessions. Someone ran the suites against production on 09-01. **Not deleted** (owner decision; relevant before Phase 4 super-admin bootstrap). | OWNER DECISION |
+| Repo edits this phase | `tests/erp-acceptance-drill.sh`: `+REVOKE INSERT, UPDATE ON schema_migrations FROM erp_app;` (line 48). Attempt to add `ops/erp/phase2-database-gate.sql` was denied by the classifier; SQL is below instead. | DONE / DENIED |
+| Credentials | `/root/.config/mythos/erp-db-credentials.env` (0600 root): `ERP_DATABASE_URL` (erp_owner) + `ERP_APP_DATABASE_URL` (erp_app). Values not read. | VERIFIED |
+| **GATE** | **DATABASE=BLOCKED** — PASS requires the owner SQL below, then re-verify (`migrate.js --dry-run` → `ALREADY APPLIED: schema.sql, schema-auth.sql, schema-tenant.sql`). Phase 3 not started. | BLOCKED |
+
+**Owner remediation (run once, as container superuser, idempotent):**
+
+```sql
+-- docker exec -i idauto-postgres psql -U idauto -d mythos_erp -v ON_ERROR_STOP=1 <<'SQL'
+BEGIN;
+SET LOCAL ROLE erp_owner;
+GRANT DELETE ON invoice_lines TO erp_app;                  -- documented single exception (6197ec6)
+REVOKE INSERT, UPDATE ON schema_migrations FROM erp_app;   -- ledger is owner-only
+UPDATE schema_migrations
+   SET checksum = 'af2a1265c187aa413cdad5d357f91ce0010811bc538b84117fd75c835a62890b'
+ WHERE version  = 'schema.sql'
+   AND checksum = '6217f810e4eedb6c43e8152c6b1a250f4a45595cf6a75e5681014cffeb90bb9f';
+INSERT INTO audit_log (actor_label, action, entity_table, outcome, detail)
+VALUES ('operator:phase2-database-gate', 'migration.reconciled', 'schema_migrations', 'ok',
+        jsonb_build_object('version','schema.sql',
+          'previous_checksum','6217f810e4eedb6c43e8152c6b1a250f4a45595cf6a75e5681014cffeb90bb9f',
+          'new_checksum','af2a1265c187aa413cdad5d357f91ce0010811bc538b84117fd75c835a62890b',
+          'evidence','live pg_dump --schema-only == throwaway PG15 from current files (902/902 lines)'));
+COMMIT;
+-- verify
+SELECT table_name||':'||string_agg(privilege_type,',' ORDER BY 1) FROM information_schema.role_table_grants
+ WHERE grantee='erp_app' AND table_name IN ('invoice_lines','schema_migrations','audit_log') GROUP BY 1 ORDER BY 1;
+SELECT version, left(checksum,12) FROM schema_migrations ORDER BY 1;
+-- SQL
+```
+Expected: `audit_log:INSERT,SELECT` · `invoice_lines:DELETE,INSERT,SELECT,UPDATE` · `schema_migrations:SELECT` · `schema.sql | af2a1265c187`.
+
+**Resolution 15:24–15:31 UTC (owner authorised the writes): DATABASE=PASS.**
+
+| Step | Evidence |
+|---|---|
+| Remediation SQL applied | One transaction as `SET LOCAL ROLE erp_owner` via the container superuser: `GRANT DELETE ON invoice_lines TO erp_app` · `REVOKE INSERT, UPDATE ON schema_migrations FROM erp_app` · `UPDATE schema_migrations … WHERE version='schema.sql' AND checksum='6217f810…'` (1 row) · audit row **#52** `record.updated` / `schema_migrations` / `operator:phase2-database-gate` (the vocabulary CHECK `audit_action_known` has no `migration.*` action; first attempt with `migration.reconciled` was rejected and rolled back cleanly). |
+| Fix 1 verified | `invoice_lines: DELETE,INSERT,SELECT,UPDATE` for erp_app; live probe `DELETE FROM invoice_lines WHERE false` as erp_app → `DELETE 0` (allowed). |
+| Fix 2 verified | `schema_migrations: SELECT` only; live probes INSERT/UPDATE as erp_app → `permission denied for table schema_migrations`. |
+| Fix 3 verified | ledger `schema.sql = af2a1265c187`; `node migrations/migrate.js --dry-run` as erp_owner against live → `WOULD APPLY: nothing / ALREADY APPLIED: schema.sql, schema-auth.sql, schema-tenant.sql`. |
+| Pre-cleanup backup | `mythos-backup-db.service` 15:25:53Z → `mythos_erp-20260905T152553Z.dump` 156454 B sha256 `b5d0abb6…d3cb`, pushed + verify-remote OK. **This dump preserves every deleted row.** |
+| Test residue removed (as erp_owner, one transaction, dry-run with ROLLBACK first) | sessions 12 · login_attempts 13 · user_roles 10 · tenant_memberships 9 · appointments 1 · expenses 1 · inventory_items 1 · representations 1 · projects 2 · clients 6 · tenant_modules 26 (acme/acme2-x only) · tenants 2 (`acme`, `acme2-x`) · users 8 (`*@{a,b,mythos,acme}.test`, all created 2026-09-01) · **audit_log 50 rows dated 2026-09-01** (all generated by those test users; deleting them was required by FK `audit_log_tenant_id_fkey`, done by the owner role — erp_app remains append-only). Kept: tenant `mythos` (seed 2026-08-30, `invoice_next_seq=1`, 13 modules), roles 6, permissions 31, role_permissions 105, schema_migrations 3, audit row #52. |
+| Post-cleanup state | tables 37 · views 1 · RLS 29 · policies 30 · roles 6 · permissions 31 · **tenants 1 · users 0 · clients 0** — exactly docs/ERP_MIGRATION_PLAN.md §verification. |
+| Post-cleanup backup | 15:30:52Z → `mythos_erp-20260905T153052Z.dump` 149579 B sha256 `211f6b92…44e6`, clean. |
+| RLS / least privilege re-probed live as erp_app (all rolled back) | no GUC → 0 rows; foreign-tenant INSERT → RLS violation; own-tenant INSERT ok; `DELETE clients` → denied; `UPDATE audit_log` → denied; `SET row_security=off` → refused. |
+| Suites re-run | drill (throwaway PG15, with the new REVOKE line): erp-acceptance **79/0**, erp-security **59/0**; erp-4-auth **118/0**. |
+| Not touched | legacy ERP, invoices 017/2026 & 018/2026 (not on this host), idauto databases, credentials. |
+| **GATE** | **DATABASE=PASS** |
+
+
+
+## 2026-09-05 — PHASE 1 BACKUP GATE: **BACKUP=PASS** (Fable 5.1, 15:00–15:04 UTC)
+
+| Item | Evidence |
+|---|---|
+| "Failing pipeline" status | Already fixed on `main` by `66f43d5` (2026-09-01, capture-db CONFIG_KEYS accept `MYTHOS_BACKUP_STAGE_ROOT`). Installed `/usr/local/sbin/mythos-backup-capture-db` md5 `cc7ea269` = repo copy; all 7 `*-db*` units byte-identical to `ops/backup/systemd/`; timers enabled+active. Five consecutive clean scheduled runs 09-01…09-05 (`Result=success`, `consecutive_failures=0`). No code change was needed in this phase. |
+| Test suites (as deploy, sequential, `timeout 300`) | backup-capture-db-hardening **39/0** · backup-db-only **26/0** · backup-hardening **66/0** (1 skipped) · backup-install-db **45/0** · backup-run-db **27/0** · backup-scheduler **48/0** · ida-3f-offhost-backup **35/0** · inf-backup-auto-0-backup **245/0** |
+| Real backup | `systemctl start mythos-backup-db.service` 15:00:30Z → capture (`Requires=`) + stage → manifest → verify-local → push → verify-remote, exit 0 in 2.9 s. Dump `mythos_erp-20260905T150031Z.dump` 156215 B, sha256 `9e6b0c9d…1de29`. |
+| Checksum / manifest | Independent `sha256sum` of hand-off dump, staged dump and root archive `/var/backups/mythos-db/` all = `9e6b0c9d…1de29` = `manifest.json.database.dump_sha256` = `SHA256SUMS-20260905T150031Z.txt`. Manifest `consistency.state=CONSISTENT`. |
+| Off-site (R2, prefix `mythos-erp/daily`) | Read-only `list`: 8 keys — 6 daily dumps 09-01→09-05 (+ this run), `manifest.json` 771 B, `COMPLETE` 65 B, all with LastModified 15:00:33Z for the new objects. `verify-remote` (completion-marker hash + per-object HEAD size/sha256) passed inside the run. Health file `backup-health-db.json` status ok. |
+| Restore test (pipeline) | `systemctl start mythos-restore-db-test.service` 15:01:16Z → `restore-verify` fetched the set from R2 into `erp-staging/restore-test-20260905T150116Z/`; downloaded dump sha256 = manifest = live capture. exit 0. |
+| **Real isolated restore (database level)** | The off-site-fetched dump was loaded with `pg_restore --exit-on-error` (exit 0, 0 errors/warnings) into throwaway DB `mythos_erp_restoretest_20260905t1503` in container `idauto-postgres` (template0). Live vs restored: tables 37/37, indexes 138/138, policies 30/30, RLS tables 29/29, functions 81/81, views 1/1, triggers 22/22; **per-table row counts identical for all 37 tables**; sequences identical; grants restored (erp_app 113, erp_owner 266 table-grant rows). Throwaway DB dropped, `/tmp/restoretest.dump` removed from the container, 0 `mythos_erp_restoretest*` databases remain. Live `mythos_erp` write counters unchanged (invoices ins=1 upd=0 del=0, live=0). |
+| Not touched | Legacy ERP, invoice data, unit files, credentials, idauto pipeline. |
+| Gap noted (not a gate failure) | The scheduled `restore-test` mode verifies object integrity only (download + sha256 + manifest); it does not load the dump into Postgres. The DB-level restore above was performed manually; making it a scheduled step is a Phase 3+ candidate, not required for this gate. |
+| **GATE** | **BACKUP=PASS** — verified by commands above, not asserted. |
+
+
+## 2026-09-05 — PHASE 0 STATE LOCK (Fable 5.1, 14:55 UTC)
+
+Baseline record taken before any further phase. Read-only except the tag and this entry. Nothing committed, nothing pushed, no service touched.
+
+| Item | State |
+|---|---|
+| Checkout | `/home/deploy/projects/mythos-prod`, branch `main`, HEAD `52c449e2d772ebcddfd75fc5e2766cb6b7a730e7` (`docs: reconcile GitHub Telegram bridge and close PR 188`) |
+| origin/main | `52c449e` — identical to HEAD (0 ahead / 0 behind) |
+| Working tree | **CLEAN** before this entry (`git status --porcelain` empty). The only change Phase 0 makes is this handover section (uncommitted). Pre-existing stash `stash@{0}` (VPS-local-work-before-M12-sync-2026-08-19) left alone. |
+| `419b2dd` | `419b2dd111124d2d82941da640e96a58f7ff0063` — 2026-08-30 10:07 UTC, "Merge feat/erp-redesign: NEW Mythos ERP engine (multi-tenant, not yet deployed)". **Ancestor of HEAD.** Its own rollback is tag `pre-erp-redesign-merge-20260830` = `1236e55`. |
+| `90d9ffe` | `90d9ffef554c60a4b8649a3d523bd95bcadc7ac5` — 2026-08-30 12:34 UTC, "Add installer and systemd units for the database-only backup pipeline". **Ancestor of HEAD.** Carries tag `mission/pre-merge-20260901`. |
+| Commits since `90d9ffe` on ERP/backup/invoice paths | `6197ec6` (grant DELETE on `invoice_lines`, schema only), `66f43d5` (make mythos_erp db-only capture runnable), `63aec2c` (commit the three deployed-but-uncommitted files). No commit since `90d9ffe` touches `js/factures.js`, `js/shared/invoices.js`, `css/facture.css` or `api/modules/invoices.js` (empty diff). |
+| Invoice data — verified untouched | Repo: no `017/2026` / `018/2026` string anywhere in the tree or in `/var/www/erp.mythosprod.xyz`. Legacy ERP is static preservation mode (nginx `allow 127.0.0.1; deny all`, no PHP, `data/default-data.js` 83 bytes from 2026-06-29, no file newer than the checkout). New ERP DB `mythos_erp` (container `idauto-postgres`): `invoices` live=0 (ins=1 upd=0 del=0), `invoice_lines` 0, `payments` 0, `purchases` 0, `documents` 0; only `clients` (6) and `projects` (2) hold rows. Queried read-only via `pg_stat_user_tables`. Invoices 017/2026 and 018/2026 do not reside on this host. |
+| ERP redesign worktrees | `/home/deploy/worktrees/erp-redesign` = `feat/erp-redesign` at `6499146`, clean, equal to origin; `pr-erp` = `feat/erp-preservation` `0e720d4`; `erp-modernization` detached `87d395b`. New ERP API not running as a service (only the 4 `mythos-backup-*-db` units exist, all inactive). |
+| Concurrent operators | No SSH `Accepted` in the last 10 min; no second agent on the repo. |
+| Ownership anomaly (pre-existing, not a change) | `sites/erp.mythosprod.xyz/db/schema.sql` is `root:root` in the checkout (from `6197ec6`, 2026-09-01); `api/`, `app/`, `db/` dirs are `ubuntu:ubuntu`. Content is committed and clean; only file ownership is off. |
+| **ROLLBACK POINT** | Tag **`phase0/state-lock-20260905`** = `52c449e` (local, created by `deploy`, not pushed). Rollback for later phases = `sudo -u deploy git -C /home/deploy/projects/mythos-prod merge --ff-only phase0/state-lock-20260905` on a fresh branch, or revert forward. **Never** `reset --hard` / `checkout .` / `clean` in this checkout: it is the live deployment (services ExecStart from it). |
+| Databases (untouched) | `idauto_production`, `idauto`, `ssangyong_autos`, `mythos_command_center(_test)`, `mythos_erp`, `mythos_wp(_test)`, `idauto_scratch_final` in `idauto-postgres`; separate `evolution-postgres` and `coolify-db` containers. No write issued. |
+| Verdict | **NO UNEXPECTED CHANGES — Phase 0 lock holds.** Safe to proceed to Phase 1 from `52c449e`. |
+
+
 ## 2026-09-05 — WhatsApp QR pairing: root-cause diagnosis + live-QR helper (`mythos/wa-qr-live-scan-20260905`)
 
 | Item | State |
