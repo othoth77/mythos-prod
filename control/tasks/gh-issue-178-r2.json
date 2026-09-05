@@ -129,6 +129,16 @@
         "at": "2026-09-05T03:34:08.249Z",
         "existed": false,
         "executor_task_id": "t-20260905033406-2ue8jp"
+      },
+      "report": {
+        "comment_id": 5549094701,
+        "url": "https://github.com/othoth77/mythos-prod/issues/178#issuecomment-5549094701",
+        "at": "2026-09-05T03:38:03.730Z",
+        "existed": false,
+        "status": "COMPLETED",
+        "control_status": "COMPLETED",
+        "report_file": "control/reports/gh-issue-178-r2.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -138,7 +148,8 @@
       "removed": [
         "mythos:human-approval"
       ]
-    }
+    },
+    "issue_state": "COMPLETED"
   },
   "execution": {
     "executor_task_id": "t-20260905033406-2ue8jp",
