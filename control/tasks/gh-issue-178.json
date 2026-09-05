@@ -17,7 +17,7 @@
   "action_raw": "investigate",
   "action_source": "default",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "BLOCKED",
   "created_at": "2026-09-05T03:25:20.456Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #178 https://github.com/othoth77/mythos-prod/issues/178 — \"MYTHOS — Post-Merge Telegram Activation\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[التنفيذ المطلوب]\nبعد التأكد أن PR #175 تم دمجه، نفّذ فقط:\n\n```bash\nsudo -u deploy git -C /home/deploy/projects/mythos-prod pull --ff-only origin main\n```\n\nثم تحقّق من:\n- local `main` يطابق `origin/main`\n- Telegram Production configuration مازالت enabled\n- `telegram-check` ينجح\n- لا يوجد Telegram webhook\n- لا يوجد `409 Conflict`\n- bridge/timer healthy\n- WhatsApp untouched\n\n[الاختبار الحي]\nلا ترسل رسالة اختبار مصطنعة.\nاترك الـsingle pending Telegram update تتم معالجته طبيعيًا من Production كـlive E2E test.\n\nتحقق من lifecycle: queued → started → report.\n\n[التقرير النهائي]\nأرسل تقريرًا مختصرًا بهذا الشكل:\n\n🟢 main synchronized\n🟢 Telegram active\n🧪 pending TASK result\n🔐 secret safe\n📌 remaining action, if any\n\nوسجّل أي blocker حقيقي بدل تجاوز Governance.",
@@ -146,8 +146,8 @@
     "claimed_at": "2026-09-05T03:25:23.829Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "477713e37f68cd9fe8611e85a5e275f26a2ccce60f55d49d12c172b8a6f455f2",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-05T03:26:41.072Z",
+    "executor_status": "BLOCKED",
+    "updated_at": "2026-09-05T03:27:53.281Z",
     "snapshot_sha256": "0e674e9166d447f8b5bd5d41217cd0b071314c0a7b2c78c06a13e788fb3beb97",
     "fence": 5803,
     "lease": {
@@ -176,7 +176,13 @@
     },
     "model": "claude-haiku-4-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "82898803-c5ea-4260-945e-05931472fe0a"
+    "claude_session_id": "82898803-c5ea-4260-945e-05931472fe0a",
+    "blocker": {
+      "code": "HUMAN_APPROVAL",
+      "reason": "PR #175 (Telegram lifecycle activation) is successfully merged into main (commit c54dbd1). All Telegram code, tests (68/0 passed), and documentation are present and correct in this worktree. However, the production checkout at /home/deploy/projects/mythos-prod remains at 5b995e9 and is unable to be synced by this task because: (1) this is a repo-read investigation task with no write permissions, (2) Bridge constraints explicitly forbid agent access to the shared checkout, and (3) AGENTS.md §30 s",
+      "retryable": false
+    },
+    "report_file": "control/reports/gh-issue-178.json"
   },
   "history": [
     {
@@ -192,6 +198,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-05T03:27:52.709Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended BLOCKED; building report"
+    },
+    {
+      "at": "2026-09-05T03:27:53.281Z",
+      "from": "VALIDATING",
+      "to": "BLOCKED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 3 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
