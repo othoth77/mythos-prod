@@ -12,7 +12,7 @@
   "action_raw": "investigate",
   "action_source": "default",
   "validation_requirements": [],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-05T01:54:08.669Z",
   "created_by": "telegram:5005015506",
   "notes": "Source: Telegram private message (update_id 611867278, chat_id 5005015506, message_id 192, user_id 5005015506, sent 2026-09-05T01:52:04.000Z).\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted because the message did not state one (write `Action: investigate|review` on its own line) → execution profile repo-read",
@@ -104,8 +104,8 @@
     "claimed_at": "2026-09-05T01:54:10.443Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "a91f24cbc468e390557d432a8a56b62057ba1319379d50a8e729f091eef9f44d",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-05T01:54:10.443Z",
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-05T02:14:30.752Z",
     "snapshot_sha256": "73ad35317ce772672252ecb7e5637ccd38c4992fcba85b1c7464f808926a4f64",
     "fence": 5553,
     "lease": {
@@ -133,7 +133,8 @@
       "measured_at": "2026-09-05T01:54:09.383Z"
     },
     "model": "claude-haiku-4-5",
-    "model_selection_mode": "auto"
+    "model_selection_mode": "auto",
+    "claude_session_id": "a7e175b6-6288-4159-a159-ceabc1c20cd6"
   },
   "history": [
     {
@@ -142,6 +143,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260905015410-5s8mok queued; OTHMODE OTH-2026-00172; action investigate (default) → repo-read; model claude-haiku-4-5; fence 5553"
+    },
+    {
+      "at": "2026-09-05T02:14:30.752Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }

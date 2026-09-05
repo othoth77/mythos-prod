@@ -1,22 +1,21 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-05T01:54:11.163Z",
+  "generated_at": "2026-09-05T02:14:30.757Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
     "PENDING": 0,
-    "CLAIMED": 1,
+    "CLAIMED": 0,
     "IN_PROGRESS": 1,
     "VALIDATING": 0,
-    "COMPLETED": 40,
+    "COMPLETED": 41,
     "BLOCKED": 25,
     "FAILED": 0,
     "CANCELLED": 1
   },
   "pending": [],
   "active": [
-    "gh-issue-173",
     "tg-611867278"
   ],
   "awaiting_review": [
@@ -82,6 +81,7 @@
     "gh-issue-167-r2",
     "gh-issue-170",
     "gh-issue-172",
+    "gh-issue-173",
     "gh-issue-95",
     "gh-issue-97",
     "gh-issue-99"
@@ -1523,7 +1523,7 @@
     },
     {
       "task_id": "gh-issue-173",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "priority": "normal",
       "requested_action": "implement",
       "action_source": "explicit_current_issue",
@@ -1532,11 +1532,11 @@
       "blocker": null,
       "created_at": "2026-09-05T01:42:49.563Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-05T01:44:10.462Z",
+      "updated_at": "2026-09-05T02:14:30.740Z",
       "executor_task_id": "t-20260905014252-3igcmy",
       "branch": "mythos/gh/gh-issue-173",
       "task_file": "control/tasks/gh-issue-173.json",
-      "report_file": null,
+      "report_file": "control/reports/gh-issue-173.json",
       "source": {
         "kind": "github-issue",
         "issue_number": 173,
@@ -1615,7 +1615,7 @@
     },
     {
       "task_id": "tg-611867278",
-      "status": "CLAIMED",
+      "status": "IN_PROGRESS",
       "priority": "normal",
       "requested_action": "investigate",
       "action_source": "default",
@@ -1624,7 +1624,7 @@
       "blocker": null,
       "created_at": "2026-09-05T01:54:08.669Z",
       "created_by": "telegram:5005015506",
-      "updated_at": "2026-09-05T01:54:10.482Z",
+      "updated_at": "2026-09-05T02:14:30.752Z",
       "executor_task_id": "t-20260905015410-5s8mok",
       "branch": "mythos/gh/tg-611867278",
       "task_file": "control/tasks/tg-611867278.json",

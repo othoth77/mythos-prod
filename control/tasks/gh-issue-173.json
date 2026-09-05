@@ -29,7 +29,7 @@
     "[ ] `docs/AI_HANDOVER.md` updated.",
     "[ ] Commit pushed through governed relay."
   ],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-05T01:42:49.563Z",
   "created_by": "github-issue:othoth77",
   "model": "fable-5.1",
@@ -175,8 +175,8 @@
     "claimed_at": "2026-09-05T01:42:52.777Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "df0be552f15735ced4577f29afa7c4500853e474a378103b2ae78854355b85fc",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-05T01:44:10.462Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-05T02:14:30.740Z",
     "snapshot_sha256": "832bf04bee85f6425978ffc2fef5edea6bf94be942face667d795befa8340d38",
     "fence": 5517,
     "lease": {
@@ -205,7 +205,8 @@
     },
     "model": "claude-fable-5-1",
     "model_selection_mode": "explicit",
-    "claude_session_id": "89b99d61-3c45-4de1-a516-01314c8abe6c"
+    "claude_session_id": "89b99d61-3c45-4de1-a516-01314c8abe6c",
+    "report_file": "control/reports/gh-issue-173.json"
   },
   "history": [
     {
@@ -221,6 +222,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-05T02:14:30.155Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-05T02:14:30.740Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (2 commit(s), 8 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
