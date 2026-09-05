@@ -1354,7 +1354,7 @@ function tick(executor, opts) {
     heartbeatLock(cfg);
     var claimsAllowed = sync.ok;
     var deferReason = sync.ok ? null : 'sync';
-    if (!sync.ok) notes.push('control branch not reconciled: ' + sync.reason + ' — no new claims this tick');
+    if (!sync.ok) { notes.push('control branch not reconciled: ' + sync.reason + ' — no new claims this tick'); log('sync_failed', { reason: sync.reason }); }
     var runtime = runtimeIdentity(cfg);
     var gate = runtimeGate(runtime, cfg);
     actions.push({ action: 'runtime', head: runtime.head, branch: runtime.branch, code: runtime.code, verified: runtime.verified, stale: runtime.stale, claims_allowed: gate.claims_allowed, gate_mode: gate.mode });
