@@ -2,7 +2,7 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
-## 2026-09-05 — PHASE 5 PRODUCTION API: **DEPLOYED, running as erp_app — API=BLOCKED until authenticated login=200** (Fable 5.1, 16:45–17:05 UTC)
+## 2026-09-05 — PHASE 5 PRODUCTION API: **API=PASS** (Fable 5.1, 16:45–17:45 UTC; deployed as erp_app, two defects found by live smoke and fixed)
 
 | Item | Evidence |
 |---|---|
@@ -23,7 +23,10 @@
 | Smoke rerun 17:38 UTC | Login **200**, `/session` `/tenants` `/users` `/audit` `/invoices` 200, tenant switch 403, CSRF refusal, logout — all as expected; **`/dashboard` → 500**. |
 | `/dashboard` 500 — diagnosed read-only | Journal: `[erp-api] error: column "reorder_level" does not exist`. `modules/views.js` dashboard counter #7 queried `inventory_items.reorder_level` / `quantity_on_hand` — columns that **never existed** in any schema version (live `inventory_items`: id, sku, label, unit, **min_quantity**, timestamps, tenant_id; stock = signed `inventory_movements.quantity`). Reproduced read-only as erp_app inside the tenant GUC in a rolled-back transaction (same error). All other 15 dashboard/report columns verified present; every `views.js` query executed read-only as erp_app → only column-valid results (two INSERTs fail on NULL-bound RLS, expected). Never caught before: neither acceptance nor security suite calls `/dashboard`. |
 | Fix | `items_below_reorder` = items not deleted with `min_quantity > 0` whose on-hand (`coalesce(sum(inventory_movements.quantity),0)`) `<= min_quantity`. Proven on live schema read-only (returns 0 for the empty tenant). Drill §4 now calls `/dashboard` (asserts the seven counters), `/reports/{revenue,receivables,expenses}`, `/settings`, `/tenants`, `/invoices` → **44/0**; acceptance 79/0, security 59/0. |
-| **GATE** | **API=BLOCKED** — fix is on the branch (PR #216), not yet in the running service (checkout = main). PASS requires: merge #216 → ff checkout → `systemctl --user restart erp-api` → owner smoke fully green (incl. `/dashboard` 200) → agent verifies `login.success`/`logout` audit rows. Phase 6 not started. |
+| Landing + restart | PR #216 **merged** → `main` = `origin/main` = `a3cb6f4` (`4ffb48e` ancestor); checkout fast-forwarded; `erp-api` restarted by the owner 17:43:31Z (`NRestarts=0` since). Running checkout carries both fixes (dashboard `min_quantity`, declared-length 413). |
+| Owner smoke 17:43:57Z — **fully green** | health, login 200, `/session` `/tenants` `/users` `/audit` `/dashboard` `/invoices` 200, non-member tenant switch 403, CSRF-less POST refused, logout 200, dead session 401. |
+| Evidence verified by the agent (read-only) | audit rows for the owner actor: `login.success` 17:38:28 + `logout` 17:38:29 (first smoke, dashboard 500 run) and **`login.success` 17:43:57 + `logout` 17:43:58** (green run), each with two `permission.denied` rows = the deliberate non-member tenant switch and CSRF refusal; `users.failed_attempts` **0**, `last_login_at` 17:43:57, not locked; sessions 2 total / **2 revoked / 0 open**; readiness `200 {ok:true, db:"ready", role:"erp_app"}`; bound to 127.0.0.1:8787 only; no error in the journal since restart. |
+| **GATE** | **API=PASS** — verified by commands above. Phase 6 starts. |
 
 
 ## 2026-09-05 — PHASE 4 SUPER ADMIN: **AUTH=PASS** (Fable 5.1, 16:20–16:45 UTC; code fixed, owner bootstrap at TTY, verified read-only)
