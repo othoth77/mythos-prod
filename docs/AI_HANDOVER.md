@@ -2,6 +2,18 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-05 — MYTHOS-COMMS-3 — Customer WhatsApp Provider (#205): **PROVISIONED, DRY-RUN — Gate 3 waits for the owner scan**
+
+| Item | State |
+|---|---|
+| Governance | Issue #205 (`Action: review`, `Depends on: #202`, bridge-captured). Branch `mythos/comms-3-provider-20260905` → PR (this entry's PR) merged to `main`. |
+| Delivered | `ops/whatsapp/evolution/customer-instance.sh` (owner-run, idempotent, refuses `mythos-bridge`, header token, verify mode); `projects/mythos-wp`: resource `inboxes` (WhatsApp group, owner-writable, `mythos-bridge` refused by pattern), `GET /api/comms/receiver` (non-secret status), System page card; `tests/mythos-wp-comms-inboxes-test.js` 12/0; architecture §8. |
+| Tests | inboxes **12/0** · receiver **61/0** · schema **62/0** · wp **312/0** (registry now 13 resources) · `tools/check.sh` GREEN. |
+| Host (outside Git, documented) | `/home/deploy/deployments/mythos-wp/webhook.token` created (0600, deploy); `.env` gained `MYTHOS_WP_WEBHOOK_TOKEN_FILE` + `MYTHOS_WP_RECEIVER_ENABLED=1`; `mythos-wp.service` restarted. Evolution: instance **`ssangyong-autos`** created (WHATSAPP-BAILEYS, state `close`, not paired), webhook set (loopback receiver, 3 events, `base64=false`, token header). `mythos-bridge`: webhook still `null`, state `open`, untouched. Telegram untouched. |
+| Production checks | `wp_inboxes`: 1 row (`ssangyong-autos`, `closed`, `inbound_enabled=false`). `POST /hooks/evolution`: **401** without token; **200 `dry_run`** with token for a synthetic `ssangyong-autos` payload (ledger rows `rejected INBOX_UNKNOWN` before the inbox row existed, then `dry_run INBOX_INBOUND_DISABLED`); `wp_messages` 0. |
+| Gate 3 (open) | Needs the owner: a **dedicated customer number** (decision) and a scan with `sudo -u deploy -H bash /home/deploy/projects/mythos-prod/ops/whatsapp/evolution/qr-live.sh ssangyong-autos` (or from the main worktree) at QR age < 20 s. Expected after scan: instance `open`, `connection.update` row in `wp_inbound_events`, `wp_inboxes.status=open`. |
+| Next | Phase 4 after Gate 3: set `inbound_enabled=true` on the inbox (panel, owner) and send one controlled text message. Non-dependent work continues meanwhile: MYTHOS-COMMS-4 (Inbox UI) with fixtures. |
+
 ## 2026-09-05 — MYTHOS-COMMS-2 — Inbound Receiver (#202): **DEPLOYED, OFF (dry-run capable)**
 
 | Item | State |

@@ -142,7 +142,7 @@ fs.writeFileSync(usersFile, JSON.stringify({ users: [
 // ================================================================ registry & audit helpers
 (function () {
   var keys = resources.keys();
-  ok(keys.length === 12, 'registry: 12 resources (' + keys.length + ')');
+  ok(keys.length === 13, 'registry: 13 resources (' + keys.length + ')');
   keys.forEach(function (k) {
     var r = resources.get(k);
     ok(r.fields.some(function (f) { return f.name === r.idColumn; }), 'registry: ' + k + ' has id field');
