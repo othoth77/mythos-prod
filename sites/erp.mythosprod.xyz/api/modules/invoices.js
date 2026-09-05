@@ -263,9 +263,23 @@ var handlers = {
     var b = ctx.body || {};
     var amount = Number(b.amount);
     if (!(amount > 0)) return Promise.resolve({ status: 422, body: { error: 'amount must be greater than zero' } });
-    return client.query('SELECT id FROM invoices WHERE id = $1 AND deleted_at IS NULL', [ctx.id])
+    return client.query('SELECT id, status FROM invoices WHERE id = $1 AND deleted_at IS NULL', [ctx.id])
       .then(function (r) {
         if (!(r.rows || []).length) return { status: 404, body: { error: 'not_found' } };
+        var cur = r.rows[0].status;
+        // A settled or cancelled invoice takes no more money (Phase 7 E2E found
+        // a payment on a paid invoice accepted, pushing "collected" past
+        // "invoiced"). And no single payment may exceed what is still due:
+        // an overpayment is a bookkeeping event (credit note / refund), not a
+        // payment row on this invoice.
+        if (cur === 'paid' || cur === 'cancelled') {
+          return { status: 409, body: { error: 'invoice is ' + cur + ' and accepts no payment' } };
+        }
+        return Promise.all([totals(client, ctx.id), paidSoFar(client, ctx.id)]).then(function (tp) {
+          var balance = Number(tp[0].total_ttc) - tp[1];
+          if (amount > balance + 0.0005) {
+            return { status: 422, body: { error: 'amount exceeds the outstanding balance', balance: balance.toFixed(3) } };
+          }
         return client.query(
           'INSERT INTO payments (tenant_id, invoice_id, paid_on, amount, method, reference)' +
           ' VALUES ($1,$2,coalesce($3::date, current_date),$4,$5,$6) RETURNING id',
@@ -278,6 +292,7 @@ var handlers = {
                        detail: { invoice_id: ctx.id, amount: amount, invoice_status: status } }
             };
           });
+        });
         });
       });
   }

@@ -297,9 +297,17 @@ function createServer(deps) {
     }).catch(function (e) {
       // Never leak an internal message to a client. The detail goes to the log.
       process.stderr.write('[erp-api] ' + (e && e.stack ? e.stack : e) + '\n');
-      var status = /payload too large/.test(String(e && e.message)) ? 413
+      // PostgreSQL constraint and cast errors are CLIENT errors with a stable
+      // vocabulary, never 500s (Phase 7: a duplicate quote number surfaced as
+      // internal_error). The constraint name is not echoed — only the class.
+      var PG = { '23505': [409, 'duplicate'], '23503': [422, 'invalid_reference'], '23502': [422, 'missing_value'],
+                 '23514': [422, 'constraint_violation'], '22P02': [422, 'invalid_value'], '22007': [422, 'invalid_value'],
+                 '22008': [422, 'invalid_value'], '22003': [422, 'out_of_range'], '22001': [422, 'value_too_long'] };
+      var pg = e && e.code && PG[e.code];
+      var status = pg ? pg[0]
+                 : /payload too large/.test(String(e && e.message)) ? 413
                  : /not valid JSON/.test(String(e && e.message)) ? 400 : 500;
-      send(res, status, { error: status === 500 ? 'internal_error' : String(e.message) });
+      send(res, status, { error: pg ? pg[1] : (status === 500 ? 'internal_error' : String(e.message)) });
     });
   });
 }
