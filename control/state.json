@@ -1,11 +1,11 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-05T03:01:20.347Z",
+  "generated_at": "2026-09-05T03:02:29.048Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
-    "PENDING": 0,
+    "PENDING": 1,
     "CLAIMED": 0,
     "IN_PROGRESS": 1,
     "VALIDATING": 0,
@@ -14,7 +14,9 @@
     "FAILED": 0,
     "CANCELLED": 1
   },
-  "pending": [],
+  "pending": [
+    "gh-issue-177"
+  ],
   "active": [
     "gh-issue-176"
   ],
@@ -1569,6 +1571,29 @@
       }
     },
     {
+      "task_id": "gh-issue-177",
+      "status": "PENDING",
+      "priority": "normal",
+      "requested_action": "investigate",
+      "action_source": "default",
+      "execution_profile": null,
+      "model": null,
+      "blocker": null,
+      "created_at": "2026-09-05T03:02:27.335Z",
+      "created_by": "github-issue:othoth77",
+      "updated_at": "2026-09-05T03:02:27.335Z",
+      "executor_task_id": null,
+      "branch": null,
+      "task_file": "control/tasks/gh-issue-177.json",
+      "report_file": null,
+      "source": {
+        "kind": "github-issue",
+        "issue_number": 177,
+        "issue_url": "https://github.com/othoth77/mythos-prod/issues/177",
+        "issue_state": null
+      }
+    },
+    {
       "task_id": "gh-issue-95",
       "status": "COMPLETED",
       "priority": "normal",
@@ -1661,9 +1686,7 @@
       }
     }
   ],
-  "notes": [
-    "runtime identity: RUNTIME_STALE_CHECKOUT — claims continue (recorded on each claim/report): checkout HEAD 0e852103f050 is behind origin/main a3be0a0ba346 — the running bridge is older than what is delivered"
-  ],
+  "notes": [],
   "how_to": {
     "create_task": "Add control/tasks/<task_id>.json (schema: control/schemas/task.schema.json) with status PENDING on branch mythos/control.",
     "read_report": "control/reports/<task_id>.json (and .md) appears when the task reaches COMPLETED, BLOCKED, FAILED or CANCELLED.",
