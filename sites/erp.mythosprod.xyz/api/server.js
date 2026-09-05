@@ -81,13 +81,29 @@ route('POST', '/api/v1/auth/logout', null, function (ctx, client) {
     });
 });
 
+// Session restore for a reloaded or newly opened tab. The CSRF token is stored
+// only as a hash, so it cannot be handed back; instead a fresh one is issued
+// here and bound to the session (rotation). The previous token stops working —
+// the price of never persisting the plain token anywhere server-side.
 route('GET', '/api/v1/session', null, function (ctx, client) {
-  return tenancy.membershipsFor(client, ctx.user.id).then(function (m) {
-    return { status: 200, body: {
-      user: ctx.user, active_tenant_id: ctx.session.activeTenantId,
-      tenants: m.map(function (t) { return { id: t.id, key: t.key, display_name: t.display_name }; })
-    } };
-  });
+  var csrf = tokens.generate();
+  return client.query('UPDATE sessions SET csrf_hash = $2 WHERE id = $1', [ctx.session.sessionId, tokens.hashToken(csrf)])
+    .then(function () { return tenancy.membershipsFor(client, ctx.user.id); })
+    .then(function (m) {
+      return { status: 200, body: {
+        user: ctx.user, active_tenant_id: ctx.session.activeTenantId, csrf: csrf,
+        tenants: m.map(function (t) { return { id: t.id, key: t.key, display_name: t.display_name }; })
+      } };
+    });
+});
+
+// Contract metadata for the browser: resources, fields, filters, statuses.
+// Authenticated (it describes the API surface) but tenant-free (identical for
+// every tenant). Nothing here is data.
+route('GET', '/api/v1/meta', null, function () {
+  var meta = registry.publicMeta();
+  meta.modules = tenancy.MODULES;
+  return Promise.resolve({ status: 200, body: meta });
 });
 
 route('GET', '/api/v1/tenants', null, function (ctx, client) {
@@ -194,9 +210,48 @@ function send(res, status, body, headers) {
   res.end(payload);
 }
 
+/* Optional same-origin serving of the browser app (sites/erp.mythosprod.xyz/app).
+ * Off unless ERP_SERVE_APP=1: in production nginx serves the static files and
+ * proxies /api/; this exists so the drills and a headless browser can exercise
+ * the real app against the real API on one loopback origin, and as a fallback
+ * deployment shape. Read-only, no directory listing, no dotfiles, no traversal
+ * (the resolved path must stay inside APP_ROOT), fixed MIME map, CSP that
+ * matches the app's own rules (no inline script or style). */
+var fs = require('fs');
+var pathMod = require('path');
+var APP_ROOT = pathMod.resolve(__dirname, '..', 'app');
+var MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.woff2': 'font/woff2',
+  '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8' };
+var APP_CSP = "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+
+function serveApp(req, res, pathname) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') { send(res, 405, { error: 'method_not_allowed' }); return; }
+  var rel = decodeURIComponent(pathname);
+  if (rel === '/' || rel === '') rel = '/index.html';
+  if (rel.split('/').some(function (seg) { return seg[0] === '.'; })) { send(res, 404, { error: 'not_found' }); return; }
+  var full = pathMod.resolve(APP_ROOT, '.' + rel);
+  if (full !== APP_ROOT && full.indexOf(APP_ROOT + pathMod.sep) !== 0) { send(res, 404, { error: 'not_found' }); return; }
+  var ext = pathMod.extname(full).toLowerCase();
+  if (!MIME[ext]) { send(res, 404, { error: 'not_found' }); return; }
+  fs.readFile(full, function (err, buf) {
+    if (err) { send(res, 404, { error: 'not_found' }); return; }
+    var h = {
+      'Content-Type': MIME[ext], 'Content-Length': buf.length,
+      'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
+      'Cache-Control': ext === '.html' ? 'no-store' : 'public, max-age=3600'
+    };
+    if (ext === '.html') { h['Content-Security-Policy'] = APP_CSP; h['X-Frame-Options'] = 'DENY'; }
+    res.writeHead(200, h);
+    res.end(req.method === 'HEAD' ? undefined : buf);
+  });
+}
+
 function createServer(deps) {
+  var serveStatic = process.env.ERP_SERVE_APP === '1';
   return http.createServer(function (req, res) {
     var parsed = url.parse(req.url, true);
+    if (serveStatic && parsed.pathname.indexOf('/api/') !== 0) return serveApp(req, res, parsed.pathname);
     var found = match(req.method, parsed.pathname);
     if (!found) return send(res, 404, { error: 'not_found' });
     // A declared oversize body is refused before a byte of it is read, with a

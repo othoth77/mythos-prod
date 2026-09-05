@@ -279,3 +279,151 @@ table.data td.num { font-family: var(--mythos-font-mono); text-align: right; }
   .app { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
   body { background: none; color: black; }
 }
+
+/* ── Phase 6: live application components ──────────────────────────────── */
+/* Same rules as above: tokens only, no literal colour, no !important, no
+   inline style. Every state below (loading, empty, error, modal, toast, tabs,
+   pagination, chart) is a component so views cannot improvise one. */
+
+[hidden] { display: none; }
+
+/* Login */
+.login {
+  min-height: 100vh; display: grid; place-items: center;
+  padding: var(--mythos-space-6); background: var(--mythos-ground);
+}
+.login-card { width: min(420px, 100%); gap: var(--mythos-space-4); }
+.login-card h1 {
+  font-family: var(--mythos-font-display); font-weight: var(--mythos-weight-semibold);
+  font-size: 24px; letter-spacing: -0.015em;
+}
+.login-sub { color: var(--mythos-text-secondary); font-size: 14px; }
+.login-card .field { margin-bottom: 0; }
+.login-card .error { color: var(--mythos-danger); font-size: 13px; }
+
+/* Top bar extras */
+.select-sm { min-height: var(--mythos-size-control-compact); font-size: 13px; width: auto; max-width: 220px; }
+.topbar-user { font-size: 13px; color: var(--mythos-text-secondary); }
+
+/* Toolbar under the view header: search, filters, primary action. */
+.toolbar {
+  display: flex; flex-wrap: wrap; align-items: end; gap: var(--mythos-space-4);
+  margin-bottom: var(--mythos-space-5);
+}
+.toolbar .field { margin-bottom: 0; min-width: 200px; flex: 1 1 200px; }
+.toolbar .actions { display: flex; gap: var(--mythos-space-3); margin-left: auto; }
+.toolbar-count { font-family: var(--mythos-font-mono); font-size: 12px; color: var(--mythos-text-secondary); }
+
+/* Tabs — one panel visible, role=tablist for assistive tech. */
+.tabs { display: flex; gap: var(--mythos-space-2); border-bottom: 1px solid var(--mythos-border-hairline); margin-bottom: var(--mythos-space-6); overflow-x: auto; }
+.tabs [role="tab"] {
+  appearance: none; background: transparent; border: 0; cursor: pointer;
+  padding: var(--mythos-space-3) var(--mythos-space-4); min-height: var(--mythos-size-touch-min);
+  color: var(--mythos-text-secondary); font: inherit; font-size: 14px; font-weight: var(--mythos-weight-medium);
+  border-bottom: 2px solid transparent; white-space: nowrap;
+}
+.tabs [role="tab"]:hover { color: var(--mythos-text-primary); }
+.tabs [role="tab"][aria-selected="true"] { color: var(--mythos-text-primary); border-bottom-color: var(--mythos-accent); }
+
+/* Pagination */
+.pagination {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--mythos-space-4);
+  padding: var(--mythos-space-4) 0; font-size: 13px; color: var(--mythos-text-secondary);
+}
+.pagination .pages { display: flex; gap: var(--mythos-space-2); }
+
+/* Loading — skeleton rows, never a spinner over fake numbers. */
+@keyframes erp-shimmer { from { opacity: 0.45; } to { opacity: 0.9; } }
+.skeleton {
+  background: var(--mythos-surface-card); border-radius: var(--mythos-radius-control);
+  animation: erp-shimmer var(--mythos-motion-base) var(--mythos-ease-move) infinite alternate;
+}
+.skeleton.h-row { height: 40px; margin-bottom: var(--mythos-space-3); }
+.skeleton.h-stat { height: 36px; width: 60%; }
+.stat .stat-value.is-loading { color: var(--mythos-text-disabled); }
+
+/* Error box — the failure is stated, with a retry. */
+.errorbox {
+  border: 1px solid var(--mythos-danger); border-left-width: 3px;
+  border-radius: var(--mythos-radius-control); background: var(--mythos-danger-dim);
+  padding: var(--mythos-space-4) var(--mythos-space-5); color: var(--mythos-text-primary);
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--mythos-space-4);
+}
+.errorbox strong { color: var(--mythos-danger); }
+.errorbox code { font-family: var(--mythos-font-mono); font-size: 12px; color: var(--mythos-text-secondary); }
+
+/* Toasts */
+.toasts {
+  position: fixed; right: var(--mythos-space-5); bottom: var(--mythos-space-5); z-index: 60;
+  display: flex; flex-direction: column; gap: var(--mythos-space-3); max-width: 380px;
+}
+.toast {
+  background: var(--mythos-surface-card); color: var(--mythos-text-primary);
+  border: 1px solid var(--mythos-border-hairline); border-left: 3px solid var(--mythos-info);
+  border-radius: var(--mythos-radius-control); box-shadow: var(--mythos-shadow-floating);
+  padding: var(--mythos-space-4) var(--mythos-space-5); font-size: 14px;
+  animation: erp-toast-in var(--mythos-motion-enter) var(--mythos-ease-enter);
+}
+.toast.ok { border-left-color: var(--mythos-success); }
+.toast.warn { border-left-color: var(--mythos-warning); }
+.toast.danger { border-left-color: var(--mythos-danger); }
+@keyframes erp-toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Modal */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 50; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--mythos-ground-deep) 82%, transparent);
+}
+.modal {
+  width: min(640px, calc(100vw - 2 * var(--mythos-space-5))); max-height: calc(100vh - 2 * var(--mythos-space-6));
+  overflow: auto; background: var(--mythos-surface); color: var(--mythos-text-primary);
+  border: 1px solid var(--mythos-border-hairline); border-radius: var(--mythos-radius-overlay);
+  box-shadow: var(--mythos-shadow-overlay); padding: var(--mythos-space-6);
+  display: flex; flex-direction: column; gap: var(--mythos-space-4);
+  animation: erp-toast-in var(--mythos-motion-overlay) var(--mythos-ease-enter);
+}
+.modal.wide { width: min(900px, calc(100vw - 2 * var(--mythos-space-5))); }
+.modal h2 { font-family: var(--mythos-font-display); font-weight: var(--mythos-weight-semibold); font-size: 20px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: var(--mythos-space-3); margin-top: var(--mythos-space-2); }
+.modal .field { margin-bottom: 0; }
+.modal .field-row { gap: var(--mythos-space-4); }
+
+/* Detail / key-value */
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: var(--mythos-space-2) var(--mythos-space-5); font-size: 14px; }
+.kv dt { color: var(--mythos-text-secondary); }
+.kv dd { font-family: var(--mythos-font-mono); font-size: 13px; }
+
+/* Invoice lines editor */
+table.lines td .input { min-height: var(--mythos-size-control-compact); }
+.total-row td { font-weight: var(--mythos-weight-semibold); border-top: 1px solid var(--mythos-border-strong); }
+
+/* Chart — SVG bars driven by the categorical chart tokens. */
+.chart { width: 100%; height: 220px; display: block; }
+.chart .bar { fill: var(--mythos-chart-1); }
+.chart .bar.alt { fill: var(--mythos-chart-2); }
+.chart .axis { stroke: var(--mythos-border-strong); stroke-width: 1; }
+.chart .label { fill: var(--mythos-text-secondary); font-family: var(--mythos-font-mono); font-size: 10px; }
+.chart .value { fill: var(--mythos-text-primary); font-family: var(--mythos-font-mono); font-size: 10px; }
+.legend { display: flex; gap: var(--mythos-space-4); font-size: 12px; color: var(--mythos-text-secondary); }
+.legend .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; margin-right: var(--mythos-space-2); }
+.legend .swatch.c1 { background: var(--mythos-chart-1); }
+.legend .swatch.c2 { background: var(--mythos-chart-2); }
+
+/* Row actions and inline status pills */
+table.data td .btn-sm { min-height: 32px; }
+.row-actions { display: flex; gap: var(--mythos-space-2); justify-content: flex-end; white-space: nowrap; }
+.mono { font-family: var(--mythos-font-mono); font-size: 13px; }
+.toggle { display: inline-flex; align-items: center; gap: var(--mythos-space-3); min-height: var(--mythos-size-touch-min); cursor: pointer; }
+
+/* Section spacing helpers (replace the inline margins the mock used). */
+.section { margin-top: var(--mythos-space-6); }
+.stack { display: flex; flex-direction: column; gap: var(--mythos-space-5); }
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton, .toast, .modal { animation: none; }
+}
+@media (max-width: 700px) {
+  .toasts { left: var(--mythos-space-4); right: var(--mythos-space-4); max-width: none; }
+  .kv { grid-template-columns: 1fr; }
+  .topbar-user { display: none; }
+}
