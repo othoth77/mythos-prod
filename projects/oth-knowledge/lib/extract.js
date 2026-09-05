@@ -22,6 +22,16 @@ function put(store, rec, allowNewVersion) {
   return rec;
 }
 
+// Attach optional memory-namespace and bi-temporal validity fields to a
+// record only when the caller supplied them (keeps ids/behaviour of
+// existing importers unchanged when omitted).
+function withOptional(rec, o) {
+  if (o.namespace !== undefined) rec.namespace = o.namespace;
+  if (o.valid_from !== undefined) rec.valid_from = o.valid_from;
+  if (o.valid_to !== undefined) rec.valid_to = o.valid_to;
+  return rec;
+}
+
 function addEntity(store, { entity_type, name, metadata }) {
   return put(store, {
     kind: 'entity',
@@ -37,34 +47,39 @@ function makeProv(store, classes, prov) {
   return provenance.buildProvenance(classes, prov);
 }
 
-function addFact(store, classes, { statement, confidence, prov, entity_ids, tags, metadata }) {
-  return put(store, {
+function addFact(store, classes, o) {
+  const { statement, confidence, prov, entity_ids, tags, metadata } = o;
+  return put(store, withOptional({
     kind: 'fact',
     id: ids.recordId('fact', prov.source_class + '/' + statement),
     statement, confidence,
     provenance: makeProv(store, classes, prov),
     entity_ids: entity_ids || [], tags: tags || [], metadata: metadata || {},
-  });
+  }, o));
 }
 
-function addClaim(store, classes, { statement, asserted_by, prov, entity_ids, tags }) {
-  return put(store, {
+function addClaim(store, classes, o) {
+  const { statement, asserted_by, prov, entity_ids, tags, metadata } = o;
+  const rec = withOptional({
     kind: 'claim',
     id: ids.recordId('claim', prov.source_class + '/' + asserted_by + '/' + statement),
     statement, asserted_by,
     provenance: makeProv(store, classes, prov),
     entity_ids: entity_ids || [], tags: tags || [],
-  });
+  }, o);
+  if (metadata !== undefined) rec.metadata = metadata; // only when supplied — preserves legacy claim shape
+  return put(store, rec);
 }
 
-function addObservation(store, classes, { statement, observed_at, prov, entity_ids, tags, metadata }) {
-  return put(store, {
+function addObservation(store, classes, o) {
+  const { statement, observed_at, prov, entity_ids, tags, metadata } = o;
+  return put(store, withOptional({
     kind: 'observation',
     id: ids.recordId('observation', prov.source_class + '/' + observed_at + '/' + statement),
     statement, observed_at,
     provenance: makeProv(store, classes, prov),
     entity_ids: entity_ids || [], tags: tags || [], metadata: metadata || {},
-  });
+  }, o));
 }
 
 // `key`: optional caller-supplied identity discriminator. Importers pass
