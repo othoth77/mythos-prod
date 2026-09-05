@@ -1,0 +1,144 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-228",
+  "project": "mythos-prod",
+  "objective": "Permettre au compte WhatsApp existant (une seule instance Evolution `mythos-bridge`, une seule session) de servir à terme des services MYTHOS sélectionnés via un routage logique d'inbox, tout en protégeant toutes les conversations personnelles/non liées : Compte → UNE instance → Provider → Privacy Guard → Routing Policy → Logical Inbox → Project. L'instance identifie la session, jamais le service. Remplace l'ancienne architecture Gate 3 (revue « SAME-NUMBER ARCHITECTURE REVIEW », 2026-09-05).",
+  "scope": [
+    "Migration `0006_shared_account_routing` (additive) : `wp_inboxes.account_mode` (dedicated|shared, opt-in explicite, `account_ref` obligatoire en mode partagé), `wp_inbox_routes` (instance, projet, inbox, règle allowlist|opt_in, priorité, enabled, expiration, activation), `wp_routing_drops` (audit sans contenu : hachages uniquement) ; garde compte réservé conservée et rendue explicite (opt-in partagé audité, `account_ref` NULL ne contourne plus) ; levée explicite de `wp_inboxes_not_bridge` uniquement en mode partagé",
+    "`reference/comms/routing.js` : résolution provider-neutre, DEFAULT DENY, exclusion propriétaire/self, fail-closed (règle malformée, politique absente, inbox inconnue)",
+    "`receiver.js` : garde de confidentialité AVANT tout ledger (aucun contact/conversation/message/payload pour un expéditeur non routé) ; `core.js`/`reconcile.js` : lookups multi-inbox par instance",
+    "CLI `mythos-wp comms route …` (allowlist / opt-in / list / disable), API de lecture",
+    "Tests `tests/mythos-wp-comms-routing-test.js` (privacy, routage, isolation, owner/self, sécurité, idempotence) + non-régression COMMS-1..9",
+    "Docs : recherche §15 « Shared WhatsApp Account Mode », architecture, runbook, `AI_HANDOVER.md`"
+  ],
+  "constraints": [
+    "Ne PAS activer le webhook `mythos-bridge`, ne PAS activer l'inbound, ne rien appairer, ne pas créer `ssangyong-autos` sur ce compte ni une seconde session, ne pas toucher Evolution / Telegram / destinataire de notification",
+    "Migration 0006 testée sur `mythos_wp_test` uniquement ; STOP avant toute migration de production",
+    "Le mot-clé d'opt-in n'est jamais la seule frontière de sécurité (identité pré-enregistrée obligatoire)",
+    "Pas de force push, pas de reset, travail étranger protégé ; exécutée par la session opérateur — le bridge ne fait qu'une revue"
+  ],
+  "priority": "high",
+  "requested_action": "review",
+  "action_raw": "review",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "`tests/mythos-wp-comms-routing-test.js` vert (tout test de confidentialité en échec = PR non ouverte) ; suites contract, hardening, schema, receiver, inboxes, inbox, outbound, assistant, multiservice, panel, gateway-verify, whatsapp-notify, redaction, governance sans régression ; `tools/check.sh` GREEN",
+    "Message d'un expéditeur non routé sur une instance partagée : 0 contact, 0 conversation, 0 message, 0 payload, une ligne `wp_routing_drops` sans contenu",
+    "Production inchangée (HEAD, ledger 0001–0005, `mythos-bridge` webhook null, Telegram OFF)"
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-05T21:12:09.044Z",
+  "created_by": "github-issue:othoth77",
+  "depends_on": [
+    "gh-issue-222"
+  ],
+  "notes": "Source: GitHub Issue #228 https://github.com/othoth77/mythos-prod/issues/228 — \"MYTHOS-COMMS-11 — Shared WhatsApp Account Routing & Privacy Guard\"\n\nrequested_action: review — source explicit_current_issue (written as \"review\") → execution profile repo-read",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 228,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/228",
+    "issue_id": 5360965364,
+    "issue_node_id": "I_kwDOTnlaF88AAAABP4nW9A",
+    "issue_title": "MYTHOS-COMMS-11 — Shared WhatsApp Account Routing & Privacy Guard",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-05T21:11:38Z",
+    "issue_updated_at": "2026-09-05T21:11:38Z",
+    "issue_labels": [
+      "enhancement",
+      "task",
+      "whatsapp"
+    ],
+    "content_sha256": "067037a20c8c493b9ad5f6a2105a3be7d36221e9fa463b0cc332a549fe26dd2d",
+    "attempt": 1,
+    "attempt_id": "gh-issue-228#1",
+    "idempotency_key": "6b5657d08f6ce2ba2eb50665e9d733fec59024dc0cf1d23203a00bea523df63e",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "review",
+      "action_raw": "review",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "review",
+          "action": "review",
+          "form": "inline",
+          "line": 23
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-05T21:12:09.045Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-05T21:12:09.046Z",
+        "event": "issue_received",
+        "reason": "open Issue #228 with label task",
+        "content_sha256": "067037a20c8c493b9ad5f6a2105a3be7d36221e9fa463b0cc332a549fe26dd2d"
+      },
+      {
+        "at": "2026-09-05T21:12:09.046Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → review (raw \"review\")"
+      },
+      {
+        "at": "2026-09-05T21:12:09.046Z",
+        "event": "profile_resolved",
+        "reason": "review → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-05T21:12:09.046Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-05T21:12:10.467Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-228.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-05T21:12:09.046Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5554815051,
+        "url": "https://github.com/othoth77/mythos-prod/issues/228#issuecomment-5554815051",
+        "at": "2026-09-05T21:12:09.838Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
