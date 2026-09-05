@@ -1,0 +1,114 @@
+#!/usr/bin/env node
+'use strict';
+// =====================================================
+// MYTHOS AUTO auto-reply — loopback webhook receiver (Issue #173)
+// projects/automotive/comms/bin/mythos-auto-reply-receiver
+//
+//   mythos-auto-reply-receiver <config.json> [--dry-run] [--port N]
+//
+// Listens on 127.0.0.1 only (a non-private bind is refused by the config
+// validator) for the Evolution gateway's webhook and feeds every request to
+// lib/engine.js. The gateway is configured to call
+//   POST http://127.0.0.1:<port>/webhook/evolution?token=<webhook token>
+// for the customer instance (events: MESSAGES_UPSERT) — see README.md.
+//
+//   POST /webhook/evolution?token=…   → engine.process(); 200 with the
+//                                        outcome NAME only (no text, no id)
+//   GET  /healthz                     → readiness (never a secret)
+//   anything else                     → 404
+//
+// The receiver keeps no request body after the response, prints one JSON
+// line per inbound (the engine record, already redacted: masked recipient,
+// names, the proposed text in dry-run) and answers 200 even when it refuses
+// a message, so the gateway does not retry a webhook we decided on.
+//
+// It is NOT deployed by the task that wrote it: running it as a service
+// is a Level 3 host action (unit, state dir, token files, gateway webhook
+// set) documented in README.md and left to the owner.
+// =====================================================
+
+var http = require('http');
+var path = require('path');
+var url = require('url');
+
+var projects = require('../lib/projects');
+var engine = require('../lib/engine');
+var ledgerLib = require('../lib/ledger');
+var redact = require('../../../mythos-orchestrator/lib/redact');
+
+var args = process.argv.slice(2);
+var cfgPath = args[0];
+var forceDryRun = args.indexOf('--dry-run') !== -1;
+var portArg = args.indexOf('--port') !== -1 ? parseInt(args[args.indexOf('--port') + 1], 10) : null;
+
+function log(v) { process.stdout.write(JSON.stringify(redact.redactValue(Object.assign({ at: new Date().toISOString() }, v))) + '\n'); }
+function die(msg) { process.stderr.write('ERROR: ' + redact.redact(String(msg)) + '\n'); process.exit(1); }
+
+if (!cfgPath) die('usage: mythos-auto-reply-receiver <config.json> [--dry-run] [--port N]');
+var cfg = projects.load(path.resolve(cfgPath));
+var problems = projects.validate(cfg);
+if (problems.length) die('configuration refused: ' + problems.join(', '));
+if (cfg.crm.adapter !== 'evolution') die('receiver serves the evolution adapter only (crm.adapter=' + cfg.crm.adapter + ')');
+var eng = projects.engine(cfg);
+if (!eng.state_dir) die('auto_reply.state_dir is required for a receiver (idempotency ledger)');
+var ledger = ledgerLib.open({ dir: projects.expandHome(eng.state_dir) });
+var webhookToken = engine.loadSecret(cfg.crm.webhook_token_file);
+if (!webhookToken.present) die('webhook token: ' + webhookToken.error);
+var port = portArg || eng.receiver.port;
+var bind = eng.receiver.bind;
+
+function readBody(req, limit) {
+  return new Promise(function (resolve, reject) {
+    var chunks = [], size = 0;
+    req.on('data', function (c) {
+      size += c.length;
+      if (size > limit) { reject(new Error('BODY_TOO_LARGE')); req.destroy(); return; }
+      chunks.push(c);
+    });
+    req.on('end', function () { resolve(Buffer.concat(chunks).toString('utf8')); });
+    req.on('error', reject);
+  });
+}
+
+function send(res, code, obj) {
+  var s = JSON.stringify(obj);
+  res.writeHead(code, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(s), 'Cache-Control': 'no-store' });
+  res.end(s);
+}
+
+var server = http.createServer(function (req, res) {
+  var u = url.parse(req.url, true);
+  if (req.method === 'GET' && u.pathname === '/healthz') {
+    var rd = engine.readiness(cfg);
+    return send(res, 200, { ok: true, mode: forceDryRun ? 'dry-run' : rd.mode, can_send: forceDryRun ? false : rd.can_send, projects_auto_reply_on: rd.projects_auto_reply_on, provider_breaker_open: ledger.provider().open_until > Date.now() });
+  }
+  if (req.method !== 'POST' || u.pathname !== '/webhook/evolution') return send(res, 404, { ok: false, reason: 'NOT_FOUND' });
+  readBody(req, eng.receiver.max_body_bytes).then(function (raw) {
+    var body;
+    try { body = JSON.parse(raw); } catch (e) { return send(res, 400, { ok: false, reason: 'BODY_NOT_JSON' }); }
+    // The provider credential is read per request from its 0600 file so a
+    // rotation needs no restart and the value never sits in a long-lived
+    // variable.
+    var api = forceDryRun ? { present: false, value: null } : engine.loadSecret(cfg.crm.api_token_file);
+    return engine.process({
+      cfg: cfg, body: body, query: u.query, headers: req.headers,
+      expectedToken: webhookToken.value, apiToken: api.value,
+      ledger: ledger, forceDryRun: forceDryRun
+    }).then(function (rec) {
+      log({ receiver: 'inbound', outcome: rec.outcome, reason: rec.reason, stage: rec.stage, event_id: rec.event_id, project_id: rec.project_id, intent: rec.decision ? rec.decision.intent : null, action: rec.decision ? rec.decision.action : null, rejections: rec.policy ? rec.policy.rejections : null, proposed_length: rec.proposed ? rec.proposed.text.length : 0, sent: rec.sent, ledger_state: rec.ledger_state });
+      if (rec.outcome === 'UNAUTHORIZED') return send(res, 401, { ok: false, reason: rec.reason });
+      send(res, 200, { ok: true, outcome: rec.outcome, reason: rec.reason, event_id: rec.event_id, sent: rec.sent });
+    });
+  }).catch(function (e) {
+    var reason = e && e.message === 'BODY_TOO_LARGE' ? 'BODY_TOO_LARGE' : 'RECEIVER_ERROR';
+    if (!res.headersSent) send(res, reason === 'BODY_TOO_LARGE' ? 413 : 500, { ok: false, reason: reason });
+  });
+});
+
+server.listen(port, bind, function () {
+  log({ receiver: 'listening', bind: bind, port: port, mode: forceDryRun ? 'dry-run' : eng.mode, state_dir_set: true, projects: (cfg.projects || []).map(function (p) { return p.id; }) });
+});
+process.on('SIGTERM', function () { server.close(function () { process.exit(0); }); });
+process.on('SIGINT', function () { server.close(function () { process.exit(0); }); });
+
+module.exports = server;

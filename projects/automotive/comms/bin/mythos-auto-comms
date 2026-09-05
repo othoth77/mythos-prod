@@ -13,11 +13,24 @@
 //       with the built-in handlers and print the routed result summary.
 //       Nothing is sent: deliver() is never called by this command.
 //
+//   mythos-auto-comms simulate <config.json> <webhook.json> [--token-file F]
+//       the whole auto-reply engine (ledger in memory, mode forced to
+//       dry-run): prints the exact proposed message, the recipient masked,
+//       and every policy gate a live run would hit. Nothing is sent, ever.
+//
+//   mythos-auto-comms classify <config.json> <project-id> "<text>"
+//       intent + entities + language for one text, with the project's
+//       vocabulary. No network, no send.
+//
+//   mythos-auto-comms readiness <config.json>
+//       what a live run would need (token files present, mode, projects
+//       with auto_reply on) — presence only, never a value.
+//
 //   mythos-auto-comms describe
 //       print the adapter contracts.
 //
 // This is the whole operator surface until a receiver service is approved
-// for deployment (docs/MYTHOS_AUTO_WHATSAPP_CRM_ARCHITECTURE.md §8).
+// for deployment (docs/MYTHOS_AUTO_WHATSAPP_CRM_ARCHITECTURE.md §8 and §11).
 // =====================================================
 
 var fs = require('fs');
@@ -26,6 +39,9 @@ var path = require('path');
 var projects = require('../lib/projects');
 var router = require('../lib/router');
 var crm = require('../lib/crm');
+var engine = require('../lib/engine');
+var intents = require('../lib/intents');
+var ledgerLib = require('../lib/ledger');
 var redact = require('../../../mythos-orchestrator/lib/redact');
 
 function out(v) { process.stdout.write(JSON.stringify(redact.redactValue(v), null, 2) + '\n'); }
@@ -33,15 +49,12 @@ function fail(msg, code) { process.stderr.write('ERROR: ' + redact.redact(String
 
 function readToken(file) {
   if (!file) return null;
-  try {
-    var full = projects.expandHome(file);
-    var st = fs.statSync(full);
-    if ((st.mode & 0o077) !== 0) return { error: 'TOKEN_FILE_MODE_NOT_0600' };
-    return { value: fs.readFileSync(full, 'utf8').trim() };
-  } catch (e) {
-    return { error: 'TOKEN_FILE_UNREADABLE' };
-  }
+  var s = engine.loadSecret(file);
+  if (!s.present) return { error: s.error === 'FILE_MODE_NOT_0600' ? 'TOKEN_FILE_MODE_NOT_0600' : 'TOKEN_FILE_UNREADABLE' };
+  return { value: s.value };
 }
+
+function flag(name, from) { for (var i = from; i < args.length; i++) if (args[i] === name) return args[i + 1]; return null; }
 
 var args = process.argv.slice(2);
 var cmd = args[0];
@@ -57,9 +70,7 @@ try {
     if (!args[1] || !args[2]) fail('usage: dry-run <config.json> <webhook.json> [--token-file F]');
     var cfg2 = projects.load(path.resolve(args[1]));
     var body = JSON.parse(fs.readFileSync(path.resolve(args[2]), 'utf8'));
-    var tokenFile = null;
-    for (var i = 3; i < args.length; i++) if (args[i] === '--token-file') tokenFile = args[i + 1];
-    var tok = readToken(tokenFile || (cfg2.crm && cfg2.crm.webhook_token_file));
+    var tok = readToken(flag('--token-file', 3) || (cfg2.crm && cfg2.crm.webhook_token_file));
     var expected = tok && tok.value ? tok.value : null;
     // The dry run presents the configured token itself, so the question it
     // answers is "would this body route, and where" — not "is my URL right".
@@ -74,6 +85,32 @@ try {
       out(summary);
       process.exit(r.outcome === 'ROUTED' ? 0 : 2);
     }).catch(function (e) { fail(e.message); });
+  } else if (cmd === 'simulate') {
+    if (!args[1] || !args[2]) fail('usage: simulate <config.json> <webhook.json> [--token-file F]');
+    var cfg3 = projects.load(path.resolve(args[1]));
+    var body3 = JSON.parse(fs.readFileSync(path.resolve(args[2]), 'utf8'));
+    var tok3 = readToken(flag('--token-file', 3) || (cfg3.crm && cfg3.crm.webhook_token_file));
+    var expected3 = tok3 && tok3.value ? tok3.value : null;
+    // In-memory ledger + forced dry-run: the simulation leaves no state and
+    // can never send. The provider credential is not even read.
+    engine.process({ cfg: cfg3, body: body3, query: { token: expected3 || '' }, expectedToken: expected3, apiToken: null, ledger: ledgerLib.open({ memory: true }), forceDryRun: true }).then(function (rec) {
+      rec.token_file = tok3 ? (tok3.error || 'ok') : 'not configured';
+      out(rec);
+      process.exit(rec.outcome === 'DECIDED' || rec.outcome === 'IGNORED' ? 0 : 2);
+    }).catch(function (e) { fail(e.message); });
+  } else if (cmd === 'classify') {
+    if (!args[1] || !args[2] || typeof args[3] !== 'string') fail('usage: classify <config.json> <project-id> "<text>"');
+    var cfg4 = projects.load(path.resolve(args[1]));
+    var pr = (cfg4.projects || []).filter(function (p) { return p && p.id === args[2]; })[0];
+    if (!pr) fail('unknown project id', 2);
+    var pol = projects.policy(pr);
+    var c = intents.classify(args[3], { vehicle_models: pol.vehicle_models, languages: pol.languages });
+    out({ project_id: pr.id, intent: c.intent, language: c.language, entities: c.entities, signals: c.signals, facts_required: require('../lib/business-data').requiredFor(c.intent) });
+  } else if (cmd === 'readiness') {
+    if (!args[1]) fail('usage: readiness <config.json>');
+    var rd = engine.readiness(projects.load(path.resolve(args[1])));
+    out(rd);
+    process.exit(rd.config_problems.length ? 2 : 0);
   } else if (cmd === 'describe') {
     var adapters = {};
     Object.keys(crm.ADAPTERS).forEach(function (k) { adapters[k] = crm.ADAPTERS[k].describe(); });

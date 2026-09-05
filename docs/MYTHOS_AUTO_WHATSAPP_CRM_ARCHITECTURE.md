@@ -140,3 +140,34 @@ Outcomes: `REJECTED` (invalid config / envelope, adapter mismatch, provider cont
 ## 10. Tests
 
 `tests/mythos-auto-comms-test.js` — 113 checks: envelope, configuration model (credential-literal refusal, inbox exclusivity, unofficial acknowledgement, private-host fence), Chatwoot parse/authorise/consistency against the verified payload shape, router outcomes and the handler boundary (custom reply handler suppressed vs allowed, throw / timeout / malformed → handoff, error message never recorded), `deliver` against a loopback stub (endpoint, header, body, no token in results, refusals before any request), separation guarantees (notification layer untouched and unaware, fence text still declared), CLI exit codes and `sent: false`. Regression suites re-run unchanged (see the handover entry).
+
+## 11. Lightweight auto-reply path (Issue #173, 2026-09-05) — addendum
+
+§7 blocks the CRM on this host. Issue #173 asks for the intelligence layer to become usable **without** Chatwoot and **without** a second WhatsApp gateway. The answer keeps every boundary of §1–§6 and adds one channel adapter and one engine on top of the #172 code:
+
+```
+CUSTOMER → EXISTING EVOLUTION GATEWAY (127.0.0.1:8080, separate customer instance)
+  → lib/crm/evolution.js (authorize, parse: fromMe / group / status / self refused)
+  → lib/ledger.js (own-outbound echo, duplicate inbound — before any work)
+  → lib/router.js → handler `auto-reply` (lib/handlers/auto-reply.js)
+      → lib/intents.js (fr / ar-TN / en; entities = the customer's own words)
+      → lib/business-data.js (catalogue / price / stock / compat / order port — unconnected: "unavailable")
+      → lib/ai (template, or advisory via the existing OmniRoute boundary; fact guard last)
+  → lib/policy.js (send gate, all refusals by name)
+  → [live only] router.deliver() → evolution.sendReply() → gateway → CUSTOMER
+  → lib/ledger.js (SENT | SEND_FAILED — never auto-resent | SUPPRESSED)
+```
+
+**Provider reused, not duplicated.** The Evolution gateway deployed for #170 is the only WhatsApp transport; the customer path uses a *new instance* on it (`ssangyong-autos` in the example), never the notification instance `mythos-bridge`, which `crm.reserved_inbox_ids` keeps out of every project. The notification adapter, ledger, breaker and scope fence in `bridge/notify/` are untouched (asserted by both test suites). The transport stays unofficial: every project on the adapter must carry `unofficial_acknowledged: true` and the envelope records `provider_class: unofficial`.
+
+**What can be answered without a business source.** Greeting, vehicle acknowledgement (echo of the model/year the customer wrote + "which part?"), and a request for details on ambiguous text. Everything that needs a fact — part availability, price, delivery, compatibility, order status — is a handoff (`BUSINESS_DATA_UNAVAILABLE`) with the missing fact *kinds* recorded on the decision; optionally an acknowledgement that promises nothing (`send_handoff_ack`, off). Voice notes, media without caption, locations and "I want a person" are handoffs. The advisory generator receives the intent, the entities and the verified facts — not the customer text unless `share_customer_text: true` — under a system prompt that forbids inventing prices, stock, delivery, compatibility, references, hours or numbers; its output passes `factGuard`, which also runs again inside the policy gate.
+
+**Outbound policy (§10 of the issue).** `lib/policy.js` refuses by name: `AUTO_REPLY_DISABLED`, `MODE_DRY_RUN`, `DECISION_NOT_REPLY`, `REQUIRES_HUMAN`, `RECIPIENT_MISSING|INVALID`, `PROVIDER_NOT_CONFIGURED`, `CREDENTIAL_MISSING`, `PROVIDER_UNAVAILABLE` (breaker), `BUSINESS_DATA_MISSING`, `FACT_GUARD_VIOLATION`, `REPLY_RATE_EXCEEDED`, `TEXT_EMPTY|TOO_LONG`, `NOT_ROUTED`. Dry-run evaluates every gate and shows the exact proposed text with the recipient masked.
+
+**Idempotency and loops (§11 of the issue).** Event id = hash(adapter, provider message id) claimed with O_EXCL before routing → a provider retry is `DUPLICATE_INBOUND`, during or after the first run; a `SEND_FAILED` is final (a timeout that actually delivered is never doubled); provider ids we sent are recorded and an inbound carrying one is `ECHO_OF_OWN_OUTBOUND` even if `fromMe` is absent; `fromMe`, groups, status and self-chat are refused at parse; hourly cap per conversation; provider breaker after N consecutive failures.
+
+**Host verification (2026-09-05 01:5x UTC, read-only).** RAM 7,746 MiB total / 2,788 MiB available, swap 3,649 / 4,095 MiB used, 4 vCPU, disk 88 % (9.3 GiB free), Evolution API v2.3.7 on loopback 8080 answering, port 8790 free on loopback, deploy user has no service-management right beyond user units. A Node receiver fits; Chatwoot still does not. **Nothing was deployed**: the receiver, its state directory, token files, the customer instance and the gateway webhook are owner actions (README "Receiver").
+
+**Security result.** No real send (live mode exercised against a loopback stub only); no credential printed, persisted or committed (`*_file` references, 0600 enforced, `apikey` in the webhook body never read); records and logs carry names, hashes and a masked number; receiver loopback-only with a strict bind check, ≥16-char token (URL or header, constant-time), 256 KiB body limit, 200 on refusals so the gateway does not retry; no governance-protected path touched.
+
+**Deliberately not built.** Media replies, read receipts, typing state, instance lifecycle / pairing (owner via the gateway), the business data sources themselves (the port is the integration point), a persistent conversation store (the gateway keeps history; a CRM remains the target of §2 when resources allow).

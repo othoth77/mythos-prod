@@ -16,11 +16,13 @@
 // compatible parts → stock → price). Its contract:
 //
 //   handler(envelope, ctx) → Promise<decision>
-//     ctx      = { project, policy, catalog_api }
+//     ctx      = { project, policy, catalog_api, business_data?, ai? }
 //     decision = { action: 'handoff' | 'reply' | 'ignore',
 //                  reason: string,             // a name, safe to record
 //                  reply_text?: string,        // only for action 'reply'
-//                  intent?: string, entities?: object }   // evidence
+//                  intent?: string, entities?: object,    // evidence
+//                  requires_human?: boolean,   // a reply that still needs an agent
+//                  facts?: { required: [...], available: [...], missing: [...] } }
 //
 // Rules the router enforces, whatever the handler returns:
 //   - a malformed decision is a handoff, never a reply;
@@ -42,13 +44,17 @@ var redact = require('../../../mythos-orchestrator/lib/redact');
 var ACTIONS = ['handoff', 'reply', 'ignore'];
 var HANDLER_TIMEOUT_MS = 10000;
 
-// The only built-in handler: hand every message to a human agent in the
-// CRM. It is what a project runs on until its business engine is connected.
+// Built-in handlers:
+//   handoff     hand every message to a human agent. What a project runs on
+//               until its business engine is connected.
+//   auto-reply  the lightweight engine of #173 (lib/handlers/auto-reply.js):
+//               classify → verified facts only → template/AI reply, else
+//               handoff. Still subject to `auto_reply: true` for delivery.
 function handoffHandler() {
   return Promise.resolve({ action: 'handoff', reason: 'NO_BUSINESS_ENGINE' });
 }
 
-var BUILTIN_HANDLERS = { handoff: handoffHandler };
+var BUILTIN_HANDLERS = { handoff: handoffHandler, 'auto-reply': require('./handlers/auto-reply').handler };
 
 function normalizeDecision(d) {
   if (!d || typeof d !== 'object') return { action: 'handoff', reason: 'DECISION_MALFORMED' };
@@ -60,7 +66,20 @@ function normalizeDecision(d) {
   }
   if (typeof d.intent === 'string') out.intent = d.intent.slice(0, 80);
   if (d.entities && typeof d.entities === 'object' && !Array.isArray(d.entities)) out.entities = redact.redactValue(d.entities);
+  if (d.requires_human === true) out.requires_human = true;
+  if (d.facts && typeof d.facts === 'object' && !Array.isArray(d.facts)) out.facts = factsSummary(d.facts);
+  if (typeof d.language === 'string' && /^[a-z]{2}$/.test(d.language)) out.language = d.language;
+  if (typeof d.generator === 'string' && /^[a-z-]{1,20}$/.test(d.generator)) out.generator = d.generator;
   return out;
+}
+
+// Facts are recorded as NAMES only (which kinds were required / available /
+// missing) — the values stay with the handler and the business data port.
+function nameList(v) {
+  return Array.isArray(v) ? v.filter(function (x) { return typeof x === 'string'; }).map(function (x) { return x.slice(0, 40); }).slice(0, 20) : [];
+}
+function factsSummary(f) {
+  return { required: nameList(f.required), available: nameList(f.available), missing: nameList(f.missing) };
 }
 
 function withTimeout(promise, ms) {
@@ -107,7 +126,7 @@ function route(env, cfg, opts) {
   var handler = handlers[pol.handler];
   if (typeof handler !== 'function') return Promise.resolve(result('REJECTED', 'HANDLER_UNAVAILABLE', enriched, project, null));
 
-  var ctx = { project: project, policy: pol, catalog_api: pol.catalog_api };
+  var ctx = { project: project, policy: pol, catalog_api: pol.catalog_api, business_data: opts.business_data || null, ai: opts.ai || null, engine: opts.engine || projects.engine(cfg) };
   var call;
   try { call = Promise.resolve(handler(enriched, ctx)); } catch (e) { call = Promise.reject(e); }
   return withTimeout(call, opts.handlerTimeoutMs || HANDLER_TIMEOUT_MS).then(function (d) {
@@ -160,7 +179,7 @@ function handleWebhook(o) {
   if (!auth.ok) return Promise.resolve({ outcome: 'UNAUTHORIZED', reason: auth.reason, authorized: false, accepted: false, routed: null });
   var parsed = adapter.parseWebhook(o.body);
   if (!parsed.accepted) return Promise.resolve({ outcome: 'IGNORED', reason: parsed.reason, authorized: true, accepted: false, routed: null });
-  return route(parsed.envelope, cfg, { handlers: o.handlers, handlerTimeoutMs: o.handlerTimeoutMs }).then(function (r) {
+  return route(parsed.envelope, cfg, { handlers: o.handlers, handlerTimeoutMs: o.handlerTimeoutMs, business_data: o.business_data, ai: o.ai, engine: o.engine }).then(function (r) {
     return { outcome: r.outcome, reason: r.reason, authorized: true, accepted: true, routed: r };
   });
 }
@@ -183,6 +202,7 @@ function deliver(o) {
     baseUrl: cfg.crm.base_url,
     allowPublic: cfg.crm.allow_public === true,
     accountId: r.envelope.crm.account_id,
+    inboxId: r.envelope.crm.inbox_id,
     conversationId: r.envelope.crm.conversation_id,
     apiToken: o.apiToken,
     text: r.decision.reply_text,

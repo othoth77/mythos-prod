@@ -20,20 +20,25 @@
 //                      accepted=false is NOT an error: it is every event the
 //                      CRM emits that is not an incoming customer message
 //   sendReply(o)       Promise<{ ok, status, crm_message_id, error }>
-//                      o = { baseUrl, accountId, conversationId, apiToken,
-//                            text, timeoutMs, allowPublic }
+//                      o = { baseUrl, accountId, inboxId, conversationId,
+//                            apiToken, text, timeoutMs, allowPublic }
 //                      MUST NOT throw for an HTTP error status, MUST NOT
 //                      return or log the token, MUST refuse a non-private
 //                      host unless allowPublic, MUST NOT retry internally.
 //
-// Only `chatwoot` is implemented — the selected inbox component (see
-// docs/MYTHOS_AUTO_WHATSAPP_CRM_ARCHITECTURE.md §4). A second adapter is a
-// new file here plus one line.
+// Two adapters exist:
+//   chatwoot   the selected inbox/CRM component (#172; deployment blocked
+//              on host resources — docs/MYTHOS_AUTO_WHATSAPP_CRM_ARCHITECTURE.md §4)
+//   evolution  the lightweight path (#173): the existing private Evolution
+//              gateway on a separate customer instance, no CRM in between
+// The rest of the layer is written against the contract, not an adapter;
+// swapping the transport is a configuration change (`crm.adapter`).
 // =====================================================
 
 var chatwoot = require('./chatwoot');
+var evolution = require('./evolution');
 
-var ADAPTERS = { chatwoot: chatwoot };
+var ADAPTERS = { chatwoot: chatwoot, evolution: evolution };
 
 function get(id) {
   return ADAPTERS[id] || null;

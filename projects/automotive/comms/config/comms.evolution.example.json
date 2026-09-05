@@ -1,0 +1,57 @@
+{
+  "schema": "mythos-auto-comms-config/1",
+  "_comment": "Lightweight path (Issue #173): the EXISTING private Evolution gateway (127.0.0.1:8080, ops/whatsapp/evolution) on a SEPARATE customer instance per project. `mythos-bridge` is the operational-notification instance and is reserved: no project may claim it. Example only; the real file lives outside Git. *_file entries name 0600 files; no token value ever goes here. Everything starts OFF: mode dry-run, auto_reply false.",
+  "crm": {
+    "adapter": "evolution",
+    "base_url": "http://127.0.0.1:8080",
+    "api_token_file": "~/mythos-ai-executor/keys/evolution-customer.apikey",
+    "webhook_token_file": "~/mythos-ai-executor/keys/auto-reply-webhook.token",
+    "reserved_inbox_ids": ["mythos-bridge"]
+  },
+  "auto_reply": {
+    "mode": "dry-run",
+    "state_dir": "~/mythos-ai-executor/state/auto-reply",
+    "max_replies_per_conversation_per_hour": 6,
+    "send_handoff_ack": false,
+    "provider_failure_threshold": 3,
+    "provider_cooldown_ms": 300000,
+    "receiver": { "bind": "127.0.0.1", "port": 8790 },
+    "ai": {
+      "generator": "template",
+      "base_url": "http://127.0.0.1:20128/v1",
+      "key_file": "~/mythos-ai-executor/keys/advisory.env",
+      "model": "claude-fable-5-1",
+      "share_customer_text": false
+    }
+  },
+  "projects": [
+    {
+      "id": "ssangyong.autos",
+      "display_name": "SsangYong Autos",
+      "languages": ["fr", "ar-TN", "en"],
+      "crm": { "account_id": "gateway", "inbox_ids": ["ssangyong-autos"] },
+      "whatsapp": { "provider": "evolution", "unofficial_acknowledged": true },
+      "business": {
+        "handler": "auto-reply",
+        "auto_reply": false,
+        "vehicle_models": ["Actyon", "Actyon Sports", "Korando", "Kyron", "Musso", "Rexton", "Rodius", "Tivoli", "XLV", "Torres"]
+      }
+    },
+    {
+      "id": "piece.autos",
+      "display_name": "Pièce Autos",
+      "languages": ["fr", "ar-TN"],
+      "crm": { "account_id": "gateway", "inbox_ids": ["piece-autos"] },
+      "whatsapp": { "provider": "evolution", "unofficial_acknowledged": true },
+      "business": { "handler": "handoff", "auto_reply": false }
+    },
+    {
+      "id": "casse.autos",
+      "display_name": "Casse Autos",
+      "languages": ["fr", "ar-TN"],
+      "crm": { "account_id": "gateway", "inbox_ids": ["casse-autos"] },
+      "whatsapp": { "provider": "evolution", "unofficial_acknowledged": true },
+      "business": { "handler": "handoff", "auto_reply": false }
+    }
+  ]
+}

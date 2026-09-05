@@ -168,6 +168,10 @@ function summary(env) {
   var cust = env.customer || {};
   var msg = env.message || {};
   var msisdn = cust.msisdn ? '***' + String(cust.msisdn).slice(-3) : null;
+  // On a CRM-less transport (evolution) the conversation IS the customer's
+  // number; it gets the same mask as the MSISDN.
+  var conv = crm.conversation_id || null;
+  if (conv && MSISDN_RE.test(String(conv))) conv = '***' + String(conv).slice(-3);
   return {
     event_id: env.event_id || null,
     event_name: env.event_name || null,
@@ -176,7 +180,7 @@ function summary(env) {
     provider: env.provider || null,
     provider_class: env.provider_class || null,
     project_id: env.project_id || null,
-    crm: { adapter: crm.adapter || null, account_id: crm.account_id || null, inbox_id: crm.inbox_id || null, conversation_id: crm.conversation_id || null, message_id: crm.message_id || null },
+    crm: { adapter: crm.adapter || null, account_id: crm.account_id || null, inbox_id: crm.inbox_id || null, conversation_id: conv, message_id: crm.message_id || null },
     customer_msisdn_masked: msisdn,
     content_type: msg.content_type || null,
     text_length: typeof msg.text === 'string' ? msg.text.length : 0,

@@ -36,7 +36,19 @@ var crmRegistry = require('./crm');
 var fence = require('../../../mythos-ai-executor/bridge/notify/whatsapp');
 
 var SCHEMA = 'mythos-auto-comms-config/1';
-var HANDLERS = ['handoff'];
+var HANDLERS = ['handoff', 'auto-reply'];
+// Engine block (`auto_reply`, optional). Every default is the safe one:
+// dry-run, template generator, no customer text shared with any model.
+var MODES = ['dry-run', 'live'];
+var GENERATORS = ['template', 'advisory'];
+var AUTO_REPLY_DEFAULTS = {
+  mode: 'dry-run',
+  max_replies_per_conversation_per_hour: 6,
+  send_handoff_ack: false,
+  provider_failure_threshold: 3,
+  provider_cooldown_ms: 5 * 60 * 1000
+};
+var MODEL_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
 // Any configured key whose NAME looks like a credential must end in `_file`.
 var CREDENTIAL_KEY_RE = /(token|key|password|passwd|secret|credential)$/i;
 var FILE_KEY_RE = /_file$/;
@@ -91,6 +103,17 @@ function validate(cfg) {
 
   credentialLiterals(cfg, '', []).forEach(function (k) { p.push('CREDENTIAL_LITERAL:' + k); });
 
+  // Inboxes (Evolution: instances) no project may ever claim — the way a
+  // configuration keeps the operational notification instance out of the
+  // customer path.
+  var reserved = {};
+  if (crm.reserved_inbox_ids !== undefined) {
+    if (!Array.isArray(crm.reserved_inbox_ids)) p.push('CRM_RESERVED_INBOX_IDS');
+    else crm.reserved_inbox_ids.forEach(function (id) { if (INBOX_ID_RE.test(String(id))) reserved[String(id)] = true; else p.push('CRM_RESERVED_INBOX_ID'); });
+  }
+
+  autoReplyProblems(cfg.auto_reply).forEach(function (x) { p.push(x); });
+
   var projects = Array.isArray(cfg.projects) ? cfg.projects : null;
   if (!projects || !projects.length) { p.push('PROJECTS_EMPTY'); return p; }
   var ids = {};
@@ -107,6 +130,7 @@ function validate(cfg) {
     ib.forEach(function (id) {
       var key = String(pc.account_id) + '/' + String(id);
       if (!INBOX_ID_RE.test(String(id))) p.push(tag + ':CRM_INBOX_ID');
+      else if (reserved[String(id)]) p.push(tag + ':CRM_INBOX_RESERVED:' + String(id));
       else if (inboxes[key]) p.push(tag + ':CRM_INBOX_SHARED:' + key); else inboxes[key] = pr.id;
     });
     var wa = pr.whatsapp || {};
@@ -115,6 +139,9 @@ function validate(cfg) {
     var biz = pr.business || {};
     if (biz.handler !== undefined && HANDLERS.indexOf(biz.handler) === -1) p.push(tag + ':BUSINESS_HANDLER_UNKNOWN');
     if (biz.auto_reply !== undefined && typeof biz.auto_reply !== 'boolean') p.push(tag + ':BUSINESS_AUTO_REPLY_NOT_BOOLEAN');
+    // Recognition vocabulary only (names the customer may write); never a
+    // catalogue, a stock or a price — those come from the business data port.
+    if (biz.vehicle_models !== undefined && (!Array.isArray(biz.vehicle_models) || !biz.vehicle_models.every(function (m) { return typeof m === 'string' && /^[A-Za-z0-9][A-Za-z0-9 .-]{0,39}$/.test(m); }))) p.push(tag + ':BUSINESS_VEHICLE_MODELS');
     if (biz.catalog_api !== undefined) {
       var ch = hostOf(biz.catalog_api);
       if (!ch) p.push(tag + ':BUSINESS_CATALOG_API');
@@ -122,6 +149,70 @@ function validate(cfg) {
     }
   });
   return p;
+}
+
+// Static problems of the optional `auto_reply` engine block, as names.
+function autoReplyProblems(ar) {
+  var p = [];
+  if (ar === undefined) return p;
+  if (!ar || typeof ar !== 'object' || Array.isArray(ar)) return ['AUTO_REPLY_NOT_OBJECT'];
+  if (ar.mode !== undefined && MODES.indexOf(ar.mode) === -1) p.push('AUTO_REPLY_MODE');
+  if (ar.state_dir !== undefined && (typeof ar.state_dir !== 'string' || !ar.state_dir)) p.push('AUTO_REPLY_STATE_DIR');
+  if (ar.send_handoff_ack !== undefined && typeof ar.send_handoff_ack !== 'boolean') p.push('AUTO_REPLY_SEND_HANDOFF_ACK_NOT_BOOLEAN');
+  ['max_replies_per_conversation_per_hour', 'provider_failure_threshold', 'provider_cooldown_ms'].forEach(function (k) {
+    if (ar[k] !== undefined && (typeof ar[k] !== 'number' || !(ar[k] >= 1) || ar[k] !== Math.floor(ar[k]))) p.push('AUTO_REPLY_' + k.toUpperCase());
+  });
+  var rc = ar.receiver;
+  if (rc !== undefined) {
+    if (!rc || typeof rc !== 'object') p.push('AUTO_REPLY_RECEIVER');
+    else {
+      if (rc.port !== undefined && (typeof rc.port !== 'number' || rc.port < 1024 || rc.port > 65535 || rc.port !== Math.floor(rc.port))) p.push('AUTO_REPLY_RECEIVER_PORT');
+      // A bind is stricter than a target: loopback only. `0.0.0.0` / `::`
+      // would expose the webhook on every interface.
+      if (rc.bind !== undefined && !/^(127\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|::1|localhost)$/.test(String(rc.bind))) p.push('AUTO_REPLY_RECEIVER_BIND_NOT_PRIVATE');
+    }
+  }
+  var ai = ar.ai;
+  if (ai !== undefined) {
+    if (!ai || typeof ai !== 'object') p.push('AUTO_REPLY_AI');
+    else {
+      if (ai.generator !== undefined && GENERATORS.indexOf(ai.generator) === -1) p.push('AUTO_REPLY_AI_GENERATOR');
+      if (ai.generator === 'advisory') {
+        var host = hostOf(ai.base_url);
+        if (!host) p.push('AUTO_REPLY_AI_BASE_URL');
+        else if (!fence.isPrivateHost(host) && ai.allow_public !== true) p.push('AUTO_REPLY_AI_BASE_URL_NOT_PRIVATE');
+        if (!ai.key_file || typeof ai.key_file !== 'string') p.push('AUTO_REPLY_AI_KEY_FILE');
+        if (ai.model !== undefined && !MODEL_RE.test(String(ai.model))) p.push('AUTO_REPLY_AI_MODEL');
+      }
+      if (ai.share_customer_text !== undefined && typeof ai.share_customer_text !== 'boolean') p.push('AUTO_REPLY_AI_SHARE_CUSTOMER_TEXT_NOT_BOOLEAN');
+    }
+  }
+  return p;
+}
+
+// Effective engine settings with every default spelled out. `mode` is
+// dry-run unless the file says `live`; nothing else can turn sending on.
+function engine(cfg) {
+  var ar = (cfg && cfg.auto_reply && typeof cfg.auto_reply === 'object') ? cfg.auto_reply : {};
+  var ai = (ar.ai && typeof ar.ai === 'object') ? ar.ai : {};
+  var rc = (ar.receiver && typeof ar.receiver === 'object') ? ar.receiver : {};
+  return {
+    mode: ar.mode === 'live' ? 'live' : 'dry-run',
+    state_dir: typeof ar.state_dir === 'string' && ar.state_dir ? ar.state_dir : null,
+    max_replies_per_conversation_per_hour: ar.max_replies_per_conversation_per_hour || AUTO_REPLY_DEFAULTS.max_replies_per_conversation_per_hour,
+    send_handoff_ack: ar.send_handoff_ack === true,
+    provider_failure_threshold: ar.provider_failure_threshold || AUTO_REPLY_DEFAULTS.provider_failure_threshold,
+    provider_cooldown_ms: ar.provider_cooldown_ms || AUTO_REPLY_DEFAULTS.provider_cooldown_ms,
+    receiver: { bind: typeof rc.bind === 'string' && rc.bind ? rc.bind : '127.0.0.1', port: rc.port || 8790, max_body_bytes: 262144 },
+    ai: {
+      generator: ai.generator === 'advisory' ? 'advisory' : 'template',
+      base_url: typeof ai.base_url === 'string' ? ai.base_url : null,
+      key_file: typeof ai.key_file === 'string' ? ai.key_file : null,
+      model: typeof ai.model === 'string' ? ai.model : null,
+      share_customer_text: ai.share_customer_text === true,
+      allow_public: ai.allow_public === true
+    }
+  };
 }
 
 // (account_id, inbox_id) → project, or null. The pair is the CRM's own
@@ -150,7 +241,9 @@ function policy(project) {
   return {
     handler: biz.handler || 'handoff',
     auto_reply: biz.auto_reply === true,
-    catalog_api: biz.catalog_api || null
+    catalog_api: biz.catalog_api || null,
+    vehicle_models: Array.isArray(biz.vehicle_models) ? biz.vehicle_models.slice() : [],
+    languages: Array.isArray(project && project.languages) ? project.languages.slice() : []
   };
 }
 
@@ -166,8 +259,21 @@ function describe(cfg) {
       base_url_host: hostOf(crm.base_url),
       base_url_private: hostOf(crm.base_url) ? fence.isPrivateHost(hostOf(crm.base_url)) : null,
       api_token_file_set: typeof crm.api_token_file === 'string' && !!crm.api_token_file,
-      webhook_token_file_set: typeof crm.webhook_token_file === 'string' && !!crm.webhook_token_file
+      webhook_token_file_set: typeof crm.webhook_token_file === 'string' && !!crm.webhook_token_file,
+      reserved_inbox_ids: Array.isArray(crm.reserved_inbox_ids) ? crm.reserved_inbox_ids.map(String) : []
     },
+    auto_reply: (function () {
+      var e = engine(cfg);
+      return {
+        configured: cfg.auto_reply !== undefined,
+        mode: e.mode,
+        state_dir_set: !!e.state_dir,
+        send_handoff_ack: e.send_handoff_ack,
+        max_replies_per_conversation_per_hour: e.max_replies_per_conversation_per_hour,
+        receiver: { bind: e.receiver.bind, port: e.receiver.port },
+        ai: { generator: e.ai.generator, base_url_host: e.ai.base_url ? hostOf(e.ai.base_url) : null, key_file_set: !!e.ai.key_file, model: e.ai.model, share_customer_text: e.ai.share_customer_text }
+      };
+    })(),
     projects: (Array.isArray(cfg.projects) ? cfg.projects : []).map(function (pr) {
       pr = pr || {};
       var pol = policy(pr);
@@ -181,7 +287,8 @@ function describe(cfg) {
         whatsapp_provider_class: pr.whatsapp ? envelope.providerClass(pr.whatsapp.provider) : null,
         handler: pol.handler,
         auto_reply: pol.auto_reply,
-        catalog_api_host: pol.catalog_api ? hostOf(pol.catalog_api) : null
+        catalog_api_host: pol.catalog_api ? hostOf(pol.catalog_api) : null,
+        vehicle_models: pol.vehicle_models.length
       };
     }),
     problems: validate(cfg)
@@ -191,10 +298,14 @@ function describe(cfg) {
 module.exports = {
   SCHEMA: SCHEMA,
   HANDLERS: HANDLERS,
+  MODES: MODES,
+  GENERATORS: GENERATORS,
+  AUTO_REPLY_DEFAULTS: AUTO_REPLY_DEFAULTS,
   expandHome: expandHome,
   load: load,
   validate: validate,
   resolve: resolve,
   policy: policy,
+  engine: engine,
   describe: describe
 };

@@ -291,9 +291,12 @@ var asyncPart = (async function () {
   srv.close();
 
   // ---------- 7. separation guarantees ----------
-  var commsFiles = ['lib/envelope.js', 'lib/projects.js', 'lib/crm/index.js', 'lib/crm/chatwoot.js', 'lib/router.js', 'bin/mythos-auto-comms'].map(function (f) { return path.join(COMMS, f); });
+  // `lib/crm/evolution.js` (#173) speaks the gateway's own `/message/sendText`
+  // endpoint; what stays forbidden is the notification module's `.sendText(`
+  // function and its provider files.
+  var commsFiles = ['lib/envelope.js', 'lib/projects.js', 'lib/crm/index.js', 'lib/crm/chatwoot.js', 'lib/crm/evolution.js', 'lib/router.js', 'lib/intents.js', 'lib/business-data.js', 'lib/ai/index.js', 'lib/handlers/auto-reply.js', 'lib/ledger.js', 'lib/policy.js', 'lib/engine.js', 'bin/mythos-auto-comms', 'bin/mythos-auto-reply-receiver'].map(function (f) { return path.join(COMMS, f); });
   var commsSrc = commsFiles.map(function (f) { return fs.readFileSync(f, 'utf8'); }).join('\n');
-  ok(commsSrc.indexOf('providers/evolution') === -1 && commsSrc.indexOf('providers/generic') === -1 && commsSrc.indexOf('sendText') === -1, 'separation: the customer layer never uses the notification providers');
+  ok(commsSrc.indexOf('providers/evolution') === -1 && commsSrc.indexOf('providers/generic') === -1 && commsSrc.indexOf('.sendText(') === -1, 'separation: the customer layer never uses the notification providers');
   ok(commsSrc.indexOf('MYTHOS_BRIDGE_WHATSAPP') === -1, 'separation: the customer layer reads no bridge notification setting');
   ok(commsSrc.indexOf('onReport') === -1 && commsSrc.indexOf('flush(') === -1, 'separation: the customer layer never touches the notification ledger');
   var notifyDir = path.join(ROOT, 'projects/mythos-ai-executor/bridge/notify');
@@ -333,7 +336,7 @@ var asyncPart = (async function () {
   r = await cli(['dry-run', cfgFile, hookFile]);
   ok(r.code === 2 && JSON.parse(r.out).token_file === 'TOKEN_FILE_MODE_NOT_0600', 'cli: a 0644 token file is refused');
   r = await cli(['describe']);
-  ok(r.code === 0 && JSON.parse(r.out).crm_adapters.chatwoot.id === 'chatwoot' && JSON.parse(r.out).handlers.join(',') === 'handoff', 'cli: describe');
+  ok(r.code === 0 && JSON.parse(r.out).crm_adapters.chatwoot.id === 'chatwoot' && JSON.parse(r.out).handlers.join(',') === 'handoff,auto-reply', 'cli: describe');
   fs.rmSync(tmp, { recursive: true, force: true });
 })();
 
