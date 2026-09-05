@@ -17,6 +17,8 @@
 //       Marks a WhatsApp account as reserved (no inbox may claim it) — e.g. the
 //       MYTHOS notification account. Needs MYTHOS_WP_DB_*.
 //   mythos-wp comms reconcile [--threshold-min N] | heartbeat | replay-list | replay <event_id> [--apply] [--actor name]
+//   mythos-wp comms route list <project> [--inbox ID] | add <project> --inbox ID --kind allowlist|opt_in --identity phone|lid|bsuid|provider_user:<value> [--code C] [--ttl-hours H] [--priority N] [--note ...]
+//   mythos-wp comms route enable|disable <project> <rule_id> | drops [--limit N] | shared-inbox <project> --instance I --account-ref DIGITS --display-name NAME   (COMMS-11)
 //       Delivery reconciliation alarm, inbox heartbeat, controlled dead-letter replay (dry-run unless --apply).
 //   mythos-wp migrate status | up | down <version>
 //       Additive SQL migrations (database/migrations, ledger wp_schema_migrations);
@@ -106,7 +108,17 @@ if (cmd === 'set-password') {
     : sub2 === 'heartbeat' ? rec.heartbeat(cpool, {})
     : sub2 === 'replay-list' ? rec.listReplayable(cpool, 50)
     : sub2 === 'replay' ? Promise.resolve().then(function () { return rec.replay(cpool, args[2], actor, { dryRun: args.indexOf('--apply') === -1 }); })
-    : Promise.reject(new Error('usage: comms reconcile|heartbeat|replay-list|replay <event_id> [--apply]'));
+    : sub2 === 'route' ? Promise.resolve().then(function () {
+      var routing = require('../reference/comms/routing'); var op = args[2]; var project = args[3];
+      if (op === 'drops') return routing.listDrops(cpool, { limit: flag('--limit') });
+      if (op === 'shared-inbox') return routing.createSharedInbox(cpool, project, { instance: flag('--instance'), account_ref: flag('--account-ref'), display_name: flag('--display-name'), provider: flag('--provider') || 'evolution' }, actor);
+      if (!project) throw new Error('usage: comms route list|add|enable|disable <project> …');
+      if (op === 'list') return routing.listRules(cpool, project, { inbox_id: flag('--inbox') });
+      if (op === 'enable' || op === 'disable') return routing.setRuleEnabled(cpool, project, args[4], op === 'enable', actor);
+      if (op === 'add') { var idn = String(flag('--identity') || ''); var i = idn.indexOf(':'); if (i < 1) throw new Error('--identity <kind>:<value> required'); return routing.addRule(cpool, project, { inbox_id: flag('--inbox'), kind: flag('--kind'), identity_kind: idn.slice(0, i), identity_value: idn.slice(i + 1), opt_in_code: flag('--code'), ttl_hours: flag('--ttl-hours'), priority: flag('--priority'), note: flag('--note') }, actor); }
+      throw new Error('usage: comms route list|add|enable|disable|drops');
+    })
+    : Promise.reject(new Error('usage: comms reconcile|heartbeat|replay-list|replay <event_id> [--apply]|route …'));
   run2.then(function (r) { process.stdout.write(JSON.stringify(r) + '\n'); return cpool.end(); })
     .catch(function (e) { cpool.end().catch(function () {}); die(e.message); });
 } else if (cmd === 'migrate') {
