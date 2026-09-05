@@ -33,11 +33,20 @@ var PATTERNS = [
   { name: 'db-url', re: /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp):\/\/[^\s:@/]+:[^\s@]+@[^\s]+/g },
   { name: 'url-basic-auth', re: /\bhttps?:\/\/[^\s:@/]+:[^\s@]+@[^\s]+/g },
 
-  // Explicit assignments — key=value / key: value
+  // Explicit assignments — key=value / key: value. Narrative status text
+  // commonly uses secret-related words as labels (e.g. "Secrets: safe/redacted").
+  // Those labels must not be treated as credentials when their values are
+  // explicit non-secret status placeholders.
   { name: 'assigned-secret', re: /\b([A-Za-z0-9_]*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_?KEY|PRIVATE_?KEY|ACCESS_?KEY|CREDENTIAL)[A-Za-z0-9_]*)\s*[:=]\s*(?:"[^"\n]*"|'[^'\n]*'|[^\s,;)}\]]+)/gi }
 ];
 
+var SAFE_ASSIGNMENT_VALUES = /^(?:configured|fixed|not required|none|safe(?:\/redacted)?|redacted|n\/a|na|ok|true|false|yes|no|enabled|disabled|pending|unknown|not configured|not set|unset)$/i;
+
 var MASK = '[REDACTED]';
+
+function isSafeAssignmentValue(value) {
+  return typeof value === 'string' && SAFE_ASSIGNMENT_VALUES.test(value.trim());
+}
 
 // Redacts every known secret shape in a string. Non-strings pass through
 // unchanged so callers can use this defensively.
@@ -46,7 +55,11 @@ function redact(text) {
   var out = text;
   PATTERNS.forEach(function (p) {
     if (p.name === 'assigned-secret') {
-      out = out.replace(p.re, function (_match, key) { return key + '=' + MASK; });
+      out = out.replace(p.re, function (match, key) {
+        var assignment = match.slice(key.length).replace(/^\s*[:=]\s*/, '');
+        if (isSafeAssignmentValue(assignment)) return match;
+        return key + '=' + MASK;
+      });
     } else {
       out = out.replace(p.re, MASK);
     }
@@ -73,8 +86,19 @@ function findSecretKinds(text) {
   if (typeof text !== 'string' || !text) return [];
   var kinds = [];
   PATTERNS.forEach(function (p) {
-    p.re.lastIndex = 0;
-    if (new RegExp(p.re.source, p.re.flags.replace('g', '')).test(text)) kinds.push(p.name);
+    var re = new RegExp(p.re.source, p.re.flags.replace('g', ''));
+    if (p.name === 'assigned-secret') {
+      var match;
+      while ((match = re.exec(text)) !== null) {
+        var assignment = match[0].slice(match[1].length).replace(/^\s*[:=]\s*/, '');
+        if (!isSafeAssignmentValue(assignment)) {
+          kinds.push(p.name);
+          break;
+        }
+      }
+    } else if (re.test(text)) {
+      kinds.push(p.name);
+    }
   });
   return kinds;
 }
