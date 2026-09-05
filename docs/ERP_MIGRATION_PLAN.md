@@ -95,8 +95,10 @@ REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT USAGE ON SCHEMA public TO erp_app;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO erp_app;
 -- deliberately no DELETE: retirement is deleted_at
+GRANT DELETE ON invoice_lines TO erp_app;      -- the ONE exception: lines are replaced wholesale (see schema.sql, 6197ec6)
 REVOKE UPDATE, DELETE ON audit_log FROM erp_app;
 GRANT INSERT, SELECT ON audit_log TO erp_app;
+REVOKE INSERT, UPDATE ON schema_migrations FROM erp_app;   -- only the migration runner (owner) writes the ledger
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO erp_app;
 ```
 

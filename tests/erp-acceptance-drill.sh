@@ -45,6 +45,7 @@ GRANT DELETE ON invoice_lines TO erp_app;   -- lines are replaced wholesale on e
 REVOKE UPDATE, DELETE ON audit_log FROM erp_app;
 GRANT INSERT, SELECT ON audit_log TO erp_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO erp_app;
+REVOKE INSERT, UPDATE ON schema_migrations FROM erp_app;  -- only the migration runner (owner) writes the ledger
 SQL
 echo "[acceptance] roles and grants applied"
 
