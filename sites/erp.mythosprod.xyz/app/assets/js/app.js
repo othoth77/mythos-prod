@@ -19,6 +19,7 @@ import { settingsView, usersView, auditView } from './views/admin.js';
 const MODULES = {
   dashboard:  { title: 'Tableau de bord', kicker: 'Vue d\'ensemble', glyph: '▦', view: (el) => dashboardView(el) },
   clients:    { title: 'Clients', kicker: 'Répertoire', glyph: '●', resources: ['clients', 'contacts'] },
+  prospects:  { title: 'Prospects', kicker: 'Commercial', glyph: '◎', resources: ['prospects'] },
   projects:   { title: 'Projets', kicker: 'Production', glyph: '▲', resources: ['projects', 'contracts'] },
   planning:   { title: 'Planning', kicker: 'Agenda', glyph: '◔', resources: ['appointments'] },
   production: { title: 'Production', kicker: 'Spectacles', glyph: '◆', resources: ['representations', 'collaborators'] },

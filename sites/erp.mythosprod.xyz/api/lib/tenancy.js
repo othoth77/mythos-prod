@@ -12,7 +12,7 @@
  */
 
 var MODULES = [
-  'dashboard', 'clients', 'projects', 'planning', 'production', 'finance',
+  'dashboard', 'clients', 'prospects', 'projects', 'planning', 'production', 'finance',
   'invoices', 'documents', 'reports', 'inventory', 'settings', 'users', 'audit'
 ];
 

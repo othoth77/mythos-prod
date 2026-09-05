@@ -21,6 +21,7 @@ var tenancy = require('./lib/tenancy');
 var tokens = require('./lib/tokens');
 var resource = require('./lib/resource');
 var registry = require('./modules/registry');
+var prospects = require('./modules/prospects');
 var invoices = require('./modules/invoices');
 var views = require('./modules/views');
 
@@ -144,6 +145,12 @@ route('PATCH',  '/api/v1/invoices/:id', 'invoices', invoices.handlers.update,
       function (b) { return invoices.validateHeader(b, true); });
 route('DELETE', '/api/v1/invoices/:id', 'invoices', invoices.handlers.retire);
 route('POST',   '/api/v1/invoices/:id/payments', 'invoices', invoices.handlers.addPayment);
+
+// ── Prospects: conversion into a client (0004-prospects.sql) ─────────────
+// Gated by the pipeline on prospects.write (POST on the module) and, inside
+// the handler, on prospects.convert. Declared before the generic resources so
+// the more specific path is matched first.
+route('POST', '/api/v1/prospects/:id/convert', 'prospects', prospects.convert);
 
 // ── Declarative resources ─────────────────────────────────────────────────
 Object.keys(registry.DEFS).forEach(function (name) {
