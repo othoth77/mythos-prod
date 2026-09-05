@@ -1,12 +1,12 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-05T03:36:42.997Z",
+  "generated_at": "2026-09-05T03:36:44.767Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
-    "PENDING": 1,
-    "CLAIMED": 0,
+    "PENDING": 0,
+    "CLAIMED": 1,
     "IN_PROGRESS": 1,
     "VALIDATING": 0,
     "COMPLETED": 45,
@@ -14,11 +14,10 @@
     "FAILED": 0,
     "CANCELLED": 1
   },
-  "pending": [
-    "gh-issue-181"
-  ],
+  "pending": [],
   "active": [
-    "gh-issue-178-r2"
+    "gh-issue-178-r2",
+    "gh-issue-181"
   ],
   "awaiting_review": [
     "gh-20260902-bridge-smoke-01",
@@ -1645,18 +1644,18 @@
     },
     {
       "task_id": "gh-issue-181",
-      "status": "PENDING",
+      "status": "CLAIMED",
       "priority": "normal",
       "requested_action": "investigate",
       "action_source": "default",
-      "execution_profile": null,
-      "model": null,
+      "execution_profile": "repo-read",
+      "model": "claude-haiku-4-5",
       "blocker": null,
       "created_at": "2026-09-05T03:36:41.253Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-05T03:36:41.253Z",
-      "executor_task_id": null,
-      "branch": null,
+      "updated_at": "2026-09-05T03:36:44.763Z",
+      "executor_task_id": "t-20260905033644-boabl9",
+      "branch": "mythos/gh/gh-issue-181",
       "task_file": "control/tasks/gh-issue-181.json",
       "report_file": null,
       "source": {

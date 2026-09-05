@@ -20,7 +20,7 @@
   "action_raw": "investigate",
   "action_source": "default",
   "validation_requirements": [],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-05T03:36:41.253Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #181 https://github.com/othoth77/mythos-prod/issues/181 — \"MYTHOS — Diagnose Governance Validation\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[definition of done]\n1. Root cause identified and documented.\n2. False-positive behavior fixed if applicable.\n3. Genuine secret detection remains enforced.\n4. Regression tests pass.\n5. No credentials or secret values are added to the repository or task data.\n6. Git/production impact is explicitly reported.\n\n[execution]\nThis is a diagnostic/remediation TASK. Start with read-only investigation and make changes only if the root cause and safe fix are established.",
@@ -123,5 +123,64 @@
       ],
       "removed": []
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260905033644-boabl9",
+    "othmode_task_id": "OTH-2026-00178",
+    "attempt_id": "gh-issue-181#1",
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "default",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "expected_delivery": "report",
+    "model_key": null,
+    "model_requested": null,
+    "model_source": "none",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-181",
+    "branch": "mythos/gh/gh-issue-181",
+    "base_commit": "c54dbd179feade15e97c2ac71983b13804bc458d",
+    "claimed_at": "2026-09-05T03:36:44.674Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "a6a1c12ae3703218b99cedd4f1a865d87fb780d3e141ef424e94f2d03b037da5",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-05T03:36:44.674Z",
+    "snapshot_sha256": "ea2b24e7ae9fc6a5bea621c725f78d8c4503a85e84040ceb513e61fdc4e21f58",
+    "fence": 5848,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:1333313",
+      "fence": 5848,
+      "acquired_at": "2026-09-05T03:36:44.674Z",
+      "expires_at": "2026-09-05T05:06:44.674Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/projects/mythos-prod",
+      "head": "c54dbd179feade15e97c2ac71983b13804bc458d",
+      "branch": "main",
+      "dirty_files": 0,
+      "base_ref": "origin/main",
+      "base_ref_head": "c54dbd179feade15e97c2ac71983b13804bc458d",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": false,
+      "code": null,
+      "reason": null,
+      "measured_at": "2026-09-05T03:36:43.682Z"
+    },
+    "model": "claude-haiku-4-5",
+    "model_selection_mode": "auto"
+  },
+  "history": [
+    {
+      "at": "2026-09-05T03:36:44.763Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260905033644-boabl9 queued; OTHMODE OTH-2026-00178; action investigate (default) → repo-read; model claude-haiku-4-5; fence 5848"
+    }
+  ]
 }
