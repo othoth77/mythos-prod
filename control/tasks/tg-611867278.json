@@ -12,7 +12,7 @@
   "action_raw": "investigate",
   "action_source": "default",
   "validation_requirements": [],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-05T01:54:08.669Z",
   "created_by": "telegram:5005015506",
   "notes": "Source: Telegram private message (update_id 611867278, chat_id 5005015506, message_id 192, user_id 5005015506, sent 2026-09-05T01:52:04.000Z).\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted because the message did not state one (write `Action: investigate|review` on its own line) → execution profile repo-read",
@@ -72,5 +72,64 @@
         "existed": false
       }
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260905015410-5s8mok",
+    "othmode_task_id": "OTH-2026-00172",
+    "attempt_id": "tg-611867278#1",
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "default",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "expected_delivery": "report",
+    "model_key": null,
+    "model_requested": null,
+    "model_source": "none",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/tg-611867278",
+    "branch": "mythos/gh/tg-611867278",
+    "base_commit": "0e852103f050880921e5ac81669ffee24185a3ca",
+    "claimed_at": "2026-09-05T01:54:10.443Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "a91f24cbc468e390557d432a8a56b62057ba1319379d50a8e729f091eef9f44d",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-05T01:54:10.443Z",
+    "snapshot_sha256": "73ad35317ce772672252ecb7e5637ccd38c4992fcba85b1c7464f808926a4f64",
+    "fence": 5553,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:1060237",
+      "fence": 5553,
+      "acquired_at": "2026-09-05T01:54:10.443Z",
+      "expires_at": "2026-09-05T03:24:10.443Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/worktrees/telegram-channel/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/worktrees/telegram-channel",
+      "head": "06021f43241f071bcec395313ce51209ca1a38e4",
+      "branch": "mythos/telegram-channel-20260905",
+      "dirty_files": 0,
+      "base_ref": "origin/main",
+      "base_ref_head": "0e852103f050880921e5ac81669ffee24185a3ca",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": false,
+      "code": null,
+      "reason": null,
+      "measured_at": "2026-09-05T01:54:09.383Z"
+    },
+    "model": "claude-haiku-4-5",
+    "model_selection_mode": "auto"
+  },
+  "history": [
+    {
+      "at": "2026-09-05T01:54:10.482Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260905015410-5s8mok queued; OTHMODE OTH-2026-00172; action investigate (default) → repo-read; model claude-haiku-4-5; fence 5553"
+    }
+  ]
 }

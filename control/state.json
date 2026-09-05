@@ -1,12 +1,12 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-05T01:54:08.778Z",
+  "generated_at": "2026-09-05T01:54:10.484Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
-    "PENDING": 1,
-    "CLAIMED": 0,
+    "PENDING": 0,
+    "CLAIMED": 1,
     "IN_PROGRESS": 1,
     "VALIDATING": 0,
     "COMPLETED": 40,
@@ -14,11 +14,10 @@
     "FAILED": 0,
     "CANCELLED": 1
   },
-  "pending": [
-    "tg-611867278"
-  ],
+  "pending": [],
   "active": [
-    "gh-issue-173"
+    "gh-issue-173",
+    "tg-611867278"
   ],
   "awaiting_review": [
     "gh-20260902-bridge-smoke-01",
@@ -1616,18 +1615,18 @@
     },
     {
       "task_id": "tg-611867278",
-      "status": "PENDING",
+      "status": "CLAIMED",
       "priority": "normal",
       "requested_action": "investigate",
       "action_source": "default",
-      "execution_profile": null,
-      "model": null,
+      "execution_profile": "repo-read",
+      "model": "claude-haiku-4-5",
       "blocker": null,
       "created_at": "2026-09-05T01:54:08.669Z",
       "created_by": "telegram:5005015506",
-      "updated_at": "2026-09-05T01:54:08.669Z",
-      "executor_task_id": null,
-      "branch": null,
+      "updated_at": "2026-09-05T01:54:10.482Z",
+      "executor_task_id": "t-20260905015410-5s8mok",
+      "branch": "mythos/gh/tg-611867278",
       "task_file": "control/tasks/tg-611867278.json",
       "report_file": null,
       "source": {
