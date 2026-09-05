@@ -62,7 +62,7 @@ echo "[frontend-drill] throwaway PostgreSQL 15: $C"
 docker run -d --name "$C" -P -e POSTGRES_USER=erp_owner -e POSTGRES_DB=mythos_erp -e POSTGRES_PASSWORD="$PW" postgres:15-alpine >/dev/null
 OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
-for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
 done
@@ -71,6 +71,8 @@ CREATE ROLE erp_app LOGIN PASSWORD '$PW';
 GRANT USAGE ON SCHEMA public TO erp_app;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO erp_app;
 GRANT DELETE ON invoice_lines TO erp_app;
+GRANT SELECT, INSERT, UPDATE ON accounts, journals, fiscal_periods, accounting_counters, journal_entries, journal_lines TO erp_app;
+GRANT DELETE ON journal_lines TO erp_app;   -- draft lines are replaced wholesale; the trigger freezes posted ones
 REVOKE UPDATE, DELETE ON audit_log FROM erp_app;
 GRANT INSERT, SELECT ON audit_log TO erp_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO erp_app;
@@ -189,6 +191,10 @@ dom "$P/#/audit"
 check "audit: tenant journal shows record.created and record.updated" "txt 'record.created' && txt 'record.updated'" "$(grep -o 'Journal.\{0,400\}' $WORK/dom.txt | head -c 400) | api: $(auth "$B/api/v1/audit?limit=3" >/dev/null; head -c 300 $J)"
 dom "$P/#/prospects"
 check "prospects view: rail entry, row, status badge, convert action" "has 'data-module=\"prospects\"' && txt 'Prospect Drill' && txt 'qualified' && txt 'Convertir en client'" "$(grep -o 'Prospects.\{0,300\}' $WORK/dom.txt | head -c 300)"
+dom "$P/#/accounting"
+check "comptabilité view: tabs, automatic entries from the seeded invoice + payment, VT/BQ journals, posted" "has 'data-module=\"accounting\"' && txt 'Grand livre' && txt 'Balance' && txt 'posted' && txt 'invoices' && txt 'payments'" "$(grep -o 'Comptabilit.\{0,300\}' $WORK/dom.txt | head -c 300)"
+dom "$P/#/accounting/trial-balance"
+check "balance view: totals balanced, 411 / 706 / 4367 present" "txt 'équilibrée' && txt '411' && txt '706' && txt '4367'" "$(grep -o 'Balance.\{0,300\}' $WORK/dom.txt | head -c 300)"
 dom "$P/#/planning"
 check "planning: honest empty state" "txt 'Aucun enregistrement'" ""
 dom "$P/#/nope/../x"

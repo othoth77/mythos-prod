@@ -13,7 +13,7 @@
 
 var MODULES = [
   'dashboard', 'clients', 'prospects', 'projects', 'planning', 'production', 'finance',
-  'invoices', 'documents', 'reports', 'inventory', 'settings', 'users', 'audit'
+  'invoices', 'accounting', 'documents', 'reports', 'inventory', 'settings', 'users', 'audit'
 ];
 
 /* Which tenants may this user enter? Platform-level: runs without a tenant

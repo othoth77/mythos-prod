@@ -14,6 +14,7 @@ import { invoicesView } from './views/invoices.js';
 import { dashboardView } from './views/dashboard.js';
 import { reportsView } from './views/reports.js';
 import { settingsView, usersView, auditView } from './views/admin.js';
+import { accountingView } from './views/accounting.js';
 
 /* Module → what the view shows. A module with several resources gets tabs. */
 const MODULES = {
@@ -24,6 +25,7 @@ const MODULES = {
   planning:   { title: 'Planning', kicker: 'Agenda', glyph: '◔', resources: ['appointments'] },
   production: { title: 'Production', kicker: 'Spectacles', glyph: '◆', resources: ['representations', 'collaborators'] },
   finance:    { title: 'Finance', kicker: 'Flux', glyph: '■', resources: ['invoices', 'quotes', 'purchases', 'expenses', 'bank_accounts'] },
+  accounting: { title: 'Comptabilité', kicker: 'Grand livre', glyph: '⚖', view: (el, r) => accountingView(el, r) },
   documents:  { title: 'Documents', kicker: 'Pièces', glyph: '▬', resources: ['documents'] },
   reports:    { title: 'Rapports', kicker: 'Analyse', glyph: '◧', view: (el, r) => reportsView(el, r.resource) },
   inventory:  { title: 'Inventaire', kicker: 'Stock', glyph: '▤', resources: ['inventory_items', 'suppliers'] },

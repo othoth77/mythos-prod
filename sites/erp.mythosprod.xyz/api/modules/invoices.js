@@ -1,5 +1,7 @@
 'use strict';
 
+var accounting = require('./accounting');
+
 /* Invoices — the module the brief singles out, and the one where getting it
  * casually wrong is most expensive.
  *
@@ -198,12 +200,16 @@ var handlers = {
       return replaceLines(client, row.id, ctx.tenantId, ctx.input.lines)
         .then(function () { return hydrate(client, row); })
         .then(function (full) {
-          return {
-            status: 201, body: full,
-            audit: { action: 'record.created', entity_table: 'invoices', entity_id: row.id,
-                     detail: { number: row.number, total_ttc: full.totals.total_ttc,
-                               line_count: full.lines.length } }
-          };
+          // Issued at creation → the sales entry is posted in the same transaction.
+          var acc = full.status === 'sent' ? accounting.postInvoiceIssue(client, ctx, full) : Promise.resolve({ skipped: 'draft' });
+          return acc.then(function (a) {
+            return {
+              status: 201, body: Object.assign({}, full, { accounting: a.entry ? { entry_no: a.entry.entry_no } : { skipped: a.skipped } }),
+              audit: { action: 'record.created', entity_table: 'invoices', entity_id: row.id,
+                       detail: { number: row.number, total_ttc: full.totals.total_ttc,
+                                 line_count: full.lines.length, accounting_entry: a.entry ? a.entry.entry_no : null } }
+            };
+          });
         });
     });
   },
@@ -234,12 +240,18 @@ var handlers = {
           })
           .then(function (r2) { return hydrate(client, r2.rows[0]); })
           .then(function (full) {
-            return {
-              status: 200, body: full,
-              audit: { action: 'record.updated', entity_table: 'invoices', entity_id: ctx.id,
-                       detail: { fields: Object.keys(h), lines_replaced: lines !== undefined,
-                                 total_ttc: full.totals.total_ttc } }
-            };
+            // Leaving draft = the invoice is issued: post the sales entry now
+            // (idempotent on the invoice id, so a repeated transition is a no-op).
+            var issued = cur.status === 'draft' && full.status !== 'draft' && full.status !== 'cancelled';
+            var acc = issued ? accounting.postInvoiceIssue(client, ctx, full) : Promise.resolve({ skipped: 'not_an_issue' });
+            return acc.then(function (a) {
+              return {
+                status: 200, body: Object.assign({}, full, { accounting: a.entry ? { entry_no: a.entry.entry_no } : { skipped: a.skipped } }),
+                audit: { action: 'record.updated', entity_table: 'invoices', entity_id: ctx.id,
+                         detail: { fields: Object.keys(h), lines_replaced: lines !== undefined,
+                                   total_ttc: full.totals.total_ttc, accounting_entry: a.entry ? a.entry.entry_no : null } }
+              };
+            });
           });
       });
   },
@@ -251,11 +263,15 @@ var handlers = {
     ).then(function (r) {
       var row = (r.rows || [])[0];
       if (!row) return { status: 404, body: { error: 'not_found' } };
-      return {
-        status: 200, body: { id: row.id, cancelled: true },
-        audit: { action: 'record.deleted', entity_table: 'invoices', entity_id: row.id,
-                 detail: { number: row.number } }
-      };
+      // If the issue was posted to the ledger, cancel it by reversal (payments,
+      // if any, stay: money that moved is a fact).
+      return accounting.reverseInvoice(client, ctx, row).then(function (a) {
+        return {
+          status: 200, body: { id: row.id, cancelled: true, accounting: a.entry ? { reversal_entry_no: a.entry.entry_no } : { skipped: a.skipped } },
+          audit: { action: 'record.deleted', entity_table: 'invoices', entity_id: row.id,
+                   detail: { number: row.number, accounting_reversal: a.entry ? a.entry.entry_no : null } }
+        };
+      });
     });
   },
 
@@ -263,7 +279,7 @@ var handlers = {
     var b = ctx.body || {};
     var amount = Number(b.amount);
     if (!(amount > 0)) return Promise.resolve({ status: 422, body: { error: 'amount must be greater than zero' } });
-    return client.query('SELECT id, status FROM invoices WHERE id = $1 AND deleted_at IS NULL', [ctx.id])
+    return client.query('SELECT id, status, number FROM invoices WHERE id = $1 AND deleted_at IS NULL', [ctx.id])
       .then(function (r) {
         if (!(r.rows || []).length) return { status: 404, body: { error: 'not_found' } };
         var cur = r.rows[0].status;
@@ -275,6 +291,14 @@ var handlers = {
         if (cur === 'paid' || cur === 'cancelled') {
           return { status: 409, body: { error: 'invoice is ' + cur + ' and accepts no payment' } };
         }
+        // Money arriving against a DRAFT is a fact about the invoice: it is issued
+        // by that fact. Issue it first (status sent + sales entry in the ledger),
+        // so the payment entry never precedes the sale it settles.
+        var issue = cur !== 'draft' ? Promise.resolve({ skipped: 'already_issued' })
+          : client.query("UPDATE invoices SET status = 'sent' WHERE id = $1 RETURNING " + COLUMNS.map(function (c) { return '"' + c + '"'; }).join(','), [ctx.id])
+              .then(function (u) { return hydrate(client, u.rows[0]); })
+              .then(function (full) { return accounting.postInvoiceIssue(client, ctx, full); });
+        return issue.then(function (issued) {
         return Promise.all([totals(client, ctx.id), paidSoFar(client, ctx.id)]).then(function (tp) {
           var balance = Number(tp[0].total_ttc) - tp[1];
           if (amount > balance + 0.0005) {
@@ -286,12 +310,19 @@ var handlers = {
           [ctx.tenantId, ctx.id, b.paid_on || null, amount, b.method || null, b.reference || null]
         ).then(function (p) {
           return reconcileStatus(client, ctx.id).then(function (status) {
-            return {
-              status: 201, body: { id: p.rows[0].id, invoice_status: status },
-              audit: { action: 'record.created', entity_table: 'payments', entity_id: p.rows[0].id,
-                       detail: { invoice_id: ctx.id, amount: amount, invoice_status: status } }
-            };
+            return accounting.postPayment(client, ctx, { id: p.rows[0].id, invoice_number: r.rows[0].number,
+              paid_on: b.paid_on || new Date().toISOString().slice(0, 10), amount: amount, method: b.method || null })
+              .then(function (a) {
+                return {
+                  status: 201, body: { id: p.rows[0].id, invoice_status: status,
+                    accounting: a.entry ? { entry_no: a.entry.entry_no, issue_entry_no: issued.entry ? issued.entry.entry_no : undefined } : { skipped: a.skipped } },
+                  audit: { action: 'record.created', entity_table: 'payments', entity_id: p.rows[0].id,
+                           detail: { invoice_id: ctx.id, amount: amount, invoice_status: status, accounting_entry: a.entry ? a.entry.entry_no : null,
+                                     issued_by_payment: cur === 'draft' } }
+                };
+              });
           });
+        });
         });
         });
       });
