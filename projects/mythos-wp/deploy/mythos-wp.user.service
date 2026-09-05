@@ -24,14 +24,14 @@ After=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/deploy/worktrees/mythos-wp/projects/mythos-wp
+WorkingDirectory=/home/deploy/worktrees/mythos-wp-main/projects/mythos-wp
 
 # Credentials live outside the git worktree, mode 0600, never echoed:
 # MYTHOS_WP_DB_*, MYTHOS_WP_USERS_FILE, MYTHOS_WP_CATALOG_* (URL per project),
 # optional MYTHOS_WP_COMMS_CONFIG. server.js refuses to start without the DB set.
 EnvironmentFile=/home/deploy/deployments/mythos-wp/.env
 
-ExecStart=/usr/bin/node /home/deploy/worktrees/mythos-wp/projects/mythos-wp/reference/server.js
+ExecStart=/usr/bin/node /home/deploy/worktrees/mythos-wp-main/projects/mythos-wp/reference/server.js
 
 Restart=on-failure
 RestartSec=5s

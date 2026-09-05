@@ -2,6 +2,18 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-05 — MYTHOS-COMMS-1 — Communication Core Foundation (#197): **DEPLOYED**
+
+| Item | State |
+|---|---|
+| Phase 0 baseline | Production checkout `main` at `52c449e` = `origin/main` with three uncommitted files (`docs/AI_HANDOVER.md`, `docs/ERP_MIGRATION_PLAN.md`, `tests/erp-acceptance-drill.sh`) belonging to the concurrent ERP-migration session (owners `deploy`/`ubuntu`, 15:10–15:11 UTC) — **left untouched**; because that checkout is dirty on `AI_HANDOVER.md`, it cannot be fast-forwarded by an agent while that work is uncommitted, so deployment uses a detached worktree of `origin/main` (below). `mythos-bridge` open, WhatsApp notifications ENABLED, Telegram OFF, Evolution 2.3.7 `LOG_BAILEYS=error`, WP `mythos_wp` 7 tables, `projects/mythos-wp` only on the unmerged branch `mythos/wp-20260905` (13 ahead / 4 behind). |
+| Governance | Issue #197 (labels task/enhancement/whatsapp, `Action: review`, `Depends on: #196`) captured by the bridge as `gh-issue-197` (created comment 15:34 UTC; PENDING until #196 completes — the bridge attempt is review-only, the implementation was done by the operator session). PR #199 (`mythos/wp-20260905` reconciled with main, merge `d5a6ff5`, 306/0) **merged** → `34af9dc`. PR #200 (`mythos/comms-1-foundation-20260905`, `b25d26c`) **merged** → `origin/main e92042d`. |
+| Delivered | `projects/mythos-wp/database/migrations/0001_comms_core.{up,down}.sql`, `reference/migrate.js`, CLI `mythos-wp migrate status|up|down`, `tests/mythos-wp-comms-schema-test.js`, `docs/MYTHOS_COMMUNICATION_OS_ARCHITECTURE.md`, README section. Tables: `wp_inboxes`, `wp_contacts`, `wp_conversations`, `wp_messages`, `wp_message_attachments`, `wp_conversation_events`, `wp_tags`/`wp_contact_tags`/`wp_conversation_tags`, `wp_ai_runs`, `wp_ai_suggestions`, `wp_handoffs.conversation_id`, `wp_schema_migrations`. |
+| Tests | `tests/mythos-wp-comms-schema-test.js` **60/0** (apply → constraints → rollback → re-apply → no-op) · `tests/mythos-wp-test.js` **306/0** · `tools/check.sh` GREEN — all as deploy on `mythos_wp_test`. |
+| Deployment (Gate 1) | Migration applied to production `mythos_wp` from the `main` worktree: `migrate status` pending → `up` → applied `0001_comms_core`; 19 tables, new tables **0 rows**. `mythos-wp.service` repointed from the branch worktree to **`/home/deploy/worktrees/mythos-wp-main`** (detached checkout of `origin/main` `e92042d`; unit backup `mythos-wp.service.pre-main-20260905`), `daemon-reload` + restart; `/healthz` 200 on loopback and on https://wp.mythosprod.xyz. Repo unit file updated to the same path. |
+| Not done (by design) | No webhook, no customer instance, no receiver, no message; `wp_inboxes` empty; Telegram untouched; `mythos-bridge` untouched. |
+| Next | MYTHOS-COMMS-2 — inbound receiver (dry-run/OFF): validate + normalise + dedupe `messages.upsert` into the new tables behind `wp_inboxes.inbound_enabled`. Deployment rule from now on: after each merge, `git -C /home/deploy/worktrees/mythos-wp-main checkout --detach origin/main` + restart `mythos-wp.service`; the production checkout follows by `pull --ff-only` once the ERP session has committed its files. |
+
 ## 2026-09-05 — WhatsApp QR pairing: root-cause diagnosis + live-QR helper (`mythos/wa-qr-live-scan-20260905`)
 
 | Item | State |
