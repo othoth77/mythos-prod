@@ -14,6 +14,7 @@
 // =====================================================
 var bus = require('./bus');
 var providers = { evolution: require('./providers/evolution') };
+var assistant = require('./assistant');
 var CAP_PER_HOUR = Math.max(1, parseInt(process.env.MYTHOS_WP_OUTBOUND_CAP_PER_HOUR || '30', 10) || 30);
 var CLIENT_REF_RE = /^[A-Za-z0-9._:-]{8,64}$/;
 function fail(code, status, detail) { var e = new Error(detail || code); e.code = code; e.status = status; return e; }
@@ -40,8 +41,11 @@ function send(pool, projectId, convId, actor, body) {
       if (c.inbox_status !== 'open') throw fail('precondition', 412, 'inbox is not connected (' + c.inbox_status + ')');
       return pool.query("SELECT count(*)::int AS n FROM wp_messages WHERE conversation_id = $1 AND direction = 'out' AND created_at > now() - interval '1 hour'", [convId]).then(function (n) {
         if (n.rows[0].n >= CAP_PER_HOUR) throw fail('rate_limited', 429, 'outbound cap reached for this conversation');
-        return pool.query("INSERT INTO wp_messages (project_id, conversation_id, contact_id, inbox_id, direction, provider, message_type, text, sender_kind, sender_ref, status, client_ref, attempts) VALUES ($1,$2,$3,$4,'out',$5,'text',$6,'user',$7,'queued',$8,0) RETURNING id", [projectId, convId, c.contact_id, c.inbox_id, c.provider, text, actor, ref])
-          .then(function (ins) { return deliver(pool, provider, c, ins.rows[0].id, text, actor, projectId, convId); });
+        var aiRun = body.ai_run_id ? parseInt(body.ai_run_id, 10) || null : null;
+        var sid = body.suggestion_id ? parseInt(body.suggestion_id, 10) || null : null;
+        var sender = aiRun ? 'ai' : 'user';
+        return pool.query("INSERT INTO wp_messages (project_id, conversation_id, contact_id, inbox_id, direction, provider, message_type, text, sender_kind, sender_ref, status, client_ref, attempts, ai_run_id) VALUES ($1,$2,$3,$4,'out',$5,'text',$6,$9,$7,'queued',$8,0,$10) RETURNING id", [projectId, convId, c.contact_id, c.inbox_id, c.provider, text, actor, ref, sender, aiRun])
+          .then(function (ins) { return deliver(pool, provider, c, ins.rows[0].id, text, actor, projectId, convId).then(function (r) { if (sid && r.status === 'sent') return assistant.markSent(pool, sid, r.message_id).then(function () { return r; }); return r; }); });
       });
     });
   });

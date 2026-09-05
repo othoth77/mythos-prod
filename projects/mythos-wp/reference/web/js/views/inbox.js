@@ -96,7 +96,30 @@ export async function render(main, params, query, ctx) {
       catch (err) { toast(err.detail || 'send failed', 'danger', 5000); sendBtn.disabled = false; }
     }
     reply.onkeydown = (ev) => { if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') { ev.preventDefault(); doSend(); } };
-    body.appendChild(h('div', { class: 'reply' }, reply, h('div', { class: 'view-actions' }, sendBtn, h('button', { class: 'btn btn-secondary', disabled: true, title: 'AI suggestions arrive with MYTHOS-COMMS-7/8' }, 'AI suggestion'))));
+    const aiBox = h('div', { class: 'ai-box' });
+    async function loadSuggestions() {
+      let list = []; try { list = await ctx.api.get(base + '/conversations/' + conv.id + '/suggestions'); } catch (err) { return; }
+      clear(aiBox);
+      const open = list.filter((s) => s.status === 'proposed');
+      if (!open.length) return;
+      open.slice(0, 1).forEach((s) => {
+        const facts = s.facts_used || {};
+        const edit = h('textarea', { class: 'textarea', rows: 3 }, s.text);
+        const decideBtn = (label, cls, fn) => h('button', { class: 'btn ' + cls + ' btn-sm', onClick: fn }, label);
+        aiBox.appendChild(h('div', { class: 'card ai-suggestion' },
+          h('div', { class: 'card-head' }, h('h4', {}, 'AI suggestion'), h('span', {}, badge((s.intent || 'intent ?'), 'info'), ' ', badge('confidence ' + Math.round((Number(s.confidence) || 0) * 100) + '%', Number(s.confidence) >= 0.8 ? 'ok' : Number(s.confidence) >= 0.5 ? 'warn' : 'danger'))),
+          h('p', { class: 'dim' }, 'Verified: ' + ((facts.verified || []).join(', ') || 'none') + ' · Missing: ' + ((facts.unknown || []).join(', ') || 'none') + '. Facts come only from Products / Prices / Stock / Knowledge; the human decides.'),
+          edit,
+          h('div', { class: 'view-actions' },
+            decideBtn('Send', 'btn-primary', async () => { try { const d = await ctx.api.post(base + '/conversations/' + conv.id + '/suggestions/' + s.id + '/decide', edit.value.trim() !== s.text ? { action: 'edit', text: edit.value.trim() } : { action: 'accept' }); const r = await ctx.api.post(base + '/conversations/' + conv.id + '/messages', { text: d.send.text, client_ref: 'ai-' + s.id + '-' + Date.now().toString(36), ai_run_id: d.send.ai_run_id, suggestion_id: d.send.suggestion_id }); toast(r.status === 'sent' ? 'Sent' : 'Send failed: ' + (r.error || r.status), r.status === 'sent' ? 'ok' : 'danger', 4000); loadConversation(conv.id); loadList(); } catch (err) { toast(err.detail || 'failed', 'danger', 5000); } }),
+            decideBtn('Regenerate', 'btn-secondary', async () => { try { await ctx.api.post(base + '/conversations/' + conv.id + '/suggestions/' + s.id + '/decide', { action: 'reject' }); await ctx.api.post(base + '/conversations/' + conv.id + '/suggest', {}); loadSuggestions(); } catch (err) { toast(err.detail || 'failed', 'danger'); } }),
+            decideBtn('Reject', 'btn-ghost', async () => { try { await ctx.api.post(base + '/conversations/' + conv.id + '/suggestions/' + s.id + '/decide', { action: 'reject' }); loadSuggestions(); } catch (err) { toast(err.detail || 'failed', 'danger'); } }))));
+      });
+    }
+    const aiBtn = h('button', { class: 'btn btn-secondary', disabled: !ctx.can('operator'), onClick: async () => { aiBtn.disabled = true; try { const out = await ctx.api.post(base + '/conversations/' + conv.id + '/suggest', {}); if (out.decision === 'handoff') toast('The assistant cannot answer with verified facts: handed to a human (' + (out.intent || 'intent ?') + ').', 'warn', 5000); else if (out.decision === 'none') toast('No decision (' + (out.policy && out.policy.rejections ? out.policy.rejections.join(', ') : 'engine') + ')', 'warn'); loadSuggestions(); loadConversation(conv.id); } catch (err) { toast(err.detail || 'suggestion failed', 'danger', 5000); } aiBtn.disabled = false; } }, 'AI suggestion');
+    body.appendChild(aiBox);
+    body.appendChild(h('div', { class: 'reply' }, reply, h('div', { class: 'view-actions' }, sendBtn, aiBtn)));
+    loadSuggestions();
     // side panel
     const side = h('div', { class: 'pane-side' }); paneCol.appendChild(side);
     if (ctx.can('operator')) {
@@ -121,8 +144,8 @@ export async function render(main, params, query, ctx) {
   // live feed
   try {
     es = new EventSource(base + '/events');
-    const onEv = (ev) => { let d = null; try { d = JSON.parse(ev.data); } catch (e) { return; } if (d.type === 'message.in' || d.type === 'conversation.updated' || d.type === 'message.note' || d.type === 'message.out' || d.type === 'message.status') { loadList(); if (state.current && d.conversation_id === state.current) loadConversation(state.current); } };
-    ['message.in', 'message.out', 'message.status', 'message.note', 'conversation.updated', 'conversation.read', 'inbox.status'].forEach((n) => es.addEventListener(n, onEv));
+    const onEv = (ev) => { let d = null; try { d = JSON.parse(ev.data); } catch (e) { return; } if (d.type === 'message.in' || d.type === 'conversation.updated' || d.type === 'message.note' || d.type === 'message.out' || d.type === 'message.status' || d.type === 'ai.run') { loadList(); if (state.current && d.conversation_id === state.current) loadConversation(state.current); } };
+    ['message.in', 'message.out', 'message.status', 'message.note', 'conversation.updated', 'conversation.read', 'inbox.status', 'ai.run'].forEach((n) => es.addEventListener(n, onEv));
   } catch (e) { /* no SSE: manual refresh */ }
   window.addEventListener('hashchange', closeFeed, { once: true });
 
