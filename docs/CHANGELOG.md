@@ -6,6 +6,13 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Added — AUTO-COMMS-0 — MYTHOS AUTO WhatsApp CRM / business communication architecture (GitHub issue #172, 2026-09-05)
+
+- **Decision (Search First, live-verified):** **Chatwoot** (MIT core, v4.17.1, native official WhatsApp Cloud API / 360dialog / Twilio channels, webhooks + REST API, agents/assignment/labels/notes) SELECTED as the customer inbox/CRM component in front of MYTHOS; **WaCRM** REJECTED (template not product, Supabase second stack, own AI assistant); Evolution API retained only as the #170 notification gateway; WAHA remains the safe unofficial candidate. Official Meta Cloud API is the preferred provider; unofficial providers require a per-project `unofficial_acknowledged: true`. Rationale and evaluation table: `docs/MYTHOS_AUTO_WHATSAPP_CRM_ARCHITECTURE.md`; registry record appended.
+- **Added:** `projects/automotive/comms/` — provider-independent `customer.message.received` envelope, multi-project configuration (one CRM, projects by account/inbox, `*_file` credentials only, private-host fence), Chatwoot adapter (URL-token webhook authorisation, `message_created` parsing, reply into the conversation with `api_access_token`), router with the **business handler boundary** (built-in `handoff`; throw/timeout/malformed → handoff; `auto_reply` per project, default OFF; `deliver` sends only what the router allowed), `bin/mythos-auto-comms` (`config-check`, `dry-run` — never sends, `describe`), `tests/mythos-auto-comms-test.js` 113/0.
+- **The provider boundary is the CRM:** MYTHOS never addresses a WhatsApp endpoint for a customer message. Nothing under `bridge/notify/` changed; the customer layer never uses the notification providers (asserted by test). Reused `http-json.js`, `isPrivateHost`, `redact`.
+- **Not deployed — BLOCKED on host resources:** MemAvailable 2,729 MiB, swap 557 MiB free vs Chatwoot's 4 GB + 1 GB swap minimum; owner decides CRM hosting. No receiver service, no business engine yet (next tasks). No WhatsApp message sent.
+
 ### Fixed — EXEC-ARCH-0 follow-up — the executor restart is authorised by a record, not by a string (GitHub issue #161, 2026-09-04)
 
 - **docs(audit): AUDIT KNOWLEDGE BASE persisted (2026-09-04):** `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md` + dated section and pointer in `docs/AI_HANDOVER.md` capture the verified baseline of the master backlog audit (main `b6d4c6b`, PR #159 merged, PR #168 open, production/WhatsApp/#164/#167 state, tests, blockers, owner actions) so future agents do not repeat it. Docs only.

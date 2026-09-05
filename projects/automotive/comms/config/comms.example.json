@@ -1,0 +1,40 @@
+{
+  "schema": "mythos-auto-comms-config/1",
+  "_comment": "Example only. The real file lives outside Git (e.g. ~/mythos-ai-executor/config/auto-comms.json). *_file entries name 0600 files holding the token; no token value ever goes in this file.",
+  "crm": {
+    "adapter": "chatwoot",
+    "base_url": "http://127.0.0.1:3000",
+    "api_token_file": "~/mythos-ai-executor/keys/chatwoot-api.token",
+    "webhook_token_file": "~/mythos-ai-executor/keys/chatwoot-webhook.token"
+  },
+  "projects": [
+    {
+      "id": "ssangyong.autos",
+      "display_name": "SsangYong Parts",
+      "languages": ["ar-TN", "fr", "en"],
+      "crm": { "account_id": 1, "inbox_ids": [1] },
+      "whatsapp": { "provider": "meta-cloud-api" },
+      "business": {
+        "handler": "handoff",
+        "auto_reply": false,
+        "catalog_api": "http://127.0.0.1:3080/api"
+      }
+    },
+    {
+      "id": "piece.autos",
+      "display_name": "Pièce Autos",
+      "languages": ["ar-TN", "fr"],
+      "crm": { "account_id": 1, "inbox_ids": [2] },
+      "whatsapp": { "provider": "meta-cloud-api" },
+      "business": { "handler": "handoff", "auto_reply": false }
+    },
+    {
+      "id": "casse.autos",
+      "display_name": "Casse Autos",
+      "languages": ["ar-TN", "fr"],
+      "crm": { "account_id": 1, "inbox_ids": [3] },
+      "whatsapp": { "provider": "meta-cloud-api" },
+      "business": { "handler": "handoff", "auto_reply": false }
+    }
+  ]
+}

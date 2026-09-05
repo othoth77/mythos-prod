@@ -1,0 +1,86 @@
+#!/usr/bin/env node
+'use strict';
+// =====================================================
+// MYTHOS AUTO customer communication — operator CLI (no server, no send)
+// projects/automotive/comms/bin/mythos-auto-comms
+//
+//   mythos-auto-comms config-check <config.json>
+//       validate the configuration; prints describe() (never a token value);
+//       exit 0 = no problems, 2 = problems
+//
+//   mythos-auto-comms dry-run <config.json> <webhook.json> [--token-file F]
+//       run one recorded CRM webhook body through authorize → parse → route
+//       with the built-in handlers and print the routed result summary.
+//       Nothing is sent: deliver() is never called by this command.
+//
+//   mythos-auto-comms describe
+//       print the adapter contracts.
+//
+// This is the whole operator surface until a receiver service is approved
+// for deployment (docs/MYTHOS_AUTO_WHATSAPP_CRM_ARCHITECTURE.md §8).
+// =====================================================
+
+var fs = require('fs');
+var path = require('path');
+
+var projects = require('../lib/projects');
+var router = require('../lib/router');
+var crm = require('../lib/crm');
+var redact = require('../../../mythos-orchestrator/lib/redact');
+
+function out(v) { process.stdout.write(JSON.stringify(redact.redactValue(v), null, 2) + '\n'); }
+function fail(msg, code) { process.stderr.write('ERROR: ' + redact.redact(String(msg)) + '\n'); process.exit(code || 1); }
+
+function readToken(file) {
+  if (!file) return null;
+  try {
+    var full = projects.expandHome(file);
+    var st = fs.statSync(full);
+    if ((st.mode & 0o077) !== 0) return { error: 'TOKEN_FILE_MODE_NOT_0600' };
+    return { value: fs.readFileSync(full, 'utf8').trim() };
+  } catch (e) {
+    return { error: 'TOKEN_FILE_UNREADABLE' };
+  }
+}
+
+var args = process.argv.slice(2);
+var cmd = args[0];
+
+try {
+  if (cmd === 'config-check') {
+    if (!args[1]) fail('usage: config-check <config.json>');
+    var cfg = projects.load(path.resolve(args[1]));
+    var d = projects.describe(cfg);
+    out(d);
+    process.exit(d.problems.length ? 2 : 0);
+  } else if (cmd === 'dry-run') {
+    if (!args[1] || !args[2]) fail('usage: dry-run <config.json> <webhook.json> [--token-file F]');
+    var cfg2 = projects.load(path.resolve(args[1]));
+    var body = JSON.parse(fs.readFileSync(path.resolve(args[2]), 'utf8'));
+    var tokenFile = null;
+    for (var i = 3; i < args.length; i++) if (args[i] === '--token-file') tokenFile = args[i + 1];
+    var tok = readToken(tokenFile || (cfg2.crm && cfg2.crm.webhook_token_file));
+    var expected = tok && tok.value ? tok.value : null;
+    // The dry run presents the configured token itself, so the question it
+    // answers is "would this body route, and where" — not "is my URL right".
+    router.handleWebhook({ cfg: cfg2, body: body, query: { token: expected || '' }, expectedToken: expected }).then(function (r) {
+      var summary = {
+        outcome: r.outcome,
+        reason: r.reason,
+        token_file: tok ? (tok.error || 'ok') : 'not configured',
+        routed: r.routed ? { project_id: r.routed.project_id, decision: r.routed.decision, reply: r.routed.reply, envelope: r.routed.summary } : null,
+        sent: false
+      };
+      out(summary);
+      process.exit(r.outcome === 'ROUTED' ? 0 : 2);
+    }).catch(function (e) { fail(e.message); });
+  } else if (cmd === 'describe') {
+    var adapters = {};
+    Object.keys(crm.ADAPTERS).forEach(function (k) { adapters[k] = crm.ADAPTERS[k].describe(); });
+    out({ crm_adapters: adapters, handlers: Object.keys(router.BUILTIN_HANDLERS), actions: router.ACTIONS });
+  } else {
+    fail('unknown command "' + (cmd || '') + '" — see the header of this file for usage');
+  }
+} catch (e) {
+  fail(e.message);
+}
