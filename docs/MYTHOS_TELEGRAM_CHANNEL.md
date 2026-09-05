@@ -154,3 +154,85 @@ branch beyond additive `source` fields.
 | production | untouched — no unit restarted, no drop-in installed, no credential created |
 | exact blocker | **no Telegram bot token exists on the host** (owner-supplied credential required, see §5) |
 | classification | **BLOCKED** (E2E gates `telegram_received … telegram_response_sent` unproven; `secrets_exposed = false` proven only for the mocked flow) |
+
+## 8. Existing bot `othoth77/telegram-bot` — inspection and integration plan (2026-09-05, design only)
+
+Inspected read-only (public repository, 4 files, 16 commits on 2026-05-11, last push 2026-09-02). The committed
+token was never used, printed or copied; the local inspection copy was deleted after reading.
+
+### 8.1 Capabilities of the existing bot (`bot.py`, 197 lines, pyTelegramBotAPI, Python 3.11)
+- `/start` greeting (French); **photo → Tesseract OCR (fra+eng) → invoice field extraction** (supplier, client,
+  invoice number, description, HT/TVA/TTC amounts, currency TND/EUR) → `append_row` to one Google Sheet → summary reply;
+- **any text message → appended as a row to the same sheet** (date, first name, text) → "Message enregistré" reply;
+- transport: `bot.polling(none_stop=True)` (long polling, same mechanism as the MYTHOS adapter);
+- packaging: Dockerfile (python:3.11-slim + tesseract) for an external PaaS (a `Nixpacks.TOML` was added then removed).
+  **It is not deployed on this VPS** (no container, no Coolify application, no systemd unit references it).
+
+### 8.2 Security problems found
+1. **BotFather token hard-coded in `bot.py` line 17 and public in Git history** (present in 5 historical blobs, one
+   distinct value). Treated as compromised: anyone can read the bot's messages, send as the bot, and take over polling.
+   Rotation with @BotFather is mandatory; a rotation invalidates every copy, including the running one if any.
+2. **No sender allowlist at all**: every Telegram user who finds the bot can write rows into the Google Sheet and
+   trigger OCR work (cost/abuse surface).
+3. **Google service-account credentials taken from `GOOGLE_CREDENTIALS` and written to a temp file that is never
+   deleted** (`delete=False`, no cleanup) → the private key persists on the container filesystem.
+4. `SHEET_ID` hard-coded; exceptions echoed back to the user verbatim (`❌ Erreur: {e}`) → internal details leak;
+   `print()` of full OCR text and errors to stdout (invoice content in platform logs).
+5. Unpinned dependencies (`requirements.txt` has no versions); no tests; no README.
+6. Media download builds a URL containing the token (`api.telegram.org/file/bot<TOKEN>/…`) and logs errors with
+   `str(e)`, which can include that URL.
+
+### 8.3 Can the same bot become the MYTHOS Telegram channel?
+**The bot *identity* can be reused; the bot *code* must not be.** Telegram allows exactly one poller per token, and
+the MYTHOS adapter already implements the transport (`getUpdates`), the allowlist, the secret scrubbing and the control
+TASK boundary in node with zero dependencies. Running `bot.py` alongside would fight the adapter for updates (HTTP 409
+"terminated by other getUpdates request") and would keep problems 2–6 alive. Therefore:
+
+| Element | Decision |
+|---|---|
+| BotFather bot identity (username, chat history with the owner) | **reuse**, after token rotation |
+| `bot.py` polling loop, handlers, Google Sheets connection, `TOKEN`, `SHEET_ID`, `GOOGLE_CREDENTIALS` | **not reused, not copied** |
+| Invoice OCR/extraction logic (`analyser_image_tesseract`, `extraire_donnees_facture`) | **kept isolated**; candidate for a later, separate `photo` capability of the adapter (needs its own owner decision, a governed executor task, and no Google Sheets credential in MYTHOS) |
+| Text-message-to-sheet logging | **dropped**: MYTHOS records the task on the control branch and in OTHMODE instead |
+
+Exact files reused from `othoth77/telegram-bot`: **none**. The only thing carried over is the bot identity.
+
+### 8.4 Exact MYTHOS integration point
+`projects/mythos-ai-executor/bridge/telegram.js` `intake()` — Bot API `getUpdates` → `normalizeUpdate()` → allowlist →
+`messageToTask()` → `control/tasks/tg-<update_id>.json` → the unchanged `github-bridge.tick()` (Governance gates, OTHMODE
+record, executor) → `notify()` → `sendMessage` to the origin chat. Configuration enters only through the
+`MYTHOS_TELEGRAM_*` environment (drop-in template `bridge/systemd/mythos-github-bridge.service.d/telegram.conf.example`).
+
+### 8.5 Changes required (none of them in production yet)
+1. **Owner:** rotate the token with @BotFather (`/revoke` or `/token`), which kills the exposed one everywhere.
+2. **Owner:** store the NEW token only on the VPS at `/home/deploy/mythos-ai-executor/secrets/telegram-bot.env`
+   (`MYTHOS_TELEGRAM_BOT_TOKEN=<NEW_TOKEN>`, owner `deploy`, mode 0600). Never in Git, Issues, chat or reports.
+3. **Owner:** stop any external deployment still running `bot.py` (it would 409 against the adapter and it still
+   holds the old token in its image layers); optionally make `othoth77/telegram-bot` private and purge the token
+   from history — rotation is what actually closes the exposure, history rewriting is hygiene.
+4. **Owner:** supply the numeric Telegram user id for `MYTHOS_TELEGRAM_ALLOWED_USER_IDS`.
+5. **Branch (already done, 30cd40c):** adapter, CLI, schema, tests, drop-in template. No code change is needed to
+   adopt the existing bot identity: the adapter is bot-agnostic and reads only `getUpdates`/`sendMessage`.
+6. **Later, separately:** if invoice OCR is wanted inside MYTHOS, add a `photo` update kind to `normalizeUpdate()`
+   that turns the image into a governed READ task (OCR by the executor), never into a direct Google Sheets write.
+
+### 8.6 Tests required
+- Already in `tests/mythos-telegram-channel-test.js` (62): normalisation, malformed, missing token, redaction,
+  allowlist, mocked full flow, CLI, WhatsApp untouched.
+- Add before the live test: (a) a token-file permission check in `describe()` (refuse a token file that is not 0600 /
+  not owned by the running user) with a test; (b) a `photo` update is reported as `skip_malformed: no text` (covered by
+  §2 today; keep it explicit once a photo path exists); (c) a 409-conflict test (`TELEGRAM_API_409` → intake deferred,
+  offset not advanced) so a leftover external poller is diagnosed, not retried blindly.
+
+### 8.7 Live E2E prerequisites
+1. Rotated token in `/home/deploy/mythos-ai-executor/secrets/telegram-bot.env` (0600, deploy) — `telegram-config`
+   must report `token_present: true`, `ready: true`; `telegram-check` must return the bot username.
+2. `MYTHOS_TELEGRAM_ALLOWED_USER_IDS` = the owner's numeric id.
+3. No other process polling the bot (`telegram-check` succeeds and a dry-run `telegram-tick --no-bridge --dry-run`
+   returns updates without a 409).
+4. Executor daemon healthy (`/health` ok) — it is, as of 2026-09-05 00:24 UTC.
+5. One READ-style message from the owner; the sequence in §5 of this document, run from the branch worktree as
+   `deploy`; no unit restart, no drop-in installation, no merge.
+
+### 8.8 Blocker
+The rotated token does not exist on the host yet (owner action; cannot be requested through chat).
