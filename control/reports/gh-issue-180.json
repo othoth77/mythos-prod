@@ -93,7 +93,7 @@
       "sha": "cc218b24b8c5002194a41844b0c6f98bd527e1f2",
       "subject": "feat(bridge): unify Telegram notifications for GitHub Issue/TASK and PR lifecycle",
       "branch": "mythos/gh/gh-issue-180",
-      "on_origin": false
+      "on_origin": true
     }
   ],
   "tests": [
@@ -163,7 +163,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-issue-180",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-05T10:26:43.775Z"
   }
 }

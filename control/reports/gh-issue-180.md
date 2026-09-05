@@ -12,7 +12,7 @@
 | Runtime | `6541cd81949f` on `main` |
 | Model | `claude-sonnet-5` (auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3 complexity_terms(security)+1 simplicity_terms(بسيط)-1]) |
 | Branch | `mythos/gh/gh-issue-180` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ Extended the existing Telegram Lifecycle Notifications channel (bridge/telegram.
 
 ## Commits
 
-- `cc218b24b8c5002194a41844b0c6f98bd527e1f2` feat(bridge): unify Telegram notifications for GitHub Issue/TASK and PR lifecycle (awaiting relay)
+- `cc218b24b8c5002194a41844b0c6f98bd527e1f2` feat(bridge): unify Telegram notifications for GitHub Issue/TASK and PR lifecycle (on origin)
 
 ## Files changed
 
