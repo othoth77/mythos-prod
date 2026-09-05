@@ -12,7 +12,7 @@
   "action_raw": "implement",
   "action_source": "explicit_current_issue",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-05T10:02:00.793Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #180 https://github.com/othoth77/mythos-prod/issues/180 — \"MYTHOS — GitHub → Telegram Unified Notifications\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\n[التنفيذ — فعلي من البداية إلى النهاية]\nنفّذ المهمة عبر MYTHOS Governance وOTHMODE، ولا تكتفِ بالتحقيق أو التوصية.\n\n[1. github issues / tasks]\nأرسل Telegram عند الأحداث المهمة: إنشاء Issue/TASK، Claim/Start، تغيّر مهم، Completion/Report، Failure/Blocker/Stop، Owner intervention، ونتائج الاختبارات المهمة.\n\nكل رسالة تتضمن رقم/معرّف Issue أو TASK، الحالة، وصفًا قصيرًا، والنتيجة أو المطلوب من المالك عند الحاجة، واسم Claude model عندما يكون مفيدًا.\n\n[2. pull requests]\nأرسل Telegram للأحداث المهمة: PR opened، تحديث مهم، review/approval، checks/tests المهمة، merge، closed without merge، conflict أو blocker.\n\n[3. git / production / governance]\nأرسل إشعارًا مختصرًا عند production deployment/change، Git synchronization/blocker، Governance blocker، bridge/executor failure المرتبط بـMYTHOS، وأي حدث يتطلب تدخل المالك.\n\n[4. smart filtering / anti-spam]\nأنشئ notification policy/formatter تمنع الضجيج والتكرار: الأحداث المهمة فقط، deduplication، rate limiting مناسب، عدم تكرار نفس الحدث، وعدم إخفاء failure/blocker مهم.\n\n[5. unified message format]\nاستخدم صيغة بسيطة وموحدة مثل:\n\n🟡 TASK #123 — تم إنشاء المهمة.\nالوصف: ...\n\n🔵 TASK #123 — بدأ التنفيذ.\n🤖 Claude Haiku 4.5\n\n🟢 TASK #123 — اكتملت المهمة.\nالنتيجة: ...\n\n🔴 TASK #123 — متوقفة.\nالسبب: ...\n👉 المطلوب: تدخل المالك.\n\n🔀 PR #123 — تم الدمج.\nالنتيجة: ...\n\n[6. security / privacy]\nممنوع تمامًا إرسال أو تسجيل Telegram bot token، API keys/secrets، Executor ID، execution_id، OTHMODE numeric ID، المسارات الداخلية، أو بيانات حساسة غير ضرورية. عند ذكر OTHMODE استخدم وصفًا عامًا فقط مثل «نظام حماية/مراقبة MYTHOS».\n\n[7. telegram scope]\nاستخدم Telegram الحالي فقط والـallowlist الحالية. لا توسّع allowlist ولا ترسل إلى مستخدمين آخرين دون تفويض صريح. لا تنشئ bot أو gateway ثاني.\n\n[8. compatibility]\nحافظ على Telegram Lifecycle Notifications الحالية، polling/getUpdates، والمهام الحالية. لا تغيّر WhatsApp إلا إذا كان ذلك ضروريًا جدًا؛ عندها توقف وسجّل blocker بدل تغيير غير مصرح.\n\n[9. testing]\nأضف/حدّث اختبارات GitHub Issue→Telegram، TASK lifecycle، PR lifecycle، failure/blocker، deduplication/rate limiting، security redaction/no leakage، regression للـ66+ اختبار الحالية، وE2E حقيقي عند الإمكان دون spam.\n\n[10. production]\nبعد نجاح الاختبارات طبّق عبر workflow المعتمد. لا تستخدم reset أو force-push أو merge/deploy يدوي خارج Governance، ولا تعيد تشغيل خدمات غير ضرورية. تحقق أن GitHub events تصل فعلًا إلى Telegram.\n\n[11. source of truth / handover]\ncommit + push عبر المسار المعتمد، PR ومراجعة/دمج حسب Governance، وتحديث docs/AI_HANDOVER.md عند الحاجة، مع تسجيل commit/HEAD ونتائج الاختبارات وحالة Production.\n\n[definition of done]\n1. GitHub Issue/TASK event → Telegram يعمل.\n2. PR event → Telegram يعمل.\n3. TASK lifecycle → Telegram يعمل.\n4. Failure/blocker → Telegram يعمل.\n5. Deduplication/rate limiting يعملان.\n6. Security redaction مثبت بالاختبارات.\n7. Regression suite ناجحة.\n8. Production integration verified.\n9. WhatsApp untouched.\n10. لا يوجد blocker غير محلول.\n\n[التقرير النهائي]\nأرسل تقريرًا قصيرًا يوضح:\n🟢 GitHub → Telegram: status\n🟢 TASK lifecycle: status\n🟢 PR notifications: status\n🟢 Filtering/Dedup: status\n🧪 Tests: X/X\n🔐 Secrets: <none>\n📌 Production: active/not active\n🔴 Blocker: إن وجد",
@@ -152,8 +152,8 @@
     "claimed_at": "2026-09-05T10:02:05.368Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "a2a6e89ff2626ff78b5147541ca73bae4e61e7709df25e3f7671a6bad77ef8af",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-05T10:03:22.651Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-05T10:22:43.248Z",
     "snapshot_sha256": "46024b755db5adc98122c28936258989fc4b9890b6156df324f5860e63f4958a",
     "fence": 7298,
     "lease": {
@@ -182,7 +182,8 @@
     },
     "model": "claude-sonnet-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "57220b50-c39f-4474-80d0-8826461c8130"
+    "claude_session_id": "57220b50-c39f-4474-80d0-8826461c8130",
+    "report_file": "control/reports/gh-issue-180.json"
   },
   "history": [
     {
@@ -198,6 +199,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-05T10:22:42.628Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-05T10:22:43.248Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (1 commit(s), 12 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }

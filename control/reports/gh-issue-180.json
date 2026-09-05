@@ -1,0 +1,169 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-180",
+  "attempt_id": "gh-issue-180#1",
+  "status": "COMPLETED",
+  "summary": "Extended the existing Telegram Lifecycle Notifications channel (bridge/telegram.js) into a unified sink for GitHub Issue/TASK lifecycle and pull-request lifecycle events by adding bridge/notify/telegram-notify.js (dedup + rate-limited, reuses the same bot) and bridge/github-prs.js (read-only PR poller), wiring them into github-bridge.js finishTask()/flushNotifications() and github-issues.js created/claimed events, with Telegram-originated tasks explicitly excluded to avoid duplicate notifications. Added CLI commands and 69 new offline tests (formatting, dedup, rate limiting, resilience, security/no-leakage, PR lifecycle, and real wiring proof); the full pre-existing suite remains green. Both new sinks are off by default (MYTHOS_TELEGRAM_NOTIFY_ENABLED, MYTHOS_PR_NOTIFY_ENABLED) — nothing was deployed or restarted, no real message was sent. WhatsApp and the existing Telegram intake channel are byte-for-byte unchanged. No governance-protected path was touched and no control/ file was edited.",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": null,
+    "model_key": null,
+    "model": "claude-sonnet-5",
+    "model_source": "none",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3 complexity_terms(security)+1 simplicity_terms(بسيط)-1]",
+    "base_sha": "6541cd81949ff2b3055b460efd0db2fb0202b47a",
+    "branch": "mythos/gh/gh-issue-180",
+    "commit_sha": "cc218b24b8c5002194a41844b0c6f98bd527e1f2"
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "6541cd81949ff2b3055b460efd0db2fb0202b47a",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "6541cd81949ff2b3055b460efd0db2fb0202b47a",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-05T10:02:04.417Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Extended the existing Telegram Lifecycle Notifications channel (bridge/telegram.js) into a unified sink for GitHub Issue/TASK lifecycle and pull-request lifecycle events by adding bridge/notify/telegram-notify.js (dedup + rate-limited, reuses the same bot) and bridge/github-prs.js (read-only PR poller), wiring them into github-bridge.js finishTask()/flushNotifications() and github-issues.js created/claimed events, with Telegram-originated tasks explicitly excluded to avoid duplicate notifications. Added CLI commands and 69 new offline tests (formatting, dedup, rate limiting, resilience, security/no-leakage, PR lifecycle, and real wiring proof); the full pre-existing suite remains green. Both new sinks are off by default (MYTHOS_TELEGRAM_NOTIFY_ENABLED, MYTHOS_PR_NOTIFY_ENABLED) — nothing was deployed or restarted, no real message was sent. WhatsApp and the existing Telegram intake channel are byte-for-byte unchanged. No governance-protected path was touched and no control/ file was edited.",
+    "tests": [
+      "mythos-telegram-notify-test.js: 44/44",
+      "mythos-github-prs-test.js: 20/20",
+      "mythos-telegram-notify-integration-test.js: 5/5",
+      "bridge-action-resolution-test.js: 88/88",
+      "mythos-ai-executor-test.js: 390/390",
+      "mythos-github-bridge-test.js: 150/150",
+      "mythos-github-issues-test.js: 208/208",
+      "mythos-telegram-channel-test.js: 68/68",
+      "mythos-bridge-whatsapp-notify-test.js: 131/131",
+      "mythos-bridge-whatsapp-resilience-test.js: 101/101",
+      "mythos-governance-invariant-test.js: 111/111",
+      "node --check: all changed/added JS files pass"
+    ],
+    "commit": "cc218b24b8c5002194a41844b0c6f98bd527e1f2",
+    "remote_head": "6541cd81949ff2b3055b460efd0db2fb0202b47a",
+    "files_changed": [
+      "docs/AI_HANDOVER.md",
+      "projects/mythos-ai-executor/bin/mythos-github-bridge",
+      "projects/mythos-ai-executor/bridge/github-bridge.js",
+      "projects/mythos-ai-executor/bridge/github-issues.js",
+      "projects/mythos-ai-executor/bridge/github-prs.js",
+      "projects/mythos-ai-executor/bridge/notify/telegram-notify.js",
+      "tests/mythos-github-prs-test.js",
+      "tests/mythos-telegram-notify-integration-test.js",
+      "tests/mythos-telegram-notify-test.js"
+    ],
+    "residual_risks": [
+      "Both new sinks are off by default and never exercised against the real Telegram Bot API or real GitHub API — only against in-process fixtures; a live E2E (like the one done for the original Telegram channel in docs/MYTHOS_TELEGRAM_CHANNEL.md §9) is still owner-authorised follow-up work.",
+      "PR checks decision relies on the check-runs endpoint only (not the legacy commit-status API), so a repository using only classic statuses would see PR_CHECKS never fire; this was a scope decision, not an oversight.",
+      "This branch is not merged; production keeps its current behavior (no Issue/PR/task-lifecycle Telegram notifications) until the owner merges and enables the two new environment flags."
+    ],
+    "next_stage": "Owner review and merge of mythos/gh/gh-issue-180 to main, then owner activation: set MYTHOS_TELEGRAM_NOTIFY_ENABLED=1 and MYTHOS_PR_NOTIFY_ENABLED=1 via the systemd drop-in (same pattern as docs/MYTHOS_TELEGRAM_CHANNEL.md §6/§9.3), then run one live pr-tick / trigger one real Issue lifecycle to verify end-to-end delivery before declaring production-active."
+  },
+  "files_changed": [
+    "docs/AI_HANDOVER.md",
+    "projects/mythos-ai-executor/bin/mythos-github-bridge",
+    "projects/mythos-ai-executor/bridge/github-bridge.js",
+    "projects/mythos-ai-executor/bridge/github-issues.js",
+    "projects/mythos-ai-executor/bridge/github-prs.js",
+    "projects/mythos-ai-executor/bridge/notify/telegram-notify.js",
+    "tests/mythos-github-prs-test.js",
+    "tests/mythos-telegram-notify-integration-test.js",
+    "tests/mythos-telegram-notify-test.js"
+  ],
+  "commits": [
+    {
+      "sha": "cc218b24b8c5002194a41844b0c6f98bd527e1f2",
+      "subject": "feat(bridge): unify Telegram notifications for GitHub Issue/TASK and PR lifecycle",
+      "branch": "mythos/gh/gh-issue-180",
+      "on_origin": false
+    }
+  ],
+  "tests": [
+    "mythos-telegram-notify-test.js: 44/44",
+    "mythos-github-prs-test.js: 20/20",
+    "mythos-telegram-notify-integration-test.js: 5/5",
+    "bridge-action-resolution-test.js: 88/88",
+    "mythos-ai-executor-test.js: 390/390",
+    "mythos-github-bridge-test.js: 150/150",
+    "mythos-github-issues-test.js: 208/208",
+    "mythos-telegram-channel-test.js: 68/68",
+    "mythos-bridge-whatsapp-notify-test.js: 131/131",
+    "mythos-bridge-whatsapp-resilience-test.js: 101/101",
+    "mythos-governance-invariant-test.js: 111/111",
+    "node --check: all changed/added JS files pass"
+  ],
+  "validation": {
+    "git_verified": false,
+    "remote_head": "6541cd81949ff2b3055b460efd0db2fb0202b47a",
+    "report_problems": [],
+    "required_checks": []
+  },
+  "problems": [],
+  "risks": [
+    "Both new sinks are off by default and never exercised against the real Telegram Bot API or real GitHub API — only against in-process fixtures; a live E2E (like the one done for the original Telegram channel in docs/MYTHOS_TELEGRAM_CHANNEL.md §9) is still owner-authorised follow-up work.",
+    "PR checks decision relies on the check-runs endpoint only (not the legacy commit-status API), so a repository using only classic statuses would see PR_CHECKS never fire; this was a scope decision, not an oversight.",
+    "This branch is not merged; production keeps its current behavior (no Issue/PR/task-lifecycle Telegram notifications) until the owner merges and enables the two new environment flags."
+  ],
+  "next_recommended_action": "Owner review and merge of mythos/gh/gh-issue-180 to main, then owner activation: set MYTHOS_TELEGRAM_NOTIFY_ENABLED=1 and MYTHOS_PR_NOTIFY_ENABLED=1 via the systemd drop-in (same pattern as docs/MYTHOS_TELEGRAM_CHANNEL.md §6/§9.3), then run one live pr-tick / trigger one real Issue lifecycle to verify end-to-end delivery before declaring production-active.",
+  "completed_at": "2026-09-05T10:22:43.179Z",
+  "execution": {
+    "executor_task_id": "t-20260905100205-tw7xvw",
+    "othmode_task_id": "OTH-2026-00179",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": null,
+    "model_source": "none",
+    "action_source": "explicit_current_issue",
+    "action_raw": "implement",
+    "attempt_id": "gh-issue-180#1",
+    "fence": 7298,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:2340751",
+      "fence": 7298,
+      "acquired_at": "2026-09-05T10:02:05.368Z",
+      "expires_at": "2026-09-05T11:32:05.368Z"
+    },
+    "snapshot_sha256": "46024b755db5adc98122c28936258989fc4b9890b6156df324f5860e63f4958a",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3 complexity_terms(security)+1 simplicity_terms(بسيط)-1]",
+    "claude_session_id": "57220b50-c39f-4474-80d0-8826461c8130",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-05T10:02:15.871Z",
+    "ended_at": "2026-09-05T10:21:39.961Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 6.878768400000001,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-180",
+    "branch": "mythos/gh/gh-issue-180",
+    "base_commit": "6541cd81949ff2b3055b460efd0db2fb0202b47a",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-180",
+    "commits_on_origin": false,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
