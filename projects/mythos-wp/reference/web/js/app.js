@@ -50,6 +50,7 @@ export function navEntries() {
     { group: 'MYTHOS AUTO', label: 'Handoff', icon: 'handoff', route: '#/r/handoffs', count: state.handoffOpen },
     { group: 'MYTHOS AUTO', label: 'Knowledge', icon: 'knowledge', route: '#/r/knowledge' },
     { group: 'MYTHOS AUTO', label: 'Conversations', icon: 'auto', route: '#/planned/conversations', planned: true },
+    { group: 'WhatsApp', label: R.inboxes.label, icon: 'auto', route: '#/r/inboxes' },
     { group: 'Projects', label: 'Projects', icon: 'project', route: '#/r/projects' },
     { group: 'System', label: 'Audit log', icon: 'audit', route: '#/r/audit' },
     { group: 'System', label: 'System health', icon: 'system', route: '#/system' },

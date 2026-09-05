@@ -25,6 +25,7 @@ var store = require('./projects-store');
 var dashboard = require('./dashboard');
 var search = require('./search');
 var autoreply = require('./autoreply');
+var receiver = require('./comms/receiver');
 
 var VERSION = require('../package.json').version;
 var fail = crud.fail;
@@ -293,6 +294,14 @@ var ROUTES = [
       if (!resolved) throw fail('project_required', 400, 'a project is required');
       return search.search(resolved, q(req).q);
     });
+  } },
+
+  // --- Communication Receiver status (non-secret) ---------------------
+  { method: 'GET', path: /^\/api\/comms\/receiver$/, role: 'any', handler: function () {
+    var d = receiver.describe();
+    return db.wp().query("SELECT id, project_id, provider, instance, status, inbound_enabled, outbound_enabled, last_event_at FROM wp_inboxes ORDER BY id").then(function (r) {
+      return { receiver: d, inboxes: r.rows };
+    }, function () { return { receiver: d, inboxes: [] }; });
   } },
 
   // --- Auto-Reply control centre ---------------------------------------

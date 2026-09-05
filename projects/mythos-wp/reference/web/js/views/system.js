@@ -14,5 +14,17 @@ export async function render(main, params, query, ctx) {
     h('div', { class: 'card' }, h('h3', {}, 'Authentication'), kv([['Users file', badge(hlt.auth.users_provisioned ? 'provisioned' : 'not usable: ' + hlt.auth.users_reason, hlt.auth.users_provisioned ? 'ok' : 'danger')], ['Accounts', String(hlt.auth.users_count === undefined ? '—' : hlt.auth.users_count)], ['Session TTL', Math.round(hlt.auth.session_ttl_ms / 3600000) + ' h absolute'], ['Comms config', badge(hlt.comms_config, hlt.comms_config === 'present' ? 'info' : 'mock')]]))
   ));
   box.appendChild(h('div', { class: 'card' }, h('h3', {}, 'Integrations'), kv([['WhatsApp gateway', 'Existing Evolution gateway on loopback; probed on the Auto-Reply page. Not duplicated, not modified.'], ['Auto-Reply engine', 'projects/automotive/comms (Issue #173), consumed through its business-data port and receiver --integration hook.'], ['Catalogue source of truth', 'The project database (ssangyong_autos for ssangyong.autos); the panel writes to it directly and audits every change.'], ['Conversations log', badge('planned', 'mock')]])));
+  let rc = null;
+  try { rc = await ctx.api.get('/api/comms/receiver'); } catch (err) { rc = null; }
+  if (rc) {
+    const r = rc.receiver;
+    box.appendChild(h('div', { class: 'card' }, h('h3', {}, 'WhatsApp — Communication Receiver'), kv([
+      ['Route', h('code', {}, r.route)],
+      ['Enabled', badge(r.enabled ? 'on' : 'off (404)', r.enabled ? 'ok' : 'mock')],
+      ['Webhook token', badge(r.token_present ? 'present' : 'missing: ' + (r.token_problem || '?'), r.token_present ? 'ok' : 'danger')],
+      ['Max body', Math.round(r.max_body_bytes / 1024) + ' KiB'],
+      ['Inboxes', rc.inboxes.length ? rc.inboxes.map((i) => i.instance + ' · ' + i.status + (i.inbound_enabled ? ' · persisting' : ' · dry-run')).join(' / ') : badge('none', 'mock')]
+    ])));
+  }
   box.appendChild(h('p', {}, h('small', { class: 'dim' }, 'Checked ' + fmtDate(new Date().toISOString()))));
 }

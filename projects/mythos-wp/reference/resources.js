@@ -324,6 +324,34 @@ var RESOURCES = {
     sections: { conversation: 'Conversation', resolution: 'Resolution', audit: 'Audit' }
   },
 
+  inboxes: {
+    key: 'inboxes', label: 'WhatsApp inboxes', singular: 'Inbox', group: 'whatsapp', icon: 'auto',
+    scope: 'wp', table: 'wp_inboxes', idColumn: 'id', titleField: 'display_name',
+    permissions: { read: 'operator', write: 'owner', delete: 'owner' },
+    delete: { kind: 'hard' },
+    managed: { updated_at: 'now' },
+    search: ['instance', 'display_name'],
+    defaultSort: { field: 'created_at', dir: 'asc' },
+    filters: [
+      { name: 'status', label: 'Status', field: 'status', enum: ['inactive', 'pairing', 'open', 'closed', 'error'] },
+      { name: 'provider', label: 'Provider', field: 'provider', enum: ['evolution', 'meta_cloud'] }
+    ],
+    fields: [
+      { name: 'id', label: 'ID', type: 'integer', readonly: true, section: 'identity', listed: true, sortable: true },
+      { name: 'provider', label: 'Provider', type: 'enum', enum: ['evolution', 'meta_cloud'], required: true, defaultValue: 'evolution', createOnly: true, section: 'identity', listed: true },
+      { name: 'instance', label: 'Provider instance', type: 'text', required: true, maxLength: 64, pattern: '^(?!mythos-bridge$)[A-Za-z0-9][A-Za-z0-9._-]{0,63}$', createOnly: true, section: 'identity', listed: true, sortable: true, help: 'Evolution instance name. mythos-bridge is the notification instance and can never be an inbox.' },
+      { name: 'display_name', label: 'Name', type: 'text', required: true, maxLength: 120, section: 'identity', listed: true, sortable: true },
+      { name: 'phone_masked', label: 'Business number (masked)', type: 'text', maxLength: 32, pattern: '^\\*{3}[0-9]{1,6}$', section: 'identity', listed: true, help: 'Display only: *** + last digits.' },
+      { name: 'status', label: 'Status', type: 'enum', enum: ['inactive', 'pairing', 'open', 'closed', 'error'], readonly: true, section: 'state', listed: true, sortable: true, help: 'Set by the receiver from connection.update events.' },
+      { name: 'inbound_enabled', label: 'Persist inbound messages', type: 'boolean', defaultValue: false, section: 'state', listed: true, help: 'Off = dry-run: deliveries are validated and ledgered, nothing is stored.' },
+      { name: 'outbound_enabled', label: 'Allow human replies', type: 'boolean', defaultValue: false, section: 'state', listed: true },
+      { name: 'last_event_at', label: 'Last event', type: 'timestamp', readonly: true, section: 'state', listed: true },
+      { name: 'last_error', label: 'Last error', type: 'text', readonly: true, section: 'state' },
+      { name: 'settings', label: 'Settings (non-secret)', type: 'json', section: 'state' },
+      CREATED, UPDATED
+    ],
+    sections: { identity: 'Inbox', state: 'State and switches', audit: 'Audit' }
+  },
   audit: {
     key: 'audit', label: 'Audit log', singular: 'Audit event', group: 'system', icon: 'audit',
     scope: 'wp', table: 'wp_audit_events', idColumn: 'id', titleField: 'action', projectOptional: true,
@@ -384,6 +412,7 @@ var GROUPS = [
   { key: 'catalogue', label: 'Catalogue' },
   { key: 'commercial', label: 'Commercial' },
   { key: 'auto', label: 'MYTHOS AUTO' },
+  { key: 'whatsapp', label: 'WhatsApp' },
   { key: 'projects', label: 'Projects' },
   { key: 'system', label: 'System' },
   { key: 'settings', label: 'Settings' }
