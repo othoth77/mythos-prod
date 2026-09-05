@@ -1,0 +1,145 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-202",
+  "project": "mythos-prod",
+  "objective": "Construire le MYTHOS Communication Receiver : le point d'entrée webhook Evolution du Communication Core (Option D, #196), qui authentifie, valide, normalise, déduplique et persiste les événements `messages.upsert` (et l'état de connexion) dans les tables de #197, via un modèle d'événement neutre vis-à-vis du provider. Premier déploiement en mode DRY-RUN/OFF : le receveur accepte et valide des payloads de test mais ne persiste aucun trafic client réel tant qu'aucune inbox n'est activée.",
+  "scope": [
+    "`projects/mythos-wp/reference/comms/providers/evolution.js` : `parseInbound(body)` → événement normalisé (contact `wa_id`/`lid`, `provider_message_id`, type, texte, citation, horodatage, métadonnées de pièces jointes SANS clés media, payload `raw` expurgé des credentials)",
+    "`projects/mythos-wp/reference/comms/core.js` : upsert contact, conversation vivante par (inbox, contact), insertion exactly-once (`ON CONFLICT DO NOTHING`), compteur non-lus, événements de conversation, mise à jour d'état d'inbox",
+    "`projects/mythos-wp/reference/comms/receiver.js` : route `POST /hooks/evolution` (loopback, avant la session), jeton en en-tête/query comparé en temps constant depuis un fichier 0600 (`MYTHOS_WP_WEBHOOK_TOKEN_FILE`), taille max, instance validée contre `wp_inboxes`, flag global `MYTHOS_WP_RECEIVER_ENABLED` + flag par inbox `inbound_enabled` (dry-run sinon), journal sans secret, dead-letter",
+    "Migration `0002_inbound_events` : `wp_inbound_events` (ledger d'idempotence / replay / dead-letter)",
+    "`tests/mythos-wp-comms-receiver-test.js` : unitaires (variantes de payload, LID, groupe, fromMe, jeton, taille, JSON invalide, instance inconnue, inbox désactivée), intégration (persistance, replay dupliqué = exactly once, réutilisation/réouverture de conversation, non-lus, événements, dead-letter), sécurité (aucun `apikey`/`mediaKey`/`base64` stocké ou journalisé)",
+    "Docs : `MYTHOS_COMMUNICATION_OS_ARCHITECTURE.md` §receiver, `AI_HANDOVER.md`"
+  ],
+  "constraints": [
+    "Aucune instance client, aucun webhook Evolution configuré, aucun message envoyé dans cette tâche ; `mythos-bridge` et Telegram intacts",
+    "Le receveur ne dépend pas du frontend ; le frontend ne dépend pas d'Evolution",
+    "Pas de contenu media en base ; pas de clés media ni credentials dans `raw`, dans les logs ou dans le dead-letter",
+    "Déploiement : fusion PR, worktree `main`, migration 0002, `MYTHOS_WP_RECEIVER_ENABLED` absent (OFF)",
+    "Exécutée par la session opérateur ; toute tentative du bridge sur cette Issue est une revue en lecture seule"
+  ],
+  "priority": "high",
+  "requested_action": "review",
+  "action_raw": "review",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "`node tests/mythos-wp-comms-receiver-test.js` passe (unit + intégration + sécurité)",
+    "`node tests/mythos-wp-comms-schema-test.js` et `node tests/mythos-wp-test.js` passent",
+    "En production : `POST /hooks/evolution` répond 404 tant que `MYTHOS_WP_RECEIVER_ENABLED` est absent ; 0 ligne dans `wp_messages`"
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-05T15:39:48.780Z",
+  "created_by": "github-issue:othoth77",
+  "depends_on": [
+    "gh-issue-197"
+  ],
+  "notes": "Source: GitHub Issue #202 https://github.com/othoth77/mythos-prod/issues/202 — \"MYTHOS-COMMS-2 — Inbound Receiver (dry-run)\"\n\nrequested_action: review — source explicit_current_issue (written as \"review\") → execution profile repo-read",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 202,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/202",
+    "issue_id": 5359017617,
+    "issue_node_id": "I_kwDOTnlaF88AAAABP2wekQ",
+    "issue_title": "MYTHOS-COMMS-2 — Inbound Receiver (dry-run)",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-05T15:39:36Z",
+    "issue_updated_at": "2026-09-05T15:39:36Z",
+    "issue_labels": [
+      "enhancement",
+      "task",
+      "whatsapp"
+    ],
+    "content_sha256": "6ab0e943e7fe4e71d5502226e734cdd8e424e926996f0f87bca096530863a0a0",
+    "attempt": 1,
+    "attempt_id": "gh-issue-202#1",
+    "idempotency_key": "762e9adcc8b6a8632ad149048d50e26ffa59abfc0fe3992dc75d72ffa844ce44",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "review",
+      "action_raw": "review",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "review",
+          "action": "review",
+          "form": "inline",
+          "line": 24
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-05T15:39:48.781Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-05T15:39:48.781Z",
+        "event": "issue_received",
+        "reason": "open Issue #202 with label task",
+        "content_sha256": "6ab0e943e7fe4e71d5502226e734cdd8e424e926996f0f87bca096530863a0a0"
+      },
+      {
+        "at": "2026-09-05T15:39:48.781Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → review (raw \"review\")"
+      },
+      {
+        "at": "2026-09-05T15:39:48.781Z",
+        "event": "profile_resolved",
+        "reason": "review → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-05T15:39:48.781Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-05T15:39:50.920Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-202.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-05T15:39:48.781Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5552893364,
+        "url": "https://github.com/othoth77/mythos-prod/issues/202#issuecomment-5552893364",
+        "at": "2026-09-05T15:39:50.195Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
