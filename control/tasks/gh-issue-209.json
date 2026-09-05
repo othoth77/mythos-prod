@@ -1,0 +1,144 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-209",
+  "project": "mythos-prod",
+  "objective": "Permettre à un opérateur de répondre depuis l'Inbox de wp.mythosprod.xyz : Opérateur → API MYTHOS → adaptateur provider → Evolution API → WhatsApp, avec idempotence (référence client), état de livraison (queued → sent → delivered → read / failed via `messages.update`), nouvelle tentative contrôlée, audit et journal de conversation. Jamais par le chemin de notification `mythos-bridge`. Tout reste OFF tant que `wp_inboxes.outbound_enabled` est false.",
+  "scope": [
+    "`reference/comms/providers/evolution.js` : `sendText(inbox, to, text)` (POST `/message/sendText/{instance}`, clé API lue à l'appel depuis le fichier 0600 `MYTHOS_WP_EVOLUTION_API_KEY_FILE`), `parseInbound` étendu à `messages.update` (statut de livraison)",
+    "`reference/comms/outbound.js` : file de sortie synchrone : ligne `wp_messages` (out, queued, `client_ref` unique par conversation), envoi, `sent` + `provider_message_id`, échec → `failed` + erreur, une nouvelle tentative sur erreur transport, plafond par conversation/heure, refus si inbox non `open` ou `outbound_enabled=false`",
+    "Migration `0003_outbound` : `wp_messages.client_ref` + index unique partiel",
+    "API : `POST /api/projects/:p/comms/conversations/:id/messages` (opérateur, CSRF), `POST …/messages/:mid/retry`",
+    "Receiver : `messages.update` → mise à jour du statut, événement `message.status`",
+    "UI : zone de réponse active quand l'inbox le permet, envoi avec `client_ref`, affichage des statuts"
+  ],
+  "constraints": [
+    "Aucun message réel dans cette tâche tant que Gate 3 n'est pas passée ; `outbound_enabled` reste false en production",
+    "Jamais `mythos-bridge` comme instance d'envoi (refusé par le CHECK) ; clé API jamais en base ni dans les logs",
+    "Déploiement depuis main ; migration 0003 ; aucun redémarrage Evolution"
+  ],
+  "priority": "high",
+  "requested_action": "review",
+  "action_raw": "review",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "Docs : architecture §10, `AI_HANDOVER.md`",
+    "`node tests/mythos-wp-comms-outbound-test.js` passe ; suites existantes en non-régression",
+    "Production : `POST …/conversations/:id/messages` → 412 tant que l'inbox n'est pas `open` + `outbound_enabled`",
+    "Gate 6 (après Gate 4) : une vraie réponse humaine reçue par le client, sans doublon"
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-05T16:01:09.307Z",
+  "created_by": "github-issue:othoth77",
+  "depends_on": [
+    "gh-issue-207"
+  ],
+  "notes": "Source: GitHub Issue #209 https://github.com/othoth77/mythos-prod/issues/209 — \"MYTHOS-COMMS-5 — Human outbound reply (send, delivery state, idempotency, retry)\"\n\nrequested_action: review — source explicit_current_issue (written as \"review\") → execution profile repo-read",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 209,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/209",
+    "issue_id": 5359141132,
+    "issue_node_id": "I_kwDOTnlaF88AAAABP24BDA",
+    "issue_title": "MYTHOS-COMMS-5 — Human outbound reply (send, delivery state, idempotency, retry)",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-05T16:00:46Z",
+    "issue_updated_at": "2026-09-05T16:00:46Z",
+    "issue_labels": [
+      "enhancement",
+      "task",
+      "whatsapp"
+    ],
+    "content_sha256": "6082f0e652c2d2b29831ff00c79f6902bee5e103b2fcb44e22abaa138849ec89",
+    "attempt": 1,
+    "attempt_id": "gh-issue-209#1",
+    "idempotency_key": "e0401318d453cc45d2e25b08929ed3088932d0025a4ee354be181f3170ce4478",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "review",
+      "action_raw": "review",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "review",
+          "action": "review",
+          "form": "inline",
+          "line": 24
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-05T16:01:09.308Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-05T16:01:09.308Z",
+        "event": "issue_received",
+        "reason": "open Issue #209 with label task",
+        "content_sha256": "6082f0e652c2d2b29831ff00c79f6902bee5e103b2fcb44e22abaa138849ec89"
+      },
+      {
+        "at": "2026-09-05T16:01:09.308Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → review (raw \"review\")"
+      },
+      {
+        "at": "2026-09-05T16:01:09.308Z",
+        "event": "profile_resolved",
+        "reason": "review → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-05T16:01:09.308Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-05T16:01:11.227Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-209.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-05T16:01:09.308Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5553021566,
+        "url": "https://github.com/othoth77/mythos-prod/issues/209#issuecomment-5553021566",
+        "at": "2026-09-05T16:01:10.581Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
