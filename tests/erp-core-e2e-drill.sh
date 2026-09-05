@@ -380,6 +380,27 @@ check "no mythos agenda leakage into acme's list" "[ \"$(q "select count(*) from
 A -X POST "$B/auth/logout" >/dev/null
 check "no password in the API log (agenda)" "! grep -qF \"$ADMIN_PW\" $WORK/api.log" ""
 
+echo "§10 statistics/reporting: prospects funnel, inventory report, date-ranged revenue/expenses"
+login "$ADMIN_EMAIL" "$ADMIN_PW"; [ "$R" = 200 ] || bad "owner login for reporting" "$R"
+R=$(A "$B/reports/prospects"); check "prospects funnel: total=1, won=1, decided=1, win_rate=1.0" "[ $R = 200 ] && [ \"$(jget total)\" = 1 ] && [ \"$(jget won)\" = 1 ] && [ \"$(jget decided)\" = 1 ] && [ \"$(jget win_rate)\" = 1 ]" "$R $(cat $J)"
+check "avg_days_to_convert is a number (converted same day → 0.0)" "[ \"$(jget avg_days_to_convert)\" = 0.0 ] || [ \"$(jget avg_days_to_convert)\" = 0 ]" "$(jget avg_days_to_convert)"
+R=$(A "$B/reports/inventory"); check "inventory report lists items with computed on-hand" "[ $R = 200 ] && [ \"$(jget below_reorder_count)\" -ge 0 ] && python3 -c \"import json; d=json.load(open('$J')); assert 'on_hand' in d['rows'][0] and 'min_quantity' in d['rows'][0]\" 2>/dev/null || [ \"$(jget rows)\" = '[]' ]" "$(cat $J | head -c 200)"
+R=$(A "$B/reports/revenue?from=1900-01-01&to=1900-01-02"); check "revenue date range excludes everything outside the window" "[ $R = 200 ] && [ \"$(python3 -c "import json; print(len(json.load(open('$J'))['months']))")\" = 0 ]" "$(cat $J)"
+R=$(A "$B/reports/revenue?from=$(date -u +%Y-%m-01)&to=$(date -u +%F)"); check "revenue date range includes today's invoice (day-inclusive upper bound)" "[ $R = 200 ] && [ \"$(python3 -c "import json; print(len(json.load(open('$J'))['months']))")\" -ge 1 ]" "$(cat $J)"
+R=$(A -X POST "$B/expenses" -d "{\"description\":\"Fournitures\",\"amount\":50,\"spent_on\":\"$(date -u +%F)\"}"); check "seed an expense for the range test" "[ $R = 201 ]" "$R $(cat $J)"
+R=$(A "$B/reports/expenses?from=$(date -u +%F)&to=$(date -u +%F)"); check "expenses date range: exactly today's expense, total 50.000" "[ $R = 200 ] && [ \"$(jget total)\" = 50.000 ]" "$(cat $J)"
+R=$(A "$B/reports/expenses?from=1900-01-01&to=1900-01-02"); check "expenses date range excludes everything outside the window" "[ $R = 200 ] && [ \"$(jget total)\" = 0.000 ]" "$(cat $J)"
+A -X POST "$B/auth/logout" >/dev/null
+login rita@mythos.test "$OTHER_PW"; R=$(A "$B/reports/prospects"); check "read_only can read the prospects report (reports.read)" "[ $R = 200 ]" "$R"
+R=$(A "$B/reports/inventory"); check "read_only can read the inventory report" "[ $R = 200 ]" "$R"
+A -X POST "$B/auth/logout" >/dev/null
+login bob@acme.test "$OTHER_PW"
+R=$(A "$B/reports/prospects"); check "acme has no reports module (existing fixture) → 404 module_not_enabled" "[ $R = 404 ] && grep -q module_not_enabled $J" "$R $(cat $J)"
+q "insert into tenant_modules (tenant_id, module_key, enabled) select id,'reports',true from tenants where key='acme'" >/dev/null
+R=$(A "$B/reports/prospects"); check "acme, reports enabled: prospects report is zero (no mythos leakage)" "[ $R = 200 ] && [ \"$(jget total)\" = 0 ]" "$(cat $J)"
+A -X POST "$B/auth/logout" >/dev/null
+check "no password in the API log (reporting)" "! grep -qF \"$ADMIN_PW\" $WORK/api.log" ""
+
 echo
 echo "erp-core-e2e-drill: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
