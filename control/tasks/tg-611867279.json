@@ -66,6 +66,11 @@
         "at": "2026-09-05T03:19:13.852Z",
         "event": "started_notified",
         "reason": "executor t-20260905031913-kojnbl, OTHMODE OTH-2026-00175; reply message_id 198"
+      },
+      {
+        "at": "2026-09-05T03:21:42.494Z",
+        "event": "report_notified",
+        "reason": "COMPLETED; reply message_id 199"
       }
     ],
     "converted_at": "2026-09-05T03:19:08.900Z",
@@ -82,6 +87,13 @@
         "existed": false,
         "executor_task_id": "t-20260905031913-kojnbl",
         "othmode_task_id": "OTH-2026-00175"
+      },
+      "report": {
+        "message_id": 199,
+        "at": "2026-09-05T03:21:42.494Z",
+        "existed": false,
+        "status": "COMPLETED",
+        "report_file": "control/reports/tg-611867279.json"
       }
     }
   },
