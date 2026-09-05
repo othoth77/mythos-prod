@@ -2,7 +2,7 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
-## 2026-09-05 — PHASE 4 SUPER ADMIN: code fixed and proven; production bootstrap = owner TTY step — **AUTH=PENDING** (Fable 5.1, 16:20–16:40 UTC)
+## 2026-09-05 — PHASE 4 SUPER ADMIN: **AUTH=PASS** (Fable 5.1, 16:20–16:45 UTC; code fixed, owner bootstrap at TTY, verified read-only)
 
 | Item | Evidence |
 |---|---|
@@ -15,7 +15,9 @@
 | Files | `api/bin/create-super-admin.js` (tenant association, audit, raw-mode order), `api/lib/pipeline.js` (+skipAudit), `api/server.js` (−fallback), `tests/erp-bootstrap-drill.sh` (new). No schema change, no legacy ERP, no invoice code. Worktree note: `api/node_modules` in the worktree is a local symlink to the checkout's installed `pg` (untracked, not committed). |
 | Production bootstrap — **OWNER STEP (TTY)** | After this branch is on `main` and the checkout is fast-forwarded, run **once**, in an SSH terminal, never through an agent: `cd /home/deploy/projects/mythos-prod/sites/erp.mythosprod.xyz/api && (set -a; . /root/.config/mythos/erp-db-credentials.env; set +a; node bin/create-super-admin.js)` — tenant `mythos`, your real email, ≥12-char password typed twice (not echoed). Nothing is written until the transaction commits; the tool refuses if a `super_admin` already exists. Then tell the agent; it verifies (read-only) users=1, membership mythos active/default, tenant-scoped super_admin, 31 effective permissions, 3 audit rows, no plaintext anywhere. |
 | Why the agent does not run it | A password known to an agent session is not a secret. The drill proves the exact code path with a throwaway credential; production gets a human-typed one. |
-| **GATE** | **AUTH=PENDING** — code path VERIFIED (33/0 + 79/0 + 59/0 + 118/0); production `super_admin` does not exist yet. AUTH=PASS after the owner bootstrap and the read-only verification above. Phase 5 not started. |
+| Landing | PR #214 **merged** → `origin/main` = `main` = `4aa0553` (`bf04932` ancestor of main); production checkout fast-forwarded by the owner; `lib/pipeline.js` on the checkout carries the skipAudit fix. |
+| Owner bootstrap (TTY) — verified read-only 16:45 UTC | users **1** (active, not deleted); `password_algo=scrypt`, hash `$scrypt$…` > 80 chars, no plaintext anywhere; membership **mythos active default**; role **super_admin@mythos** (tenant-scoped); **31** effective permissions; audit rows `user.created(mythos)`, `membership.granted(mythos)`, `role.assigned(mythos)` with `bootstrap=true`, 0 rows mentioning a password; audit total 4 (those 3 + Phase 2 row #52); only one `super_admin` (second bootstrap impossible); tenants 1, sessions 0, `must_change_password=f`, `mfa_enabled=f`, not locked. Email domain recorded only as `gmail.com`. |
+| **GATE** | **AUTH=PASS** — production super admin exists with correct tenant association, authorization and audit trail; the login path is proven by the bootstrap drill (33/0) on identical code. Live login happens in Phase 5 once the API is deployed. |
 
 
 ## 2026-09-05 — PHASE 3 REPOSITORY GOVERNANCE: **REPOSITORY=PASS** (Fable 5.1, 15:32–16:20 UTC)
