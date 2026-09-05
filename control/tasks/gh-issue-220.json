@@ -1,0 +1,130 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-220",
+  "project": "mythos-prod",
+  "objective": "Deep research, competitive analysis and reuse architecture for MYTHOS Communication OS (multi-service, multi-inbox, WhatsApp first, channel-agnostic), superseding and extending #196. The self-contained artifact is `docs/research/MYTHOS_COMMUNICATION_OS_DEEP_RESEARCH_2026-09-05.md` on branch `mythos/research-comms-os-deep-20260905` (docs-only PR open for owner review). This Issue is the governed record; it requires no execution beyond review.",
+  "scope": [],
+  "constraints": [
+    "Research only: no pairing, no Evolution/Telegram/systemd/migration/production change. Any bridge attempt on this Issue is a read-only review."
+  ],
+  "priority": "normal",
+  "requested_action": "review",
+  "action_raw": "review",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-05T18:47:39.182Z",
+  "created_by": "github-issue:othoth77",
+  "depends_on": [
+    "gh-issue-196"
+  ],
+  "notes": "Source: GitHub Issue #220 https://github.com/othoth77/mythos-prod/issues/220 — \"RESEARCH: MYTHOS Communication OS — Deep Research, Competitive Analysis & Reuse Architecture\"\n\nrequested_action: review — source explicit_current_issue (written as \"review\") → execution profile repo-read\n\n[executive summary]\n- No existing open-source project is MYTHOS Communication OS; each covers one layer (transport, helpdesk, LLM platform, automation, flows, sales CRM).\n- MYTHOS already has the right shape (COMMS-1…8: provider-neutral Core, exactly-once receiver, inbox/contacts UI, human outbound, suggest-only AI, multi-service model) — all OFF in production.\n- **Decision:** hybrid — `CommunicationProvider` contract with Evolution API first and Meta Cloud API second, native MYTHOS Communication Core + MYTHOS AI as the system of record, native automation rules with n8n optional, Chatwoot / Evo CRM / Dify / Twenty / Typebot as references only. Score 8.6/10 (Chatwoot-as-core 5.8, Evo CRM-as-core 4.8, Evolution+Dify+n8n 4.5).\n\n[research scope and sources]\nRepository reconnaissance (mythos-wp Core, migrations 0001–0004, receiver, inbox, outbound, assistant, multiservice); 27 primary repositories/doc sites (GitHub API metadata, README, source, LICENSE, official docs: Meta developers, docs.typebot.com, developers.chatwoot.com, docs.n8n.io, docs.dify.ai, waha.devlike.pro, core.telegram.org); 24 GitHub issue threads for failures; 6 web sweeps (vendor blogs treated as INFERENCE-grade only). Full URL list in the artifact §4.\n\n[projects evaluated]\nEvolution API, Chatwoot, Evo CRM Community (+ ai-processor, flow, bot-runtime), Dify, n8n, Typebot, Twenty, EspoCRM, SuiteCRM, ERPNext / Frappe CRM, WAHA, WPPConnect, Venom, whatsapp-web.js, Baileys, whatsmeow, Meta WhatsApp Cloud API, Messenger/Instagram Platform, Telegram Bot API.\n\n[comparison (average score, 16 criteria)]\nBuild everything 7.1 · Chatwoot core 5.8 · Evo CRM core 4.8 · Evolution+Chatwoot 5.4 · Evolution+Dify+n8n 4.5 · Evolution+native Core 8.1 · **Hybrid 8.6**.\n\n[risks (must not repeat)]\nPhone-keyed contact identity (Meta BSUID/usernames 2026, Chatwoot #13837); passkey-linking and stale-QR pairing failures; silent inbound webhook loss after days (Evolution #2647, WAHA #1456); outbound stuck PENDING with 200 OK (Evolution #2597); Error 463 reachout-timelock bans on cold outbound (Baileys #2707); unsigned, non-retried Evolution webhooks vs signed, retried, duplicating Meta webhooks; media keys/base64 in payloads; transport DB/logs as system of record (Signal-key leak incident); host memory pressure; Evolution 2.4.0 manual licence activation (#2534); Cloud API per-message pricing changes.\n\n[licensing (official license files)]\nEvolution / Evo CRM: Apache-2.0 + logo + usage-notification clause · Chatwoot: MIT core, Enterprise licence for `enterprise/` (Captain AI) · Dify: Apache modified, no multi-tenant without permission · n8n: Sustainable Use (internal use only) · Typebot: FSL-1.1 (no competing use) · Twenty: AGPL-3.0 (+MIT SDK) · EspoCRM / SuiteCRM / Frappe CRM: AGPL-3.0 · ERPNext: GPL-3.0 · WAHA / WPPConnect / Venom / whatsapp-web.js: Apache-2.0 · Baileys: MIT · whatsmeow: MPL-2.0.\n\n[architecture]\nChannel → Provider (contract) → Account (reserved list, rotation) → Instance → Inbox (project × account × channel, switches) → Communication Core (tenant = project) → Conversation / Message / Attachment / Events → Intelligence (intent → context → memory → knowledge → products/stock → rules → AI → policy gate) → Suggest | Auto-reply | Handoff → business systems, audit, analytics, automations. Number lifecycle, Evolution → Cloud API migration, Instagram/Messenger/Telegram/web chat/email providers, media pipeline, event model, security: artifact §10.\n\n[reuse matrix (summary)]\nReuse as is: Evolution (transport), Meta Cloud API (second provider), n8n (optional, internal). Patterns only: Chatwoot (lifecycle, contact_inboxes, automation rules, events, reports), Evo CRM (pipelines, scheduled actions), Dify (RAG hygiene, run tracing), Twenty (custom objects), EspoCRM/Frappe (ACL), Typebot (flow model). Native: provider contract, Core, identities, CRM-light, knowledge, AI, suggest/auto/handoff, media, events, analytics, permissions, audit.\n\n[roadmap]\nA Foundation (done) · B Messaging (COMMS-9 next) · C Inbox · D CRM · E AI · F Auto-reply · G Handoff · H Media · I Automation · J Analytics · K Multi-channel · L Cloud API — each with dependencies, DB/API/UI/tests/security/production gate in the artifact §12.\n\n[open questions (owner)]\nService order after SSANGYONG.AUTOS; LLM provider and budget; WABA/Cloud API number now or later; retention windows; keep n8n as automation consumer.\n\n[recommended next implementation task]\n**MYTHOS-COMMS-9 — Provider contract + event ledger hardening** (`CommunicationProvider` interface, provider-neutral event names, `wp_contact_identities` incl. BSUID, delivery reconciliation alarm, dead-letter replay, contract tests). Not implemented by this research.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 220,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/220",
+    "issue_id": 5360176623,
+    "issue_node_id": "I_kwDOTnlaF88AAAABP33N7w",
+    "issue_title": "RESEARCH: MYTHOS Communication OS — Deep Research, Competitive Analysis & Reuse Architecture",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-05T18:46:27Z",
+    "issue_updated_at": "2026-09-05T18:46:27Z",
+    "issue_labels": [
+      "enhancement",
+      "task",
+      "whatsapp"
+    ],
+    "content_sha256": "97cbc15596f8919197d89304829cbd5d23712c363600abfcca835e88ba327d82",
+    "attempt": 1,
+    "attempt_id": "gh-issue-220#1",
+    "idempotency_key": "1541ae609d7530cddbde527f2f48afe48c88686eff2ac6cbc843237b7f57b8e3",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "review",
+      "action_raw": "review",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "review",
+          "action": "review",
+          "form": "inline",
+          "line": 42
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-05T18:47:39.183Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-05T18:47:39.183Z",
+        "event": "issue_received",
+        "reason": "open Issue #220 with label task",
+        "content_sha256": "97cbc15596f8919197d89304829cbd5d23712c363600abfcca835e88ba327d82"
+      },
+      {
+        "at": "2026-09-05T18:47:39.183Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → review (raw \"review\")"
+      },
+      {
+        "at": "2026-09-05T18:47:39.183Z",
+        "event": "profile_resolved",
+        "reason": "review → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-05T18:47:39.183Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-05T18:47:40.638Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-220.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-05T18:47:39.183Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5554008587,
+        "url": "https://github.com/othoth77/mythos-prod/issues/220#issuecomment-5554008587",
+        "at": "2026-09-05T18:47:40.055Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
