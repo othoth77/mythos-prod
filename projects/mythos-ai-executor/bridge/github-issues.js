@@ -488,9 +488,27 @@ function issueToTask(cfg, issue, attempt, previous) {
     truncated.push({ field: field, original_length: t.length, kept_length: max });
     return t.slice(0, max - 1) + '…';
   }
-  var secretKinds = redact.findSecretKinds(title + '\n' + body);
-  if (secretKinds.length) {
-    return { task: null, errors: ['Issue carries a secret-shaped string (' + secretKinds.join(', ') + '). Credentials never travel in tasks: rotate it and open a new Issue.'], secret: true };
+  // Secret gate. The shared classifier reports the KIND, the assignment KEY
+  // and the LINE of every hit — never the value — so a false positive
+  // (an example such as `TOKEN: configured`) is locatable and fixable by
+  // rewriting the value as an explicit placeholder (`TOKEN=<EXAMPLE_TOKEN>`),
+  // while a real credential is still refused. Title and body are scanned as
+  // one text; the title is line 1.
+  var secretHits = redact.findSecretMatches(title + '\n' + body);
+  if (secretHits.length) {
+    var secretKinds = [];
+    var where = secretHits.slice(0, 8).map(function (h) {
+      if (secretKinds.indexOf(h.kind) === -1) secretKinds.push(h.kind);
+      return h.kind + (h.key ? ' `' + short(h.key, 40) + '`' : '') + (h.line === 1 ? ' in the title' : ' at body line ' + (h.line - 1));
+    });
+    return {
+      task: null,
+      secret: true,
+      errors: [
+        'Issue carries a secret-shaped string (' + secretKinds.join(', ') + '): ' + where.join('; ') + (secretHits.length > 8 ? '; … ' + (secretHits.length - 8) + ' more' : '') + '. Credentials never travel in tasks: rotate it and open a new Issue.',
+        'Examples and status lines must state a non-secret value as an explicit placeholder, e.g. `TOKEN=<EXAMPLE_TOKEN>`, `API_KEY=<EXAMPLE_VALUE>`, `PASSWORD=${DB_PASSWORD}`, `Secrets: <none>`. Plain words after `KEY:` / `KEY=` are treated as credential material by design (docs/MYTHOS_GITHUB_ISSUES.md §Secrets and placeholders).'
+      ]
+    };
   }
   var sections = splitSections(body);
   var fields = engine.extractFields(body);
@@ -874,7 +892,7 @@ function rejectedBody(cfg, issue, errors, hash, secret) {
     list(errors, 'unknown error'),
     '',
     secret
-      ? '**A secret-shaped value was detected.** It was not copied anywhere. Rotate it, then open a NEW Issue without it.'
+      ? '**A secret-shaped value was detected.** It was not copied anywhere. If it is a real credential: rotate it, then open a NEW Issue without it. If it is an example or a status line: edit the value into an explicit placeholder (`<EXAMPLE_VALUE>`, `${VAR}`, `[REDACTED]`) — the adapter re-evaluates an edited Issue automatically.'
       : 'Edit the Issue to fix this (the adapter re-evaluates an edited Issue automatically) — see `docs/MYTHOS_GITHUB_ISSUES.md` for the expected format.'
   ].join('\n');
 }
