@@ -112,3 +112,11 @@ node tests/mythos-wp-comms-schema-test.js                      # apply → fixtu
 ```
 
 Data model and retention rules: `docs/MYTHOS_COMMUNICATION_OS_ARCHITECTURE.md`.
+
+## Communication Receiver (webhook endpoint)
+
+Disabled by default. To enable on a host: a 0600 token file (`openssl rand -hex 32 > …/webhook.token`),
+`MYTHOS_WP_WEBHOOK_TOKEN_FILE=<path>` and `MYTHOS_WP_RECEIVER_ENABLED=1` in the 0600 env file, restart.
+Evolution then posts per-instance webhooks to `http://127.0.0.1:8170/hooks/evolution?token=…` (loopback only).
+An inbox persists traffic only when its `wp_inboxes.inbound_enabled` is true; otherwise deliveries are validated
+and ledgered as `dry_run`. Tests: `node tests/mythos-wp-comms-receiver-test.js`.
