@@ -1,0 +1,24 @@
+# MYTHOS Telegram channel — drop-in for the deploy user unit mythos-github-bridge.service.
+#
+# Install (as deploy, an OWNER step — it binds a credential to a timer):
+#   mkdir -p ~/.config/systemd/user/mythos-github-bridge.service.d
+#   cp projects/mythos-ai-executor/bridge/systemd/mythos-github-bridge.service.d/telegram.conf.example \
+#      ~/.config/systemd/user/mythos-github-bridge.service.d/telegram.conf
+#   systemctl --user daemon-reload      # the existing 1-minute timer now runs the Telegram phases around `tick`
+#
+# Credential: a deploy-owned 0600 file OUTSIDE Git holding exactly one line
+#   MYTHOS_TELEGRAM_BOT_TOKEN=<token from @BotFather>
+# bound BY REFERENCE below (no copy of the value in this file, in Git, in an Issue or in a chat).
+# The adapter reads it at call time, keeps it in a closure and scrubs it from every log line, task file and reply.
+#
+# ROLLBACK: rm this file, systemctl --user daemon-reload. Nothing else changes; WhatsApp is untouched.
+[Service]
+Environment=MYTHOS_TELEGRAM_ENABLED=1
+Environment=MYTHOS_TELEGRAM_BOT_TOKEN_FILE=%h/mythos-ai-executor/secrets/telegram-bot.env
+# The ONLY accepted senders: numeric Telegram user ids, comma-separated. Empty = nobody (fail closed).
+Environment=MYTHOS_TELEGRAM_ALLOWED_USER_IDS=
+# Optional policy knobs (defaults shown). READ-only actions until a separate decision widens them.
+#Environment=MYTHOS_TELEGRAM_ALLOWED_ACTIONS=investigate,review
+#Environment=MYTHOS_TELEGRAM_DEFAULT_ACTION=investigate
+#Environment=MYTHOS_TELEGRAM_MAX_PER_TICK=10
+#Environment=MYTHOS_TELEGRAM_POLL_SECONDS=0
