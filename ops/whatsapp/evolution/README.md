@@ -164,3 +164,11 @@ Rollback at any point: remove/comment the `ENABLED` line + `daemon-reload`
 (sending off, nothing else changes); `docker compose down` stops the
 gateway (volumes keep the pairing); `docker compose down -v` forgets the
 pairing and requires a new QR scan.
+
+## Logging
+
+**Never run production with `LOG_BAILEYS=debug`.** At that level Baileys prints
+whole libsignal `SessionEntry` objects — private ratchet keys included — into the
+container log on every send (observed 2026-09-05; see `docs/AI_HANDOVER.md`).
+Trace pairing problems in the throwaway harness instead.
+
