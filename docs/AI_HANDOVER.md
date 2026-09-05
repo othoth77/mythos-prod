@@ -2,6 +2,20 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-05 — PHASE 3 REPOSITORY GOVERNANCE (Fable 5.1, 15:32–15:40 UTC)
+
+| Item | Evidence |
+|---|---|
+| Pending changes reviewed | Exactly three files, 108 insertions, 0 deletions: `docs/AI_HANDOVER.md` (Phase 0/1/2 entries), `docs/ERP_MIGRATION_PLAN.md` (+2 grant lines), `tests/erp-acceptance-drill.sh` (+1 REVOKE). No other dirty or untracked file in the checkout; `git diff --check` clean. No schema, API or legacy-ERP file changed (the live-DB fixes of Phase 2 needed no repo change: schema.sql already carried the grant in its operator block). |
+| Secret scan | gitleaks 8.30.1 on the diff (18.3 KB) and on the three full files (235 KB): **no leaks found**. Manual pattern grep (password/secret/token/api key/postgres URL/private key/AKIA): only prose hits. Credential values were never read in Phases 0–2 (`/root/.config/mythos/erp-db-credentials.env` sourced into a subshell for `migrate.js --dry-run`, output redacted). |
+| Governance cage | None of the three paths is in the root-owned `PROTECTED_PATHS` list or matches `PROTECTED_PATTERNS` (`/usr/local/lib/mythos/governance-verify.js`). No approval needed. |
+| Branch / commit | Worktree `/home/deploy/worktrees/erp-gates`, branch **`mythos/erp-gates-20260905`** from `origin/main` `34af9dc` (PR #199, 6 commits ahead of the shared checkout at the time). Commit **`2ac47fb`** "erp: Phase 0–2 gates …" (author deploy identity, Co-Authored-By Claude Fable 5.1). This Phase 3 entry is the following commit on the same branch. |
+| Delivery path | Root relay `/usr/local/bin/mythos-git-push` (`mythos-git-push.timer`, 5 min, ff-only, identity-pinned, hooks caged) delivers `refs/heads/mythos/*` and fast-forward `main`. Plan executed: (1) shared checkout `main` ff → `origin/main` `34af9dc`; (2) `main` ff → `mythos/erp-gates-20260905`; (3) relay pushes `main` and the branch on its next tick; (4) `origin/main` verified equal to local `main`. Result recorded in the "Delivery result" row below (filled after the tick). |
+| Shared checkout hygiene | The three files were restored to HEAD in `/home/deploy/projects/mythos-prod` only after `cmp` proved them byte-identical to the committed copies; no `reset`, `clean`, `stash` or `add .`. Services that ExecStart from the checkout (`ops/backup/*`, executor, command-center, bridge, os-console) are unaffected by the ff: incoming files are `projects/mythos-wp/**`, `projects/automotive/comms/bin/mythos-auto-reply-receiver` (not running), `open-source-registry.json`, tests and docs. |
+| Delivery result | _pending relay tick_ |
+| **GATE** | **REPOSITORY=PENDING** until `origin/main` == local `main` is verified (row above). |
+
+
 ## 2026-09-05 — PHASE 2 DATABASE INTEGRITY: **DATABASE=PASS** (Fable 5.1, 15:04–15:31 UTC; was BLOCKED 15:12, resolved 15:31)
 
 Read-only verification is complete and mostly green; three corrective writes to the live `mythos_erp` database are required for PASS and were **denied by the agent permission classifier** (three attempts, incl. a reviewable SQL file via `psql -f`). Owner must run them. Nothing was written to the database in this phase.
