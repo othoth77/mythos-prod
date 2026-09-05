@@ -194,6 +194,7 @@ function handle(req, res) {
     ctx.body = body;
     return route.handler(req, res, ctx);
   }).then(function (data) {
+    if (route.stream) return; // the handler owns the response (SSE)
     sendJSON(res, ctx._status, { ok: true, at: new Date().toISOString(), data: data }, ctx._cookie ? { 'Set-Cookie': ctx._cookie } : undefined);
     if (isMutation(method)) log({ level: 'info', request_id: requestId, actor: session ? session.username : (pathname === '/api/login' ? 'login' : null), method: method, path: pathname, status: ctx._status });
   }).catch(function (err) {

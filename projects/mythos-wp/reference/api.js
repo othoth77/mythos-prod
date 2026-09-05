@@ -26,6 +26,8 @@ var dashboard = require('./dashboard');
 var search = require('./search');
 var autoreply = require('./autoreply');
 var receiver = require('./comms/receiver');
+var inbox = require('./comms/inbox');
+var commsBus = require('./comms/bus');
 
 var VERSION = require('../package.json').version;
 var fail = crud.fail;
@@ -293,6 +295,80 @@ var ROUTES = [
     return projectFrom(req).then(function (resolved) {
       if (!resolved) throw fail('project_required', 400, 'a project is required');
       return search.search(resolved, q(req).q);
+    });
+  } },
+
+  // --- Communication OS: inbox / conversations / contacts / tags / SSE ----
+  { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations$/, role: 'any', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
+      var qq = q(req);
+      return Promise.all([inbox.listConversations(db.wp(), resolved.project.id, { status: qq.status, assigned: qq.assigned, username: req.session.username, inbox: qq.inbox, tag: qq.tag, q: qq.q, before: qq.before, limit: qq.limit }), inbox.counts(db.wp(), resolved.project.id)])
+        .then(function (x) { return { items: x[0].items, next_before: x[0].next_before, counts: x[1] }; });
+    });
+  } },
+  { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)$/, role: 'any', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.getConversation(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10)); });
+  } },
+  { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/messages$/, role: 'any', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { var qq = q(req); return inbox.listMessages(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), { before_id: qq.before_id, limit: qq.limit }); });
+  } },
+  { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/read$/, role: 'operator', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.markRead(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), req.session.username); });
+  } },
+  { method: 'PATCH', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)$/, role: 'operator', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
+      return inbox.updateConversation(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), req.session.username, ctx.body || {}).then(function (row) {
+        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'update', resource: 'conversations', record_id: String(row.id), project_id: resolved.project.id, next: ctx.body, request_id: req.requestId, client: req.socket.remoteAddress }).catch(function () {});
+        return row;
+      });
+    });
+  } },
+  { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/notes$/, role: 'operator', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { ctx.status(201); return inbox.addNote(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), req.session.username, ctx.body && ctx.body.text); });
+  } },
+  { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/tags\/([0-9]+)$/, role: 'operator', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.tagConversation(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username, false); });
+  } },
+  { method: 'DELETE', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/tags\/([0-9]+)$/, role: 'operator', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.tagConversation(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username, true); });
+  } },
+  { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/tags$/, role: 'any', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.listTags(db.wp(), resolved.project.id); });
+  } },
+  { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/tags$/, role: 'operator', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { ctx.status(201); return inbox.createTag(db.wp(), resolved.project.id, req.session.username, ctx.body || {}); });
+  } },
+  { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/contacts$/, role: 'any', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { var qq = q(req); return inbox.listContacts(db.wp(), resolved.project.id, { q: qq.q, status: qq.status, tag: qq.tag, limit: qq.limit }); });
+  } },
+  { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/contacts\/([0-9]+)$/, role: 'any', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.getContact(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10)); });
+  } },
+  { method: 'PATCH', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/contacts\/([0-9]+)$/, role: 'operator', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
+      return inbox.updateContact(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), req.session.username, ctx.body || {}).then(function (row) {
+        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'update', resource: 'contacts', record_id: String(row.id), project_id: resolved.project.id, next: ctx.body, request_id: req.requestId, client: req.socket.remoteAddress }).catch(function () {});
+        return row;
+      });
+    });
+  } },
+  { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/contacts\/([0-9]+)\/tags\/([0-9]+)$/, role: 'operator', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.tagContact(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username, false); });
+  } },
+  { method: 'DELETE', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/contacts\/([0-9]+)\/tags\/([0-9]+)$/, role: 'operator', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.tagContact(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username, true); });
+  } },
+  // SSE: per-project change feed (types + ids only; never message text). Heartbeat every 25 s.
+  { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/events$/, role: 'any', stream: true, handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
+      var pid = resolved.project.id;
+      res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' });
+      res.write('retry: 5000\n\n');
+      var write = function (ev) { if (ev.project_id !== pid) return; try { res.write('event: ' + ev.type + '\ndata: ' + JSON.stringify(ev) + '\n\n'); } catch (e) { /* closed */ } };
+      var hb = setInterval(function () { try { res.write(': hb\n\n'); } catch (e) { /* closed */ } }, 25000);
+      commsBus.bus.on('comms', write);
+      var done = function () { clearInterval(hb); commsBus.bus.removeListener('comms', write); };
+      req.on('close', done); res.on('close', done);
     });
   } },
 

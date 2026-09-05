@@ -2,6 +2,16 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-05 — MYTHOS-COMMS-4 — Inbox / Conversations / Contacts UI + API + SSE (#207): **DEPLOYED (empty until Gate 3/4)**
+
+| Item | State |
+|---|---|
+| Governance | Issue #207 (`Action: review`, `Depends on: #205`). Branch `mythos/comms-4-inbox-20260905` → PR merged to `main`. |
+| Delivered | `reference/comms/inbox.js` (project-scoped queries/mutations, masking), `reference/comms/bus.js` (SSE feed; Core `ingest()` now publishes `message.in`), 17 API routes under `/api/projects/:p/comms/*` incl. the SSE stream (server gained `route.stream`), `views/inbox.js` + `views/contacts.js`, navigation group WhatsApp (Inbox with unread count, Contacts, inboxes; the "Conversations (planned)" entry is gone), inbox styles. |
+| Tests | inbox **38/0** (auth, list/masking/counts/filters/search incl. message text, detail, timeline, read, patch + audit + event, notes as activity rows, tags, contacts, project isolation 404s, SSE receives `message.in` for the project only and carries no text) · receiver 61/0 · schema 62/0 · inboxes 12/0 · wp 312/0 · check.sh GREEN. |
+| Deployment (Gate 5 prep) | main worktree advanced, `mythos-wp.service` restarted, `/healthz` 200. Production inbox is empty by design: the customer instance is not paired (Gate 3) and `inbound_enabled=false` (Gate 4). |
+| Next | Owner: Gate 3 scan. Then COMMS-5 (human outbound) is built behind `wp_inboxes.outbound_enabled=false`. |
+
 ## 2026-09-05 — MYTHOS-COMMS-3 — Customer WhatsApp Provider (#205): **PROVISIONED, DRY-RUN — Gate 3 waits for the owner scan**
 
 | Item | State |

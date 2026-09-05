@@ -273,3 +273,32 @@ dialog::backdrop { background: rgba(11, 11, 10, 0.6); }
 }
 @media (prefers-reduced-motion: reduce) { .btn, .rail a, .card, .toast, .skeleton { transition: none; animation: none; } }
 @media print { .rail, .topbar, .toolbar, .btn, .toasts { display: none; } .app { grid-template-columns: 1fr; grid-template-areas: "main"; } body { background: none; color: black; } }
+
+/* ---- WhatsApp Inbox (MYTHOS-COMMS-4) ---- */
+.inbox { display: grid; grid-template-columns: minmax(280px, 360px) 1fr; gap: var(--mythos-space-5); min-height: 60vh; }
+.inbox-list .toolbar { display: grid; grid-template-columns: 1fr auto auto auto; gap: var(--mythos-space-2); }
+.inbox-counts { margin: var(--mythos-space-2) 0 var(--mythos-space-3); }
+.conv-list { display: flex; flex-direction: column; gap: var(--mythos-space-2); max-height: 70vh; overflow: auto; }
+.conv { display: block; padding: var(--mythos-space-3); border: 1px solid var(--mythos-border-hairline); border-radius: var(--mythos-radius-control); text-decoration: none; color: inherit; background: var(--mythos-ground); }
+.conv:hover, .conv.active { border-color: var(--mythos-accent); }
+.conv.unread strong { font-weight: 700; }
+.conv-head { display: flex; justify-content: space-between; gap: var(--mythos-space-2); }
+.conv-head .when { font-family: var(--mythos-font-mono); font-size: 11px; color: var(--mythos-text-secondary); }
+.conv-body { display: flex; justify-content: space-between; align-items: center; gap: var(--mythos-space-2); margin-top: 2px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conv-meta { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.inbox-pane { display: grid; grid-template-columns: 1fr minmax(240px, 300px); grid-template-rows: auto 1fr; gap: var(--mythos-space-4); }
+.pane-head { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: flex-start; gap: var(--mythos-space-3); }
+.pane-body { display: flex; flex-direction: column; gap: var(--mythos-space-3); min-width: 0; }
+.pane-side { display: flex; flex-direction: column; gap: var(--mythos-space-3); }
+.pane-side .card h4 { margin: 0 0 var(--mythos-space-2); font-size: 13px; }
+.msgs { display: flex; flex-direction: column; gap: var(--mythos-space-2); max-height: 52vh; overflow: auto; padding: var(--mythos-space-3); border: 1px solid var(--mythos-border-hairline); border-radius: var(--mythos-radius-control); background: var(--mythos-ground-deep); }
+.msg { max-width: 78%; }
+.msg.in { align-self: flex-start; } .msg.out { align-self: flex-end; } .msg.activity { align-self: center; max-width: 92%; opacity: .85; }
+.msg .bubble { padding: var(--mythos-space-2) var(--mythos-space-3); border-radius: 12px; background: var(--mythos-ground); border: 1px solid var(--mythos-border-hairline); white-space: pre-wrap; word-break: break-word; font-size: 13.5px; }
+.msg.out .bubble { background: var(--mythos-accent-soft, var(--mythos-ground)); border-color: var(--mythos-accent); }
+.msg.activity .bubble { background: transparent; border-style: dashed; font-style: italic; }
+.msg .meta { font-size: 11px; color: var(--mythos-text-secondary); margin: 2px var(--mythos-space-2) 0; }
+.msg .att { font-size: 12px; color: var(--mythos-text-secondary); margin-top: 4px; }
+.msg .transcript { font-style: italic; }
+.reply { display: grid; gap: var(--mythos-space-2); }
+@media (max-width: 960px) { .inbox, .inbox-pane { grid-template-columns: 1fr; } .conv-list, .msgs { max-height: none; } }
