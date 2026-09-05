@@ -26,7 +26,8 @@ function def(o) {
     sortable: (o.sortable || []).concat(['created_at', 'updated_at']),
     defaultSort: o.defaultSort || 'created_at',
     filters: o.filters || [],
-    check: o.check || null
+    check: o.check || null,
+    enums: o.enums || {}
   };
 }
 
@@ -41,6 +42,10 @@ function oneOf(list) {
 var STATUS_INVOICE = ['draft', 'sent', 'part_paid', 'paid', 'cancelled'];
 var STATUS_QUOTE   = ['draft', 'sent', 'accepted', 'refused', 'expired'];
 var STATUS_PROSPECT = ['new', 'contacted', 'qualified', 'proposal', 'won', 'lost'];
+var ACCOUNT_TYPES = ['asset', 'liability', 'equity', 'revenue', 'expense'];
+var ACCOUNT_SYSTEM_KEYS = ['receivable', 'payable', 'bank', 'cash', 'vat_collected', 'vat_deductible', 'sales', 'purchases'];
+var JOURNAL_KINDS = ['sales', 'purchases', 'bank', 'cash', 'general'];
+var ENTRY_STATUSES = ['draft', 'posted', 'reversed', 'void'];
 
 var DEFS = {
   clients: def({
@@ -211,6 +216,32 @@ var DEFS = {
       return null;
     }
   }),
+
+  /* Accounting reference data (0005-accounting.sql). Entries, periods and
+     reports are NOT generic resources: modules/accounting.js owns them. */
+  accounts: def({
+    module: 'accounting', table: 'accounts',
+    columns: ['code', 'label', 'type', 'parent_code', 'system_key', 'is_active', 'deleted_at'],
+    fields: ['code', 'label', 'type', 'parent_code', 'system_key', 'is_active'],
+    required: ['code', 'label', 'type'], searchable: ['code', 'label'], sortable: ['code', 'label', 'type'],
+    defaultSort: 'code', filters: ['type', 'system_key'], label: 'code',
+    enums: { type: ACCOUNT_TYPES, system_key: ACCOUNT_SYSTEM_KEYS },
+    check: function (v) {
+      if (v.code !== undefined && !/^[0-9]{1,10}$/.test(String(v.code))) return 'code must be 1 to 10 digits';
+      if (!oneOf(ACCOUNT_TYPES)(v.type)) return 'type must be one of ' + ACCOUNT_TYPES.join('|');
+      if (!oneOf(ACCOUNT_SYSTEM_KEYS)(v.system_key)) return 'system_key must be one of ' + ACCOUNT_SYSTEM_KEYS.join('|');
+      return null;
+    }
+  }),
+  journals: def({
+    module: 'accounting', table: 'journals',
+    columns: ['code', 'label', 'kind', 'is_active', 'deleted_at'],
+    fields: ['code', 'label', 'kind', 'is_active'],
+    required: ['code', 'label', 'kind'], searchable: ['code', 'label'], sortable: ['code', 'label'],
+    defaultSort: 'code', filters: ['kind'], label: 'code',
+    enums: { kind: JOURNAL_KINDS },
+    check: function (v) { return oneOf(JOURNAL_KINDS)(v.kind) ? null : 'kind must be one of ' + JOURNAL_KINDS.join('|'); }
+  }),
 };
 
 
@@ -225,13 +256,13 @@ function publicMeta() {
     out[name] = {
       module: d.module, label: d.label, columns: d.columns, fields: d.fields,
       required: d.required, searchable: d.searchable, sortable: d.sortable,
-      defaultSort: d.defaultSort, filters: d.filters,
+      defaultSort: d.defaultSort, filters: d.filters, enums: d.enums,
       createable: name !== 'documents'
     };
   });
   return {
     resources: out,
-    statuses: { invoice: STATUS_INVOICE, quote: STATUS_QUOTE, prospect: STATUS_PROSPECT, project: ['planned', 'active', 'closed'] },
+    statuses: { invoice: STATUS_INVOICE, quote: STATUS_QUOTE, prospect: STATUS_PROSPECT, project: ['planned', 'active', 'closed'], entry: ENTRY_STATUSES },
     invoice_user_settable: ['draft', 'sent', 'cancelled']
   };
 }

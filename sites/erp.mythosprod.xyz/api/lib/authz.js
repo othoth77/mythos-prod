@@ -24,6 +24,7 @@ var REQUIRE = {
   production: { GET: 'production.read', POST: 'production.write', PATCH: 'production.write' },
   finance:    { GET: 'finance.read',    POST: 'finance.write',    PATCH: 'finance.write',    DELETE: 'finance.delete' },
   invoices:   { GET: 'invoices.read',   POST: 'invoices.write',   PATCH: 'invoices.write',   DELETE: 'invoices.delete' },
+  accounting: { GET: 'accounting.read', POST: 'accounting.write', PATCH: 'accounting.write' },
   documents:  { GET: 'documents.read',  POST: 'documents.write',  PATCH: 'documents.write',  DELETE: 'documents.delete' },
   reports:    { GET: 'reports.read' },
   inventory:  { GET: 'inventory.read',  POST: 'inventory.write',  PATCH: 'inventory.write' },

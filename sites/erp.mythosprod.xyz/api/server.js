@@ -22,6 +22,7 @@ var tokens = require('./lib/tokens');
 var resource = require('./lib/resource');
 var registry = require('./modules/registry');
 var prospects = require('./modules/prospects');
+var accounting = require('./modules/accounting');
 var invoices = require('./modules/invoices');
 var views = require('./modules/views');
 
@@ -145,6 +146,26 @@ route('PATCH',  '/api/v1/invoices/:id', 'invoices', invoices.handlers.update,
       function (b) { return invoices.validateHeader(b, true); });
 route('DELETE', '/api/v1/invoices/:id', 'invoices', invoices.handlers.retire);
 route('POST',   '/api/v1/invoices/:id/payments', 'invoices', invoices.handlers.addPayment);
+
+// ── Comptabilité / general ledger (0005-accounting.sql) ───────────────────
+// All tenant-scoped, module 'accounting': GET = accounting.read, POST/PATCH =
+// accounting.write; post/reverse add accounting.post, close/setup add
+// accounting.close inside the handlers. Declared before the generic resources
+// (accounts, journals) so the specific paths match first.
+route('GET',   '/api/v1/accounting/setup', 'accounting', accounting.setup.status);
+route('POST',  '/api/v1/accounting/setup', 'accounting', accounting.setup.run);
+route('GET',   '/api/v1/accounting/periods', 'accounting', accounting.periods.list);
+route('POST',  '/api/v1/accounting/periods/:id/close', 'accounting', accounting.periods.close);
+route('GET',   '/api/v1/accounting/trial-balance', 'accounting', accounting.reports.trialBalance);
+route('GET',   '/api/v1/accounting/ledger', 'accounting', accounting.reports.ledger);
+route('GET',   '/api/v1/accounting/vat', 'accounting', accounting.reports.vat);
+route('GET',   '/api/v1/accounting/entries', 'accounting', accounting.entries.list);
+route('POST',  '/api/v1/accounting/entries', 'accounting', accounting.entries.create);
+route('GET',   '/api/v1/accounting/entries/:id', 'accounting', accounting.entries.get);
+route('PATCH', '/api/v1/accounting/entries/:id', 'accounting', accounting.entries.update);
+route('POST',  '/api/v1/accounting/entries/:id/post', 'accounting', accounting.entries.post);
+route('POST',  '/api/v1/accounting/entries/:id/reverse', 'accounting', accounting.entries.reverse);
+route('POST',  '/api/v1/accounting/entries/:id/void', 'accounting', accounting.entries.void);
 
 // ── Prospects: conversion into a client (0004-prospects.sql) ─────────────
 // Gated by the pipeline on prospects.write (POST on the module) and, inside
@@ -311,6 +332,12 @@ function createServer(deps) {
                  '23514': [422, 'constraint_violation'], '22P02': [422, 'invalid_value'], '22007': [422, 'invalid_value'],
                  '22008': [422, 'invalid_value'], '22003': [422, 'out_of_range'], '22001': [422, 'value_too_long'] };
       var pg = e && e.code && PG[e.code];
+      // A module may raise a deliberate business refusal from inside another
+      // module's transaction (e.g. the ledger refusing an invoice issue into a
+      // closed period): it carries a 4xx status and a safe message.
+      if (e && e.expose === true && e.status >= 400 && e.status < 500) {
+        return send(res, e.status, { error: String(e.message).replace(/^accounting: /, '') });
+      }
       var status = pg ? pg[0]
                  : /payload too large/.test(String(e && e.message)) ? 413
                  : /not valid JSON/.test(String(e && e.message)) ? 400 : 500;

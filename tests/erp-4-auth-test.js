@@ -455,7 +455,7 @@ var tampered = false;
 try { await migrate.migrate(mdb, { migrations: [{ version: '001.sql', sql: 'SELECT 2', checksum: 'bbb' }] }); }
 catch (e) { tampered = /changed after being applied/.test(e.message); }
 check('editing an applied migration is detected, not silently skipped', tampered);
-check('real migration files are discoverable', migrate.load().length === 4);
+check('real migration files are discoverable', migrate.load().length === 5);
 check('real migration files checksum stably',
   migrate.load()[0].checksum === migrate.load()[0].checksum && migrate.load()[0].checksum.length === 64);
 

@@ -58,7 +58,7 @@ docker run -d --name "$C" -P -e POSTGRES_USER=erp_owner -e POSTGRES_DB=mythos_er
 # start; a single pg_isready success can land in that window. Require two in a row.
 OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
-for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
 done
@@ -67,6 +67,8 @@ CREATE ROLE erp_app LOGIN PASSWORD '$PW';
 GRANT USAGE ON SCHEMA public TO erp_app;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO erp_app;
 GRANT DELETE ON invoice_lines TO erp_app;
+GRANT SELECT, INSERT, UPDATE ON accounts, journals, fiscal_periods, accounting_counters, journal_entries, journal_lines TO erp_app;
+GRANT DELETE ON journal_lines TO erp_app;   -- draft lines are replaced wholesale; the trigger freezes posted ones
 REVOKE UPDATE, DELETE ON audit_log FROM erp_app;
 GRANT INSERT, SELECT ON audit_log TO erp_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO erp_app;
@@ -258,6 +260,94 @@ R=$(A "$B/prospects/$PROSPECT"); check "acme GET mythos prospect → 404" "[ $R 
 R=$(A -X POST "$B/prospects/$PROSPECT/convert" -d '{}'); check "acme convert mythos prospect → 404 (invisible), no client created" "[ $R = 404 ] && [ \"$(q "select count(*) from clients where tenant_id=(select id from tenants where key='acme')")\" = 1 ]" "$R"
 A -X POST "$B/auth/logout" >/dev/null
 check "no password in the API log (prospects)" "! grep -qF \"$ADMIN_PW\" $WORK/api.log" ""
+
+echo "§8 comptabilité: chart, journals, periods, entries, posting, reversal, trial balance, ledger, VAT, automatic links"
+login "$ADMIN_EMAIL" "$ADMIN_PW"; [ "$R" = 200 ] || bad "owner login for accounting" "$R"
+check "6 accounting tables with RLS + tenant_isolation" "[ \"$(q "select count(*) from pg_tables where schemaname='public' and rowsecurity and tablename in ('accounts','journals','fiscal_periods','accounting_counters','journal_entries','journal_lines')")\" = 6 ] && [ \"$(q "select count(*) from pg_policies where tablename in ('accounts','journals','fiscal_periods','accounting_counters','journal_entries','journal_lines')")\" = 6 ]" ""
+check "erp_app grants: no DELETE except journal_lines (draft lines replaced wholesale)" "[ \"$(q "select string_agg(table_name,',' order by table_name) from information_schema.role_table_grants where grantee='erp_app' and privilege_type='DELETE'")\" = invoice_lines,journal_lines ]" "$(q "select string_agg(table_name,',') from information_schema.role_table_grants where grantee='erp_app' and privilege_type='DELETE'")"
+check "4 accounting permissions; finance_user has read/write/post but not close; read_only read only" "[ \"$(q "select count(*) from permissions where key like 'accounting.%'")\" = 4 ] && [ \"$(q "select string_agg(p.key,',' order by p.key) from role_permissions rp join roles r on r.id=rp.role_id join permissions p on p.id=rp.permission_id where r.key='finance_user' and p.key like 'accounting.%'")\" = accounting.post,accounting.read,accounting.write ] && [ \"$(q "select string_agg(p.key,',') from role_permissions rp join roles r on r.id=rp.role_id join permissions p on p.id=rp.permission_id where r.key='read_only' and p.key like 'accounting.%'")\" = accounting.read ]" ""
+R=$(A "$B/accounting/setup"); check "setup status: configured (16 accounts seeded, 5 journals, counter)" "[ $R = 200 ] && [ \"$(jget configured)\" = True ] && [ \"$(jget journals)\" = 5 ]" "$R $(cat $J)"
+R=$(A "$B/accounts?sort=code&dir=asc&limit=100"); check "chart of accounts listed (16), receivable = 411, vat_collected = 4367, sales = 706" "[ $R = 200 ] && [ \"$(jget total)\" = 16 ] && [ \"$(q "select code from accounts where system_key='receivable' and tenant_id=(select id from tenants where key='mythos')")\" = 411 ] && [ \"$(q "select code from accounts where system_key='vat_collected' and tenant_id=(select id from tenants where key='mythos')")\" = 4367 ]" "$(jget total)"
+R=$(A -X POST "$B/accounts" -d '{"code":"6226","label":"Honoraires","type":"expense"}'); check "account created (201)" "[ $R = 201 ]" "$R $(cat $J)"; ACC_HON=$(jget id)
+R=$(A -X POST "$B/accounts" -d '{"code":"411","label":"Dup","type":"asset"}'); check "duplicate account code → 409" "[ $R = 409 ]" "$R"
+R=$(A -X POST "$B/accounts" -d '{"code":"999","label":"Bad","type":"weird"}'); check "unknown account type → 422" "[ $R = 422 ]" "$R"
+R=$(A "$B/journals?sort=code&dir=asc"); check "5 journals (AC BQ CA OD VT)" "[ \"$(jget total)\" = 5 ]" "$(jget total)"
+echo "-- automatic links: the §2 invoice (sent, 2 payments) must already be in the ledger --"
+R=$(A "$B/accounting/entries?limit=50"); check "entries exist for the §2 invoice issue and its 2 payments (≥3 posted, source-tagged)" "[ $R = 200 ] && [ \"$(python3 -c "import json; d=json.load(open('$J')); print(sum(1 for r in d['rows'] if r['status']=='posted' and r['source_table'] in ('invoices','payments')))")\" -ge 3 ]" "$(head -c 400 $J)"
+ISSUE_ID=$(q "select id from journal_entries where source_table='invoices' and source_id='$A_INV'")
+R=$(A "$B/accounting/entries/$ISSUE_ID"); check "issue entry: VT journal, posted, balanced, 411 D 1428.000 / 706 C 1200.000 / 4367 C 228.000 @19%" "[ $R = 200 ] && [ \"$(jget journal_code)\" = VT ] && [ \"$(jget status)\" = posted ] && [ \"$(jget totals.debit)\" = 1428.000 ] && [ \"$(jget totals.balanced)\" = True ] && python3 -c \"
+import json; d=json.load(open('$J')); L={ (l['account_code'], float(l['debit']), float(l['credit'])) for l in d['lines'] }
+assert ('411',1428.0,0.0) in L and ('706',0.0,1200.0) in L and ('4367',0.0,228.0) in L, L
+assert [l for l in d['lines'] if l['account_code']=='4367'][0]['vat_rate'] in ('19.00',19,'19')\"" "$(cat $J | head -c 500)"
+check "payments posted to the ledger: 532/54 debit, 411 credit, 500 + 928" "[ \"$(q "select coalesce(sum(l.debit),0) from journal_lines l join journal_entries e on e.id=l.entry_id join accounts a on a.id=l.account_id where e.source_table='payments' and a.system_key in ('bank','cash') and e.tenant_id=(select id from tenants where key='mythos')")\" = 1428.000 ]" "$(q "select coalesce(sum(l.debit),0) from journal_lines l join journal_entries e on e.id=l.entry_id where e.source_table='payments'")"
+ACC_RECV=$(q "select id from accounts where system_key='receivable' and tenant_id=(select id from tenants where key='mythos')")
+R=$(A "$B/accounting/ledger?account_id=$ACC_RECV"); N_LEDGER=$(python3 -c "import json; print(len(json.load(open('$J'))['rows']))")
+check "receivable 411 nets to zero after full payment (ledger: 3 lines, closing 0.000)" "[ $R = 200 ] && [ \"$(jget closing_balance)\" = 0.000 ] && [ $N_LEDGER = 3 ]" "$R $(jget closing_balance) $N_LEDGER"
+R=$(A "$B/accounting/vat"); check "VAT report: collected 228.000 at 19 %, deductible 0, net due 228.000" "[ $R = 200 ] && [ \"$(jget collected)\" = 228.000 ] && [ \"$(jget deductible)\" = 0.000 ] && [ \"$(jget net_due)\" = 228.000 ]" "$(cat $J)"
+R=$(A "$B/accounting/trial-balance"); check "trial balance balanced (debit = credit), 706 credit 1200, 4367 credit 228, bank+cash debit 1428" "[ $R = 200 ] && [ \"$(jget totals.balanced)\" = True ] && python3 -c \"
+import json; d=json.load(open('$J')); by={r['code']:r for r in d['rows']}
+assert float(by['706']['credit'])==1200.0 and float(by['4367']['credit'])==228.0, by['706']
+assert float(by['411']['debit'])==1428.0 and float(by['411']['credit'])==1428.0 and float(by['411']['balance'])==0.0\"" "$(cat $J | head -c 400)"
+echo "-- manual entries --"
+J_OD=$(q "select id from journals where code='OD' and tenant_id=(select id from tenants where key='mythos')"); ACC_BANK=$(q "select id from accounts where system_key='bank' and tenant_id=(select id from tenants where key='mythos')"); ACC_CAP=$(q "select id from accounts where code='101' and tenant_id=(select id from tenants where key='mythos')")
+R=$(A -X POST "$B/accounting/entries" -d "{\"journal_id\":\"$J_OD\",\"entry_date\":\"$(date -u +%F)\",\"reference\":\"CAP-1\",\"memo\":\"Apport en capital\",\"lines\":[{\"account_id\":\"$ACC_BANK\",\"label\":\"Banque\",\"debit\":10000,\"credit\":0},{\"account_id\":\"$ACC_CAP\",\"label\":\"Capital\",\"debit\":0,\"credit\":10000}]}")
+check "manual draft entry created (201), numbered, balanced" "[ $R = 201 ] && [ \"$(jget status)\" = draft ] && [ \"$(jget totals.balanced)\" = True ]" "$R $(cat $J)"; E1=$(jget id); E1NO=$(jget entry_no)
+R=$(A -X POST "$B/accounting/entries" -d "{\"journal_id\":\"$J_OD\",\"entry_date\":\"$(date -u +%F)\",\"lines\":[{\"account_id\":\"$ACC_BANK\",\"debit\":100,\"credit\":0},{\"account_id\":\"$ACC_CAP\",\"debit\":0,\"credit\":90}],\"post\":true}"); check "unbalanced entry cannot be posted at creation (422)" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/accounting/entries" -d "{\"journal_id\":\"$J_OD\",\"entry_date\":\"$(date -u +%F)\",\"lines\":[{\"account_id\":\"$ACC_BANK\",\"debit\":100,\"credit\":0}]}"); check "single-line entry refused (422)" "[ $R = 422 ]" "$R"
+R=$(A -X POST "$B/accounting/entries" -d "{\"journal_id\":\"$J_OD\",\"entry_date\":\"$(date -u +%F)\",\"lines\":[{\"account_id\":\"$ACC_BANK\",\"debit\":100,\"credit\":100},{\"account_id\":\"$ACC_CAP\",\"debit\":0,\"credit\":0}]}"); check "debit AND credit on one line refused (422)" "[ $R = 422 ]" "$R"
+R=$(A -X PATCH "$B/accounting/entries/$E1" -d '{"memo":"Apport en capital (modifié)"}'); check "draft entry editable (200)" "[ $R = 200 ] && [ \"$(jget memo)\" = 'Apport en capital (modifié)' ]" "$R"
+R=$(A -X POST "$B/accounting/entries/$E1/post" -d '{}'); check "post draft → posted (200)" "[ $R = 200 ] && [ \"$(jget status)\" = posted ]" "$R $(cat $J)"
+R=$(A -X PATCH "$B/accounting/entries/$E1" -d '{"memo":"x"}'); check "posted entry immutable via API (409)" "[ $R = 409 ]" "$R"
+check "posted lines immutable at the DATABASE (owner UPDATE refused by trigger)" "! q \"update journal_lines set debit = debit + 1 where entry_id='$E1'\" >/dev/null 2>&1" ""
+check "posted entry immutable at the DATABASE (owner UPDATE memo refused by trigger)" "! q \"update journal_entries set memo='hack' where id='$E1'\" >/dev/null 2>&1" ""
+R=$(A -X POST "$B/accounting/entries/$E1/post" -d '{}'); check "posting twice → 409" "[ $R = 409 ]" "$R"
+R=$(A -X POST "$B/accounting/entries/$E1/reverse" -d '{"memo":"Correction"}'); check "reverse posted → 201, mirrored entry posted, original reversed" "[ $R = 201 ] && [ \"$(jget original.status)\" = reversed ] && [ \"$(jget reversal.status)\" = posted ]" "$R $(cat $J)"; E1R=$(jget reversal.id)
+R=$(A "$B/accounting/entries/$E1R"); check "reversal mirrors debit/credit (101 D 10000, 532 C 10000) and links reverses_id" "[ $R = 200 ] && [ \"$(jget reverses_id)\" = \"$E1\" ] && python3 -c \"
+import json; d=json.load(open('$J')); L={(l['account_code'],float(l['debit']),float(l['credit'])) for l in d['lines']}; assert ('101',10000.0,0.0) in L and ('532',0.0,10000.0) in L, L\"" "$(cat $J | head -c 400)"
+R=$(A -X POST "$B/accounting/entries/$E1/reverse" -d '{}'); check "reversing a reversed entry → 409" "[ $R = 409 ]" "$R"
+R=$(A "$B/accounting/trial-balance"); check "trial balance still balanced after reversal; 101 and 532 net the capital to zero" "[ \"$(jget totals.balanced)\" = True ] && python3 -c \"
+import json; d=json.load(open('$J')); by={r['code']:r for r in d['rows']}; assert float(by['101']['balance'])==0.0 and float(by['532']['balance'])==500.0, (by['101'],by['532'])\"" "$(cat $J | head -c 300)"
+R=$(A -X POST "$B/accounting/entries" -d "{\"journal_id\":\"$J_OD\",\"entry_date\":\"$(date -u +%F)\",\"lines\":[{\"account_id\":\"$ACC_BANK\",\"debit\":5,\"credit\":0},{\"account_id\":\"$ACC_CAP\",\"debit\":0,\"credit\":5}]}"); E2=$(jget id)
+R=$(A -X POST "$B/accounting/entries/$E2/void" -d '{}'); check "void draft → void (200), keeps its number" "[ $R = 200 ] && [ \"$(jget status)\" = void ]" "$R"
+R=$(A -X POST "$B/accounting/entries/$E2/post" -d '{}'); check "posting a void entry → 409" "[ $R = 409 ]" "$R"
+echo "-- periods --"
+R=$(A "$B/accounting/periods"); check "current month period auto-created, open, posted count ≥ 5" "[ $R = 200 ] && [ \"$(jget rows.0.code)\" = $(date -u +%Y-%m) ] && [ \"$(jget rows.0.status)\" = open ] && [ \"$(jget rows.0.posted)\" -ge 5 ]" "$(cat $J)"; PERIOD=$(jget rows.0.id)
+R=$(A -X POST "$B/accounting/entries" -d "{\"journal_id\":\"$J_OD\",\"entry_date\":\"$(date -u +%F)\",\"lines\":[{\"account_id\":\"$ACC_BANK\",\"debit\":7,\"credit\":0},{\"account_id\":\"$ACC_CAP\",\"debit\":0,\"credit\":7}]}"); E3=$(jget id)
+R=$(A -X POST "$B/accounting/periods/$PERIOD/close" -d '{}'); check "closing a period with a draft inside → 409" "[ $R = 409 ]" "$R $(cat $J)"
+A -X POST "$B/accounting/entries/$E3/void" -d '{}' >/dev/null
+R=$(A -X POST "$B/accounting/periods/$PERIOD/close" -d '{}'); check "close period → closed (200)" "[ $R = 200 ] && [ \"$(jget status)\" = closed ]" "$R $(cat $J)"
+R=$(A -X POST "$B/accounting/entries" -d "{\"journal_id\":\"$J_OD\",\"entry_date\":\"$(date -u +%F)\",\"lines\":[{\"account_id\":\"$ACC_BANK\",\"debit\":1,\"credit\":0},{\"account_id\":\"$ACC_CAP\",\"debit\":0,\"credit\":1}],\"post\":true}"); check "posting into the closed period → 409" "[ $R = 409 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/accounting/entries" -d "{\"journal_id\":\"$J_OD\",\"entry_date\":\"$(date -u +%F)\",\"lines\":[{\"account_id\":\"$ACC_BANK\",\"debit\":2,\"credit\":0},{\"account_id\":\"$ACC_CAP\",\"debit\":0,\"credit\":2}]}"); E4=$(jget id)
+check "a draft may still be prepared in a closed period (201) but…" "[ $R = 201 ]" "$R"
+R=$(A -X POST "$B/accounting/entries/$E4/post" -d '{}'); check "…posting it via the API → 409" "[ $R = 409 ]" "$R"
+check "…and posting it at the DATABASE is refused by the trigger (owner UPDATE fails)" "! q \"update journal_entries set status='posted', posted_at=now() where id='$E4'\" >/dev/null 2>&1" ""
+A -X POST "$B/accounting/entries/$E4/void" -d '{}' >/dev/null
+R=$(A -X POST "$B/accounting/periods/$PERIOD/close" -d '{}'); check "closing twice → 409" "[ $R = 409 ]" "$R"
+R=$(A -X POST "$B/invoices" -d "{\"client_id\":\"$A_CLIENT\",\"issued_on\":\"$(date -u +%F)\",\"status\":\"sent\",\"lines\":[{\"description\":\"x\",\"quantity\":1,\"unit_price\":100,\"vat_rate\":19}]}"); check "issuing an invoice into a CLOSED period is refused with a clean 409 (bookkeeping cannot record it)" "[ $R = 409 ] && grep -q closed $J" "$R $(cat $J)"
+check "no invoice row leaked from the refused issue (transaction rolled back)" "[ \"$(q "select count(*) from invoices where tenant_id=(select id from tenants where key='mythos') and deleted_at is null")\" = 1 ]" "$(q "select count(*) from invoices where tenant_id=(select id from tenants where key='mythos') and deleted_at is null")"
+q "update fiscal_periods set status='open', closed_at=null, closed_by=null where id='$PERIOD'" >/dev/null   # reopen for the rest (owner action; no API by design)
+echo "-- invoice cancellation reverses the issue entry --"
+R=$(A -X POST "$B/invoices" -d "{\"client_id\":\"$A_CLIENT\",\"issued_on\":\"$(date -u +%F)\",\"status\":\"sent\",\"lines\":[{\"description\":\"Annulable\",\"quantity\":1,\"unit_price\":100,\"vat_rate\":7}]}"); check "invoice issued at creation → sales entry posted (7 % VAT line)" "[ $R = 201 ] && [ -n \"$(jget accounting.entry_no)\" ]" "$R $(cat $J | head -c 300)"; INV2=$(jget id)
+R=$(A -X DELETE "$B/invoices/$INV2"); check "cancel issued invoice → reversal entry created" "[ $R = 200 ] && [ -n \"$(jget accounting.reversal_entry_no)\" ]" "$R $(cat $J)"
+check "issue entry now reversed; reversal posted; VAT report unchanged at 228.000" "[ \"$(q "select status from journal_entries where source_table='invoices' and source_id='$INV2'")\" = reversed ] && [ \"$(q "select status from journal_entries where source_table='invoice_cancel' and source_id='$INV2'")\" = posted ] && R=\$(A \"$B/accounting/vat\") && [ \"\$(jget collected)\" = 228.000 ]" "$(q "select status from journal_entries where source_id='$INV2'" | tr '\n' ' ')"
+echo "-- authorization & isolation --"
+A -X POST "$B/auth/logout" >/dev/null
+login rita@mythos.test "$OTHER_PW"; R=$(A "$B/accounting/trial-balance"); check "read_only can read the trial balance" "[ $R = 200 ]" "$R"
+R=$(A -X POST "$B/accounting/entries" -d "{\"journal_id\":\"$J_OD\",\"entry_date\":\"$(date -u +%F)\",\"lines\":[]}"); check "read_only cannot create entries (403)" "[ $R = 403 ]" "$R"
+R=$(A -X POST "$B/accounting/entries/$E1R/reverse" -d '{}'); check "read_only cannot reverse (403)" "[ $R = 403 ]" "$R"
+A -X POST "$B/auth/logout" >/dev/null
+login bob@acme.test "$OTHER_PW"
+R=$(A "$B/accounting/entries"); check "acme: accounting module not enabled for a tenant created after the migration → 404" "[ $R = 404 ]" "$R"
+q "insert into tenant_modules (tenant_id, module_key, enabled) select id,'accounting',true from tenants where key='acme'" >/dev/null
+R=$(A "$B/accounting/setup"); check "acme, module on: not configured (no chart)" "[ $R = 200 ] && [ \"$(jget configured)\" = False ]" "$(cat $J)"
+R=$(A -X POST "$B/accounting/setup" -d '{}'); check "acme admin runs setup → 16 accounts seeded (accounting.close)" "[ $R = 200 ] && [ \"$(jget seeded_accounts)\" = 16 ]" "$R $(cat $J)"
+R=$(A "$B/accounting/entries/$E1"); check "acme GET mythos entry → 404" "[ $R = 404 ]" "$R"
+R=$(A -X POST "$B/accounting/entries/$E1R/reverse" -d '{}'); check "acme reverse mythos entry → 404" "[ $R = 404 ]" "$R"
+R=$(A "$B/accounting/trial-balance"); check "acme trial balance: all zero (no mythos leakage)" "[ $R = 200 ] && [ \"$(jget totals.debit)\" = 0.000 ]" "$(cat $J | head -c 200)"
+R=$(A "$B/accounting/entries"); check "acme entries: the acme invoice of §5 was issued before setup → no automatic entry (0 rows)" "[ $R = 200 ] && [ \"$(jget total)\" = 0 ]" "$(jget total)"
+A -X POST "$B/auth/logout" >/dev/null
+check "audit rows for journal_entries exist (created/updated)" "[ \"$(q "select count(*) from audit_log where entity_table='journal_entries'")\" -ge 6 ]" "$(q "select count(*) from audit_log where entity_table='journal_entries'")"
+check "no password in the API log (accounting)" "! grep -qF \"$ADMIN_PW\" $WORK/api.log" ""
 
 echo
 echo "erp-core-e2e-drill: $PASS passed, $FAIL failed"

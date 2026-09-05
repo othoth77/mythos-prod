@@ -78,7 +78,7 @@ docker run -d --name "$C" -P \
 # start; a single pg_isready success can land in that window. Require two in a row.
 OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
-for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
 done
@@ -87,6 +87,8 @@ CREATE ROLE erp_app LOGIN PASSWORD '$PW';
 GRANT USAGE ON SCHEMA public TO erp_app;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO erp_app;
 GRANT DELETE ON invoice_lines TO erp_app;
+GRANT SELECT, INSERT, UPDATE ON accounts, journals, fiscal_periods, accounting_counters, journal_entries, journal_lines TO erp_app;
+GRANT DELETE ON journal_lines TO erp_app;   -- draft lines are replaced wholesale; the trigger freezes posted ones
 REVOKE UPDATE, DELETE ON audit_log FROM erp_app;
 GRANT INSERT, SELECT ON audit_log TO erp_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO erp_app;
@@ -131,7 +133,7 @@ check "one user exists" "[ $N_USERS = 1 ]" "$N_USERS"
 check "user has a scrypt hash and no plaintext" "[ $N_HASH = 1 ] && [ $N_PLAIN = 0 ]" "hash=$N_HASH plain=$N_PLAIN"
 check "membership in mythos, active, default" "[ $N_MEMB = 1 ]" "$N_MEMB"
 check "super_admin role scoped to mythos" "[ $N_ROLE = 1 ]" "$N_ROLE"
-check "35 effective permissions in mythos (31 + 4 prospects.*)" "[ $N_PERM = 35 ]" "$N_PERM"
+check "39 effective permissions in mythos (31 + 4 prospects.* + 4 accounting.*)" "[ $N_PERM = 39 ]" "$N_PERM"
 check "audit: user.created + membership.granted + role.assigned, tenant-tagged" "[ $N_AUD = 3 ]" "$(q 'select action from audit_log' | tr '\n' ' ')"
 check "audit detail carries no password" "[ $N_AUDPW = 0 ]" ""
 

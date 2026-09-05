@@ -8,7 +8,7 @@
 import { api, qs, describeError } from '../api.js';
 import { session } from '../session.js';
 import { h, clear, table, pagination, skeletonRows, empty, errorBox, toast, modal, closeModal,
-  confirmDialog, field, input, select, textarea, formValues, fmtDate, fmtNum, statusBadge, shortId } from '../ui.js';
+  confirmDialog, field, input, select, textarea, formValues, fmtDate, fmtNum, statusBadge, badge, shortId } from '../ui.js';
 
 const LABELS = {
   name: 'Nom', full_name: 'Nom complet', email: 'E-mail', phone: 'Téléphone', address: 'Adresse', city: 'Ville',
@@ -23,14 +23,15 @@ const LABELS = {
   iban: 'IBAN', created_at: 'Créé le', updated_at: 'Modifié le', user_id: 'Utilisateur', quote_id: 'Devis',
   sha256: 'SHA-256', storage_key: 'Clé de stockage', uploaded_by: 'Déposé par',
   contact_name: 'Contact', score: 'Score', expected_value: 'Valeur estimée', next_action_on: 'Prochaine action',
-  converted_client_id: 'Client converti', converted_at: 'Converti le'
+  converted_client_id: 'Client converti', converted_at: 'Converti le',
+  code: 'Code', type: 'Type', parent_code: 'Compte parent', system_key: 'Rôle système', is_active: 'Actif'
 };
 export const RESOURCE_TITLES = {
   clients: 'Clients', contacts: 'Contacts', suppliers: 'Fournisseurs', collaborators: 'Collaborateurs',
   projects: 'Projets', appointments: 'Rendez-vous', representations: 'Représentations', contracts: 'Contrats',
   quotes: 'Devis', purchases: 'Achats', expenses: 'Dépenses', documents: 'Documents', inventory_items: 'Articles',
   natures: 'Natures de projet', expense_categories: 'Catégories de dépense', bank_accounts: 'Comptes bancaires',
-  prospects: 'Prospects'
+  prospects: 'Prospects', accounts: 'Plan comptable', journals: 'Journaux'
 };
 const HIDDEN_COLUMNS = ['id', 'deleted_at', 'legacy_id', 'notes', 'updated_at', 'storage_key', 'sha256', 'uploaded_by', 'address', 'postal_code'];
 const DATE_FIELDS = /(_on|_at)$/;
@@ -43,6 +44,7 @@ function render(col, row) {
   const v = row[col];
   if (v === null || v === undefined) return '—';
   if (col === 'status') return statusBadge(v);
+  if (typeof v === 'boolean') return badge(v ? 'oui' : 'non', v ? 'ok' : '');
   if (DATE_FIELDS.test(col)) return fmtDate(v);
   if (NUM_FIELDS.test(col)) return fmtNum(v, /^(capacity|byte_size|score)$/.test(col) ? 0 : 3);
   if (/_id$/.test(col)) return h('span', { class: 'mono', title: v, text: shortId(v) });
@@ -64,6 +66,11 @@ export function resourceView(name, container, opts = {}) {
   let debounce;
   search.addEventListener('input', () => { clearTimeout(debounce); debounce = setTimeout(() => { state.search = search.value; state.offset = 0; load(); }, 250); });
   if (meta.searchable.length) toolbar.appendChild(field('Rechercher (' + meta.searchable.map(label).join(', ') + ')', search));
+  for (const ef of meta.filters.filter((f) => f !== 'status' && meta.enums && meta.enums[f])) {
+    const esel = select([{ value: '', label: 'Tous — ' + label(ef) }].concat(meta.enums[ef].map((s) => ({ value: s, label: s }))), { 'aria-label': label(ef) });
+    esel.addEventListener('change', () => { state.filters[ef] = esel.value; state.offset = 0; load(); });
+    toolbar.appendChild(field(label(ef), esel));
+  }
   if (meta.filters.includes('status') && statuses) {
     const sel = select([{ value: '', label: 'Tous les statuts' }].concat(statuses.map((s) => ({ value: s, label: s }))), { 'aria-label': 'Statut' });
     sel.addEventListener('change', () => { state.filters.status = sel.value; state.offset = 0; load(); });
@@ -127,6 +134,10 @@ export function resourceView(name, container, opts = {}) {
       let ctrl;
       if (f === 'status' && statuses) {
         ctrl = select(statuses.map((s) => ({ value: s, label: s, selected: cur === s })), { name: f });
+      } else if (meta.enums && meta.enums[f]) {
+        ctrl = select([{ value: '', label: '—' }].concat(meta.enums[f].map((s) => ({ value: s, label: s, selected: cur === s }))), { name: f });
+      } else if (f === 'is_active') {
+        ctrl = select([{ value: 'true', label: 'actif', selected: cur !== false }, { value: 'false', label: 'inactif', selected: cur === false }], { name: f });
       } else if (LOOKUPS[f]) {
         const lk = session.meta().resources[LOOKUPS[f]];
         ctrl = select([{ value: '', label: '—' }].concat(lookups[f].map((r) => ({ value: r.id, label: r[lk.label] || shortId(r.id), selected: cur === r.id }))), { name: f });
@@ -148,6 +159,7 @@ export function resourceView(name, container, opts = {}) {
       ev.preventDefault();
       err.hidden = true;
       const values = formValues(form);
+      if ('is_active' in values) values.is_active = values.is_active !== 'false';
       for (const f of meta.required) if (!values[f]) { err.textContent = label(f) + ' est obligatoire.'; err.hidden = false; return; }
       submit.disabled = true;
       try {
