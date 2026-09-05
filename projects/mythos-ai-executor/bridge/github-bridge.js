@@ -140,6 +140,18 @@ function config() {
     // over (fenced) even if its pid still exists — a hung tick must not stall
     // the channel forever, and the fenced-out worker can no longer commit.
     lockStaleMs: parseInt(process.env.MYTHOS_BRIDGE_LOCK_STALE_MS || String(15 * 60 * 1000), 10),
+    // Upper bound on NEW claims per tick (gh-issue-114 finding 2). Unset / 0 =
+    // unbounded, which is the historical behaviour; `tick(executor, { claimLimit })`
+    // overrides it for a single call. A deferred task stays PENDING and is
+    // claimed by a later tick — nothing is dropped, only paced.
+    claimLimit: parseInt(process.env.MYTHOS_BRIDGE_CLAIM_LIMIT || '0', 10) || null,
+    // Delivery-staleness escalation (gh-issue-114 finding 4): a terminal report
+    // whose task-branch commits are still not on origin this long after
+    // completed_at is escalated ONCE — action `delivery_stale`, durable log
+    // line, `delivery.stale_noted_at` on the report. The follow-up keeps
+    // re-measuring afterwards and still records `delivery_confirmed` when
+    // the relay catches up.
+    deliveryStaleMs: parseInt(process.env.MYTHOS_BRIDGE_DELIVERY_STALE_MS || String(30 * 60 * 1000), 10),
     // Claim lease grace beyond the executor timeout (informational on the
     // task file: a lease past expiry is reported, never silently re-claimed).
     leaseGraceMs: parseInt(process.env.MYTHOS_BRIDGE_LEASE_GRACE_MS || String(30 * 60 * 1000), 10),
@@ -1437,8 +1449,10 @@ function tick(executor, opts) {
           if (deferReason !== 'sync') log('claim_deferred', { task_id: t.task_id, reason: deferReason, detail: gate.reason, runtime_head: runtime.head });
           return;
         }
-        if (opts.claimLimit !== undefined && actions.filter(function (a) { return a.action === 'claim'; }).length >= opts.claimLimit) {
-          actions.push({ action: 'defer', task_id: t.task_id, reason: 'claim limit' });
+        var claimLimit = opts.claimLimit !== undefined ? opts.claimLimit : cfg.claimLimit;
+        if (claimLimit !== null && claimLimit !== undefined && actions.filter(function (a) { return a.action === 'claim'; }).length >= claimLimit) {
+          actions.push({ action: 'defer', task_id: t.task_id, reason: 'claim limit', limit: claimLimit });
+          log('claim_deferred', { task_id: t.task_id, reason: 'claim_limit', limit: claimLimit });
           return;
         }
         var unmet = (t.depends_on || []).filter(function (d) { return !tasksById[d] || tasksById[d].status !== 'COMPLETED'; });
@@ -1500,7 +1514,22 @@ function tick(executor, opts) {
               rep.delivery.commits_on_origin = true;
               rep.delivery.confirmed_on_origin_at = nowIso();
               writeReport(cfg, rep).forEach(function (f) { changed.push(f); });
-              actions.push({ action: 'delivery_confirmed', task_id: t.task_id, commits: fresh.length });
+              actions.push({ action: 'delivery_confirmed', task_id: t.task_id, commits: fresh.length, after_stale: !!rep.delivery.stale_noted_at });
+            } else if (!rep.delivery.stale_noted_at) {
+              // Escalation, once: the relay has had longer than deliveryStaleMs
+              // since the report and the commits are still local. Measured
+              // (commits re-listed), recorded on the report, logged durably.
+              var doneAt = Date.parse(rep.completed_at || '');
+              var waited = isFinite(doneAt) ? Date.now() - doneAt : null;
+              if (waited !== null && waited > cfg.deliveryStaleMs) {
+                var pending = fresh.filter(function (c) { return !c.on_origin; }).map(function (c) { return c.sha; });
+                rep.delivery.stale_noted_at = nowIso();
+                rep.delivery.stale_after_ms = waited;
+                rep.delivery.pending_commits = pending;
+                writeReport(cfg, rep).forEach(function (f) { changed.push(f); });
+                actions.push({ action: 'delivery_stale', task_id: t.task_id, branch: rep.delivery.branch, waited_ms: waited, pending_commits: pending.length });
+                log('delivery_stale', { task_id: t.task_id, branch: rep.delivery.branch, waited_ms: waited, threshold_ms: cfg.deliveryStaleMs, pending_commits: pending });
+              }
             }
           }
         }

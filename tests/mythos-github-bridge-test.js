@@ -542,6 +542,68 @@ runExecutorTicks(2).then(function () {
   ok(cli.status === 0 && /ACTION_PROFILE_MISMATCH/.test(cli.stdout) && /report_generated/.test(cli.stdout), 'trail: the CLI prints it');
   var cliRt = cp.spawnSync(process.execPath, [path.join(EXEC, 'bin', 'mythos-github-bridge'), 'runtime'], { env: process.env, encoding: 'utf8' });
   ok(cliRt.status === 0 && /"module"/.test(cliRt.stdout) && /"verified"/.test(cliRt.stdout), 'runtime: the CLI prints the identity');
+}).then(function () {
+  // Y — gh-issue-114 finding 2: MYTHOS_BRIDGE_CLAIM_LIMIT bounds NEW claims per
+  // tick; a deferred task is simply claimed by a later tick.
+  plannerWrite('gh-lim-0001.json', mkTask('gh-lim-0001'));
+  plannerWrite('gh-lim-0002.json', mkTask('gh-lim-0002'));
+  process.env.MYTHOS_BRIDGE_CLAIM_LIMIT = '1';
+  ok(bridge.config().claimLimit === 1, 'Y: MYTHOS_BRIDGE_CLAIM_LIMIT is read into the configuration');
+  var rY = bridge.tick(executor);
+  var cY = actionsOf(rY, 'claim').filter(function (a) { return /^gh-lim-/.test(a.task_id); });
+  var dY = actionsOf(rY, 'defer').filter(function (a) { return /^gh-lim-/.test(a.task_id); });
+  ok(cY.length === 1 && dY.length === 1 && dY[0].reason === 'claim limit' && dY[0].limit === 1, 'Y: one claim, the other deferred with reason "claim limit"');
+  ok(taskOnDisk(dY[0].task_id).status === 'PENDING' && executorTasksFor(dY[0].task_id).length === 0, 'Y: the deferred task stays PENDING with no executor task');
+  ok(/"bridge":"claim_deferred"/.test(fs.readFileSync(path.join(process.env.MYTHOS_BRIDGE_HOME, 'events.log'), 'utf8').split('\n').filter(function (l) { return /claim_limit/.test(l); }).join('\n')), 'Y: the deferral is in the durable bridge log with reason claim_limit');
+  delete process.env.MYTHOS_BRIDGE_CLAIM_LIMIT;
+  ok(bridge.config().claimLimit === null, 'Y: unset = unbounded (historical behaviour)');
+  var rY2 = bridge.tick(executor);
+  ok(actionsOf(rY2, 'claim').some(function (a) { return a.task_id === dY[0].task_id; }), 'Y: the next unbounded tick claims the deferred task');
+  ok(executorTasksFor('gh-lim-0001').length === 1 && executorTasksFor('gh-lim-0002').length === 1, 'Y: exactly one executor task each, no duplicate');
+
+  // Z — gh-issue-114 finding 4: delivery-staleness escalation. An implement
+  // task whose commit the relay has NOT delivered is escalated once as
+  // delivery_stale after MYTHOS_BRIDGE_DELIVERY_STALE_MS, and still confirmed
+  // when the relay catches up.
+  plannerWrite('gh-stl-0001.json', mkTask('gh-stl-0001', { requested_action: 'implement', objective: 'Add a second smoke file and commit it on the task branch.' }));
+  var rZ0 = bridge.tick(executor);
+  ok(actionsOf(rZ0, 'claim').some(function (a) { return a.task_id === 'gh-stl-0001'; }), 'Z: implement task claimed');
+  var wtZ = path.join(FIX, 'wt', 'gh-stl-0001');
+  fs.writeFileSync(path.join(wtZ, 'SMOKE2.md'), 'smoke 2\n');
+  git(wtZ, ['add', 'SMOKE2.md']);
+  git(wtZ, ['commit', '-q', '-m', 'smoke: add SMOKE2.md']);
+  var stlCommit = git(wtZ, ['rev-parse', 'HEAD']);
+  // The relay delivers the control branch only — the task branch stays local.
+  git(REPO, ['push', '-q', 'origin', 'refs/heads/mythos/control:refs/heads/mythos/control']);
+  process.env.MYTHOS_MOCK_SCRIPT = JSON.stringify([{ kind: 'success', summary: 'stale run' }]);
+  // The daemon path (executor.tick) is proven in section 3; here the fixture
+  // queue also holds the deliberately aged gh-inv-0006, so run this task directly.
+  return executor.runTask(executorTasksFor('gh-stl-0001')[0]).then(function () {
+    ok(state.readStatus(executorTasksFor('gh-stl-0001')[0]).status === 'COMPLETED', 'Z: the executor completed the implement task');
+    var rZ1 = bridge.tick(executor);
+    ok(actionsOf(rZ1, 'finish').some(function (a) { return a.task_id === 'gh-stl-0001'; }), 'Z: the bridge finished it');
+    var repZ = reportOnDisk('gh-stl-0001');
+    ok(repZ && repZ.status === 'COMPLETED' && repZ.delivery.commits_on_origin === false && repZ.commits[0].sha === stlCommit && repZ.commits[0].on_origin === false, 'Z: report says commits_on_origin=false (relay has not delivered)');
+    var rZ2 = bridge.tick(executor);
+    ok(actionsOf(rZ2, 'delivery_stale').length === 0 && actionsOf(rZ2, 'delivery_confirmed').length === 0, 'Z: within the threshold (30 min default) nothing is escalated');
+    process.env.MYTHOS_BRIDGE_DELIVERY_STALE_MS = '0';
+    ok(bridge.config().deliveryStaleMs === 0, 'Z: MYTHOS_BRIDGE_DELIVERY_STALE_MS is read into the configuration');
+    var rZ3 = bridge.tick(executor);
+    var sZ = actionsOf(rZ3, 'delivery_stale');
+    ok(sZ.length === 1 && sZ[0].task_id === 'gh-stl-0001' && sZ[0].branch === 'mythos/gh/gh-stl-0001' && sZ[0].pending_commits === 1 && sZ[0].waited_ms >= 0, 'Z: past the threshold the task is escalated as delivery_stale (measured, one pending commit)');
+    var repZ2 = reportOnDisk('gh-stl-0001');
+    ok(repZ2.delivery.stale_noted_at && repZ2.delivery.pending_commits.length === 1 && repZ2.delivery.pending_commits[0] === stlCommit && repZ2.delivery.commits_on_origin === false, 'Z: the escalation is durable on the report (stale_noted_at + pending_commits)');
+    ok(/"bridge":"delivery_stale"/.test(fs.readFileSync(path.join(process.env.MYTHOS_BRIDGE_HOME, 'events.log'), 'utf8')), 'Z: delivery_stale is in the durable bridge log');
+    var rZ4 = bridge.tick(executor);
+    ok(actionsOf(rZ4, 'delivery_stale').length === 0 && reportOnDisk('gh-stl-0001').delivery.stale_noted_at === repZ2.delivery.stale_noted_at, 'Z: escalated exactly once');
+    relay(); // the relay finally delivers the task branch
+    var rZ5 = bridge.tick(executor);
+    var okZ = actionsOf(rZ5, 'delivery_confirmed').filter(function (a) { return a.task_id === 'gh-stl-0001'; });
+    ok(okZ.length === 1 && okZ[0].after_stale === true, 'Z: delivery is still confirmed after an escalation (after_stale=true)');
+    var repZ3 = reportOnDisk('gh-stl-0001');
+    ok(repZ3.delivery.commits_on_origin === true && repZ3.delivery.confirmed_on_origin_at && repZ3.delivery.stale_noted_at && repZ3.commits[0].on_origin === true, 'Z: report now says commits_on_origin=true and keeps the escalation history');
+    delete process.env.MYTHOS_BRIDGE_DELIVERY_STALE_MS;
+  });
 }).catch(function (e) {
   ok(false, 'unexpected error: ' + (e && e.stack || e));
 }).then(function () {

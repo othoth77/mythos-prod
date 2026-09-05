@@ -34,8 +34,8 @@ function lines(s) { return String(s).trim().split('\n').filter(Boolean).map(func
 var dagFiles = fs.readdirSync(DAGS).filter(function (f) { return /\.ya?ml$/.test(f); }).sort();
 var dagText = {}; dagFiles.forEach(function (f) { dagText[f] = fs.readFileSync(path.join(DAGS, f), 'utf8'); });
 
-t('exactly the four maintenance DAGs exist', function () {
-  assert.deepStrictEqual(dagFiles, ['drift-check.yaml', 'executor-restart.yaml', 'git-sync-main.yaml', 'worktree-gc.yaml']);
+t('exactly the five maintenance DAGs exist', function () {
+  assert.deepStrictEqual(dagFiles, ['drift-check.yaml', 'executor-restart.yaml', 'git-sync-main.yaml', 'status-center-review.yaml', 'worktree-gc.yaml']);
 });
 t('every DAG: chain type, single-run queue, timeout, resource-guard FIRST step, snake_case keys', function () {
   dagFiles.forEach(function (f) {
@@ -100,6 +100,18 @@ t('worktree-gc: bounded (max 5, min age 24 h, mythos/gh/ namespace), apply only 
   assert.ok(/--max 5 --min-age-hours 24 --namespace mythos\/gh\//.test(s));
   assert.ok(/\$\( \[ -f "\$MARKER" \] && echo --apply \)/.test(s));
   assert.ok(/worktrees\.enabled/.test(s));
+});
+t('status-center-review is read-only, daily, and calls only the check tool with a served URL', function () {
+  var s = dagText['status-center-review.yaml'].replace(/^\s*#.*$/mg, '');
+  assert.ok(/^schedule: "17 5 \* \* \*"$/m.test(s), 'daily schedule');
+  assert.ok(/mythos-status-center-check" "\$REPO" --served "\$SERVED"/.test(s), 'second step is the check tool');
+  assert.ok(!/--apply|deploy-status-center|review\.js|persist|rsync|systemctl|merge/.test(s), 'never persists, publishes or mutates');
+  var f = path.join(BIN, 'mythos-status-center-check');
+  var code = fs.readFileSync(f, 'utf8').replace(/^\s*#.*$/mg, '');
+  assert.ok(/--dry-run --json/.test(code), 'the tool runs the review engine in dry-run only');
+  assert.ok(!/--force|reset --hard|git clean|\bstash\b|rm -rf|branch -D|\bdocker\b|systemctl|rsync/.test(code), 'the tool never mutates');
+  assert.ok(!/^\s*(sudo\s+)?(bash\s+)?(scripts\/)?deploy-status-center\.sh/m.test(code) && !/^\s*sudo\b/m.test(code), 'the tool never invokes the publish script or sudo (it only names them in its hint)');
+  assert.ok((fs.statSync(f).mode & 0o111) !== 0, 'executable');
 });
 t('drift-check is read-only (no tool flag that mutates)', function () {
   var s = dagText['drift-check.yaml'];

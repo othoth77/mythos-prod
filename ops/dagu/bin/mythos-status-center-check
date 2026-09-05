@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# =====================================================
+# MYTHOS — Status Center review discovery check (read-only)
+# ops/dagu/bin/mythos-status-center-check
+#
+# The [REVIEW NOW] engine only ever ran by hand, so new repositories and
+# projects/* directories went unnoticed and the published site drifted from
+# the repository review (observed: REVIEW-2026-08-26-005 served for ten days
+# while REVIEW-2026-09-03-001 sat in main). This tool is the scheduled eye
+# (ops/dagu/maintenance/status-center-review.yaml): one dry-run review
+# (`review.js --dry-run --json`, writes nothing) plus one comparison of the
+# served health body against the repository's health.json.
+#
+# It never persists a review and never publishes: classification of a new
+# discovery is a curation act (registry edit → review → PR), publication is
+# `scripts/deploy-status-center.sh` (root). It only makes the need visible.
+#
+# usage: mythos-status-center-check <repo> [--served <url|file>] [--quiet]
+#   --served   health.json to compare with (default: MYTHOS_STATUS_CENTER_HEALTH_URL
+#              or https://status.mythosprod.xyz/health.json); a local path is
+#              accepted (tests)
+# output: one JSON line {state, repo_review, served_review, served_matches_repo,
+#         new_repo_discoveries, new_project_discoveries, changes, checked_at}
+# exit: 0 CURRENT · 3 ATTENTION (new discoveries and/or served ≠ repo review)
+#       2 measurement failed · 64 usage
+# =====================================================
+set -u
+REPO=""; SERVED=${MYTHOS_STATUS_CENTER_HEALTH_URL:-https://status.mythosprod.xyz/health.json}
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --served) SERVED=$2; shift ;;
+    -*) echo "usage: mythos-status-center-check <repo> [--served <url|file>]" >&2; exit 64 ;;
+    *) REPO=$1 ;;
+  esac; shift
+done
+[ -n "$REPO" ] || { echo "usage: mythos-status-center-check <repo> [--served <url|file>]" >&2; exit 64; }
+[ -f "$REPO/projects/status-center/bin/review.js" ] || { echo '{"state":"MEASUREMENT_FAILED","reason":"review.js not found under repo"}'; exit 2; }
+export GIT_TERMINAL_PROMPT=0 GIT_OPTIONAL_LOCKS=0
+REVIEW=$(cd "$REPO" && node projects/status-center/bin/review.js --dry-run --json 2>/dev/null) || { echo '{"state":"MEASUREMENT_FAILED","reason":"dry-run review failed (fail-closed engine)"}'; exit 2; }
+REPO_HEALTH="$REPO/sites/status.mythosprod.xyz/health.json"
+[ -f "$REPO_HEALTH" ] || { echo '{"state":"MEASUREMENT_FAILED","reason":"repository health.json missing"}'; exit 2; }
+if [ -f "$SERVED" ]; then SERVED_BODY=$(cat "$SERVED")
+else SERVED_BODY=$(curl -sf -m 15 "$SERVED" 2>/dev/null) || SERVED_BODY=""; fi
+REVIEW="$REVIEW" REPO_HEALTH="$REPO_HEALTH" SERVED_BODY="$SERVED_BODY" python3 - <<'PY'
+import json, os, sys, datetime
+try:
+    r = json.loads(os.environ["REVIEW"])
+    repo_review = json.load(open(os.environ["REPO_HEALTH"])).get("review_id")
+except Exception as e:
+    print(json.dumps({"state": "MEASUREMENT_FAILED", "reason": "cannot parse review output or repository health.json"})); sys.exit(2)
+served = None
+try:
+    body = os.environ.get("SERVED_BODY") or ""
+    served = json.loads(body).get("review_id") if body else None
+except Exception:
+    served = None
+if not served:
+    print(json.dumps({"state": "MEASUREMENT_FAILED", "reason": "served health.json unreachable or unparseable", "repo_review": repo_review})); sys.exit(2)
+repos = r.get("new_repo_discoveries") or []
+projects = r.get("new_project_discoveries") or []
+match = (served == repo_review)
+state = "CURRENT" if (match and not repos and not projects) else "ATTENTION"
+out = {
+    "state": state,
+    "checked_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "repo_review": repo_review,
+    "served_review": served,
+    "served_matches_repo": match,
+    "would_be_review": r.get("review_id"),
+    "origin_main": r.get("origin_main"),
+    "new_repo_discoveries": repos,
+    "new_project_discoveries": projects,
+    "changes": r.get("changes"),
+    "next": None if state == "CURRENT" else (
+        ("classify " + ", ".join(repos + projects) + " in projects/status-center/data/registry.json, then run review.js (PR)" if (repos or projects) else "")
+        + ("; " if (repos or projects) and not match else "")
+        + ("publish: sudo bash scripts/deploy-status-center.sh (root, from the clean main checkout)" if not match else "")),
+}
+print(json.dumps(out))
+sys.exit(0 if state == "CURRENT" else 3)
+PY

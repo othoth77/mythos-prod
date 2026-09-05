@@ -7,11 +7,13 @@ Dagu assessment and PoC: `docs/MYTHOS_DAGU_HOST_OPERATIONS.md` (`ops/dagu-poc/`)
 ops/dagu/
   bin/mythos-git-sync          ff-only sync of a checkout to origin/<branch>   (dry-run unless --apply)
   bin/mythos-drift-check       SOURCE / CODE / EXECUTOR identity report       (read-only)
+  bin/mythos-status-center-check  dry-run Status Center review + served-vs-repo review (read-only)
   bin/mythos-worktree-gc       remove merged, clean, unused task worktrees     (dry-run unless --apply)
   bin/mythos-restart-approval  request / grant / verify / revoke the ONE approval a restart needs
   maintenance/git-sync-main.yaml     every 5 min   guard → sync (marker-gated apply) → drift report
   maintenance/drift-check.yaml       every 15 min  guard → drift
   maintenance/worktree-gc.yaml       every 6 h     guard → gc (marker-gated apply)
+  maintenance/status-center-review.yaml  daily 05:17  guard → Status Center review discovery (read-only; exit 3 = attention)
   maintenance/executor-restart.yaml  NO schedule   guard → no RUNNING task → drift gate → APPROVAL GATE → approval-verify → restart → verify
 ```
 

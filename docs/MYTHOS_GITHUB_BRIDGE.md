@@ -359,6 +359,18 @@ Not done in this stage: the provider itself is **not deployed** and the one real
 (no provider on the host, no Docker access for `deploy`, swap fully consumed). Both are the first steps of the
 separate deployment task.
 
+## 12g. gh-issue-114 follow-ups — claim pacing and delivery-staleness escalation (2026-09-05)
+
+The 2026-09-03 architecture review (#114) left four P1 findings. Two were already absorbed by #118-r2
+(additive jitter in `lib/quota.js`; lock-age takeover after `MYTHOS_BRIDGE_LOCK_STALE_MS`). The remaining two land here:
+
+| Finding | Behaviour |
+|---|---|
+| Claim pacing | `MYTHOS_BRIDGE_CLAIM_LIMIT=N` bounds NEW claims per tick (`tick(executor, { claimLimit })` overrides per call; unset/0 = unbounded, the historical default). A task past the bound is `defer` with reason `claim limit`, stays PENDING, is logged durably as `claim_deferred` (`reason: claim_limit`) and is claimed by a later tick — paced, never dropped. |
+| Delivery-staleness escalation | The delivery follow-up re-measures `commits_on_origin` every tick. When a terminal report is older than `MYTHOS_BRIDGE_DELIVERY_STALE_MS` (30 min default) and its task-branch commits are still not on origin, the bridge escalates **once**: action `delivery_stale`, durable log line `delivery_stale` (branch, waited_ms, threshold, pending shas), and `delivery.stale_noted_at` / `stale_after_ms` / `pending_commits` on the report (markdown twin regenerated). It keeps measuring; when the relay catches up the usual `delivery_confirmed` still fires, now with `after_stale: true`. The relay itself is unchanged (`mythos-git-push.timer`, root, fast-forward only). |
+
+Tests: `tests/mythos-github-bridge-test.js` sections Y and Z (169/0).
+
 ## 13. Honest limits
 
 - Latency: claim within ~1 min, visible on GitHub after the next relay tick (≤5 min); report likewise.

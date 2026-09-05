@@ -1,0 +1,26 @@
+# MYTHOS maintenance DAG — Status Center review discovery (read-only)
+# ops/dagu/maintenance/status-center-review.yaml
+# gh-issue-140 item 6/7: the review engine had no schedule, so new
+# repositories / projects/* directories and a stale published site were only
+# noticed by hand. This DAG runs the read-only check once a day: a dry-run
+# review (nothing persisted) plus served-vs-repository review comparison.
+# A failed run (exit 3) is the signal: classify the discovery in the registry
+# and run review.js through a PR, and/or publish with
+# scripts/deploy-status-center.sh (root). Nothing here writes to the
+# repository or to the site.
+description: "Daily read-only Status Center review: new repository/project discoveries and served-vs-repository review drift"
+schedule: "17 5 * * *"
+type: chain
+queue: mythos-maintenance
+max_active_runs: 1
+timeout_sec: 300
+params:
+  - MYTHOS_ROOT: /home/deploy/projects/mythos-prod
+  - REPO: /home/deploy/projects/mythos-prod
+  - TOOLS: /home/deploy/projects/mythos-prod/ops/dagu/bin
+  - SERVED: https://status.mythosprod.xyz/health.json
+steps:
+  - name: resource-guard
+    run: node "$MYTHOS_ROOT/projects/mythos-ai-executor/bin/mythos-resource-guard" status | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["level"]); sys.exit(0 if d.get("admit") else 3)'
+  - name: review-discovery
+    run: '"$TOOLS/mythos-status-center-check" "$REPO" --served "$SERVED"'
