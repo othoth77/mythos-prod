@@ -61,3 +61,11 @@ Receiver on loopback only, token compared in constant time, per-instance validat
 ## 6. Deployment
 
 `mythos-wp.service` (deploy user manager, 127.0.0.1:8170, nginx `wp.mythosprod.xyz`) executes from a checkout of `main`. Migrations are applied by the owner/operator with the production environment: `bin/mythos-wp migrate up`. Rollback: `migrate down <version>` (data in the dropped tables is lost — only acceptable while they are empty or after a backup).
+
+## 7. Communication Receiver (COMMS-2)
+
+Route `POST /hooks/evolution` on the panel's loopback server (`reference/comms/receiver.js`), mounted before any session logic and absent (404) unless `MYTHOS_WP_RECEIVER_ENABLED=1`. Pipeline: body limit (`MYTHOS_WP_RECEIVER_MAX_BODY`, default 512 KiB, 413 + connection close) → JSON → token from the 0600 file `MYTHOS_WP_WEBHOOK_TOKEN_FILE` (header `x-mythos-webhook-token` or `?token=`, constant-time compare, min 16 chars) → provider normalisation (`reference/comms/providers/evolution.js`: refuses own / group / status / self-chat / unresolved-LID by name, strips `apikey`, `token`, `mediaKey`, `fileEncSha256`, `url`, `directPath`, thumbnails and base64 from `raw`) → inbox lookup in `wp_inboxes` (unknown → 202 rejected + dead-letter) → `connection.update` sets `wp_inboxes.status` → messages: `inbound_enabled=false` ⇒ **dry-run** (ledgered, nothing persisted); `true` ⇒ `reference/comms/core.js` `ingest()` in one transaction: contact upsert, live conversation (or open one), message `ON CONFLICT DO NOTHING` (replay ⇒ duplicate, counters untouched), attachment metadata, unread + timestamps, `message_in` event.
+
+Ledger `wp_inbound_events` (migration 0002): one row per delivery with status `persisted | duplicate | dry_run | ignored | rejected | failed`; the redacted payload is kept only for `rejected`/`failed` rows (dead-letter, replayable in COMMS-17). Logs carry reasons, instance, message ids and counts — never token, apikey, media keys or message text (test-enforced).
+
+Provider contract seed: `parseInbound(body) → { ok, kind: message|connection, event }`, `redactDeep`, `payloadHash`. The `#173` engine keeps its own parser for decisions; the two never share a message path.

@@ -34,6 +34,7 @@ var url = require('url');
 var db = require('./db');
 var auth = require('./auth');
 var api = require('./api');
+var receiver = require('./comms/receiver');
 var redact = require('../../mythos-orchestrator/lib/redact');
 
 var ROOT = path.resolve(__dirname, '..', '..', '..');
@@ -136,6 +137,9 @@ function handle(req, res) {
 
   // Public liveness for nginx / monitors: says "up", nothing else.
   if (pathname === '/healthz' && (method === 'GET' || method === 'HEAD')) return sendJSON(res, 200, { ok: true });
+
+  // Provider webhooks (Communication Receiver): token-authenticated, no session, loopback by deployment.
+  if (pathname.indexOf('/hooks/') === 0) return receiver.handle(req, res, { pool: db.wp(), log: log, requestId: requestId });
 
   // Static
   var st = STATIC[pathname];
