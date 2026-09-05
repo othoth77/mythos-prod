@@ -11,6 +11,14 @@
  *
  * It also refuses to create a second super_admin. After the first, accounts are
  * created through the authenticated API under users.manage, where it is audited.
+ *
+ * Tenant association (Phase 4 fix, 2026-09-05): roles are tenant-scoped
+ * (user_roles.tenant_id NOT NULL) and permissions only resolve through an
+ * active tenant_memberships row (user_effective_permissions). The original
+ * version inserted a tenant-less role, which the schema refuses, and created no
+ * membership, so the account could never have logged into a tenant. The
+ * bootstrap now asks for the tenant key (default: mythos), requires that tenant
+ * to exist and be active, and writes membership + role + audit in one transaction.
  */
 
 var readline = require('readline');
@@ -28,11 +36,14 @@ function ask(question) {
    appears on screen, in scrollback, or in a screen recording. */
 function askSecret(question) {
   return new Promise(function (resolve, reject) {
-    process.stdout.write(question);
     var stdin = process.stdin;
     var chars = [];
     var wasRaw = stdin.isRaw;
+    // Raw mode BEFORE the prompt is printed: the terminal must already be
+    // non-echoing when the first keystroke can possibly arrive, otherwise a
+    // fast typist (or a paste) lands in cooked mode and is echoed.
     try { stdin.setRawMode(true); } catch (e) { return reject(new Error('cannot disable echo on this terminal')); }
+    process.stdout.write(question);
     stdin.resume();
     stdin.setEncoding('utf8');
     function done(value) {
@@ -87,6 +98,12 @@ async function main() {
       refuse('a super_admin already exists. Create further accounts through the authenticated API, where it is audited.');
     }
 
+    var tenantKey = (await ask('Tenant key [mythos]: ')).trim().toLowerCase() || 'mythos';
+    var tenantRow = await client.query(
+      "SELECT id FROM tenants WHERE key = $1 AND status = 'active' AND deleted_at IS NULL", [tenantKey]);
+    if (!tenantRow.rows.length) refuse('tenant "' + tenantKey + '" does not exist or is not active. Create it first.');
+    var tenantId = tenantRow.rows[0].id;
+
     var email = (await ask('Super admin email: ')).trim().toLowerCase();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) refuse('that is not a valid email address.');
 
@@ -111,18 +128,30 @@ async function main() {
     var userId = inserted.rows[0].id;
 
     await client.query(
-      "INSERT INTO user_roles (user_id, role_id) SELECT $1, id FROM roles WHERE key = 'super_admin'",
-      [userId]);
+      'INSERT INTO tenant_memberships (user_id, tenant_id, status, is_default) VALUES ($1,$2,\'active\',true)',
+      [userId, tenantId]);
 
-    await client.query(
-      'INSERT INTO audit_log (actor_id, actor_label, action, entity_table, entity_id, outcome, detail)' +
-      " VALUES ($1,$2,'user.created','users',$1,'ok',$3::jsonb)",
-      [userId, email, JSON.stringify({ bootstrap: true, role: 'super_admin' })]);
+    var role = await client.query(
+      "INSERT INTO user_roles (user_id, tenant_id, role_id) SELECT $1, $2, id FROM roles WHERE key = 'super_admin'" +
+      ' RETURNING role_id', [userId, tenantId]);
+    if (!role.rows.length) throw new Error('role super_admin is missing from the roles table');
+
+    // Three facts, three audit rows, all in the bootstrap transaction and all
+    // carrying the tenant so audit.read inside that tenant shows them.
+    var auditSql =
+      'INSERT INTO audit_log (actor_id, actor_label, action, entity_table, entity_id, outcome, detail, tenant_id)' +
+      " VALUES ($1,$2,$3,$4,$5,'ok',$6::jsonb,$7)";
+    await client.query(auditSql, [userId, email, 'user.created', 'users', userId,
+      JSON.stringify({ bootstrap: true, role: 'super_admin', tenant: tenantKey }), tenantId]);
+    await client.query(auditSql, [userId, email, 'membership.granted', 'tenant_memberships', userId,
+      JSON.stringify({ bootstrap: true, tenant: tenantKey, is_default: true }), tenantId]);
+    await client.query(auditSql, [userId, email, 'role.assigned', 'user_roles', userId,
+      JSON.stringify({ bootstrap: true, role: 'super_admin', tenant: tenantKey }), tenantId]);
 
     await client.query('COMMIT');
 
     console.log('');
-    console.log('Created super_admin ' + email + ' (' + userId + ').');
+    console.log('Created super_admin ' + email + ' (' + userId + ') in tenant ' + tenantKey + ' (' + tenantId + ').');
     console.log('The password was not stored, logged, echoed, or placed in the audit detail.');
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (e) { /* nothing to roll back */ }

@@ -211,9 +211,10 @@ function createServer(deps) {
         ctx.userAgent = request.userAgent;
         var out = found.route.handler(ctx, client);
         return Promise.resolve(out).then(function (r) {
-          // Routes that audit internally say so, rather than the pipeline
-          // guessing from an absent descriptor.
-          if (r && r.skipAudit && !r.audit) r.audit = { action: 'logout', entity_table: 'sessions', outcome: 'ok', detail: {} };
+          // Routes that audit internally say so with skipAudit: true, which
+          // lib/pipeline.js honours. (This used to substitute a fake 'logout'
+          // descriptor here, writing a spurious logout audit row on every
+          // login and tenant switch.)
           return r;
         });
       }, found.route.validate);

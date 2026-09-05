@@ -159,6 +159,12 @@ function handle(deps, req, handler, validate) {
               // there is nothing to audit. The requirement below applies to
               // SUCCESSFUL state changes, which is where the rule has force.
               if (result && result.status >= 400) return result;
+              // A handler that audited inside its own transaction (login,
+              // logout, tenant switch) declares so explicitly. Before this
+              // check existed, server.js papered over the rule with a fake
+              // 'logout' descriptor, which wrote a spurious logout row on
+              // every successful login and tenant switch (found 2026-09-05).
+              if (result && result.skipAudit === true) return result;
               var a = result && result.audit;
               if (a) {
                 return audit.write(client, {
@@ -197,6 +203,7 @@ function runPlatform(deps, ctx, handler, validate) {
     if (!UNSAFE[ctx.method]) return Promise.resolve(handler(ctx, client));
     return Promise.resolve(handler(ctx, client)).then(function (result) {
       if (result && result.status >= 400) return result;
+      if (result && result.skipAudit === true) return result;   // audited internally
       var a = result && result.audit;
       if (a) {
         return audit.write(client, {
