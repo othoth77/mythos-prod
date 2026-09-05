@@ -98,3 +98,17 @@ The panel has no switch by design. Owner steps (comms README §Turning a reply o
 customer Evolution instance, 0600 token files, `state_dir`, webhook to the loopback
 receiver started with `--integration projects/mythos-wp/reference/comms/integration.js`,
 dry-run first, then `mode: live` + `business.auto_reply: true` per project.
+
+## Migrations (Communication Core, since MYTHOS-COMMS-1)
+
+`database/schema.sql` is the base; everything after it is an additive migration in
+`database/migrations/<version>.up.sql` + `.down.sql`, applied by `reference/migrate.js`:
+
+```bash
+node projects/mythos-wp/bin/mythos-wp migrate status          # applied / pending
+node projects/mythos-wp/bin/mythos-wp migrate up               # apply pending, one transaction each
+node projects/mythos-wp/bin/mythos-wp migrate down 0001_comms_core   # roll back ONE version
+node tests/mythos-wp-comms-schema-test.js                      # apply → fixtures → rollback → re-apply on mythos_wp_test
+```
+
+Data model and retention rules: `docs/MYTHOS_COMMUNICATION_OS_ARCHITECTURE.md`.
