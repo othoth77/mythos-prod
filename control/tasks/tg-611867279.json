@@ -12,7 +12,7 @@
   "action_raw": "investigate",
   "action_source": "default",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-05T03:19:08.899Z",
   "created_by": "telegram:5005015506",
   "notes": "Source: Telegram private message (update_id 611867279, chat_id 5005015506, message_id 196, user_id 5005015506, sent 2026-09-05T02:55:25.000Z).\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted because the message did not state one (write `Action: investigate|review` on its own line) → execution profile repo-read",
@@ -104,8 +104,8 @@
     "claimed_at": "2026-09-05T03:19:13.149Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "5170431b3dfbb15444f8b44331f3cf03f1c1f619042c8cb6956e563d5764a8ba",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-05T03:20:21.588Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-05T03:21:41.712Z",
     "snapshot_sha256": "5665cc058a7f3e9833eeb166a3e541d363b97c165f3249a75042af6aa8ff899c",
     "fence": 5778,
     "lease": {
@@ -134,7 +134,8 @@
     },
     "model": "claude-haiku-4-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "4b6104b3-0c24-413f-831e-5ed9aca0052f"
+    "claude_session_id": "4b6104b3-0c24-413f-831e-5ed9aca0052f",
+    "report_file": "control/reports/tg-611867279.json"
   },
   "history": [
     {
@@ -150,6 +151,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-05T03:21:41.074Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-05T03:21:41.711Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 0 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
