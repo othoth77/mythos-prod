@@ -1,0 +1,16 @@
+{
+  "name": "@mythos/mythos-wp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MYTHOS WP — MYTHOS Web Panel: professional data-management panel for MYTHOS AUTO projects (catalogue, prices, stock, references, Auto-Reply knowledge, human handoff, audit) on the existing MYTHOS service conventions.",
+  "main": "reference/server.js",
+  "scripts": {
+    "start": "node reference/server.js",
+    "check": "bash tools/check.sh",
+    "test": "node ../../tests/mythos-wp-test.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

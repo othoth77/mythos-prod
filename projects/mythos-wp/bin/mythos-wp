@@ -1,0 +1,88 @@
+#!/usr/bin/env node
+'use strict';
+// =====================================================
+// MYTHOS WP — operator CLI (never prints a secret)
+// projects/mythos-wp/bin/mythos-wp
+//
+//   mythos-wp set-password <users.json> <username> <owner|operator>
+//       Reads the password from stdin (or MYTHOS_WP_NEW_PASSWORD), hashes it
+//       with scrypt and creates/updates the user in the 0600 users file.
+//   mythos-wp remove-user <users.json> <username>
+//   mythos-wp list-users <users.json>
+//   mythos-wp seed-project <id> <display_name> <domain> <brand_car> <catalog_dsn_env> [catalog_schema]
+//       Inserts a registry row (needs MYTHOS_WP_DB_* in the environment).
+//   mythos-wp check-env
+//       Reports which environment variables and files are present (names only).
+// =====================================================
+
+var fs = require('fs');
+var path = require('path');
+var auth = require('../reference/auth');
+
+var args = process.argv.slice(2);
+var cmd = args[0];
+
+function die(msg, code) { process.stderr.write('ERROR: ' + msg + '\n'); process.exit(code || 1); }
+function readUsers(file) {
+  if (!fs.existsSync(file)) return { users: [] };
+  var j = JSON.parse(fs.readFileSync(file, 'utf8'));
+  return { users: Array.isArray(j.users) ? j.users : [] };
+}
+function writeUsers(file, doc) {
+  var tmp = file + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(doc, null, 2) + '\n', { mode: 0o600 });
+  fs.renameSync(tmp, file);
+  fs.chmodSync(file, 0o600);
+}
+function readPassword() {
+  if (process.env.MYTHOS_WP_NEW_PASSWORD) return Promise.resolve(process.env.MYTHOS_WP_NEW_PASSWORD);
+  return new Promise(function (resolve) {
+    var chunks = [];
+    process.stdin.on('data', function (c) { chunks.push(c); });
+    process.stdin.on('end', function () { resolve(Buffer.concat(chunks).toString('utf8').replace(/\r?\n$/, '')); });
+  });
+}
+
+if (cmd === 'set-password') {
+  var file = args[1], username = String(args[2] || '').toLowerCase(), role = args[3] || 'operator';
+  if (!file || !auth.USERNAME_RE.test(username)) die('usage: set-password <users.json> <username> <owner|operator>');
+  if (auth.ROLES.indexOf(role) === -1) die('role must be owner or operator');
+  readPassword().then(function (pw) {
+    if (!pw || pw.length < 12) die('password must be at least 12 characters');
+    var doc = readUsers(file);
+    var existing = doc.users.filter(function (u) { return u.username === username; })[0];
+    if (existing) { existing.scrypt = auth.hashPassword(pw); existing.role = role; }
+    else doc.users.push({ username: username, role: role, scrypt: auth.hashPassword(pw) });
+    writeUsers(path.resolve(file), doc);
+    process.stdout.write((existing ? 'updated' : 'created') + ' user ' + username + ' (' + role + ') in ' + file + '\n');
+  });
+} else if (cmd === 'remove-user') {
+  var f2 = args[1], u2 = String(args[2] || '').toLowerCase();
+  if (!f2 || !u2) die('usage: remove-user <users.json> <username>');
+  var d2 = readUsers(f2);
+  var before = d2.users.length;
+  d2.users = d2.users.filter(function (u) { return u.username !== u2; });
+  writeUsers(path.resolve(f2), d2);
+  process.stdout.write((before - d2.users.length) + ' user(s) removed\n');
+} else if (cmd === 'list-users') {
+  var d3 = readUsers(args[1] || '');
+  d3.users.forEach(function (u) { process.stdout.write(u.username + '\t' + u.role + '\n'); });
+} else if (cmd === 'seed-project') {
+  var id = args[1], name = args[2], domain = args[3] || null, brand = args[4] || null, envName = args[5], schema = args[6] || 'ssangyong_autos';
+  if (!id || !name || !envName) die('usage: seed-project <id> <display_name> <domain> <brand_car> <catalog_dsn_env> [catalog_schema]');
+  var db = require('../reference/db');
+  db.wp().query("INSERT INTO wp_projects (id, display_name, domain, brand_car, catalog_dsn_env, catalog_schema, status) VALUES ($1,$2,$3,$4,$5,$6,'active') ON CONFLICT (id) DO UPDATE SET display_name = EXCLUDED.display_name, domain = EXCLUDED.domain, brand_car = EXCLUDED.brand_car, catalog_dsn_env = EXCLUDED.catalog_dsn_env, catalog_schema = EXCLUDED.catalog_schema, updated_at = now() RETURNING id", [id, name, domain, brand, envName, schema])
+    .then(function (r) { process.stdout.write('project ' + r.rows[0].id + ' upserted\n'); return db.closeAll(); })
+    .catch(function (e) { die('seed failed: ' + (e.code || e.message)); });
+} else if (cmd === 'check-env') {
+  var dbm = require('../reference/db');
+  var missing = dbm.missingEnv();
+  process.stdout.write('db env: ' + (missing.length ? 'MISSING ' + missing.join(', ') : 'complete') + '\n');
+  var us = auth.usersState();
+  process.stdout.write('users file: ' + (us.provisioned ? us.count + ' user(s)' : 'NOT USABLE (' + us.reason + ')') + '\n');
+  process.stdout.write('comms config: ' + (process.env.MYTHOS_WP_COMMS_CONFIG ? 'set' : 'absent') + '\n');
+  Object.keys(process.env).filter(function (k) { return /^MYTHOS_WP_CATALOG_/.test(k); }).forEach(function (k) { process.stdout.write('catalogue var: ' + k + ' (set)\n'); });
+} else {
+  process.stdout.write('usage: mythos-wp <set-password|remove-user|list-users|seed-project|check-env> …\n');
+  process.exit(cmd ? 1 : 0);
+}

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<!--
+  MYTHOS WP — sign-in page
+  projects/mythos-wp/reference/web/login.html
+  The only HTML an unauthenticated request can reach. No inline script, no
+  inline style: CSP is script-src 'self' / style-src 'self'.
+-->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta name="robots" content="noindex, nofollow">
+  <title>MYTHOS WP — Sign in</title>
+  <link rel="stylesheet" href="/brand/tokens.css">
+  <link rel="stylesheet" href="/brand/fonts.css">
+  <link rel="stylesheet" href="/wp.css">
+  <link rel="icon" type="image/svg+xml" href="/brand/mythos-favicon.svg">
+</head>
+<body class="login-body">
+  <main class="login">
+    <div class="login-card">
+      <div class="rail-brand login-brand"><span class="wordmark">MYTHOS</span><span class="unit">WP</span></div>
+      <h1>Web Panel</h1>
+      <p class="login-sub">Catalogue · prices · stock · references · Auto-Reply · handoff</p>
+      <form id="login-form" autocomplete="off" novalidate>
+        <div class="field">
+          <label for="login-username">Username</label>
+          <input class="input" type="text" id="login-username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+        </div>
+        <div class="field">
+          <label for="login-password">Password</label>
+          <input class="input" type="password" id="login-password" name="password" autocomplete="current-password" required>
+        </div>
+        <p class="error" id="login-error" role="alert" hidden></p>
+        <button class="btn btn-primary btn-block" type="submit" id="login-submit">Sign in</button>
+      </form>
+      <p class="login-foot">Sessions last 8 hours. Every change is audited.</p>
+    </div>
+  </main>
+  <script src="/js/login.js"></script>
+</body>
+</html>
