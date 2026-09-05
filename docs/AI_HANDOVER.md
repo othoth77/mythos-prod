@@ -32,7 +32,7 @@
 | Production | **unchanged**: HEAD of the production checkout followed other sessions' merges only; migration 0005 NOT applied; `ssangyong-autos` closed/off/unpaired; `mythos-bridge` open, webhook null; Telegram OFF; Evolution untouched. |
 | Next | Owner review/merge of the COMMS-9 PR → deploy from main + `migrate up` (0005) → then Gate 3 pilot on `ssangyong-autos` with its dedicated number; COMMS-10 handoff UI; Phase L Meta Cloud API adapter on this contract. |
 
-## 2026-09-05 — PHASE 11 STATISTICS / REPORTING: **STATISTICS=PASS (no production migration required)** (Sonnet 5, 23:10–23:20 UTC)
+## 2026-09-05 — PHASE 11 STATISTICS / REPORTING: **STATISTICS=PASS** (Sonnet 5, 23:10–23:20 UTC; deployed and verified live, no migration)
 
 | Item | Evidence |
 |---|---|
@@ -43,7 +43,9 @@
 | Tests | `tests/erp-core-e2e-drill.sh` §10 (13 new checks) **196/0**: prospects funnel exact numbers (1 won / 1 decided / win_rate 1.0 / avg_days 0.0) against the §2 conversion already in the fixture; inventory report shape; revenue range excludes a 1900 window and includes today (day-inclusive upper bound verified again); expenses range isolates a seeded expense to exactly its day; read_only can read both new reports; **acme's existing reports-module-off fixture respected** (404 first, matching Phase 7's established gate test) then isolation verified once the module is enabled for it (0 rows, no mythos leakage). Regression: acceptance **79/0**, security **59/0**, bootstrap **44/0** (permission count unchanged — no new permission), erp-4-auth **118/0**, frontend static check **38/0**. gitleaks: no leaks. |
 | **Host constraint — browser drill deliberately skipped** | Per the owner's explicit infrastructure note, the shared VPS remained under severe memory pressure throughout this phase (**~114 MiB free, swap 4.0/4.0 GiB, load average 6–15** from unrelated concurrent sessions) — checked twice, before and after the API work, with no recovery. `tests/erp-frontend-drill.sh` was **not run** to avoid forcing headless Chromium onto a memory-starved host (the same MYTHOS VPS OOM class of incident already on record). This is a host-resource deferral, not a test failure: the dashboard/reports frontend changes are additive to code paths already proven in the browser (Phase 6–10 drills, most recently 45–48/0), and every new number they display is independently verified correct by the passing HTTP-level E2E suite above. **Recommended**: run `tests/erp-frontend-drill.sh` once host memory recovers, as confirmation, not as a re-open of this gate. |
 | Production impact | **None.** No migration, no schema change, no new table. Both new endpoints are pure `SELECT` queries reachable only through the existing `reports.read` permission gate; nothing here touches production state. |
-| **GATE** | **STATISTICS=PASS** — verified on the running production API (the new routes are additive code, not a schema change, so they take effect on the next `erp-api` restart with no migration and no owner GO required for a "production migration" — there isn't one). Phase 12 starts. |
+| Landing | PR #235 **merged** → `main` = `origin/main` = `d5f6f52` (`5d4f944` ancestor); checkout fast-forwarded; `erp-api` restarted **23:18:12 UTC**, `NRestarts=0`, no journal error. |
+| Final gate verification (read-only, 23:19 UTC) | `/reports/prospects`, `/reports/inventory`, `/reports/revenue`, `/reports/expenses` all → **401 unauthenticated** (routed, gated, no 404). Production data unchanged: users 1, tenants 1, prospects 0, audit 14. Disk 15G free (80 %). |
+| **GATE** | **STATISTICS=PASS** — verified on the running production API. No migration, no owner GO required (none applicable — additive code only). Phase 12 starts. |
 
 ## 2026-09-05 — PHASE 10 AGENDA: **AGENDA=PASS** (Fable/Sonnet 5, 22:10–23:05 UTC; migration applied in production 22:35 UTC on explicit owner GO, final gate verified read-only)
 
