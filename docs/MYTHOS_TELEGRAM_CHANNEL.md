@@ -383,3 +383,11 @@ OTHMODE is described only as "MYTHOS protection/monitoring", identical to the ex
   against the real repository, and the bridge constraints for this task forbid pushing or merging. The offline
   fixture suite (§ above) is the verification performed; a live check is the natural first step after this branch
   merges, mirroring how §9.2 above validated the original channel.
+
+## Presentation (2026-09-05, gh-issue-191)
+
+Lifecycle report replies and the unified event notifier render through the shared
+`bridge/notify/presenter.js` (same short owner-facing format as WhatsApp, simple Arabic
+explanation, explicit owner action, no report path in a chat reply). The channel itself
+remains **disabled** (`MYTHOS_TELEGRAM_ENABLED=0`); tests are offline regression only.
+See `docs/MYTHOS_NOTIFICATION_PRESENTER.md`.

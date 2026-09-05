@@ -228,7 +228,9 @@ function issuesFull(opts) { return issues.issuesTick(executor, opts || {}); }
 async function run() {
   // --- 1. unified formatter + stripping (pure) -------------------------------------
   var txt = telegramEvents.formatEvent({ category: 'task', event: 'completed', id: '#42', status: 'COMPLETED', title: 'did the thing', result: 'tests: 3/3', model: 'claude-haiku-4-5', guard: true });
-  ok(txt.indexOf('MYTHOS TASK: completed #42 (COMPLETED)') === 0, 'formatEvent: unified header');
+  ok(txt.indexOf('🟢 MYTHOS TASK: completed #42 (COMPLETED)') === 0, 'formatEvent: unified header (level icon + MYTHOS + category + event + id + status)');
+  ok(txt.indexOf('ببساطة: ') !== -1 && txt.indexOf('المطلوب منك: ') !== -1, 'formatEvent: simple Arabic explanation + owner action (gh-issue-191 shared presenter)');
+  ok(telegramEvents.formatEvent({ category: 'task', event: 'failed', id: '#43', status: 'FAILED' }).indexOf('🔴') === 0 && telegramEvents.formatEvent({ category: 'task', event: 'human_approval', id: '#44' }).indexOf('🟠') === 0, 'formatEvent: CRITICAL and IMPORTANT levels carry their icons');
   ok(txt.indexOf('did the thing') !== -1, 'formatEvent: title included');
   ok(txt.indexOf('result: tests: 3/3') !== -1, 'formatEvent: result included');
   ok(txt.indexOf('model claude-haiku-4-5') !== -1, 'formatEvent: model included');
@@ -287,16 +289,16 @@ async function run() {
   addIssue(801, { body: EN_BODY });
   var r4a = await issuesFull({});
   ok(r4a.ok, 'task lifecycle: issuesTick (created) ok');
-  var createdMsgs = sentTexts().filter(function (t) { return /^MYTHOS TASK: created #801/.test(t); });
+  var createdMsgs = sentTexts().filter(function (t) { return /^🟢 MYTHOS TASK: created #801/.test(t); });
   ok(createdMsgs.length === 1, 'task lifecycle: exactly one "created" Telegram notification for #801');
 
   await drain();
   var r4b = await issuesFull({});
   ok(r4b.ok, 'task lifecycle: issuesTick (claimed/report) ok');
-  var claimedMsgs = sentTexts().filter(function (t) { return /^MYTHOS TASK: claimed #801/.test(t); });
+  var claimedMsgs = sentTexts().filter(function (t) { return /^🟢 MYTHOS TASK: claimed #801/.test(t); });
   ok(claimedMsgs.length === 1, 'task lifecycle: exactly one "claimed" Telegram notification');
   ok(claimedMsgs[0].indexOf('guard: MYTHOS protection/monitoring active') !== -1, 'task lifecycle: claimed message carries the generic guard line');
-  var reportMsgs = sentTexts().filter(function (t) { return /^MYTHOS TASK: (completed|blocked|failed) #801/.test(t); });
+  var reportMsgs = sentTexts().filter(function (t) { return /^(?:🟢|🔴|🟠) MYTHOS TASK: (completed|blocked|failed) #801/.test(t); });
   ok(reportMsgs.length === 1, 'task lifecycle: exactly one terminal Telegram notification');
   ok(!/t-\d{8,}-[a-z0-9]+/.test(reportMsgs[0]), 'task lifecycle: no executor task id in the Telegram text');
   ok(!/OTH-\d{4}-\d+/.test(reportMsgs[0]), 'task lifecycle: no OTHMODE id in the Telegram text');
@@ -320,7 +322,7 @@ async function run() {
   var r4c = await issuesFull({});
   f51.enabled = savedEnabled;
   ok(r4c.ok, 'blocker visibility: issuesTick (#802, model unavailable) ok');
-  ok(sentTexts().some(function (t) { return /^MYTHOS TASK: blocked #802/.test(t); }), 'blocker visibility: a BLOCKED task is notified even with the rate window full');
+  ok(sentTexts().some(function (t) { return /^(?:🟢|🔴|🟠) MYTHOS TASK: blocked #802/.test(t); }), 'blocker visibility: a BLOCKED task is notified even with the rate window full');
   delete process.env.MYTHOS_TELEGRAM_NOTIFY_RATE_MAX;
   delete process.env.MYTHOS_TELEGRAM_NOTIFY_RATE_WINDOW_SECONDS;
 
@@ -330,38 +332,38 @@ async function run() {
   var prClient = prWatch.clientFor({});
   var p1 = await prWatch.tick(prClient, {});
   ok(p1.ok, 'pr lifecycle: first tick ok');
-  ok(sentTexts().some(function (t) { return /^MYTHOS PR: opened #1/.test(t); }), 'pr lifecycle: opened notified');
+  ok(sentTexts().some(function (t) { return /^(?:🟢|🔴|🟠) MYTHOS PR: opened #1/.test(t); }), 'pr lifecycle: opened notified');
 
   gh.reviews[1].push({ id: 501, state: 'APPROVED', user: { login: 'reviewer-a' } });
   gh.pulls[1].updated_at = '2026-09-05T09:05:00Z';
   var p2 = await prWatch.tick(prClient, {});
   ok(p2.ok, 'pr lifecycle: review tick ok');
-  ok(sentTexts().some(function (t) { return /^MYTHOS PR: review #1/.test(t) && t.indexOf('approved') !== -1; }), 'pr lifecycle: approval notified');
+  ok(sentTexts().some(function (t) { return /^(?:🟢|🔴|🟠) MYTHOS PR: review #1/.test(t) && t.indexOf('approved') !== -1; }), 'pr lifecycle: approval notified');
 
   setStatus('sha1-1', 'failure', 3);
   gh.pulls[1].updated_at = '2026-09-05T09:06:00Z';
   var p3 = await prWatch.tick(prClient, {});
-  ok(sentTexts().some(function (t) { return /^MYTHOS PR: checks_failed #1/.test(t); }), 'pr lifecycle: failing checks notified as checks_failed');
+  ok(sentTexts().some(function (t) { return /^(?:🟢|🔴|🟠) MYTHOS PR: checks_failed #1/.test(t); }), 'pr lifecycle: failing checks notified as checks_failed');
 
   gh.pulls[1].mergeable_state = 'dirty';
   gh.pulls[1].updated_at = '2026-09-05T09:07:00Z';
   var p4 = await prWatch.tick(prClient, {});
-  ok(sentTexts().some(function (t) { return /^MYTHOS PR: conflict #1/.test(t); }), 'pr lifecycle: merge conflict notified');
+  ok(sentTexts().some(function (t) { return /^(?:🟢|🔴|🟠) MYTHOS PR: conflict #1/.test(t); }), 'pr lifecycle: merge conflict notified');
 
   gh.pulls[1].mergeable_state = 'clean';
   gh.pulls[1].merged_at = '2026-09-05T09:08:00Z';
   gh.pulls[1].state = 'closed';
   gh.pulls[1].updated_at = '2026-09-05T09:08:01Z';
   var p5 = await prWatch.tick(prClient, {});
-  ok(sentTexts().some(function (t) { return /^MYTHOS PR: merged #1/.test(t); }), 'pr lifecycle: merged notified');
+  ok(sentTexts().some(function (t) { return /^(?:🟢|🔴|🟠) MYTHOS PR: merged #1/.test(t); }), 'pr lifecycle: merged notified');
 
   addPull(2, { title: 'Dead-end branch' });
   var p6 = await prWatch.tick(prClient, {});
-  ok(sentTexts().some(function (t) { return /^MYTHOS PR: opened #2/.test(t); }), 'pr lifecycle: second PR opened notified independently');
+  ok(sentTexts().some(function (t) { return /^(?:🟢|🔴|🟠) MYTHOS PR: opened #2/.test(t); }), 'pr lifecycle: second PR opened notified independently');
   gh.pulls[2].state = 'closed';
   gh.pulls[2].updated_at = '2026-09-05T09:09:00Z';
   var p7 = await prWatch.tick(prClient, {});
-  ok(sentTexts().some(function (t) { return /^MYTHOS PR: closed_without_merge #2/.test(t); }), 'pr lifecycle: closed without merge notified');
+  ok(sentTexts().some(function (t) { return /^(?:🟢|🔴|🟠) MYTHOS PR: closed_without_merge #2/.test(t); }), 'pr lifecycle: closed without merge notified');
 
   var prStatus = prWatch.status();
   ok(prStatus.tracked_prs === 2, 'pr lifecycle: status tracks both pull requests');
@@ -375,7 +377,7 @@ async function run() {
   appendLog({ bridge: 'telegram:phase_error', error: 'must never trigger gov-notify (excluded namespace)' });
   var g1 = await govNotify.tick({});
   ok(g1.ok, 'gov-notify: first tick ok');
-  ok(sentTexts().some(function (t) { return /^MYTHOS SYSTEM: governance_blocker/.test(t) && t.indexOf('protected path') !== -1; }), 'gov-notify: governance blocker notified');
+  ok(sentTexts().some(function (t) { return /^(?:🟢|🔴|🟠) MYTHOS SYSTEM: governance_blocker/.test(t) && t.indexOf('protected path') !== -1; }), 'gov-notify: governance blocker notified');
   ok(!sentTexts().some(function (t) { return t.indexOf('must never trigger gov-notify') !== -1; }), 'gov-notify: telegram-namespace log lines are never notified (no feedback loop)');
 
   var beforeRepeatGov = tg.sent.length;
@@ -385,7 +387,7 @@ async function run() {
 
   appendLog({ bridge: 'lease_expired', task_id: 'gh-issue-999', reason: 'claim lease overrun' });
   var g3 = await govNotify.tick({});
-  ok(sentTexts().some(function (t) { return /^MYTHOS SYSTEM: bridge_failure/.test(t) && t.indexOf('claim lease overrun') !== -1; }), 'gov-notify: a distinct bridge failure is still notified');
+  ok(sentTexts().some(function (t) { return /^(?:🟢|🔴|🟠) MYTHOS SYSTEM: bridge_failure/.test(t) && t.indexOf('claim lease overrun') !== -1; }), 'gov-notify: a distinct bridge failure is still notified');
 
   var beforeUpToDate = tg.sent.length;
   var g4 = await govNotify.tick({});

@@ -55,6 +55,7 @@ var crypto = require('crypto');
 
 var state = require('../../lib/state');
 var redact = require('../../../mythos-orchestrator/lib/redact');
+var presenter = require('./presenter');
 var evolution = require('./providers/evolution');
 var generic = require('./providers/generic');
 
@@ -448,32 +449,15 @@ function clip(text, max) {
   return s.length > max ? s.slice(0, max - 1) + '…' : s;
 }
 
-// Built from the REPORT the bridge already wrote and validated. Redacted
-// before it leaves this function: a summary written by an executing session
-// is untrusted text, and the message goes to a third-party gateway.
+// Built from the REPORT the bridge already wrote and validated, rendered by
+// the shared presenter (gh-issue-191: short, owner-facing, simple Arabic
+// explanation, no branch/file/commit/id detail). The presenter strips
+// internal identifiers and redacts secret shapes; the message goes to a
+// third-party gateway, so it is redacted once more here, on the way out.
 function buildMessage(report, kind) {
   var exec = report.execution || {};
-  var delivery = report.delivery || {};
-  var commits = Array.isArray(report.commits) ? report.commits : [];
-  var onOrigin = delivery.commits_on_origin;
-  var lines = [
-    MARK[kind] + ' MYTHOS ' + kind + ' — ' + report.task_id,
-    'Report status: ' + report.status,
-    'Branch: ' + (delivery.branch || exec.branch || '—'),
-    'Commits: ' + commits.length + (commits.length ? (onOrigin === true ? ' (on origin)' : onOrigin === false ? ' (awaiting relay)' : '') : ''),
-    'Files changed: ' + (Array.isArray(report.files_changed) ? report.files_changed.length : 0),
-    'Tests reported: ' + (Array.isArray(report.tests) ? report.tests.length : 0),
-    'OTHMODE: ' + (exec.othmode_task_id || '—')
-  ];
-  if (kind === 'HUMAN_APPROVAL') lines.push('A human decision is required before this task can move.');
-  lines.push('');
-  lines.push('Summary: ' + clip(report.summary, MAX_SUMMARY));
-  if (Array.isArray(report.problems) && report.problems.length) {
-    lines.push('Problems: ' + clip(report.problems.slice(0, 3).join(' | '), 400));
-  }
-  lines.push('Next: ' + clip(report.next_recommended_action, 300));
-  lines.push('Report: control/reports/' + report.task_id + '.json (branch mythos/control)');
-  return redact.redact(lines.join('\n')).slice(0, MAX_MESSAGE);
+  var presented = presenter.presentReport(report, kind, { model: exec.model || null, details_ref: 'path' });
+  return redact.redact(presented.text).slice(0, MAX_MESSAGE);
 }
 
 // --- Ledger ------------------------------------------------------------------
