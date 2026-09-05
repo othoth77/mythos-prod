@@ -236,3 +236,25 @@ record, executor) → `notify()` → `sendMessage` to the origin chat. Configura
 
 ### 8.8 Blocker
 The rotated token does not exist on the host yet (owner action; cannot be requested through chat).
+
+## 9. Bot identity transfer + live E2E (2026-09-05, owner-approved)
+
+### 9.1 Webhook removal (owner approval recorded in the session; bot `@Othoth77_bot`, id 7598630137)
+
+The bot identity was registered with an external webhook integration; long polling (`getUpdates`) cannot coexist
+with a webhook, so the owner explicitly approved removing it. Every call below was made once, with the token read
+from `~deploy/mythos-ai-executor/secrets/telegram-bot.env` (deploy, 0600) and never printed.
+
+| Step | Bot API call | Result (verbatim, token-free) |
+|---|---|---|
+| 1. audit record before | `getWebhookInfo` 2026-09-05T01:45:32Z | `url: "https://webhook.sherlock.st/c/1991ae12-9db9-48c8-b34f-7e485b9cd0dc/7598630137"`, `has_custom_certificate: false`, `pending_update_count: 0`, `max_connections: 100`, `ip_address: "172.67.70.125"`, `allowed_updates: ["message","channel_post"]` |
+| 2. removal | `deleteWebhook {"drop_pending_updates": false}` 2026-09-05T01:45:51Z | `ok: true, result: true, description: "Webhook was deleted"` — pending updates NOT dropped (there were 0) |
+| 3. verification | `getWebhookInfo` 2026-09-05T01:46:34Z | `url: ""`, `pending_update_count: 0` — no webhook registered |
+| 4. `telegram-config` (deploy, branch worktree) | — | `ready: true`, `token_present: true`, `token_source: "file"`, `allowed_user_ids: 1`, `problems: []` |
+| 5. `telegram-check` | `getMe` | `ok: true, bot_id: 7598630137, username: "Othoth77_bot"` |
+| 6. `telegram-tick --no-bridge --dry-run` | `getUpdates` | `ok: true`, `fetched: 0`, `api_calls: 1`, no HTTP 409 → no other poller, no webhook conflict |
+| 7. offline suite | `tests/mythos-telegram-channel-test.js` | **66 passed, 0 failed** (as deploy, before the live test) |
+
+Production untouched during the transfer: `mythos-github-bridge.timer` active (runs `tick` from the main checkout,
+which has no Telegram code), `mythos-ai-executor.service` active, `/health` ok at 01:45 UTC; no unit reloaded or
+restarted, no drop-in installed, WhatsApp drop-in unchanged.
