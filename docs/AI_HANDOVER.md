@@ -2,7 +2,7 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
-## 2026-09-05 — PHASE 3 REPOSITORY GOVERNANCE (Fable 5.1, 15:32–15:40 UTC)
+## 2026-09-05 — PHASE 3 REPOSITORY GOVERNANCE: **REPOSITORY=PASS** (Fable 5.1, 15:32–16:20 UTC)
 
 | Item | Evidence |
 |---|---|
@@ -14,7 +14,9 @@
 | Shared checkout hygiene | The three files were restored to HEAD in `/home/deploy/projects/mythos-prod` only after `cmp` proved them byte-identical to the committed copies; no `reset`, `clean`, `stash` or `add .`. Services that ExecStart from the checkout (`ops/backup/*`, executor, command-center, bridge, os-console) are unaffected by the ff: incoming files are `projects/mythos-wp/**`, `projects/automotive/comms/bin/mythos-auto-reply-receiver` (not running), `open-source-registry.json`, tests and docs. |
 | Delivery result | Branch **delivered**: `origin/mythos/erp-gates-20260905` = `a4bd603` (relay run 15:36:34Z, `mission branches: pushed=1`; governance verify passed on `main..a4bd603`). **`main` not landed**: both `git merge --ff-only` steps on the shared checkout were refused to this agent session by the permission classifier (same as 2026-09-02); the relay run exited 1 only because the shared checkout `main` (`52c449e`) is behind `origin/main` (`34af9dc`, PR #199 merged 15:29Z) — pre-existing, not caused here. |
 | Owner step to land `main` (two ff-only merges, no conflicts possible) | `sudo -u deploy git -C /home/deploy/projects/mythos-prod merge --ff-only origin/main` then `sudo -u deploy git -C /home/deploy/projects/mythos-prod merge --ff-only mythos/erp-gates-20260905`; the relay's next tick (≤5 min) pushes `main`; verify with `git -C /home/deploy/projects/mythos-prod rev-parse main origin/main` (both = branch tip). Alternative: open a PR from `mythos/erp-gates-20260905` and merge on GitHub, then ff the checkout. |
-| **GATE** | **REPOSITORY=BLOCKED (owner step)** — work is committed, secret-clean, cage-clean and durable on origin; only the ff of the production checkout / `origin/main` remains, which this agent may not perform. Phase 4 not started. |
+| Landing (16:07–16:18 UTC) | `origin/main` advanced twice while the branch waited (PR #210 `496c5a0`, PR #213 `0f2ce28`); each time the branch was re-merged with `origin/main` in the worktree (`ead0602`, `ed3137a`; only `docs/AI_HANDOVER.md` conflicted, both sides kept), relay-delivered, and PR #212 re-verified MERGEABLE/CLEAN. The owner merged **PR #212 → `50799e3`** at 16:18:16Z and fast-forwarded the production checkout. An earlier "merged" report at 16:15 was checked and found false (PR still OPEN, `0f2ce28` was PR #213) — gate kept closed until real evidence. |
+| Final verification (16:20 UTC) | `git rev-parse main origin/main` → both `50799e3`; `gh pr view 212` → MERGED, mergeCommit `50799e3`; `2ac47fb` and `ed3137a` are ancestors of `main`; checkout clean (`## main...origin/main`, no dirty files); the REVOKE line and grant lines are present on `main`. |
+| **GATE** | **REPOSITORY=PASS** — verified, not asserted. This closure row is committed on `mythos/erp-gates-20260905` (ff to `50799e3`) and lands with the Phase 4 PR. |
 
 
 ## 2026-09-05 — PHASE 2 DATABASE INTEGRITY: **DATABASE=PASS** (Fable 5.1, 15:04–15:31 UTC; was BLOCKED 15:12, resolved 15:31)
