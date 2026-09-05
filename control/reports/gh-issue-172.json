@@ -99,7 +99,7 @@
       "sha": "601f0cc15e67930bd4c172cd92febee3c67caf3a",
       "subject": "feat(automotive): MYTHOS AUTO WhatsApp CRM / business communication architecture (gh-issue-172)",
       "branch": "mythos/gh/gh-issue-172",
-      "on_origin": false
+      "on_origin": true
     }
   ],
   "tests": [
@@ -183,7 +183,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-issue-172",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-05T01:31:00.963Z"
   }
 }

@@ -12,7 +12,7 @@
 | Runtime | `0e852103f050` on `main` |
 | Model | `claude-fable-5-1` (explicit:fable-5.1 (requested "fable-5.1")) |
 | Branch | `mythos/gh/gh-issue-172` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ MYTHOS AUTO customer WhatsApp/CRM architecture delivered: Chatwoot selected (liv
 
 ## Commits
 
-- `601f0cc15e67930bd4c172cd92febee3c67caf3a` feat(automotive): MYTHOS AUTO WhatsApp CRM / business communication architecture (gh-issue-172) (awaiting relay)
+- `601f0cc15e67930bd4c172cd92febee3c67caf3a` feat(automotive): MYTHOS AUTO WhatsApp CRM / business communication architecture (gh-issue-172) (on origin)
 
 ## Files changed
 
