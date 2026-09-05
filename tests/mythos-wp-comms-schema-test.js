@@ -120,9 +120,9 @@ cleanup()
   .then(function (r) { ok(r.rows[0].n === 0, 'attachments cascade with their message'); })
   // ---------------------------------------------------------- rollback
   .then(function () { return q("DELETE FROM wp_handoffs WHERE project_id='comms-test'"); })
-  .then(function () { return migrate.down(pool, '0002_inbound_events'); })
-  .then(function () { return migrate.down(pool, '0001_comms_core'); })
-  .then(function (r) { ok(r.rolled_back === '0001_comms_core', 'rollback ran (0002 then 0001)'); return tables(); })
+  .then(function () { return migrate.status(pool); })
+  .then(function (st) { var chain = Promise.resolve(); st.applied.slice().reverse().forEach(function (v) { chain = chain.then(function () { return migrate.down(pool, v); }); }); return chain.then(function () { return st.applied.length; }); })
+  .then(function (n) { ok(n >= 3, 'rollback ran for every applied version in reverse (' + n + ')'); return tables(); })
   .then(function (t) {
     NEW_TABLES.filter(function (n) { return n !== 'wp_schema_migrations'; }).forEach(function (n) { ok(t.indexOf(n) === -1, 'table dropped: ' + n); });
     ['wp_projects', 'wp_handoffs', 'wp_audit_events', 'wp_knowledge', 'wp_stock', 'wp_product_commercial', 'wp_business_rules'].forEach(function (n) { ok(t.indexOf(n) !== -1, 'base table intact: ' + n); });
@@ -130,7 +130,7 @@ cleanup()
   })
   .then(function (r) { ok(r.rows.length === 0, 'wp_handoffs.conversation_id removed on rollback'); })
   .then(function () { return migrate.up(pool); })
-  .then(function (r) { ok(r.applied.indexOf('0001_comms_core') !== -1 && r.applied.indexOf('0002_inbound_events') !== -1, 're-apply after rollback (0001 + 0002)'); return migrate.up(pool); })
+  .then(function (r) { ok(r.applied.indexOf('0001_comms_core') !== -1 && r.applied.indexOf('0002_inbound_events') !== -1 && r.applied.indexOf('0003_outbound') !== -1, 're-apply after rollback (0001 + 0002 + 0003)'); return migrate.up(pool); })
   .then(function (r) { ok(r.applied.length === 0, 'second up is a no-op (idempotent ledger)'); return migrate.status(pool); })
   .then(function (s) { ok(s.pending.length === 0 && s.applied.indexOf('0001_comms_core') !== -1, 'status reports applied/pending'); })
   .then(function () { return q("DELETE FROM wp_projects WHERE id='comms-test'"); })

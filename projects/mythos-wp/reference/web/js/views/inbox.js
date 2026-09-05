@@ -78,13 +78,25 @@ export async function render(main, params, query, ctx) {
       const atts = (m.attachments || []).map((a) => h('div', { class: 'att' }, typeGlyph(a.kind) + ' ' + a.kind + (a.file_name ? ' · ' + a.file_name : '') + (a.mime_type ? ' · ' + a.mime_type : '') + (a.size_bytes ? ' · ' + Math.round(a.size_bytes / 1024) + ' KiB' : '') + ' · ' + a.status, a.transcript ? h('div', { class: 'transcript' }, '“' + a.transcript + '”') : null));
       tl.appendChild(h('div', { class: cls },
         h('div', { class: 'bubble' }, m.redacted_at ? h('em', { class: 'dim' }, 'content purged (retention)') : (m.text || (m.message_type !== 'text' ? typeGlyph(m.message_type) + ' ' + m.message_type : '')), ...atts),
-        h('div', { class: 'meta' }, (m.direction === 'activity' ? 'note · ' + (m.sender_ref || '') : m.direction === 'out' ? (m.sender_kind === 'ai' ? 'AI' : m.sender_ref || 'agent') + ' · ' + m.status : 'customer') + ' · ' + when(m.provider_timestamp || m.created_at) + (m.error ? ' · ' + m.error : ''))
+        h('div', { class: 'meta' }, (m.direction === 'activity' ? 'note · ' + (m.sender_ref || '') : m.direction === 'out' ? (m.sender_kind === 'ai' ? 'AI' : m.sender_ref || 'agent') + ' · ' + ({ queued: '⏳ queued', sent: '✓ sent', delivered: '✓✓ delivered', read: '✓✓ read', failed: '✗ failed' }[m.status] || m.status) : 'customer') + ' · ' + when(m.provider_timestamp || m.created_at) + (m.error ? ' · ' + m.error : ''),
+          m.direction === 'out' && m.status === 'failed' && ctx.can('operator') ? h('button', { class: 'btn btn-ghost btn-sm', onClick: async () => { try { await ctx.api.post(base + '/conversations/' + conv.id + '/messages/' + m.id + '/retry', {}); loadConversation(conv.id); } catch (err) { toast(err.detail || 'retry failed', 'danger'); } } }, 'Retry') : null)
       ));
     });
     setTimeout(() => { tl.scrollTop = tl.scrollHeight; }, 0);
     // reply box (COMMS-5 enables sending)
-    const reply = h('textarea', { class: 'textarea', rows: 2, placeholder: conv.outbound_enabled ? 'Reply…' : 'Replies are not enabled for this inbox yet (MYTHOS-COMMS-5).', disabled: !conv.outbound_enabled, 'aria-label': 'Reply' });
-    body.appendChild(h('div', { class: 'reply' }, reply, h('div', { class: 'view-actions' }, h('button', { class: 'btn btn-primary', disabled: true, title: 'Sending arrives with MYTHOS-COMMS-5' }, 'Send'), h('button', { class: 'btn btn-secondary', disabled: true, title: 'AI suggestions arrive with MYTHOS-COMMS-7/8' }, 'AI suggestion'))));
+    const canSend = conv.outbound_enabled && conv.status !== 'archived' && ctx.can('operator');
+    const reply = h('textarea', { class: 'textarea', rows: 2, placeholder: canSend ? 'Reply to the customer…  (Ctrl+Enter sends)' : (conv.outbound_enabled ? 'Sign in as operator to reply.' : 'Replies are not enabled for this inbox (owner switch: inboxes → Allow human replies).'), disabled: !canSend, 'aria-label': 'Reply' });
+    let clientRef = null;
+    const sendBtn = h('button', { class: 'btn btn-primary', disabled: !canSend, onClick: () => doSend() }, 'Send');
+    async function doSend() {
+      const text = reply.value.trim(); if (!text) return;
+      if (!clientRef) clientRef = 'ui-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+      sendBtn.disabled = true;
+      try { const r = await ctx.api.post(base + '/conversations/' + conv.id + '/messages', { text, client_ref: clientRef }); clientRef = null; reply.value = ''; toast(r.status === 'sent' ? 'Sent' : 'Send failed: ' + (r.error || r.status), r.status === 'sent' ? 'ok' : 'danger', 4000); loadConversation(conv.id); loadList(); }
+      catch (err) { toast(err.detail || 'send failed', 'danger', 5000); sendBtn.disabled = false; }
+    }
+    reply.onkeydown = (ev) => { if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') { ev.preventDefault(); doSend(); } };
+    body.appendChild(h('div', { class: 'reply' }, reply, h('div', { class: 'view-actions' }, sendBtn, h('button', { class: 'btn btn-secondary', disabled: true, title: 'AI suggestions arrive with MYTHOS-COMMS-7/8' }, 'AI suggestion'))));
     // side panel
     const side = h('div', { class: 'pane-side' }); paneCol.appendChild(side);
     if (ctx.can('operator')) {
@@ -109,8 +121,8 @@ export async function render(main, params, query, ctx) {
   // live feed
   try {
     es = new EventSource(base + '/events');
-    const onEv = (ev) => { let d = null; try { d = JSON.parse(ev.data); } catch (e) { return; } if (d.type === 'message.in' || d.type === 'conversation.updated' || d.type === 'message.note' || d.type === 'message.out') { loadList(); if (state.current && d.conversation_id === state.current) loadConversation(state.current); } };
-    ['message.in', 'message.out', 'message.note', 'conversation.updated', 'conversation.read', 'inbox.status'].forEach((n) => es.addEventListener(n, onEv));
+    const onEv = (ev) => { let d = null; try { d = JSON.parse(ev.data); } catch (e) { return; } if (d.type === 'message.in' || d.type === 'conversation.updated' || d.type === 'message.note' || d.type === 'message.out' || d.type === 'message.status') { loadList(); if (state.current && d.conversation_id === state.current) loadConversation(state.current); } };
+    ['message.in', 'message.out', 'message.status', 'message.note', 'conversation.updated', 'conversation.read', 'inbox.status'].forEach((n) => es.addEventListener(n, onEv));
   } catch (e) { /* no SSE: manual refresh */ }
   window.addEventListener('hashchange', closeFeed, { once: true });
 

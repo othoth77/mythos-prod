@@ -110,6 +110,10 @@ function handle(req, res, deps) {
           .then(function () { return core.recordInbound(pool, { instance: instance, inbox_id: inbox.id, event: eventName, status: 'persisted', reason: 'CONNECTION:' + parsed.event.status, payload_sha256: sha }); })
           .then(function () { bus.publish({ type: 'inbox.status', project_id: inbox.project_id, inbox_id: inbox.id, status: parsed.event.status }); log({ level: 'info', receiver: 'connection', instance: instance, status: parsed.event.status, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: true, kind: 'connection', status: parsed.event.status }); });
       }
+      if (parsed.kind === 'status') {
+        return core.updateStatus(pool, inbox, parsed.event)
+          .then(function (r) { return core.recordInbound(pool, { instance: instance, inbox_id: inbox.id, event: eventName, provider_message_id: parsed.event.provider_message_id, status: r.updated ? 'persisted' : 'ignored', reason: r.updated ? 'STATUS:' + r.status : r.reason, message_id: r.message_id || null, payload_sha256: sha }).then(function () { log({ level: 'info', receiver: 'status', instance: instance, updated: r.updated, status: parsed.event.status, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: true, kind: 'status', updated: r.updated, status: parsed.event.status }); }); });
+      }
       if (!inbox.inbound_enabled) {
         return core.recordInbound(pool, { instance: instance, inbox_id: inbox.id, event: eventName, provider_message_id: pmid, status: 'dry_run', reason: 'INBOX_INBOUND_DISABLED', payload_sha256: sha })
           .then(function () { log({ level: 'info', receiver: 'dry_run', instance: instance, message_type: parsed.event.message_type, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: true, mode: 'dry_run', persisted: false }); });
