@@ -20,7 +20,7 @@
   "action_raw": "investigate",
   "action_source": "default",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-05T03:36:41.253Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #181 https://github.com/othoth77/mythos-prod/issues/181 — \"MYTHOS — Diagnose Governance Validation\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[definition of done]\n1. Root cause identified and documented.\n2. False-positive behavior fixed if applicable.\n3. Genuine secret detection remains enforced.\n4. Regression tests pass.\n5. No credentials or secret values are added to the repository or task data.\n6. Git/production impact is explicitly reported.\n\n[execution]\nThis is a diagnostic/remediation TASK. Start with read-only investigation and make changes only if the root cause and safe fix are established.",
@@ -150,8 +150,8 @@
     "claimed_at": "2026-09-05T03:36:44.674Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "a6a1c12ae3703218b99cedd4f1a865d87fb780d3e141ef424e94f2d03b037da5",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-05T03:38:02.502Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-05T03:43:22.531Z",
     "snapshot_sha256": "ea2b24e7ae9fc6a5bea621c725f78d8c4503a85e84040ceb513e61fdc4e21f58",
     "fence": 5848,
     "lease": {
@@ -180,7 +180,8 @@
     },
     "model": "claude-haiku-4-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "3c9c28b2-2d74-4445-a321-3be08019b2f5"
+    "claude_session_id": "3c9c28b2-2d74-4445-a321-3be08019b2f5",
+    "report_file": "control/reports/gh-issue-181.json"
   },
   "history": [
     {
@@ -196,6 +197,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-05T03:43:21.930Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-05T03:43:22.531Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 3 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }

@@ -1,14 +1,14 @@
 # MYTHOS control — current state
 
-Generated 2026-09-05T03:38:05.730Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
+Generated 2026-09-05T03:43:22.543Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
 
 | Status | Count |
 |---|---|
 | PENDING | 0 |
 | CLAIMED | 0 |
-| IN_PROGRESS | 1 |
+| IN_PROGRESS | 0 |
 | VALIDATING | 0 |
-| COMPLETED | 46 |
+| COMPLETED | 47 |
 | BLOCKED | 26 |
 | FAILED | 0 |
 | CANCELLED | 1 |
@@ -20,7 +20,7 @@ Generated 2026-09-05T03:38:05.730Z by the bridge on branch `mythos/control` (pro
 | `gh-issue-99` | **COMPLETED** | investigate | normal | 2026-09-02T22:42:59.761Z | 2026-09-02T22:49:32.431Z | `t-20260902224306-vaqeia` | `control/reports/gh-issue-99.json` |
 | `gh-issue-97` | **BLOCKED** | investigate | normal | 2026-09-02T22:34:21.352Z | 2026-09-02T22:43:04.917Z | `t-20260902223428-31m0o4` | `control/reports/gh-issue-97.json` |
 | `gh-issue-95` | **COMPLETED** | investigate | normal | 2026-09-02T22:34:19.628Z | 2026-09-02T22:40:52.170Z | `t-20260902223426-ipld9w` | `control/reports/gh-issue-95.json` |
-| `gh-issue-181` | **IN_PROGRESS** | investigate | normal | 2026-09-05T03:36:41.253Z | 2026-09-05T03:38:02.502Z | `t-20260905033644-boabl9` | — |
+| `gh-issue-181` | **COMPLETED** | investigate | normal | 2026-09-05T03:36:41.253Z | 2026-09-05T03:43:22.531Z | `t-20260905033644-boabl9` | `control/reports/gh-issue-181.json` |
 | `gh-issue-178-r2` | **COMPLETED** | investigate | normal | 2026-09-05T03:34:00.362Z | 2026-09-05T03:38:02.492Z | `t-20260905033406-2ue8jp` | `control/reports/gh-issue-178-r2.json` |
 | `gh-issue-178` | **BLOCKED** | investigate | normal | 2026-09-05T03:25:20.456Z | 2026-09-05T03:27:53.281Z | `t-20260905032523-h3wgnp` | `control/reports/gh-issue-178.json` |
 | `gh-issue-177` | **COMPLETED** | investigate | normal | 2026-09-05T03:02:27.335Z | 2026-09-05T03:05:00.960Z | `t-20260905030231-jacu04` | `control/reports/gh-issue-177.json` |
