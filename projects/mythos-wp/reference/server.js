@@ -35,6 +35,7 @@ var db = require('./db');
 var auth = require('./auth');
 var api = require('./api');
 var receiver = require('./comms/receiver');
+var assistant = require('./comms/assistant');
 var redact = require('../../mythos-orchestrator/lib/redact');
 
 var ROOT = path.resolve(__dirname, '..', '..', '..');
@@ -206,6 +207,7 @@ function handle(req, res) {
 function createServer() { return http.createServer(handle); }
 
 function start(opts) {
+  try { assistant.attach(db.wp(), log); } catch (e) { log({ level: 'warn', assistant: 'attach_failed', reason: String(e && e.message || e) }); }
   opts = opts || {};
   var port = opts.port || parseInt(process.env.MYTHOS_WP_PORT || '8170', 10);
   var bind = opts.bind || process.env.MYTHOS_WP_BIND || '127.0.0.1';

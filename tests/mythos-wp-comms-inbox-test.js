@@ -51,6 +51,7 @@ function wipe(pid) {
   return q("DELETE FROM wp_inbound_events WHERE inbox_id IN (SELECT id FROM wp_inboxes WHERE project_id=$1)", [pid])
     .then(function () { return q("DELETE FROM wp_message_attachments WHERE message_id IN (SELECT id FROM wp_messages WHERE project_id=$1)", [pid]); })
     .then(function () { return q("DELETE FROM wp_conversation_events WHERE project_id=$1", [pid]); })
+    .then(function () { return q("UPDATE wp_messages SET ai_run_id = NULL WHERE project_id=$1 AND ai_run_id IS NOT NULL", [pid]); })
     .then(function () { return q("DELETE FROM wp_ai_suggestions WHERE conversation_id IN (SELECT id FROM wp_conversations WHERE project_id=$1)", [pid]); })
     .then(function () { return q("DELETE FROM wp_ai_runs WHERE project_id=$1", [pid]); })
     .then(function () { return q("DELETE FROM wp_messages WHERE project_id=$1", [pid]); })

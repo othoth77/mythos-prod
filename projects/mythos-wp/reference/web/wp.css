@@ -302,3 +302,5 @@ dialog::backdrop { background: rgba(11, 11, 10, 0.6); }
 .msg .transcript { font-style: italic; }
 .reply { display: grid; gap: var(--mythos-space-2); }
 @media (max-width: 960px) { .inbox, .inbox-pane { grid-template-columns: 1fr; } .conv-list, .msgs { max-height: none; } }
+.ai-suggestion { border-left: 3px solid var(--mythos-accent); }
+.ai-box:empty { display: none; }

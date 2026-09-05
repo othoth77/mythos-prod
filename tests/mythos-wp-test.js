@@ -236,7 +236,7 @@ async function httpSection(port) {
 // ================================================================ DB section
 async function dbSection(port, opCookie) {
   var pool = db.wp();
-  await pool.query("DELETE FROM wp_audit_events; DELETE FROM wp_handoffs; DELETE FROM wp_knowledge; DELETE FROM wp_business_rules; DELETE FROM wp_stock; DELETE FROM wp_product_commercial; DELETE FROM wp_projects; TRUNCATE ssangyong_autos.sya_product_images, ssangyong_autos.sya_product_vehicle_compatibility, ssangyong_autos.sya_vehicle_motorizations, ssangyong_autos.sya_vehicle_models, ssangyong_autos.sya_products RESTART IDENTITY CASCADE;");
+  await pool.query("UPDATE wp_messages SET ai_run_id = NULL; DELETE FROM wp_inbound_events; DELETE FROM wp_message_attachments; DELETE FROM wp_conversation_events; DELETE FROM wp_ai_suggestions; DELETE FROM wp_ai_runs; DELETE FROM wp_messages; DELETE FROM wp_conversation_tags; DELETE FROM wp_contact_tags; DELETE FROM wp_tags; DELETE FROM wp_audit_events; DELETE FROM wp_handoffs; DELETE FROM wp_conversations; DELETE FROM wp_contacts; DELETE FROM wp_inboxes; DELETE FROM wp_knowledge; DELETE FROM wp_business_rules; DELETE FROM wp_stock; DELETE FROM wp_product_commercial; DELETE FROM wp_projects; TRUNCATE ssangyong_autos.sya_product_images, ssangyong_autos.sya_product_vehicle_compatibility, ssangyong_autos.sya_vehicle_motorizations, ssangyong_autos.sya_vehicle_models, ssangyong_autos.sya_products RESTART IDENTITY CASCADE;");
   await pool.query("INSERT INTO wp_projects (id, display_name, domain, brand_car, catalog_dsn_env, catalog_schema, status) VALUES ('test-autos','Test Autos','test.autos','TESTBRAND','MYTHOS_WP_CATALOG_TEST','ssangyong_autos','active')");
   store.invalidate();
   var resolved = await store.resolve('test-autos');

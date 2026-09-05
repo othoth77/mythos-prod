@@ -120,6 +120,15 @@ Baseline record taken before any further phase. Read-only except the tag and thi
 | **ROLLBACK POINT** | Tag **`phase0/state-lock-20260905`** = `52c449e` (local, created by `deploy`, not pushed). Rollback for later phases = `sudo -u deploy git -C /home/deploy/projects/mythos-prod merge --ff-only phase0/state-lock-20260905` on a fresh branch, or revert forward. **Never** `reset --hard` / `checkout .` / `clean` in this checkout: it is the live deployment (services ExecStart from it). |
 | Databases (untouched) | `idauto_production`, `idauto`, `ssangyong_autos`, `mythos_command_center(_test)`, `mythos_erp`, `mythos_wp(_test)`, `idauto_scratch_final` in `idauto-postgres`; separate `evolution-postgres` and `coolify-db` containers. No write issued. |
 | Verdict | **NO UNEXPECTED CHANGES — Phase 0 lock holds.** Safe to proceed to Phase 1 from `52c449e`. |
+## 2026-09-05 — MYTHOS-COMMS-7 — AI assistant, suggest-only (#211): **DEPLOYED (manual trigger; auto-suggest off)**
+
+| Item | State |
+|---|---|
+| Governance | Issue #211 (`Action: review`, `Depends on: #209`). Branch `mythos/comms-7-assistant-20260905` → PR merged to `main`. |
+| Delivered | `reference/comms/assistant.js` (engine #173 in forced dry-run over the conversation's latest inbound; `wp_ai_runs` + `wp_ai_suggestions`; handoff → `wp_handoffs` + `needs_human`; decide accept/edit/reject; `markSent`; opt-in auto-trigger via `wp_inboxes.settings.ai_suggest`), outbound accepts `ai_run_id` / `suggestion_id` (row `sender_kind=ai`, suggestion → `sent`), API `POST …/suggest`, `GET …/suggestions`, `POST …/suggestions/:id/decide`, Inbox suggestion card ([Send] [Regenerate] [Reject], editable text, verified / missing facts, confidence), server attaches the auto-suggest listener at start. |
+| Tests | assistant **28/0** (greeting → suggestion; verified price → suggestion that never states the price; missing data → handoff + needs_human; human request → handoff; prompt-injection text handled as data with gates unchanged; edit → send linked to run; reject; auto-trigger off/on; auth; audit; no prompt text stored) · outbound 34/0 · inbox 38/0 · receiver 61/0 · schema 62/0 · inboxes 12/0 · wp 312/0 (its cleanup now covers the comms tables) · check.sh GREEN. |
+| Deployment | main worktree advanced, service restarted, `/healthz` 200. No schema change. Auto-suggest off on `ssangyong-autos`. Gate 8/9 real verification waits on Gates 3–6. |
+| Next | Owner: Gate 3 scan. Then: `inbound_enabled=true` (Gate 4), `outbound_enabled=true` (Gate 6), first real suggestion (Gate 8/9). COMMS-9 (auto-reply policy + kill switch) and COMMS-10 (handoff claim/assign/resolve UI) follow once live gates pass. |
 
 ## 2026-09-05 — MYTHOS-COMMS-5 — Human outbound reply (#209): **DEPLOYED, OFF (outbound_enabled=false)**
 
