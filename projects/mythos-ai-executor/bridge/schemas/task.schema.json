@@ -57,11 +57,16 @@
     },
     "source": {
       "type": "object",
-      "description": "Origin of the task when an adapter converted it from another surface (today: a GitHub Issue, written by bridge/github-issues.js). Informational for the executor; the adapter records its Issue notifications under `notifications`. A planner writing tasks by hand omits it.",
+      "description": "Origin of the task when an adapter converted it from another surface (a GitHub Issue, written by bridge/github-issues.js, or a Telegram private message, written by bridge/telegram.js). Informational for the executor; the adapter records its Issue notifications under `notifications`. A planner writing tasks by hand omits it.",
       "additionalProperties": false,
       "required": ["kind"],
       "properties": {
-        "kind": { "type": "string", "enum": ["github-issue"] },
+        "kind": { "type": "string", "enum": ["github-issue", "telegram"] },
+        "update_id": { "type": "integer", "minimum": 0, "description": "Telegram: the Bot API update_id the task was converted from (task_id = tg-<update_id zero-padded to 9 digits>)." },
+        "chat_id": { "type": "integer", "description": "Telegram: the private chat the replies go to (equals user_id for private chats)." },
+        "user_id": { "type": "integer", "description": "Telegram: the allowlisted sender id. Never a username." },
+        "message_id": { "type": "integer", "description": "Telegram: the id of the message that became the task." },
+        "message_date": { "type": ["string", "null"], "maxLength": 40 },
         "repo": { "type": "string", "maxLength": 200 },
         "issue_number": { "type": "integer", "minimum": 1 },
         "issue_url": { "type": "string", "maxLength": 400 },
