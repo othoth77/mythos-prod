@@ -39,8 +39,13 @@ function suggest(pool, resolved, convId, actor, opts) {
   opts = opts || {};
   var projectId = resolved.project.id;
   var t0 = Date.now();
-  return pool.query('SELECT id, contact_id, status FROM wp_conversations WHERE project_id = $1 AND id = $2', [projectId, convId]).then(function (r) {
+  return pool.query("SELECT c.id, c.contact_id, c.status, EXISTS (SELECT 1 FROM wp_handoffs h WHERE h.conversation_id = c.id AND h.status IN ('NEW','REQUIRES_HUMAN','IN_PROGRESS')) AS handoff_open FROM wp_conversations c WHERE c.project_id = $1 AND c.id = $2", [projectId, convId]).then(function (r) {
     if (!r.rows[0]) throw fail('not_found', 404, 'no such conversation');
+    // Safety gate (enforced here, not only documented): a conversation flagged for a human gets no AI run.
+    if (r.rows[0].status === 'needs_human' || r.rows[0].handoff_open) {
+      return pool.query('INSERT INTO wp_conversation_events (project_id, conversation_id, kind, event_name, actor, payload) VALUES ($1,$2,\'ai_refused\',\'ai.refused\',$3,$4)', [projectId, convId, actor, JSON.stringify({ reason: r.rows[0].status === 'needs_human' ? 'NEEDS_HUMAN' : 'HANDOFF_OPEN', trigger: opts.trigger || 'manual' })])
+        .then(function () { throw fail('precondition', 412, 'conversation is flagged for a human; the assistant does not run'); });
+    }
     return latestInbound(pool, projectId, convId, opts.message_id ? parseInt(opts.message_id, 10) : null);
   }).then(function (m) {
     if (!m) throw fail('precondition', 412, 'no inbound message to answer');
@@ -54,14 +59,14 @@ function suggest(pool, resolved, convId, actor, opts) {
       ).then(function (ins) {
         var runId = ins.rows[0].id;
         var out = { run_id: runId, decision: decision, confidence: conf, intent: sim.intent || null, language: sim.language || null, facts: sim.facts, entities: sim.entities || null, policy: sim.policy ? { rejections: sim.policy.rejections } : null, suggestion: null, handoff: null, message_id: m.id };
-        var chain = pool.query('INSERT INTO wp_conversation_events (project_id, conversation_id, kind, actor, payload) VALUES ($1,$2,\'ai_run\',$3,$4)', [projectId, convId, actor, JSON.stringify({ run_id: runId, decision: decision, intent: sim.intent || null, confidence: conf })]);
+        var chain = pool.query('INSERT INTO wp_conversation_events (project_id, conversation_id, kind, event_name, actor, payload) VALUES ($1,$2,\'ai_run\',$5,$3,$4)', [projectId, convId, actor, JSON.stringify({ run_id: runId, decision: decision, intent: sim.intent || null, confidence: conf }), decision === 'suggest' ? 'ai.suggested' : 'ai.run']);
         if (decision === 'suggest') {
           chain = chain.then(function () { return pool.query('INSERT INTO wp_ai_suggestions (run_id, conversation_id, rank, text) VALUES ($1,$2,1,$3) RETURNING id, text, status, created_at', [runId, convId, sim.proposed_text]); })
             .then(function (s) { out.suggestion = s.rows[0]; });
         } else if (decision === 'handoff') {
           chain = chain.then(function () { return pool.query('INSERT INTO wp_handoffs (project_id, event_id, conversation_id, channel, reason, intent, language, entities, facts, status) VALUES ($1,$2,$3,\'whatsapp\',$4,$5,$6,$7,$8,\'REQUIRES_HUMAN\') ON CONFLICT (event_id) DO NOTHING RETURNING id', [projectId, 'ai-run-' + runId, convId, String(sim.decision_reason || 'REQUIRES_HUMAN').slice(0, 64), sim.intent ? String(sim.intent).slice(0, 40) : null, ['fr', 'ar', 'en'].indexOf(sim.language) !== -1 ? sim.language : null, JSON.stringify(sim.entities || {}), JSON.stringify({ required: sim.facts.required, available: sim.facts.verified, missing: sim.facts.unknown })]); })
             .then(function (h) { out.handoff = h.rows[0] ? h.rows[0].id : null; return pool.query("UPDATE wp_conversations SET status = CASE WHEN status IN ('open','pending','waiting_customer') THEN 'needs_human' ELSE status END, last_intent = COALESCE($2, last_intent), updated_at = now() WHERE id = $1", [convId, sim.intent || null]); })
-            .then(function () { return pool.query('INSERT INTO wp_conversation_events (project_id, conversation_id, kind, actor, payload) VALUES ($1,$2,\'handoff\',$3,$4)', [projectId, convId, 'ai', JSON.stringify({ run_id: runId, reason: sim.decision_reason || 'REQUIRES_HUMAN', handoff_id: out.handoff })]); });
+            .then(function () { return pool.query('INSERT INTO wp_conversation_events (project_id, conversation_id, kind, event_name, actor, payload) VALUES ($1,$2,\'handoff\',\'handoff.created\',$3,$4)', [projectId, convId, 'ai', JSON.stringify({ run_id: runId, reason: sim.decision_reason || 'REQUIRES_HUMAN', handoff_id: out.handoff })]); });
         }
         if (sim.intent) chain = chain.then(function () { return pool.query('UPDATE wp_conversations SET last_intent = $2, language = COALESCE(language, $3), updated_at = now() WHERE id = $1', [convId, String(sim.intent).slice(0, 40), ['fr', 'ar', 'en'].indexOf(sim.language) !== -1 ? sim.language : null]); });
         return chain.then(function () { bus.publish({ type: 'ai.run', project_id: projectId, conversation_id: convId, run_id: runId, decision: decision, suggestion_id: out.suggestion ? out.suggestion.id : null }); return out; });
@@ -85,7 +90,7 @@ function decide(pool, projectId, convId, sid, actor, body) {
     var edited = action === 'edit' ? String(body.text || '').trim() : null;
     if (action === 'edit' && (!edited || edited.length > 4096)) throw fail('validation', 400, 'edited text required (1–4096)');
     return pool.query('UPDATE wp_ai_suggestions SET status = $2, decided_by = $3, decided_at = now(), edited_text = $4 WHERE id = $1 RETURNING id, status, edited_text, run_id', [sid, status, actor, edited])
-      .then(function (u) { return pool.query('INSERT INTO wp_conversation_events (project_id, conversation_id, kind, actor, payload) VALUES ($1,$2,\'ai_decision\',$3,$4)', [projectId, convId, actor, JSON.stringify({ suggestion_id: sid, run_id: s.run_id, action: action })]).then(function () { return u.rows[0]; }); })
+      .then(function (u) { return pool.query('INSERT INTO wp_conversation_events (project_id, conversation_id, kind, event_name, actor, payload) VALUES ($1,$2,\'ai_decision\',\'ai.decided\',$3,$4)', [projectId, convId, actor, JSON.stringify({ suggestion_id: sid, run_id: s.run_id, action: action })]).then(function () { return u.rows[0]; }); })
       .then(function (row) { return { suggestion: row, send: action === 'reject' ? null : { text: edited || s.text, ai_run_id: s.run_id, suggestion_id: sid } }; });
   });
 }

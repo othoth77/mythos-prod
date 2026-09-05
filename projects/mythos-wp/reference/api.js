@@ -418,6 +418,12 @@ var ROUTES = [
     });
   } },
 
+  // --- Communication providers: contract status + capabilities (non-secret) ---
+  { method: 'GET', path: /^\/api\/comms\/providers$/, role: 'any', handler: function () {
+    var reg = receiver.registry;
+    return { providers: reg.all().map(function (p) { return { id: p.id, describe: p.describe(), capabilities: p.capabilities() }; }) };
+  } },
+
   // --- Multi-service: the caller's inbox memberships (visibility scope) ---
   { method: 'GET', path: /^\/api\/comms\/my-inboxes$/, role: 'any', handler: function (req) {
     return inbox.memberships(db.wp(), req.session.username).then(function (rows) { return { username: req.session.username, scoped: rows.length > 0, inboxes: rows }; });

@@ -127,3 +127,10 @@ and ledgered as `dry_run`. Tests: `node tests/mythos-wp-comms-receiver-test.js`.
 notification bridge uses) and optionally `MYTHOS_WP_EVOLUTION_BASE_URL` (default `http://127.0.0.1:8080`).
 Replies are refused (412) until the inbox is `open` **and** an owner sets `Allow human replies` on it.
 Tests: `node tests/mythos-wp-comms-outbound-test.js` (fake Evolution on loopback; nothing real is sent).
+
+## Communication providers (contract)
+
+`reference/comms/provider.js` is the contract every transport must satisfy (`describe`, `capabilities`, `parseInbound`,
+`sendText`, `fetchMedia`, `verifyWebhook`, `health`, …). `GET /api/comms/providers` shows the registry and capabilities.
+Contract tests: `node tests/mythos-wp-comms-contract-test.js`; hardening tests (identities, ordering, assistant gate,
+reconciliation, replay): `node tests/mythos-wp-comms-hardening-test.js`. Ops: `mythos-wp comms reconcile|heartbeat|replay`.

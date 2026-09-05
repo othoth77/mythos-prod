@@ -16,6 +16,8 @@
 //   mythos-wp reserve-account <digits> [reason]
 //       Marks a WhatsApp account as reserved (no inbox may claim it) — e.g. the
 //       MYTHOS notification account. Needs MYTHOS_WP_DB_*.
+//   mythos-wp comms reconcile [--threshold-min N] | heartbeat | replay-list | replay <event_id> [--apply] [--actor name]
+//       Delivery reconciliation alarm, inbox heartbeat, controlled dead-letter replay (dry-run unless --apply).
 //   mythos-wp migrate status | up | down <version>
 //       Additive SQL migrations (database/migrations, ledger wp_schema_migrations);
 //       needs MYTHOS_WP_DB_* in the environment. `down` rolls back ONE version.
@@ -95,6 +97,18 @@ if (cmd === 'set-password') {
   rpool.query('INSERT INTO wp_reserved_accounts (account_ref, reason) VALUES ($1, $2) ON CONFLICT (account_ref) DO UPDATE SET reason = EXCLUDED.reason RETURNING account_ref', [acc, String(args[2] || 'notification channel').slice(0, 120)])
     .then(function (r) { process.stdout.write('reserved: ***' + r.rows[0].account_ref.slice(-3) + '\n'); return rpool.end(); })
     .catch(function (e) { rpool.end().catch(function () {}); die(e.message); });
+} else if (cmd === 'comms') {
+  var rec = require('../reference/comms/reconcile');
+  var cpool = require('../reference/db').wp();
+  var sub2 = args[1]; var flag = function (n) { var i = args.indexOf(n); return i === -1 ? null : (args[i + 1] || true); };
+  var actor = 'cli:' + (flag('--actor') || process.env.USER || 'deploy');
+  var run2 = sub2 === 'reconcile' ? rec.reconcile(cpool, { thresholdMinutes: flag('--threshold-min') })
+    : sub2 === 'heartbeat' ? rec.heartbeat(cpool, {})
+    : sub2 === 'replay-list' ? rec.listReplayable(cpool, 50)
+    : sub2 === 'replay' ? Promise.resolve().then(function () { return rec.replay(cpool, args[2], actor, { dryRun: args.indexOf('--apply') === -1 }); })
+    : Promise.reject(new Error('usage: comms reconcile|heartbeat|replay-list|replay <event_id> [--apply]'));
+  run2.then(function (r) { process.stdout.write(JSON.stringify(r) + '\n'); return cpool.end(); })
+    .catch(function (e) { cpool.end().catch(function () {}); die(e.message); });
 } else if (cmd === 'migrate') {
   var migrate = require('../reference/migrate');
   var pool = require('../reference/db').wp();
@@ -106,6 +120,6 @@ if (cmd === 'set-password') {
   run.then(function (r) { process.stdout.write(JSON.stringify(r) + '\n'); return pool.end(); })
     .catch(function (e) { pool.end().catch(function () {}); die(e.message); });
 } else {
-  process.stdout.write('usage: mythos-wp <set-password|remove-user|list-users|seed-project|check-env|reserve-account|migrate> …\n');
+  process.stdout.write('usage: mythos-wp <set-password|remove-user|list-users|seed-project|check-env|reserve-account|comms|migrate> …\n');
   process.exit(cmd ? 1 : 0);
 }

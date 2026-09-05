@@ -47,3 +47,17 @@ Only for `kind = internal`. Create the inbox with `settings.allow_personal_accou
 ## 7. What is never done here
 
 Pairing `mythos-bridge` to anything, enabling its webhook, editing its drop-in; Telegram changes; `LOG_BAILEYS=debug` in production; sending test messages from an agent session.
+
+## 8. Reconciliation, heartbeat and replay (COMMS-9)
+
+Run as deploy with the panel env loaded (`set -a; . /home/deploy/deployments/mythos-wp/.env; set +a`), from the main worktree:
+
+```bash
+node projects/mythos-wp/bin/mythos-wp comms reconcile --threshold-min 15   # alarms outbound rows without acknowledgement (no resend)
+node projects/mythos-wp/bin/mythos-wp comms heartbeat                      # probes every inbox through its provider; records ok|stale|unreachable
+node projects/mythos-wp/bin/mythos-wp comms replay-list                    # failed/rejected deliveries whose payload was kept
+node projects/mythos-wp/bin/mythos-wp comms replay <event_id>              # dry-run: what would happen
+node projects/mythos-wp/bin/mythos-wp comms replay <event_id> --apply      # re-ingest once; refused a second time
+```
+
+Scheduling (owner): the two probes are safe every 5–10 minutes from the deploy user's timer of choice once customer traffic exists; they change no provider state. Alarms and heartbeat changes appear as `delivery.alarm` / `inbox.heartbeat` events on the SSE feed and in the conversation journal.

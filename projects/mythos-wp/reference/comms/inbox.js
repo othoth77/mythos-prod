@@ -43,9 +43,9 @@ function listConversations(pool, projectId, o) {
   params.push(limit);
   var sql = 'SELECT c.id, c.status, c.priority, c.assigned_to, c.team, c.unread_count, c.language, c.last_intent, c.summary, c.last_message_at, c.last_inbound_at, c.last_outbound_at, c.waiting_since, c.created_at, c.inbox_id, i.instance AS inbox_instance, ' +
     'k.id AS contact_id, k.display_name AS contact_name, k.wa_id AS contact_wa_id, ' +
-    "(SELECT m.text FROM wp_messages m WHERE m.conversation_id = c.id AND m.direction <> 'activity' ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS last_text, " +
-    "(SELECT m.message_type FROM wp_messages m WHERE m.conversation_id = c.id AND m.direction <> 'activity' ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS last_type, " +
-    "(SELECT m.direction FROM wp_messages m WHERE m.conversation_id = c.id AND m.direction <> 'activity' ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS last_direction, " +
+    "(SELECT m.text FROM wp_messages m WHERE m.conversation_id = c.id AND m.direction <> 'activity' ORDER BY COALESCE(m.provider_timestamp, m.created_at) DESC, m.created_at DESC, m.id DESC LIMIT 1) AS last_text, " +
+    "(SELECT m.message_type FROM wp_messages m WHERE m.conversation_id = c.id AND m.direction <> 'activity' ORDER BY COALESCE(m.provider_timestamp, m.created_at) DESC, m.created_at DESC, m.id DESC LIMIT 1) AS last_type, " +
+    "(SELECT m.direction FROM wp_messages m WHERE m.conversation_id = c.id AND m.direction <> 'activity' ORDER BY COALESCE(m.provider_timestamp, m.created_at) DESC, m.created_at DESC, m.id DESC LIMIT 1) AS last_direction, " +
     "COALESCE((SELECT array_agg(t.name ORDER BY t.name) FROM wp_conversation_tags ct JOIN wp_tags t ON t.id = ct.tag_id WHERE ct.conversation_id = c.id), '{}') AS tags, " +
     "EXISTS (SELECT 1 FROM wp_handoffs hf WHERE hf.conversation_id = c.id AND hf.status IN ('NEW','REQUIRES_HUMAN','IN_PROGRESS')) AS handoff_open " +
     'FROM wp_conversations c JOIN wp_contacts k ON k.id = c.contact_id JOIN wp_inboxes i ON i.id = c.inbox_id WHERE ' + where.join(' AND ') +
@@ -87,7 +87,7 @@ function listMessages(pool, projectId, convId, o) {
   if (o.before_id) { params.push(parseInt(o.before_id, 10) || 0); extra = ' AND m.id < $4'; }
   return pool.query('SELECT m.id, m.direction, m.message_type, m.text, m.sender_kind, m.sender_ref, m.status, m.error, m.provider_message_id, m.quoted_provider_message_id, m.provider_timestamp, m.created_at, m.redacted_at, m.ai_run_id, ' +
     "COALESCE((SELECT json_agg(json_build_object('id', a.id, 'kind', a.kind, 'mime_type', a.mime_type, 'size_bytes', a.size_bytes, 'file_name', a.file_name, 'status', a.status, 'transcript', a.transcript)) FROM wp_message_attachments a WHERE a.message_id = m.id), '[]'::json) AS attachments " +
-    'FROM wp_messages m WHERE m.project_id = $1 AND m.conversation_id = $2' + extra + ' ORDER BY m.created_at DESC, m.id DESC LIMIT $3', params)
+    'FROM wp_messages m WHERE m.project_id = $1 AND m.conversation_id = $2' + extra + ' ORDER BY COALESCE(m.provider_timestamp, m.created_at) DESC, m.created_at DESC, m.id DESC LIMIT $3', params)
     .then(function (r) { var rows = r.rows.reverse(); return { items: rows, next_before_id: r.rows.length === limit ? rows[0].id : null }; });
 }
 function markRead(pool, projectId, convId, actor) {
@@ -97,8 +97,9 @@ function markRead(pool, projectId, convId, actor) {
     return { id: convId, unread_count: 0 };
   });
 }
-function event(pool, projectId, convId, kind, actor, payload) {
-  return pool.query('INSERT INTO wp_conversation_events (project_id, conversation_id, kind, actor, payload) VALUES ($1,$2,$3,$4,$5)', [projectId, convId, kind, actor, JSON.stringify(payload || {})]);
+var events = require('./events');
+function event(pool, projectId, convId, kind, actor, payload, eventName) {
+  return pool.query('INSERT INTO wp_conversation_events (project_id, conversation_id, kind, event_name, actor, payload) VALUES ($1,$2,$3,$6,$4,$5)', [projectId, convId, kind, actor, JSON.stringify(payload || {}), eventName || events.forKind(kind)]);
 }
 function updateConversation(pool, projectId, convId, actor, patch) {
   patch = patch || {};
@@ -112,7 +113,8 @@ function updateConversation(pool, projectId, convId, actor, patch) {
   sets.push('updated_at = now()');
   return pool.query('UPDATE wp_conversations SET ' + sets.join(', ') + ' WHERE project_id = $1 AND id = $2 RETURNING id, status, assigned_to, priority, team', params).then(function (r) {
     if (!r.rows[0]) throw fail('not_found', 404, 'no such conversation');
-    return event(pool, projectId, convId, 'status', actor, changed).then(function () {
+    var en = changed.status === 'resolved' ? 'conversation.resolved' : changed.status === 'open' ? 'conversation.reopened' : changed.assigned_to !== undefined ? 'conversation.assigned' : 'conversation.updated';
+    return event(pool, projectId, convId, 'status', actor, changed, en).then(function () {
       bus.publish({ type: 'conversation.updated', project_id: projectId, conversation_id: convId, actor: actor, changed: changed });
       return r.rows[0];
     });
