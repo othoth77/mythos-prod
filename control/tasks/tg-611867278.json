@@ -1,0 +1,76 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "tg-611867278",
+  "project": "mythos-prod",
+  "objective": "Test mythos",
+  "scope": [],
+  "constraints": [
+    "Telegram channel task: READ-style unless the Action says otherwise; the channel allows only investigate, review."
+  ],
+  "priority": "normal",
+  "requested_action": "investigate",
+  "action_raw": "investigate",
+  "action_source": "default",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-05T01:54:08.669Z",
+  "created_by": "telegram:5005015506",
+  "notes": "Source: Telegram private message (update_id 611867278, chat_id 5005015506, message_id 192, user_id 5005015506, sent 2026-09-05T01:52:04.000Z).\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted because the message did not state one (write `Action: investigate|review` on its own line) → execution profile repo-read",
+  "source": {
+    "kind": "telegram",
+    "update_id": 611867278,
+    "chat_id": 5005015506,
+    "user_id": 5005015506,
+    "message_id": 192,
+    "message_date": "2026-09-05T01:52:04.000Z",
+    "content_sha256": "177a3d0e40561c9a64f2feec245dcbc196f5fa79a27884f3b05ed373f397b6e5",
+    "idempotency_key": "482cf89145456c9dc119d5df7f64e52de9700884d5090cafe9ca567a97fac904",
+    "resolution": {
+      "requested_action": "investigate",
+      "action_raw": "investigate",
+      "action_source": "default",
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "channel_allowed_actions": [
+        "investigate",
+        "review"
+      ],
+      "model_key": null,
+      "model_source": "none",
+      "resolved_at": "2026-09-05T01:54:08.669Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "events": [
+      {
+        "at": "2026-09-05T01:54:08.670Z",
+        "event": "telegram_received",
+        "reason": "private message update_id 611867278 from allowlisted user 5005015506",
+        "content_sha256": "177a3d0e40561c9a64f2feec245dcbc196f5fa79a27884f3b05ed373f397b6e5"
+      },
+      {
+        "at": "2026-09-05T01:54:08.670Z",
+        "event": "action_resolved",
+        "reason": "default → investigate"
+      },
+      {
+        "at": "2026-09-05T01:54:08.670Z",
+        "event": "profile_resolved",
+        "reason": "investigate → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-05T01:54:08.740Z",
+        "event": "task_created",
+        "reason": "control/tasks/tg-611867278.json PENDING; queued reply sent (message_id 193)"
+      }
+    ],
+    "converted_at": "2026-09-05T01:54:08.670Z",
+    "converted_by": "telegram",
+    "notifications": {
+      "queued": {
+        "message_id": 193,
+        "at": "2026-09-05T01:54:08.740Z",
+        "existed": false
+      }
+    }
+  }
+}
