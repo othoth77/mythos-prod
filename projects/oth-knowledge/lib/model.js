@@ -8,6 +8,7 @@
 'use strict';
 
 const ids = require('./ids.js');
+const namespace = require('./namespace.js');
 
 const KINDS = Object.freeze([
   'source', 'artifact', 'document', 'chunk', 'entity', 'fact', 'claim',
@@ -120,6 +121,11 @@ function validateRecord(rec) {
   }
   if (rec.entity_ids !== undefined && (!Array.isArray(rec.entity_ids) || !rec.entity_ids.every((t) => typeof t === 'string' && t))) {
     throw fail('OTHK_MODEL_FIELD', 'entity_ids must be a string array');
+  }
+  // Optional memory namespace (global | personal | projects/<slug>).
+  // Absent is allowed and reads as global, so legacy records stay valid.
+  if (rec.namespace !== undefined && !namespace.isValidNamespace(rec.namespace)) {
+    throw fail('OTHK_MODEL_FIELD', 'namespace must be "global", "personal", or "projects/<slug>"');
   }
   if (PROVENANCE_REQUIRED.indexOf(rec.kind) !== -1) validateProvenance(rec.provenance, rec.kind);
   KIND_RULES[rec.kind](rec);

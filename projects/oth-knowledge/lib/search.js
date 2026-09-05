@@ -12,6 +12,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const namespace = require('./namespace.js');
 
 const SEARCHABLE_KINDS = Object.freeze(['chunk', 'fact', 'claim', 'observation', 'event', 'entity', 'derived']);
 
@@ -120,6 +121,9 @@ function passesFilters(rec, f) {
   if (!f) return true;
   if (f.kind && rec.kind !== f.kind) return false;
   if (f.kinds && f.kinds.indexOf(rec.kind) === -1) return false;
+  // Namespace isolation: strict, no implicit cross-namespace read.
+  if (f.namespace && !namespace.inNamespace(rec, f.namespace)) return false;
+  if (f.namespaces && f.namespaces.indexOf(namespace.namespaceOf(rec)) === -1) return false;
   if (f.source_class && !(rec.provenance && rec.provenance.source_class === f.source_class)) return false;
   if (f.source_collection && !(rec.provenance && rec.provenance.source_collection === f.source_collection)) return false;
   if (f.entity_id && !(Array.isArray(rec.entity_ids) && rec.entity_ids.indexOf(f.entity_id) !== -1)) return false;
