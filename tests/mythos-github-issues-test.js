@@ -424,6 +424,49 @@ async function run() {
   var r8d = await full();
   ok(actionsOf(r8d.phases.intake, 'rejected')[0].secret === false && /Action "deploy"/.test(markedComments(17, 'rejected')[0].body) && !taskOnDisk('gh-issue-17'), 'invalid: bad Action → rejection comment, no task');
 
+  // --- 8b. secret gate: explicit placeholders vs credential material (fix/github-intake-redaction-20260905)
+  // Issues #180/#185 were rejected because status lines such as `Secrets: safe/redacted` and
+  // example items such as `TOKEN: configured` are KEY: VALUE assignments. The contract: a value
+  // written as an explicit placeholder is documentation; any other value after a secret-looking
+  // key is credential material. No word allowlist, no Markdown/code-block exemption.
+  var FAKE_CRED = 'AbCdEfGh1234567890ZyXwVu';
+  addIssue(40, { title: 'TASK: MYTHOS — Intake Regression', body: [
+    'Test GitHub Issue intake.', '',
+    'Examples:', 'TOKEN=<EXAMPLE_TOKEN>', 'API_KEY=<EXAMPLE_VALUE>', 'PASSWORD=${DB_PASSWORD}', '',
+    '```', 'TELEGRAM_TOKEN=<token from @BotFather>', 'SECRET=[REDACTED]', '```', '',
+    '🔐 Secrets: <none>', '', 'No credentials.'
+  ].join('\n') });
+  var r8e = await full();
+  var t40 = taskOnDisk('gh-issue-40');
+  // The harness tick runs intake AND the bridge claim in one pass (mock provider), so the file
+  // is already CLAIMED here; the intake wrote it PENDING, which the created comment records.
+  ok(actionsOf(r8e.phases.intake, 'create').filter(function (a) { return a.issue === 40; }).length === 1 && t40 && (t40.status === 'PENDING' || t40.status === 'CLAIMED') && /\*\*PENDING\*\*/.test(markedComments(40, 'created')[0].body), 'placeholder: Issue with explicit placeholder examples → accepted, MYTHOS TASK created PENDING');
+  ok(markedComments(40, 'rejected').length === 0 && markedComments(40, 'created').length === 1 && labelsOf(40).indexOf('mythos:invalid') === -1, 'placeholder: created comment, no rejection, no invalid label');
+  ok(redact.findSecretKinds(JSON.stringify(t40)).length === 0 && /TOKEN=<EXAMPLE_TOKEN>/.test(JSON.stringify(t40)), 'placeholder: task file carries the placeholder text unmasked and is clean for the bridge validator');
+
+  addIssue(41, { title: 'TASK: negative fixture', body: 'Objective: intake must refuse this.\n\nTOKEN=' + FAKE_CRED + '\n' });
+  addIssue(42, { title: 'TASK: PASSWORD=' + FAKE_CRED, body: 'Objective: the title carries the credential; body is clean.' });
+  addIssue(43, { title: 'TASK: code block', body: 'Objective: a fenced block is scanned like any other text.\n\n```env\nAPI_KEY=' + FAKE_CRED + '\n```\n' });
+  addIssue(44, { title: 'TASK: prose status', body: 'Objective: prose after a secret key is not a placeholder.\n\n- `TOKEN: configured`\n\n🔐 Secrets: safe/redacted\n' });
+  var r8f = await full();
+  [41, 42, 43, 44].forEach(function (n) {
+    var rj = actionsOf(r8f.phases.intake, 'rejected').filter(function (a) { return a.issue === n; })[0];
+    ok(rj && rj.secret === true && !taskOnDisk('gh-issue-' + n) && executorTasksFor('gh-issue-' + n).length === 0 && labelsOf(n).indexOf('mythos:invalid') !== -1, 'secret #' + n + ': rejected, no task, invalid label');
+  });
+  var c41 = markedComments(41, 'rejected')[0].body, c42 = markedComments(42, 'rejected')[0].body, c43 = markedComments(43, 'rejected')[0].body, c44 = markedComments(44, 'rejected')[0].body;
+  ok(/assigned-secret `TOKEN` at body line 3/.test(c41), 'secret #41: rejection names kind, key and body line');
+  ok(/assigned-secret `PASSWORD` in the title/.test(c42), 'secret #42: title hit is reported as the title');
+  ok(/assigned-secret `API_KEY` at body line 4/.test(c43), 'secret #43: credential inside a fenced code block is still rejected and located');
+  ok(/`TOKEN` at body line 3/.test(c44) && /`Secrets` at body line 5/.test(c44) && /placeholder/.test(c44), 'secret #44: prose false positives are located and the fix (placeholder syntax) is stated');
+  ok([c41, c42, c43, c44].join('\n').indexOf(FAKE_CRED) === -1 && store.requests.map(function (q) { return q.body || ''; }).join('\n').indexOf(FAKE_CRED) === -1, 'secret: the fixture credential never appears in any comment or request');
+  store.issues[44].body = 'Objective: prose after a secret key is not a placeholder.\n\n- `TOKEN: <configured>`\n\n🔐 Secrets: <none>\n';
+  var r8g = await full();
+  ok(actionsOf(r8g.phases.intake, 'create').filter(function (a) { return a.issue === 44; }).length === 1 && taskOnDisk('gh-issue-44'), 'secret #44: rewriting the values as placeholders converts the edited Issue');
+  var cPh = issues.issueToTask(cfg, { number: 906, title: 'TASK: placeholder parse', body: 'Objective: parse-level check of the gate.\n\nAPI_KEY=<EXAMPLE_VALUE>\nTOKEN=<EXAMPLE_TOKEN>', html_url: 'u', user: { login: 'x' }, labels: [{ name: 'task' }] }, 1);
+  ok(cPh.task && cPh.secret === false, 'parse: placeholder examples accepted by issueToTask');
+  var cPr = issues.issueToTask(cfg, { number: 907, title: 'TASK: prose parse', body: 'Objective: parse-level check of the gate.\n\nSECRET: safe/redacted', html_url: 'u', user: { login: 'x' }, labels: [{ name: 'task' }] }, 1);
+  ok(!cPr.task && cPr.secret === true && /`SECRET` at body line 3/.test(cPr.errors[0]) && /<EXAMPLE_TOKEN>/.test(cPr.errors[1]), 'parse: prose value refused with key/line and placeholder guidance');
+
   // --- 9. dry-run, --only, guards ------------------------------------------------------------------
   addIssue(18, { body: 'Objective: dry-run fixture; must not be converted by a dry run.' });
   var headBefore = git(bcfg.controlDir, ['rev-parse', 'HEAD']);

@@ -75,7 +75,7 @@ Rules the adapter applies (they are the bridge's rules, reused):
 | `Action: deploy` or any other value | rejected with a comment; nothing runs (the action set is closed, see bridge §4) |
 | `Model:` present (`Model: Opus`, `## Model: Fable 5.1`, `النموذج: Sonnet`, or label `model:opus`) | that model runs, never a substitute; `model_raw` / `model_source` are recorded. Unknown name → rejected with the accepted list. Known but **not available on this host** → the task is created with the explicit choice kept and the bridge stops it at claim as **`MODEL_UNAVAILABLE`** (BLOCKED, structured report naming requested / available / actual model, no executor task, never retried automatically) — it is never replaced by Haiku/Sonnet/Opus. `Fable 5.1` is available on this host since 2026-09-03 (verified `claude --model claude-fable-5-1`) |
 | `Model:` missing | the executor scores the task and picks Haiku, Sonnet or Opus; Fable is never chosen automatically. The created comment says so, and the report names the model and the reason |
-| secret-shaped string anywhere (token, key, password=…, DB URL…) | rejected with a comment that names the kind, never the value; no task file; label `mythos:invalid` |
+| secret-shaped string anywhere (token, key, `password=…`, DB URL…, fenced code blocks included) | rejected with a comment that names the kind, the assignment **key** and the **line** — never the value; no task file; label `mythos:invalid`. `KEY=<EXAMPLE_VALUE>` style placeholders are not secrets — see [Secrets and placeholders](#secrets-and-placeholders) |
 | `Depends on: #N` | maps to `gh-issue-N`; the bridge does not claim the task until that task is COMPLETED |
 | one Issue → one task | `gh-issue-<n>`. To run again after a fix, add the label `rerun` → `gh-issue-<n>-r2`, a NEW independent task; the previous attempt and its report are never touched |
 | `rerun` while the previous attempt is still ACTIVE | deferred, **label kept**: two attempts of one Issue never run at once. One `rerun_deferred` comment says so, and the request converts on the first tick after that attempt reaches a terminal status |
@@ -176,6 +176,8 @@ read empty. Both paths silently produced `requested_action=investigate → repo-
   `redact` (belt: `safeBody` drops any line the redaction still flags). The systemd drop-in binds the deploy-owned
   0600 file **by reference** (`bridge/systemd/mythos-github-bridge.service.d/issues.conf.example`).
 - **Issues never carry credentials:** a secret-shaped title/body is rejected before anything is written.
+  The rejection locates each hit by kind, key and line so an example can be rewritten as a placeholder
+  (below); the matched value is never echoed.
 - **No execution without `task` + open**, no PRs, no closed Issues; `--only` and `MYTHOS_ISSUES_ONLY` restrict a run.
 - **Scope:** only `control/` is ever committed (`CONTROL_COMMIT_SCOPE`), explicit paths, never `git add .`;
   the adapter never pushes (root relay), never merges, never touches `main` or the shared checkout; task
@@ -217,3 +219,25 @@ bridge's task schema must know (same commit), so enable the drop-in only after `
 - Regression fixtures for the 2026-09-03 root fix: `tests/fixtures/github-issues/issue-{111,114,117,118}.json`
   (captured public payloads) are asserted to resolve to `implement` → `repo-write` (and `Fable 5.1` for #117/#118)
   by `tests/bridge-action-resolution-test.js` and the Issues suite.
+
+## Secrets and placeholders
+
+The intake scans the title and the whole body (fenced code blocks included) with the shared classifier
+`projects/mythos-orchestrator/lib/redact.js` — the same one the bridge validator, the task runner and every
+log/comment writer use. Provider shapes (`ghp_…`, `sk-ant-…`, `AKIA…`, JWTs, private-key blocks, `postgres://u:p@…`)
+are always secrets. For `KEY=VALUE` / `KEY: VALUE` where the key looks like a credential name
+(`…PASSWORD…`, `…SECRET…`, `…TOKEN…`, `…API_KEY…`, `…PRIVATE_KEY…`, `…ACCESS_KEY…`, `…CREDENTIAL…`) the **value** decides:
+
+| value written as | classified | example |
+|---|---|---|
+| `<…>` placeholder | documentation | `API_KEY=<EXAMPLE_VALUE>`, `TOKEN: <token from @BotFather>`, `Secrets: <none>` |
+| `${VAR}` / `$VAR` / `{{ … }}` / `%VAR%` reference | documentation | `PASSWORD=${DB_PASSWORD}` |
+| `[LABEL]` mask | documentation | `PASSWORD=[REDACTED]` (what the redaction itself writes) |
+| `***`, `xxxx`, empty | documentation | `TOKEN=***`, `API_KEY=` |
+| anything else | **credential material → rejected** | `TOKEN: configured`, `Secrets: safe/redacted`, `PASSWORD=hunter2`, `API_KEY=AbCd…` |
+
+There is deliberately **no list of safe words**: a word that passes (`configured`, `none`, `fixed`, `safe`) is a
+password that passes. A placeholder wrapper around pasted material is not a placeholder either
+(`TOKEN=<AbCdEf0123456789XyZw>` is rejected). Status lines in a task or report therefore read
+`🔐 Secrets: <none>` rather than `🔐 Secrets: safe/redacted`. A rejected Issue can simply be edited — the adapter
+re-evaluates it on the next tick — but a real credential must be rotated and the Issue re-opened as a new one.
