@@ -118,6 +118,16 @@
         "at": "2026-09-05T03:25:25.004Z",
         "existed": false,
         "executor_task_id": "t-20260905032523-h3wgnp"
+      },
+      "report": {
+        "comment_id": 5549043031,
+        "url": "https://github.com/othoth77/mythos-prod/issues/178#issuecomment-5549043031",
+        "at": "2026-09-05T03:27:54.542Z",
+        "existed": false,
+        "status": "HUMAN_APPROVAL",
+        "control_status": "BLOCKED",
+        "report_file": "control/reports/gh-issue-178.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -125,7 +135,8 @@
         "mythos:queued"
       ],
       "removed": []
-    }
+    },
+    "issue_state": "HUMAN_APPROVAL"
   },
   "execution": {
     "executor_task_id": "t-20260905032523-h3wgnp",
