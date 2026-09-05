@@ -2,6 +2,16 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-05 — MYTHOS-COMMS-2 — Inbound Receiver (#202): **DEPLOYED, OFF (dry-run capable)**
+
+| Item | State |
+|---|---|
+| Governance | Issue #202 (`Action: review`, `Depends on: #197`, bridge-captured). PR #203 (`mythos/comms-2-receiver-20260905`) **merged** → `origin/main 6631b6e`. |
+| Delivered | `projects/mythos-wp/reference/comms/providers/evolution.js` (normalisation + redaction), `reference/comms/core.js` (transactional exactly-once ingest), `reference/comms/receiver.js` (+ mount in `server.js` before session logic), migration `0002_inbound_events` (ledger / dead-letter), `tests/mythos-wp-comms-receiver-test.js`, architecture §7, README section. |
+| Tests | receiver **61/0** · schema **62/0** · wp **306/0** (deploy, `mythos_wp_test`). Security assertions: no apikey / mediaKey / token / message text in stored raw, dead-letter or logs; world-readable token file refused; oversize body cut. |
+| Deployment (Gate 2) | main worktree advanced to `6631b6e`, `migrate up` applied `0002_inbound_events` on production `mythos_wp` (20 tables), `mythos-wp.service` restarted, `/healthz` 200. `MYTHOS_WP_RECEIVER_ENABLED` **absent** → `POST /hooks/evolution` answers **404** on loopback and on the public host; `wp_messages` 0, `wp_inbound_events` 0. No Evolution webhook exists; no customer traffic can be processed. |
+| Next | MYTHOS-COMMS-3 — customer Evolution instance (`ssangyong-autos`), webhook token + env on the host, per-instance webhook to the loopback receiver, inbox row with `inbound_enabled=false` (dry-run); pairing needs the owner's phone and a dedicated customer number (owner decision, Gate 3). |
+
 ## 2026-09-05 — MYTHOS-COMMS-1 — Communication Core Foundation (#197): **DEPLOYED**
 
 | Item | State |
