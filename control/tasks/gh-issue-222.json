@@ -135,6 +135,16 @@
         "url": "https://github.com/othoth77/mythos-prod/issues/222#issuecomment-5554053712",
         "at": "2026-09-05T18:55:00.261Z",
         "existed": false
+      },
+      "report": {
+        "comment_id": 5554641865,
+        "url": "https://github.com/othoth77/mythos-prod/issues/222#issuecomment-5554641865",
+        "at": "2026-09-05T20:40:43.339Z",
+        "existed": false,
+        "status": "CANCELLED",
+        "control_status": "CANCELLED",
+        "report_file": null,
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -146,6 +156,7 @@
     "cancelled_from_issue": {
       "at": "2026-09-05T20:39:22.901Z",
       "reason": "issue closed"
-    }
+    },
+    "issue_state": "CANCELLED"
   }
 }
