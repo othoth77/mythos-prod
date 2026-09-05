@@ -173,6 +173,9 @@ R=$(code -X POST -H "Cookie: $COOKIE" -H 'content-type: application/json' "$B/se
 check "POST without CSRF header is refused (401/403)" "[ $R = 403 ] || [ $R = 401 ]" "$R $(cat $J)"
 R=$(code -X POST -H "Cookie: $COOKIE" -H "x-csrf-token: $CSRF" "$B/auth/logout"); check "logout → 200 and cookie cleared" "[ $R = 200 ] && grep -qi 'Max-Age=0' $H" "$R $(grep -i set-cookie $H)"
 R=$(code -H "Cookie: $COOKIE" "$B/session");            check "session invalid after logout → 401" "[ $R = 401 ]" "$R"
+head -c 1100000 /dev/zero | tr '\0' 'a' > "$WORK/big"
+R=$(code -X POST "$B/auth/login" -H 'content-type: application/json' -H 'Expect:' --data-binary "@$WORK/big"); check "1.1 MiB body → 413 (declared length)" "[ $R = 413 ]" "$R"
+R=$(code "$B/health");                                 check "server healthy after oversize refusal" "[ $R = 200 ]" "$R"
 AUD_OK=$(q "select count(*) filter (where action='login.failure')>=1 and count(*) filter (where action='login.success')=1 and count(*) filter (where action='logout')=1 and count(*) filter (where action='permission.denied')>=1 from audit_log")
 check "audit trail exact: login.failure ≥1, login.success 1, logout 1 (no spurious rows), permission.denied ≥1" "[ $AUD_OK = t ]" "$(q 'select action, count(*) from audit_log group by 1' | tr '\n' ' ')"
 N_ANON=$(q "select count(*) from audit_log where actor_label='anonymous'")
