@@ -17,7 +17,7 @@
   "action_raw": "investigate",
   "action_source": "default",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-05T03:34:00.362Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #178 https://github.com/othoth77/mythos-prod/issues/178 — \"MYTHOS — Post-Merge Telegram Activation\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). — not inherited: previous attempt gh-issue-178 was defaulted, not decided — a default is not inherited → execution profile repo-read\n\n[التنفيذ المطلوب]\nبعد التأكد أن PR #175 تم دمجه، نفّذ فقط:\n\n```bash\nsudo -u deploy git -C /home/deploy/projects/mythos-prod pull --ff-only origin main\n```\n\nثم تحقّق من:\n- local `main` يطابق `origin/main`\n- Telegram Production configuration مازالت enabled\n- `telegram-check` ينجح\n- لا يوجد Telegram webhook\n- لا يوجد `409 Conflict`\n- bridge/timer healthy\n- WhatsApp untouched\n\n[الاختبار الحي]\nلا ترسل رسالة اختبار مصطنعة.\nاترك الـsingle pending Telegram update تتم معالجته طبيعيًا من Production كـlive E2E test.\n\nتحقق من lifecycle: queued → started → report.\n\n[التقرير النهائي]\nأرسل تقريرًا مختصرًا بهذا الشكل:\n\n🟢 main synchronized\n🟢 Telegram active\n🧪 pending TASK result\n🔐 secret safe\n📌 remaining action, if any\n\nوسجّل أي blocker حقيقي بدل تجاوز Governance.",
@@ -159,8 +159,8 @@
     "claimed_at": "2026-09-05T03:34:06.894Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "058f375f1378421da9f34b7caed3c13d2d147d3f0f570f1dd16554ab27a07bfc",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-05T03:35:21.759Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-05T03:38:02.492Z",
     "snapshot_sha256": "d4121e089ad6c6a7134b814c166903afa435806680910f0dd56844618750fe71",
     "fence": 5838,
     "lease": {
@@ -189,7 +189,8 @@
     },
     "model": "claude-haiku-4-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "3b490e5d-1b42-4ac7-9140-2a14ffe8321e"
+    "claude_session_id": "3b490e5d-1b42-4ac7-9140-2a14ffe8321e",
+    "report_file": "control/reports/gh-issue-178-r2.json"
   },
   "history": [
     {
@@ -205,6 +206,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-05T03:38:01.926Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-05T03:38:02.492Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 11 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
