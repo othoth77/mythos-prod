@@ -16,6 +16,7 @@ import { reportsView } from './views/reports.js';
 import { settingsView, usersView, auditView } from './views/admin.js';
 import { accountingView } from './views/accounting.js';
 import { agendaView } from './views/agenda.js';
+import { documentsView } from './views/documents.js';
 
 /* Module → what the view shows. A module with several resources gets tabs. */
 const MODULES = {
@@ -142,10 +143,7 @@ function route(r) {
     }
     if (res === 'invoices') return invoicesView(body, r.id);
     if (res === 'settings') return settingsView(body);
-    if (res === 'documents') {
-      body.appendChild(h('div', { class: 'notice' }, h('strong', { text: 'Dépôt de fichiers non disponible. ' }),
-        'Le pipeline de documents sécurisé est une phase ultérieure ; cette vue liste seulement les enregistrements existants.'));
-    }
+    if (res === 'documents') return documentsView(body);
     resourceView(res, body);
   } catch (e) { body.appendChild(errorBox('Cette vue n\'a pas pu s\'afficher.', () => route(r), String(e && e.message))); }
 }
