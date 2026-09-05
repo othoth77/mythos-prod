@@ -23,7 +23,7 @@
   "action_raw": "investigate",
   "action_source": "default",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-05T03:02:27.335Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #177 https://github.com/othoth77/mythos-prod/issues/177 — \"Telegram Task Lifecycle Notifications\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[أمثلة]\n🟡 TASK #177 — تم إنشاء المهمة: تحسين رسائل Telegram.\n\n🔵 TASK #177 — بدأ التنفيذ.\n🤖 Claude Haiku 4.5\n\n🟢 TASK #177 — تم التنفيذ.\nالنتيجة: تم تحسين الرسائل بنجاح.\n\n🔴 TASK #177 — لم تكتمل.\nالسبب: الخدمة غير متاحة.\n👉 المطلوب: تشغيل الخدمة.\n\n[الاعتماد]\nهذه المهمة تعتمد على اكتمال TASK #176 أولًا.",
@@ -153,8 +153,8 @@
     "claimed_at": "2026-09-05T03:02:31.307Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "cf4d927089d17c46c4fc4d5049cc64428a585544e11ac1431a3832c70c5225e2",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-05T03:03:50.691Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-05T03:05:00.960Z",
     "snapshot_sha256": "589afe598abaa9e3eab9fd0c79787d84e2d6bbce3a2e118adef4c50c1fe5838c",
     "fence": 5735,
     "lease": {
@@ -183,7 +183,8 @@
     },
     "model": "claude-haiku-4-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "f92dfc0d-55ca-4b83-9324-8c5da9155c19"
+    "claude_session_id": "f92dfc0d-55ca-4b83-9324-8c5da9155c19",
+    "report_file": "control/reports/gh-issue-177.json"
   },
   "history": [
     {
@@ -199,6 +200,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-05T03:05:00.400Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-05T03:05:00.960Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 4 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }

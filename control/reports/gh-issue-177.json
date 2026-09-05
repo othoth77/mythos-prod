@@ -1,0 +1,126 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-177",
+  "attempt_id": "gh-issue-177#1",
+  "status": "COMPLETED",
+  "summary": "Investigated gh-issue-177 (Telegram Task Lifecycle Notifications). Found that MYTHOS-TELEGRAM-0 (complete Telegram channel adapter with full task lifecycle notifications) was implemented on branch mythos/telegram-channel-20260905 and live-tested 2026-09-05 with all 66 tests passing and E2E verification confirmed. The feature sends queued/started/report notifications back to Telegram chats showing task ID, status, summary, tests, and results. Branch is not yet merged to main; production deployment awaits owner provisioning of bot token and systemd drop-in installation.",
+  "resolution": {
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "default",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "model_requested": null,
+    "model_key": null,
+    "model": "claude-haiku-4-5",
+    "model_source": "none",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:fast→haiku score=-1 [simplicity_terms(بسيط)-1]",
+    "base_sha": "a3be0a0ba346366886a758ec01f1a089a8668051",
+    "branch": "mythos/gh/gh-issue-177",
+    "commit_sha": null
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "0e852103f050880921e5ac81669ffee24185a3ca",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "a3be0a0ba346366886a758ec01f1a089a8668051",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": true,
+    "code": "RUNTIME_STALE_CHECKOUT",
+    "reason": "checkout HEAD 0e852103f050 is behind origin/main a3be0a0ba346 — the running bridge is older than what is delivered",
+    "measured_at": "2026-09-05T03:02:29.632Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Investigated gh-issue-177 (Telegram Task Lifecycle Notifications). Found that MYTHOS-TELEGRAM-0 (complete Telegram channel adapter with full task lifecycle notifications) was implemented on branch mythos/telegram-channel-20260905 and live-tested 2026-09-05 with all 66 tests passing and E2E verification confirmed. The feature sends queued/started/report notifications back to Telegram chats showing task ID, status, summary, tests, and results. Branch is not yet merged to main; production deployment awaits owner provisioning of bot token and systemd drop-in installation.",
+    "tests": [
+      "mythos-telegram-channel-test.js: 66/66 PASS (full suite)",
+      "live-e2e-2026-09-05: 3 replies delivered, status COMPLETED, secrets redacted",
+      "whatsapp-notify: 131/131 PASS (untouched)",
+      "github-bridge: 150/150 PASS (untouched)"
+    ],
+    "commit": null,
+    "remote_head": "a3be0a0ba346366886a758ec01f1a089a8668051",
+    "files_changed": [],
+    "residual_risks": [
+      "Bot token must be rotated and provisioned by owner (current token in GitHub history exposed)",
+      "Branch not merged to main yet — production still runs without Telegram support",
+      "Systemd drop-in not installed — timer runs from old checkout without Telegram code"
+    ],
+    "next_stage": "Owner merges mythos/telegram-channel-20260905 to main, rotates bot token, installs telegram.conf drop-in, verifies with telegram-config and telegram-check, then production bridge tick will send lifecycle notifications to Telegram"
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "mythos-telegram-channel-test.js: 66/66 PASS (full suite)",
+    "live-e2e-2026-09-05: 3 replies delivered, status COMPLETED, secrets redacted",
+    "whatsapp-notify: 131/131 PASS (untouched)",
+    "github-bridge: 150/150 PASS (untouched)"
+  ],
+  "validation": {
+    "git_verified": null,
+    "remote_head": null,
+    "report_problems": [],
+    "required_checks": []
+  },
+  "problems": [],
+  "risks": [
+    "Bot token must be rotated and provisioned by owner (current token in GitHub history exposed)",
+    "Branch not merged to main yet — production still runs without Telegram support",
+    "Systemd drop-in not installed — timer runs from old checkout without Telegram code"
+  ],
+  "next_recommended_action": "Owner merges mythos/telegram-channel-20260905 to main, rotates bot token, installs telegram.conf drop-in, verifies with telegram-config and telegram-check, then production bridge tick will send lifecycle notifications to Telegram",
+  "completed_at": "2026-09-05T03:05:00.859Z",
+  "execution": {
+    "executor_task_id": "t-20260905030231-jacu04",
+    "othmode_task_id": "OTH-2026-00174",
+    "execution_profile": "repo-read",
+    "provider": "claude-code",
+    "model": "claude-haiku-4-5",
+    "model_requested": null,
+    "model_source": "none",
+    "action_source": "default",
+    "action_raw": "investigate",
+    "attempt_id": "gh-issue-177#1",
+    "fence": 5735,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:1237977",
+      "fence": 5735,
+      "acquired_at": "2026-09-05T03:02:31.307Z",
+      "expires_at": "2026-09-05T04:32:31.307Z"
+    },
+    "snapshot_sha256": "589afe598abaa9e3eab9fd0c79787d84e2d6bbce3a2e118adef4c50c1fe5838c",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:fast→haiku score=-1 [simplicity_terms(بسيط)-1]",
+    "claude_session_id": "f92dfc0d-55ca-4b83-9324-8c5da9155c19",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-05T03:02:34.490Z",
+    "ended_at": "2026-09-05T03:04:27.687Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 0.455301,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-177",
+    "branch": "mythos/gh/gh-issue-177",
+    "base_commit": "a3be0a0ba346366886a758ec01f1a089a8668051",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-177",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
