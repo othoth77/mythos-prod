@@ -50,6 +50,26 @@ without touching WhatsApp. Branch `mythos/gh/gh-issue-180` (base `6541cd8`); del
 | Not done / owner action | **Nothing deployed.** Both new sinks are off by default (`MYTHOS_TELEGRAM_NOTIFY_ENABLED`, `MYTHOS_PR_NOTIFY_ENABLED`); no drop-in was installed, no unit restarted, no live Telegram message was sent. Turning them on in production is an owner decision + a systemd drop-in (same pattern as `docs/MYTHOS_TELEGRAM_CHANNEL.md` §6/§9.3), then merge to `main`. |
 | Governance | No `git push` run; nothing under `control/` touched; no governance-protected path touched (`bridge/notify/telegram-notify.js`, `bridge/github-prs.js` are new, ordinary files; `redact.js`, `.github/`, executor policy/budget/service files untouched). |
 
+## GH-INTAKE-REDACTION — GitHub Issue secret intake: explicit placeholder contract (2026-09-05, Fable 5.1)
+
+**Objective.** Issues #180 and #185 were rejected by the Issues adapter as `secret-shaped string (assigned-secret)` although
+neither carried a credential: prose status lines (`🔐 Secrets: safe/redacted`) and backticked examples (`TOKEN: configured`)
+are `KEY: VALUE` assignments to the shared classifier. Restore a reliable GitHub Issue → TASK intake without weakening the
+scanner. Tracked by Issue #185 (diagnosis task, never converted to a control task; superseded by this stage).
+
+| Item | State |
+|---|---|
+| Root cause | (1) the production checkout was still at `c54dbd1`, so PR #184 never ran; (2) PR #184's `findSecretKinds()` re-executed a non-global regex in a `while` loop and hung forever on the first accepted assignment (both Issue bodies hang it); (3) PR #184 was a safe-word allowlist (`configured`, `none`, `fixed`, `safe/redacted`…) — any password equal to a listed word would pass. VERIFIED |
+| Fix | PR #186 (`99ed3ca`, merged as **`6541cd8`**, 2026-09-05 09:45 UTC). `projects/mythos-orchestrator/lib/redact.js`: a `KEY=VALUE` value is credential material **unless** written as a structural placeholder (`<…>`, `${VAR}`/`$VAR`, `{{…}}`, `%VAR%`, `[LABEL]`, `***`, empty); a placeholder wrapper around pasted material (`<AbCd0123…>`) is still a secret; provider patterns unchanged; **no safe-word list**. `findSecretKinds` / `redact` / `redactValue` share one classifier (`findSecretKinds(redact(x))` empty, `redact` idempotent, `KEY=[REDACTED]` round-trips). New `findSecretMatches()` → `{kind, key, line}`, never the value. `bridge/github-issues.js`: the rejection names kind + key + line and states the placeholder syntax; scan scope unchanged (title + body, fenced blocks included). `docs/MYTHOS_GITHUB_ISSUES.md` §Secrets and placeholders. |
+| Changed files | `projects/mythos-orchestrator/lib/redact.js`, `projects/mythos-ai-executor/bridge/github-issues.js`, `docs/MYTHOS_GITHUB_ISSUES.md`, `tests/redact-governance-false-positive-test.js` (rewritten to the placeholder contract), `tests/mythos-github-issues-test.js` (+15 intake cases) |
+| Targeted tests (as deploy, 2026-09-05) | `redact-governance-false-positive` PASS 199 checks (hung on `83f9670`) · `mythos-github-issues` 208/0 · `mythos-github-bridge` 150/0 · `mythos-governance-invariant` 111/0 · `mythos-telegram-channel` 68/0 · `mythos-orchestrator-0` 156/0 · `mythos-orchestration-core` 257/0 · `mythos-ai-executor` 390/0 · `mythos-auto-comms` 113/0 · `mcp-ecosystem` 168/0 · `bridge-action-resolution` 88/0. Full suite not rerun (targeted suites cover every changed file). |
+| Production / runtime | Checkout `/home/deploy/projects/mythos-prod` fast-forwarded to `6541cd8` at 09:50:48 UTC (`pull --ff-only`, owner). The 09:52 bridge tick already emitted the new kind/key/line rejections for the open Issues (existing comments reused, none reposted). `mythos-github-bridge runtime`: `stale: false`, `verified: true`. No unit restarted (oneshot timer). Deployed = main. |
+| Intake proven live | #180, after the owner-authorised body edit (`🔐 Secrets: <none>` + `Action: implement`, `rerun` label removed as it had no attempt behind it), converted at 10:02:01 → claimed 10:02:06 → executor → report 10:22:43 with no manual step (see the GH-ISSUE-180 entry above). |
+| Contract consequence | `TOKEN: configured`, `SECRET: safe/redacted`, `API_KEY: not required`, `Secrets: safe/redacted` are **rejected by design**; status lines read `🔐 Secrets: <none>`. #185 section 3 asked for the opposite expectation and is superseded, not met; #185's own body still carries four such lines (body lines 24–26, 65) and stays `mythos:invalid` until edited or closed. |
+| Known limitations | The JSON-key form `"api_key": "…"` was never matched by the assignment pattern (pre-existing, unchanged). `<LABEL_WITH_DIGITS_2024>` longer than 16 chars with letters+digits is treated as pasted material. |
+| Worktree state | `/home/deploy/worktrees/github-intake-redaction` on `fix/github-intake-redaction-20260905` = `99ed3ca`, clean; branch fully merged. |
+| Next stage | Owner closes #185 as superseded by PR #186 (suggested wording in this stage's report); #180 continues on `mythos/gh/gh-issue-180` (unmerged, not activated). |
+
 ## MYTHOS-TELEGRAM-0 — production activation: lifecycle notifications, owner-facing text (2026-09-05, Fable 5.1)
 
 Branch `mythos/telegram-channel-20260905` → PR #175 → `main` (owner instruction: "Activate Telegram Lifecycle
