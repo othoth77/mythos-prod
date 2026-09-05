@@ -28,6 +28,7 @@ var autoreply = require('./autoreply');
 var receiver = require('./comms/receiver');
 var inbox = require('./comms/inbox');
 var outbound = require('./comms/outbound');
+var assistant = require('./comms/assistant');
 var commsBus = require('./comms/bus');
 
 var VERSION = require('../package.json').version;
@@ -313,6 +314,30 @@ var ROUTES = [
   { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/messages$/, role: 'any', handler: function (req, res, ctx) {
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { var qq = q(req); return inbox.listMessages(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), { before_id: qq.before_id, limit: qq.limit }); });
   } },
+  // --- AI assistant (suggest-only) ------------------------------------
+  { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/suggest$/, role: 'operator', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
+      var cid = parseInt(ctx.params[2], 10);
+      return assistant.suggest(db.wp(), resolved, cid, req.session.username, { message_id: ctx.body && ctx.body.message_id, trigger: 'manual' }).then(function (out) {
+        ctx.status(201);
+        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'create', resource: 'ai_runs', record_id: String(out.run_id), project_id: resolved.project.id, next: { conversation_id: cid, decision: out.decision, intent: out.intent, confidence: out.confidence }, request_id: req.requestId, client: req.socket.remoteAddress }).catch(function () {});
+        return out;
+      });
+    });
+  } },
+  { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/suggestions$/, role: 'any', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return assistant.listSuggestions(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10)); });
+  } },
+  { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/suggestions\/([0-9]+)\/decide$/, role: 'operator', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
+      var cid = parseInt(ctx.params[2], 10), sid = parseInt(ctx.params[3], 10);
+      return assistant.decide(db.wp(), resolved.project.id, cid, sid, req.session.username, ctx.body || {}).then(function (out) {
+        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'update', resource: 'ai_suggestions', record_id: String(sid), project_id: resolved.project.id, next: { action: (ctx.body || {}).action, conversation_id: cid }, request_id: req.requestId, client: req.socket.remoteAddress }).catch(function () {});
+        return out;
+      });
+    });
+  } },
+
   { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/messages$/, role: 'operator', handler: function (req, res, ctx) {
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
       var cid = parseInt(ctx.params[2], 10);
