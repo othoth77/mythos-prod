@@ -1,0 +1,138 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-193",
+  "attempt_id": "gh-issue-193#1",
+  "status": "COMPLETED",
+  "summary": "Used this task's own live lifecycle as the verification vehicle instead of creating a separate test task. Confirmed via two independent host-side sources (bridge/events.log and bridge/telegram-events/ledger.json, both outside this worktree, read-only) that the unified Telegram notifier from PR #189 actually sent the 'created' and 'claimed' events for gh-issue-193 to the one allowlisted recipient, each with a real Telegram message_id. The 'report/completion' event cannot be observed within this same session by construction (it fires only after the bridge closes this task from this final report) — the exact ledger key to check afterward is documented. Code review of bridge/notify/telegram-events.js confirmed stripInternal() strips executor/OTHMODE/execution ids and paths from every outbound message, and that only the public GitHub issue number (never an internal id) is used as the event identifier; this matches the existing 52/52 test suite. Confirmed MYTHOS_PR_WATCH_ENABLED remains unset/unchanged and WhatsApp sending config was not touched. No files were edited and no commits were made, consistent with the repo-read/investigate execution profile. Posting the verification result as comments on Issues #187 and #177 is a GitHub write action outside this profile's scope and is left for the owner/bridge after this task closes.",
+  "resolution": {
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "model_requested": null,
+    "model_key": null,
+    "model": "claude-sonnet-5",
+    "model_source": "none",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=2 [complexity_terms(security)+1 required_tests>=3+1]",
+    "base_sha": "a929a156781dd1c9867a78fc626c7e3a351ad975",
+    "branch": "mythos/gh/gh-issue-193",
+    "commit_sha": null
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "a929a156781dd1c9867a78fc626c7e3a351ad975",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "a929a156781dd1c9867a78fc626c7e3a351ad975",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-05T13:22:43.542Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Used this task's own live lifecycle as the verification vehicle instead of creating a separate test task. Confirmed via two independent host-side sources (bridge/events.log and bridge/telegram-events/ledger.json, both outside this worktree, read-only) that the unified Telegram notifier from PR #189 actually sent the 'created' and 'claimed' events for gh-issue-193 to the one allowlisted recipient, each with a real Telegram message_id. The 'report/completion' event cannot be observed within this same session by construction (it fires only after the bridge closes this task from this final report) — the exact ledger key to check afterward is documented. Code review of bridge/notify/telegram-events.js confirmed stripInternal() strips executor/OTHMODE/execution ids and paths from every outbound message, and that only the public GitHub issue number (never an internal id) is used as the event identifier; this matches the existing 52/52 test suite. Confirmed MYTHOS_PR_WATCH_ENABLED remains unset/unchanged and WhatsApp sending config was not touched. No files were edited and no commits were made, consistent with the repo-read/investigate execution profile. Posting the verification result as comments on Issues #187 and #177 is a GitHub write action outside this profile's scope and is left for the owner/bridge after this task closes.",
+    "tests": [
+      "telegram created event: CONFIRMED via bridge/events.log + telegram-events ledger (real message_id)",
+      "telegram claimed event: CONFIRMED via bridge/events.log + telegram-events ledger (real message_id)",
+      "telegram report/completion event: PENDING (fires only after this task's closure; ledger key gh-issue-193:report documented for post-hoc check)",
+      "redaction/no-leak: CONFIRMED via source review of stripInternal() (EXECUTOR_ID_RE/OTHMODE_ID_RE/EXECUTION_ID_RE/PATH_RE) applied to every outbound message, plus existing 52/52 suite",
+      "PR watch unchanged: CONFIRMED (MYTHOS_PR_WATCH_ENABLED absent from every production drop-in, zero pr:* events in bridge/events.log)",
+      "WhatsApp unchanged: CONFIRMED (no edits made to bridge/notify/whatsapp.js or its drop-in by this session)",
+      "scope: CONFIRMED (git status clean, zero files changed)"
+    ],
+    "commit": "a929a156781dd1c9867a78fc626c7e3a351ad975",
+    "remote_head": "a929a156781dd1c9867a78fc626c7e3a351ad975",
+    "files_changed": [],
+    "residual_risks": [
+      "Telegram 'report/completion' event for gh-issue-193 is unverified as of this report; must be checked post-closure against bridge/telegram-events/ledger.json key gh-issue-193:report",
+      "Recording the verification outcome on Issues #187/#177 requires a GitHub write action outside this investigate profile and has not been performed",
+      "Unrelated observation: the WhatsApp (evolution) notify channel is actively delivering messages in production despite older docs describing it as disabled — not caused by or changed in this task, flagged for owner awareness only"
+    ],
+    "next_stage": "Owner/bridge: after this task reaches a terminal status, check bridge/telegram-events/ledger.json for key gh-issue-193:report to confirm the third event, then post the three-event verification summary as comments on Issues #187 and #177."
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "telegram created event: CONFIRMED via bridge/events.log + telegram-events ledger (real message_id)",
+    "telegram claimed event: CONFIRMED via bridge/events.log + telegram-events ledger (real message_id)",
+    "telegram report/completion event: PENDING (fires only after this task's closure; ledger key gh-issue-193:report documented for post-hoc check)",
+    "redaction/no-leak: CONFIRMED via source review of stripInternal() (EXECUTOR_ID_RE/OTHMODE_ID_RE/EXECUTION_ID_RE/PATH_RE) applied to every outbound message, plus existing 52/52 suite",
+    "PR watch unchanged: CONFIRMED (MYTHOS_PR_WATCH_ENABLED absent from every production drop-in, zero pr:* events in bridge/events.log)",
+    "WhatsApp unchanged: CONFIRMED (no edits made to bridge/notify/whatsapp.js or its drop-in by this session)",
+    "scope: CONFIRMED (git status clean, zero files changed)"
+  ],
+  "validation": {
+    "git_verified": true,
+    "remote_head": "a929a156781dd1c9867a78fc626c7e3a351ad975",
+    "report_problems": [],
+    "required_checks": [
+      "حدث created وصل إلى Telegram.",
+      "حدث claimed وصل إلى Telegram.",
+      "حدث report/completion وصل إلى Telegram.",
+      "لا يوجد تسريب لـ execution_id أو Executor ID أو OTHMODE numeric ID أو المسارات الداخلية أو الأسرار.",
+      "لا توجد تغييرات خارج نطاق التحقق."
+    ]
+  },
+  "problems": [],
+  "risks": [
+    "Telegram 'report/completion' event for gh-issue-193 is unverified as of this report; must be checked post-closure against bridge/telegram-events/ledger.json key gh-issue-193:report",
+    "Recording the verification outcome on Issues #187/#177 requires a GitHub write action outside this investigate profile and has not been performed",
+    "Unrelated observation: the WhatsApp (evolution) notify channel is actively delivering messages in production despite older docs describing it as disabled — not caused by or changed in this task, flagged for owner awareness only"
+  ],
+  "next_recommended_action": "Owner/bridge: after this task reaches a terminal status, check bridge/telegram-events/ledger.json for key gh-issue-193:report to confirm the third event, then post the three-event verification summary as comments on Issues #187 and #177.",
+  "completed_at": "2026-09-05T13:29:02.657Z",
+  "execution": {
+    "executor_task_id": "t-20260905132244-9t9bdt",
+    "othmode_task_id": "OTH-2026-00181",
+    "execution_profile": "repo-read",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": null,
+    "model_source": "none",
+    "action_source": "explicit_current_issue",
+    "action_raw": "investigate",
+    "attempt_id": "gh-issue-193#1",
+    "fence": 8069,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:2924074",
+      "fence": 8069,
+      "acquired_at": "2026-09-05T13:22:44.455Z",
+      "expires_at": "2026-09-05T14:52:44.455Z"
+    },
+    "snapshot_sha256": "4dcbc4f4612b8b315217eb3aa25aad5ee4b20a06a4681de3fd66cf515cae61db",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=2 [complexity_terms(security)+1 required_tests>=3+1]",
+    "claude_session_id": "65fec338-0462-41fc-a158-abf7fea61b31",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-05T13:22:52.483Z",
+    "ended_at": "2026-09-05T13:28:11.224Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 1.424163,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-193",
+    "branch": "mythos/gh/gh-issue-193",
+    "base_commit": "a929a156781dd1c9867a78fc626c7e3a351ad975",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-193",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
