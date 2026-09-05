@@ -1,0 +1,130 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-176",
+  "project": "mythos-prod",
+  "objective": "تحسين Telegram في MYTHOS ليكون بسيطًا وواضحًا، مع إبقاء المعلومات المهمة فقط.",
+  "scope": [
+    "رسائل قصيرة وواضحة وغير تقنية للمستخدم.",
+    "عند الاستلام: تأكيد مختصر.",
+    "أثناء التنفيذ: حالة مختصرة.",
+    "عند النجاح: نتيجة مفهومة في 2–5 أسطر كحد أقصى.",
+    "عند وجود مشكلة: شرح بسيط + ما المطلوب من المالك فقط.",
+    "إظهار Claude/model فقط عندما تكون المعلومة مفيدة، مع إخفاء التفاصيل الداخلية غير المفيدة.",
+    "عدم عرض رقم OTHMODE أو Executor IDs أو المسارات الداخلية في Telegram؛ يمكن وصف OTHMODE باختصار كطبقة حماية/مراقبة MYTHOS عند الحاجة.",
+    "إضافة تقرير حالة دوري لـ MYTHOS كل 6 ساعات يشمل RAM وCPU والخدمات الأساسية.",
+    "تنبيه فوري عند مشكلة مهمة، مع منع التكرار والإزعاج.",
+    "عند عودة الوضع طبيعيًا: رسالة مختصرة تفيد بأن الوضع عاد طبيعيًا."
+  ],
+  "constraints": [
+    "لا تغيّر WhatsApp، ولا تعيد تشغيل خدمات Production غير الضرورية، ولا ترسل رسائل اختبار إضافية إلى Telegram إلا إذا كانت ضرورية للتحقق. نفّذ الاختبارات المناسبة وسجّل النتيجة وفق حوكمة MYTHOS."
+  ],
+  "priority": "normal",
+  "requested_action": "investigate",
+  "action_raw": "investigate",
+  "action_source": "default",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-05T03:00:10.062Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #176 https://github.com/othoth77/mythos-prod/issues/176 — \"MYTHOS Telegram UX + System Monitor\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[قاعدة الرسائل]\nلا تُرسل تقارير تقنية طويلة إلى Telegram؛ التفاصيل الكاملة تبقى في REPORT/logs.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 176,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/176",
+    "issue_id": 5355133589,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPzDalQ",
+    "issue_title": "TASK: MYTHOS Telegram UX + System Monitor",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-05T02:59:14Z",
+    "issue_updated_at": "2026-09-05T02:59:14Z",
+    "issue_labels": [
+      "enhancement",
+      "task"
+    ],
+    "content_sha256": "5cc80a0355a11fc363b990a842225cc6ba1d927b1584fcda8299c3e60bf6434f",
+    "attempt": 1,
+    "attempt_id": "gh-issue-176#1",
+    "idempotency_key": "8876c72054db22ca6e76408bb8dfbec3ddc718065d4a0492d8e8850b08d3c76b",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "investigate",
+      "action_raw": "investigate",
+      "action_source": "default",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-05T03:00:10.063Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-05T03:00:10.063Z",
+        "event": "issue_received",
+        "reason": "open Issue #176 with label task",
+        "content_sha256": "5cc80a0355a11fc363b990a842225cc6ba1d927b1584fcda8299c3e60bf6434f"
+      },
+      {
+        "at": "2026-09-05T03:00:10.063Z",
+        "event": "action_resolved",
+        "reason": "default → investigate (raw \"investigate\")"
+      },
+      {
+        "at": "2026-09-05T03:00:10.063Z",
+        "event": "profile_resolved",
+        "reason": "investigate → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-05T03:00:10.063Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-05T03:00:11.423Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-176.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-05T03:00:10.063Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5548904139,
+        "url": "https://github.com/othoth77/mythos-prod/issues/176#issuecomment-5548904139",
+        "at": "2026-09-05T03:00:10.828Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
