@@ -21,6 +21,17 @@
 
 
 ## 2026-09-05 — PHASE 6 FRONTEND / API INTEGRATION: **FRONTEND=PASS** (Fable 5.1, 17:45–18:55 UTC)
+## 2026-09-05 — RESEARCH: MYTHOS Communication OS — Deep Research, Competitive Analysis & Reuse Architecture
+
+| Item | State |
+|---|---|
+| Artifact | `docs/research/MYTHOS_COMMUNICATION_OS_DEEP_RESEARCH_2026-09-05.md` (self-contained, 48 KB, 34 source URLs, 52 FACT/INFERENCE/RECOMMENDATION labels). Branch `mythos/research-comms-os-deep-20260905`, docs only. |
+| Scope | Repository reconnaissance (what exists after COMMS-1…8 / what is missing), primary-source review of Evolution API, Chatwoot, Evo CRM Community, Dify, n8n, Typebot, Twenty, EspoCRM, SuiteCRM, ERPNext/Frappe CRM, WAHA, WPPConnect, Venom, whatsapp-web.js, Baileys, whatsmeow, Meta Cloud API / Messenger-Instagram / Telegram Bot API; licensing from official LICENSE files; failure research from 24 issue threads; architecture comparison (7 options, scored); reuse matrix; target architecture; roadmap A–L; open owner questions. |
+| Decision | Hybrid: `CommunicationProvider` contract (Evolution first, Meta Cloud API second), native MYTHOS Communication Core + MYTHOS AI as system of record, native automation rules with n8n optional, Chatwoot/Evo CRM/Dify/Twenty/Typebot as references only. Score 8.6/10. |
+| Next task | MYTHOS-COMMS-9 — provider contract + event ledger hardening (identities incl. BSUID, provider-neutral events, reconciliation alarm, dead-letter replay, contract tests). Not implemented here. |
+| Production | untouched: no pairing, no Evolution/Telegram/systemd/migration change. |
+
+## 2026-09-05 — PHASE 6 FRONTEND / API INTEGRATION: **FRONTEND=PASS (pending merge)** (Fable 5.1, 17:45–19:00 UTC)
 
 | Item | Evidence |
 |---|---|
