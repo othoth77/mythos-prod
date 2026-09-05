@@ -2,7 +2,20 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
-## 2026-09-05 — PHASE 4 SUPER ADMIN: code fixed and proven; production bootstrap = owner TTY step — **AUTH=PENDING** (Fable 5.1, 16:20–16:40 UTC)
+## 2026-09-05 — PHASE 5 PRODUCTION API: built, env provisioned, awaiting merge to install — **API=PENDING** (Fable 5.1, 16:45–17:00 UTC)
+
+| Item | Evidence |
+|---|---|
+| Runtime role | **erp_app only.** `server.js` now queries `current_user` at start and **exits 3** for any other role (`erp_owner` bypasses RLS by ownership), **exits 2** if the database is unreachable; the unit's `RestartPreventExitStatus=2 3` stops a misconfiguration from restart-looping. |
+| Health → readiness | `GET /api/v1/health` runs `SELECT current_user, 1` through the request pool: `200 {ok:true, db:"ready", role:"erp_app"}` or `503 {ok:false, db:"not_ready"|"unreachable"}`. Liveness alone is never "ok". |
+| Environment | `/home/deploy/deployments/erp-api/.env` **created** (0600 deploy, dir 0750): `ERP_DATABASE_URL` = the **erp_app** URL copied from the root-only credential file by a `grep|sed` transform (value never displayed), `ERP_API_PORT=8787` (verified free). 0 occurrences of `erp_owner`. |
+| Unit | `sites/erp.mythosprod.xyz/deploy/erp-api.user.service` (deploy user manager, linger=yes, same hardening set as mythos-wp / command-center / storefront): `WorkingDirectory`+`ExecStart` on the **main checkout**, `EnvironmentFile` above, `NODE_ENV=production`, `Restart=on-failure` 5 s, `StartLimit 5/300 s`, `MemoryMax=384M` / `MemoryHigh=300M` (scrypt N=2^17 ≈128 MiB per concurrent login), journald (`SyslogIdentifier=erp-api`), `ProtectSystem=strict`, `ReadWritePaths=` (nothing writable), loopback bind only (nginx = Phase 15). `systemd-analyze --user verify`: clean. `deploy/README.md` documents it. |
+| Tests | bootstrap drill **35/0** (adds: health = readiness as erp_app; server refuses erp_owner exit 3; refuses no-DB exit 2) · acceptance **79/0** · security **59/0** · erp-4-auth **118/0** · gitleaks on the diff: no leaks. |
+| Not yet done (needs this branch on `main` first, because the unit runs the checkout) | `install -m 0644 sites/erp.mythosprod.xyz/deploy/erp-api.user.service ~/.config/systemd/user/erp-api.service && systemctl --user daemon-reload && systemctl --user enable --now erp-api` as deploy; then live checks: health 200/ready/erp_app on 127.0.0.1:8787, 401 without session, 404 unknown route, restart-policy and journald verification, RSS under limit. **Authenticated live tests** (login, tenant isolation, API operations) need a credential this agent must not hold: the owner logs in once (or creates a controlled test user through the authenticated API), or they are covered in Phase 7 E2E. |
+| **GATE** | **API=PENDING** — code, unit and environment complete and verified on throwaway; production service not yet started (merge → install → live checks). Phase 6 not started. |
+
+
+## 2026-09-05 — PHASE 4 SUPER ADMIN: **AUTH=PASS** (Fable 5.1, 16:20–16:45 UTC; code fixed, owner bootstrap at TTY, verified read-only)
 
 | Item | Evidence |
 |---|---|
@@ -15,7 +28,9 @@
 | Files | `api/bin/create-super-admin.js` (tenant association, audit, raw-mode order), `api/lib/pipeline.js` (+skipAudit), `api/server.js` (−fallback), `tests/erp-bootstrap-drill.sh` (new). No schema change, no legacy ERP, no invoice code. Worktree note: `api/node_modules` in the worktree is a local symlink to the checkout's installed `pg` (untracked, not committed). |
 | Production bootstrap — **OWNER STEP (TTY)** | After this branch is on `main` and the checkout is fast-forwarded, run **once**, in an SSH terminal, never through an agent: `cd /home/deploy/projects/mythos-prod/sites/erp.mythosprod.xyz/api && (set -a; . /root/.config/mythos/erp-db-credentials.env; set +a; node bin/create-super-admin.js)` — tenant `mythos`, your real email, ≥12-char password typed twice (not echoed). Nothing is written until the transaction commits; the tool refuses if a `super_admin` already exists. Then tell the agent; it verifies (read-only) users=1, membership mythos active/default, tenant-scoped super_admin, 31 effective permissions, 3 audit rows, no plaintext anywhere. |
 | Why the agent does not run it | A password known to an agent session is not a secret. The drill proves the exact code path with a throwaway credential; production gets a human-typed one. |
-| **GATE** | **AUTH=PENDING** — code path VERIFIED (33/0 + 79/0 + 59/0 + 118/0); production `super_admin` does not exist yet. AUTH=PASS after the owner bootstrap and the read-only verification above. Phase 5 not started. |
+| Landing | PR #214 **merged** → `origin/main` = `main` = `4aa0553` (`bf04932` ancestor of main); production checkout fast-forwarded by the owner; `lib/pipeline.js` on the checkout carries the skipAudit fix. |
+| Owner bootstrap (TTY) — verified read-only 16:45 UTC | users **1** (active, not deleted); `password_algo=scrypt`, hash `$scrypt$…` > 80 chars, no plaintext anywhere; membership **mythos active default**; role **super_admin@mythos** (tenant-scoped); **31** effective permissions; audit rows `user.created(mythos)`, `membership.granted(mythos)`, `role.assigned(mythos)` with `bootstrap=true`, 0 rows mentioning a password; audit total 4 (those 3 + Phase 2 row #52); only one `super_admin` (second bootstrap impossible); tenants 1, sessions 0, `must_change_password=f`, `mfa_enabled=f`, not locked. Email domain recorded only as `gmail.com`. |
+| **GATE** | **AUTH=PASS** — production super admin exists with correct tenant association, authorization and audit trail; the login path is proven by the bootstrap drill (33/0) on identical code. Live login happens in Phase 5 once the API is deployed. |
 
 
 ## 2026-09-05 — PHASE 3 REPOSITORY GOVERNANCE: **REPOSITORY=PASS** (Fable 5.1, 15:32–16:20 UTC)

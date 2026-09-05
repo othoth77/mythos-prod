@@ -1,0 +1,69 @@
+# Mythos ERP API — user-level systemd unit (deploy user manager, linger enabled).
+#
+# Install (as deploy, from the main checkout):
+#   install -m 0644 sites/erp.mythosprod.xyz/deploy/erp-api.user.service ~/.config/systemd/user/erp-api.service
+#   systemctl --user daemon-reload && systemctl --user enable --now erp-api
+#
+# Same shape and hardening set as the sibling units that run green on this host
+# (mythos-wp, mythos-command-center, ssangyong-storefront): user scope because
+# `deploy` cannot write /etc/systemd/system; no ProtectKernelTunables /
+# ProtectClock / RestrictNamespaces (capability drop refused in user scope);
+# no MemoryDenyWriteExecute (V8 JIT).
+#
+# Runtime role is erp_app ONLY. The EnvironmentFile carries ERP_DATABASE_URL =
+# the erp_app connection string (server.js refuses to start as any other role
+# and /api/v1/health reports the role it actually authenticated as).
+# The process binds 127.0.0.1:${ERP_API_PORT} only; nginx is the only public
+# surface and is a separate, deliberate step (Phase 15).
+
+[Unit]
+Description=Mythos ERP API — authenticated multi-tenant boundary over PostgreSQL (erp_app runtime)
+Documentation=https://github.com/othoth77/mythos-prod
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory=/home/deploy/projects/mythos-prod/sites/erp.mythosprod.xyz/api
+
+# 0600, deploy-owned, outside git: ERP_DATABASE_URL (erp_app), ERP_API_PORT.
+EnvironmentFile=/home/deploy/deployments/erp-api/.env
+Environment=NODE_ENV=production
+
+ExecStart=/usr/bin/node /home/deploy/projects/mythos-prod/sites/erp.mythosprod.xyz/api/server.js
+
+Restart=on-failure
+RestartSec=5s
+# A refused start (wrong role / no database) exits 2 or 3 on purpose; do not
+# loop forever on a configuration error.
+RestartPreventExitStatus=2 3
+
+# Resource ceiling: idle RSS is ~60 MiB; scrypt login hashing peaks at ~128 MiB
+# per concurrent attempt (N=2^17). 384 MiB caps a burst without starving the host.
+MemoryMax=384M
+MemoryHigh=300M
+
+# --- Hardening (the set that runs green in user scope on this host) --------
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectControlGroups=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @obsolete
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# The API writes only to PostgreSQL. Nothing on the filesystem is writable.
+ReadWritePaths=
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=erp-api
+
+[Install]
+WantedBy=default.target
