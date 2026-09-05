@@ -2,7 +2,7 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
-## 2026-09-05 — PHASE 6 FRONTEND / API INTEGRATION: **FRONTEND=PASS (pending merge)** (Fable 5.1, 17:45–19:00 UTC)
+## 2026-09-05 — PHASE 6 FRONTEND / API INTEGRATION: **FRONTEND=PASS** (Fable 5.1, 17:45–18:55 UTC)
 
 | Item | Evidence |
 |---|---|
@@ -15,7 +15,8 @@
 | Defects found by the browser drill and fixed | `/reports/revenue` returns `{months:[…]}`, not `{rows}` — both chart views read the wrong key and rendered the (honest) empty state; fixed. Drill assertion corrected: `login.success`/`logout` rows carry no tenant and are invisible in a tenant's audit journal by RLS design (`audit_tenant_read`) — noted as a **Phase 7/14 topic** (should login events be surfaced per tenant?). |
 | Known limits (stated, not hidden) | Documents upload absent until Phase 12. Lookup selects load the first 200 rows of the referenced resource. Charts are bar-only. The headless drill cannot type into the login form; the login POST path is covered by curl + the API suites, and the authenticated rendering by the cookie proxy. |
 | Production | **Nothing deployed by this phase.** The API service keeps running the checkout; after merge + `pull --ff-only` the new `/meta`, `/session` rotation and static-serving code is live on restart (`systemctl --user restart erp-api`). The app itself becomes reachable in Phase 15 (nginx). |
-| **GATE** | **FRONTEND=PASS** on throwaway evidence above; landing on `main` = PR (owner merge) as for every prior phase. Phase 7 not started. |
+| Landing (18:49 UTC) | PR #221 **merged** → `main` = `origin/main` = `bd2c546` (`5d9cb52` ancestor); checkout fast-forwarded; `erp-api` restarted 18:49:11Z (`NRestarts=0`, 0 journal errors). Live: readiness `200 {ok,db:ready,role:erp_app}`; `/api/v1/meta` routed and gated (401 unauthenticated, not 404); static serving **off** in production (`/` → 404, nginx = Phase 15). Production data unchanged (users 1, tenants 1, clients 0, audit 14). |
+| **GATE** | **FRONTEND=PASS** — verified. Phase 7 starts. |
 
 
 ## 2026-09-05 — PHASE 5 PRODUCTION API: **API=PASS** (Fable 5.1, 16:45–17:45 UTC; deployed as erp_app, two defects found by live smoke and fixed)
