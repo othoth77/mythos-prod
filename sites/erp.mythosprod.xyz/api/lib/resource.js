@@ -76,6 +76,22 @@ function list(def, client, query) {
     params.push(q[f]);
     where.push(ident(f) + ' = $' + params.length);
   });
+  // Optional date/timestamp range on one declared column (def.range), for
+  // calendar-shaped views. ?from / ?to are bind parameters like everything
+  // else; a value that is not a plausible date is ignored rather than 500ing.
+  var DATE_LIKE = /^\d{4}-\d{2}-\d{2}([T ][\d:.Z+-]+)?$/;
+  if (def.range) {
+    if (q.from && DATE_LIKE.test(String(q.from))) { params.push(q.from); where.push(ident(def.range) + ' >= $' + params.length); }
+    if (q.to && DATE_LIKE.test(String(q.to))) {
+      params.push(q.to);
+      // A bare YYYY-MM-DD upper bound means "through the end of that day", not
+      // midnight at its start — otherwise ?to=2026-09-06 would exclude every
+      // event actually on the 6th (found in the Phase 10 E2E).
+      where.push(String(q.to).length === 10
+        ? ident(def.range) + ' < ($' + params.length + '::date + 1)'
+        : ident(def.range) + ' <= $' + params.length);
+    }
+  }
 
   var cols = def.columns.map(ident).join(', ');
   var sql = 'SELECT ' + cols + ' FROM ' + ident(def.table) +

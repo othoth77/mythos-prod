@@ -21,6 +21,7 @@ var REQUIRE = {
   prospects:  { GET: 'prospects.read',  POST: 'prospects.write',  PATCH: 'prospects.write',  DELETE: 'prospects.delete' },
   projects:   { GET: 'projects.read',   POST: 'projects.write',   PATCH: 'projects.write',   DELETE: 'projects.delete' },
   planning:   { GET: 'planning.read',   POST: 'planning.write',   PATCH: 'planning.write' },
+  agenda:     { GET: 'agenda.read',     POST: 'agenda.write',     PATCH: 'agenda.write',     DELETE: 'agenda.delete' },
   production: { GET: 'production.read', POST: 'production.write', PATCH: 'production.write' },
   finance:    { GET: 'finance.read',    POST: 'finance.write',    PATCH: 'finance.write',    DELETE: 'finance.delete' },
   invoices:   { GET: 'invoices.read',   POST: 'invoices.write',   PATCH: 'invoices.write',   DELETE: 'invoices.delete' },

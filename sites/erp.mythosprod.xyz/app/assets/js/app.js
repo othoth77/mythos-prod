@@ -15,6 +15,7 @@ import { dashboardView } from './views/dashboard.js';
 import { reportsView } from './views/reports.js';
 import { settingsView, usersView, auditView } from './views/admin.js';
 import { accountingView } from './views/accounting.js';
+import { agendaView } from './views/agenda.js';
 
 /* Module → what the view shows. A module with several resources gets tabs. */
 const MODULES = {
@@ -22,7 +23,8 @@ const MODULES = {
   clients:    { title: 'Clients', kicker: 'Répertoire', glyph: '●', resources: ['clients', 'contacts'] },
   prospects:  { title: 'Prospects', kicker: 'Commercial', glyph: '◎', resources: ['prospects'] },
   projects:   { title: 'Projets', kicker: 'Production', glyph: '▲', resources: ['projects', 'contracts'] },
-  planning:   { title: 'Planning', kicker: 'Agenda', glyph: '◔', resources: ['appointments'] },
+  planning:   { title: 'Planning', kicker: 'Rendez-vous', glyph: '◔', resources: ['appointments'] },
+  agenda:     { title: 'Agenda', kicker: 'Événements, tâches, rappels', glyph: '◉', view: (el, r) => agendaView(el, r) },
   production: { title: 'Production', kicker: 'Spectacles', glyph: '◆', resources: ['representations', 'collaborators'] },
   finance:    { title: 'Finance', kicker: 'Flux', glyph: '■', resources: ['invoices', 'quotes', 'purchases', 'expenses', 'bank_accounts'] },
   accounting: { title: 'Comptabilité', kicker: 'Grand livre', glyph: '⚖', view: (el, r) => accountingView(el, r) },
