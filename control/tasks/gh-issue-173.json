@@ -1,0 +1,152 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-173",
+  "project": "mythos-prod",
+  "objective": "Continue the implementation delivered by `gh-issue-172` and establish a **lightweight MYTHOS AUTO WhatsApp Auto-Reply Engine** without deploying Chatwoot and without creating a second WhatsApp gateway.\n\nThe target is customer-facing communication for `ssangyong.autos`, while keeping the architecture reusable for `piece.autos`, `casse.autos`, and future MYTHOS AUTO services.\n\nMYTHOS remains the intelligence/orchestration layer.",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implement",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "[ ] Task picked up through Bridge/OTHMODE/Governance/Executor.",
+    "[ ] #172 implementation inspected and reused.",
+    "[ ] No Chatwoot deployment.",
+    "[ ] No second WhatsApp gateway.",
+    "[ ] Customer messaging remains separate from operational notifications.",
+    "[ ] Lightweight Auto-Reply path implemented.",
+    "[ ] Provider remains replaceable.",
+    "[ ] Auto-Reply default remains OFF until governed activation.",
+    "[ ] Dry-run works without sending.",
+    "[ ] Human handoff exists.",
+    "[ ] No invented catalogue/stock/price/vehicle facts.",
+    "[ ] Duplicate/loop protection implemented.",
+    "[ ] VPS resource constraints verified before deployment.",
+    "[ ] No secrets exposed.",
+    "[ ] Relevant tests pass.",
+    "[ ] Existing Bridge/WhatsApp/OTHMODE functionality has no regression.",
+    "[ ] `docs/AI_HANDOVER.md` updated.",
+    "[ ] Commit pushed through governed relay."
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-05T01:42:49.563Z",
+  "created_by": "github-issue:othoth77",
+  "model": "fable-5.1",
+  "model_raw": "Fable 5.1",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #173 https://github.com/othoth77/mythos-prod/issues/173 — \"MYTHOS AUTO — Lightweight WhatsApp Auto-Reply Engine\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\nmodel: fable-5.1 — source explicit_current_issue (written as \"Fable 5.1\")\n\n[task: mythos auto — lightweight whatsapp auto-reply engine]\n**Model: Fable 5.1**  \n**Action: implement**  \n**Execution profile: implementation / governed production execution**  \n**Owner: othoth77 — PROCEED**\n\n[important — this is an executable task]\nThe MYTHOS Bridge MUST pick up this TASK through the normal governed workflow.\n\nExecution path:\n`GitHub → Bridge → OTHMODE → Governance → Executor → Fable 5.1`\n\nGitHub/repository state is the source of truth.\n\n[1. inspect first]\nInspect the actual current repository state and the delivered `gh-issue-172` implementation before modifying anything.\n\nVerify:\n- `projects/automotive/comms`\n- existing WhatsApp provider boundary\n- existing operational WhatsApp notification path\n- Bridge\n- OTHMODE/Governance/Executor\n- current configuration and secrets mechanism\n- tests\n- `docs/AI_HANDOVER.md`\n- task branch / relay state for `gh-issue-172`\n\nDo not rebuild work already delivered by #172.\n\n[2. strict separation]\nCustomer Auto-Reply MUST remain separate from operational notifications.\n\nDo NOT modify or repurpose the existing operational WhatsApp notification path for customer conversations.\n\nOperational notifications remain unchanged.\n\n[3. no chatwoot]\nDo NOT deploy Chatwoot for this task.\n\nThe current VPS resource limitation identified by #172 must be respected.\n\nDo not add a heavy CRM merely to implement Auto-Reply.\n\n[4. no second whatsapp gateway]\nReuse the existing WhatsApp provider/gateway boundary where technically appropriate.\n\nDo not create another Evolution/WAHA/WhatsApp gateway.\n\nIf the existing provider cannot safely support customer messaging, return `BLOCKED` with exact evidence rather than deploying an alternative gateway.\n\n[5. auto-reply architecture]\nImplement or complete the lightest justified flow using the existing #172 communication boundary:\n\n```text\nCUSTOMER\n   ↓\nEXISTING WHATSAPP PROVIDER\n   ↓\nMYTHOS AUTO COMMS\n   ↓\nMESSAGE ENVELOPE / ROUTER\n   ↓\nMYTHOS BUSINESS HANDLER\n   ↓\nAI / FABLE 5.1\n   ↓\nCATALOGUE / STOCK / PRICE WHEN AVAILABLE\n   ↓\nREPLY POLICY\n   ↓\nEXISTING WHATSAPP PROVIDER\n   ↓\nCUSTOMER\n```\n\nDo not implement the complete automotive business engine if it does not exist.\nCreate clean integration boundaries so catalogue, stock, price, vehicle compatibility, orders, and CRM data can be connected later.\n\n[6. auto-reply policy]\nImplement explicit safety controls.\n\nRequired behavior:\n- Auto-Reply must be configurable.\n- Default state must remain OFF until the governed production activation is explicitly completed.\n- Never send when configuration is incomplete.\n- Never send when provider authentication is missing or invalid.\n- Never expose secrets.\n- Support a dry-run/test mode that produces the exact proposed outbound message without sending it.\n- Preserve a clear handoff path for messages that cannot be safely answered automatically.\n- Avoid hallucinating stock, price, compatibility, availability, delivery time, or order status.\n- If business data is unavailable, produce a safe fallback/handoff response rather than inventing facts.\n\n[7. message types]\nAt minimum establish handling boundaries for:\n- greeting / general inquiry\n- vehicle identification\n- spare-part inquiry\n- price/availability inquiry\n- unsupported/ambiguous request\n- request requiring human intervention\n\nDo not hard-code false catalogue or stock data.\n\n[8. ai boundary]\nFable/AI is responsible for reasoning and response generation.\n\nMYTHOS business integrations remain the source of truth for business facts.\n\nThe AI MUST NOT invent business facts when no verified data is available.\n\nProvider-specific WhatsApp code must remain outside the core reasoning/business logic as much as practical.\n\n[9. outbound safety]\nOutbound customer messages must pass through an explicit policy boundary before provider send.\n\nThe policy should be able to reject a send when:\n- auto-reply is disabled;\n- dry-run is enabled;\n- recipient is missing/invalid;\n- provider is unavailable;\n- required business data is missing;\n- the message is classified as requiring human intervention;\n- governance/configuration requirements are not satisfied.\n\nNo silent fallback to uncontrolled sending.\n\n[10. idempotency / loop safety]\nPrevent:\n- replying to the same inbound message multiple times;\n- replying to our own outbound message;\n- recursive reply loops;\n- duplicate provider retries causing duplicate customer messages.\n\nReuse existing reliability/idempotency patterns where available.\n\n[11. vps / resource safety]\nThe solution must remain lightweight.\n\nBefore any deployment or long-running process is added, verify actual VPS:\n- RAM\n- CPU\n- storage\n- ports\n- permissions\n- persistence\n- restart behavior\n\nDo not deploy if resources are insufficient.\n\nPrefer a small service/process over a full CRM stack.\n\n[12. real whatsapp send]\nDo NOT send a real customer-facing message merely to prove implementation.\n\nFirst implement and test using dry-run/mocked provider behavior.\n\nA real smoke test may only occur through the governed workflow when an explicit existing designated recipient/configuration is present and sending is explicitly authorized.\n\nNever invent a recipient.\n\n[13. tests]\nAdd/extend tests for:\n- inbound message normalization\n- routing\n- auto-reply ON/OFF\n- dry-run\n- missing business data\n- human handoff\n- duplicate inbound event\n- outbound loop prevention\n- provider failure\n- secret redaction\n- operational-notification separation\n- multi-project configuration\n\nRun relevant existing MYTHOS Bridge/WhatsApp tests before and after.\n\nNo regression permitted.\n\n[14. git / delivery]\nUse the existing governed `mythos/*` workflow.\n\n`implemented → tested → committed → pushed → documented`\n\nDo not bypass Governance.\nDo not perform destructive Git operations.\nDo not auto-merge.\n\n[15. handover]\nUpdate `docs/AI_HANDOVER.md` with:\n- task ID\n- actual architecture\n- implementation performed\n- provider reused\n- Auto-Reply policy\n- VPS/resource findings\n- security result\n- tests/results\n- commit SHA\n- remote HEAD\n- remaining blockers\n- exact next Task\n\n[failure / blocker rule]\nIf a required provider capability, configuration, resource, permission, security condition, or test is unavailable:\n\n```text\nBLOCKED\n```\n\nStop and report exact evidence. Never fabricate success.\n\n[final report]\n```text\nSTATUS: COMPLETE / PARTIAL / BLOCKED\n\nSEARCHED:\nVERIFIED:\nEXECUTED:\nREUSED:\nCHANGED:\n\nWHATSAPP PROVIDER:\nAUTO-REPLY:\nMYTHOS INTEGRATION:\nOUTBOUND POLICY:",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 173,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/173",
+    "issue_id": 5354772780,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPytZLA",
+    "issue_title": "TASK: MYTHOS AUTO — Lightweight WhatsApp Auto-Reply Engine",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-05T01:42:21Z",
+    "issue_updated_at": "2026-09-05T01:42:21Z",
+    "issue_labels": [
+      "enhancement",
+      "task"
+    ],
+    "content_sha256": "bd19ba0d88e18d9f59f8cb1e4979698d9abc800c98981c152744b1a53d1ac96f",
+    "attempt": 1,
+    "attempt_id": "gh-issue-173#1",
+    "idempotency_key": "8dfbb2dd1cf716f1fd0f3958af73da3576c39522ac30acd820afc4551ebfec5c",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implement",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "implement",
+          "action": "implement",
+          "form": "inline",
+          "line": 4
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": "fable-5.1",
+      "model_id": "claude-fable-5-1",
+      "model_raw": "Fable 5.1",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:fable-5.1 (requested \"Fable 5.1\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-05T01:42:49.563Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-05T01:42:49.563Z",
+        "event": "issue_received",
+        "reason": "open Issue #173 with label task",
+        "content_sha256": "bd19ba0d88e18d9f59f8cb1e4979698d9abc800c98981c152744b1a53d1ac96f"
+      },
+      {
+        "at": "2026-09-05T01:42:49.563Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → implement (raw \"implement\")"
+      },
+      {
+        "at": "2026-09-05T01:42:49.563Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-05T01:42:49.563Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → fable-5.1 (available)"
+      },
+      {
+        "at": "2026-09-05T01:42:51.135Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-173.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-05T01:42:49.563Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5548497630,
+        "url": "https://github.com/othoth77/mythos-prod/issues/173#issuecomment-5548497630",
+        "at": "2026-09-05T01:42:50.315Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
