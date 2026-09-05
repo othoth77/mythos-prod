@@ -40,6 +40,22 @@
 //   MYTHOS_TELEGRAM_ENABLED=1. WhatsApp notifications are unaffected: they are queued by the bridge tick and
 //   flushed after it exactly as before.
 //
+// Unified Telegram lifecycle notifications (bridge/notify/telegram-notify.js; reuses the SAME bot as the
+// Telegram channel above, see docs/MYTHOS_TELEGRAM_NOTIFICATIONS.md): a second sink alongside WhatsApp,
+// queued by github-bridge.js (TASK completed/failed/blocked/human-approval) and github-issues.js (TASK
+// created/started), delivered by `notify-telegram-flush` (also run automatically at the end of `tick`).
+//   mythos-github-bridge notify-telegram-config   configuration + readiness (no secrets)
+//   mythos-github-bridge notify-telegram-status   the notification ledger (states, attempts, errors)
+//   mythos-github-bridge notify-telegram-flush    deliver due notifications now (retry path, safe to repeat)
+//
+// GitHub Pull Request notifications (bridge/github-prs.js; read-only, same token as the Issues adapter):
+//   mythos-github-bridge pr-tick [--no-detail]   poll pulls → diff → enqueue Telegram notifications (opened/
+//                                                updated/review/checks/merged/closed)
+//   mythos-github-bridge pr-status               last-seen state per PR number
+//   mythos-github-bridge pr-config                configuration + readiness (no secrets)
+//   `tick` runs `pr-tick` after the bridge/Issues phase when MYTHOS_PR_NOTIFY_ENABLED=1. It never comments,
+//   labels, merges or closes a PR — it only reads and notifies.
+//
 // Runs as the executor's user (deploy): it shares the executor store by
 // requiring the executor module directly, exactly like bin/mythos-ai-executor
 // enqueue does. No token, no network credential — Git over the deploy SSH
@@ -61,7 +77,9 @@ function die(msg, code) { process.stderr.write(msg + '\n'); process.exit(code ==
 function executor() { return require('../executor'); }
 function issues() { return require('../bridge/github-issues'); }
 function telegram() { return require('../bridge/telegram'); }
+function prs() { return require('../bridge/github-prs'); }
 var TELEGRAM_ON = process.env.MYTHOS_TELEGRAM_ENABLED === '1';
+var PR_NOTIFY_ON = process.env.MYTHOS_PR_NOTIFY_ENABLED === '1';
 // Telegram phases around the existing tick. Both are no-ops (resolved, never
 // rejected) when the channel is disabled, so the plain and Issues paths are
 // byte-for-byte what they were.
@@ -69,6 +87,14 @@ function telegramBefore() { return TELEGRAM_ON ? telegram().intakeOnly({}) : Pro
 function telegramAfter(r) {
   if (!TELEGRAM_ON) return Promise.resolve(r);
   return telegram().notifyOnly({}).then(function (n) { r.telegram_notify = n; return r; }, function (e) { r.telegram_notify = { ok: false, reason: String(e && e.message || e) }; return r; });
+}
+// PR polling is read-only and does not touch the control branch or the
+// bridge lock, so it runs once after the bridge/Issues phase, before the
+// notification flush — a failure here never changes this command's exit
+// code, exactly like the WhatsApp/Telegram notification sinks.
+function prsAfter(r) {
+  if (!PR_NOTIFY_ON) return Promise.resolve(r);
+  return prs().tick({}).then(function (p) { r.pr_notify = p; return r; }, function (e) { r.pr_notify = { ok: false, reason: String(e && e.message || e) }; return r; });
 }
 function fail(e) { die(String(e && e.message || e)); }
 function onlyArg() {
@@ -97,7 +123,7 @@ switch (cmd) {
           if (ti) r.telegram_intake = ti;
           return telegramAfter(r);
         });
-      }).then(function (r) {
+      }).then(prsAfter).then(function (r) {
         return bridge.flushNotifications().then(function (n) {
           r.notifications = n;
           out(r);
@@ -110,7 +136,7 @@ switch (cmd) {
       var r = bridge.tick(executor(), { forceIndex: argv.indexOf('--index') !== -1 });
       if (ti) r.telegram_intake = ti;
       return telegramAfter(r);
-    }).then(function (r) {
+    }).then(prsAfter).then(function (r) {
       // Notifications are delivered only after the tick has fully returned,
       // and their outcome never changes this command's exit code: a WhatsApp
       // failure is not a bridge failure.
@@ -174,6 +200,25 @@ switch (cmd) {
     }, fail);
     break;
   }
+  case 'pr-tick': {
+    prs().tick({ skipDetail: argv.indexOf('--no-detail') !== -1 }).then(function (r) { out(r); process.exit(r.ok ? 0 : 2); }, fail);
+    break;
+  }
+  case 'pr-status':
+    out(prs().status());
+    break;
+  case 'pr-config':
+    out(prs().config());
+    break;
+  case 'notify-telegram-config':
+    out(bridge.telegramNotify.describe());
+    break;
+  case 'notify-telegram-status':
+    out(bridge.telegramNotify.ledgerStatus());
+    break;
+  case 'notify-telegram-flush':
+    bridge.telegramNotify.flush().then(function (n) { out(n); process.exit(n && n.ok === false ? 2 : 0); });
+    break;
   case 'trail': {
     if (!arg) die('usage: mythos-github-bridge trail <task_id>');
     out(bridge.trail(arg));
@@ -259,5 +304,7 @@ switch (cmd) {
   default:
     die('usage: mythos-github-bridge <init|tick|daemon|status|validate <file>|instruction <file>|trail <task_id>|runtime|resolve <file|N|->|issues-tick|issues-status|issues-parse <file|N>|' +
       'telegram-tick|telegram-status|telegram-config|telegram-check|telegram-parse <file>|' +
-      'notify-config|notify-status|notify-flush|notify-breaker-reset|notify-test --confirm>');
+      'notify-config|notify-status|notify-flush|notify-breaker-reset|notify-test --confirm|' +
+      'notify-telegram-config|notify-telegram-status|notify-telegram-flush|' +
+      'pr-tick [--no-detail]|pr-status|pr-config>');
 }

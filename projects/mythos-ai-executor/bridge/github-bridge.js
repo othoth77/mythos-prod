@@ -74,6 +74,11 @@ var redact = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'r
 // no network) and delivers out of band from flushNotifications(), so no
 // provider outage can reach the execution path. Disabled unless configured.
 var whatsapp = require(path.join(__dirname, 'notify', 'whatsapp'));
+// Unified Telegram notification sink (same enqueue-here/deliver-later
+// contract as WhatsApp above). Skipped for Telegram-originated tasks: those
+// already get a direct correlated reply from bridge/telegram.js's own
+// notify() phase, and sending both would duplicate the same event.
+var telegramNotify = require(path.join(__dirname, 'notify', 'telegram-notify'));
 // Execution lifecycle: the bridge links the executor task to its GitHub
 // Issue/control id at claim time and records REPORT_SUBMITTED when the
 // control report exists. Evidence only — it never closes anything.
@@ -1319,6 +1324,20 @@ function finishTask(cfg, task, finalStatus, opts, changed) {
     notified = { queued: false, error: String(e && e.message).slice(0, 200) };
   }
   if (notified.queued || notified.error) log('whatsapp_queued', { task_id: task.task_id, result: notified });
+  // Same report, same terminal statuses, a second sink. Telegram-originated
+  // tasks are excluded: bridge/telegram.js already replies in the chat that
+  // created them, and this would otherwise notify the same owner twice for
+  // the one event.
+  if (!(task.source && task.source.kind === 'telegram')) {
+    var tgNotified = { queued: false, skipped: 'notification layer unavailable' };
+    try {
+      var tgKind = telegramNotify.kindForReport(finalStatus, opts);
+      if (tgKind) tgNotified = telegramNotify.enqueue(tgKind, task.task_id, telegramNotify.fieldsFromReport(task, report));
+    } catch (e) {
+      tgNotified = { queued: false, error: String(e && e.message).slice(0, 200) };
+    }
+    if (tgNotified.queued || tgNotified.error) log('telegram_notify_queued', { task_id: task.task_id, result: tgNotified });
+  }
   pushHistory(task, 'VALIDATING', finalStatus, 'report written (' + report.commits.length + ' commit(s), ' + report.tests.length + ' test line(s)); OTHMODE ' +
     (oth.updated ? 'closed by the bridge' : (oth.premature ? 'CLOSED PREMATURELY by the session (recorded as a problem)' : 'not updated: ' + oth.reason)));
   task.status = finalStatus;
@@ -1609,19 +1628,32 @@ function tick(executor, opts) {
 // it. Always resolves — a rejection would be a way for a WhatsApp outage to
 // reach the caller, which is exactly what this layer must not do.
 function flushNotifications(opts) {
-  var promise;
+  var waPromise;
   try {
-    promise = whatsapp.flush(opts);
+    waPromise = whatsapp.flush(opts);
   } catch (e) {
-    return Promise.resolve({ ok: false, error: String(e && e.message).slice(0, 300) });
+    waPromise = Promise.resolve({ ok: false, error: String(e && e.message).slice(0, 300) });
   }
-  return promise.then(function (r) {
-    if (r && (r.attempted || r.reclaimed || r.problems || r.error)) log('whatsapp_flush', r);
-    return r;
-  }, function (e) {
-    var r = { ok: false, error: String(e && e.message).slice(0, 300) };
-    log('whatsapp_flush', r);
-    return r;
+  var tgPromise;
+  try {
+    tgPromise = telegramNotify.flush(opts);
+  } catch (e) {
+    tgPromise = Promise.resolve({ ok: false, error: String(e && e.message).slice(0, 300) });
+  }
+  // The return shape is WhatsApp's own (unchanged: existing callers and
+  // tests read `.sent` / `.attempted` / `.reclaimed` directly), with the
+  // Telegram sink's result attached under `.telegram` so a caller that wants
+  // it does not need a second call.
+  return Promise.all([
+    waPromise.then(function (r) { return r; }, function (e) { return { ok: false, error: String(e && e.message).slice(0, 300) }; }),
+    tgPromise.then(function (r) { return r; }, function (e) { return { ok: false, error: String(e && e.message).slice(0, 300) }; })
+  ]).then(function (pair) {
+    var wa = pair[0] || {};
+    var tg = pair[1];
+    if (wa.attempted || wa.reclaimed || wa.problems || wa.error) log('whatsapp_flush', wa);
+    if (tg && (tg.attempted || tg.problems || tg.error)) log('telegram_notify_flush', tg);
+    wa.telegram = tg;
+    return wa;
   });
 }
 
@@ -1845,5 +1877,6 @@ module.exports = {
   status: status,
   daemon: daemon,
   whatsapp: whatsapp,
+  telegramNotify: telegramNotify,
   flushNotifications: flushNotifications
 };

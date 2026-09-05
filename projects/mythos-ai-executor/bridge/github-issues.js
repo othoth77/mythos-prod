@@ -81,6 +81,9 @@ var modelPolicy = require(path.join(EXEC_ROOT, 'lib', 'model-policy'));
 // ONE engine decides requested_action / execution_profile / model for every
 // surface (Issue, task file, executor). This adapter never re-implements it.
 var engine = require('./action-resolution');
+// Unified outbound Telegram notification sink (enqueue-only here; delivery
+// happens later from the bridge's flushNotifications(), same as WhatsApp).
+var telegramNotify = require('./notify/telegram-notify');
 
 var BY = 'github-issues';
 var MARKER_PREFIX = '<!-- mythos-control ';
@@ -1013,6 +1016,9 @@ async function intake(cfg, client, opts) {
     var cm = await postOnce(client, n, { task_id: task.task_id, event: 'created' }, createdBody(cfg, task));
     task.source.notifications.created = { comment_id: cm.comment_id, url: cm.url, at: nowIso(), existed: cm.existed };
     task.source.labels = await setStatusLabel(cfg, client, issue, 'PENDING');
+    telegramNotify.enqueue('TASK_CREATED', task.task_id, {
+      subjectLabel: 'TASK', number: n, taskId: task.task_id, description: short(String(issue.title || task.objective || ''), 300)
+    });
     // The rerun label is the REQUEST, not a bookkeeping flag: it is consumed
     // only after the control commit below reports committed=true. A tick that
     // dies here (timeout, OOM, an exception raised by a later Issue) leaves the
@@ -1098,6 +1104,7 @@ async function notify(cfg, client, opts) {
           var c1 = await postOnce(client, n, { task_id: t.task_id, event: 'claimed' }, claimedBody(cfg, t));
           src.notifications.claimed = { comment_id: c1.comment_id, url: c1.url, at: nowIso(), existed: c1.existed, executor_task_id: t.execution.executor_task_id };
           await setStatusLabel(cfg, client, await getIssue(), 'IN_PROGRESS');
+          telegramNotify.enqueue('TASK_STARTED', t.task_id, { subjectLabel: 'TASK', number: n, taskId: t.task_id, model: t.model || null });
           changed = true;
           actions.push({ action: 'notify', event: 'claimed', issue: n, task_id: t.task_id, comment: c1 });
         }
