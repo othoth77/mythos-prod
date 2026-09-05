@@ -1,0 +1,27 @@
+{
+  "root": true,
+  "parserOptions": { "ecmaVersion": 2019, "sourceType": "script" },
+  "env": { "node": true, "es6": true },
+  "rules": {
+    "no-undef": "error",
+    "no-unused-vars": ["error", { "args": "none" }],
+    "no-redeclare": "error",
+    "no-dupe-keys": "error",
+    "no-unreachable": "error",
+    "eqeqeq": ["error", "always"],
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
+    "no-prototype-builtins": "off"
+  },
+  "overrides": [
+    {
+      "files": ["reference/web/js/**/*.js"],
+      "excludedFiles": ["reference/web/js/login.js"],
+      "parserOptions": { "ecmaVersion": 2019, "sourceType": "module" },
+      "env": { "browser": true, "es6": true, "node": false }
+    },
+    { "files": ["reference/web/js/login.js"], "env": { "browser": true, "node": false } },
+    { "files": ["reference/validate.js"], "env": { "browser": true, "node": true }, "globals": { "self": "readonly" } }
+  ]
+}

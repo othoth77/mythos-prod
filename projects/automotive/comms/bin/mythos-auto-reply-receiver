@@ -4,7 +4,13 @@
 // MYTHOS AUTO auto-reply — loopback webhook receiver (Issue #173)
 // projects/automotive/comms/bin/mythos-auto-reply-receiver
 //
-//   mythos-auto-reply-receiver <config.json> [--dry-run] [--port N]
+//   mythos-auto-reply-receiver <config.json> [--dry-run] [--port N] [--integration <module.js>]
+//
+// --integration names a module exporting { ports, onOutcome } — the business
+// data port set of lib/business-data.js (verified catalogue / price / stock
+// facts) and an outcome sink (e.g. a REQUIRES_HUMAN queue). MYTHOS WP ships
+// one at projects/mythos-wp/reference/comms/integration.js. Loading it
+// changes nothing about sending: every policy gate still applies.
 //
 // Listens on 127.0.0.1 only (a non-private bind is refused by the config
 // validator) for the Evolution gateway's webhook and feeds every request to
@@ -40,6 +46,7 @@ var args = process.argv.slice(2);
 var cfgPath = args[0];
 var forceDryRun = args.indexOf('--dry-run') !== -1;
 var portArg = args.indexOf('--port') !== -1 ? parseInt(args[args.indexOf('--port') + 1], 10) : null;
+var integrationArg = args.indexOf('--integration') !== -1 ? args[args.indexOf('--integration') + 1] : null;
 
 function log(v) { process.stdout.write(JSON.stringify(redact.redactValue(Object.assign({ at: new Date().toISOString() }, v))) + '\n'); }
 function die(msg) { process.stderr.write('ERROR: ' + redact.redact(String(msg)) + '\n'); process.exit(1); }
@@ -56,6 +63,11 @@ var webhookToken = engine.loadSecret(cfg.crm.webhook_token_file);
 if (!webhookToken.present) die('webhook token: ' + webhookToken.error);
 var port = portArg || eng.receiver.port;
 var bind = eng.receiver.bind;
+var integration = null;
+if (integrationArg) {
+  try { integration = require(path.resolve(integrationArg)); } catch (e) { die('integration module unloadable: ' + (e && e.code ? e.code : 'ERROR')); }
+  if (!integration || typeof integration !== 'object' || (integration.ports && typeof integration.ports !== 'object') || (integration.onOutcome && typeof integration.onOutcome !== 'function')) die('integration module must export { ports?, onOutcome? }');
+}
 
 function readBody(req, limit) {
   return new Promise(function (resolve, reject) {
@@ -93,8 +105,10 @@ var server = http.createServer(function (req, res) {
     return engine.process({
       cfg: cfg, body: body, query: u.query, headers: req.headers,
       expectedToken: webhookToken.value, apiToken: api.value,
-      ledger: ledger, forceDryRun: forceDryRun
+      ledger: ledger, forceDryRun: forceDryRun,
+      business_data: integration && integration.ports ? integration.ports : undefined
     }).then(function (rec) {
+      if (integration && integration.onOutcome) { try { Promise.resolve(integration.onOutcome(rec)).catch(function () {}); } catch (e) { /* the sink never blocks the outcome */ } }
       log({ receiver: 'inbound', outcome: rec.outcome, reason: rec.reason, stage: rec.stage, event_id: rec.event_id, project_id: rec.project_id, intent: rec.decision ? rec.decision.intent : null, action: rec.decision ? rec.decision.action : null, rejections: rec.policy ? rec.policy.rejections : null, proposed_length: rec.proposed ? rec.proposed.text.length : 0, sent: rec.sent, ledger_state: rec.ledger_state });
       if (rec.outcome === 'UNAUTHORIZED') return send(res, 401, { ok: false, reason: rec.reason });
       send(res, 200, { ok: true, outcome: rec.outcome, reason: rec.reason, event_id: rec.event_id, sent: rec.sent });
@@ -106,7 +120,7 @@ var server = http.createServer(function (req, res) {
 });
 
 server.listen(port, bind, function () {
-  log({ receiver: 'listening', bind: bind, port: port, mode: forceDryRun ? 'dry-run' : eng.mode, state_dir_set: true, projects: (cfg.projects || []).map(function (p) { return p.id; }) });
+  log({ receiver: 'listening', bind: bind, port: port, mode: forceDryRun ? 'dry-run' : eng.mode, state_dir_set: true, projects: (cfg.projects || []).map(function (p) { return p.id; }), integration: integration ? (integration.name || 'loaded') : null });
 });
 process.on('SIGTERM', function () { server.close(function () { process.exit(0); }); });
 process.on('SIGINT', function () { server.close(function () { process.exit(0); }); });
