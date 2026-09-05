@@ -2,6 +2,24 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-05 — PHASE 7 CORE ERP E2E: **CORE_E2E=PASS (pending merge)** (Fable 5.1, 18:52–19:05 UTC)
+
+| Item | Evidence |
+|---|---|
+| Suite | `tests/erp-core-e2e-drill.sh` — throwaway PG15, real migrations + grant matrix, pty-bootstrapped `super_admin` (tenant mythos), operator-seeded second tenant `acme` (admin `bob`, **no `reports` module**) and a `read_only` user `rita` in mythos (hashes from `lib/password.js`, plain values never in argv). Real API over a real socket as `erp_app`. **71 passed / 0 failed.** |
+| §1 login → tenant | owner login 200, active tenant = mythos, `GET /session` restore + CSRF rotation, explicit tenant switch 200. |
+| §2 client → devis → facture → payment/status | client 201 → quote `DV-2026-001` 201 → sent → accepted → invoice **from the quote** (`quote_id` kept) `MP2026-0001` with 2 lines: server totals **HT 1200.000 / VAT 228.000 / TTC 1428.000**; partial 500 → `part_paid`, balance 928.000; **payment > balance → 422**; final 928 → `paid`; detail balance 0.000, 2 payments, 2 lines; paid invoice immutable (409); **payment on a paid invoice → 409**, no row written; dashboard: 1 client, collected **1428.000** = invoiced. |
+| §3 audit → logout | audit lists `record.created` for clients / quotes / invoices / payments and `record.updated`; filter by table works; ≥ 8 tenant-tagged state-change rows; logout 200, session dead (401), `logout` audited exactly once. |
+| §4 authorization / CSRF / invalid input / duplicates | `read_only`: list 200, create/retire/audit/settings/users → **403** with `required` key, each denial audited; POST without / with wrong CSRF → 403 `csrf_failed`, nothing written; missing required → 422; invalid date → 422; **invalid uuid → 422 `invalid_value`**; **dangling FK → 422 `invalid_reference`**; **duplicate devis number → 409 `duplicate`**; unknown status → 422; client cannot declare `paid` → 422; `<script>` / SQL-shaped strings stored as data, tables intact; two clients with the same name accepted (no false uniqueness); no `internal_error` in the log. |
+| §5 cross-tenant | acme admin sees 0 mythos rows; GET/PATCH/DELETE mythos client by id → 404; GET / pay mythos invoice → 404; forged `X-Tenant-Id` → 403; switch into non-member tenant → 403; `tenant_id` in body ignored (row lands in acme); acme reuses `DV-2026-001` (per-tenant uniqueness) and gets its own counter `AC2026-0001`; **module gate** `reports` → 404 `module_not_enabled`; mythos data byte-for-byte untouched; forging attempts audited. |
+| §6 session expiry | idle-expired → 401; absolute-expired → 401; revoked → 401; garbage cookie → 401; schema refuses `idle_expires_at > absolute_expires_at` (`sessions_expiry_ordered`); fresh login still works; no password in the API log. |
+| **Defects found by this phase and fixed** | (1) `POST /invoices/:id/payments` accepted a payment on a **paid** invoice and any amount beyond the balance (collected drifted to 1429 > invoiced 1428). Now: paid/cancelled → **409**, amount > outstanding balance → **422** (`modules/invoices.js`). (2) PostgreSQL constraint/cast errors surfaced as **500 `internal_error`** (a duplicate quote number, an invalid uuid, a dangling reference). `server.js` maps `23505→409 duplicate`, `23503→422 invalid_reference`, `23502→422 missing_value`, `23514→422 constraint_violation`, `22P02/22007/22008→422 invalid_value`, `22003→422 out_of_range`, `22001→422 value_too_long`; constraint names are never echoed. |
+| Observations (not defects, recorded) | A payment on a **draft** invoice is accepted and flips it to `part_paid` — by the documented design in `reconcileStatus` ("money arriving is a fact"). `login.success`/`logout` rows are platform-level (no tenant) and therefore absent from a tenant's audit view. |
+| Regression | acceptance **79/0**, security **59/0**, bootstrap **44/0**, frontend check **36/0**, frontend drill re-run after the payment guard (result recorded in the landing row). gitleaks: no leaks. |
+| Production | untouched (no deploy in this phase; the two fixes reach the running service after merge + restart). |
+| **GATE** | **CORE_E2E=PASS** on the evidence above; landing = PR (owner merge). Phase 8 not started. |
+
+
 ## 2026-09-05 — PHASE 6 FRONTEND / API INTEGRATION: **FRONTEND=PASS** (Fable 5.1, 17:45–18:55 UTC)
 
 | Item | Evidence |
