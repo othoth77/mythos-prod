@@ -17,7 +17,7 @@
   "action_raw": "investigate",
   "action_source": "default",
   "validation_requirements": [],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-05T03:34:00.362Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #178 https://github.com/othoth77/mythos-prod/issues/178 — \"MYTHOS — Post-Merge Telegram Activation\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). — not inherited: previous attempt gh-issue-178 was defaulted, not decided — a default is not inherited → execution profile repo-read\n\n[التنفيذ المطلوب]\nبعد التأكد أن PR #175 تم دمجه، نفّذ فقط:\n\n```bash\nsudo -u deploy git -C /home/deploy/projects/mythos-prod pull --ff-only origin main\n```\n\nثم تحقّق من:\n- local `main` يطابق `origin/main`\n- Telegram Production configuration مازالت enabled\n- `telegram-check` ينجح\n- لا يوجد Telegram webhook\n- لا يوجد `409 Conflict`\n- bridge/timer healthy\n- WhatsApp untouched\n\n[الاختبار الحي]\nلا ترسل رسالة اختبار مصطنعة.\nاترك الـsingle pending Telegram update تتم معالجته طبيعيًا من Production كـlive E2E test.\n\nتحقق من lifecycle: queued → started → report.\n\n[التقرير النهائي]\nأرسل تقريرًا مختصرًا بهذا الشكل:\n\n🟢 main synchronized\n🟢 Telegram active\n🧪 pending TASK result\n🔐 secret safe\n📌 remaining action, if any\n\nوسجّل أي blocker حقيقي بدل تجاوز Governance.",
@@ -132,5 +132,64 @@
         "mythos:human-approval"
       ]
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260905033406-2ue8jp",
+    "othmode_task_id": "OTH-2026-00177",
+    "attempt_id": "gh-issue-178-r2#2",
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "default",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "expected_delivery": "report",
+    "model_key": null,
+    "model_requested": null,
+    "model_source": "none",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-178-r2",
+    "branch": "mythos/gh/gh-issue-178-r2",
+    "base_commit": "c54dbd179feade15e97c2ac71983b13804bc458d",
+    "claimed_at": "2026-09-05T03:34:06.894Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "058f375f1378421da9f34b7caed3c13d2d147d3f0f570f1dd16554ab27a07bfc",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-05T03:34:06.894Z",
+    "snapshot_sha256": "d4121e089ad6c6a7134b814c166903afa435806680910f0dd56844618750fe71",
+    "fence": 5838,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:1326243",
+      "fence": 5838,
+      "acquired_at": "2026-09-05T03:34:06.894Z",
+      "expires_at": "2026-09-05T05:04:06.894Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/projects/mythos-prod",
+      "head": "c54dbd179feade15e97c2ac71983b13804bc458d",
+      "branch": "main",
+      "dirty_files": 0,
+      "base_ref": "origin/main",
+      "base_ref_head": "c54dbd179feade15e97c2ac71983b13804bc458d",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": false,
+      "code": null,
+      "reason": null,
+      "measured_at": "2026-09-05T03:34:05.931Z"
+    },
+    "model": "claude-haiku-4-5",
+    "model_selection_mode": "auto"
+  },
+  "history": [
+    {
+      "at": "2026-09-05T03:34:06.953Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260905033406-2ue8jp queued; OTHMODE OTH-2026-00177; action investigate (default) → repo-read; model claude-haiku-4-5; fence 5838"
+    }
+  ]
 }
