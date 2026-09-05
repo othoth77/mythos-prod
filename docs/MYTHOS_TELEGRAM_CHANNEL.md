@@ -300,3 +300,86 @@ Activation path = the governed one: this branch is delivered by the root relay (
 merged on GitHub under the owner's explicit instruction, then the production checkout is fast-forwarded to
 `origin/main` so the 1-minute timer runs the Telegram phases from `main`. The single pending update is the smallest
 possible live test (no extra test message is sent).
+
+## 10. Unified event notifications (gh-issue-187, 2026-09-05) — implemented and tested, not yet activated
+
+**Objective:** extend the Telegram channel above from "per-chat replies for a task that started on Telegram" into
+the single outbound notification surface for every important MYTHOS/GitHub event, regardless of origin — a GitHub
+Issue/task, a pull request, or the bridge/governance layer itself — with importance filtering, deduplication, rate
+limiting and one unified message format, without touching WhatsApp, without expanding the allowlist, and without a
+second bot.
+
+**New modules (Phase 2):**
+
+| File | Role |
+|---|---|
+| `bridge/notify/telegram-events.js` | The engine: importance filter (`EVENT_DEFS`), per-(event,key) dedup ledger, sliding-window rate limiter that critical events (failure/blocker/governance) always bypass, the unified `formatEvent()`, and `stripInternal()` — a defense-in-depth scrub of executor task ids, OTHMODE numeric ids, execution ids and filesystem paths, on top of the existing token/secret redaction. Reuses `bridge/telegram.js`'s own `config()/readToken()/createClient()/scrub()` — same bot, same token, same `MYTHOS_TELEGRAM_ALLOWED_USER_IDS` allowlist — and broadcasts to every allowlisted id (these are system events, not a reply to one chat). |
+| `bridge/pr-watch.js` | Read-only pull-request poller (reuses `github-issues.js`'s REST client, extended with `listPulls/getPull/listReviews/getCombinedStatus`; no new credential). Detects: opened, ready-for-review/retitled ("updated"), a review (approved/changes requested), a checks/status conclusion (`checks` / critical `checks_failed`), merged, closed without merge, and a merge conflict (`mergeable_state === 'dirty'`, fetched from the single-PR endpoint since the list endpoint does not reliably carry it). State: `MYTHOS_BRIDGE_HOME/pr-watch/state.json`. Disabled by default — `MYTHOS_PR_WATCH_ENABLED=1` required, the same opt-in posture as Issues/Telegram before it. Never merges, comments, labels or closes a pull request. |
+| `bridge/gov-notify.js` | Tails the one shared, append-only `events.log` that the bridge, Issues adapter and Telegram adapter already write to (`bridge.log()`), by byte offset, for a small watch-list (`sync_failed`, `blocked_preflight`, `lock_takeover`, `claim_failed`, `report_failed`, `lease_expired`, `issues:phase_error`, `pr-watch:fetch_failed`) → `git:sync_blocker` / `git:governance_blocker` / `git:bridge_failure`. Deduplicated by `(event, reason)` so a standing problem is announced once, not every tick, while a genuinely different failure is never swallowed. The `telegram:`/`telegram-events:` namespaces are deliberately excluded from the watch-list — a Telegram delivery problem cannot reliably be reported over Telegram, and including it would risk a feedback loop. One new one-line log call was added at the bridge's existing `sync.ok` check (`bridge/github-bridge.js`) so a control-branch sync failure is observable at all; no other bridge logic changed. |
+
+**Wiring into the existing adapters (`bridge/github-issues.js`):** four call sites inside the already-existing
+`intake()`/`notify()` phases — where the adapter already knows a task was created, claimed, or reached a terminal
+report state (COMPLETED/FAILED/BLOCKED/HUMAN_APPROVAL/CANCELLED) — now also call the unified notifier. Every call is
+wrapped so a Telegram outage or misconfiguration can never affect Issue/task processing (`notifyTelegram()` always
+resolves). HUMAN_APPROVAL is exactly the existing "owner intervention" presentation state
+(`bridge/github-issues.js`'s `issueStateOf()`), so it is covered without new detection logic. This satisfies
+gh-issue-187 §1 (create/claim/complete/fail/blocker/owner-intervention, with the first lines of `report.tests`
+carried as `result`) without duplicating the Issue-comment logic — it is the same state transitions, one more sink.
+
+**Unified format** (`formatEvent()`): `MYTHOS <TASK|PR|SYSTEM>: <event> <id> (<status>)`, then the title/summary, then
+optional `result:` / `next:` lines, then `model <x>` and, only when relevant, `guard: MYTHOS protection/monitoring
+active` (OTHMODE is never named, matching the existing per-chat lifecycle texts). No executor task id, execution id,
+OTHMODE numeric id or filesystem path ever reaches the text — proven in `tests/mythos-telegram-events-test.js` §1 and
+§4 by regexing the actual Telegram-bound strings, not just by code inspection.
+
+**Tests (Phase 4) — `tests/mythos-telegram-events-test.js`, 52/52, offline, two in-process fakes (GitHub REST +
+Telegram Bot API), no real token, no real message:**
+
+| # | Coverage |
+|---|---|
+| 1 | unified formatter + `stripInternal()` (pure) |
+| 2 | deduplication: an identical (event, key) is never sent twice |
+| 3 | rate limiting: routine events throttled past the configured cap; a critical event still gets through |
+| — | redaction: a secret-shaped string inside free text is scrubbed, the event is still delivered (not silently dropped) |
+| 4 | GitHub Issue → Telegram, end to end through `issuesTick()`: created → claimed → completed, one message each, an unchanged re-tick sends nothing new, a BLOCKED (MODEL_UNAVAILABLE) task is notified even with the rate window artificially filled |
+| 5 | pull-request lifecycle against the fake GitHub API: opened → review (approved) → checks_failed → conflict → merged for PR #1, and opened → closed_without_merge for an independent PR #2 |
+| 6 | `gov-notify` against a synthetic `events.log`: a governance blocker and a bridge failure are notified once each; an identical repeat is deduplicated; a `telegram:` log line is never notified (no feedback loop) |
+| 7 | disabled by default (`MYTHOS_TELEGRAM_ENABLED` unset) is a strict no-op; `describe()` never leaks the bot token |
+
+Regression, same host state as this stage's other work: `mythos-telegram-channel-test.js` 68/68,
+`mythos-github-issues-test.js` 208/208, `mythos-github-bridge-test.js` 150/150,
+`mythos-bridge-whatsapp-notify-test.js` 131/131, `mythos-bridge-whatsapp-resilience-test.js` 101/101,
+`model-selection-policy-test.js` 81/81, `mythos-bridge-push-guard-test.js` 23/23,
+`mythos-github-bridge-timer-test.js` 16/16, `mythos-governance-invariant-test.js` 111/111,
+`mythos-n8n-bridge-test.js` 80/80, `redact-governance-false-positive-test.js` 199/199,
+`whatsapp-gateway-verify-test.js` 24/24, `bridge-action-resolution-test.js` 88/88 — all unchanged and passing.
+`tests/mpi-0-finalization-governance-test.js` shows 3 pre-existing, unrelated failures (skill-registry directory
+count drift under `.claude/skills/`) present before this stage and outside its scope; not investigated further here.
+
+**CLI (`bin/mythos-github-bridge`):** `pr-watch-tick [--dry-run]`, `pr-watch-status`, `gov-notify-tick [--dry-run]`,
+`gov-notify-status`, `notify-events-status`. The combined `tick` runs `pr-watch-tick` (when
+`MYTHOS_PR_WATCH_ENABLED=1`) and `gov-notify-tick` (when `MYTHOS_TELEGRAM_ENABLED=1`) strictly after the
+bridge/Issues/Telegram phases have returned — read-only against the control branch, best effort, never affecting
+`tick`'s own exit code, exactly like the existing WhatsApp flush.
+
+**Security (gh-issue-187 §6):** no bot token, API key, executor id, execution id, OTHMODE numeric id, or internal
+path is ever placed in a notification — `stripInternal()` plus the existing token/secret scrub, proven by regex
+assertions against the actual fixture-captured Telegram text in the test suite above, not by code reading alone.
+OTHMODE is described only as "MYTHOS protection/monitoring", identical to the existing per-chat lifecycle texts.
+
+**Scope not covered (recorded, not silently dropped):**
+- PR "important update" is scoped to ready-for-review and a retitle; a plain new commit on an open PR does not
+  notify, to avoid per-push spam — not explicitly required by gh-issue-187 and consistent with its anti-spam goal.
+- `git:deploy` is defined in `EVENT_DEFS` for a future deployment-event source but nothing calls it yet — there is no
+  existing deployment-event emitter in this repository to hook into without inventing one, and doing so was judged
+  out of scope for a notification-channel stage.
+- **Production activation is a separate owner step**, exactly like §9.3 above: this stage is implementation +
+  automated tests only. `MYTHOS_PR_WATCH_ENABLED` is a new opt-in flag (unset in production today, so pull-request
+  polling does not start on its own); the task/Issue and git/governance notifications activate together with the
+  existing `MYTHOS_TELEGRAM_ENABLED=1` drop-in once this branch reaches `main` — no additional drop-in is required
+  for those two, only for `MYTHOS_PR_WATCH_ENABLED` if the owner also wants pull-request notifications live.
+- A real GitHub→Telegram live smoke test (an actual Issue/PR event observed in the owner's chat) was not run from
+  this task: it would require either waiting for a real Issue/PR event during this session or manufacturing one
+  against the real repository, and the bridge constraints for this task forbid pushing or merging. The offline
+  fixture suite (§ above) is the verification performed; a live check is the natural first step after this branch
+  merges, mirroring how §9.2 above validated the original channel.

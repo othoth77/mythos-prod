@@ -100,14 +100,16 @@ curl -s -H @"$HOME/mythos-ai-executor/secrets/evolution.hdr" -H 'content-type: a
   -d '{"instanceName":"mythos-bridge","integration":"WHATSAPP-BAILEYS","qrcode":true}' \
   | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);console.log(JSON.stringify({instance:j.instance&&j.instance.instanceName,status:j.instance&&j.instance.status,qr:!!(j.qrcode&&j.qrcode.base64)}))})'
 
-# fetch the QR (base64 PNG) and render it locally — do NOT paste it anywhere public
-curl -s -H @"$HOME/mythos-ai-executor/secrets/evolution.hdr" http://127.0.0.1:8080/instance/connect/mythos-bridge \
-  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);require("fs").writeFileSync("/tmp/wa-qr.png",Buffer.from(String(j.base64||"").replace(/^data:image\/png;base64,/,""),"base64"));console.log("QR written to /tmp/wa-qr.png; scan within 60 s, then rm it")})'
+# show the CURRENT QR in this terminal and keep it fresh (refs rotate every
+# 20–45 s; a copied PNG is usually stale by the time it is scanned). Scan while
+# the displayed age is under 20 s. Exits 0 with "PAIRED" once the state is open.
+ops/whatsapp/evolution/qr-live.sh mythos-bridge
 ```
 
-Scan `/tmp/wa-qr.png` with WhatsApp → *Linked devices* on the phone that
-owns the sending number, then delete the file. The QR expires; re-run the
-`connect` call to get a fresh one (`QRCODE_LIMIT=30` attempts).
+Scan the QR with WhatsApp → *Linked devices* on the phone that owns the
+sending number. Do not copy a QR PNG off the host and scan it later — that is
+the failure mode diagnosed in `docs/MYTHOS_WHATSAPP_QR_PAIRING_DIAGNOSIS_2026-09-05.md`
+(`QRCODE_LIMIT=30` attempts per instance before Evolution logs the instance out).
 
 Confirm pairing:
 

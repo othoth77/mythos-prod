@@ -2,6 +2,18 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-05 — WhatsApp QR pairing: root-cause diagnosis + live-QR helper (`mythos/wa-qr-live-scan-20260905`)
+
+| Item | State |
+|---|---|
+| Objective | Find why `mythos-bridge` (Evolution 2.3.7 / Baileys 7.0.0-rc.9) never pairs: phone says « Impossible de connecter l'appareil — réessayer plus tard », companion receives no frame. |
+| Baseline | Production `40e7705` = `origin/main`; container healthy, 0 restarts; 19 registrations in 24 h, only server pings received, 428 at +210 s, no `pair-success`, no notification of any type. Uncommitted `LOG_LEVEL`/`LOG_BAILEYS` debug change in `ops/whatsapp/evolution/docker-compose.yml` is the deliberate 2026-09-04 diagnostic and was left untouched. |
+| Root cause | **Scan timing (stale QR ref)** — every scan so far was a relayed PNG snapshot (agent fetch → chat, or `/tmp/wa-qr.png` copied off the host); the working reference client (whatsmeow) rotates refs every 20 s, rc.9 every 45 s. Code-level variants tested on 09-04 (rc.9, +#2765, +new QR payload, rc14 head) all fail identically, and the trackers show QR pairing working in general in Sept 2026 (Baileys 34 / Evolution 38 / mautrix 8 issues since 07-28, two lonely matches). Secondary hypothesis, only if a correctly timed scan still fails: WhatsApp's phased **mandatory passkey linking** (whatsmeow `b572e5b`, WAHA 2026.7.1, OpenWA #560) which no Baileys release implements. Full evidence: `docs/MYTHOS_WHATSAPP_QR_PAIRING_DIAGNOSIS_2026-09-05.md`. |
+| Delivered | `ops/whatsapp/evolution/qr-live.sh` (owner-run terminal QR that refreshes every 8 s, shows age, exits on `open`, never prints key/QR text/base64; `--check` probe), `tests/wa-qr-live-test.sh` (8/0 against a fake gateway), README §4 rewritten to the live procedure, the diagnosis doc. |
+| Tests | `tests/wa-qr-live-test.sh` **8 passed / 0 failed** (as deploy, offline). `bash -n` on the helper. Live `--check` against production: `state=close qr_text_length=237` (the probe re-opened one QR stream; no QR rendered or relayed from the agent session). |
+| Not done | No image upgrade (2.3.7 is latest stable; no released Baileys/whatsmeow changes the observed behaviour), no session deletion, no message sent, no production edit. **Pairing itself needs the owner's phone** — the physical scan is the next step, not something an agent can perform. |
+| Next step | Owner: merge this PR, `sudo -u deploy git -C /home/deploy/projects/mythos-prod pull --ff-only origin main`, then run `qr-live.sh` in an SSH terminal and scan while the age is < 20 s (procedure in the diagnosis doc §4, with the three possible outcomes and what each means). After `PAIRED`: README §5 → `notify-test --confirm` for the real message, then revert the debug `LOG_*` values through a PR. |
+
 ## AUDIT KNOWLEDGE BASE — 2026-09-04
 
 Durable findings of the 2026-09-04 master backlog audit (Fable 5.1), condensed so the next execution starts from a verified baseline. Full compact version: `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`. Labels: VERIFIED / NOT VERIFIED / BLOCKED / OWNER ACTION / HUMAN MERGE REQUIRED.
@@ -63,6 +75,25 @@ Notifications"). Record: `docs/MYTHOS_TELEGRAM_CHANNEL.md` §9.3.
 | Tests | `tests/mythos-telegram-channel-test.js` 68/0 (was 66/0) |
 | Host | drop-in `telegram.conf` installed + loaded (allowed user 5005015506), token file 0600 under the deploy secrets dir, no webhook, no conflict; executor + timer untouched |
 | Not in scope | WhatsApp (untouched); `MYTHOS_TELEGRAM_ALLOWED_ACTIONS` stays investigate,review; tasks that arrive via GitHub Issues do NOT notify Telegram (no such adapter exists — a separate decision) |
+
+## MYTHOS-TELEGRAM-1 — unified GitHub→Telegram event notifications (gh-issue-187, 2026-09-05, Sonnet 5)
+
+**Objective (Issue #187).** Turn the existing per-chat Telegram Lifecycle Notifications into the single outbound
+channel for every important MYTHOS/GitHub event — Issue/task lifecycle, pull requests, git/production/governance —
+with importance filtering, deduplication, rate limiting and one unified message format, without touching WhatsApp,
+without expanding the Telegram allowlist, and without a second bot. Full record: `docs/MYTHOS_TELEGRAM_CHANNEL.md`
+§10.
+
+| Item | State |
+|---|---|
+| Branch / commit | `mythos/gh/gh-issue-187` (worktree `…/worktrees/gh/gh-issue-187`, base `6541cd8`). Delivery is the governance relay (never `git push` from this session); **not merged to main**. |
+| Added | `bridge/notify/telegram-events.js` (unified notifier: importance filter, dedup ledger, rate limiter with a critical-event bypass, `formatEvent()`, `stripInternal()`), `bridge/pr-watch.js` (read-only PR-lifecycle poller, opt-in via `MYTHOS_PR_WATCH_ENABLED=1`), `bridge/gov-notify.js` (tails the shared `events.log` for sync/governance/bridge failures), `tests/mythos-telegram-events-test.js` (52/52). |
+| Changed | `bridge/github-issues.js` (4 call sites inside the existing `intake()`/`notify()` phases: created, claimed, terminal report incl. HUMAN_APPROVAL "owner intervention"; plus `listPulls/getPull/listReviews/getCombinedStatus` added to its REST client for `pr-watch.js` to reuse — same token, no new credential), `bridge/github-bridge.js` (one new `log('sync_failed', …)` call at the existing `sync.ok` check — no other logic changed), `bin/mythos-github-bridge` (`pr-watch-tick\|-status`, `gov-notify-tick\|-status`, `notify-events-status`; `tick` runs `pr-watch-tick`/`gov-notify-tick` strictly after the existing phases, best effort, never affecting `tick`'s exit code), `docs/MYTHOS_TELEGRAM_CHANNEL.md` (§10). |
+| Security | `stripInternal()` removes executor task ids, OTHMODE numeric ids, execution ids and filesystem paths from every notification text as defense in depth, on top of the existing token/secret redaction; OTHMODE is described only as "MYTHOS protection/monitoring", never named — proven by regex assertions against the actual fixture-captured Telegram strings in the new suite, not by code reading alone. `gov-notify.js` deliberately excludes the `telegram:`/`telegram-events:` log namespaces from its watch-list to avoid a feedback loop. |
+| Tests | `mythos-telegram-events-test.js` **52/52** (new, offline, two in-process fakes: GitHub REST + Telegram Bot API). Regression, same host: `mythos-telegram-channel-test.js` 68/68, `mythos-github-issues-test.js` 208/208, `mythos-github-bridge-test.js` 150/150, `mythos-bridge-whatsapp-notify-test.js` 131/131, `mythos-bridge-whatsapp-resilience-test.js` 101/101, `model-selection-policy-test.js` 81/81, `mythos-bridge-push-guard-test.js` 23/23, `mythos-github-bridge-timer-test.js` 16/16, `mythos-governance-invariant-test.js` 111/111, `mythos-n8n-bridge-test.js` 80/80, `redact-governance-false-positive-test.js` 199/199, `whatsapp-gateway-verify-test.js` 24/24, `bridge-action-resolution-test.js` 88/88 — all unchanged. `tests/mpi-0-finalization-governance-test.js` shows 3 pre-existing failures (skill-registry directory-count drift under `.claude/skills/`), unrelated to this stage and not investigated further here (out of scope). |
+| Not done, deliberately | Production activation (drop-in / env flags on the live host) is an owner step, not performed by this session — bridge constraints for this task forbid `git push` and merging. `MYTHOS_PR_WATCH_ENABLED` is a new flag, unset in production, so pull-request polling does not start on its own; task/Issue and git/governance notifications share the existing `MYTHOS_TELEGRAM_ENABLED=1` gate and activate together with it once this branch reaches `main`. No live GitHub→Telegram smoke test was run (would require pushing/merging, which this task's bridge constraints forbid); the offline fixture suite is the verification performed here. `git:deploy` is defined in the notifier's event catalog for a future deployment-event source but nothing calls it yet — there is no existing deployment-event emitter in this repository to hook into. |
+| WhatsApp | untouched — `bridge/notify/whatsapp.js` and its providers were not read or modified. |
+| Blocker | none for this stage's own scope (implementation + tests, `repo-write` profile). Production activation and a live smoke test remain owner-gated exactly as recorded above. |
 
 ## MYTHOS-TELEGRAM-0 — Telegram private-message channel: bot identity transferred, live E2E COMPLETE (2026-09-05, Fable 5.1)
 
@@ -821,3 +852,16 @@ runs on explicit request. Path: GitHub Issue → bridge → executor, not rebuil
 - Verification: GitHub contents and commit metadata confirm the snapshot update is present on `main`.
 - Limitation: the review engine could not be executed from this environment and the live VPS/status host could not be reached. Therefore no new immutable `REVIEW-*` snapshot, `data/current.json` publication, live `/health` verification, or production deployment is claimed by this handover entry.
 - Next step: execute `node projects/status-center/bin/review.js`, verify the generated immutable review/current data, run `node tests/stc-1-status-center-test.js`, and publish the resulting Status Center snapshot through the sanctioned production deployment path.
+
+## 2026-09-05 — GitHub → Telegram reconciliation / PR #188 closure
+
+| Item | State |
+|---|---|
+| Main HEAD | `a929a156781dd1c9867a78fc626c7e3a351ad975` (`origin/main` aligned) |
+| PR #188 | **CLOSED, NOT MERGED** |
+| PR #188 resolution | Superseded/obsolete implementation; newer GitHub → Telegram path already exists on main, so PR #188 was not merged or cherry-picked |
+| Production bridge | **NOT ACTIVATED / NOT VERIFIED** — no `mythos-github-bridge` systemd service, process, or cron entry found |
+| Regression tests | GitHub bridge **150/0** · timer **PASS** · GitHub Issues **208/0** · Telegram events **52/0** |
+| Diff hygiene | `git status --short`, `git diff --check`, and `git diff --stat` clean before this documentation update |
+| Issue #180 | **OPEN** — production integration verification remains outstanding |
+| Next step | Commit and push this reconciliation/handover update after final diff review |

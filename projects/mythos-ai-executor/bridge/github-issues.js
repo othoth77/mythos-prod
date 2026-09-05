@@ -81,6 +81,11 @@ var modelPolicy = require(path.join(EXEC_ROOT, 'lib', 'model-policy'));
 // ONE engine decides requested_action / execution_profile / model for every
 // surface (Issue, task file, executor). This adapter never re-implements it.
 var engine = require('./action-resolution');
+// Unified Telegram event notifier (gh-issue-187): best-effort, disabled
+// unless MYTHOS_TELEGRAM_ENABLED=1 with a token and an allowlist, exactly
+// like the Telegram channel itself. A failure here must never affect the
+// Issue/task lifecycle, so every call is wrapped by notifyTelegram() below.
+var telegramEvents = require('./notify/telegram-events');
 
 var BY = 'github-issues';
 var MARKER_PREFIX = '<!-- mythos-control ';
@@ -103,6 +108,11 @@ var STATUS_LABEL = {
   PENDING: 'queued', CLAIMED: 'in-progress', IN_PROGRESS: 'in-progress', VALIDATING: 'in-progress',
   COMPLETED: 'completed', FAILED: 'failed', BLOCKED: 'blocked', HUMAN_APPROVAL: 'human-approval',
   CANCELLED: 'cancelled', INVALID: 'invalid'
+};
+
+// Issue-facing terminal state → unified Telegram event name (gh-issue-187).
+var REPORT_EVENT_BY_STATE = {
+  COMPLETED: 'completed', FAILED: 'failed', BLOCKED: 'blocked', HUMAN_APPROVAL: 'human_approval', CANCELLED: 'cancelled'
 };
 
 // --- Configuration -------------------------------------------------------------
@@ -164,6 +174,15 @@ function short(s, n) { s = String(s == null ? '' : s); return s.length > n ? s.s
 
 function log(event, fields) {
   bridge.log('issues:' + event, fields);
+}
+
+// Best-effort: a Telegram outage or misconfiguration is never allowed to
+// affect Issue/task processing. Resolves even on failure.
+function notifyTelegram(evt) {
+  return telegramEvents.notifyEvent(evt).then(function (r) { return r; }, function (e) {
+    log('telegram_notify_error', { event: evt && evt.event, error: short(String(e && e.message || e), 200) });
+    return { sent: false, reason: 'error' };
+  });
 }
 
 function issueTaskId(n, attempt) { return 'gh-issue-' + n + (attempt > 1 ? '-r' + attempt : ''); }
@@ -296,7 +315,16 @@ function createClient(cfg, token, opts) {
     closeIssue: async function (n) {
       if (opts.dryRun) return { state: 'closed', dry_run: true };
       return must(await request('PATCH', repo + '/issues/' + n, { state: 'closed', state_reason: 'completed' }), 'close #' + n);
-    }
+    },
+    // Pull-request read endpoints, added for the PR lifecycle watcher
+    // (gh-issue-187, bridge/pr-watch.js). Read-only: this adapter still
+    // never merges, comments on, or otherwise mutates a pull request.
+    listPulls: function (cap) {
+      return pages(repo + '/pulls?state=all&sort=updated&direction=desc', cap || 1);
+    },
+    getPull: async function (n) { return must(await request('GET', repo + '/pulls/' + n), 'pull #' + n); },
+    listReviews: function (n) { return pages(repo + '/pulls/' + n + '/reviews', 2); },
+    getCombinedStatus: async function (ref) { return must(await request('GET', repo + '/commits/' + ref + '/status'), 'status ' + ref); }
   };
 }
 
@@ -488,9 +516,27 @@ function issueToTask(cfg, issue, attempt, previous) {
     truncated.push({ field: field, original_length: t.length, kept_length: max });
     return t.slice(0, max - 1) + '…';
   }
-  var secretKinds = redact.findSecretKinds(title + '\n' + body);
-  if (secretKinds.length) {
-    return { task: null, errors: ['Issue carries a secret-shaped string (' + secretKinds.join(', ') + '). Credentials never travel in tasks: rotate it and open a new Issue.'], secret: true };
+  // Secret gate. The shared classifier reports the KIND, the assignment KEY
+  // and the LINE of every hit — never the value — so a false positive
+  // (an example such as `TOKEN: configured`) is locatable and fixable by
+  // rewriting the value as an explicit placeholder (`TOKEN=<EXAMPLE_TOKEN>`),
+  // while a real credential is still refused. Title and body are scanned as
+  // one text; the title is line 1.
+  var secretHits = redact.findSecretMatches(title + '\n' + body);
+  if (secretHits.length) {
+    var secretKinds = [];
+    var where = secretHits.slice(0, 8).map(function (h) {
+      if (secretKinds.indexOf(h.kind) === -1) secretKinds.push(h.kind);
+      return h.kind + (h.key ? ' `' + short(h.key, 40) + '`' : '') + (h.line === 1 ? ' in the title' : ' at body line ' + (h.line - 1));
+    });
+    return {
+      task: null,
+      secret: true,
+      errors: [
+        'Issue carries a secret-shaped string (' + secretKinds.join(', ') + '): ' + where.join('; ') + (secretHits.length > 8 ? '; … ' + (secretHits.length - 8) + ' more' : '') + '. Credentials never travel in tasks: rotate it and open a new Issue.',
+        'Examples and status lines must state a non-secret value as an explicit placeholder, e.g. `TOKEN=<EXAMPLE_TOKEN>`, `API_KEY=<EXAMPLE_VALUE>`, `PASSWORD=${DB_PASSWORD}`, `Secrets: <none>`. Plain words after `KEY:` / `KEY=` are treated as credential material by design (docs/MYTHOS_GITHUB_ISSUES.md §Secrets and placeholders).'
+      ]
+    };
   }
   var sections = splitSections(body);
   var fields = engine.extractFields(body);
@@ -874,7 +920,7 @@ function rejectedBody(cfg, issue, errors, hash, secret) {
     list(errors, 'unknown error'),
     '',
     secret
-      ? '**A secret-shaped value was detected.** It was not copied anywhere. Rotate it, then open a NEW Issue without it.'
+      ? '**A secret-shaped value was detected.** It was not copied anywhere. If it is a real credential: rotate it, then open a NEW Issue without it. If it is an example or a status line: edit the value into an explicit placeholder (`<EXAMPLE_VALUE>`, `${VAR}`, `[REDACTED]`) — the adapter re-evaluates an edited Issue automatically.'
       : 'Edit the Issue to fix this (the adapter re-evaluates an edited Issue automatically) — see `docs/MYTHOS_GITHUB_ISSUES.md` for the expected format.'
   ].join('\n');
 }
@@ -1006,6 +1052,10 @@ async function intake(cfg, client, opts) {
     task.source.events.push({ at: nowIso(), event: 'task_created', reason: 'control/tasks/' + task.task_id + '.json PENDING; created comment ' + (cm.existed ? 'adopted' : 'posted') });
     actions.push({ action: 'create', issue: n, task_id: task.task_id, attempt: attempt, comment: cm, requested_action: task.requested_action, action_source: task.action_source, model: task.model || null });
     log('created', { issue: n, task_id: task.task_id, attempt: attempt, requested_action: task.requested_action, action_source: task.action_source, action_raw: task.action_raw, execution_profile: engine.profileFor(task.requested_action), model: task.model || null, model_source: task.model_source || null });
+    await notifyTelegram({
+      category: 'task', event: 'created', key: task.task_id, id: '#' + n, status: 'PENDING',
+      title: short(String(issue.title || ''), 200), model: task.model || null
+    });
   }
   if (newTasks.length) {
     var msg = 'control: issues → ' + newTasks.map(function (t) { return t.task_id + ' (#' + t.source.issue_number + ')'; }).join(', ').slice(0, 180);
@@ -1082,6 +1132,10 @@ async function notify(cfg, client, opts) {
           await setStatusLabel(cfg, client, await getIssue(), 'IN_PROGRESS');
           changed = true;
           actions.push({ action: 'notify', event: 'claimed', issue: n, task_id: t.task_id, comment: c1 });
+          await notifyTelegram({
+            category: 'task', event: 'claimed', key: t.task_id + ':claimed', id: '#' + n, status: 'IN_PROGRESS',
+            title: short(String(t.objective || ''), 200), model: t.model || null, guard: true
+          });
         }
       }
 
@@ -1105,6 +1159,14 @@ async function notify(cfg, client, opts) {
           changed = true;
           actions.push({ action: 'notify', event: 'report', issue: n, task_id: t.task_id, status: istate, closed: !!closable, comment: c2 });
           log('report_posted', { issue: n, task_id: t.task_id, status: istate, closed: !!closable, existed: c2.existed });
+          await notifyTelegram({
+            category: 'task', event: REPORT_EVENT_BY_STATE[istate] || 'completed', key: t.task_id + ':report', id: '#' + n, status: istate,
+            title: report ? short(String(report.summary || ''), 500) : 'cancelled before it was claimed',
+            result: report && Array.isArray(report.tests) && report.tests.length ? report.tests.slice(0, 3).map(function (x) { return short(String(x), 120); }).join(' | ') : null,
+            next_action: report && report.next_recommended_action ? short(String(report.next_recommended_action), 300) : null,
+            model: (report && report.execution && report.execution.model) || t.model || null,
+            guard: true
+          });
         }
       }
 
