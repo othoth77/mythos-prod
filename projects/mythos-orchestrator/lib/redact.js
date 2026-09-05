@@ -2,20 +2,9 @@
 // =====================================================
 // Mythos Orchestrator — secret redaction
 // projects/mythos-orchestrator/lib/redact.js
-//
-// Applied to everything the orchestrator persists or prints: task logs,
-// provider stdout/stderr, status files and CLI output. AGENTS.md §14
-// forbids exposing secrets in tool output, fixtures or logs, and the
-// ntfy topic is treated as a capability secret (possessing the topic is
-// sufficient to publish to it), so it is redacted alongside credentials.
-//
-// This is defence in depth, not a licence to log sensitive material: the
-// orchestrator never writes environment dumps or credential files in the
-// first place.
 // =====================================================
 
 var PATTERNS = [
-  // Provider and platform tokens
   { name: 'github-token', re: /\b(gh[pousr]_[A-Za-z0-9]{16,})\b/g },
   { name: 'github-pat', re: /\bgithub_pat_[A-Za-z0-9_]{20,}\b/g },
   { name: 'openai-key', re: /\bsk-(?:proj-|ant-)?[A-Za-z0-9_-]{20,}\b/g },
@@ -25,31 +14,26 @@ var PATTERNS = [
   { name: 'google-api-key', re: /\bAIza[0-9A-Za-z_-]{35}\b/g },
   { name: 'jwt', re: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g },
   { name: 'private-key-block', re: /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g },
-
-  // Capability URLs — the path itself is the credential
   { name: 'ntfy-topic', re: /https?:\/\/ntfy\.[A-Za-z0-9.-]+\/[A-Za-z0-9_-]+/g },
-
-  // Connection strings carrying inline credentials
   { name: 'db-url', re: /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp):\/\/[^\s:@/]+:[^\s@]+@[^\s]+/g },
   { name: 'url-basic-auth', re: /\bhttps?:\/\/[^\s:@/]+:[^\s@]+@[^\s]+/g },
 
-  // Explicit assignments — key=value / key: value. Narrative status text
-  // commonly uses secret-related words as labels (e.g. "Secrets: safe/redacted").
-  // Those labels must not be treated as credentials when their values are
-  // explicit non-secret status placeholders.
-  { name: 'assigned-secret', re: /\b([A-Za-z0-9_]*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_?KEY|PRIVATE_?KEY|ACCESS_?KEY|CREDENTIAL)[A-Za-z0-9_]*)\s*[:=]\s*(?:"[^"\n]*"|'[^'\n]*'|[^\s,;)}\]]+)/gi }
+  // Explicit assignments. The value is captured through the end of the
+  // current clause so human status prose such as "Secrets: safe/redacted"
+  // can be recognised as a non-secret placeholder without weakening the
+  // credential patterns above.
+  { name: 'assigned-secret', re: /\b([A-Za-z0-9_]*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_?KEY|PRIVATE_?KEY|ACCESS_?KEY|CREDENTIAL)[A-Za-z0-9_]*)\s*[:=]\s*(?:"[^"\n]*"|'[^'\n]*'|[^\n,;)}\]]+)/gi }
 ];
 
-var SAFE_ASSIGNMENT_VALUES = /^(?:configured|fixed|not required|none|safe(?:\/redacted)?|redacted|n\/a|na|ok|true|false|yes|no|enabled|disabled|pending|unknown|not configured|not set|unset)$/i;
-
+var SAFE_ASSIGNMENT_VALUES = /^(?:configured|fixed|not\s+required|none|safe(?:\/redacted)?|redacted|n\/a|na|ok|true|false|yes|no|enabled|disabled|pending|unknown|not\s+configured|not\s+set|unset)$/i;
 var MASK = '[REDACTED]';
 
 function isSafeAssignmentValue(value) {
-  return typeof value === 'string' && SAFE_ASSIGNMENT_VALUES.test(value.trim());
+  if (typeof value !== 'string') return false;
+  var v = value.trim().replace(/^["']|["']$/g, '').trim();
+  return SAFE_ASSIGNMENT_VALUES.test(v);
 }
 
-// Redacts every known secret shape in a string. Non-strings pass through
-// unchanged so callers can use this defensively.
 function redact(text) {
   if (typeof text !== 'string' || !text) return text;
   var out = text;
@@ -67,8 +51,6 @@ function redact(text) {
   return out;
 }
 
-// Deep-redacts an arbitrary JSON-serialisable value, including object keys'
-// values. Used before writing result/status files.
 function redactValue(value) {
   if (typeof value === 'string') return redact(value);
   if (Array.isArray(value)) return value.map(redactValue);
@@ -80,8 +62,6 @@ function redactValue(value) {
   return value;
 }
 
-// Reports which patterns match, without ever returning the matched text.
-// Used by the task validator to refuse a task that carries a secret.
 function findSecretKinds(text) {
   if (typeof text !== 'string' || !text) return [];
   var kinds = [];
@@ -103,9 +83,4 @@ function findSecretKinds(text) {
   return kinds;
 }
 
-module.exports = {
-  redact: redact,
-  redactValue: redactValue,
-  findSecretKinds: findSecretKinds,
-  MASK: MASK
-};
+module.exports = { redact: redact, redactValue: redactValue, findSecretKinds: findSecretKinds, MASK: MASK };
