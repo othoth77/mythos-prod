@@ -34,6 +34,7 @@ var url = require('url');
 var db = require('./db');
 var auth = require('./auth');
 var api = require('./api');
+var receiver = require('./comms/receiver');
 var redact = require('../../mythos-orchestrator/lib/redact');
 
 var ROOT = path.resolve(__dirname, '..', '..', '..');
@@ -137,6 +138,9 @@ function handle(req, res) {
   // Public liveness for nginx / monitors: says "up", nothing else.
   if (pathname === '/healthz' && (method === 'GET' || method === 'HEAD')) return sendJSON(res, 200, { ok: true });
 
+  // Provider webhooks (Communication Receiver): token-authenticated, no session, loopback by deployment.
+  if (pathname.indexOf('/hooks/') === 0) return receiver.handle(req, res, { pool: db.wp(), log: log, requestId: requestId });
+
   // Static
   var st = STATIC[pathname];
   var fontMatch = FONT_RE.exec(pathname);
@@ -190,6 +194,7 @@ function handle(req, res) {
     ctx.body = body;
     return route.handler(req, res, ctx);
   }).then(function (data) {
+    if (route.stream) return; // the handler owns the response (SSE)
     sendJSON(res, ctx._status, { ok: true, at: new Date().toISOString(), data: data }, ctx._cookie ? { 'Set-Cookie': ctx._cookie } : undefined);
     if (isMutation(method)) log({ level: 'info', request_id: requestId, actor: session ? session.username : (pathname === '/api/login' ? 'login' : null), method: method, path: pathname, status: ctx._status });
   }).catch(function (err) {

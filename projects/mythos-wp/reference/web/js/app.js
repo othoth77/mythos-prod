@@ -12,6 +12,8 @@ import * as part from './views/part.js';
 import * as overlays from './views/overlays.js';
 import * as autoreply from './views/autoreply.js';
 import * as system from './views/system.js';
+import * as inboxView from './views/inbox.js';
+import * as contactsView from './views/contacts.js';
 
 const PROJECT_KEY = 'mythos-wp:project';
 const THEME_KEY = 'mythos-wp:theme';
@@ -49,7 +51,9 @@ export function navEntries() {
     { group: 'MYTHOS AUTO', label: 'Auto-Reply', icon: 'auto', route: '#/autoreply' },
     { group: 'MYTHOS AUTO', label: 'Handoff', icon: 'handoff', route: '#/r/handoffs', count: state.handoffOpen },
     { group: 'MYTHOS AUTO', label: 'Knowledge', icon: 'knowledge', route: '#/r/knowledge' },
-    { group: 'MYTHOS AUTO', label: 'Conversations', icon: 'auto', route: '#/planned/conversations', planned: true },
+    { group: 'WhatsApp', label: 'Inbox', icon: 'auto', route: '#/inbox', count: state.inboxUnread },
+    { group: 'WhatsApp', label: 'Contacts', icon: 'project', route: '#/contacts' },
+    { group: 'WhatsApp', label: R.inboxes.label, icon: 'system', route: '#/r/inboxes' },
     { group: 'Projects', label: 'Projects', icon: 'project', route: '#/r/projects' },
     { group: 'System', label: 'Audit log', icon: 'audit', route: '#/r/audit' },
     { group: 'System', label: 'System health', icon: 'system', route: '#/system' },
@@ -109,6 +113,10 @@ const VIEWS = [
   ['/stock', overlays.renderStock],
   ['/autoreply', autoreply.render],
   ['/system', system.render],
+  ['/inbox', inboxView.render],
+  ['/inbox/:id', inboxView.render],
+  ['/contacts', contactsView.render],
+  ['/contacts/:id', contactsView.renderOne],
   ['/part/:uid', part.render],
   ['/r/:resource', resource.render],
   ['/r/:resource/new', record.renderNew],

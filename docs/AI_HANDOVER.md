@@ -121,6 +121,59 @@ Baseline record taken before any further phase. Read-only except the tag and thi
 | Databases (untouched) | `idauto_production`, `idauto`, `ssangyong_autos`, `mythos_command_center(_test)`, `mythos_erp`, `mythos_wp(_test)`, `idauto_scratch_final` in `idauto-postgres`; separate `evolution-postgres` and `coolify-db` containers. No write issued. |
 | Verdict | **NO UNEXPECTED CHANGES — Phase 0 lock holds.** Safe to proceed to Phase 1 from `52c449e`. |
 
+## 2026-09-05 — MYTHOS-COMMS-5 — Human outbound reply (#209): **DEPLOYED, OFF (outbound_enabled=false)**
+
+| Item | State |
+|---|---|
+| Governance | Issue #209 (`Action: review`, `Depends on: #207`). Branch `mythos/comms-5-outbound-20260905` → PR merged to `main`. |
+| Delivered | `reference/comms/outbound.js` (gates → row → provider → state → journal/audit/SSE; idempotent `client_ref`; one transport retry; hourly cap; manual retry), `providers/evolution.js` `sendText` + `messages.update` parsing, `core.updateStatus` (never downgrades), receiver `status` branch, migration `0003_outbound` (`client_ref`, `attempts`, provider-id CHECK on inbound only), API `POST …/messages` + `…/messages/:id/retry`, Inbox reply box live when the inbox allows it (Ctrl+Enter, statuses ✓/✓✓, Retry on failed). |
+| Tests | outbound **34/0** (fake Evolution; contract, 412/400/429 gates, sent, idempotent replay, transport retry, HTTP 500 no-retry, manual retry, delivery states, no downgrade, no secrets in logs, mythos-bridge refused) · receiver 61/0 · inbox 38/0 · inboxes 12/0 · schema 62/0 · wp 312/0 · check.sh GREEN. |
+| Deployment (Gate 6 prep) | Host env gained `MYTHOS_WP_EVOLUTION_API_KEY_FILE` (existing 0600 `evolution.key`); migration 0003 applied to production `mythos_wp`; main worktree advanced; service restarted; `/healthz` 200. `wp_inboxes.outbound_enabled` is **false** for `ssangyong-autos`, so every send answers 412. No message sent. |
+| Next | Owner Gate 3 (scan) → Gate 4 (`inbound_enabled=true`, one real text) → Gate 6 (`outbound_enabled=true`, one real human reply, no duplicate). Meanwhile: COMMS-6 (contacts/CRM is largely delivered in COMMS-4) and COMMS-7 (AI assistant) proceed behind flags. |
+
+## 2026-09-05 — MYTHOS-COMMS-4 — Inbox / Conversations / Contacts UI + API + SSE (#207): **DEPLOYED (empty until Gate 3/4)**
+
+| Item | State |
+|---|---|
+| Governance | Issue #207 (`Action: review`, `Depends on: #205`). Branch `mythos/comms-4-inbox-20260905` → PR merged to `main`. |
+| Delivered | `reference/comms/inbox.js` (project-scoped queries/mutations, masking), `reference/comms/bus.js` (SSE feed; Core `ingest()` now publishes `message.in`), 17 API routes under `/api/projects/:p/comms/*` incl. the SSE stream (server gained `route.stream`), `views/inbox.js` + `views/contacts.js`, navigation group WhatsApp (Inbox with unread count, Contacts, inboxes; the "Conversations (planned)" entry is gone), inbox styles. |
+| Tests | inbox **38/0** (auth, list/masking/counts/filters/search incl. message text, detail, timeline, read, patch + audit + event, notes as activity rows, tags, contacts, project isolation 404s, SSE receives `message.in` for the project only and carries no text) · receiver 61/0 · schema 62/0 · inboxes 12/0 · wp 312/0 · check.sh GREEN. |
+| Deployment (Gate 5 prep) | main worktree advanced, `mythos-wp.service` restarted, `/healthz` 200. Production inbox is empty by design: the customer instance is not paired (Gate 3) and `inbound_enabled=false` (Gate 4). |
+| Next | Owner: Gate 3 scan. Then COMMS-5 (human outbound) is built behind `wp_inboxes.outbound_enabled=false`. |
+
+## 2026-09-05 — MYTHOS-COMMS-3 — Customer WhatsApp Provider (#205): **PROVISIONED, DRY-RUN — Gate 3 waits for the owner scan**
+
+| Item | State |
+|---|---|
+| Governance | Issue #205 (`Action: review`, `Depends on: #202`, bridge-captured). Branch `mythos/comms-3-provider-20260905` → PR (this entry's PR) merged to `main`. |
+| Delivered | `ops/whatsapp/evolution/customer-instance.sh` (owner-run, idempotent, refuses `mythos-bridge`, header token, verify mode); `projects/mythos-wp`: resource `inboxes` (WhatsApp group, owner-writable, `mythos-bridge` refused by pattern), `GET /api/comms/receiver` (non-secret status), System page card; `tests/mythos-wp-comms-inboxes-test.js` 12/0; architecture §8. |
+| Tests | inboxes **12/0** · receiver **61/0** · schema **62/0** · wp **312/0** (registry now 13 resources) · `tools/check.sh` GREEN. |
+| Host (outside Git, documented) | `/home/deploy/deployments/mythos-wp/webhook.token` created (0600, deploy); `.env` gained `MYTHOS_WP_WEBHOOK_TOKEN_FILE` + `MYTHOS_WP_RECEIVER_ENABLED=1`; `mythos-wp.service` restarted. Evolution: instance **`ssangyong-autos`** created (WHATSAPP-BAILEYS, state `close`, not paired), webhook set (loopback receiver, 3 events, `base64=false`, token header). `mythos-bridge`: webhook still `null`, state `open`, untouched. Telegram untouched. |
+| Production checks | `wp_inboxes`: 1 row (`ssangyong-autos`, `closed`, `inbound_enabled=false`). `POST /hooks/evolution`: **401** without token; **200 `dry_run`** with token for a synthetic `ssangyong-autos` payload (ledger rows `rejected INBOX_UNKNOWN` before the inbox row existed, then `dry_run INBOX_INBOUND_DISABLED`); `wp_messages` 0. |
+| Gate 3 (open) | Needs the owner: a **dedicated customer number** (decision) and a scan with `sudo -u deploy -H bash /home/deploy/projects/mythos-prod/ops/whatsapp/evolution/qr-live.sh ssangyong-autos` (or from the main worktree) at QR age < 20 s. Expected after scan: instance `open`, `connection.update` row in `wp_inbound_events`, `wp_inboxes.status=open`. |
+| Next | Phase 4 after Gate 3: set `inbound_enabled=true` on the inbox (panel, owner) and send one controlled text message. Non-dependent work continues meanwhile: MYTHOS-COMMS-4 (Inbox UI) with fixtures. |
+
+## 2026-09-05 — MYTHOS-COMMS-2 — Inbound Receiver (#202): **DEPLOYED, OFF (dry-run capable)**
+
+| Item | State |
+|---|---|
+| Governance | Issue #202 (`Action: review`, `Depends on: #197`, bridge-captured). PR #203 (`mythos/comms-2-receiver-20260905`) **merged** → `origin/main 6631b6e`. |
+| Delivered | `projects/mythos-wp/reference/comms/providers/evolution.js` (normalisation + redaction), `reference/comms/core.js` (transactional exactly-once ingest), `reference/comms/receiver.js` (+ mount in `server.js` before session logic), migration `0002_inbound_events` (ledger / dead-letter), `tests/mythos-wp-comms-receiver-test.js`, architecture §7, README section. |
+| Tests | receiver **61/0** · schema **62/0** · wp **306/0** (deploy, `mythos_wp_test`). Security assertions: no apikey / mediaKey / token / message text in stored raw, dead-letter or logs; world-readable token file refused; oversize body cut. |
+| Deployment (Gate 2) | main worktree advanced to `6631b6e`, `migrate up` applied `0002_inbound_events` on production `mythos_wp` (20 tables), `mythos-wp.service` restarted, `/healthz` 200. `MYTHOS_WP_RECEIVER_ENABLED` **absent** → `POST /hooks/evolution` answers **404** on loopback and on the public host; `wp_messages` 0, `wp_inbound_events` 0. No Evolution webhook exists; no customer traffic can be processed. |
+| Next | MYTHOS-COMMS-3 — customer Evolution instance (`ssangyong-autos`), webhook token + env on the host, per-instance webhook to the loopback receiver, inbox row with `inbound_enabled=false` (dry-run); pairing needs the owner's phone and a dedicated customer number (owner decision, Gate 3). |
+
+## 2026-09-05 — MYTHOS-COMMS-1 — Communication Core Foundation (#197): **DEPLOYED**
+
+| Item | State |
+|---|---|
+| Phase 0 baseline | Production checkout `main` at `52c449e` = `origin/main` with three uncommitted files (`docs/AI_HANDOVER.md`, `docs/ERP_MIGRATION_PLAN.md`, `tests/erp-acceptance-drill.sh`) belonging to the concurrent ERP-migration session (owners `deploy`/`ubuntu`, 15:10–15:11 UTC) — **left untouched**; because that checkout is dirty on `AI_HANDOVER.md`, it cannot be fast-forwarded by an agent while that work is uncommitted, so deployment uses a detached worktree of `origin/main` (below). `mythos-bridge` open, WhatsApp notifications ENABLED, Telegram OFF, Evolution 2.3.7 `LOG_BAILEYS=error`, WP `mythos_wp` 7 tables, `projects/mythos-wp` only on the unmerged branch `mythos/wp-20260905` (13 ahead / 4 behind). |
+| Governance | Issue #197 (labels task/enhancement/whatsapp, `Action: review`, `Depends on: #196`) captured by the bridge as `gh-issue-197` (created comment 15:34 UTC; PENDING until #196 completes — the bridge attempt is review-only, the implementation was done by the operator session). PR #199 (`mythos/wp-20260905` reconciled with main, merge `d5a6ff5`, 306/0) **merged** → `34af9dc`. PR #200 (`mythos/comms-1-foundation-20260905`, `b25d26c`) **merged** → `origin/main e92042d`. |
+| Delivered | `projects/mythos-wp/database/migrations/0001_comms_core.{up,down}.sql`, `reference/migrate.js`, CLI `mythos-wp migrate status|up|down`, `tests/mythos-wp-comms-schema-test.js`, `docs/MYTHOS_COMMUNICATION_OS_ARCHITECTURE.md`, README section. Tables: `wp_inboxes`, `wp_contacts`, `wp_conversations`, `wp_messages`, `wp_message_attachments`, `wp_conversation_events`, `wp_tags`/`wp_contact_tags`/`wp_conversation_tags`, `wp_ai_runs`, `wp_ai_suggestions`, `wp_handoffs.conversation_id`, `wp_schema_migrations`. |
+| Tests | `tests/mythos-wp-comms-schema-test.js` **60/0** (apply → constraints → rollback → re-apply → no-op) · `tests/mythos-wp-test.js` **306/0** · `tools/check.sh` GREEN — all as deploy on `mythos_wp_test`. |
+| Deployment (Gate 1) | Migration applied to production `mythos_wp` from the `main` worktree: `migrate status` pending → `up` → applied `0001_comms_core`; 19 tables, new tables **0 rows**. `mythos-wp.service` repointed from the branch worktree to **`/home/deploy/worktrees/mythos-wp-main`** (detached checkout of `origin/main` `e92042d`; unit backup `mythos-wp.service.pre-main-20260905`), `daemon-reload` + restart; `/healthz` 200 on loopback and on https://wp.mythosprod.xyz. Repo unit file updated to the same path. |
+| Not done (by design) | No webhook, no customer instance, no receiver, no message; `wp_inboxes` empty; Telegram untouched; `mythos-bridge` untouched. |
+| Next | MYTHOS-COMMS-2 — inbound receiver (dry-run/OFF): validate + normalise + dedupe `messages.upsert` into the new tables behind `wp_inboxes.inbound_enabled`. Deployment rule from now on: after each merge, `git -C /home/deploy/worktrees/mythos-wp-main checkout --detach origin/main` + restart `mythos-wp.service`; the production checkout follows by `pull --ff-only` once the ERP session has committed its files. |
 
 ## 2026-09-05 — WhatsApp QR pairing: root-cause diagnosis + live-QR helper (`mythos/wa-qr-live-scan-20260905`)
 

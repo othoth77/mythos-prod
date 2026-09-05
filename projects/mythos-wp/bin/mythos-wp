@@ -13,6 +13,9 @@
 //       Inserts a registry row (needs MYTHOS_WP_DB_* in the environment).
 //   mythos-wp check-env
 //       Reports which environment variables and files are present (names only).
+//   mythos-wp migrate status | up | down <version>
+//       Additive SQL migrations (database/migrations, ledger wp_schema_migrations);
+//       needs MYTHOS_WP_DB_* in the environment. `down` rolls back ONE version.
 // =====================================================
 
 var fs = require('fs');
@@ -82,7 +85,17 @@ if (cmd === 'set-password') {
   process.stdout.write('users file: ' + (us.provisioned ? us.count + ' user(s)' : 'NOT USABLE (' + us.reason + ')') + '\n');
   process.stdout.write('comms config: ' + (process.env.MYTHOS_WP_COMMS_CONFIG ? 'set' : 'absent') + '\n');
   Object.keys(process.env).filter(function (k) { return /^MYTHOS_WP_CATALOG_/.test(k); }).forEach(function (k) { process.stdout.write('catalogue var: ' + k + ' (set)\n'); });
+} else if (cmd === 'migrate') {
+  var migrate = require('../reference/migrate');
+  var pool = require('../reference/db').wp();
+  var sub = args[1];
+  var run = sub === 'status' ? migrate.status(pool)
+    : sub === 'up' ? migrate.up(pool)
+    : sub === 'down' ? (args[2] ? migrate.down(pool, args[2]) : Promise.reject(new Error('usage: migrate down <version>')))
+    : Promise.reject(new Error('usage: migrate status|up|down <version>'));
+  run.then(function (r) { process.stdout.write(JSON.stringify(r) + '\n'); return pool.end(); })
+    .catch(function (e) { pool.end().catch(function () {}); die(e.message); });
 } else {
-  process.stdout.write('usage: mythos-wp <set-password|remove-user|list-users|seed-project|check-env> …\n');
+  process.stdout.write('usage: mythos-wp <set-password|remove-user|list-users|seed-project|check-env|migrate> …\n');
   process.exit(cmd ? 1 : 0);
 }
