@@ -207,6 +207,7 @@ function create(r, ctx, payload) {
   });
   if (r.scope === 'wp' && !r.global) { cols.push('project_id'); params.push(ctx.project.id); vals.push('$' + params.length); }
   if (r.managed && r.managed.updated_by === 'actor') { cols.push('updated_by'); params.push(ctx.actor); vals.push('$' + params.length); }
+  if (r.managed && r.managed.added_by === 'actor') { cols.push('added_by'); params.push(ctx.actor); vals.push('$' + params.length); }
   var sql = 'INSERT INTO ' + r.table + ' (' + cols.join(', ') + ') VALUES (' + vals.join(', ') + ') RETURNING *';
   return ctx.pool.query(sql, params).then(function (res) {
     var row = res.rows[0];

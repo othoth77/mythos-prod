@@ -54,12 +54,17 @@ export function navEntries() {
     { group: 'WhatsApp', label: 'Inbox', icon: 'auto', route: '#/inbox', count: state.inboxUnread },
     { group: 'WhatsApp', label: 'Contacts', icon: 'project', route: '#/contacts' },
     { group: 'WhatsApp', label: R.inboxes.label, icon: 'system', route: '#/r/inboxes' },
+    { group: 'WhatsApp', label: R.inbox_members.label, icon: 'project', route: '#/r/inbox_members' },
     { group: 'Projects', label: 'Projects', icon: 'project', route: '#/r/projects' },
     { group: 'System', label: 'Audit log', icon: 'audit', route: '#/r/audit' },
     { group: 'System', label: 'System health', icon: 'system', route: '#/system' },
     { group: 'Settings', label: 'Business rules', icon: 'rule', route: '#/r/rules' }
   ];
-  return entries.map((e) => Object.assign(e, { disabled: !proj && !/projects|system|audit/.test(e.route) }));
+  const row = state.meta.projects.find((x) => x.id === proj) || null;
+  const automotive = !row || (row.kind || 'automotive') === 'automotive';
+  return entries
+    .filter((e) => automotive || !/^(Catalogue|Commercial)$/.test(e.group))
+    .map((e) => Object.assign(e, { disabled: !proj && !/projects|system|audit/.test(e.route) }));
 }
 
 function renderNav(current) {

@@ -15,9 +15,22 @@ function fail(code, status, detail) { var e = new Error(detail || code); e.code 
 function mask(n) { n = String(n || ''); return n.length > 3 ? '***' + n.slice(-3) : '***'; }
 function clampInt(v, d, lo, hi) { var n = parseInt(v, 10); if (isNaN(n)) n = d; return Math.max(lo, Math.min(hi, n)); }
 
+// scope(pool, username) → null (sees every inbox) | [inbox ids] (member-scoped)
+function scope(pool, username) {
+  return pool.query('SELECT inbox_id FROM wp_inbox_members WHERE username = $1', [username]).then(function (r) { return r.rows.length ? r.rows.map(function (x) { return x.inbox_id; }) : null; }, function () { return null; });
+}
+function memberships(pool, username) {
+  return pool.query('SELECT m.inbox_id, m.role, m.team, i.project_id, i.instance, i.display_name, i.status FROM wp_inbox_members m JOIN wp_inboxes i ON i.id = m.inbox_id WHERE m.username = $1 ORDER BY i.project_id, i.id', [username]).then(function (r) { return r.rows; });
+}
+function scopeClause(scope, params, col) {
+  if (!scope) return null;
+  params.push(scope.length ? scope : [-1]);
+  return col + ' = ANY($' + params.length + '::bigint[])';
+}
 function listConversations(pool, projectId, o) {
   o = o || {};
   var params = [projectId]; var where = ['c.project_id = $1'];
+  var sc = scopeClause(o.scope, params, 'c.inbox_id'); if (sc) where.push(sc);
   if (o.status && STATUSES.indexOf(o.status) !== -1) { params.push(o.status); where.push('c.status = $' + params.length); }
   else if (o.status === 'live') where.push("c.status NOT IN ('resolved','archived')");
   if (o.assigned === 'me' && o.username) { params.push(o.username); where.push('c.assigned_to = $' + params.length); }
@@ -41,17 +54,20 @@ function listConversations(pool, projectId, o) {
     return { items: r.rows.map(function (x) { x.contact_masked = mask(x.contact_wa_id); delete x.contact_wa_id; x.last_text = x.last_text ? String(x.last_text).slice(0, 140) : null; return x; }), next_before: r.rows.length === limit ? r.rows[r.rows.length - 1].last_message_at : null };
   });
 }
-function counts(pool, projectId) {
-  return pool.query("SELECT status, count(*)::int AS n, coalesce(sum(unread_count),0)::int AS unread FROM wp_conversations WHERE project_id = $1 GROUP BY status", [projectId]).then(function (r) {
+function counts(pool, projectId, scope) {
+  var params = [projectId]; var extra = '';
+  var sc = scopeClause(scope, params, 'inbox_id'); if (sc) extra = ' AND ' + sc;
+  return pool.query("SELECT status, count(*)::int AS n, coalesce(sum(unread_count),0)::int AS unread FROM wp_conversations WHERE project_id = $1" + extra + " GROUP BY status", params).then(function (r) {
     var out = { total: 0, unread: 0, by_status: {} };
     r.rows.forEach(function (x) { out.by_status[x.status] = x.n; out.total += x.n; if (x.status !== 'resolved' && x.status !== 'archived') out.unread += x.unread; });
     return out;
   });
 }
-function getConversation(pool, projectId, id) {
+function getConversation(pool, projectId, id, scope) {
   return pool.query('SELECT c.*, i.instance AS inbox_instance, i.provider, i.outbound_enabled, k.display_name AS contact_name, k.wa_id AS contact_wa_id, k.lid AS contact_lid, k.language AS contact_language, k.notes AS contact_notes, k.memory AS contact_memory, k.status AS contact_status, k.first_seen_at, k.last_seen_at FROM wp_conversations c JOIN wp_contacts k ON k.id = c.contact_id JOIN wp_inboxes i ON i.id = c.inbox_id WHERE c.project_id = $1 AND c.id = $2', [projectId, id])
     .then(function (r) {
       if (!r.rows[0]) throw fail('not_found', 404, 'no such conversation');
+      if (scope && scope.indexOf(r.rows[0].inbox_id) === -1) throw fail('not_found', 404, 'no such conversation');
       var c = r.rows[0];
       return Promise.all([
         pool.query('SELECT t.id, t.name, t.color FROM wp_conversation_tags ct JOIN wp_tags t ON t.id = ct.tag_id WHERE ct.conversation_id = $1 ORDER BY t.name', [id]),
@@ -134,6 +150,7 @@ function listContacts(pool, projectId, o) {
   if (o.q) { params.push('%' + String(o.q).slice(0, 80) + '%'); where.push('(k.display_name ILIKE $' + params.length + ' OR k.wa_id LIKE $' + params.length + ')'); }
   if (o.status && ['active', 'blocked', 'merged'].indexOf(o.status) !== -1) { params.push(o.status); where.push('k.status = $' + params.length); }
   if (o.tag) { params.push(String(o.tag)); where.push('EXISTS (SELECT 1 FROM wp_contact_tags ct JOIN wp_tags t ON t.id = ct.tag_id WHERE ct.contact_id = k.id AND t.name = $' + params.length + ')'); }
+  if (o.scope) { params.push(o.scope.length ? o.scope : [-1]); where.push('EXISTS (SELECT 1 FROM wp_conversations cc WHERE cc.contact_id = k.id AND cc.inbox_id = ANY($' + params.length + '::bigint[]))'); }
   var limit = clampInt(o.limit, LIMIT, 1, 200); params.push(limit);
   return pool.query('SELECT k.id, k.display_name, k.wa_id, k.language, k.status, k.source, k.first_seen_at, k.last_seen_at, k.last_inbound_at, k.last_outbound_at, ' +
     "(SELECT count(*)::int FROM wp_conversations c WHERE c.contact_id = k.id) AS conversations, " +
@@ -171,4 +188,4 @@ function tagContact(pool, projectId, contactId, tagId, actor, remove) {
     return (remove ? pool.query('DELETE FROM wp_contact_tags WHERE contact_id = $1 AND tag_id = $2', [contactId, tagId]) : pool.query('INSERT INTO wp_contact_tags (contact_id, tag_id, added_by) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [contactId, tagId, actor])).then(function () { return { contact_id: contactId, tag: t.rows[0].name, removed: !!remove }; });
   });
 }
-module.exports = { STATUSES: STATUSES, mask: mask, listConversations: listConversations, counts: counts, getConversation: getConversation, listMessages: listMessages, markRead: markRead, updateConversation: updateConversation, addNote: addNote, listTags: listTags, createTag: createTag, tagConversation: tagConversation, listContacts: listContacts, getContact: getContact, updateContact: updateContact, tagContact: tagContact, event: event };
+module.exports = { STATUSES: STATUSES, mask: mask, scope: scope, memberships: memberships, listConversations: listConversations, counts: counts, getConversation: getConversation, listMessages: listMessages, markRead: markRead, updateConversation: updateConversation, addNote: addNote, listTags: listTags, createTag: createTag, tagConversation: tagConversation, listContacts: listContacts, getContact: getContact, updateContact: updateContact, tagContact: tagContact, event: event };

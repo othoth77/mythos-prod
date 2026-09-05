@@ -66,7 +66,7 @@ cleanup()
   })
   .then(function (r) { ok(r.rows.length === 1, 'wp_handoffs.conversation_id added'); })
   // ---------------------------------------------------------- fixtures
-  .then(function () { return q("INSERT INTO wp_projects (id, display_name, catalog_dsn_env) VALUES ('comms-test', 'Comms test', 'MYTHOS_WP_CATALOG_TEST')"); })
+  .then(function () { return q("INSERT INTO wp_projects (id, display_name, kind, catalog_dsn_env) VALUES ('comms-test', 'Comms test', 'service', 'MYTHOS_WP_CATALOG_TEST')"); })
   .then(function () { return expectError(q("INSERT INTO wp_inboxes (project_id, provider, instance, display_name) VALUES ('comms-test','evolution','mythos-bridge','x')"), /wp_inboxes_not_bridge/, 'mythos-bridge refused as an inbox'); })
   .then(function () { return expectError(q("INSERT INTO wp_inboxes (project_id, provider, instance, display_name) VALUES ('comms-test','other','x','x')"), /provider_domain/, 'unknown provider refused'); })
   .then(function () { return q("INSERT INTO wp_inboxes (project_id, provider, instance, display_name) VALUES ('comms-test','evolution','comms-test-inbox','Test inbox') RETURNING id"); })
