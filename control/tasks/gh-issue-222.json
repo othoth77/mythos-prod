@@ -29,7 +29,7 @@
     "Migration 0005 appliquée en production ; `wp_contact_identities` = copie des contacts existants (0 aujourd'hui) ; `ssangyong-autos` inchangé ; `mythos-bridge` open, webhook null",
     "Sur un payload synthétique : `POST /hooks/evolution` toujours 401 sans jeton et `dry_run` avec jeton ; `suggest` sur une conversation `needs_human` → 412"
   ],
-  "status": "PENDING",
+  "status": "CANCELLED",
   "created_at": "2026-09-05T18:54:59.441Z",
   "created_by": "github-issue:othoth77",
   "depends_on": [
@@ -142,6 +142,10 @@
         "mythos:queued"
       ],
       "removed": []
+    },
+    "cancelled_from_issue": {
+      "at": "2026-09-05T20:39:22.901Z",
+      "reason": "issue closed"
     }
   }
 }
