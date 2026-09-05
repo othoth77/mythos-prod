@@ -28,6 +28,18 @@
 //                                            offline: what task an Issue payload (file, or number fetched read-only) would become
 //   `tick` runs the issues phases too when MYTHOS_ISSUES_ENABLED=1 (the deploy timer drop-in sets it).
 //
+// Telegram channel (bridge/telegram.js; needs a bot token in the env, see docs/MYTHOS_TELEGRAM_CHANNEL.md):
+//   mythos-github-bridge telegram-tick [--dry-run] [--no-bridge]
+//                                            intake (private message → PENDING task) → bridge tick → notify (replies)
+//   mythos-github-bridge telegram-status      update_id ⇄ task ⇄ executor ⇄ OTHMODE ⇄ report relation from the control branch
+//   mythos-github-bridge telegram-config      channel configuration + readiness (no secrets)
+//   mythos-github-bridge telegram-check       one read-only Bot API call (getMe) to prove the token works; prints the bot username only
+//   mythos-github-bridge telegram-parse <update.json>
+//                                            offline: what task a Telegram update payload would become
+//   `tick` runs the Telegram intake BEFORE and the Telegram notify AFTER the bridge/Issues phases when
+//   MYTHOS_TELEGRAM_ENABLED=1. WhatsApp notifications are unaffected: they are queued by the bridge tick and
+//   flushed after it exactly as before.
+//
 // Runs as the executor's user (deploy): it shares the executor store by
 // requiring the executor module directly, exactly like bin/mythos-ai-executor
 // enqueue does. No token, no network credential — Git over the deploy SSH
@@ -48,6 +60,16 @@ function die(msg, code) { process.stderr.write(msg + '\n'); process.exit(code ==
 
 function executor() { return require('../executor'); }
 function issues() { return require('../bridge/github-issues'); }
+function telegram() { return require('../bridge/telegram'); }
+var TELEGRAM_ON = process.env.MYTHOS_TELEGRAM_ENABLED === '1';
+// Telegram phases around the existing tick. Both are no-ops (resolved, never
+// rejected) when the channel is disabled, so the plain and Issues paths are
+// byte-for-byte what they were.
+function telegramBefore() { return TELEGRAM_ON ? telegram().intakeOnly({}) : Promise.resolve(null); }
+function telegramAfter(r) {
+  if (!TELEGRAM_ON) return Promise.resolve(r);
+  return telegram().notifyOnly({}).then(function (n) { r.telegram_notify = n; return r; }, function (e) { r.telegram_notify = { ok: false, reason: String(e && e.message || e) }; return r; });
+}
 function fail(e) { die(String(e && e.message || e)); }
 function onlyArg() {
   var i = argv.indexOf('--only');
@@ -70,7 +92,12 @@ switch (cmd) {
       // every terminal task and nothing ever delivered them. Same ordering
       // guarantee as below — the flush happens strictly after the tick has
       // returned, and its outcome never changes this command's exit code.
-      issues().issuesTick(executor(), { forceIndex: argv.indexOf('--index') !== -1, only: onlyArg() }).then(function (r) {
+      telegramBefore().then(function (ti) {
+        return issues().issuesTick(executor(), { forceIndex: argv.indexOf('--index') !== -1, only: onlyArg() }).then(function (r) {
+          if (ti) r.telegram_intake = ti;
+          return telegramAfter(r);
+        });
+      }).then(function (r) {
         return bridge.flushNotifications().then(function (n) {
           r.notifications = n;
           out(r);
@@ -79,15 +106,20 @@ switch (cmd) {
       }, fail);
       break;
     }
-    var r = bridge.tick(executor(), { forceIndex: argv.indexOf('--index') !== -1 });
-    // Notifications are delivered only after the tick has fully returned,
-    // and their outcome never changes this command's exit code: a WhatsApp
-    // failure is not a bridge failure.
-    bridge.flushNotifications().then(function (n) {
-      r.notifications = n;
-      out(r);
-      process.exit(r.ok ? 0 : 2);
-    });
+    telegramBefore().then(function (ti) {
+      var r = bridge.tick(executor(), { forceIndex: argv.indexOf('--index') !== -1 });
+      if (ti) r.telegram_intake = ti;
+      return telegramAfter(r);
+    }).then(function (r) {
+      // Notifications are delivered only after the tick has fully returned,
+      // and their outcome never changes this command's exit code: a WhatsApp
+      // failure is not a bridge failure.
+      return bridge.flushNotifications().then(function (n) {
+        r.notifications = n;
+        out(r);
+        process.exit(r.ok ? 0 : 2);
+      });
+    }, fail);
     break;
   }
   case 'issues-tick': {
@@ -99,6 +131,36 @@ switch (cmd) {
   case 'issues-status':
     out(issues().status());
     break;
+  case 'telegram-tick': {
+    telegram().telegramTick(executor(), { dryRun: argv.indexOf('--dry-run') !== -1, skipBridge: argv.indexOf('--no-bridge') !== -1, forceIndex: argv.indexOf('--index') !== -1 })
+      .then(function (r) { out(r); process.exit(r.ok ? 0 : 2); }, fail);
+    break;
+  }
+  case 'telegram-status':
+    out(telegram().status());
+    break;
+  case 'telegram-config':
+    out(telegram().describe());
+    break;
+  case 'telegram-check': {
+    // Read-only proof that the configured token is accepted by the Bot API.
+    // Prints the bot's public identity (id, username), never the token.
+    var tmod = telegram();
+    var tcfg = tmod.config();
+    tmod.createClient(tcfg, tmod.readToken(), {}).getMe().then(function (me) {
+      out({ ok: true, bot_id: me && me.id, username: me && me.username, can_read_all_group_messages: me && me.can_read_all_group_messages, api_base: tcfg.apiBase });
+      process.exit(0);
+    }, fail);
+    break;
+  }
+  case 'telegram-parse': {
+    if (!arg) die('usage: mythos-github-bridge telegram-parse <update.json>');
+    var tm = telegram();
+    var conv = tm.updateToTask(tm.config(), JSON.parse(fs.readFileSync(arg, 'utf8')));
+    out({ valid: !!conv.task, malformed: !!conv.malformed, unauthorized: !!conv.unauthorized, secret: !!conv.secret, errors: conv.errors, message: conv.message || null, task: conv.task || conv.candidate || null });
+    process.exit(conv.task ? 0 : 1);
+    break;
+  }
   case 'issues-parse': {
     if (!arg) die('usage: mythos-github-bridge issues-parse <issue.json | issue-number>');
     var mod = issues();
@@ -196,5 +258,6 @@ switch (cmd) {
   }
   default:
     die('usage: mythos-github-bridge <init|tick|daemon|status|validate <file>|instruction <file>|trail <task_id>|runtime|resolve <file|N|->|issues-tick|issues-status|issues-parse <file|N>|' +
+      'telegram-tick|telegram-status|telegram-config|telegram-check|telegram-parse <file>|' +
       'notify-config|notify-status|notify-flush|notify-breaker-reset|notify-test --confirm>');
 }
