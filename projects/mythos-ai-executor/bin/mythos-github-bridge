@@ -40,6 +40,18 @@
 //   MYTHOS_TELEGRAM_ENABLED=1. WhatsApp notifications are unaffected: they are queued by the bridge tick and
 //   flushed after it exactly as before.
 //
+// Unified Telegram event notifications (gh-issue-187; bridge/notify/telegram-events.js) — GitHub Issue/task
+// lifecycle, pull requests, git/production/governance — extend the same Telegram channel and allowlist above.
+//   mythos-github-bridge pr-watch-tick [--dry-run]     poll pull requests, notify opened/review/checks/merged/
+//                                                       closed-without-merge/conflict (MYTHOS_PR_WATCH_ENABLED=1)
+//   mythos-github-bridge pr-watch-status                tracked pull requests and their last known state
+//   mythos-github-bridge gov-notify-tick [--dry-run]    tail the bridge events.log for a sync/governance/bridge
+//                                                        failure and notify once per (event, reason)
+//   mythos-github-bridge gov-notify-status               offset + watched event names, no content
+//   mythos-github-bridge notify-events-status             unified-notifier configuration, ledger size, rate usage
+//   `tick` runs pr-watch-tick (when MYTHOS_PR_WATCH_ENABLED=1) and gov-notify-tick (when MYTHOS_TELEGRAM_ENABLED=1)
+//   strictly after the bridge/Issues/Telegram phases have returned — read-only, never affecting `tick`'s exit code.
+//
 // Runs as the executor's user (deploy): it shares the executor store by
 // requiring the executor module directly, exactly like bin/mythos-ai-executor
 // enqueue does. No token, no network credential — Git over the deploy SSH
@@ -61,7 +73,10 @@ function die(msg, code) { process.stderr.write(msg + '\n'); process.exit(code ==
 function executor() { return require('../executor'); }
 function issues() { return require('../bridge/github-issues'); }
 function telegram() { return require('../bridge/telegram'); }
+function prWatch() { return require('../bridge/pr-watch'); }
+function govNotify() { return require('../bridge/gov-notify'); }
 var TELEGRAM_ON = process.env.MYTHOS_TELEGRAM_ENABLED === '1';
+var PR_WATCH_ON = process.env.MYTHOS_PR_WATCH_ENABLED === '1';
 // Telegram phases around the existing tick. Both are no-ops (resolved, never
 // rejected) when the channel is disabled, so the plain and Issues paths are
 // byte-for-byte what they were.
@@ -69,6 +84,16 @@ function telegramBefore() { return TELEGRAM_ON ? telegram().intakeOnly({}) : Pro
 function telegramAfter(r) {
   if (!TELEGRAM_ON) return Promise.resolve(r);
   return telegram().notifyOnly({}).then(function (n) { r.telegram_notify = n; return r; }, function (e) { r.telegram_notify = { ok: false, reason: String(e && e.message || e) }; return r; });
+}
+// PR lifecycle watch + git/governance/bridge notifications run strictly
+// after the tick has returned (read-only against the control branch, best
+// effort, never affecting the tick's own exit code) — same ordering
+// guarantee as the WhatsApp notification flush below.
+function unifiedNotifyAfter(r) {
+  var chain = Promise.resolve();
+  if (PR_WATCH_ON) chain = chain.then(function () { return prWatch().prWatchTick({}); }).then(function (p) { r.pr_watch = p; }, function (e) { r.pr_watch = { ok: false, reason: String(e && e.message || e) }; });
+  if (TELEGRAM_ON) chain = chain.then(function () { return govNotify().tick({}); }).then(function (g) { r.gov_notify = g; }, function (e) { r.gov_notify = { ok: false, reason: String(e && e.message || e) }; });
+  return chain.then(function () { return r; });
 }
 function fail(e) { die(String(e && e.message || e)); }
 function onlyArg() {
@@ -97,7 +122,7 @@ switch (cmd) {
           if (ti) r.telegram_intake = ti;
           return telegramAfter(r);
         });
-      }).then(function (r) {
+      }).then(unifiedNotifyAfter).then(function (r) {
         return bridge.flushNotifications().then(function (n) {
           r.notifications = n;
           out(r);
@@ -110,7 +135,7 @@ switch (cmd) {
       var r = bridge.tick(executor(), { forceIndex: argv.indexOf('--index') !== -1 });
       if (ti) r.telegram_intake = ti;
       return telegramAfter(r);
-    }).then(function (r) {
+    }).then(unifiedNotifyAfter).then(function (r) {
       // Notifications are delivered only after the tick has fully returned,
       // and their outcome never changes this command's exit code: a WhatsApp
       // failure is not a bridge failure.
@@ -228,6 +253,23 @@ switch (cmd) {
     }) + '\n');
     break;
   }
+  case 'pr-watch-tick': {
+    prWatch().prWatchTick({ dryRun: argv.indexOf('--dry-run') !== -1 }).then(function (r) { out(r); process.exit(r.ok ? 0 : 2); }, fail);
+    break;
+  }
+  case 'pr-watch-status':
+    out(prWatch().status());
+    break;
+  case 'gov-notify-tick': {
+    govNotify().tick({ dryRun: argv.indexOf('--dry-run') !== -1 }).then(function (r) { out(r); process.exit(r.ok ? 0 : 2); }, fail);
+    break;
+  }
+  case 'gov-notify-status':
+    out(govNotify().status());
+    break;
+  case 'notify-events-status':
+    out(require('../bridge/notify/telegram-events').describe());
+    break;
   case 'notify-config':
     out(bridge.whatsapp.describe());
     break;
@@ -259,5 +301,6 @@ switch (cmd) {
   default:
     die('usage: mythos-github-bridge <init|tick|daemon|status|validate <file>|instruction <file>|trail <task_id>|runtime|resolve <file|N|->|issues-tick|issues-status|issues-parse <file|N>|' +
       'telegram-tick|telegram-status|telegram-config|telegram-check|telegram-parse <file>|' +
+      'pr-watch-tick|pr-watch-status|gov-notify-tick|gov-notify-status|notify-events-status|' +
       'notify-config|notify-status|notify-flush|notify-breaker-reset|notify-test --confirm>');
 }
