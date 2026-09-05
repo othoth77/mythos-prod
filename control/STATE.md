@@ -1,21 +1,21 @@
 # MYTHOS control — current state
 
-Generated 2026-09-05T02:14:33.405Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
+Generated 2026-09-05T02:15:51.141Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
 
 | Status | Count |
 |---|---|
 | PENDING | 0 |
 | CLAIMED | 0 |
-| IN_PROGRESS | 1 |
+| IN_PROGRESS | 0 |
 | VALIDATING | 0 |
-| COMPLETED | 41 |
+| COMPLETED | 42 |
 | BLOCKED | 25 |
 | FAILED | 0 |
 | CANCELLED | 1 |
 
 | Task | Status | Action | Priority | Created | Updated | Executor task | Report |
 |---|---|---|---|---|---|---|---|
-| `tg-611867278` | **IN_PROGRESS** | investigate | normal | 2026-09-05T01:54:08.669Z | 2026-09-05T02:14:30.752Z | `t-20260905015410-5s8mok` | — |
+| `tg-611867278` | **COMPLETED** | investigate | normal | 2026-09-05T01:54:08.669Z | 2026-09-05T02:15:51.130Z | `t-20260905015410-5s8mok` | `control/reports/tg-611867278.json` |
 | `gh-issue-99` | **COMPLETED** | investigate | normal | 2026-09-02T22:42:59.761Z | 2026-09-02T22:49:32.431Z | `t-20260902224306-vaqeia` | `control/reports/gh-issue-99.json` |
 | `gh-issue-97` | **BLOCKED** | investigate | normal | 2026-09-02T22:34:21.352Z | 2026-09-02T22:43:04.917Z | `t-20260902223428-31m0o4` | `control/reports/gh-issue-97.json` |
 | `gh-issue-95` | **COMPLETED** | investigate | normal | 2026-09-02T22:34:19.628Z | 2026-09-02T22:40:52.170Z | `t-20260902223426-ipld9w` | `control/reports/gh-issue-95.json` |
