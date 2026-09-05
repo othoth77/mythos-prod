@@ -13,6 +13,9 @@
 //       Inserts a registry row (needs MYTHOS_WP_DB_* in the environment).
 //   mythos-wp check-env
 //       Reports which environment variables and files are present (names only).
+//   mythos-wp reserve-account <digits> [reason]
+//       Marks a WhatsApp account as reserved (no inbox may claim it) — e.g. the
+//       MYTHOS notification account. Needs MYTHOS_WP_DB_*.
 //   mythos-wp migrate status | up | down <version>
 //       Additive SQL migrations (database/migrations, ledger wp_schema_migrations);
 //       needs MYTHOS_WP_DB_* in the environment. `down` rolls back ONE version.
@@ -85,6 +88,13 @@ if (cmd === 'set-password') {
   process.stdout.write('users file: ' + (us.provisioned ? us.count + ' user(s)' : 'NOT USABLE (' + us.reason + ')') + '\n');
   process.stdout.write('comms config: ' + (process.env.MYTHOS_WP_COMMS_CONFIG ? 'set' : 'absent') + '\n');
   Object.keys(process.env).filter(function (k) { return /^MYTHOS_WP_CATALOG_/.test(k); }).forEach(function (k) { process.stdout.write('catalogue var: ' + k + ' (set)\n'); });
+} else if (cmd === 'reserve-account') {
+  var acc = String(args[1] || '');
+  if (!/^[0-9]{6,32}$/.test(acc)) die('usage: reserve-account <digits> [reason]');
+  var rpool = require('../reference/db').wp();
+  rpool.query('INSERT INTO wp_reserved_accounts (account_ref, reason) VALUES ($1, $2) ON CONFLICT (account_ref) DO UPDATE SET reason = EXCLUDED.reason RETURNING account_ref', [acc, String(args[2] || 'notification channel').slice(0, 120)])
+    .then(function (r) { process.stdout.write('reserved: ***' + r.rows[0].account_ref.slice(-3) + '\n'); return rpool.end(); })
+    .catch(function (e) { rpool.end().catch(function () {}); die(e.message); });
 } else if (cmd === 'migrate') {
   var migrate = require('../reference/migrate');
   var pool = require('../reference/db').wp();
@@ -96,6 +106,6 @@ if (cmd === 'set-password') {
   run.then(function (r) { process.stdout.write(JSON.stringify(r) + '\n'); return pool.end(); })
     .catch(function (e) { pool.end().catch(function () {}); die(e.message); });
 } else {
-  process.stdout.write('usage: mythos-wp <set-password|remove-user|list-users|seed-project|check-env|migrate> …\n');
+  process.stdout.write('usage: mythos-wp <set-password|remove-user|list-users|seed-project|check-env|reserve-account|migrate> …\n');
   process.exit(cmd ? 1 : 0);
 }

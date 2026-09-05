@@ -341,16 +341,47 @@ var RESOURCES = {
       { name: 'provider', label: 'Provider', type: 'enum', enum: ['evolution', 'meta_cloud'], required: true, defaultValue: 'evolution', createOnly: true, section: 'identity', listed: true },
       { name: 'instance', label: 'Provider instance', type: 'text', required: true, maxLength: 64, pattern: '^(?!mythos-bridge$)[A-Za-z0-9][A-Za-z0-9._-]{0,63}$', createOnly: true, section: 'identity', listed: true, sortable: true, help: 'Evolution instance name. mythos-bridge is the notification instance and can never be an inbox.' },
       { name: 'display_name', label: 'Name', type: 'text', required: true, maxLength: 120, section: 'identity', listed: true, sortable: true },
+      { name: 'account_ref', label: 'WhatsApp account (digits)', type: 'text', maxLength: 32, pattern: '^[0-9]{6,32}$', section: 'identity', help: 'The business number this inbox is linked to. One account per inbox; the MYTHOS notification account is reserved and always refused.' },
       { name: 'phone_masked', label: 'Business number (masked)', type: 'text', maxLength: 32, pattern: '^\\*{3}[0-9]{1,6}$', section: 'identity', listed: true, help: 'Display only: *** + last digits.' },
       { name: 'status', label: 'Status', type: 'enum', enum: ['inactive', 'pairing', 'open', 'closed', 'error'], readonly: true, section: 'state', listed: true, sortable: true, help: 'Set by the receiver from connection.update events.' },
       { name: 'inbound_enabled', label: 'Persist inbound messages', type: 'boolean', defaultValue: false, section: 'state', listed: true, help: 'Off = dry-run: deliveries are validated and ledgered, nothing is stored.' },
       { name: 'outbound_enabled', label: 'Allow human replies', type: 'boolean', defaultValue: false, section: 'state', listed: true },
       { name: 'last_event_at', label: 'Last event', type: 'timestamp', readonly: true, section: 'state', listed: true },
       { name: 'last_error', label: 'Last error', type: 'text', readonly: true, section: 'state' },
-      { name: 'settings', label: 'Settings (non-secret)', type: 'json', section: 'state' },
+      { name: 'settings', label: 'Settings (non-secret)', type: 'json', section: 'state', help: 'Known keys (booleans): ai_suggest — run the assistant on every inbound; auto_reply — allow policy-gated automatic replies (COMMS-9); allow_personal_account — this inbox may share a WhatsApp account already used by another inbox (personal / internal accounts only).' },
       CREATED, UPDATED
     ],
+    check: function (v, existing) {
+      var errs = {};
+      var st = v.settings !== undefined ? v.settings : existing && existing.settings;
+      if (st !== undefined && st !== null) {
+        if (typeof st !== 'object' || Array.isArray(st)) errs.settings = 'settings must be an object';
+        else ['ai_suggest', 'auto_reply', 'allow_personal_account'].forEach(function (k) { if (st[k] !== undefined && typeof st[k] !== 'boolean') errs.settings = k + ' must be true or false'; });
+      }
+      if (v.account_ref !== undefined && v.account_ref !== null && v.phone_masked === undefined && !(existing && existing.phone_masked)) { /* derive display */ }
+      return errs;
+    },
     sections: { identity: 'Inbox', state: 'State and switches', audit: 'Audit' }
+  },
+  inbox_members: {
+    key: 'inbox_members', label: 'Inbox members', singular: 'Member', group: 'whatsapp', icon: 'project',
+    scope: 'wp', table: 'wp_inbox_members', idColumn: 'id', titleField: 'username', global: true,
+    permissions: { read: 'operator', write: 'owner', delete: 'owner' },
+    delete: { kind: 'hard' },
+    managed: { updated_at: 'now', added_by: 'actor' },
+    search: ['username', 'team'],
+    defaultSort: { field: 'created_at', dir: 'asc' },
+    filters: [{ name: 'role', label: 'Role', field: 'role', enum: ['agent', 'lead', 'viewer'] }],
+    fields: [
+      { name: 'id', label: 'ID', type: 'integer', readonly: true, listed: true, sortable: true },
+      { name: 'inbox_id', label: 'Inbox', type: 'integer', required: true, createOnly: true, listed: true, ref: { resource: 'inboxes', display: 'display_name' } },
+      { name: 'username', label: 'Username', type: 'text', required: true, maxLength: 64, pattern: '^[a-z0-9][a-z0-9._-]{1,63}$', createOnly: true, listed: true, sortable: true, help: 'Panel account name (users file).' },
+      { name: 'role', label: 'Role', type: 'enum', enum: ['agent', 'lead', 'viewer'], required: true, defaultValue: 'agent', listed: true, help: 'agent handles conversations; lead also assigns; viewer reads only. A user with at least one membership sees only member inboxes.' },
+      { name: 'team', label: 'Team', type: 'text', maxLength: 64, listed: true },
+      { name: 'added_by', label: 'Added by', type: 'text', readonly: true, section: 'audit' },
+      CREATED, UPDATED
+    ],
+    sections: { }
   },
   audit: {
     key: 'audit', label: 'Audit log', singular: 'Audit event', group: 'system', icon: 'audit',
@@ -396,14 +427,24 @@ var RESOURCES = {
       { name: 'display_name', label: 'Name', type: 'text', required: true, maxLength: 128, section: 'identity', listed: true, sortable: true },
       { name: 'domain', label: 'Domain', type: 'text', maxLength: 128, section: 'identity', listed: true },
       { name: 'brand_car', label: 'Vehicle brand', type: 'text', maxLength: 64, section: 'identity', listed: true },
+      { name: 'kind', label: 'Kind', type: 'enum', enum: ['automotive', 'service', 'internal'], required: true, defaultValue: 'service', section: 'identity', listed: true, sortable: true, help: 'automotive = parts catalogue project (catalogue connection required); service = any customer-facing service (Dar Hijama…); internal = MYTHOS itself.' },
       { name: 'status', label: 'Status', type: 'enum', enum: ['active', 'planned', 'archived'], required: true, defaultValue: 'planned', section: 'identity', listed: true, sortable: true },
       { name: 'currency', label: 'Currency', type: 'text', required: true, pattern: ISO3, maxLength: 3, defaultValue: 'TND', section: 'identity' },
-      { name: 'catalog_dsn_env', label: 'Catalogue connection (env var NAME)', type: 'text', required: true, maxLength: 64, pattern: '^[A-Z][A-Z0-9_]{2,62}$', section: 'catalog', listed: true, help: 'Name of the environment variable holding the catalogue URL — never the value.' },
-      { name: 'catalog_schema', label: 'Catalogue schema', type: 'text', required: true, maxLength: 64, pattern: '^[a-z_][a-z0-9_]{0,62}$', defaultValue: 'ssangyong_autos', section: 'catalog' },
+      { name: 'catalog_dsn_env', label: 'Catalogue connection (env var NAME)', type: 'text', maxLength: 64, pattern: '^[A-Z][A-Z0-9_]{2,62}$', section: 'catalog', listed: true, help: 'Name of the environment variable holding the catalogue URL — never the value.' },
+      { name: 'catalog_schema', label: 'Catalogue schema', type: 'text', maxLength: 64, pattern: '^[a-z_][a-z0-9_]{0,62}$', section: 'catalog', help: 'Required for automotive projects only.' },
       { name: 'notes', label: 'Notes', type: 'textarea', maxLength: 4000, section: 'identity' },
       CREATED, UPDATED
     ],
-    sections: { identity: 'Project', catalog: 'Catalogue connection', audit: 'Audit' }
+    check: function (v, existing) {
+      var kind = v.kind !== undefined ? v.kind : (existing && existing.kind) || 'automotive';
+      var env = v.catalog_dsn_env !== undefined ? v.catalog_dsn_env : existing && existing.catalog_dsn_env;
+      var schema = v.catalog_schema !== undefined ? v.catalog_schema : existing && existing.catalog_schema;
+      var errs = {};
+      if (kind === 'automotive' && !env) errs.catalog_dsn_env = 'an automotive project needs its catalogue connection';
+      if (kind === 'automotive' && !schema) errs.catalog_schema = 'an automotive project needs its catalogue schema';
+      return errs;
+    },
+    sections: { identity: 'Project', catalog: 'Catalogue connection (automotive only)', audit: 'Audit' }
   }
 };
 

@@ -188,7 +188,7 @@ var ROUTES = [
         user: { username: req.session.username, role: req.session.role },
         roles: auth.ROLES,
         resources: resources.publicAll(), groups: resources.GROUPS,
-        projects: rows.map(function (p) { return { id: p.id, display_name: p.display_name, domain: p.domain, status: p.status, currency: p.currency, catalog_configured: db.catalogConfigured(p) }; })
+        projects: rows.map(function (p) { return { id: p.id, display_name: p.display_name, domain: p.domain, status: p.status, kind: p.kind || 'automotive', currency: p.currency, catalog_configured: db.catalogConfigured(p) }; })
       };
     });
   } },
@@ -304,15 +304,17 @@ var ROUTES = [
   { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations$/, role: 'any', handler: function (req, res, ctx) {
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
       var qq = q(req);
-      return Promise.all([inbox.listConversations(db.wp(), resolved.project.id, { status: qq.status, assigned: qq.assigned, username: req.session.username, inbox: qq.inbox, tag: qq.tag, q: qq.q, before: qq.before, limit: qq.limit }), inbox.counts(db.wp(), resolved.project.id)])
-        .then(function (x) { return { items: x[0].items, next_before: x[0].next_before, counts: x[1] }; });
+      return inbox.scope(db.wp(), req.session.username).then(function (scope) {
+        return Promise.all([inbox.listConversations(db.wp(), resolved.project.id, { status: qq.status, assigned: qq.assigned, username: req.session.username, inbox: qq.inbox, tag: qq.tag, q: qq.q, before: qq.before, limit: qq.limit, scope: scope }), inbox.counts(db.wp(), resolved.project.id, scope)])
+          .then(function (x) { return { items: x[0].items, next_before: x[0].next_before, counts: x[1], scoped: scope !== null }; });
+      });
     });
   } },
   { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)$/, role: 'any', handler: function (req, res, ctx) {
-    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.getConversation(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10)); });
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.scope(db.wp(), req.session.username).then(function (scope) { return inbox.getConversation(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), scope); }); });
   } },
   { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/messages$/, role: 'any', handler: function (req, res, ctx) {
-    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { var qq = q(req); return inbox.listMessages(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), { before_id: qq.before_id, limit: qq.limit }); });
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { var qq = q(req); return inbox.scope(db.wp(), req.session.username).then(function (scope) { return inbox.getConversation(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), scope).then(function () { return inbox.listMessages(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), { before_id: qq.before_id, limit: qq.limit }); }); }); });
   } },
   // --- AI assistant (suggest-only) ------------------------------------
   { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/suggest$/, role: 'operator', handler: function (req, res, ctx) {
@@ -383,7 +385,7 @@ var ROUTES = [
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { ctx.status(201); return inbox.createTag(db.wp(), resolved.project.id, req.session.username, ctx.body || {}); });
   } },
   { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/contacts$/, role: 'any', handler: function (req, res, ctx) {
-    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { var qq = q(req); return inbox.listContacts(db.wp(), resolved.project.id, { q: qq.q, status: qq.status, tag: qq.tag, limit: qq.limit }); });
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { var qq = q(req); return inbox.scope(db.wp(), req.session.username).then(function (scope) { return inbox.listContacts(db.wp(), resolved.project.id, { q: qq.q, status: qq.status, tag: qq.tag, limit: qq.limit, scope: scope }); }); });
   } },
   { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/contacts\/([0-9]+)$/, role: 'any', handler: function (req, res, ctx) {
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.getContact(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10)); });
@@ -414,6 +416,11 @@ var ROUTES = [
       var done = function () { clearInterval(hb); commsBus.bus.removeListener('comms', write); };
       req.on('close', done); res.on('close', done);
     });
+  } },
+
+  // --- Multi-service: the caller's inbox memberships (visibility scope) ---
+  { method: 'GET', path: /^\/api\/comms\/my-inboxes$/, role: 'any', handler: function (req) {
+    return inbox.memberships(db.wp(), req.session.username).then(function (rows) { return { username: req.session.username, scoped: rows.length > 0, inboxes: rows }; });
   } },
 
   // --- Communication Receiver status (non-secret) ---------------------

@@ -84,7 +84,7 @@ new Promise(function (resolve) { evo.listen(0, '127.0.0.1', function () { evoPor
   // db + server
   .then(function () { return migrate.up(pool); })
   .then(function () { return wipe('comms-test'); })
-  .then(function () { return q("INSERT INTO wp_projects (id, display_name, catalog_dsn_env) VALUES ('comms-test','Comms test','MYTHOS_WP_CATALOG_TEST')"); })
+  .then(function () { return q("INSERT INTO wp_projects (id, display_name, kind, catalog_dsn_env) VALUES ('comms-test', 'Comms test', 'service', 'MYTHOS_WP_CATALOG_TEST')"); })
   .then(function () { return q("INSERT INTO wp_inboxes (project_id, provider, instance, display_name, inbound_enabled, outbound_enabled, status) VALUES ('comms-test','evolution','comms-test-inbox','A', true, false, 'closed') RETURNING *"); })
   .then(function (r) { inboxA = r.rows[0]; return core.ingest(pool, inboxA, inboundMsg('IN1', 'Bonjour ?')); })
   .then(function (r) { ids.conv = r.conversation_id; return new Promise(function (resolve) { server.listen(0, '127.0.0.1', function () { PORT = server.address().port; resolve(); }); }); })

@@ -67,7 +67,7 @@ function wipe(pid) {
 }
 migrate.up(pool)
   .then(function () { return wipe('comms-test').then(function () { return wipe('comms-other'); }); })
-  .then(function () { return q("INSERT INTO wp_projects (id, display_name, catalog_dsn_env) VALUES ('comms-test','Comms test','MYTHOS_WP_CATALOG_TEST'), ('comms-other','Other','MYTHOS_WP_CATALOG_TEST')"); })
+  .then(function () { return q("INSERT INTO wp_projects (id, display_name, kind, catalog_dsn_env) VALUES ('comms-test','Comms test','service','MYTHOS_WP_CATALOG_TEST'), ('comms-other','Other','service','MYTHOS_WP_CATALOG_TEST')"); })
   .then(function () { return q("INSERT INTO wp_inboxes (project_id, provider, instance, display_name, inbound_enabled) VALUES ('comms-test','evolution','comms-test-inbox','A', true) RETURNING *"); })
   .then(function (r) { inboxA = r.rows[0]; return q("INSERT INTO wp_inboxes (project_id, provider, instance, display_name, inbound_enabled) VALUES ('comms-other','evolution','comms-other-inbox','B', true) RETURNING *"); })
   .then(function (r) { inboxB = r.rows[0]; return core.ingest(pool, inboxA, msg('comms-test-inbox', 'M1', 'Bonjour, prix du filtre à huile ?')); })
