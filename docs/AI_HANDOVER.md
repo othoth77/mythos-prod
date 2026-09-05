@@ -2,6 +2,18 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-05 — WhatsApp QR pairing: root-cause diagnosis + live-QR helper (`mythos/wa-qr-live-scan-20260905`)
+
+| Item | State |
+|---|---|
+| Objective | Find why `mythos-bridge` (Evolution 2.3.7 / Baileys 7.0.0-rc.9) never pairs: phone says « Impossible de connecter l'appareil — réessayer plus tard », companion receives no frame. |
+| Baseline | Production `40e7705` = `origin/main`; container healthy, 0 restarts; 19 registrations in 24 h, only server pings received, 428 at +210 s, no `pair-success`, no notification of any type. Uncommitted `LOG_LEVEL`/`LOG_BAILEYS` debug change in `ops/whatsapp/evolution/docker-compose.yml` is the deliberate 2026-09-04 diagnostic and was left untouched. |
+| Root cause | **Scan timing (stale QR ref)** — every scan so far was a relayed PNG snapshot (agent fetch → chat, or `/tmp/wa-qr.png` copied off the host); the working reference client (whatsmeow) rotates refs every 20 s, rc.9 every 45 s. Code-level variants tested on 09-04 (rc.9, +#2765, +new QR payload, rc14 head) all fail identically, and the trackers show QR pairing working in general in Sept 2026 (Baileys 34 / Evolution 38 / mautrix 8 issues since 07-28, two lonely matches). Secondary hypothesis, only if a correctly timed scan still fails: WhatsApp's phased **mandatory passkey linking** (whatsmeow `b572e5b`, WAHA 2026.7.1, OpenWA #560) which no Baileys release implements. Full evidence: `docs/MYTHOS_WHATSAPP_QR_PAIRING_DIAGNOSIS_2026-09-05.md`. |
+| Delivered | `ops/whatsapp/evolution/qr-live.sh` (owner-run terminal QR that refreshes every 8 s, shows age, exits on `open`, never prints key/QR text/base64; `--check` probe), `tests/wa-qr-live-test.sh` (8/0 against a fake gateway), README §4 rewritten to the live procedure, the diagnosis doc. |
+| Tests | `tests/wa-qr-live-test.sh` **8 passed / 0 failed** (as deploy, offline). `bash -n` on the helper. Live `--check` against production: `state=close qr_text_length=237` (the probe re-opened one QR stream; no QR rendered or relayed from the agent session). |
+| Not done | No image upgrade (2.3.7 is latest stable; no released Baileys/whatsmeow changes the observed behaviour), no session deletion, no message sent, no production edit. **Pairing itself needs the owner's phone** — the physical scan is the next step, not something an agent can perform. |
+| Next step | Owner: merge this PR, `sudo -u deploy git -C /home/deploy/projects/mythos-prod pull --ff-only origin main`, then run `qr-live.sh` in an SSH terminal and scan while the age is < 20 s (procedure in the diagnosis doc §4, with the three possible outcomes and what each means). After `PAIRED`: README §5 → `notify-test --confirm` for the real message, then revert the debug `LOG_*` values through a PR. |
+
 ## AUDIT KNOWLEDGE BASE — 2026-09-04
 
 Durable findings of the 2026-09-04 master backlog audit (Fable 5.1), condensed so the next execution starts from a verified baseline. Full compact version: `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`. Labels: VERIFIED / NOT VERIFIED / BLOCKED / OWNER ACTION / HUMAN MERGE REQUIRED.
