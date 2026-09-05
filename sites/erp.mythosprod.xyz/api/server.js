@@ -128,6 +128,8 @@ route('GET', '/api/v1/dashboard', 'dashboard', views.dashboard.summary);
 route('GET', '/api/v1/reports/revenue', 'reports', views.reports.revenue);
 route('GET', '/api/v1/reports/receivables', 'reports', views.reports.receivables);
 route('GET', '/api/v1/reports/expenses', 'reports', views.reports.expenses);
+route('GET', '/api/v1/reports/prospects', 'reports', views.reports.prospects);
+route('GET', '/api/v1/reports/inventory', 'reports', views.reports.inventory);
 
 // ── Settings, users, audit ────────────────────────────────────────────────
 route('GET', '/api/v1/settings', 'settings', views.settings.read);

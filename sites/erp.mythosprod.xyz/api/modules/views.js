@@ -46,17 +46,30 @@ var dashboard = {
   }
 };
 
+// Bare YYYY-MM-DD range bounds, shared by every report below. A bare upper
+// bound means "through the end of that day" (Phase 10 lesson: a naive <= cast
+// a plain date to midnight and silently excluded everything ON that day).
+function isDate(v) { return /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')); }
+function dateRange(q, column) {
+  var where = [], params = [];
+  if (q && q.from && isDate(q.from)) { params.push(q.from); where.push(column + ' >= $' + params.length); }
+  if (q && q.to && isDate(q.to))     { params.push(q.to);   where.push(column + " < ($" + params.length + "::date + 1)"); }
+  return { where: where, params: params };
+}
+
 var reports = {
   revenue: function (ctx, client) {
+    var r = dateRange(ctx.query, 'i.issued_on');
+    var where = ["i.deleted_at IS NULL", "i.status <> 'cancelled'"].concat(r.where);
     return client.query(
       "SELECT to_char(date_trunc('month', i.issued_on), 'YYYY-MM') AS month," +
       ' coalesce(sum(l.line_ht),0)::numeric(14,3) AS ht,' +
       ' coalesce(sum(l.line_ht * l.vat_rate/100),0)::numeric(14,3) AS vat,' +
       ' coalesce(sum(l.line_ht * (1 + l.vat_rate/100)),0)::numeric(14,3) AS ttc' +
       ' FROM invoices i JOIN invoice_lines l ON l.invoice_id = i.id' +
-      " WHERE i.deleted_at IS NULL AND i.status <> 'cancelled'" +
-      " GROUP BY 1 ORDER BY 1 DESC LIMIT 24"
-    ).then(function (r) { return { status: 200, body: { months: r.rows } }; });
+      ' WHERE ' + where.join(' AND ') +
+      ' GROUP BY 1 ORDER BY 1 DESC LIMIT 24', r.params
+    ).then(function (res) { return { status: 200, body: { months: res.rows, filter: { from: ctx.query && ctx.query.from || null, to: ctx.query && ctx.query.to || null } } }; });
   },
 
   receivables: function (ctx, client) {
@@ -80,12 +93,61 @@ var reports = {
   },
 
   expenses: function (ctx, client) {
+    var r = dateRange(ctx.query, 'e.spent_on');
+    var where = ['e.deleted_at IS NULL'].concat(r.where);
     return client.query(
       "SELECT to_char(date_trunc('month', e.spent_on), 'YYYY-MM') AS month," +
       ' ec.label AS category, coalesce(sum(e.amount),0)::numeric(14,3) AS amount' +
       ' FROM expenses e LEFT JOIN expense_categories ec ON ec.id = e.category_id' +
-      ' WHERE e.deleted_at IS NULL GROUP BY 1,2 ORDER BY 1 DESC, 3 DESC LIMIT 200'
-    ).then(function (r) { return { status: 200, body: { rows: r.rows } }; });
+      ' WHERE ' + where.join(' AND ') + ' GROUP BY 1,2 ORDER BY 1 DESC, 3 DESC LIMIT 200', r.params
+    ).then(function (res) {
+      var total = res.rows.reduce(function (a, x) { return a + Number(x.amount); }, 0);
+      return { status: 200, body: { rows: res.rows, total: total.toFixed(3), filter: { from: ctx.query && ctx.query.from || null, to: ctx.query && ctx.query.to || null } } };
+    });
+  },
+
+  /* Prospects funnel: how many are at each stage, the win rate among decided
+     prospects (won or lost — an untouched "new" lead has not decided anything
+     yet), and how long a won prospect typically took to convert. Reads only
+     the columns Phase 8 already wrote (status, created_at, converted_at); no
+     new table, no duplicated conversion logic (POST /prospects/:id/convert
+     remains the only writer of converted_at). */
+  prospects: function (ctx, client) {
+    return Promise.all([
+      client.query("SELECT status, count(*)::int AS n FROM prospects WHERE deleted_at IS NULL GROUP BY status"),
+      client.query(
+        "SELECT count(*) FILTER (WHERE status = 'won')::int AS won," +
+        " count(*) FILTER (WHERE status IN ('won','lost'))::int AS decided," +
+        " avg(extract(epoch FROM (converted_at - created_at)) / 86400.0) FILTER (WHERE status = 'won') AS avg_days" +
+        ' FROM prospects WHERE deleted_at IS NULL')
+    ]).then(function (r) {
+      var by = {}; r[0].rows.forEach(function (x) { by[x.status] = x.n; });
+      var agg = r[1].rows[0];
+      var winRate = agg.decided > 0 ? (Number(agg.won) / Number(agg.decided)) : null;
+      return { status: 200, body: {
+        by_status: by,
+        total: r[0].rows.reduce(function (a, x) { return a + x.n; }, 0),
+        won: Number(agg.won), decided: Number(agg.decided),
+        win_rate: winRate === null ? null : Number(winRate.toFixed(4)),
+        avg_days_to_convert: agg.avg_days === null ? null : Number(Number(agg.avg_days).toFixed(1))
+      } };
+    });
+  },
+
+  /* Inventory: every item's computed on-hand (signed sum of movements) next to
+     its reorder threshold — the same fact the dashboard counts, shown as the
+     list behind that count rather than a second definition of "low stock". */
+  inventory: function (ctx, client) {
+    return client.query(
+      'SELECT i.id, i.sku, i.label, i.unit, i.min_quantity,' +
+      ' coalesce((SELECT sum(m.quantity) FROM inventory_movements m WHERE m.item_id = i.id), 0)::numeric(14,3) AS on_hand' +
+      ' FROM inventory_items i WHERE i.deleted_at IS NULL ORDER BY i.label'
+    ).then(function (r) {
+      var rows = r.rows.map(function (x) {
+        return Object.assign({}, x, { below_reorder: x.min_quantity > 0 && Number(x.on_hand) <= Number(x.min_quantity) });
+      });
+      return { status: 200, body: { rows: rows, below_reorder_count: rows.filter(function (x) { return x.below_reorder; }).length } };
+    });
   }
 };
 

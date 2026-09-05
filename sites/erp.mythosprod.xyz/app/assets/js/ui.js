@@ -48,6 +48,7 @@ export function fmtNum(v, scale = 3) {
   return isNaN(n) ? String(v) : n.toLocaleString('fr-TN', { minimumFractionDigits: scale, maximumFractionDigits: scale });
 }
 export function fmtMoney(v, cur = 'TND') { return v === null || v === undefined ? '—' : fmtNum(v, 3) + ' ' + cur; }
+export function fmtPct(v) { return v === null || v === undefined ? '—' : (v * 100).toLocaleString('fr-TN', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' %'; }
 export function shortId(v) { return v ? String(v).slice(0, 8) : '—'; }
 
 /* ── Feedback ─────────────────────────────────────────────────────────── */
