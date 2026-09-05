@@ -37,7 +37,9 @@ function stageRecord(stagingStore, classes, candidate, proposed) {
 // proposeMemory(stagingStore, canonicalStore, candidate, {classes, trustModel})
 function proposeMemory(stagingStore, canonicalStore, candidate, opts) {
   const o = opts || {};
-  const g = gateLib.gate(candidate, { classes: o.classes, trustModel: o.trustModel });
+  // Callers acting for an AI/conversation pass maxTier:'model-output' so a
+  // proposal can never self-declare a higher-authority source class.
+  const g = gateLib.gate(candidate, { classes: o.classes, trustModel: o.trustModel, maxTier: o.maxTier });
   if (!g.ok) return { staged: false, rejected: true, reasons: g.reasons };
 
   const decision = decisionLib.decide(canonicalStore, candidate, o);

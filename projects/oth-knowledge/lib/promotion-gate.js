@@ -67,6 +67,19 @@ function gate(candidate, opts) {
   const tier = (o.trustModel && o.trustModel.classes && p && o.trustModel.classes[p.source_class])
     ? o.trustModel.classes[p.source_class].tier : null;
 
+  // Trust-escalation guard: a caller may cap the maximum authority a
+  // candidate is allowed to claim. An AI/conversation proposer runs with
+  // maxTier 'model-output', so it can never self-declare a first-party
+  // (owner) or operator source class to smuggle in high-trust "truth".
+  if (o.maxTier) {
+    const order = ['first-party', 'operator', 'repository-verified', 'imported', 'metadata-only', 'model-output'];
+    const capIdx = order.indexOf(o.maxTier);
+    const tierIdx = order.indexOf(tier);
+    if (capIdx !== -1 && tierIdx !== -1 && tierIdx < capIdx) {
+      reasons.push('trust escalation refused: source_class "' + p.source_class + '" (' + tier + ') exceeds caller max tier ' + o.maxTier);
+    }
+  }
+
   return { ok: reasons.length === 0, reasons, tier: tier || 'untrusted' };
 }
 
