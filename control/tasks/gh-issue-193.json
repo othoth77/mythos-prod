@@ -1,0 +1,136 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-193",
+  "project": "mythos-prod",
+  "objective": "تنفيذ تحقق حي صغير لإثبات أن unified Telegram task events المدمجة في PR #189 تعمل فعليًا في Production.",
+  "scope": [
+    "أنشئ/شغّل مهمة GitHub واحدة طبيعية ومحدودة عبر المسار المعتمد.",
+    "تحقق من وصول 3 أحداث إلى Telegram للـTASK نفسه: created، claimed، report/completion.",
+    "يجب أن تكون الرسائل مفيدة ومختصرة، دون كشف IDs التنفيذية، المسارات الداخلية، أو الأسرار.",
+    "لا تغيّر WhatsApp.",
+    "لا تغيّر PR watch؛ يبقى `MYTHOS_PR_WATCH_ENABLED` كما هو ما لم يوجد تفويض منفصل.",
+    "سجّل نتيجة التحقق على #187 و#177 بعد اكتمال الفحص."
+  ],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "investigate",
+  "action_raw": "investigate",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "حدث created وصل إلى Telegram.",
+    "حدث claimed وصل إلى Telegram.",
+    "حدث report/completion وصل إلى Telegram.",
+    "لا يوجد تسريب لـ execution_id أو Executor ID أو OTHMODE numeric ID أو المسارات الداخلية أو الأسرار.",
+    "لا توجد تغييرات خارج نطاق التحقق."
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-05T13:22:41.397Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #193 https://github.com/othoth77/mythos-prod/issues/193 — \"ACTION: MYTHOS — Live Telegram Task-Event Verification\"\n\nrequested_action: investigate — source explicit_current_issue (written as \"investigate\") → execution profile repo-read\n\n[التقرير النهائي]\nTASK lifecycle: status\nTelegram created: status\nTelegram claimed: status\nTelegram report: status\nSecurity redaction: status\nSecrets: <none>\nBlocker: إن وجد",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 193,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/193",
+    "issue_id": 5358237788,
+    "issue_node_id": "I_kwDOTnlaF88AAAABP2A4XA",
+    "issue_title": "ACTION: MYTHOS — Live Telegram Task-Event Verification",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-05T13:21:45Z",
+    "issue_updated_at": "2026-09-05T13:21:45Z",
+    "issue_labels": [
+      "task"
+    ],
+    "content_sha256": "31f0eaf76c05d5ecbee0cca686c02639f123b5b00e4d3001c78caa0430439561",
+    "attempt": 1,
+    "attempt_id": "gh-issue-193#1",
+    "idempotency_key": "f085a09e95a4b94efc3368ea4e1259f9cfdaf88b6f76df99a33ad4e3b33f79cb",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "investigate",
+      "action_raw": "investigate",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": "inline",
+          "line": 1
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-05T13:22:41.397Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-05T13:22:41.397Z",
+        "event": "issue_received",
+        "reason": "open Issue #193 with label task",
+        "content_sha256": "31f0eaf76c05d5ecbee0cca686c02639f123b5b00e4d3001c78caa0430439561"
+      },
+      {
+        "at": "2026-09-05T13:22:41.397Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → investigate (raw \"investigate\")"
+      },
+      {
+        "at": "2026-09-05T13:22:41.397Z",
+        "event": "profile_resolved",
+        "reason": "investigate → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-05T13:22:41.397Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-05T13:22:42.828Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-193.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-05T13:22:41.397Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5552107335,
+        "url": "https://github.com/othoth77/mythos-prod/issues/193#issuecomment-5552107335",
+        "at": "2026-09-05T13:22:42.130Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
