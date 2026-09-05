@@ -23,7 +23,7 @@
     "لا يوجد تسريب لـ execution_id أو Executor ID أو OTHMODE numeric ID أو المسارات الداخلية أو الأسرار.",
     "لا توجد تغييرات خارج نطاق التحقق."
   ],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-05T13:22:41.397Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #193 https://github.com/othoth77/mythos-prod/issues/193 — \"ACTION: MYTHOS — Live Telegram Task-Event Verification\"\n\nrequested_action: investigate — source explicit_current_issue (written as \"investigate\") → execution profile repo-read\n\n[التقرير النهائي]\nTASK lifecycle: status\nTelegram created: status\nTelegram claimed: status\nTelegram report: status\nSecurity redaction: status\nSecrets: <none>\nBlocker: إن وجد",
@@ -132,5 +132,64 @@
       ],
       "removed": []
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260905132244-9t9bdt",
+    "othmode_task_id": "OTH-2026-00181",
+    "attempt_id": "gh-issue-193#1",
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "expected_delivery": "report",
+    "model_key": null,
+    "model_requested": null,
+    "model_source": "none",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-193",
+    "branch": "mythos/gh/gh-issue-193",
+    "base_commit": "a929a156781dd1c9867a78fc626c7e3a351ad975",
+    "claimed_at": "2026-09-05T13:22:44.455Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "0600008b66240867ba9d87fc034799d3ced4b4edfec4bbb93e0a212153363100",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-05T13:22:44.455Z",
+    "snapshot_sha256": "4dcbc4f4612b8b315217eb3aa25aad5ee4b20a06a4681de3fd66cf515cae61db",
+    "fence": 8069,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:2924074",
+      "fence": 8069,
+      "acquired_at": "2026-09-05T13:22:44.455Z",
+      "expires_at": "2026-09-05T14:52:44.455Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/projects/mythos-prod",
+      "head": "a929a156781dd1c9867a78fc626c7e3a351ad975",
+      "branch": "main",
+      "dirty_files": 0,
+      "base_ref": "origin/main",
+      "base_ref_head": "a929a156781dd1c9867a78fc626c7e3a351ad975",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": false,
+      "code": null,
+      "reason": null,
+      "measured_at": "2026-09-05T13:22:43.542Z"
+    },
+    "model": "claude-sonnet-5",
+    "model_selection_mode": "auto"
+  },
+  "history": [
+    {
+      "at": "2026-09-05T13:22:44.509Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260905132244-9t9bdt queued; OTHMODE OTH-2026-00181; action investigate (explicit_current_issue) → repo-read; model claude-sonnet-5; fence 8069"
+    }
+  ]
 }
