@@ -114,16 +114,32 @@ function config() {
 
 // The token is held in a closure by the client; it is never returned by
 // config()/status(), never logged, never written, never passed to a child.
+var TOKEN_FILE_PROBLEM = null;
 function readToken() {
+  TOKEN_FILE_PROBLEM = null;
   var direct = process.env.MYTHOS_TELEGRAM_BOT_TOKEN;
   if (direct && String(direct).trim()) return String(direct).trim();
   var file = process.env.MYTHOS_TELEGRAM_BOT_TOKEN_FILE;
-  if (!file || !fs.existsSync(file)) return null;
-  var text = fs.readFileSync(file, 'utf8');
+  if (!file) return null;
+  var text;
+  try {
+    var st = fs.statSync(file);
+    // A credential the running user cannot read, or that others can read,
+    // is reported as a configuration problem (never as a crash and never
+    // with its content).
+    if ((st.mode & 0o077) !== 0) TOKEN_FILE_PROBLEM = 'token file mode is ' + (st.mode & 0o777).toString(8) + ' (must be 0600)';
+    text = fs.readFileSync(file, 'utf8');
+  } catch (e) {
+    TOKEN_FILE_PROBLEM = 'token file ' + (e && e.code === 'ENOENT' ? 'does not exist' : 'is not readable by ' + (process.env.USER || 'this user') + ' (' + (e && e.code) + ')');
+    return null;
+  }
   var lines = text.split('\n');
   for (var i = 0; i < lines.length; i++) {
     var m = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/.exec(lines[i]);
-    if (m && m[1] === 'MYTHOS_TELEGRAM_BOT_TOKEN') return m[2].replace(/^["']|["']$/g, '');
+    // MYTHOS_TELEGRAM_BOT_TOKEN is the documented name; TELEGRAM_BOT_TOKEN
+    // (the plain BotFather convention) is accepted so an owner-written file
+    // does not have to be edited.
+    if (m && (m[1] === 'MYTHOS_TELEGRAM_BOT_TOKEN' || m[1] === 'TELEGRAM_BOT_TOKEN')) return m[2].replace(/^["']|["']$/g, '');
   }
   var raw = text.trim();
   return raw && raw.indexOf('=') === -1 && raw.indexOf('\n') === -1 ? raw : null;
@@ -630,7 +646,8 @@ function describe() {
   var token = readToken();
   var problems = [];
   if (!cfg.enabled) problems.push('MYTHOS_TELEGRAM_ENABLED is not 1 (the combined tick skips the channel)');
-  if (!token) problems.push('no bot token: set MYTHOS_TELEGRAM_BOT_TOKEN_FILE to a 0600 file containing MYTHOS_TELEGRAM_BOT_TOKEN=<token>');
+  if (!token) problems.push('no bot token: set MYTHOS_TELEGRAM_BOT_TOKEN_FILE to a 0600 file containing MYTHOS_TELEGRAM_BOT_TOKEN=<token>' + (TOKEN_FILE_PROBLEM ? ' — ' + TOKEN_FILE_PROBLEM : ''));
+  else if (TOKEN_FILE_PROBLEM) problems.push(TOKEN_FILE_PROBLEM);
   if (!cfg.allowedUserIds.length) problems.push('MYTHOS_TELEGRAM_ALLOWED_USER_IDS is empty: nobody is accepted');
   return {
     channel: BY, enabled: cfg.enabled, api_base: cfg.apiBase, token_present: !!token, token_source: cfg.tokenSource,

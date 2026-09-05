@@ -230,6 +230,20 @@ async function run() {
   process.env.MYTHOS_TELEGRAM_BOT_TOKEN_FILE = tokenFile;
   ok(telegram.readToken() === TOKEN && telegram.config().tokenSource === 'file' && telegram.describe().ready === true, 'token file: KEY=VALUE file (quoted) is read; describe() is ready and never returns the value');
   ok(JSON.stringify(telegram.describe()).indexOf(TOKEN) === -1 && JSON.stringify(telegram.config()).indexOf(TOKEN) === -1, 'token file: neither describe() nor config() contains the token');
+  fs.chmodSync(tokenFile, 0o644);
+  var dLoose = telegram.describe();
+  ok(dLoose.ready === false && dLoose.problems.some(function (p) { return /mode is 644 \(must be 0600\)/.test(p); }) && JSON.stringify(dLoose).indexOf(TOKEN) === -1, 'token file: a world-readable token file is reported as a problem (not ready), value never shown');
+  fs.chmodSync(tokenFile, 0o600);
+  process.env.MYTHOS_TELEGRAM_BOT_TOKEN_FILE = path.join(FIX, 'missing-token.env');
+  var dMissing = telegram.describe();
+  ok(dMissing.token_present === false && dMissing.problems.some(function (p) { return /does not exist/.test(p); }), 'token file: a missing file is reported, never thrown');
+  process.env.MYTHOS_TELEGRAM_BOT_TOKEN_FILE = tokenFile;
+  ok(telegram.describe().ready === true, 'token file: back to ready');
+  var altFile = path.join(FIX, 'telegram-bot-alt.env');
+  fs.writeFileSync(altFile, 'TELEGRAM_BOT_TOKEN=' + TOKEN + '\n', { mode: 0o600 });
+  process.env.MYTHOS_TELEGRAM_BOT_TOKEN_FILE = altFile;
+  ok(telegram.readToken() === TOKEN, 'token file: the plain TELEGRAM_BOT_TOKEN key name is accepted too');
+  process.env.MYTHOS_TELEGRAM_BOT_TOKEN_FILE = tokenFile;
   process.env.MYTHOS_TELEGRAM_BOT_TOKEN = TOKEN;
 
   // --- 4. secret redaction ----------------------------------------------------------------
@@ -312,7 +326,7 @@ async function run() {
   ok(actionsOf(r7b.phases.intake, 'create').length === 1 && sentTo(OWNER).filter(function (m) { return m.text.indexOf(telegram.taskIdFor(outageUpdate.update_id)) !== -1 && /queued/.test(m.text); }).length === 1, 'outage: the next tick creates the task and sends the queued reply exactly once');
 
   // --- 4b. redaction, end to end: the token appears nowhere on disk except the fixture token file -----
-  var leaks = filesContaining(TOKEN).filter(function (f) { return f !== tokenFile; });
+  var leaks = filesContaining(TOKEN).filter(function (f) { return f !== tokenFile && f !== altFile; });
   ok(leaks.length === 0, 'redaction e2e: the token appears in NO task file, report, ledger, offset, OTHMODE record, executor store or bridge log (' + leaks.map(function (f) { return path.relative(FIX, f); }).join(', ') + ')');
   var urlLeaks = api.requests.filter(function (q) { return q.body && q.body.indexOf(TOKEN) !== -1; });
   ok(urlLeaks.length === 0 && api.sent.every(function (m) { return m.text.indexOf(TOKEN) === -1; }), 'redaction e2e: no request body and no reply text carries the token (it is only ever in the URL path)');
