@@ -6,6 +6,9 @@
 // Usage:
 //   node projects/status-center/bin/review.js            # run + persist a review
 //   node projects/status-center/bin/review.js --dry-run  # run, print summary, write nothing
+//   node projects/status-center/bin/review.js --dry-run --json
+//                       # same, one JSON object on stdout (machine-readable:
+//                       # ops/dagu/bin/mythos-status-center-check consumes it)
 //
 // This is the [REVIEW NOW] engine. It is strictly read-only over the
 // repository and writes ONLY:
@@ -23,6 +26,7 @@ const repoRoot = path.resolve(__dirname, '..', '..', '..');
 const dataDir = path.join(repoRoot, 'projects', 'status-center', 'data');
 const siteDir = path.join(repoRoot, 'sites', 'status.mythosprod.xyz');
 const dryRun = process.argv.indexOf('--dry-run') !== -1;
+const asJson = process.argv.indexOf('--json') !== -1;
 
 let result;
 try {
@@ -33,6 +37,35 @@ try {
 }
 
 const s = result.snapshot;
+if (asJson) {
+  // Machine-readable summary — ids, counts and names only (no evidence
+  // bodies, no secrets; the snapshot itself is never printed).
+  const summary = {
+    review_id: s.review_id,
+    timestamp: s.timestamp,
+    origin_main: s.git.origin_main || null,
+    previous_review: s.previous_review || null,
+    projects: s.projects.length,
+    tracks: s.tracks.length,
+    blocked: s.blockers.filter(function (b) { return b.status === 'BLOCKED'; }).length,
+    owner_action: s.blockers.filter(function (b) { return b.status === 'OWNER_ACTION'; }).length,
+    new_repo_discoveries: s.new_discoveries.map(function (d) { return d.full_name || String(d); }),
+    monorepo_discovery_checked: s.monorepo_discovery.checked,
+    new_project_discoveries: s.monorepo_discovery.new_discoveries.map(function (d) { return d.directory || String(d); }),
+    changes: {
+      added: s.changes.added.length, completed: s.changes.completed.length, unblocked: s.changes.unblocked.length,
+      blocked: s.changes.blocked.length, regressed: s.changes.regressed.length, changed: s.changes.changed.length
+    },
+    dry_run: dryRun,
+    persisted: null
+  };
+  if (!dryRun) {
+    const p = engine.persistReview(result, siteDir);
+    summary.persisted = { file: path.relative(repoRoot, p.file), index_size: p.index_size };
+  }
+  console.log(JSON.stringify(summary));
+  process.exit(0);
+}
 console.log('Review:        ' + s.review_id);
 console.log('Timestamp:     ' + s.timestamp);
 console.log('origin/main:   ' + (s.git.origin_main || 'NOT_VERIFIED'));

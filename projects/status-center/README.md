@@ -43,3 +43,11 @@ immutable `reviews/YYYY/…-review-NNN.json`, `data/current.json`,
 - The registry is the curation layer: update it with evidence when
   stages complete, then run a review. An invalid registry fails the
   review closed (`STC_REGISTRY_INVALID`).
+- **Discovery is scheduled, curation is not.** The maintenance DAG
+  `ops/dagu/maintenance/status-center-review.yaml` runs
+  `ops/dagu/bin/mythos-status-center-check` daily: a dry-run review
+  (`bin/review.js --dry-run --json`, writes nothing) plus a comparison of
+  the served `health.json` with the repository's. Exit 3 = attention: a
+  `NEW_DISCOVERY` to classify and/or a stale site to publish with
+  `scripts/deploy-status-center.sh` (root). It never persists a review and
+  never publishes (`tests/status-center-check-test.js`).
