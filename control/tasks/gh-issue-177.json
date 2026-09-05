@@ -23,7 +23,7 @@
   "action_raw": "investigate",
   "action_source": "default",
   "validation_requirements": [],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-05T03:02:27.335Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #177 https://github.com/othoth77/mythos-prod/issues/177 — \"Telegram Task Lifecycle Notifications\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[أمثلة]\n🟡 TASK #177 — تم إنشاء المهمة: تحسين رسائل Telegram.\n\n🔵 TASK #177 — بدأ التنفيذ.\n🤖 Claude Haiku 4.5\n\n🟢 TASK #177 — تم التنفيذ.\nالنتيجة: تم تحسين الرسائل بنجاح.\n\n🔴 TASK #177 — لم تكتمل.\nالسبب: الخدمة غير متاحة.\n👉 المطلوب: تشغيل الخدمة.\n\n[الاعتماد]\nهذه المهمة تعتمد على اكتمال TASK #176 أولًا.",
@@ -126,5 +126,64 @@
       ],
       "removed": []
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260905030231-jacu04",
+    "othmode_task_id": "OTH-2026-00174",
+    "attempt_id": "gh-issue-177#1",
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "default",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "expected_delivery": "report",
+    "model_key": null,
+    "model_requested": null,
+    "model_source": "none",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-177",
+    "branch": "mythos/gh/gh-issue-177",
+    "base_commit": "a3be0a0ba346366886a758ec01f1a089a8668051",
+    "claimed_at": "2026-09-05T03:02:31.307Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "cf4d927089d17c46c4fc4d5049cc64428a585544e11ac1431a3832c70c5225e2",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-05T03:02:31.308Z",
+    "snapshot_sha256": "589afe598abaa9e3eab9fd0c79787d84e2d6bbce3a2e118adef4c50c1fe5838c",
+    "fence": 5735,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:1237977",
+      "fence": 5735,
+      "acquired_at": "2026-09-05T03:02:31.307Z",
+      "expires_at": "2026-09-05T04:32:31.307Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/projects/mythos-prod",
+      "head": "0e852103f050880921e5ac81669ffee24185a3ca",
+      "branch": "main",
+      "dirty_files": 0,
+      "base_ref": "origin/main",
+      "base_ref_head": "a3be0a0ba346366886a758ec01f1a089a8668051",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": true,
+      "code": "RUNTIME_STALE_CHECKOUT",
+      "reason": "checkout HEAD 0e852103f050 is behind origin/main a3be0a0ba346 — the running bridge is older than what is delivered",
+      "measured_at": "2026-09-05T03:02:29.632Z"
+    },
+    "model": "claude-haiku-4-5",
+    "model_selection_mode": "auto"
+  },
+  "history": [
+    {
+      "at": "2026-09-05T03:02:31.366Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260905030231-jacu04 queued; OTHMODE OTH-2026-00174; action investigate (default) → repo-read; model claude-haiku-4-5; fence 5735"
+    }
+  ]
 }
