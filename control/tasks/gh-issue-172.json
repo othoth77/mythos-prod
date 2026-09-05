@@ -26,7 +26,7 @@
     "[ ] `docs/AI_HANDOVER.md` is updated.",
     "[ ] Implementation is committed and pushed through the governed relay."
   ],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-05T01:05:09.656Z",
   "created_by": "github-issue:othoth77",
   "model": "fable-5.1",
@@ -172,8 +172,8 @@
     "claimed_at": "2026-09-05T01:05:13.012Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "414bfb2bb4cbef92bde308331eeb88e1f14a6912f41c041d24c86d8faa7ddf1e",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-05T01:05:13.012Z",
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-05T01:06:20.363Z",
     "snapshot_sha256": "d667b595a7c03af9ff8dc76301684958af0c91bff7153c9f418f09c6338a800d",
     "fence": 5419,
     "lease": {
@@ -201,7 +201,8 @@
       "measured_at": "2026-09-05T01:05:12.138Z"
     },
     "model": "claude-fable-5-1",
-    "model_selection_mode": "explicit"
+    "model_selection_mode": "explicit",
+    "claude_session_id": "e5ad6e2a-2059-4ec4-a5a4-5b63b0435e1b"
   },
   "history": [
     {
@@ -210,6 +211,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260905010513-4c5yeh queued; OTHMODE OTH-2026-00170; action implement (explicit_current_issue) → repo-write; model claude-fable-5-1; fence 5419"
+    },
+    {
+      "at": "2026-09-05T01:06:20.363Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
