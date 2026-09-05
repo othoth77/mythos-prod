@@ -429,12 +429,23 @@ function queuedText(task) {
     'I will reply here when the task starts and when the report is ready.';
 }
 
+// Owner-facing lifecycle texts (decision 2026-09-05): short and simple — task
+// id, state, a brief description and the result / what is needed. The Claude
+// model name is shown when known. Internal identifiers stay OUT of the chat:
+// no executor task id, no execution id, no OTHMODE number, no host path; the
+// MYTHOS guard is only described. The full correlation lives in the task file
+// (`source.notifications`) and `telegram-status` / `trail` for the operator.
+function guardLine(execution) {
+  return (execution && execution.othmode_task_id) ? 'guard: MYTHOS protection/monitoring active' : null;
+}
+
 function startedText(task) {
   var ex = task.execution || {};
-  return 'MYTHOS: started ' + task.task_id + '\n' +
-    'executor ' + (ex.executor_task_id || '?') + '\n' +
-    'OTHMODE ' + (ex.othmode_task_id || 'none') + '\n' +
-    'profile ' + (ex.execution_profile || engine.profileFor(task.requested_action)) + (ex.model ? ', model ' + ex.model : '');
+  var lines = ['MYTHOS: started ' + task.task_id,
+    'profile ' + (ex.execution_profile || engine.profileFor(task.requested_action)) + (ex.model ? ', model ' + ex.model : '')];
+  var g = guardLine(ex);
+  if (g) lines.push(g);
+  return lines.join('\n');
 }
 
 function reportText(task, report) {
@@ -447,7 +458,11 @@ function reportText(task, report) {
   if (Array.isArray(report.problems) && report.problems.length) lines.push('', 'problems: ' + report.problems.slice(0, 3).map(function (p) { return short(p, 200); }).join(' | '));
   if (report.blocker && report.blocker.code) lines.push('blocker: ' + report.blocker.code);
   if (report.next_recommended_action) lines.push('', 'next: ' + short(report.next_recommended_action, 300));
-  lines.push('', 'executor ' + (ex.executor_task_id || '?') + ' · OTHMODE ' + ((task.execution && task.execution.othmode_task_id) || 'none') + ' · report control/reports/' + task.task_id + '.json');
+  var tail = [];
+  if (ex.model) tail.push('model ' + ex.model);
+  var g = guardLine(task.execution);
+  if (g) tail.push(g);
+  if (tail.length) lines.push('', tail.join(' · '));
   return lines.join('\n');
 }
 

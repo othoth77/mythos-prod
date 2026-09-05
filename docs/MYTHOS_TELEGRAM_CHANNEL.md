@@ -279,3 +279,24 @@ restarted, no drop-in installed, WhatsApp drop-in unchanged.
 `bridge/systemd/mythos-github-bridge.service.d/telegram.conf.example` as a drop-in with
 `MYTHOS_TELEGRAM_ALLOWED_USER_IDS=5005015506` and `daemon-reload` (§6), and merge this branch so the production
 checkout carries `bridge/telegram.js`; until then the channel only runs when `telegram-tick` is invoked from this worktree.
+
+### 9.3 Production activation (2026-09-05, owner instruction "Activate Telegram Lifecycle Notifications")
+
+Owner-facing message format (decision recorded here; enforced by `queuedText` / `startedText` / `reportText` and the
+suite): **task id + state + short description + result / what is needed**, the Claude model name when the executor
+recorded one, and the MYTHOS guard only *described* ("guard: MYTHOS protection/monitoring active"). Executor task ids,
+execution ids, OTHMODE numbers and host / report paths never appear in a chat message; the full correlation stays in
+`source.notifications`, `telegram-status` and `trail` for the operator. Suite: **68 passed, 0 failed** (66 + 2
+negative assertions on the reply texts).
+
+Pre-merge host state, verified as `deploy` from this worktree with the drop-in environment: drop-in
+`mythos-github-bridge.service.d/telegram.conf` present and loaded by the live unit (`MYTHOS_TELEGRAM_ENABLED=1`,
+`MYTHOS_TELEGRAM_ALLOWED_USER_IDS=5005015506`, token bound by file reference); `telegram-config` → `ready: true,
+problems: []`; `telegram-check` → bot 7598630137 `@Othoth77_bot`; `getWebhookInfo` → `url: ""` (no webhook, polling
+only, `pending_update_count: 1`); `telegram-status` → `tg-611867278` COMPLETED, replies 193/194/195; executor daemon and
+bridge timer active. Nothing restarted, no WhatsApp file touched.
+
+Activation path = the governed one: this branch is delivered by the root relay (`refs/heads/mythos/*`), PR #175 is
+merged on GitHub under the owner's explicit instruction, then the production checkout is fast-forwarded to
+`origin/main` so the 1-minute timer runs the Telegram phases from `main`. The single pending update is the smallest
+possible live test (no extra test message is sent).

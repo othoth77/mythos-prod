@@ -29,6 +29,19 @@ Durable findings of the 2026-09-04 master backlog audit (Fable 5.1), condensed s
 | Owner actions remaining | merge #168; close PR #108 + Issues in main/superseded; ff checkout; governed restart; install Dagu service; publish Status Center; session-guard reinstall + enable decision + MemoryMax; WhatsApp gateway/config/recipient then #164; remove sudoers residue | OWNER ACTION |
 | Safety constraints learned | checkout = deployment (never reset/clean/add . there, never ff as agent); one `sudo -u deploy git` action per call; edit deploy files in place; suites one at a time with `timeout`; IN_USE test failures are real; no WhatsApp sends; `Action:`/`Model:` plain lines and ≤300-char validation strings for bridge tasks; Dagu step approval ≠ authorization | VERIFIED |
 
+## MYTHOS-TELEGRAM-0 — production activation: lifecycle notifications, owner-facing text (2026-09-05, Fable 5.1)
+
+Branch `mythos/telegram-channel-20260905` → PR #175 → `main` (owner instruction: "Activate Telegram Lifecycle
+Notifications"). Record: `docs/MYTHOS_TELEGRAM_CHANNEL.md` §9.3.
+
+| Item | State |
+|---|---|
+| Lifecycle notifications | queued (task created) → started → report (COMPLETED / FAILED / BLOCKED / CANCELLED), one reply each, idempotent ledger — for every task that enters through Telegram |
+| Message format | task id + state + short description + result/next; model name when recorded; guard described, never numbered; no executor id / execution id / OTHMODE number / host path in chat |
+| Tests | `tests/mythos-telegram-channel-test.js` 68/0 (was 66/0) |
+| Host | drop-in `telegram.conf` installed + loaded (allowed user 5005015506), token file 0600 under the deploy secrets dir, no webhook, no conflict; executor + timer untouched |
+| Not in scope | WhatsApp (untouched); `MYTHOS_TELEGRAM_ALLOWED_ACTIONS` stays investigate,review; tasks that arrive via GitHub Issues do NOT notify Telegram (no such adapter exists — a separate decision) |
+
 ## MYTHOS-TELEGRAM-0 — Telegram private-message channel: bot identity transferred, live E2E COMPLETE (2026-09-05, Fable 5.1)
 
 Branch `mythos/telegram-channel-20260905` (not merged). Full record: `docs/MYTHOS_TELEGRAM_CHANNEL.md` §9.

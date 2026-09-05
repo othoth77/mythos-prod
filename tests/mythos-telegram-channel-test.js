@@ -293,7 +293,8 @@ async function run() {
   t6 = taskOnDisk(tid);
   ok(t6.status === 'CLAIMED' && t6.execution.executor_task_id && /^OTH-/.test(t6.execution.othmode_task_id || '') && t6.execution.execution_profile === 'repo-read', 'flow: claimed → executor_task_id + OTHMODE record + profile repo-read on the task file');
   var st6 = sentTo(OWNER).filter(function (m) { return /started/.test(m.text); });
-  ok(st6.length === 1 && st6[0].text.indexOf(t6.execution.executor_task_id) !== -1 && st6[0].text.indexOf(t6.execution.othmode_task_id) !== -1, 'flow: one "started" reply carrying executor id + OTHMODE id');
+  ok(st6.length === 1 && st6[0].text.indexOf(tid) !== -1 && /profile repo-read/.test(st6[0].text) && /guard: MYTHOS protection\/monitoring active/.test(st6[0].text), 'flow: one "started" reply with the task id, the profile and the guard described (not numbered)');
+  ok(st6[0].text.indexOf(t6.execution.executor_task_id) === -1 && st6[0].text.indexOf(t6.execution.othmode_task_id) === -1 && st6[0].text.indexOf('/home/') === -1, 'flow: the "started" reply carries NO executor id, NO OTHMODE number and NO host path (owner-facing text)');
   var ex6 = state.readJSON(t6.execution.executor_task_id, 'task.json');
   ok(ex6 && ex6.execution_profile === 'repo-read' && ex6.stage === 'github:' + tid && /^othmode /.test(ex6.instruction) && ex6.instruction.indexOf(t6.execution.othmode_task_id) !== -1, 'flow: the executor task runs profile repo-read under the OTHMODE contract, correlated by stage github:' + tid);
   var r6b = await full();
@@ -303,8 +304,10 @@ async function run() {
   var rep6 = reportOnDisk(tid);
   ok(rep6 && rep6.status === 'COMPLETED' && rep6.execution.executor_task_id === t6.execution.executor_task_id, 'flow: bridge wrote control/reports/' + tid + '.json COMPLETED with the executor id');
   var rp6 = sentTo(OWNER).filter(function (m) { return /COMPLETED/.test(m.text); });
-  ok(rp6.length === 1 && rp6[0].text.indexOf(tid) !== -1 && rp6[0].text.indexOf('fixture HEAD ' + MAIN_AT_START.slice(0, 12)) !== -1 && /mock: pass/.test(rp6[0].text) && rp6[0].text.indexOf(t6.execution.executor_task_id) !== -1 && rp6[0].text.indexOf(t6.execution.othmode_task_id) !== -1,
-    'flow: one report reply with status, summary, tests, executor id and OTHMODE id');
+  ok(rp6.length === 1 && rp6[0].text.indexOf(tid) !== -1 && rp6[0].text.indexOf('fixture HEAD ' + MAIN_AT_START.slice(0, 12)) !== -1 && /mock: pass/.test(rp6[0].text) && /guard: MYTHOS protection\/monitoring active/.test(rp6[0].text),
+    'flow: one report reply with status, summary, tests and the guard described');
+  ok(rp6[0].text.indexOf(t6.execution.executor_task_id) === -1 && rp6[0].text.indexOf(t6.execution.othmode_task_id) === -1 && rp6[0].text.indexOf('control/reports/') === -1 && (!rep6.execution.model || rp6[0].text.indexOf('model ' + rep6.execution.model) !== -1),
+    'flow: the report reply carries NO executor id, NO OTHMODE number, NO report path; the model name when the executor recorded one');
   t6 = taskOnDisk(tid);
   ok(t6.status === 'COMPLETED' && t6.source.notifications.report && t6.source.notifications.report.status === 'COMPLETED' && t6.source.notifications.report.message_id === rp6[0].message_id && t6.source.notifications.started.executor_task_id === t6.execution.executor_task_id,
     'flow: the task file holds the full correlation update_id → task_id → executor_task_id → OTHMODE id → reply message_ids');
