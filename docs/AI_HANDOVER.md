@@ -2,7 +2,7 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
-## 2026-09-05 — PHASE 5 PRODUCTION API: **DEPLOYED, running as erp_app — API=PENDING (owner authenticated smoke)** (Fable 5.1, 16:45–17:00 UTC)
+## 2026-09-05 — PHASE 5 PRODUCTION API: **DEPLOYED, running as erp_app — API=BLOCKED until authenticated login=200** (Fable 5.1, 16:45–17:05 UTC)
 
 | Item | Evidence |
 |---|---|
@@ -18,7 +18,9 @@
 | Restart policy | `kill -9` of MainPID → systemd restarted the service within ~4.5 s (`NRestarts=1`, `Result=success`, new PID, health 200 again). Journal readable via `journalctl _SYSTEMD_USER_UNIT=erp-api.service` (root) / `journalctl --user -u erp-api` (deploy). |
 | Finding fixed in this phase | A body **over** the 1 MiB cap produced a socket reset instead of a visible 413 (the streaming guard destroyed the request before the response); `server.js` now refuses a declared oversize `Content-Length` with a real **413** before reading the body (streaming guard kept for chunked senders). Drill check added. |
 | Authenticated live operations | Cannot be exercised by this agent without holding the owner's credential. **Owner step:** run `bash /home/deploy/worktrees/erp-gates/sites/erp.mythosprod.xyz/deploy/live-smoke.sh <email>` at a terminal (password read without echo, one login, status codes only): health, login 200, `/session`, `/tenants`, `/users`, `/audit`, `/dashboard`, `/invoices` 200, non-member tenant switch 403, CSRF-less POST refused, logout 200, dead session 401. Evidence the agent then verifies: `login.success` + `logout` audit rows for that actor. |
-| **GATE** | **API=PENDING (owner smoke)** — service deployed, verified, hardened and running as erp_app; the last item is the authenticated smoke above. Phase 6 not started. |
+| Smoke failure 17:00 UTC — diagnosed read-only | Owner ran the smoke: readiness 200, login **401**. Read-only diagnosis: user active, not deleted, `locked_until` null, `failed_attempts` 2 (threshold 5), scrypt hash well-formed (138 chars), email lower-case/no whitespace, membership + role intact, service env = erp_app URL, journal clean. Audit: two `login.failure {failed_attempts:1,2, locked:false}` rows = the API verified a wrong password twice. **Root cause = the smoke script itself:** it JSON-encoded the password through a bash here-string (`<<<"$PW"`), which appends `\n` — reproduced with a fake value: `{"password":"abc\n"}`. The API does not trim passwords (correct). No credential, data or configuration was changed; `failed_attempts` resets to 0 on the next successful login by design. |
+| Fix | `deploy/live-smoke.sh` builds the body with `printf '%s' "$PW" \| python3 json.dumps(...)` (no trailing newline) and gains `--selftest` (proves `{"email":"x@y.z","password":"abc"}` with a fake value, no network). Self-test PASS; negative control shows the old encoding yields `"abc\n"`. |
+| **GATE** | **API=BLOCKED** until the owner's rerun of the fixed smoke returns login=200 and `login.success` + `logout` audit rows exist for the owner actor. Everything else in Phase 5 is verified. Phase 6 not started. |
 
 
 ## 2026-09-05 — PHASE 4 SUPER ADMIN: **AUTH=PASS** (Fable 5.1, 16:20–16:45 UTC; code fixed, owner bootstrap at TTY, verified read-only)

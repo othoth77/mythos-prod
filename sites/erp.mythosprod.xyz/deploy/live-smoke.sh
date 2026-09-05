@@ -10,6 +10,20 @@
 # audit rows login.success and logout for the given actor.
 set -euo pipefail
 B="http://127.0.0.1:${ERP_API_PORT:-8787}/api/v1"
+
+# Build the login body from stdin (email on argv, password on stdin) with NO
+# trailing newline. The first version used a bash here-string (<<<"$PW"), which
+# appends "\n" — the API received password+newline and, correctly, answered 401
+# (2026-09-05 17:00, two login.failure audit rows). `--selftest` proves the
+# encoding without any network or credential.
+payload() {  # payload <email>  (password on stdin)
+  python3 -c 'import json,sys; print(json.dumps({"email": sys.argv[1], "password": sys.stdin.read()}), end="")' "$1"
+}
+if [ "${1:-}" = "--selftest" ]; then
+  got=$(printf '%s' 'abc' | payload 'x@y.z')
+  exp='{"email": "x@y.z", "password": "abc"}'
+  [ "$got" = "$exp" ] && { echo "selftest PASS: $got"; exit 0; } || { echo "selftest FAIL: $got"; exit 1; }
+fi
 EMAIL="${1:-}"
 [ -t 0 ] || { echo "REFUSED: run this at a terminal (the password is typed, never piped)"; exit 3; }
 [ -n "$EMAIL" ] || read -r -p "Email: " EMAIL
@@ -22,7 +36,7 @@ t() { if [ "$2" = "$3" ]; then PASS=$((PASS+1)); echo "  PASS $1 → $2"; else F
 
 t "health" "$(code "$B/health")" 200
 # one login, password via stdin to curl (never in argv)
-R=$(printf '{"email":"%s","password":%s}' "$EMAIL" "$(python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))' <<<"$PW")" \
+R=$(printf '%s' "$PW" | payload "$EMAIL" \
     | curl -s -o "$J" -D "$H" -w '%{http_code}' -X POST "$B/auth/login" -H 'content-type: application/json' --data-binary @-)
 unset PW
 t "login" "$R" 200
