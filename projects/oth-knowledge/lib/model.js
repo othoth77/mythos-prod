@@ -127,6 +127,24 @@ function validateRecord(rec) {
   if (rec.namespace !== undefined && !namespace.isValidNamespace(rec.namespace)) {
     throw fail('OTHK_MODEL_FIELD', 'namespace must be "global", "personal", or "projects/<slug>"');
   }
+  // Optional event-time validity interval (bi-temporal). valid_from/
+  // valid_to describe WHEN the statement is true in the world; they are
+  // distinct from observed_at (when it was seen) and from the store's
+  // written_at (transaction time). Both optional and ISO; valid_to must
+  // not precede valid_from. expired_at is DERIVED (transaction time of the
+  // superseding version) and must never be stored, so it is refused here.
+  if (rec.valid_from !== undefined && rec.valid_from !== null && !isIsoTimestamp(rec.valid_from)) {
+    throw fail('OTHK_MODEL_FIELD', 'valid_from must be an ISO timestamp');
+  }
+  if (rec.valid_to !== undefined && rec.valid_to !== null && !isIsoTimestamp(rec.valid_to)) {
+    throw fail('OTHK_MODEL_FIELD', 'valid_to must be an ISO timestamp');
+  }
+  if (rec.valid_from && rec.valid_to && Date.parse(rec.valid_to) < Date.parse(rec.valid_from)) {
+    throw fail('OTHK_MODEL_FIELD', 'valid_to must not precede valid_from');
+  }
+  if (rec.expired_at !== undefined) {
+    throw fail('OTHK_MODEL_FIELD', 'expired_at is derived (transaction time of supersession) and must not be stored on a record');
+  }
   if (PROVENANCE_REQUIRED.indexOf(rec.kind) !== -1) validateProvenance(rec.provenance, rec.kind);
   KIND_RULES[rec.kind](rec);
   return rec;
