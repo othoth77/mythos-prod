@@ -166,6 +166,11 @@ check "login body carries no hash and no password" "! grep -q 'scrypt' $J && ! g
 R=$(code -H "Cookie: $COOKIE" "$B/session");            check "GET /session with cookie → 200, same tenant" "[ $R = 200 ] && grep -q \"$TENANT\" $J" "$R $(cat $J)"
 R=$(code "$B/users");                                   check "GET /users without cookie → 401" "[ $R = 401 ]" "$R"
 R=$(code -H "Cookie: $COOKIE" "$B/users");              check "GET /users as super_admin (users.read) → 200" "[ $R = 200 ]" "$R $(cat $J)"
+R=$(code -H "Cookie: $COOKIE" "$B/dashboard");          check "GET /dashboard → 200 with all seven counters" "[ $R = 200 ] && python3 -c \"import json; d=json.load(open('$J')); assert set(d)=={'clients','open_projects','unpaid_invoices','invoiced_ttc_ytd','collected_ytd','appointments_next_7d','items_below_reorder'}, d\"" "$R $(cat $J)"
+for rep in revenue receivables expenses; do R=$(code -H "Cookie: $COOKIE" "$B/reports/$rep"); check "GET /reports/$rep → 200" "[ $R = 200 ]" "$R $(head -c 200 $J)"; done
+R=$(code -H "Cookie: $COOKIE" "$B/settings");           check "GET /settings → 200" "[ $R = 200 ]" "$R $(head -c 200 $J)"
+R=$(code -H "Cookie: $COOKIE" "$B/tenants");            check "GET /tenants → 200" "[ $R = 200 ]" "$R"
+R=$(code -H "Cookie: $COOKIE" "$B/invoices");           check "GET /invoices → 200 (empty tenant)" "[ $R = 200 ]" "$R $(head -c 200 $J)"
 R=$(code -H "Cookie: $COOKIE" "$B/audit");              check "GET /audit as super_admin (audit.read) → 200 listing the bootstrap rows" "[ $R = 200 ] && grep -q 'user.created' $J && grep -q 'role.assigned' $J" "$R $(head -c 300 $J)"
 R=$(code -X POST -H "Cookie: $COOKIE" -H "x-csrf-token: $CSRF" -H 'content-type: application/json' "$B/session/tenant" -d '{"tenant_id":"00000000-0000-4000-8000-000000000000"}')
 check "switch to a non-member tenant → 403" "[ $R = 403 ]" "$R $(cat $J)"
@@ -173,6 +178,9 @@ R=$(code -X POST -H "Cookie: $COOKIE" -H 'content-type: application/json' "$B/se
 check "POST without CSRF header is refused (401/403)" "[ $R = 403 ] || [ $R = 401 ]" "$R $(cat $J)"
 R=$(code -X POST -H "Cookie: $COOKIE" -H "x-csrf-token: $CSRF" "$B/auth/logout"); check "logout → 200 and cookie cleared" "[ $R = 200 ] && grep -qi 'Max-Age=0' $H" "$R $(grep -i set-cookie $H)"
 R=$(code -H "Cookie: $COOKIE" "$B/session");            check "session invalid after logout → 401" "[ $R = 401 ]" "$R"
+head -c 1100000 /dev/zero | tr '\0' 'a' > "$WORK/big"
+R=$(code -X POST "$B/auth/login" -H 'content-type: application/json' -H 'Expect:' --data-binary "@$WORK/big"); check "1.1 MiB body → 413 (declared length)" "[ $R = 413 ]" "$R"
+R=$(code "$B/health");                                 check "server healthy after oversize refusal" "[ $R = 200 ]" "$R"
 AUD_OK=$(q "select count(*) filter (where action='login.failure')>=1 and count(*) filter (where action='login.success')=1 and count(*) filter (where action='logout')=1 and count(*) filter (where action='permission.denied')>=1 from audit_log")
 check "audit trail exact: login.failure ≥1, login.success 1, logout 1 (no spurious rows), permission.denied ≥1" "[ $AUD_OK = t ]" "$(q 'select action, count(*) from audit_log group by 1' | tr '\n' ' ')"
 N_ANON=$(q "select count(*) from audit_log where actor_label='anonymous'")

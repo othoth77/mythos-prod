@@ -199,6 +199,15 @@ function createServer(deps) {
     var parsed = url.parse(req.url, true);
     var found = match(req.method, parsed.pathname);
     if (!found) return send(res, 404, { error: 'not_found' });
+    // A declared oversize body is refused before a byte of it is read, with a
+    // real 413 the client can see. (The streaming guard below still covers
+    // chunked or lying senders, but destroying the socket mid-body means the
+    // client sees a reset rather than a status — found in Phase 5 live checks.)
+    var declared = Number(req.headers['content-length'] || 0);
+    if (declared > MAX_BODY) {
+      res.on('finish', function () { req.destroy(); });
+      return send(res, 413, { error: 'payload too large' }, { Connection: 'close' });
+    }
 
     readBody(req).then(function (body) {
       var request = {

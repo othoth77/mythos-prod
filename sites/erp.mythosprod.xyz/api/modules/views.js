@@ -25,8 +25,13 @@ var dashboard = {
         " WHERE paid_on >= date_trunc('year', current_date)"),
       client.query('SELECT count(*)::int AS n FROM appointments' +
         ' WHERE deleted_at IS NULL AND starts_at >= now() AND starts_at < now() + interval \'7 days\''),
-      client.query('SELECT count(*)::int AS n FROM inventory_items' +
-        ' WHERE deleted_at IS NULL AND reorder_level IS NOT NULL AND quantity_on_hand <= reorder_level')
+      // Stock is not a column: on-hand = the signed sum of inventory_movements,
+      // and the reorder threshold is inventory_items.min_quantity (0 = none).
+      // The previous query named reorder_level / quantity_on_hand, columns that
+      // never existed, so /dashboard was a guaranteed 500 (found 2026-09-05).
+      client.query('SELECT count(*)::int AS n FROM inventory_items i' +
+        ' WHERE i.deleted_at IS NULL AND i.min_quantity > 0' +
+        '   AND coalesce((SELECT sum(m.quantity) FROM inventory_movements m WHERE m.item_id = i.id), 0) <= i.min_quantity')
     ]).then(function (r) {
       return { status: 200, body: {
         clients: r[0].rows[0].n,
