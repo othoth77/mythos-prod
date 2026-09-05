@@ -120,3 +120,10 @@ Disabled by default. To enable on a host: a 0600 token file (`openssl rand -hex 
 Evolution then posts per-instance webhooks to `http://127.0.0.1:8170/hooks/evolution?token=…` (loopback only).
 An inbox persists traffic only when its `wp_inboxes.inbound_enabled` is true; otherwise deliveries are validated
 and ledgered as `dry_run`. Tests: `node tests/mythos-wp-comms-receiver-test.js`.
+
+## Human replies (outbound)
+
+`MYTHOS_WP_EVOLUTION_API_KEY_FILE=<0600 file holding the Evolution API key>` (the same credential file the
+notification bridge uses) and optionally `MYTHOS_WP_EVOLUTION_BASE_URL` (default `http://127.0.0.1:8080`).
+Replies are refused (412) until the inbox is `open` **and** an owner sets `Allow human replies` on it.
+Tests: `node tests/mythos-wp-comms-outbound-test.js` (fake Evolution on loopback; nothing real is sent).

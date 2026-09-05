@@ -27,6 +27,7 @@ var search = require('./search');
 var autoreply = require('./autoreply');
 var receiver = require('./comms/receiver');
 var inbox = require('./comms/inbox');
+var outbound = require('./comms/outbound');
 var commsBus = require('./comms/bus');
 
 var VERSION = require('../package.json').version;
@@ -311,6 +312,24 @@ var ROUTES = [
   } },
   { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/messages$/, role: 'any', handler: function (req, res, ctx) {
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { var qq = q(req); return inbox.listMessages(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), { before_id: qq.before_id, limit: qq.limit }); });
+  } },
+  { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/messages$/, role: 'operator', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
+      var cid = parseInt(ctx.params[2], 10);
+      return outbound.send(db.wp(), resolved.project.id, cid, req.session.username, ctx.body || {}).then(function (r) {
+        ctx.status(r.duplicate ? 200 : 201);
+        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'create', resource: 'messages', record_id: String(r.message_id), project_id: resolved.project.id, next: { conversation_id: cid, status: r.status, duplicate: r.duplicate, length: String((ctx.body || {}).text || '').length }, request_id: req.requestId, client: req.socket.remoteAddress }).catch(function () {});
+        return r;
+      });
+    });
+  } },
+  { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/messages\/([0-9]+)\/retry$/, role: 'operator', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
+      return outbound.retry(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username).then(function (r) {
+        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'update', resource: 'messages', record_id: String(r.message_id), project_id: resolved.project.id, next: { retry: true, status: r.status }, request_id: req.requestId, client: req.socket.remoteAddress }).catch(function () {});
+        return r;
+      });
+    });
   } },
   { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/read$/, role: 'operator', handler: function (req, res, ctx) {
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.markRead(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), req.session.username); });

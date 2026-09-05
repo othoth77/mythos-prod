@@ -2,6 +2,16 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-05 — MYTHOS-COMMS-5 — Human outbound reply (#209): **DEPLOYED, OFF (outbound_enabled=false)**
+
+| Item | State |
+|---|---|
+| Governance | Issue #209 (`Action: review`, `Depends on: #207`). Branch `mythos/comms-5-outbound-20260905` → PR merged to `main`. |
+| Delivered | `reference/comms/outbound.js` (gates → row → provider → state → journal/audit/SSE; idempotent `client_ref`; one transport retry; hourly cap; manual retry), `providers/evolution.js` `sendText` + `messages.update` parsing, `core.updateStatus` (never downgrades), receiver `status` branch, migration `0003_outbound` (`client_ref`, `attempts`, provider-id CHECK on inbound only), API `POST …/messages` + `…/messages/:id/retry`, Inbox reply box live when the inbox allows it (Ctrl+Enter, statuses ✓/✓✓, Retry on failed). |
+| Tests | outbound **34/0** (fake Evolution; contract, 412/400/429 gates, sent, idempotent replay, transport retry, HTTP 500 no-retry, manual retry, delivery states, no downgrade, no secrets in logs, mythos-bridge refused) · receiver 61/0 · inbox 38/0 · inboxes 12/0 · schema 62/0 · wp 312/0 · check.sh GREEN. |
+| Deployment (Gate 6 prep) | Host env gained `MYTHOS_WP_EVOLUTION_API_KEY_FILE` (existing 0600 `evolution.key`); migration 0003 applied to production `mythos_wp`; main worktree advanced; service restarted; `/healthz` 200. `wp_inboxes.outbound_enabled` is **false** for `ssangyong-autos`, so every send answers 412. No message sent. |
+| Next | Owner Gate 3 (scan) → Gate 4 (`inbound_enabled=true`, one real text) → Gate 6 (`outbound_enabled=true`, one real human reply, no duplicate). Meanwhile: COMMS-6 (contacts/CRM is largely delivered in COMMS-4) and COMMS-7 (AI assistant) proceed behind flags. |
+
 ## 2026-09-05 — MYTHOS-COMMS-4 — Inbox / Conversations / Contacts UI + API + SSE (#207): **DEPLOYED (empty until Gate 3/4)**
 
 | Item | State |

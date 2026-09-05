@@ -66,6 +66,19 @@ function ingestTx(pool, inbox, ev) {
     });
   });
 }
+// updateStatus(pool, inbox, ev) → { updated, message_id, status } — delivery state from the provider (outbound rows only)
+var RANK = { queued: 0, received: 0, sent: 1, delivered: 2, read: 3, failed: 9 };
+function updateStatus(pool, inbox, ev) {
+  return pool.query("SELECT id, status, conversation_id, project_id FROM wp_messages WHERE inbox_id = $1 AND provider_message_id = $2 AND direction = 'out'", [inbox.id, ev.provider_message_id]).then(function (r) {
+    var m = r.rows[0];
+    if (!m) return { updated: false, reason: 'MESSAGE_UNKNOWN' };
+    if ((RANK[ev.status] || 0) <= (RANK[m.status] || 0) && ev.status !== 'failed') return { updated: false, reason: 'STATUS_NOT_NEWER', message_id: m.id };
+    return pool.query('UPDATE wp_messages SET status = $2, updated_at = now() WHERE id = $1', [m.id, ev.status]).then(function () {
+      bus.publish({ type: 'message.status', project_id: m.project_id, conversation_id: m.conversation_id, message_id: m.id, status: ev.status });
+      return { updated: true, message_id: m.id, status: ev.status, conversation_id: m.conversation_id };
+    });
+  });
+}
 function findInbox(pool, provider, instance) {
   return pool.query('SELECT id, project_id, provider, instance, status, inbound_enabled, outbound_enabled FROM wp_inboxes WHERE provider=$1 AND instance=$2', [provider, instance]).then(function (r) { return r.rows[0] || null; });
 }
@@ -78,4 +91,4 @@ function recordInbound(pool, rec) {
     [rec.provider || 'evolution', rec.instance || null, rec.inbox_id || null, String(rec.event || 'unknown').slice(0, 48), rec.provider_message_id || null, rec.status, rec.reason ? String(rec.reason).slice(0, 80) : null, rec.message_id || null, rec.payload_sha256 || null, rec.payload ? JSON.stringify(rec.payload) : null]
   ).then(function (r) { return r.rows[0].id; }).catch(function () { return null; });
 }
-module.exports = { ingest: ingest, findInbox: findInbox, setInboxState: setInboxState, recordInbound: recordInbound, tx: tx };
+module.exports = { ingest: ingest, updateStatus: updateStatus, findInbox: findInbox, setInboxState: setInboxState, recordInbound: recordInbound, tx: tx };

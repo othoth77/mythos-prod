@@ -18,6 +18,9 @@
 // its `lib/crm/evolution.js` keeps parsing for the auto-reply engine.
 // =====================================================
 var crypto = require('crypto');
+var http = require('http');
+var https = require('https');
+var fs = require('fs');
 var ID = 'evolution';
 var INSTANCE_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 var MSG_ID_RE = /^[A-Za-z0-9._:-]{1,128}$/;
@@ -26,6 +29,8 @@ var LID_RE = /^[0-9]{6,32}$/;
 var MAX_TEXT = 8000;
 var MESSAGE_EVENTS = { 'messages.upsert': true, 'MESSAGES_UPSERT': true };
 var CONNECTION_EVENTS = { 'connection.update': true, 'CONNECTION_UPDATE': true };
+var STATUS_EVENTS = { 'messages.update': true, 'MESSAGES_UPDATE': true };
+var STATUS_MAP = { SERVER_ACK: 'sent', DELIVERY_ACK: 'delivered', READ: 'read', PLAYED: 'read', ERROR: 'failed', PENDING: 'queued' };
 var STRIP_KEYS = /^(apikey|api_key|token|authorization|mediakey|mediaKey|fileEncSha256|url|directPath|jpegThumbnail|thumbnail|thumbnailDirectPath|thumbnailSha256|thumbnailEncSha256|base64|streamingSidecar|waveform)$/i;
 var WRAPPERS = ['ephemeralMessage', 'viewOnceMessage', 'viewOnceMessageV2', 'viewOnceMessageV2Extension', 'documentWithCaptionMessage', 'editedMessage'];
 var MEDIA = { imageMessage: 'image', audioMessage: 'audio', videoMessage: 'video', documentMessage: 'document', stickerMessage: 'sticker' };
@@ -115,6 +120,14 @@ function parseInbound(body) {
     if (!map[state]) return { ok: false, reason: 'CONNECTION_STATE_UNKNOWN', instance: instance };
     return { ok: true, kind: 'connection', event: { provider: ID, instance: instance, status: map[state], provider_state: state } };
   }
+  if (STATUS_EVENTS[body.event]) {
+    var d = data && typeof data === 'object' ? data : {};
+    var mid = (d.key && typeof d.key.id === 'string' && d.key.id) || (typeof d.keyId === 'string' && d.keyId) || (typeof d.messageId === 'string' && d.messageId) || null;
+    var st = STATUS_MAP[String(d.status || '').toUpperCase()] || null;
+    if (!mid || !MSG_ID_RE.test(mid)) return { ok: false, reason: 'STATUS_MESSAGE_ID', instance: instance };
+    if (!st) return { ok: false, reason: 'STATUS_UNKNOWN:' + String(d.status || '').slice(0, 20), instance: instance };
+    return { ok: true, kind: 'status', event: { provider: ID, instance: instance, provider_message_id: mid, status: st, from_me: d.fromMe === true || (d.key && d.key.fromMe === true) } };
+  }
   if (!MESSAGE_EVENTS[body.event]) return { ok: false, reason: 'EVENT_IGNORED:' + String(body.event || 'none').slice(0, 40), instance: instance };
   if (!data || typeof data !== 'object' || Array.isArray(data)) return { ok: false, reason: 'DATA_NOT_OBJECT', instance: instance };
   var key = data.key;
@@ -144,5 +157,39 @@ function parseInbound(body) {
     }
   };
 }
+// ---- outbound ----------------------------------------------------------
+// sendText({ baseUrl, instance, apiKey, to, text, timeoutMs }) → { ok, status, provider_message_id, error }
+// Never throws on HTTP errors; never puts the key in the error text.
+function sendText(o) {
+  o = o || {};
+  if (!o.baseUrl || !INSTANCE_RE.test(String(o.instance || ''))) return Promise.resolve({ ok: false, status: null, provider_message_id: null, error: 'CONFIG: base url / instance' });
+  if (!MSISDN_RE.test(String(o.to || ''))) return Promise.resolve({ ok: false, status: null, provider_message_id: null, error: 'CONFIG: recipient' });
+  if (!o.apiKey) return Promise.resolve({ ok: false, status: null, provider_message_id: null, error: 'CONFIG: credential missing' });
+  if (typeof o.text !== 'string' || !o.text.trim() || o.text.length > 4096) return Promise.resolve({ ok: false, status: null, provider_message_id: null, error: 'CONFIG: text' });
+  var u = new URL(String(o.baseUrl).replace(/\/+$/, '') + '/message/sendText/' + encodeURIComponent(o.instance));
+  var payload = JSON.stringify({ number: o.to, text: o.text });
+  var mod = u.protocol === 'https:' ? https : http;
+  return new Promise(function (resolve) {
+    var done = false; var finish = function (r) { if (!done) { done = true; resolve(r); } };
+    var req = mod.request({ host: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname, method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload), apikey: o.apiKey }, timeout: o.timeoutMs || 15000 }, function (res) {
+      var b = ''; res.on('data', function (c) { if (b.length < 65536) b += c; });
+      res.on('end', function () {
+        var parsed = null; try { parsed = JSON.parse(b); } catch (e) {}
+        var ok = res.statusCode >= 200 && res.statusCode < 300;
+        var id = parsed && parsed.key && typeof parsed.key.id === 'string' ? parsed.key.id.slice(0, 128) : null;
+        finish({ ok: ok, status: res.statusCode, provider_message_id: id, error: ok ? null : ('HTTP ' + res.statusCode + ': ' + String(b || '').replace(/[A-Za-z0-9._-]{20,}/g, '…').slice(0, 200)) });
+      });
+    });
+    req.on('timeout', function () { req.destroy(new Error('timeout')); });
+    req.on('error', function (e) { finish({ ok: false, status: null, provider_message_id: null, error: 'TRANSPORT: ' + String(e && e.message || e).slice(0, 120) }); });
+    req.end(payload);
+  });
+}
+function readApiKey() {
+  var f = process.env.MYTHOS_WP_EVOLUTION_API_KEY_FILE;
+  if (!f) return { present: false, reason: 'MYTHOS_WP_EVOLUTION_API_KEY_FILE not set' };
+  try { var st = fs.statSync(f); if ((st.mode & 0o077) !== 0) return { present: false, reason: 'key file must be 0600' }; var v = fs.readFileSync(f, 'utf8').trim(); return v.length >= 8 ? { present: true, value: v } : { present: false, reason: 'key too short' }; } catch (e) { return { present: false, reason: 'key file unreadable' }; }
+}
+function baseUrl() { return String(process.env.MYTHOS_WP_EVOLUTION_BASE_URL || 'http://127.0.0.1:8080').replace(/\/+$/, ''); }
 function payloadHash(rawBody) { return crypto.createHash('sha256').update(String(rawBody)).digest('hex'); }
-module.exports = { ID: ID, parseInbound: parseInbound, redactDeep: redactDeep, payloadHash: payloadHash, content: content, STRIP_KEYS: STRIP_KEYS };
+module.exports = { ID: ID, parseInbound: parseInbound, sendText: sendText, readApiKey: readApiKey, baseUrl: baseUrl, redactDeep: redactDeep, payloadHash: payloadHash, content: content, STRIP_KEYS: STRIP_KEYS };
