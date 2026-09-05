@@ -61,6 +61,11 @@
         "at": "2026-09-05T01:54:08.740Z",
         "event": "task_created",
         "reason": "control/tasks/tg-611867278.json PENDING; queued reply sent (message_id 193)"
+      },
+      {
+        "at": "2026-09-05T01:54:11.126Z",
+        "event": "started_notified",
+        "reason": "executor t-20260905015410-5s8mok, OTHMODE OTH-2026-00172; reply message_id 194"
       }
     ],
     "converted_at": "2026-09-05T01:54:08.670Z",
@@ -70,6 +75,13 @@
         "message_id": 193,
         "at": "2026-09-05T01:54:08.740Z",
         "existed": false
+      },
+      "started": {
+        "message_id": 194,
+        "at": "2026-09-05T01:54:11.125Z",
+        "existed": false,
+        "executor_task_id": "t-20260905015410-5s8mok",
+        "othmode_task_id": "OTH-2026-00172"
       }
     }
   },
