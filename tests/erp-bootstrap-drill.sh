@@ -153,7 +153,7 @@ J="$WORK/body.json"; H="$WORK/headers.txt"
 code() { curl -s -o "$J" -D "$H" -w '%{http_code}' "$@"; }
 login() { code -X POST "$B/auth/login" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}"; }
 
-R=$(code "$B/health");                                 check "health 200" "[ $R = 200 ]" "$R"
+R=$(code "$B/health");                                 check "health 200 = DB readiness as erp_app" "[ $R = 200 ] && grep -q '\"db\":\"ready\"' $J && grep -q '\"role\":\"erp_app\"' $J" "$R $(cat $J)"
 R=$(login "$ADMIN_EMAIL" "definitely-not-it-12345");   check "wrong password → 401" "[ $R = 401 ]" "$R $(cat $J)"
 R=$(login "nobody@mythos.test" "definitely-not-it-12345"); check "unknown user → 401 (same shape)" "[ $R = 401 ]" "$R"
 R=$(login "$ADMIN_EMAIL" "$ADMIN_PW");                 check "correct password → 200" "[ $R = 200 ]" "$R $(cat $J)"
@@ -178,6 +178,16 @@ check "audit trail exact: login.failure ≥1, login.success 1, logout 1 (no spur
 N_ANON=$(q "select count(*) from audit_log where actor_label='anonymous'")
 check "no anonymous audit rows (every row has an actor)" "[ $N_ANON = 0 ]" "$N_ANON"
 check "API log carries no password" "! grep -qF \"$ADMIN_PW\" $WORK/api.log" ""
+
+echo "§5 runtime role guard"
+set +e
+OUT=$(ERP_DATABASE_URL="$OWNER_URL" ERP_API_PORT=$((API_PORT+1)) timeout 20 node "$API/server.js" 2>&1); RC=$?
+set -e
+check "server refuses to start as erp_owner (exit 3)" "[ $RC -eq 3 ] && grep -q 'expected erp_app' <<<\"$OUT\"" "rc=$RC $OUT"
+set +e
+OUT=$(ERP_DATABASE_URL="postgres://erp_app:x@127.0.0.1:1/mythos_erp" ERP_API_PORT=$((API_PORT+2)) timeout 20 node "$API/server.js" 2>&1); RC=$?
+set -e
+check "server refuses to start without a database (exit 2)" "[ $RC -eq 2 ]" "rc=$RC $OUT"
 
 echo
 echo "erp-bootstrap-drill: $PASS passed, $FAIL failed"

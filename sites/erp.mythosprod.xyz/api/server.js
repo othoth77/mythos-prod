@@ -41,8 +41,18 @@ function route(method, pattern, module, handler, validate) {
 }
 
 // ── Public and tenant-free ────────────────────────────────────────────────
-route('GET', '/api/v1/health', null, function () {
-  return { status: 200, body: { ok: true } };
+// Readiness, not liveness: the answer comes from the database through the
+// same pool the requests use, so "ok" means "can serve", and it also states
+// which role the pool authenticated as — an operator can see at a glance that
+// the runtime is erp_app and not the owner.
+route('GET', '/api/v1/health', null, function (ctx, client) {
+  return client.query('SELECT current_user AS role, 1 AS one').then(function (r) {
+    var role = r.rows && r.rows[0] && r.rows[0].role;
+    var ok = !!(r.rows && r.rows[0] && r.rows[0].one === 1) && role !== 'erp_owner';
+    return { status: ok ? 200 : 503, body: { ok: ok, db: ok ? 'ready' : 'not_ready', role: role || null } };
+  }).catch(function () {
+    return { status: 503, body: { ok: false, db: 'unreachable', role: null } };
+  });
 });
 
 route('POST', '/api/v1/auth/login', null, function (ctx, client) {
@@ -233,6 +243,21 @@ function createServer(deps) {
 function main() {
   var pg = require('pg');
   var pool = db.makePool(pg, {});
+  // The application never runs as the table owner: erp_owner bypasses RLS by
+  // ownership, so a misconfigured unit would silently disable tenant isolation.
+  // Refuse to serve rather than serve unsafely.
+  pool.query('SELECT current_user AS role').then(function (r) {
+    var role = r.rows && r.rows[0] && r.rows[0].role;
+    if (role !== 'erp_app') {
+      process.stderr.write('[erp-api] REFUSED: runtime database role is "' + role + '", expected erp_app\n');
+      process.exit(3);
+    }
+    listen();
+  }).catch(function (e) {
+    process.stderr.write('[erp-api] REFUSED: database not reachable at start: ' + (e && e.message) + '\n');
+    process.exit(2);
+  });
+  function listen() {
   var deps = {
     db: { query: function (sql, params) { return pool.query(sql, params); } },
     pool: pool,
@@ -243,8 +268,9 @@ function main() {
   // Loopback only. Public exposure is a deliberate nginx decision, not a
   // side-effect of starting the process.
   createServer(deps).listen(port, '127.0.0.1', function () {
-    process.stdout.write('[erp-api] listening on 127.0.0.1:' + port + '\n');
+    process.stdout.write('[erp-api] listening on 127.0.0.1:' + port + ' as erp_app\n');
   });
+  }
 }
 
 if (require.main === module) main();
