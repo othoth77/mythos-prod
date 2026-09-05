@@ -22,6 +22,7 @@ var crypto = require('crypto');
 var url = require('url');
 var evolution = require('./providers/evolution');
 var core = require('./core');
+var bus = require('./bus');
 var TOKEN_HEADER = 'x-mythos-webhook-token';
 var PROVIDERS = { evolution: evolution };
 
@@ -107,7 +108,7 @@ function handle(req, res, deps) {
       if (parsed.kind === 'connection') {
         return core.setInboxState(pool, inbox.id, parsed.event.status, null)
           .then(function () { return core.recordInbound(pool, { instance: instance, inbox_id: inbox.id, event: eventName, status: 'persisted', reason: 'CONNECTION:' + parsed.event.status, payload_sha256: sha }); })
-          .then(function () { log({ level: 'info', receiver: 'connection', instance: instance, status: parsed.event.status, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: true, kind: 'connection', status: parsed.event.status }); });
+          .then(function () { bus.publish({ type: 'inbox.status', project_id: inbox.project_id, inbox_id: inbox.id, status: parsed.event.status }); log({ level: 'info', receiver: 'connection', instance: instance, status: parsed.event.status, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: true, kind: 'connection', status: parsed.event.status }); });
       }
       if (!inbox.inbound_enabled) {
         return core.recordInbound(pool, { instance: instance, inbox_id: inbox.id, event: eventName, provider_message_id: pmid, status: 'dry_run', reason: 'INBOX_INBOUND_DISABLED', payload_sha256: sha })

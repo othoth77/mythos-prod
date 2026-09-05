@@ -10,6 +10,7 @@
 // delivery hits the unique index and returns { duplicate: true } without
 // touching anything else.
 // =====================================================
+var bus = require('./bus');
 function tx(pool, fn) {
   return pool.connect().then(function (client) {
     return client.query('BEGIN').then(function () { return fn(client); })
@@ -35,6 +36,12 @@ function liveConversation(c, inbox, contactId, ev) {
 }
 // ingest(pool, inbox, ev) → { persisted, duplicate, message_id, conversation_id, contact_id, opened }
 function ingest(pool, inbox, ev) {
+  return ingestTx(pool, inbox, ev).then(function (r) {
+    if (r.persisted) bus.publish({ type: 'message.in', project_id: inbox.project_id, conversation_id: r.conversation_id, message_id: r.message_id, opened: r.opened, message_type: ev.message_type });
+    return r;
+  });
+}
+function ingestTx(pool, inbox, ev) {
   return tx(pool, function (c) {
     return upsertContact(c, inbox.project_id, ev).then(function (contact) {
       return liveConversation(c, inbox, contact.id, ev).then(function (conv) {
