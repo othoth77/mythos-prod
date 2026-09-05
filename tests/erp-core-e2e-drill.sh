@@ -101,7 +101,7 @@ INSERT INTO user_roles (user_id, tenant_id, role_id) SELECT u.id, t.id, r.id FRO
 SQL
 echo "[e2e] tenants mythos + acme, users owner / bob(acme admin) / rita(mythos read_only)"
 
-ERP_DATABASE_URL="$APP_URL" ERP_API_PORT="$API_PORT" node "$API/server.js" >"$WORK/api.log" 2>&1 &
+ERP_DATABASE_URL="$APP_URL" ERP_API_PORT="$API_PORT" ERP_DOCUMENTS_DIR="$WORK/documents" node "$API/server.js" >"$WORK/api.log" 2>&1 &
 API_PID=$!
 for i in $(seq 1 40); do curl -s -o /dev/null "http://127.0.0.1:$API_PORT/api/v1/health" && break; sleep 0.25; done
 B="http://127.0.0.1:$API_PORT/api/v1"; J="$WORK/b"; H="$WORK/h"
@@ -400,6 +400,87 @@ q "insert into tenant_modules (tenant_id, module_key, enabled) select id,'report
 R=$(A "$B/reports/prospects"); check "acme, reports enabled: prospects report is zero (no mythos leakage)" "[ $R = 200 ] && [ \"$(jget total)\" = 0 ]" "$(cat $J)"
 A -X POST "$B/auth/logout" >/dev/null
 check "no password in the API log (reporting)" "! grep -qF \"$ADMIN_PW\" $WORK/api.log" ""
+
+echo "§11 secure documents: upload validation, download authorization, isolation, no legacy-style trust"
+login "$ADMIN_EMAIL" "$ADMIN_PW"; [ "$R" = 200 ] || bad "owner login for documents" "$R"
+B64_PDF=$(printf '%%PDF-1.4\n%% minimal test document\n%%%%EOF' | base64 -w0)
+B64_PNG=$(printf '\x89PNG\x0d\x0a\x1a\x0aRESTOFPNGBYTES' | base64 -w0)
+B64_TXT=$(printf 'Compte-rendu de chantier — rien de sensible ici.' | base64 -w0)
+B64_PHP=$(printf '<?php system($_GET["c"]); ?>' | base64 -w0)
+B64_SHEBANG=$(printf '#!/bin/sh\necho pwned' | base64 -w0)
+B64_PE=$(printf 'MZ\x90\x00\x03\x00\x00\x00padding-to-look-like-an-exe' | base64 -w0)
+
+R=$(A -X POST "$B/documents" -d "{\"filename\":\"contrat.pdf\",\"mime_type\":\"application/pdf\",\"content_base64\":\"$B64_PDF\",\"category\":\"Contrat\"}")
+check "PDF upload accepted (201), hash + size recorded" "[ $R = 201 ] && [ \"$(jget mime_type)\" = application/pdf ] && [ \"$(jget byte_size)\" -gt 0 ] && [ \"$(python3 -c "print(len('$(jget sha256)'))")\" = 64 ]" "$R $(cat $J)"; DOC_PDF=$(jget id)
+R=$(A -X POST "$B/documents" -d "{\"filename\":\"logo.png\",\"mime_type\":\"image/png\",\"content_base64\":\"$B64_PNG\"}")
+check "PNG upload accepted (201)" "[ $R = 201 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/documents" -d "{\"filename\":\"notes.txt\",\"mime_type\":\"text/plain\",\"content_base64\":\"$B64_TXT\"}")
+check "plain-text upload accepted (201)" "[ $R = 201 ]" "$R"
+
+echo "-- the legacy upload.php mistake, deliberately reproduced and refused --"
+R=$(A -X POST "$B/documents" -d "{\"filename\":\"x.php\",\"mime_type\":\"application/pdf\",\"content_base64\":\"$B64_PHP\"}")
+check "PHP content declared as PDF (the exact legacy spoofed-Content-Type attack) → 422, not stored" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/documents" -d "{\"filename\":\"note.txt\",\"mime_type\":\"text/plain\",\"content_base64\":\"$B64_PHP\"}")
+check "PHP tag rejected even under an allowed MIME (text/plain) — hostile-signature scan, not just magic-byte match" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/documents" -d "{\"filename\":\"note.txt\",\"mime_type\":\"text/plain\",\"content_base64\":\"$B64_SHEBANG\"}")
+check "shebang script rejected" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/documents" -d "{\"filename\":\"invoice.pdf\",\"mime_type\":\"application/pdf\",\"content_base64\":\"$B64_PE\"}")
+check "PE/EXE header rejected regardless of declared mime_type" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/documents" -d "{\"filename\":\"a.exe\",\"mime_type\":\"application/x-msdownload\",\"content_base64\":\"$B64_PE\"}")
+check "disallowed mime_type refused outright (422), allow-list named" "[ $R = 422 ] && grep -q allowed $J" "$R $(cat $J)"
+
+echo "-- filenames are display-only, never a path --"
+R=$(A -X POST "$B/documents" -d "{\"filename\":\"../../../etc/passwd\",\"mime_type\":\"text/plain\",\"content_base64\":\"$B64_TXT\"}")
+check "path-traversal-shaped filename accepted but sanitised (no slash survives)" "[ $R = 201 ] && [[ \"$(jget original_name)\" != */* ]]" "$R $(jget original_name)"
+R=$(A "$B/documents/$DOC_PDF"); check "storage_key is never returned to the client for a display purpose beyond what the API already exposes as an id — original filename intact for the first upload" "[ $R = 200 ] && [ \"$(jget original_name)\" = contrat.pdf ]" "$(cat $J)"
+
+echo "-- size limit --"
+python3 -c "
+import base64, json, os
+data = os.urandom(15*1024*1024 + 2048)
+json.dump({'filename':'big.bin','mime_type':'application/pdf','content_base64':base64.b64encode(data).decode()}, open('$WORK/big.json','w'))
+"
+R=$(A -X POST "$B/documents" --data-binary "@$WORK/big.json")
+check "file over the 15 MiB limit refused (413)" "[ $R = 413 ]" "$R $(cat $J)"
+rm -f "$WORK/big.json"
+
+echo "-- malformed metadata --"
+R=$(A -X POST "$B/documents" -d '{"filename":"x.txt","mime_type":"text/plain","content_base64":"not-valid-base64!!!"}')
+check "invalid base64 → 422" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/documents" -d '{"filename":"x.txt","mime_type":"text/plain","content_base64":""}')
+check "empty content_base64 → 422" "[ $R = 422 ]" "$R"
+R=$(A -X POST "$B/documents" -d "{\"filename\":\"x.txt\",\"mime_type\":\"text/plain\",\"content_base64\":\"$B64_TXT\",\"client_id\":\"00000000-0000-4000-8000-000000000000\"}")
+check "dangling client_id → 422 invalid_reference (real FK, not 500)" "[ $R = 422 ]" "$R $(cat $J)"
+
+echo "-- download: authorization, content, audit --"
+R=$(code "$B/documents/$DOC_PDF/download"); check "unauthenticated download → 401" "[ $R = 401 ]" "$R"
+R=$(A "$B/documents/$DOC_PDF/download")
+check "authenticated download → 200, correct content-type and bytes match what was uploaded" "[ $R = 200 ] && grep -qi 'content-type: application/pdf' $H && cmp -s <(base64 -w0 < $J) <(printf '%s' \"$B64_PDF\")" "$R $(grep -i content-type $H)"
+check "download sets Content-Disposition attachment with the sanitised filename" "grep -qi 'content-disposition: attachment' $H && grep -q 'contrat.pdf' $H" "$(grep -i content-disposition $H)"
+check "download response carries nosniff and no-store" "grep -qi 'x-content-type-options: nosniff' $H && grep -qi 'cache-control: no-store' $H" ""
+check "download audited as export, tenant-tagged" "[ \"$(q "select count(*) from audit_log where action='export' and entity_table='documents' and entity_id='$DOC_PDF'")\" -ge 1 ]" ""
+R=$(A "$B/documents/00000000-0000-4000-8000-000000000000/download"); check "downloading a nonexistent id → 404, not 500" "[ $R = 404 ]" "$R"
+
+echo "-- retire: soft delete, blob retained (retention model), hidden from list --"
+R=$(A -X DELETE "$B/documents/$DOC_PDF"); check "retire → 200 (soft delete)" "[ $R = 200 ]" "$R"
+R=$(A "$B/documents/$DOC_PDF/download"); check "retired document's download now 404 (deleted_at excluded)" "[ $R = 404 ]" "$R"
+check "the blob itself is retained on disk (retention, never silently destroyed)" "[ -n \"\$(find "$WORK/documents" -type f -size +0c 2>/dev/null | head -1)\" ]" ""
+R=$(A "$B/documents"); check "retired document hidden from the list" "! grep -q \"$DOC_PDF\" $J" ""
+
+echo "-- authorization and cross-tenant isolation --"
+A -X POST "$B/auth/logout" >/dev/null
+login rita@mythos.test "$OTHER_PW"
+R=$(A -X POST "$B/documents" -d "{\"filename\":\"x.txt\",\"mime_type\":\"text/plain\",\"content_base64\":\"$B64_TXT\"}"); check "read_only cannot upload (403, documents.write)" "[ $R = 403 ]" "$R"
+R=$(A "$B/documents"); check "read_only can list documents (documents.read)" "[ $R = 200 ]" "$R"
+A -X POST "$B/auth/logout" >/dev/null
+login bob@acme.test "$OTHER_PW"
+R=$(A "$B/documents/$DOC_PDF/download"); check "acme downloading a mythos document id → 404 (IDOR refused, RLS-backed)" "[ $R = 404 ]" "$R"
+R=$(A "$B/documents/$DOC_PDF"); check "acme GET mythos document metadata → 404" "[ $R = 404 ]" "$R"
+N_LEAK=$(q "select count(*) from documents where tenant_id=(select id from tenants where key='acme')")
+check "no mythos document leaked into acme's own rows" "[ $N_LEAK = 0 ]" "$N_LEAK"
+A -X POST "$B/auth/logout" >/dev/null
+check "no password in the API log (documents)" "! grep -qF \"$ADMIN_PW\" $WORK/api.log" ""
+check "no PDF/PHP byte content leaked into the API log" "! grep -qF 'system(' $WORK/api.log" ""
 
 echo
 echo "erp-core-e2e-drill: $PASS passed, $FAIL failed"

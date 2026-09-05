@@ -24,6 +24,7 @@ var registry = require('./modules/registry');
 var prospects = require('./modules/prospects');
 var accounting = require('./modules/accounting');
 var invoices = require('./modules/invoices');
+var documents = require('./modules/documents');
 var views = require('./modules/views');
 
 var MAX_BODY = 1024 * 1024;          // 1 MiB of JSON is already generous
@@ -33,13 +34,16 @@ var UUID = db.UUID;
    [method, pattern, module, handler, validate]
    :id in a pattern must be a UUID — a non-UUID never reaches a handler. */
 var routes = [];
-function route(method, pattern, module, handler, validate) {
+function route(method, pattern, module, handler, validate, maxBody) {
   var names = [];
   var rx = new RegExp('^' + pattern.replace(/:([a-z_]+)/g, function (_, n) {
     names.push(n);
     return '([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})';
   }) + '$', 'i');
-  routes.push({ method: method, rx: rx, names: names, module: module, handler: handler, validate: validate });
+  // maxBody: almost every route is fine with the 1 MiB global cap; a document
+  // upload is base64 JSON and needs more room. Declared per route, never
+  // globally, so raising it for uploads cannot quietly raise it everywhere.
+  routes.push({ method: method, rx: rx, names: names, module: module, handler: handler, validate: validate, maxBody: maxBody || MAX_BODY });
 }
 
 // ── Public and tenant-free ────────────────────────────────────────────────
@@ -169,6 +173,14 @@ route('POST',  '/api/v1/accounting/entries/:id/post', 'accounting', accounting.e
 route('POST',  '/api/v1/accounting/entries/:id/reverse', 'accounting', accounting.entries.reverse);
 route('POST',  '/api/v1/accounting/entries/:id/void', 'accounting', accounting.entries.void);
 
+// ── Secure documents: upload and download (Phase 12) ──────────────────────
+// documents.write gates the upload (module GET/POST map in lib/authz.js);
+// download reuses documents.read, same as the generic GET. 21 MiB body cap:
+// documents.MAX_BYTES (15 MiB) as base64 (~+33%) plus headroom for the other
+// JSON fields — every other route keeps the 1 MiB default.
+route('POST', '/api/v1/documents', 'documents', documents.handlers.upload, null, 21 * 1024 * 1024);
+route('GET',  '/api/v1/documents/:id/download', 'documents', documents.handlers.download);
+
 // ── Prospects: conversion into a client (0004-prospects.sql) ─────────────
 // Gated by the pipeline on prospects.write (POST on the module) and, inside
 // the handler, on prospects.convert. Declared before the generic resources so
@@ -206,13 +218,14 @@ function match(method, pathname) {
   return null;
 }
 
-function readBody(req) {
+function readBody(req, limit) {
+  var cap = limit || MAX_BODY;
   return new Promise(function (resolve, reject) {
     var chunks = [], size = 0;
     req.on('data', function (c) {
       size += c.length;
       // Refuse oversize before buffering it, not after.
-      if (size > MAX_BODY) { reject(new Error('payload too large')); req.destroy(); return; }
+      if (size > cap) { reject(new Error('payload too large')); req.destroy(); return; }
       chunks.push(c);
     });
     req.on('end', function () {
@@ -238,6 +251,24 @@ function send(res, status, body, headers) {
   }, headers || {});
   res.writeHead(status, h);
   res.end(payload);
+}
+
+// A handler that answers with a file body (document download) sets
+// `raw: <Buffer>` instead of `body`; everything else about the response goes
+// through the same headers path (nosniff, no-store by default, CSP), so a
+// download cannot accidentally skip a security header the JSON path always
+// sets. The content type is never guessed from a filename — it is whatever
+// the handler explicitly put in `headers['Content-Type']`.
+function sendRaw(res, status, buf, headers) {
+  var h = Object.assign({
+    'Content-Length': buf.length,
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'no-referrer',
+    'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'; sandbox"
+  }, headers || {});
+  res.writeHead(status, h);
+  res.end(buf);
 }
 
 /* Optional same-origin serving of the browser app (sites/erp.mythosprod.xyz/app).
@@ -288,13 +319,14 @@ function createServer(deps) {
     // real 413 the client can see. (The streaming guard below still covers
     // chunked or lying senders, but destroying the socket mid-body means the
     // client sees a reset rather than a status — found in Phase 5 live checks.)
+    var cap = found.route.maxBody;
     var declared = Number(req.headers['content-length'] || 0);
-    if (declared > MAX_BODY) {
+    if (declared > cap) {
       res.on('finish', function () { req.destroy(); });
       return send(res, 413, { error: 'payload too large' }, { Connection: 'close' });
     }
 
-    readBody(req).then(function (body) {
+    readBody(req, cap).then(function (body) {
       var request = {
         method: req.method,
         path: parsed.pathname,
@@ -323,6 +355,7 @@ function createServer(deps) {
         });
       }, found.route.validate);
     }).then(function (r) {
+      if (r && r.raw) return sendRaw(res, r.status, r.raw, r.headers);
       send(res, r.status, r.body, r.headers);
     }).catch(function (e) {
       // Never leak an internal message to a client. The detail goes to the log.
