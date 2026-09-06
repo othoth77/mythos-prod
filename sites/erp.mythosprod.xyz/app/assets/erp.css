@@ -274,10 +274,12 @@ table.data td.num { font-family: var(--mythos-font-mono); text-align: right; }
 @media (prefers-reduced-motion: reduce) {
   .btn, .rail a, .card { transition: none; }
 }
+.print-only { display: none; }
 @media print {
   .rail, .topbar-tools, .btn { display: none; }
   .app { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
   body { background: none; color: black; }
+  .print-only { display: block; }
 }
 
 /* ── Phase 6: live application components ──────────────────────────────── */

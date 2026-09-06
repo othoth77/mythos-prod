@@ -25,6 +25,7 @@ var registry = require('./modules/registry');
 var prospects = require('./modules/prospects');
 var accounting = require('./modules/accounting');
 var invoices = require('./modules/invoices');
+var quotes = require('./modules/quotes');
 var documents = require('./modules/documents');
 var views = require('./modules/views');
 
@@ -181,6 +182,18 @@ route('PATCH',  '/api/v1/invoices/:id', 'invoices', invoices.handlers.update,
       function (b) { return invoices.validateHeader(b, true); });
 route('DELETE', '/api/v1/invoices/:id', 'invoices', invoices.handlers.retire);
 route('POST',   '/api/v1/invoices/:id/payments', 'invoices', invoices.handlers.addPayment);
+
+// ── Quotes — dedicated (MVP: real lines, not the header-only generic CRUD
+// registry.js used to drive; module stays 'finance' so no permission model
+// change is needed — finance.read/write/delete already gate exactly this) ──
+route('GET',    '/api/v1/quotes', 'finance', quotes.handlers.list);
+route('POST',   '/api/v1/quotes', 'finance', quotes.handlers.create,
+      function (b) { return quotes.validateHeader(b, false); });
+route('GET',    '/api/v1/quotes/:id', 'finance', quotes.handlers.get);
+route('PATCH',  '/api/v1/quotes/:id', 'finance', quotes.handlers.update,
+      function (b) { return quotes.validateHeader(b, true); });
+route('DELETE', '/api/v1/quotes/:id', 'finance', quotes.handlers.retire);
+route('POST',   '/api/v1/quotes/:id/convert', 'finance', quotes.handlers.convert);
 
 // ── Comptabilité / general ledger (0005-accounting.sql) ───────────────────
 // All tenant-scoped, module 'accounting': GET = accounting.read, POST/PATCH =

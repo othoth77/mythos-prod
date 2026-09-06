@@ -53,10 +53,12 @@ async function detail(root, id) {
   clear(root);
   const t = inv.totals || {};
   const editable = inv.status === 'draft';
+  root.appendChild(h('p', { class: 'print-only', text: (session.activeTenant() || {}).display_name || '' }));
   root.appendChild(h('div', { class: 'toolbar' },
     h('a', { class: 'btn btn-ghost btn-sm', href: '#/finance/invoices', text: '← Factures' }),
     h('h3', { class: 'mono', text: inv.number }), statusBadge(inv.status),
     h('div', { class: 'actions' },
+      h('button', { type: 'button', class: 'btn btn-secondary btn-sm', text: 'Imprimer', onClick: () => window.print() }),
       editable ? h('button', { type: 'button', class: 'btn btn-secondary btn-sm', text: 'Modifier', onClick: () => invoiceForm(inv, () => detail(clear(root), id)) }) : null,
       editable ? h('button', { type: 'button', class: 'btn btn-primary btn-sm', text: 'Marquer envoyée', onClick: () => setStatus(inv, 'sent', () => detail(clear(root), id)) }) : null,
       (inv.status === 'sent' || inv.status === 'part_paid') ? h('button', { type: 'button', class: 'btn btn-primary btn-sm', text: 'Enregistrer un paiement', onClick: () => paymentForm(inv, () => detail(clear(root), id)) }) : null,

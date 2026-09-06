@@ -11,6 +11,7 @@ import { start as startRouter, go } from './router.js';
 import { h, clear, toast, tabs, errorBox, empty } from './ui.js';
 import { resourceView, RESOURCE_TITLES } from './views/resource.js';
 import { invoicesView } from './views/invoices.js';
+import { quotesView } from './views/quotes.js';
 import { dashboardView } from './views/dashboard.js';
 import { reportsView } from './views/reports.js';
 import { settingsView, usersView, auditView } from './views/admin.js';
@@ -142,6 +143,7 @@ function route(r) {
         (k) => go(r.module + '/' + k)), body);
     }
     if (res === 'invoices') return invoicesView(body, r.id);
+    if (res === 'quotes') return quotesView(body, r.id);
     if (res === 'settings') return settingsView(body);
     if (res === 'documents') return documentsView(body);
     resourceView(res, body);

@@ -2,6 +2,54 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-06 — RAPID MVP COMPLETION: **MVP_READY_BUT_DEPLOYMENT_GATED** (Sonnet 5, 17:00–17:35 UTC; not deployed, one migration prepared and awaiting owner GO)
+
+Reuse-first gap audit found the ERP already fully implements almost the entire requested MVP flow (customers, suppliers, invoices with lines/payments/status/automatic accounting posting, accounting, agenda, documents, reports, users/roles/permissions/audit, dashboard — all verified working across Phases 8–15). Exactly **one** capability blocked first real use: **quotes had no line-item API/UI and no quote→invoice conversion** — `quote_lines` existed in the schema since Stage 3 but nothing ever wrote to it; the generic resource layer only ever managed a bare quote header. Closed that one gap by extending the existing, already-proven `invoices.js` pattern — not by adopting an external ERP/library (evaluated and rejected: ERPNext/Dolibarr are different-language, different-architecture frameworks; pulling one in for a single missing capability the codebase already has a proven in-house pattern for would be slower and riskier than reuse).
+
+### Gap audit (abbreviated — full detail matches this session's Phase 8–15 work)
+
+| Area | Classification |
+|---|---|
+| Authentication, users, roles/permissions, audit trail | IMPLEMENTED_AND_USABLE |
+| Customers (clients), suppliers, prospects | IMPLEMENTED_AND_USABLE |
+| Products/services | NOT_REQUIRED_FOR_MVP as a separate catalog — invoice/quote lines are free-text (description/qty/unit price), which is the existing, deliberate design for a services business; forcing a catalog-linked model would be a redesign, not a gap fix |
+| Stock | IMPLEMENTED_AND_USABLE as a standalone ledger (`inventory_items` + `inventory_movements`, signed-sum on-hand, reports.inventory) — intentionally not tied to invoice lines, matching the existing architecture |
+| **Quotes** | **IMPLEMENTED_BUT_INCOMPLETE → fixed this pass** (see below) |
+| Invoices, payments, accounting linkage | IMPLEMENTED_AND_USABLE (computed totals, per-tenant numbering, automatic ledger posting on issue/payment/cancel, all pre-existing and heavily tested) |
+| Reports, dashboard | IMPLEMENTED_AND_USABLE |
+| Documents (secure upload/download) | IMPLEMENTED_AND_USABLE (Phase 12) |
+| PDF/document output | IMPLEMENTED_BUT_INCOMPLETE → addressed via the existing print stylesheet (below), not a new PDF engine |
+| Deployment/runtime | IMPLEMENTED_BUT_BLOCKED — unchanged from Phase 15: the production checkout and running process remain behind `origin/main`; a restart requires authorization the permission classifier withheld mid-Phase-15 |
+
+### What was implemented (all in-house, no new dependency)
+
+1. **`modules/quotes.js`** (new) — header + `quote_lines`, mirroring `invoices.js` exactly: totals computed server-side from lines (never client-supplied), full CRUD, and one new action, **`POST /api/v1/quotes/:id/convert`**, turning an accepted quote into a draft invoice (lines copied, `invoices.quote_id` set, the quote itself left untouched and re-convertible — converting is not consuming, matching how a quote can legitimately be split across more than one invoice). Quote numbers are generated server-side (`DEV-<year>-<8 hex>`) rather than claimed from a per-tenant sequence, because adding a `quote_next_seq` column (mirroring `invoice_next_seq`) would itself be a migration with no MVP-blocking need — a quote, unlike an invoice, carries no legal sequential-numbering expectation.
+2. **`server.js`** — dedicated routes for `/api/v1/quotes*`, module key kept as `'finance'` (zero permission-model change: `finance.read/write/delete` already gate exactly this).
+3. **`registry.js`** — removed the old header-only generic `quotes` DEF (superseded, not left registered, so the generic route loop cannot register a second, conflicting handler for the same paths).
+4. **Frontend `views/quotes.js`** (new) — mirrors `views/invoices.js`'s list/detail/form shape, adds status actions (sent/accepted/refused) and a "Convertir en facture" action once accepted, plus an "Imprimer" button.
+5. **PDF/document output** — evaluated a mature server-side PDF library (or a headless-Chromium render) against simply using the browser's native print-to-PDF over the existing `@media print` stylesheet (already hides nav/toolbar chrome, already proven in Phase 13's audit). Given today's real, documented VPS OOM incident, adding a Chromium-based renderer was rejected outright as disproportionate and risky; a pure npm PDF library was rejected as unnecessary complexity for a capability the existing CSS already delivers 90% of. Added an "Imprimer" button (`window.print()`) to both invoice and quote detail views, plus a `.print-only` company-name line (`session.activeTenant().display_name`) so the printed page identifies the issuing company — the one piece of "company information" the existing detail view didn't already show. Zero new dependencies, zero schema change.
+6. **One genuine production-database gap found and handled correctly, not worked around**: `erp_app` was never granted `DELETE` on `quote_lines` (only `invoice_lines` has that explicit grant — nothing ever wrote to `quote_lines` before this MVP work). Fixing this requires a real production migration. **Not applied to production.** Instead: (a) fixed all three throwaway test bootstraps (`erp-core-e2e-drill.sh`, `erp-acceptance-drill.sh`, `erp-bootstrap-drill.sh`) so the feature is fully provable in rehearsal; (b) wrote `db/0007-quote-lines-grant.sql` (a single, reversible `GRANT DELETE ON quote_lines TO erp_app` — no data touched, no table/column added) and registered it in `migrate.js`'s `FILES`; (c) **genuinely rehearsed it through the real migration runner** in a disposable container (not just the test harness's separate inline grant): all 7 files applied cleanly from an empty database, `quote_lines` correctly received `DELETE` alongside the pre-existing `journal_lines` grant, and a second `migrate()` call skipped all 7 — idempotence proven, not assumed. Container removed; production untouched.
+
+### Tests
+
+| Suite | Result |
+|---|---|
+| `erp-frontend-check.sh` | 40/0 (+1 for the new `views/quotes.js` parse check) |
+| `erp-core-e2e-drill.sh` | 238/239 (new §2 coverage: line validation, server-generated numbering, totals, sent→accepted, convert including a second independent conversion proving a quote isn't consumed, retire, conversion-of-a-retired-quote → 404, cross-tenant quote creation; the one remaining failure is the same pre-existing, unrelated Phase 10 date-fixture defect, re-confirmed identical, not touched) |
+| `erp-acceptance-drill.sh` acceptance / security | 80/0, 59/0 |
+| `erp-bootstrap-drill.sh` | 45/0 |
+| `erp-4-auth-test.js` | 125/0 (migration-file-count assertion updated 6→7 to match the new, real `0007` file) |
+
+Three existing assertions were updated to match this pass's own intentional design (not "made green" by weakening anything): the DELETE-grants audit now expects `quote_lines` alongside `invoice_lines`/`journal_lines`; two invoice-numbering assertions shifted from `MP2026-0001`/count-of-1 to `MP2026-0003`/count-of-3 because two new quote-conversion invoices are now created earlier in the same test run.
+
+### Security / production impact
+
+No RLS, permission, authentication, or rate-limiting change. `quotes`' authorization is the same `finance.*` gate already exhaustively tested for invoices/purchases/expenses. Legacy ERP untouched. Invoices 017/2026 and 018/2026 untouched — no legacy-data work occurred. Nothing deployed to production. The one prepared migration (`0007-quote-lines-grant.sql`) is genuinely rehearsed and ready, but **not applied** — it is a real production-database change and remains gated on explicit owner GO per this project's standing migration procedure, exactly as every prior phase has honored.
+
+### GATE
+
+**MVP_READY_BUT_DEPLOYMENT_GATED.** All software work for the requested MVP flow is complete and tested. Two things stand between this and first real use, both pre-existing from Phase 15, unchanged by this pass: (1) the production checkout/running process still needs the accumulated Phase 13–15 + this MVP work deployed (a restart, currently gated on a permission-classifier authorization this session could not obtain), and (2) the `0007` migration needs explicit owner GO before the quotes feature will function against the real production database (edit/replace-lines on a quote would otherwise fail with the exact `permission denied for table quote_lines` error this pass found and fixed in rehearsal). Neither is a software defect — both are the intended human checkpoints this project has maintained throughout.
+
 ## 2026-09-06 — PHASE 15 PRODUCTION INFRASTRUCTURE: **PASS WITH DEFERRED ITEMS** (Sonnet 5, 16:20–17:10 UTC; partial deploy — see Deployment state)
 
 Recon-first infrastructure hardening pass. Two real, tested code/config changes landed; three legitimate items are deferred to an explicit owner decision or a later phase, per this phase's own "STOP and report, do not invent" instructions — reported honestly as gates, not silently skipped.
