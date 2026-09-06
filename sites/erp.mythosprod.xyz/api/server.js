@@ -25,11 +25,40 @@ var registry = require('./modules/registry');
 var prospects = require('./modules/prospects');
 var accounting = require('./modules/accounting');
 var invoices = require('./modules/invoices');
+var quotes = require('./modules/quotes');
 var documents = require('./modules/documents');
 var views = require('./modules/views');
 
 var MAX_BODY = 1024 * 1024;          // 1 MiB of JSON is already generous
 var UUID = db.UUID;
+
+// What this running process actually is, not what the checkout on disk holds
+// right now: a long-lived daemon runs what its checkout held when it
+// started, which silently drifts from HEAD the moment `main` moves and
+// nobody restarts it (Phase 15: production sat many commits behind origin
+// for hours with no signal). Measured once at startup, from this file's own
+// location (never from configuration, which can lie), and reported in
+// GET /health as `code_identity` — the same pattern already used by
+// mythos-ai-executor's health check for the identical problem.
+var CODE_IDENTITY = (function () {
+  var out = { head: null, branch: null, checkout: null, measured_at: new Date().toISOString(),
+    started_at: new Date(Date.now() - process.uptime() * 1000).toISOString(), pid: process.pid, verified: false, reason: null };
+  try {
+    var cp = require('child_process');
+    var run = function (args) {
+      var r = cp.spawnSync('git', ['-c', 'core.hooksPath=/var/empty'].concat(args),
+        { cwd: __dirname, encoding: 'utf8', timeout: 5000,
+          env: Object.assign({}, process.env, { GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0' }) });
+      return r.status === 0 ? String(r.stdout).trim() : null;
+    };
+    out.checkout = run(['rev-parse', '--show-toplevel']);
+    out.head = run(['rev-parse', 'HEAD']);
+    out.branch = run(['rev-parse', '--abbrev-ref', 'HEAD']);
+    out.verified = !!(out.checkout && out.head && /^[0-9a-f]{40}$/.test(out.head));
+    if (!out.verified) out.reason = 'cannot resolve the git checkout/HEAD of ' + __dirname;
+  } catch (e) { out.reason = String(e.message).slice(0, 200); }
+  return out;
+})();
 
 /* ── Route table ────────────────────────────────────────────────────────────
    [method, pattern, module, handler, validate]
@@ -56,9 +85,9 @@ route('GET', '/api/v1/health', null, function (ctx, client) {
   return client.query('SELECT current_user AS role, 1 AS one').then(function (r) {
     var role = r.rows && r.rows[0] && r.rows[0].role;
     var ok = !!(r.rows && r.rows[0] && r.rows[0].one === 1) && role !== 'erp_owner';
-    return { status: ok ? 200 : 503, body: { ok: ok, db: ok ? 'ready' : 'not_ready', role: role || null } };
+    return { status: ok ? 200 : 503, body: { ok: ok, db: ok ? 'ready' : 'not_ready', role: role || null, code_identity: CODE_IDENTITY } };
   }).catch(function () {
-    return { status: 503, body: { ok: false, db: 'unreachable', role: null } };
+    return { status: 503, body: { ok: false, db: 'unreachable', role: null, code_identity: CODE_IDENTITY } };
   });
 });
 
@@ -153,6 +182,18 @@ route('PATCH',  '/api/v1/invoices/:id', 'invoices', invoices.handlers.update,
       function (b) { return invoices.validateHeader(b, true); });
 route('DELETE', '/api/v1/invoices/:id', 'invoices', invoices.handlers.retire);
 route('POST',   '/api/v1/invoices/:id/payments', 'invoices', invoices.handlers.addPayment);
+
+// ── Quotes — dedicated (MVP: real lines, not the header-only generic CRUD
+// registry.js used to drive; module stays 'finance' so no permission model
+// change is needed — finance.read/write/delete already gate exactly this) ──
+route('GET',    '/api/v1/quotes', 'finance', quotes.handlers.list);
+route('POST',   '/api/v1/quotes', 'finance', quotes.handlers.create,
+      function (b) { return quotes.validateHeader(b, false); });
+route('GET',    '/api/v1/quotes/:id', 'finance', quotes.handlers.get);
+route('PATCH',  '/api/v1/quotes/:id', 'finance', quotes.handlers.update,
+      function (b) { return quotes.validateHeader(b, true); });
+route('DELETE', '/api/v1/quotes/:id', 'finance', quotes.handlers.retire);
+route('POST',   '/api/v1/quotes/:id/convert', 'finance', quotes.handlers.convert);
 
 // ── Comptabilité / general ledger (0005-accounting.sql) ───────────────────
 // All tenant-scoped, module 'accounting': GET = accounting.read, POST/PATCH =

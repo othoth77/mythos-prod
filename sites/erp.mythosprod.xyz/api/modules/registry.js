@@ -127,17 +127,13 @@ var DEFS = {
     check: function (v) { return isNum(v.amount_ttc) ? null : 'amount_ttc must be numeric'; }
   }),
 
-  quotes: def({
-    module: 'finance', table: 'quotes',
-    columns: ['legacy_id', 'number', 'client_id', 'project_id', 'issued_on', 'valid_until', 'status', 'currency', 'notes', 'deleted_at'],
-    fields: ['number', 'client_id', 'project_id', 'issued_on', 'valid_until', 'status', 'currency', 'notes', 'legacy_id'],
-    required: [], searchable: ['number', 'notes'], sortable: ['issued_on', 'number'],
-    defaultSort: 'issued_on', filters: ['client_id', 'project_id', 'status'], label: 'number',
-    check: function (v) {
-      if (!oneOf(STATUS_QUOTE)(v.status)) return 'status must be one of ' + STATUS_QUOTE.join('|');
-      return isDate(v.issued_on) ? null : 'issued_on must be YYYY-MM-DD';
-    }
-  }),
+  // quotes: MVP gap closed — moved to a dedicated module (modules/quotes.js,
+  // routed directly in server.js) with real quote_lines support and
+  // server-computed totals, the same shape as invoices. The generic CRUD
+  // this DEF used to drive was header-only: it could create a quote number
+  // but had no way to say what was being quoted. Removed from DEFS rather
+  // than left registered, so the generic loop in server.js cannot also
+  // register a second, conflicting set of routes for the same paths.
 
   purchases: def({
     module: 'finance', table: 'purchases',

@@ -66,7 +66,7 @@ docker exec -i "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 <<SQL
 CREATE ROLE erp_app LOGIN PASSWORD '$PW';
 GRANT USAGE ON SCHEMA public TO erp_app;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO erp_app;
-GRANT DELETE ON invoice_lines TO erp_app;
+GRANT DELETE ON invoice_lines, quote_lines TO erp_app;
 GRANT SELECT, INSERT, UPDATE ON accounts, journals, fiscal_periods, accounting_counters, journal_entries, journal_lines TO erp_app;
 GRANT DELETE ON journal_lines TO erp_app;   -- draft lines are replaced wholesale; the trigger freezes posted ones
 REVOKE UPDATE, DELETE ON audit_log FROM erp_app;
@@ -125,12 +125,24 @@ R=$(A -X POST "$B/session/tenant" -d "{\"tenant_id\":\"$TENANT\"}"); check "expl
 
 echo "§2 client → devis → facture → payment/status"
 R=$(A -X POST "$B/clients" -d '{"name":"Théâtre Municipal","email":"contact@theatre.test","city":"Tunis","tax_id":"1234567A"}'); check "client created (201)" "[ $R = 201 ]" "$R $(cat $J)"; CLIENT=$(jget id)
-R=$(A -X POST "$B/quotes" -d "{\"number\":\"DV-2026-001\",\"client_id\":\"$CLIENT\",\"issued_on\":\"$(date -u +%F)\",\"valid_until\":\"2026-12-31\",\"status\":\"draft\",\"notes\":\"Devis spectacle\"}"); check "devis (quote) created (201)" "[ $R = 201 ]" "$R $(cat $J)"; QUOTE=$(jget id)
+R=$(A -X POST "$B/quotes" -d "{\"client_id\":\"$CLIENT\",\"issued_on\":\"$(date -u +%F)\",\"valid_until\":\"2026-12-31\",\"notes\":\"Devis spectacle\",\"lines\":[{\"description\":\"Représentation\",\"quantity\":1,\"unit_price\":1000,\"vat_rate\":19}]}"); check "devis (quote) created with a line (201)" "[ $R = 201 ]" "$R $(cat $J)"; QUOTE=$(jget id)
+check "devis number is server-generated (DEV-<year>-…), client cannot set it" "jget number | grep -qE '^DEV-[0-9]{4}-[0-9A-F]{8}$'" "$(jget number)"
+check "devis totals computed from its one line (HT 1000.000 / TVA 190.000 / TTC 1190.000)" "[ \"$(jget totals.total_ht)\" = 1000.000 ] && [ \"$(jget totals.total_vat)\" = 190.000 ] && [ \"$(jget totals.total_ttc)\" = 1190.000 ]" "$(jget totals.total_ht) $(jget totals.total_vat) $(jget totals.total_ttc)"
+R=$(A -X POST "$B/quotes" -d '{"status":"draft"}'); check "devis without lines refused (422 at least one line is required)" "[ $R = 422 ]" "$R $(cat $J)"
 R=$(A -X PATCH "$B/quotes/$QUOTE" -d '{"status":"sent"}'); check "devis sent" "[ $R = 200 ] && [ \"$(jget status)\" = sent ]" "$R $(cat $J)"
 R=$(A -X PATCH "$B/quotes/$QUOTE" -d '{"status":"accepted"}'); check "devis accepted" "[ $R = 200 ] && [ \"$(jget status)\" = accepted ]" "$R"
+R=$(A -X POST "$B/quotes/$QUOTE/convert" -d '{}'); check "converting an accepted devis creates a facture (201)" "[ $R = 201 ]" "$R $(cat $J)"; CONV_INV=$(jget invoice_id)
+check "converted facture totals match the devis line (TTC 1190.000)" "[ \"$(jget totals.total_ttc)\" = 1190.000 ]" "$(jget totals.total_ttc)"
+R=$(A "$B/invoices/$CONV_INV"); check "converted facture references its devis and is still a draft (own counter)" "[ $R = 200 ] && [ \"$(jget quote_id)\" = \"$QUOTE\" ] && [ \"$(jget status)\" = draft ] && [ \"$(jget lines.0.description)\" = 'Représentation' ]" "$(cat $J | head -c 300)"
+R=$(A -X POST "$B/quotes/$QUOTE/convert" -d '{}'); check "converting again creates a second, independent facture (201) — a devis is not consumed" "[ $R = 201 ] && [ \"$(jget invoice_id)\" != \"$CONV_INV\" ]" "$R $(jget invoice_id)"
+R=$(A -X DELETE "$B/quotes/$QUOTE"); check "an accepted devis can still be retired (soft delete, 200)" "[ $R = 200 ]" "$R $(cat $J)"
+R=$(A "$B/quotes/$QUOTE/convert" -X POST -d '{}'); check "converting a retired devis → 404" "[ $R = 404 ]" "$R"
+R=$(A -X POST "$B/quotes" -d "{\"client_id\":\"$CLIENT\",\"lines\":[{\"description\":\"Second devis\",\"quantity\":1,\"unit_price\":1000,\"vat_rate\":19}]}"); check "second devis for the facture-linking scenario below (201)" "[ $R = 201 ]" "$R"; QUOTE=$(jget id)
+R=$(A -X PATCH "$B/quotes/$QUOTE" -d '{"status":"sent"}'); [ "$R" = 200 ] || bad "second devis sent" "$R"
+R=$(A -X PATCH "$B/quotes/$QUOTE" -d '{"status":"accepted"}'); [ "$R" = 200 ] || bad "second devis accepted" "$R"
 R=$(A -X POST "$B/invoices" -d "{\"client_id\":\"$CLIENT\",\"quote_id\":\"$QUOTE\",\"issued_on\":\"$(date -u +%F)\",\"due_on\":\"2026-10-05\",\"currency\":\"TND\",\"lines\":[{\"description\":\"Représentation\",\"quantity\":1,\"unit_price\":1000,\"vat_rate\":19},{\"description\":\"Technique\",\"unit\":\"h\",\"quantity\":4,\"unit_price\":50,\"vat_rate\":19}]}")
 check "facture created from the devis (201)" "[ $R = 201 ]" "$R $(cat $J)"; INV=$(jget id); INVNUM=$(jget number)
-check "facture number follows the tenant pattern (MP2026-0001)" "[ \"$INVNUM\" = MP2026-0001 ]" "$INVNUM"
+check "facture number follows the tenant pattern (MP2026-0003 — two earlier converts already claimed 0001/0002)" "[ \"$INVNUM\" = MP2026-0003 ]" "$INVNUM"
 check "server totals HT 1200.000 / VAT 228.000 / TTC 1428.000 / balance 1428.000" "[ \"$(jget totals.total_ht)\" = 1200.000 ] && [ \"$(jget totals.total_vat)\" = 228.000 ] && [ \"$(jget totals.total_ttc)\" = 1428.000 ] && [ \"$(jget totals.balance)\" = 1428.000 ]" "$(jget totals.total_ht) $(jget totals.total_vat) $(jget totals.total_ttc)"
 check "facture references the devis" "[ \"$(jget quote_id)\" = \"$QUOTE\" ]" "$(jget quote_id)"
 R=$(A -X POST "$B/invoices/$INV/payments" -d '{"paid_on":"2026-09-05","amount":500,"method":"virement","reference":"VIR-1"}'); check "payment before sending is refused? (draft) or accepted — record outcome" "[ $R = 201 ] || [ $R = 409 ] || [ $R = 422 ]" "$R $(cat $J)"; P0=$R
@@ -172,8 +184,7 @@ R=$(A -X POST "$B/clients" -d '{"email":"no-name@x.test"}'); check "missing requ
 R=$(A -X POST "$B/projects" -d '{"title":"Bad dates","starts_on":"2026-13-45"}'); check "invalid date → 422" "[ $R = 422 ]" "$R $(cat $J)"
 R=$(A -X POST "$B/projects" -d '{"title":"Bad ref","client_id":"not-a-uuid"}'); check "invalid uuid → 422 invalid_value (not 500)" "[ $R = 422 ]" "$R $(cat $J)"
 R=$(A -X POST "$B/projects" -d '{"title":"Dangling","client_id":"00000000-0000-4000-8000-000000000000"}'); check "dangling reference → 422 invalid_reference (not 500)" "[ $R = 422 ]" "$R $(cat $J)"
-R=$(A -X POST "$B/quotes" -d '{"number":"DV-2026-001","status":"draft"}'); check "duplicate devis number → 409 duplicate (not 500)" "[ $R = 409 ] && grep -q duplicate $J" "$R $(cat $J)"
-R=$(A -X POST "$B/quotes" -d '{"number":"DV-2026-002","status":"bogus"}'); check "unknown status vocabulary → 422" "[ $R = 422 ]" "$R"
+R=$(A -X POST "$B/quotes" -d '{"status":"bogus","lines":[{"description":"x","quantity":1,"unit_price":1}]}'); check "unknown status vocabulary → 422" "[ $R = 422 ]" "$R"
 R=$(A -X POST "$B/invoices" -d "{\"client_id\":\"$CLIENT\",\"issued_on\":\"$(date -u +%F)\",\"status\":\"paid\",\"lines\":[{\"description\":\"x\",\"quantity\":1,\"unit_price\":1,\"vat_rate\":0}]}"); check "client cannot declare an invoice paid → 422" "[ $R = 422 ]" "$R"
 R=$(A -X POST "$B/clients" -d '{"name":"<script>alert(1)</script>","notes":"'"'"'; DROP TABLE clients; --"}'); check "hostile strings stored as data (201), tables intact (2 clients)" "[ $R = 201 ] && [ \"$(q 'select count(*) from clients')\" = 2 ]" "$R $(q 'select count(*) from clients')"
 R=$(A -X POST "$B/clients" -H 'content-type: application/json' -d '{"name":"Same Name Twice"}'); R2=$(A -X POST "$B/clients" -d '{"name":"Same Name Twice"}'); check "two clients with the same name are both accepted (no false uniqueness)" "[ $R = 201 ] && [ $R2 = 201 ]" "$R $R2"
@@ -191,7 +202,7 @@ R=$(A -X POST "$B/invoices/$A_INV/payments" -d '{"paid_on":"2026-09-05","amount"
 R=$(A -H "x-tenant-id: $A_TENANT" "$B/clients"); check "forged X-Tenant-Id for mythos → 403 forbidden" "[ $R = 403 ]" "$R $(cat $J)"
 R=$(A -X POST "$B/session/tenant" -d "{\"tenant_id\":\"$A_TENANT\"}"); check "switching into a non-member tenant → 403" "[ $R = 403 ]" "$R"
 R=$(A -X POST "$B/clients" -d "{\"name\":\"Acme Client\",\"tenant_id\":\"$A_TENANT\"}"); check "tenant_id in the body is ignored/refused, row lands in acme" "[ $R = 201 ] && [ \"$(q "select count(*) from clients c join tenants t on t.id=c.tenant_id where t.key='acme'")\" = 1 ]" "$R $(cat $J)"
-R=$(A -X POST "$B/quotes" -d '{"number":"DV-2026-001","status":"draft"}'); check "acme reuses devis number DV-2026-001 — uniqueness is per tenant (201)" "[ $R = 201 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/quotes" -d '{"lines":[{"description":"Acme devis","quantity":1,"unit_price":100,"vat_rate":19}]}'); check "acme creates its own devis with its own server-generated number (201)" "[ $R = 201 ] && [ \"$(jget number)\" != null ]" "$R $(cat $J)"
 R=$(A -X POST "$B/invoices" -d "{\"issued_on\":\"$(date -u +%F)\",\"lines\":[{\"description\":\"x\",\"quantity\":1,\"unit_price\":10,\"vat_rate\":0}]}"); check "acme first invoice is AC2026-0001 (own counter)" "[ $R = 201 ] && [ \"$(jget number)\" = AC2026-0001 ]" "$(jget number)"
 R=$(A "$B/reports/revenue"); check "module gate: acme did not buy reports → 404 module_not_enabled" "[ $R = 404 ] && grep -q module_not_enabled $J" "$R $(cat $J)"
 check "mythos data untouched by acme's attempts" "[ \"$(q "select name from clients where id='$A_CLIENT'")\" = 'Théâtre Municipal' ] && [ \"$(q "select count(*) from payments p join invoices i on i.id=p.invoice_id where i.id='$A_INV'")\" = 2 ]" ""
@@ -264,7 +275,7 @@ check "no password in the API log (prospects)" "! grep -qF \"$ADMIN_PW\" $WORK/a
 echo "§8 comptabilité: chart, journals, periods, entries, posting, reversal, trial balance, ledger, VAT, automatic links"
 login "$ADMIN_EMAIL" "$ADMIN_PW"; [ "$R" = 200 ] || bad "owner login for accounting" "$R"
 check "6 accounting tables with RLS + tenant_isolation" "[ \"$(q "select count(*) from pg_tables where schemaname='public' and rowsecurity and tablename in ('accounts','journals','fiscal_periods','accounting_counters','journal_entries','journal_lines')")\" = 6 ] && [ \"$(q "select count(*) from pg_policies where tablename in ('accounts','journals','fiscal_periods','accounting_counters','journal_entries','journal_lines')")\" = 6 ]" ""
-check "erp_app grants: no DELETE except journal_lines (draft lines replaced wholesale)" "[ \"$(q "select string_agg(table_name,',' order by table_name) from information_schema.role_table_grants where grantee='erp_app' and privilege_type='DELETE'")\" = invoice_lines,journal_lines ]" "$(q "select string_agg(table_name,',') from information_schema.role_table_grants where grantee='erp_app' and privilege_type='DELETE'")"
+check "erp_app grants: DELETE only on the three lines tables that are replaced wholesale on edit (invoice/quote/journal lines), nothing else" "[ \"$(q "select string_agg(table_name,',' order by table_name) from information_schema.role_table_grants where grantee='erp_app' and privilege_type='DELETE'")\" = invoice_lines,journal_lines,quote_lines ]" "$(q "select string_agg(table_name,',') from information_schema.role_table_grants where grantee='erp_app' and privilege_type='DELETE'")"
 check "4 accounting permissions; finance_user has read/write/post but not close; read_only read only" "[ \"$(q "select count(*) from permissions where key like 'accounting.%'")\" = 4 ] && [ \"$(q "select string_agg(p.key,',' order by p.key) from role_permissions rp join roles r on r.id=rp.role_id join permissions p on p.id=rp.permission_id where r.key='finance_user' and p.key like 'accounting.%'")\" = accounting.post,accounting.read,accounting.write ] && [ \"$(q "select string_agg(p.key,',') from role_permissions rp join roles r on r.id=rp.role_id join permissions p on p.id=rp.permission_id where r.key='read_only' and p.key like 'accounting.%'")\" = accounting.read ]" ""
 R=$(A "$B/accounting/setup"); check "setup status: configured (16 accounts seeded, 5 journals, counter)" "[ $R = 200 ] && [ \"$(jget configured)\" = True ] && [ \"$(jget journals)\" = 5 ]" "$R $(cat $J)"
 R=$(A "$B/accounts?sort=code&dir=asc&limit=100"); check "chart of accounts listed (16), receivable = 411, vat_collected = 4367, sales = 706" "[ $R = 200 ] && [ \"$(jget total)\" = 16 ] && [ \"$(q "select code from accounts where system_key='receivable' and tenant_id=(select id from tenants where key='mythos')")\" = 411 ] && [ \"$(q "select code from accounts where system_key='vat_collected' and tenant_id=(select id from tenants where key='mythos')")\" = 4367 ]" "$(jget total)"
@@ -324,7 +335,7 @@ check "…and posting it at the DATABASE is refused by the trigger (owner UPDATE
 A -X POST "$B/accounting/entries/$E4/void" -d '{}' >/dev/null
 R=$(A -X POST "$B/accounting/periods/$PERIOD/close" -d '{}'); check "closing twice → 409" "[ $R = 409 ]" "$R"
 R=$(A -X POST "$B/invoices" -d "{\"client_id\":\"$A_CLIENT\",\"issued_on\":\"$(date -u +%F)\",\"status\":\"sent\",\"lines\":[{\"description\":\"x\",\"quantity\":1,\"unit_price\":100,\"vat_rate\":19}]}"); check "issuing an invoice into a CLOSED period is refused with a clean 409 (bookkeeping cannot record it)" "[ $R = 409 ] && grep -q closed $J" "$R $(cat $J)"
-check "no invoice row leaked from the refused issue (transaction rolled back)" "[ \"$(q "select count(*) from invoices where tenant_id=(select id from tenants where key='mythos') and deleted_at is null")\" = 1 ]" "$(q "select count(*) from invoices where tenant_id=(select id from tenants where key='mythos') and deleted_at is null")"
+check "no invoice row leaked from the refused issue (transaction rolled back; 3 = 2 devis conversions + the original facture)" "[ \"$(q "select count(*) from invoices where tenant_id=(select id from tenants where key='mythos') and deleted_at is null")\" = 3 ]" "$(q "select count(*) from invoices where tenant_id=(select id from tenants where key='mythos') and deleted_at is null")"
 q "update fiscal_periods set status='open', closed_at=null, closed_by=null where id='$PERIOD'" >/dev/null   # reopen for the rest (owner action; no API by design)
 echo "-- invoice cancellation reverses the issue entry --"
 R=$(A -X POST "$B/invoices" -d "{\"client_id\":\"$A_CLIENT\",\"issued_on\":\"$(date -u +%F)\",\"status\":\"sent\",\"lines\":[{\"description\":\"Annulable\",\"quantity\":1,\"unit_price\":100,\"vat_rate\":7}]}"); check "invoice issued at creation → sales entry posted (7 % VAT line)" "[ $R = 201 ] && [ -n \"$(jget accounting.entry_no)\" ]" "$R $(cat $J | head -c 300)"; INV2=$(jget id)

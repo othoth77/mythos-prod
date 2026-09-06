@@ -2,6 +2,97 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-06 — RAPID MVP COMPLETION: **MVP_READY_BUT_DEPLOYMENT_GATED** (Sonnet 5, 17:00–17:35 UTC; not deployed, one migration prepared and awaiting owner GO)
+
+Reuse-first gap audit found the ERP already fully implements almost the entire requested MVP flow (customers, suppliers, invoices with lines/payments/status/automatic accounting posting, accounting, agenda, documents, reports, users/roles/permissions/audit, dashboard — all verified working across Phases 8–15). Exactly **one** capability blocked first real use: **quotes had no line-item API/UI and no quote→invoice conversion** — `quote_lines` existed in the schema since Stage 3 but nothing ever wrote to it; the generic resource layer only ever managed a bare quote header. Closed that one gap by extending the existing, already-proven `invoices.js` pattern — not by adopting an external ERP/library (evaluated and rejected: ERPNext/Dolibarr are different-language, different-architecture frameworks; pulling one in for a single missing capability the codebase already has a proven in-house pattern for would be slower and riskier than reuse).
+
+### Gap audit (abbreviated — full detail matches this session's Phase 8–15 work)
+
+| Area | Classification |
+|---|---|
+| Authentication, users, roles/permissions, audit trail | IMPLEMENTED_AND_USABLE |
+| Customers (clients), suppliers, prospects | IMPLEMENTED_AND_USABLE |
+| Products/services | NOT_REQUIRED_FOR_MVP as a separate catalog — invoice/quote lines are free-text (description/qty/unit price), which is the existing, deliberate design for a services business; forcing a catalog-linked model would be a redesign, not a gap fix |
+| Stock | IMPLEMENTED_AND_USABLE as a standalone ledger (`inventory_items` + `inventory_movements`, signed-sum on-hand, reports.inventory) — intentionally not tied to invoice lines, matching the existing architecture |
+| **Quotes** | **IMPLEMENTED_BUT_INCOMPLETE → fixed this pass** (see below) |
+| Invoices, payments, accounting linkage | IMPLEMENTED_AND_USABLE (computed totals, per-tenant numbering, automatic ledger posting on issue/payment/cancel, all pre-existing and heavily tested) |
+| Reports, dashboard | IMPLEMENTED_AND_USABLE |
+| Documents (secure upload/download) | IMPLEMENTED_AND_USABLE (Phase 12) |
+| PDF/document output | IMPLEMENTED_BUT_INCOMPLETE → addressed via the existing print stylesheet (below), not a new PDF engine |
+| Deployment/runtime | IMPLEMENTED_BUT_BLOCKED — unchanged from Phase 15: the production checkout and running process remain behind `origin/main`; a restart requires authorization the permission classifier withheld mid-Phase-15 |
+
+### What was implemented (all in-house, no new dependency)
+
+1. **`modules/quotes.js`** (new) — header + `quote_lines`, mirroring `invoices.js` exactly: totals computed server-side from lines (never client-supplied), full CRUD, and one new action, **`POST /api/v1/quotes/:id/convert`**, turning an accepted quote into a draft invoice (lines copied, `invoices.quote_id` set, the quote itself left untouched and re-convertible — converting is not consuming, matching how a quote can legitimately be split across more than one invoice). Quote numbers are generated server-side (`DEV-<year>-<8 hex>`) rather than claimed from a per-tenant sequence, because adding a `quote_next_seq` column (mirroring `invoice_next_seq`) would itself be a migration with no MVP-blocking need — a quote, unlike an invoice, carries no legal sequential-numbering expectation.
+2. **`server.js`** — dedicated routes for `/api/v1/quotes*`, module key kept as `'finance'` (zero permission-model change: `finance.read/write/delete` already gate exactly this).
+3. **`registry.js`** — removed the old header-only generic `quotes` DEF (superseded, not left registered, so the generic route loop cannot register a second, conflicting handler for the same paths).
+4. **Frontend `views/quotes.js`** (new) — mirrors `views/invoices.js`'s list/detail/form shape, adds status actions (sent/accepted/refused) and a "Convertir en facture" action once accepted, plus an "Imprimer" button.
+5. **PDF/document output** — evaluated a mature server-side PDF library (or a headless-Chromium render) against simply using the browser's native print-to-PDF over the existing `@media print` stylesheet (already hides nav/toolbar chrome, already proven in Phase 13's audit). Given today's real, documented VPS OOM incident, adding a Chromium-based renderer was rejected outright as disproportionate and risky; a pure npm PDF library was rejected as unnecessary complexity for a capability the existing CSS already delivers 90% of. Added an "Imprimer" button (`window.print()`) to both invoice and quote detail views, plus a `.print-only` company-name line (`session.activeTenant().display_name`) so the printed page identifies the issuing company — the one piece of "company information" the existing detail view didn't already show. Zero new dependencies, zero schema change.
+6. **One genuine production-database gap found and handled correctly, not worked around**: `erp_app` was never granted `DELETE` on `quote_lines` (only `invoice_lines` has that explicit grant — nothing ever wrote to `quote_lines` before this MVP work). Fixing this requires a real production migration. **Not applied to production.** Instead: (a) fixed all three throwaway test bootstraps (`erp-core-e2e-drill.sh`, `erp-acceptance-drill.sh`, `erp-bootstrap-drill.sh`) so the feature is fully provable in rehearsal; (b) wrote `db/0007-quote-lines-grant.sql` (a single, reversible `GRANT DELETE ON quote_lines TO erp_app` — no data touched, no table/column added) and registered it in `migrate.js`'s `FILES`; (c) **genuinely rehearsed it through the real migration runner** in a disposable container (not just the test harness's separate inline grant): all 7 files applied cleanly from an empty database, `quote_lines` correctly received `DELETE` alongside the pre-existing `journal_lines` grant, and a second `migrate()` call skipped all 7 — idempotence proven, not assumed. Container removed; production untouched.
+
+### Tests
+
+| Suite | Result |
+|---|---|
+| `erp-frontend-check.sh` | 40/0 (+1 for the new `views/quotes.js` parse check) |
+| `erp-core-e2e-drill.sh` | 238/239 (new §2 coverage: line validation, server-generated numbering, totals, sent→accepted, convert including a second independent conversion proving a quote isn't consumed, retire, conversion-of-a-retired-quote → 404, cross-tenant quote creation; the one remaining failure is the same pre-existing, unrelated Phase 10 date-fixture defect, re-confirmed identical, not touched) |
+| `erp-acceptance-drill.sh` acceptance / security | 80/0, 59/0 |
+| `erp-bootstrap-drill.sh` | 45/0 |
+| `erp-4-auth-test.js` | 125/0 (migration-file-count assertion updated 6→7 to match the new, real `0007` file) |
+
+Three existing assertions were updated to match this pass's own intentional design (not "made green" by weakening anything): the DELETE-grants audit now expects `quote_lines` alongside `invoice_lines`/`journal_lines`; two invoice-numbering assertions shifted from `MP2026-0001`/count-of-1 to `MP2026-0003`/count-of-3 because two new quote-conversion invoices are now created earlier in the same test run.
+
+### Security / production impact
+
+No RLS, permission, authentication, or rate-limiting change. `quotes`' authorization is the same `finance.*` gate already exhaustively tested for invoices/purchases/expenses. Legacy ERP untouched. Invoices 017/2026 and 018/2026 untouched — no legacy-data work occurred. Nothing deployed to production. The one prepared migration (`0007-quote-lines-grant.sql`) is genuinely rehearsed and ready, but **not applied** — it is a real production-database change and remains gated on explicit owner GO per this project's standing migration procedure, exactly as every prior phase has honored.
+
+### GATE
+
+**MVP_READY_BUT_DEPLOYMENT_GATED.** All software work for the requested MVP flow is complete and tested. Two things stand between this and first real use, both pre-existing from Phase 15, unchanged by this pass: (1) the production checkout/running process still needs the accumulated Phase 13–15 + this MVP work deployed (a restart, currently gated on a permission-classifier authorization this session could not obtain), and (2) the `0007` migration needs explicit owner GO before the quotes feature will function against the real production database (edit/replace-lines on a quote would otherwise fail with the exact `permission denied for table quote_lines` error this pass found and fixed in rehearsal). Neither is a software defect — both are the intended human checkpoints this project has maintained throughout.
+
+## 2026-09-06 — PHASE 15 PRODUCTION INFRASTRUCTURE: **PASS WITH DEFERRED ITEMS** (Sonnet 5, 16:20–17:10 UTC; partial deploy — see Deployment state)
+
+Recon-first infrastructure hardening pass. Two real, tested code/config changes landed; three legitimate items are deferred to an explicit owner decision or a later phase, per this phase's own "STOP and report, do not invent" instructions — reported honestly as gates, not silently skipped.
+
+### Baseline (read-only recon)
+
+| Area | Finding |
+|---|---|
+| Host | 72G disk, 81% used (14G free); RAM 7.6G, ~130 MiB free typical, swap idle; load 0.6–2.2 through this phase; memory PSI `full` 0–0.7 (mild, not distressed); no OOM event since 11:02:41 UTC (predates Phase 13). 6–8 concurrent `ccd-cli` sessions observed (informational; host metrics showed no distress at the time). |
+| erp-api unit | User-scope (`~deploy/.config/systemd/user/erp-api.service`), `WorkingDirectory` = the production checkout, `ExecStart=/usr/bin/node .../server.js`, `Restart=on-failure` with `RestartPreventExitStatus=2 3` (a wrong-role or no-DB refusal does not loop), `StartLimitIntervalSec=300`/`StartLimitBurst=5` (the exact policy that correctly stopped the auto-restart storm during today's earlier OOM incident — real evidence, not a simulation), `MemoryMax=384M`/`MemoryHigh=300M` against an observed idle RSS of ~26 MB — ample headroom. |
+| Network | `erp-api` binds `127.0.0.1:8787` only (confirmed via `ss -tlnp`); `ufw` does not even list 8787 among its allowed ports — direct public reach is impossible by bind address **and** firewall, independently. nginx config test passes (`nginx -t`, warnings are pre-existing/unrelated to erp). The **only** nginx vhost for `erp.mythosprod.xyz` is the deliberately locked-down legacy static-preservation copy (`allow 127.0.0.1; deny all;`, no `fastcgi_pass`) — unchanged, untouched. |
+| **DNS/TLS finding** | `erp.mythosprod.xyz` **already has public DNS** (resolves to the host's own IP) **and a valid Let's Encrypt certificate** (`notAfter 2026-11-20`) — both provisioned for the legacy vhost. The new app has never had a hostname or path of its own decided. |
+| Repository/deployment | `origin/main` moved multiple times during this phase from unrelated concurrent work (OTHKM); each time re-verified the Phase 14 merge commit remained reachable before proceeding. The production-backing checkout was found **6 commits / hours behind** `origin/main` at the start of this phase — a concrete deployment-integrity gap, not new but newly quantified. Fast-forwarded to `origin/main` (`7bcea13` at the time) as the phase's first, minimal, already-approved action (Phases 13–14 were already merged and reviewed; this is not new unreviewed code). |
+
+### Changes implemented and verified
+
+1. **`code_identity` in `GET /api/v1/health`** (`server.js`) — closes the deployment-integrity gap directly: a long-lived daemon runs what its checkout held at start, not what `HEAD` currently is, and that drift was silent. Reuses the **exact existing pattern** already proven in `mythos-ai-executor` (measure `git rev-parse`/branch/toplevel once at module load via `child_process.spawnSync`, cache, expose in health) rather than inventing a parallel mechanism. **Verified empirically, not assumed**: reproduced `erp-api`'s exact sandbox properties (`NoNewPrivileges`, `ProtectSystem=strict`, `SystemCallFilter=@system-service ~@privileged @resources @obsolete`, etc.) via `systemd-run --user` and confirmed `git rev-parse HEAD` succeeds under those constraints before writing any code. New test (`erp-bootstrap-drill.sh`): health response carries `code_identity` with `verified:true` and a real 40-hex-char `head`. Regression: `erp-4-auth-test.js` 125/0, `erp-frontend-check.sh` 39/0, `erp-core-e2e-drill.sh` 229/230 (same pre-existing Phase 10 defect, untouched), `erp-acceptance-drill.sh` acceptance 80/0 security 59/0, `erp-bootstrap-drill.sh` **45/0** (was 44/0).
+
+2. **Systemd hardening correction** (`erp-api.user.service`, the committed source, not yet installed live — see Deployment state): the Phase 14 finding — `ProtectHome=` does not take effect in this deploy-user `--user` scope, empirically re-confirmed this phase via `systemd-analyze --user security` plus a direct `systemd-run --user` reproduction with the unit's exact properties (real writes under `/home/deploy/...` succeeded despite the directive) — is now stated plainly in the unit file's own comment, replacing the stale "nothing on the filesystem is writable" claim that Phase 12's document uploads had already made false. Added `ReadWritePaths=-/home/deploy/deployments/erp-api/documents` (the leading `-` makes it optional, since `modules/documents.js` creates that directory lazily on first real upload — it does not exist in production today, and a non-optional missing path would fail the unit's own start), matching the exact convention `mythos-command-center`'s sibling unit already uses for its one writable directory. **Genuine enforcement requires promoting this to a root-owned `/etc/systemd/system` unit** — a bigger change (service ownership moves from `deploy` to `root`) deliberately **not** made in this pass; recorded as an explicit deferred decision, not silently accepted as fixed. Validated with `systemd-analyze verify` against the edited file (no errors beyond pre-existing, unrelated warnings on other unit files) — the live installed copy is unchanged and was not touched.
+
+### Deferred items (explicit gates, not silently skipped)
+
+| # | Item | Why deferred |
+|---|---|---|
+| D1 | **Deploying this phase's code (and the still-undeployed Phase 13/14 code) to the running process** | The restart action was **blocked by the Claude Code auto-mode permission classifier** mid-phase. The git checkout was safely fast-forwarded (a reversible, already-approved action), but `systemctl --user restart erp-api` itself was refused. The running process (`MainPID` unchanged, `NRestarts=0`) is confirmed still serving the pre-Phase-13 codebase — stable, healthy, just stale. Restarting requires the user's explicit authorization or a permission-settings change; not worked around. |
+| D2 | **Installing the corrected systemd unit** | Requires the same restart-class action as D1 (`daemon-reload` + `restart`) to take effect and be verified — deferred alongside it. The corrected unit file is committed and `systemd-analyze verify`-clean, ready to install once authorized. |
+| D3 | **Promoting `erp-api` to a root-owned system-level unit for genuine `ProtectHome`/`ProtectSystem` enforcement** | A real architecture/ownership change (who manages the service), correctly out of scope for a "minimal safe change" pass; recorded as the concrete next step for whoever owns that decision. |
+| D4 | **Public exposure (nginx reverse proxy, Internet → TLS → loopback erp-api)** | DNS and a valid certificate already exist for `erp.mythosprod.xyz`, but only for the legacy vhost — the new app has no decided hostname or path. Reusing `erp.mythosprod.xyz` would mean replacing the legacy static-preservation vhost (a significant, explicitly owner-gated decision per `ERP_SECURITY_STATUS.md`'s own remediation checklist); provisioning a new subdomain requires a DNS change I was explicitly told not to invent. **Reported as a gate: the owner must decide which hostname/path the new app uses before any nginx vhost is written.** |
+| D5 | **Rate-limiter IP derivation vs. a future reverse proxy** | No reverse proxy exists yet for the new app (see D4), so there is no trusted proxy to derive a client-IP trust boundary from. Per instruction, no `X-Forwarded-For`/`X-Real-IP` trust was added speculatively. Decision: **no change** — revisit only once D4 is resolved and a specific, trusted upstream exists. |
+| D6 | **`erp_app` credential rotation** | Procedure determined but not executed, per this phase's explicit "do not rotate" instruction: generate a new password → `ALTER ROLE erp_app WITH PASSWORD …` → update the 0600 `.env` → restart `erp-api` → verify `/api/v1/health` still reports `role:"erp_app"`. Only `erp-api` itself holds this credential (confirmed: no other service references it). Rotation is gated behind the same restart authorization as D1. |
+
+### Security/secrets audit (values never printed)
+
+`.env` confirmed `0600`, deploy-owned. `erp_owner` confirmed absent from the runtime path (health reports `role:"erp_app"`, and `server.js` refuses to start as any other role — unchanged, re-confirmed). No secret pattern found in `journalctl --user-unit erp-api` output, and no raw connection string was ever committed to git history for this path (both checked by pattern-count, not by printing).
+
+### Production impact
+
+None beyond the already-approved Phase 13/14 code becoming reachable via the git checkout (not yet running). No migration. No destructive action. No public exposure. No credential change. Legacy ERP untouched. Invoices 017/2026 and 018/2026 untouched — no legacy-data work occurred in this phase.
+
+### GATE
+
+**PHASE 15 = PASS WITH DEFERRED ITEMS.** Recon complete and evidence-based throughout (every hardening claim verified empirically, per this phase's own rule — including a claim that turned out false, `ProtectHome=`, corrected rather than asserted). Two real, tested improvements landed (deployment-drift visibility, accurate hardening documentation + one genuine `ReadWritePaths` fix). Six items are explicit, named gates — a blocked restart permission, a systemd-unit install waiting on that same restart, a bigger service-ownership decision, a hostname/path decision for public exposure, a proxy-trust decision correctly deferred until that exposure exists, and a credential rotation procedure prepared but not executed. Host and service remained stable throughout (no new OOM, `NRestarts=0`, no restart loop). Next phase (16, Full Production E2E) should not proceed assuming public exposure or a fresh restart — those remain exactly as gated here.
+
 ## 2026-09-06 — PHASE 14 POST-MERGE VERIFICATION: **PASS** (Sonnet 5, 16:08–16:23 UTC; verification only — NOT deployed)
 
 Strict, evidence-based post-merge verification of PR #242, run per an explicit verify-only order (no merge, no deploy, no Phase 15, no code modification, no credential rotation performed in this entry).
