@@ -147,4 +147,4 @@ function applyDecisions(store, decisions, opts) {
   return { applied, rejected };
 }
 
-module.exports = { decide, decideMany, applyDecisions, STATEMENT_KINDS };
+module.exports = { decide, decideMany, applyDecisions, buildRecord, STATEMENT_KINDS };

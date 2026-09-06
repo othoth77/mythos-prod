@@ -19,19 +19,16 @@
 
 const gateLib = require('./promotion-gate.js');
 const decisionLib = require('./extract-decision.js');
-const extract = require('./extract.js');
 
+// Stage a candidate as a real record in the STAGING store, tagged/annotated
+// as proposed. Reuses the single record builder (extract-decision.buildRecord)
+// so staging and operator-apply construct records identically.
 function stageRecord(stagingStore, classes, candidate, proposed) {
-  const meta = Object.assign({}, candidate.metadata || {}, { proposed });
-  const common = {
-    prov: candidate.provenance, entity_ids: candidate.entity_ids,
+  const augmented = Object.assign({}, candidate, {
     tags: (candidate.tags || []).concat('proposed'),
-    metadata: meta, namespace: candidate.namespace,
-    valid_from: candidate.valid_from, valid_to: candidate.valid_to,
-  };
-  if (candidate.kind === 'fact') return extract.addFact(stagingStore, classes, Object.assign({ statement: candidate.statement, confidence: candidate.confidence || 'LOW' }, common));
-  if (candidate.kind === 'observation') return extract.addObservation(stagingStore, classes, Object.assign({ statement: candidate.statement, observed_at: candidate.observed_at || candidate.provenance.captured_at }, common));
-  return extract.addClaim(stagingStore, classes, Object.assign({ statement: candidate.statement, asserted_by: candidate.asserted_by || 'proposer' }, common));
+    metadata: Object.assign({}, candidate.metadata || {}, { proposed }),
+  });
+  return decisionLib.buildRecord(stagingStore, classes, augmented);
 }
 
 // proposeMemory(stagingStore, canonicalStore, candidate, {classes, trustModel})

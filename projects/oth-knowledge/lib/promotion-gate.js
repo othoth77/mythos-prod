@@ -72,7 +72,7 @@ function gate(candidate, opts) {
   // maxTier 'model-output', so it can never self-declare a first-party
   // (owner) or operator source class to smuggle in high-trust "truth".
   if (o.maxTier) {
-    const order = ['first-party', 'operator', 'repository-verified', 'imported', 'metadata-only', 'model-output'];
+    const order = require('./trust.js').TIERS; // single source of truth for tier order
     const capIdx = order.indexOf(o.maxTier);
     const tierIdx = order.indexOf(tier);
     if (capIdx !== -1 && tierIdx !== -1 && tierIdx < capIdx) {

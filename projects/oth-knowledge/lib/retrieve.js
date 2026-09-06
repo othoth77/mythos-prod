@@ -20,11 +20,11 @@
 const path = require('path');
 const search = require('./search.js');
 const temporal = require('./temporal.js');
+const { TIERS } = require('./trust.js'); // single source of truth for tier order
 
-// Authority tiers, best→worst (mirrors trust.js TIERS). Weight is a gentle
-// multiplier in (0,1]; it re-orders near-ties by authority but does not let
-// authority alone invent relevance.
-const TIER_ORDER = ['first-party', 'operator', 'repository-verified', 'imported', 'metadata-only', 'model-output'];
+// Authority weight in (0,1]: a gentle multiplier that re-orders near-ties by
+// authority but never lets authority alone invent relevance.
+const TIER_ORDER = TIERS;
 function tierWeight(tier) {
   const i = TIER_ORDER.indexOf(tier);
   if (i === -1) return 0.30; // unknown/untrusted → low, fail-closed
@@ -49,10 +49,10 @@ function recTier(rec, tierMap) {
 }
 
 // Recency decay in (0,1]: 1.0 at asOf, halving every halfLifeDays. Uses
-// truth time; missing time → neutral 1.0 (never penalise unknown-date into
-// oblivion). Ranking only.
+// truth time; missing time or missing asOf → neutral 1.0 (deterministic —
+// decay is never computed against the wall clock). Ranking only.
 function recencyWeight(rec, asOf, halfLifeDays) {
-  if (!halfLifeDays) return 1;
+  if (!halfLifeDays || !asOf) return 1;
   const t = temporal.truthTimeOf(rec);
   if (!t) return 1;
   const ageDays = (Date.parse(asOf) - Date.parse(t)) / 86400000;
@@ -86,7 +86,7 @@ function retrieve(store, query, opts) {
     if (asOf && temporal.STATEMENT_KINDS.indexOf(rec.kind) !== -1 && !temporal.validAndKnownAt(store, rec, asOf)) continue;
     const tier = recTier(rec, tierMap);
     const tw = o.trustAware ? tierWeight(tier) : 1;
-    const rw = recencyWeight(rec, asOf || new Date().toISOString(), o.halfLifeDays);
+    const rw = recencyWeight(rec, asOf, o.halfLifeDays); // decay only when asOf given
     const base = h.score;
     out.push(Object.assign({}, h, {
       baseScore: base, tier: tier || 'untrusted', trustWeight: tw, recencyWeight: rw,

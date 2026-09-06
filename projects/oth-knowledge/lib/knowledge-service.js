@@ -21,7 +21,6 @@ const trustLib = require('./trust.js');
 const retrieveLib = require('./retrieve.js');
 const graphLib = require('./graph.js');
 const contextLib = require('./context.js');
-const temporalLib = temporal;
 
 function fail(code, msg) { const e = new Error(code + ': ' + msg); e.code = code; return e; }
 
@@ -171,18 +170,18 @@ function openService(root, opts) {
     timeline(o) {
       if (!o || !o.entity_id) throw fail('OTHK_SERVICE_INPUT', 'entity_id required for timeline');
       const asOf = o.asOf || null;
-      const losers = asOf ? temporalLib.losingIds(store, asOf) : temporalLib.losingIds(store);
+      const losers = asOf ? temporal.losingIds(store, asOf) : temporal.losingIds(store);
       const recs = graphLib.entityMentions(store, o.entity_id)
-        .filter((r) => temporalLib.STATEMENT_KINDS.indexOf(r.kind) !== -1)
+        .filter((r) => temporal.STATEMENT_KINDS.indexOf(r.kind) !== -1)
         .filter((r) => !o.property || (r.metadata && r.metadata.property === o.property));
       const rows = recs.map((r) => ({
         id: r.id, kind: r.kind,
         text: (searchLib.textOf(r) || '').slice(0, 300),
-        valid_from: r.valid_from || temporalLib.truthTimeOf(r) || null,
+        valid_from: r.valid_from || temporal.truthTimeOf(r) || null,
         valid_to: r.valid_to || null,
-        expired_at: temporalLib.expiredAt(store, r.id),
+        expired_at: temporal.expiredAt(store, r.id),
         superseded: losers.has(r.id),
-        current_at_asOf: asOf ? temporalLib.validAndKnownAt(store, r, asOf) : null,
+        current_at_asOf: asOf ? temporal.validAndKnownAt(store, r, asOf) : null,
       }));
       rows.sort((a, b) => (Date.parse(a.valid_from || 0) || 0) - (Date.parse(b.valid_from || 0) || 0) || (a.id < b.id ? -1 : 1));
       return { entity_id: o.entity_id, property: o.property || null, as_of: asOf, timeline: rows };
