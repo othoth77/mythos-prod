@@ -155,6 +155,7 @@ code() { curl -s -o "$J" -D "$H" -w '%{http_code}' "$@"; }
 login() { code -X POST "$B/auth/login" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}"; }
 
 R=$(code "$B/health");                                 check "health 200 = DB readiness as erp_app" "[ $R = 200 ] && grep -q '\"db\":\"ready\"' $J && grep -q '\"role\":\"erp_app\"' $J" "$R $(cat $J)"
+check "health reports code_identity with a real, verified HEAD (Phase 15 deployment-drift signal)" "grep -q '\"code_identity\"' $J && grep -q '\"verified\":true' $J && grep -qE '\"head\":\"[0-9a-f]{40}\"' $J" "$(cat $J)"
 R=$(login "$ADMIN_EMAIL" "definitely-not-it-12345");   check "wrong password → 401" "[ $R = 401 ]" "$R $(cat $J)"
 R=$(login "nobody@mythos.test" "definitely-not-it-12345"); check "unknown user → 401 (same shape)" "[ $R = 401 ]" "$R"
 R=$(login "$ADMIN_EMAIL" "$ADMIN_PW");                 check "correct password → 200" "[ $R = 200 ]" "$R $(cat $J)"
