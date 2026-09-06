@@ -18,6 +18,7 @@ var tokens    = require(path.join(API, 'lib', 'tokens'));
 var audit     = require(path.join(API, 'lib', 'audit'));
 var authz     = require(path.join(API, 'lib', 'authz'));
 var auth      = require(path.join(API, 'lib', 'auth'));
+var ratelimit = require(path.join(API, 'lib', 'ratelimit'));
 var pipeline  = require(path.join(API, 'lib', 'pipeline'));
 var migrate   = require(path.join(API, 'migrations', 'migrate'));
 
@@ -458,6 +459,21 @@ check('editing an applied migration is detected, not silently skipped', tampered
 check('real migration files are discoverable', migrate.load().length === 6);
 check('real migration files checksum stably',
   migrate.load()[0].checksum === migrate.load()[0].checksum && migrate.load()[0].checksum.length === 64);
+
+// ── §11 general rate limiting (Phase 14) ────────────────────────────────────
+console.log('\n§11 rate limiting');
+ratelimit.reset();
+var rlNow = 1000000;
+var rlUnder = null;
+for (var i = 0; i < ratelimit.MAX_REQUESTS; i++) rlUnder = ratelimit.check('203.0.113.9', rlNow);
+check('requests at exactly the limit are still allowed', rlUnder.allowed === true);
+var rlOver = ratelimit.check('203.0.113.9', rlNow);
+check('the next request in the same window is refused (429)', rlOver.allowed === false && rlOver.retryAfterSeconds > 0);
+var rlOther = ratelimit.check('203.0.113.10', rlNow);
+check('a different IP is tracked independently, unaffected by the first IP\'s flood', rlOther.allowed === true);
+var rlNextWindow = ratelimit.check('203.0.113.9', rlNow + ratelimit.WINDOW_MS + 1);
+check('the window resets: the same IP is allowed again once it elapses', rlNextWindow.allowed === true);
+ratelimit.reset();
 
 console.log('\nerp-auth: ' + passed + ' passed, ' + failed + ' failed');
 process.exitCode = failed ? 1 : 0;
