@@ -81,6 +81,12 @@ function handle(deps, req, handler, validate) {
     tenantId: null
   };
 
+  // The rate limit is decided in server.js, before routing, so that an
+  // unmatched route or an oversize-declared body — both of which return
+  // before this function is ever called — are counted too. Deciding it again
+  // here would be a second, redundant check on a request that already passed
+  // the one authoritative check.
+
   // 1. authenticate
   var token = req.cookieHeader ? tokens.readCookie(req.cookieHeader) : req.token;
   return auth.validateSession(deps, token).then(function (session) {

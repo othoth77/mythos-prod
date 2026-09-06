@@ -482,6 +482,73 @@ A -X POST "$B/auth/logout" >/dev/null
 check "no password in the API log (documents)" "! grep -qF \"$ADMIN_PW\" $WORK/api.log" ""
 check "no PDF/PHP byte content leaked into the API log" "! grep -qF 'system(' $WORK/api.log" ""
 
+echo "§12 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
+# A dedicated restart of the same already-migrated database, at a tiny
+# threshold, so this section is fast and deterministic instead of needing
+# hundreds of requests against the default (400/10s) limit used everywhere
+# above. Restarting (rather than reusing the running instance) is what lets
+# this section use its own limit without disturbing every check already run
+# against the default one.
+kill "$API_PID" >/dev/null 2>&1 || true
+wait "$API_PID" 2>/dev/null || true
+ERP_DATABASE_URL="$APP_URL" ERP_API_PORT="$API_PORT" ERP_DOCUMENTS_DIR="$WORK/documents" \
+  ERP_RATE_LIMIT_MAX=5 ERP_RATE_LIMIT_WINDOW_MS=3000 node "$API/server.js" >>"$WORK/api.log" 2>&1 &
+API_PID=$!
+for i in $(seq 1 40); do curl -s -o /dev/null "http://127.0.0.1:$API_PORT/api/v1/health" && break; sleep 0.25; done
+
+# -- unmatched route: this used to bypass the limiter entirely (match()
+#    failing returned 404 before pipeline.handle() — where the check used to
+#    live — was ever reached). Six requests to a path that matches nothing:
+#    the first five are counted-and-404, the sixth must be 429, not a sixth 404.
+UNMATCHED_CODES=""
+LAST_UNMATCHED=""
+for i in $(seq 1 6); do
+  LAST_UNMATCHED=$(curl -s -o /dev/null -w '%{http_code}' "$B/does-not-exist-xyz")
+  UNMATCHED_CODES="$UNMATCHED_CODES $LAST_UNMATCHED"
+done
+check "unmatched-route requests are counted by the limiter (429 on the 6th, not a 6th 404)" "[ $LAST_UNMATCHED = 429 ]" "$UNMATCHED_CODES"
+
+# The unmatched-route probe just exhausted the one shared bucket (loopback-
+# only means every probe here comes from the same source): let its window
+# elapse so the next probe starts fresh and independently proves ITS own
+# path is counted, rather than inheriting an already-tripped 429.
+sleep 3.2
+
+# -- oversize-declared body: this also used to bypass the limiter (declared >
+#    cap returned 413 before pipeline.handle() was ever reached). A raw
+#    request declaring a huge Content-Length, never actually sending that
+#    many bytes — the check fires on the header alone, before any body read,
+#    so this proves the bypass without transferring real payload.
+cat > "$WORK/oversize_probe.py" <<PYEOF
+import http.client
+codes = []
+for i in range(6):
+    conn = http.client.HTTPConnection('127.0.0.1', $API_PORT, timeout=2)
+    conn.putrequest('POST', '/api/v1/clients')
+    conn.putheader('Content-Length', '999999999')
+    conn.putheader('Content-Type', 'application/json')
+    conn.endheaders()
+    try:
+        resp = conn.getresponse()
+        codes.append(resp.status)
+    except Exception as e:
+        codes.append('ERR:' + str(e))
+    conn.close()
+print(' '.join(str(c) for c in codes))
+PYEOF
+OVERSIZE_CODES="$(python3 "$WORK/oversize_probe.py")"
+LAST_OVERSIZE=$(echo "$OVERSIZE_CODES" | awk '{print $NF}')
+check "oversize-declared-body requests are counted by the limiter (429 on the 6th, not a 6th 413)" "[ \"$LAST_OVERSIZE\" = 429 ]" "$OVERSIZE_CODES"
+
+# -- the window elapses: the same source is served again rather than left
+#    permanently blocked. (Per-IP independence and the reset arithmetic
+#    itself are unit-tested directly in tests/erp-4-auth-test.js §11; this
+#    only needs to confirm the real server, not just the isolated module,
+#    actually lifts the block once the window passes.)
+sleep 3.2
+R=$(curl -s -o /dev/null -w '%{http_code}' "$B/does-not-exist-xyz")
+check "the window elapses: the previously-limited source is served again (404, not 429)" "[ $R = 404 ]" "$R"
+
 echo
 echo "erp-core-e2e-drill: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
