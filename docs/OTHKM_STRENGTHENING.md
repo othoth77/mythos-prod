@@ -1,0 +1,38 @@
+# OTHKM Strengthening — execution log
+
+Branch: `feat/othkm-strengthening` (isolated clone; not pushed to origin — no operator credentials in this session).
+Scope: strengthen OTH-K in place. No production touched, no deploy, no migration of the live store.
+Invariants held throughout: append-only, mandatory provenance, trust-aware, claims≠facts, supersession, conflicts, tombstones, deterministic engine (no LLM in the truth path), one-writer-per-noun, secret/PII gate.
+
+> Note: this dedicated log replaces per-phase edits to the 320 KB `docs/AI_HANDOVER.md` (which is production handover history); it keeps the strengthening work legible in one place.
+
+## Baseline (Phase 0)
+Full existing OTHK suite green: othk-0 (89), othk-1 (30), othk-2 (97), othk-3 (63), othk-4 (90), othk-5 (44), othk-6 (58), othk-8 (45), othk-9 (36) = **552 assertions, 0 fail**. main @ bd6640a.
+
+## Phase log
+
+| Phase(s) | What changed | Tests | Commit |
+|---|---|---|---|
+| 1 Protect core · 2 Namespaces | `lib/namespace.js` (global/personal/projects/<slug>); optional `namespace` on records (absent=global); search namespace isolation; invariant regression tests | othk-10: 23/23 | baa80fb |
+| 4 Bi-temporal | optional `valid_from`/`valid_to` (event time); derived `expiredAt` (transaction time); `validAt`/`validAndKnownAt`; `suggestValidTo` (invalidate-don't-delete, pure) | othk-12: 17/17 | (this) |
+| 5 Embeddings · 6 Hybrid+constraints · 12 Trust · 13 Recency | `lib/embeddings.js` (pluggable provider seam: zero-dep hashed default + optional real local-model adapter, fail-closed; deterministic persistent VectorCache = rebuildable retrieval-only index); `lib/retrieve.js` (namespace + bi-temporal asOf + supersession exclusion + trust-weighted ranking + optional recency decay) | othk-13: 14/14 | (this) |
+| 7 Extraction decision · 8 Promotion gate · 9 Consolidation · 10 Contradiction · 11 Dedup | `lib/promotion-gate.js` (validate: provenance/registered-class/secret-PII/namespace/temporal; never upgrades trust; never writes); `lib/extract-decision.js` (ADD/UPDATE/NOOP/CONFLICT — pure decide + gated applyDecisions: UPDATE closes old validity + supersedes link, CONFLICT registers both live); `lib/contradiction.js` (same subject+property+overlap+different value, conservative/structured); `lib/consolidate.js` (read-only plan + append-only link apply); semantic near-dup added to `dedup.js`; `extract.js` builders thread optional namespace/valid_from/valid_to | othk-14: 19/19 | (this) |
+| 14 Entity/relationship graph · 15 Context builder | `lib/graph.js` (in-memory adjacency over relationship records; neighbors/resolveAliases/entityMentions/bounded walk — derived from truth, NO graph DB); `lib/context.js` (compact, namespace + asOf + trust-constrained context assembly with shallow graph expansion and provenance on every item — not a memory dump) | othk-15: 9/9 | (this) |
+| 16 MCP surface | knowledge-service read tools: `retrieveConstrained`, `sourceTrace`, `timeline`, `entitySearch`, `buildContext` (all read-only; service still exposes no canonical write); `lib/propose.js` gated `memory_propose` → STAGING store only (never canonical); promotion into OTHKM stays the existing operator two-phase `promoteRun`. AI proposes; operator decides. | othk-16: 13/13 | (this) |
+| 3 Knowledge migration · 19 Conversation ingestion | `lib/conversation-memory.js` (conversation → distilled candidates → gate → staging; preserves exact-conversation provenance; stores only durable knowledge, never raw messages); `lib/migrate-source.js` (markdown decisions/lessons → candidates with preserved repo provenance → gate → staging; `dryRun` reports without writing; re-migration is NOOP/idempotent; originals never destroyed). Verified with a read-only dry-run over real clone docs (29 candidates, zero writes). | othk-17: 11/11 | (this) |
+| 20 Evaluation · 21 Security · 22 Performance | `eval/othkm-eval.js` (deterministic, self-hosted, no LLM judge: recall@k, as-of accuracy + stale-leak, active-version/supersession, provenance-completeness, namespace-leak, secret-block, hallucinated-memory rate, latency p50/p95/p99; CI-gateable); trust-escalation guard added to the gate (`maxTier`, threaded through propose); security suite (cross-project leakage, unauthorized write, secret/PII, memory poisoning, false promotion, trust escalation, temporal manipulation). Measured p95 retrieval ~5ms on the fixture. | othk-18: 16/16 (+eval gate green) | (this) |
+| 17 OTHMODE integration · 18 Project namespaces · 26 Hardening | `lib/othmode-memory.js` (scoped binding: OTHMODE consumes OTHKM as its single memory source — global/personal/projects/<slug>; reads via search/context/timeline, writes via gated staged propose capped at model-output; keeps NO competing store); hardening tests: restart recovery, idempotent re-append, corruption fail-closed, tombstone-as-history, store.verify integrity | othk-19: 10/10 | (this) |
+| 23 Documentation | `docs/OTHKM_ARCHITECTURE.md` — describes the ACTUAL implementation (truth model, provenance, trust, bi-temporal, namespaces, retrieval, lifecycle, consolidation, graph, context, MCP, OTHMODE integration, ingestion/migration, eval, security, ops) | doc | (this) |
+| 24 Full regression | all 20 OTHK suites green (11 legacy unchanged + 9 new) | 20/20 suites | (this) |
+| 27 Final audit | CORE (append-only/provenance/trust/claims≠facts/supersession/conflicts/tombstones) ✓; MEMORY (global/personal/projects/extraction/promotion/consolidation/dedup) ✓; RETRIEVAL (BM25/real-embeddings-seam/hybrid/temporal/trust-aware) ✓; INTERFACE (MCP read tools + gated propose + context) ✓; INTEGRATION (OTHMODE/namespaces/conversation ingestion) ✓; QUALITY (tests/eval/security/perf/backup-recovery) ✓ | — | (this) |
+
+## Not done in this session (require operator / production — out of isolated-clone scope)
+- **Phase 25 production migration**: implemented + verified as a **dry-run** over real clone docs (29 candidates, zero writes). Migrating the real `/home/deploy/othk-store` and any backup/restore of it is an **operator step** (needs a verified backup first) — deliberately not performed.
+- **Deploy / push**: this branch is committed locally only; pushing to origin, merging, and redeploying the `:8150` service and `oth-mcp` are operator steps (no push credentials in this session by design).
+- **Real embedding model install**: the local-model adapter is present and fail-closed; installing `@xenova/transformers` + the model is an opt-in operator step (engine stays zero-dep by default).
+
+## Post-review addendum (real local embeddings + simplification)
+- **Review simplifications** (commit ec355a4): single tier-order source (`trust.js` TIERS), hashed embedder delegates to `search.defaultEmbedder`, `propose` reuses `extract-decision.buildRecord`, recency decay requires asOf (determinism), dropped a redundant alias. No behaviour change; 20/20 suites green.
+- **Real local embeddings ACTIVATED and validated**: provider `local-model` = `Xenova/all-MiniLM-L6-v2` via `@xenova/transformers` (transformers.js + onnxruntime; fully local, no SaaS, no vector DB, no Neo4j). `lib/embeddings.js buildStoreEmbedder()` is the one-call activation (config change; falls back to hashed if the optional dep is absent). Dependency is OPTIONAL — the engine stays zero-dep by default.
+- **Comparison (eval/embed-compare.js, paraphrase retrieval)**: hashed recall@3 0.6 / MRR 0.367 → real recall@3 1.0 / MRR 1.0 (**+0.40 recall@3, +0.633 MRR**). Warm 3.2s once for 13 texts; cached per-query 0.03ms. Install clean (no native-build failure) → not disproportionate.
+- Tests: othk-20 (activation contract, network-free) added; full suite 21/21 + eval green.
