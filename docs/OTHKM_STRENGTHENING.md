@@ -30,3 +30,9 @@ Full existing OTHK suite green: othk-0 (89), othk-1 (30), othk-2 (97), othk-3 (6
 - **Phase 25 production migration**: implemented + verified as a **dry-run** over real clone docs (29 candidates, zero writes). Migrating the real `/home/deploy/othk-store` and any backup/restore of it is an **operator step** (needs a verified backup first) — deliberately not performed.
 - **Deploy / push**: this branch is committed locally only; pushing to origin, merging, and redeploying the `:8150` service and `oth-mcp` are operator steps (no push credentials in this session by design).
 - **Real embedding model install**: the local-model adapter is present and fail-closed; installing `@xenova/transformers` + the model is an opt-in operator step (engine stays zero-dep by default).
+
+## Post-review addendum (real local embeddings + simplification)
+- **Review simplifications** (commit ec355a4): single tier-order source (`trust.js` TIERS), hashed embedder delegates to `search.defaultEmbedder`, `propose` reuses `extract-decision.buildRecord`, recency decay requires asOf (determinism), dropped a redundant alias. No behaviour change; 20/20 suites green.
+- **Real local embeddings ACTIVATED and validated**: provider `local-model` = `Xenova/all-MiniLM-L6-v2` via `@xenova/transformers` (transformers.js + onnxruntime; fully local, no SaaS, no vector DB, no Neo4j). `lib/embeddings.js buildStoreEmbedder()` is the one-call activation (config change; falls back to hashed if the optional dep is absent). Dependency is OPTIONAL — the engine stays zero-dep by default.
+- **Comparison (eval/embed-compare.js, paraphrase retrieval)**: hashed recall@3 0.6 / MRR 0.367 → real recall@3 1.0 / MRR 1.0 (**+0.40 recall@3, +0.633 MRR**). Warm 3.2s once for 13 texts; cached per-query 0.03ms. Install clean (no native-build failure) → not disproportionate.
+- Tests: othk-20 (activation contract, network-free) added; full suite 21/21 + eval green.
