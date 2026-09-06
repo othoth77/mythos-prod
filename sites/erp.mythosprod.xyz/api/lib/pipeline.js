@@ -22,7 +22,6 @@ var authz = require('./authz');
 var audit = require('./audit');
 var tokens = require('./tokens');
 var tenancy = require('./tenancy');
-var ratelimit = require('./ratelimit');
 
 var UNSAFE = { POST: true, PUT: true, PATCH: true, DELETE: true };
 
@@ -82,12 +81,11 @@ function handle(deps, req, handler, validate) {
     tenantId: null
   };
 
-  // 0. rate limit — before authentication, so an unauthenticated flood is
-  // capped too, not just repeated login attempts against one account.
-  var rl = ratelimit.check(ctx.ip);
-  if (!rl.allowed) {
-    return Promise.resolve({ status: 429, body: { error: 'rate_limited' }, headers: { 'Retry-After': String(rl.retryAfterSeconds) } });
-  }
+  // The rate limit is decided in server.js, before routing, so that an
+  // unmatched route or an oversize-declared body — both of which return
+  // before this function is ever called — are counted too. Deciding it again
+  // here would be a second, redundant check on a request that already passed
+  // the one authoritative check.
 
   // 1. authenticate
   var token = req.cookieHeader ? tokens.readCookie(req.cookieHeader) : req.token;

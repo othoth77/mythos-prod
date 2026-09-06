@@ -20,6 +20,7 @@ var auth = require('./lib/auth');
 var tenancy = require('./lib/tenancy');
 var tokens = require('./lib/tokens');
 var resource = require('./lib/resource');
+var ratelimit = require('./lib/ratelimit');
 var registry = require('./modules/registry');
 var prospects = require('./modules/prospects');
 var accounting = require('./modules/accounting');
@@ -311,6 +312,18 @@ function serveApp(req, res, pathname) {
 function createServer(deps) {
   var serveStatic = process.env.ERP_SERVE_APP === '1';
   return http.createServer(function (req, res) {
+    // The single, authoritative rate-limit decision for this connection: made
+    // before routing, before the body-size check, before static serving —
+    // anything reachable from here at all has already been counted. A check
+    // placed inside pipeline.handle() (where it lived at first) never saw an
+    // unmatched route or an oversize-declared body, because both return
+    // before pipeline.handle() is ever called; this is the one point every
+    // request passes through regardless of what it turns out to be.
+    var ip = (req.socket && req.socket.remoteAddress) || null;
+    var rl = ratelimit.check(ip);
+    if (!rl.allowed) {
+      return send(res, 429, { error: 'rate_limited' }, { 'Retry-After': String(rl.retryAfterSeconds) });
+    }
     var parsed = url.parse(req.url, true);
     if (serveStatic && parsed.pathname.indexOf('/api/') !== 0) return serveApp(req, res, parsed.pathname);
     var found = match(req.method, parsed.pathname);

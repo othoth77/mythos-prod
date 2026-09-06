@@ -475,6 +475,21 @@ var rlNextWindow = ratelimit.check('203.0.113.9', rlNow + ratelimit.WINDOW_MS + 
 check('the window resets: the same IP is allowed again once it elapses', rlNextWindow.allowed === true);
 ratelimit.reset();
 
+// sweep() itself, proven by the bucket count actually shrinking — not just
+// by a later check() on the same key still behaving correctly, which it
+// would anyway via its own lazy replacement of a stale bucket regardless of
+// whether sweep ever ran. The scheduling (a self-unref'd setInterval so it
+// can't be forgotten again, and can't keep a short-lived process such as
+// this test file running) is visible directly in the source and is not
+// something worth reproducing by waiting out a real interval in a test.
+ratelimit.check('198.51.100.1', rlNow);                          // will be stale
+ratelimit.check('198.51.100.2', rlNow + ratelimit.WINDOW_MS);    // will still be recent
+check('two distinct sources hold two buckets before any sweep', ratelimit.size() === 2);
+ratelimit.sweep(rlNow + ratelimit.WINDOW_MS * 2 + 1);
+check('sweep() removes only the bucket whose window closed at least 2*WINDOW_MS ago', ratelimit.size() === 1);
+ratelimit.reset();
+check('reset() clears every bucket', ratelimit.size() === 0);
+
 console.log('\nerp-auth: ' + passed + ' passed, ' + failed + ' failed');
 process.exitCode = failed ? 1 : 0;
 
