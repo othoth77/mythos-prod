@@ -78,16 +78,28 @@ export function errorBox(message, retry, detail) {
 
 /* ── Modal ────────────────────────────────────────────────────────────── */
 let openModal = null;
+const FOCUSABLE = 'input, select, textarea, button, a[href], [tabindex]:not([tabindex="-1"])';
 export function modal({ title, body, actions, wide }) {
   closeModal();
+  const opener = document.activeElement;
   const box = h('div', { class: 'modal' + (wide ? ' wide' : ''), role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'modal-title' },
     h('h2', { id: 'modal-title', text: title }), body, h('div', { class: 'modal-actions' }, actions || []));
   const back = h('div', { class: 'modal-backdrop', onClick: (e) => { if (e.target === back) closeModal(); } }, box);
-  const onKey = (e) => { if (e.key === 'Escape') closeModal(); };
+  // A dialog must trap Tab: without this, tabbing out reaches the app shell
+  // hidden behind the backdrop, which is invisible but still focusable.
+  const onKey = (e) => {
+    if (e.key === 'Escape') return closeModal();
+    if (e.key !== 'Tab') return;
+    const items = Array.from(box.querySelectorAll(FOCUSABLE)).filter((el) => !el.disabled);
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  };
   document.addEventListener('keydown', onKey);
   document.getElementById('modal-root').appendChild(back);
-  openModal = { back, onKey };
-  const first = box.querySelector('input, select, textarea, button');
+  openModal = { back, onKey, opener };
+  const first = box.querySelector(FOCUSABLE);
   if (first) first.focus();
   return { close: closeModal, box };
 }
@@ -95,7 +107,9 @@ export function closeModal() {
   if (!openModal) return;
   document.removeEventListener('keydown', openModal.onKey);
   openModal.back.remove();
+  const opener = openModal.opener;
   openModal = null;
+  if (opener && document.contains(opener)) opener.focus();
 }
 export function confirmDialog({ title, text, confirmLabel = 'Confirmer', danger = false }) {
   return new Promise((resolve) => {
@@ -170,9 +184,13 @@ export function barChart(series, { width = 720, height = 220, labelKey = 'label'
 }
 
 /* ── Forms ────────────────────────────────────────────────────────────── */
+// A field() call that omits `id` must still produce a label programmatically
+// associated with its control (screen readers, click-to-focus) — so a stable
+// id is always assigned here rather than left to each call site to remember.
+let fieldSeq = 0;
 export function field(label, input, { hint, error, id } = {}) {
-  if (id) input.id = id;
-  return h('div', { class: 'field' }, h('label', { for: input.id || null, text: label }), input,
+  input.id = id || input.id || 'field-' + (++fieldSeq);
+  return h('div', { class: 'field' }, h('label', { for: input.id, text: label }), input,
     hint ? h('span', { class: 'hint', text: hint }) : null, error ? h('span', { class: 'error', text: error }) : null);
 }
 export function input(attrs) { return h('input', Object.assign({ class: 'input' }, attrs)); }
