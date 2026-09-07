@@ -214,3 +214,24 @@ Two steps, both owner-gated because they touch production:
 The proxy is **GET-only** and strips cookies in both directions. Creating and
 approving tasks stays on `othmode.mythosprod.xyz`, where the operator session
 already lives — V1 deliberately does not create a second authenticated surface.
+
+## Work intake (OTHMODE → GitHub Issue) — owner step
+
+`POST /api/othmode/work` turns a request into a GitHub Issue labelled `task`,
+which the bridge already picks up. It is **disabled until configured**, and the
+status page reads its own status endpoint rather than assuming — so the
+`+ New Task` action only appears when the server would actually accept it.
+
+Set on the `mythos-command-center` unit (values are host configuration, never
+committed):
+
+| Variable | Meaning |
+| --- | --- |
+| `MYTHOS_WORK_REPOS` | comma-separated **allowlist** of `owner/repo`. There is no default: an empty list disables the intake. |
+| `MYTHOS_WORK_TOKEN_FILE` | path to a file holding a token with Issues **write** on those repositories. Never committed, never logged, never returned. |
+| `MYTHOS_WORK_LABEL` | optional; defaults to `task`, which is the label the bridge watches. |
+
+Then `systemctl --user restart mythos-command-center`.
+
+The allowlist is the security boundary: without it an authenticated OTHMODE
+user could open an Issue in any repository the token can reach.

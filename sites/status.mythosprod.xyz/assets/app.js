@@ -1080,14 +1080,43 @@
     return el('div', { class: 'simple-ar', lang: 'ar', dir: 'rtl', text: text });
   }
 
+  // Whether OTHMODE can currently turn a request into queued work. Read
+  // from the intake's own status endpoint rather than assumed, so the
+  // page never offers an action the server would refuse.
+  function renderOthmodeIntake(intake) {
+    var filters = byId('othmode-filters');
+    if (!filters) return;
+    if (intake && intake.enabled) {
+      filters.appendChild(el('a', {
+        href: OTHMODE_HOME, class: 'mono',
+        title: 'Opens OTHMODE, where the operator session lives. Allowed repositories: ' +
+          (intake.repositories || []).join(', ')
+      }, [txt('+ New Task')]));
+    } else if (intake) {
+      filters.appendChild(el('span', {
+        class: 'pill s-neutral',
+        title: intake.reason || 'work intake is not configured',
+        text: 'New Task unavailable'
+      }));
+    }
+  }
+
   function loadOthmode() {
-    return fetch('/api/othmode/tasks', { cache: 'no-cache', credentials: 'omit' })
-      .then(function (r) {
-        if (!r.ok) throw new Error('othmode tasks HTTP ' + r.status);
-        return r.json();
-      })
-      .then(renderOthmode)
-      .catch(function () { renderOthmode(null); });
+    return Promise.all([
+      fetch('/api/othmode/tasks', { cache: 'no-cache', credentials: 'omit' })
+        .then(function (r) {
+          if (!r.ok) throw new Error('othmode tasks HTTP ' + r.status);
+          return r.json();
+        }),
+      // Intake status is a nicety: a failure here must not blank the task
+      // list, so it resolves to null instead of rejecting the pair.
+      fetch('/api/othmode/work', { cache: 'no-cache', credentials: 'omit' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; })
+    ]).then(function (pair) {
+      renderOthmode(pair[0]);
+      renderOthmodeIntake(pair[1]);
+    }).catch(function () { renderOthmode(null); });
   }
 
   document.addEventListener('DOMContentLoaded', function () {
