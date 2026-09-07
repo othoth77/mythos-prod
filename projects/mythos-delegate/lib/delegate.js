@@ -275,7 +275,11 @@ function isTerminal(status) {
 function normalizeResult(raw, context) {
   var ctx = context || {};
   var vendorSchema = raw && raw.schema ? String(raw.schema) : null;
-  var status = raw && raw.status ? String(raw.status) : 'unknown';
+  // Strict, BEFORE coercion. String(raw.status) would accept anything
+  // that stringifies to a terminal word — ['completed'] among them — and
+  // a malformed or drifted result.json is exactly where that shape comes
+  // from. A status that is not literally a string is not a vendor report.
+  var status = raw && typeof raw.status === 'string' && raw.status ? raw.status : 'unknown';
   return {
     schema: 'mythos.delegate.result.v1',
     vendor_schema: vendorSchema,

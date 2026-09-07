@@ -189,3 +189,28 @@ default-vhost fallback, i.e. the darhijama.tn redirect.) Certificate
 removal, if ever wanted: `sudo certbot delete --cert-name
 status.mythosprod.xyz`. No database, no migrations — nothing else to
 undo.
+
+## OTHMODE section (MYTHOS V1) — owner step
+
+The `OTHMODE — Work in flight` section on the status page reads the OTHMODE
+task API same-origin at `/api/othmode/tasks`. That path does not exist on this
+vhost until the proxy is installed, and until then the section renders an
+explicit "OTHMODE is not reachable from this page" state — absence is reported,
+never painted green.
+
+Two steps, both owner-gated because they touch production:
+
+1. **Install the proxy.** Paste the contents of
+   `nginx-othmode-proxy.conf.example` inside the `server { … }` block of
+   `/etc/nginx/sites-enabled/status.mythosprod.xyz`, then:
+
+   ```bash
+   nginx -t && systemctl reload nginx
+   ```
+
+2. **Deploy the site files** (`index.html`, `assets/app.js`) to
+   `/var/www/status.mythosprod.xyz/` the usual way.
+
+The proxy is **GET-only** and strips cookies in both directions. Creating and
+approving tasks stays on `othmode.mythosprod.xyz`, where the operator session
+already lives — V1 deliberately does not create a second authenticated surface.

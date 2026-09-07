@@ -1,0 +1,36 @@
+# MYTHOS V1 — OTHMODE read proxy for status.mythosprod.xyz
+#
+# The status site is static. The OTHMODE section needs the OTHMODE read
+# API, and fetching it cross-origin from othmode.mythosprod.xyz would
+# require adding CORS to a running production service. Proxying it
+# same-origin instead needs no change to the Command Center at all.
+#
+# READ ONLY BY DESIGN. Only GET reaches the upstream. The OTHMODE write
+# endpoints are authenticated with an HttpOnly, SameSite=Strict session
+# cookie minted by the operator CLI and scoped to othmode.mythosprod.xyz;
+# that cookie is not sent here and must not be re-minted for this host.
+# Creating or approving a task stays on othmode.mythosprod.xyz — one
+# session surface, not two.
+#
+# Install: paste inside the `server { … }` block of
+# /etc/nginx/sites-enabled/status.mythosprod.xyz, then:
+#     nginx -t && systemctl reload nginx
+
+location /api/othmode/ {
+    limit_except GET { deny all; }
+
+    proxy_pass http://127.0.0.1:3021;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # Never forward or accept a session on this host.
+    proxy_set_header Cookie "";
+    proxy_hide_header Set-Cookie;
+
+    proxy_connect_timeout 5s;
+    proxy_read_timeout 15s;
+    add_header Cache-Control "no-store" always;
+}

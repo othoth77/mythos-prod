@@ -217,6 +217,29 @@ var noTail = delegate.normalizeResult({
 }, {});
 ok(noTail.stderr_tail === null, 'an empty stderrTail is reported as null, not an empty array');
 
+console.log('\n§4c status is read strictly, never coerced');
+
+// Found by the delegated review on 2026-09-07 (lane `review`, session
+// 3eea4947): `String(raw.status)` accepted any value that stringifies to
+// a terminal word. dispatch() feeds normalizeResult straight from
+// JSON.parse of the relay's result.json, so a malformed, truncated or
+// schema-drifted file could turn ['completed'] into ok:true.
+var coerced = delegate.normalizeResult({ status: ['completed'], exitCode: 0 }, {});
+ok(coerced.ok === false, 'a non-string status that stringifies to "completed" is NOT a success');
+ok(coerced.status === 'unknown', 'and is reported as unknown rather than coerced');
+ok(coerced.terminal === false, 'and is not treated as terminal');
+
+var objStatus = delegate.normalizeResult(
+  { status: { toString: function () { return 'completed'; } }, exitCode: 0 }, {});
+ok(objStatus.ok === false, 'an object with a matching toString is refused too');
+
+ok(delegate.normalizeResult({ status: 'completed', exitCode: '0' }, {}).ok === false,
+  'a string exit code is not zero — the exit check stays strict');
+ok(delegate.normalizeResult({ status: 'completed' }, {}).ok === false,
+  'a missing exit code is not a success');
+ok(delegate.normalizeResult({ status: 'completed', exitCode: 0 }, {}).ok === true,
+  'the genuine shape still succeeds');
+
 console.log('\n§5 dispatch input guards');
 
 var cfg = { enabled: true, vendorRoot: '/x', artifactsRoot: '/y' };

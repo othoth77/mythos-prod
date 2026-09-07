@@ -963,11 +963,140 @@
     });
   }
 
+  // ── OTHMODE — work in flight ────────────────────────────────────────
+  // Read-only view of the MYTHOS operating loop. Data comes from the
+  // OTHMODE read API (same-origin via the /api/othmode/ proxy on this
+  // vhost), NOT from the review snapshot: work in flight changes between
+  // reviews, and painting it from a snapshot would show stale state.
+  //
+  // Only the auth-free READ endpoints are used. Creating or approving a
+  // task needs the operator session, which lives on othmode.mythosprod.xyz
+  // — those actions are links there, never a second auth surface here.
+  var OTHMODE_HOME = 'https://othmode.mythosprod.xyz/';
+  // OTHMODE task status → the user-facing lane on this page.
+  var OTHMODE_LANE = {
+    RUNNING: 'Active', COMPLETED: 'Completed', FAILED: 'Failed',
+    BLOCKED: 'Waiting', CANCELLED: 'History', REJECTED: 'History'
+  };
+  var OTHMODE_LANES = ['Active', 'Waiting', 'Review', 'Completed', 'Failed', 'History'];
+  var OTHMODE_PILL = {
+    RUNNING: 's-progress', COMPLETED: 's-done', FAILED: 's-blocked',
+    BLOCKED: 's-owner', CANCELLED: 's-neutral', REJECTED: 's-superseded'
+  };
+  var AR_OTHMODE = {
+    absent: 'لا يمكن قراءة مهام OTHMODE من هذه الصفحة الآن. هذا لا يعني توقف العمل — يعني أن هذه الصفحة لا ترى واجهة OTHMODE.',
+    empty: 'لا توجد مهام مسجّلة حالياً.',
+    RUNNING: 'قيد التنفيذ الآن.',
+    COMPLETED: 'انتهت بنجاح.',
+    FAILED: 'فشلت، وتحتاج مراجعة.',
+    BLOCKED: 'متوقّفة بانتظار قرار أو خطوة خارجية.',
+    CANCELLED: 'أُلغيت قبل اكتمالها.',
+    REJECTED: 'رُفضت ولم تُنفّذ.'
+  };
+
+  function othmodeLaneOf(task) {
+    // A finished task still awaiting a human decision is Review, not
+    // Completed — the loop's review step is a state, not a formality.
+    if (task.review_required) return 'Review';
+    return OTHMODE_LANE[task.status] || 'History';
+  }
+
+  function renderOthmode(doc) {
+    var body = byId('othmode-body');
+    var filters = byId('othmode-filters');
+    if (!body) return;
+    clear(body);
+    if (filters) clear(filters);
+
+    if (!doc) {
+      body.appendChild(el('p', { class: 'section-note',
+        text: 'OTHMODE is not reachable from this page. The /api/othmode/ ' +
+          'proxy is not configured on this vhost, or the Command Center is ' +
+          'down. Absence of data is reported, never painted green — open ' +
+          'OTHMODE directly to see the real state.' }));
+      arPut(body, arEl(AR_OTHMODE.absent));
+      body.appendChild(el('p', null, [
+        el('a', { href: OTHMODE_HOME, class: 'mono', text: 'othmode.mythosprod.xyz' })
+      ]));
+      return;
+    }
+
+    var tasks = (doc && doc.tasks) || [];
+    var counts = {};
+    OTHMODE_LANES.forEach(function (l) { counts[l] = 0; });
+    tasks.forEach(function (t) { counts[othmodeLaneOf(t)]++; });
+
+    if (filters) {
+      OTHMODE_LANES.forEach(function (l) {
+        filters.appendChild(el('span', {
+          class: 'pill ' + (counts[l] ? 's-neutral' : 's-neutral'),
+          text: l + ' ' + counts[l]
+        }));
+      });
+      filters.appendChild(el('a', { href: OTHMODE_HOME, class: 'mono',
+        text: 'Open OTHMODE →' }));
+    }
+
+    if (!tasks.length) {
+      body.appendChild(el('p', { class: 'section-note',
+        text: 'No tasks recorded yet.' }));
+      arPut(body, arEl(AR_OTHMODE.empty));
+      return;
+    }
+
+    var rows = tasks.slice(0, 25).map(function (t) {
+      var links = [];
+      if (t.issue_url) links.push(el('a', { href: t.issue_url, class: 'mono', text: 'GitHub' }));
+      return el('tr', null, [
+        el('td', null, [el('span', { class: 'pill ' + (OTHMODE_PILL[t.status] || 's-neutral'),
+          text: t.status || '—' })]),
+        el('td', { text: othmodeLaneOf(t) }),
+        el('td', null, [
+          el('div', { text: t.title || t.command || t.task_id || '—' }),
+          arPut2(AR_OTHMODE[t.status])
+        ]),
+        el('td', { class: 'mono', text: t.worker || t.implementer || '—' }),
+        el('td', { class: 'mono', text: (t.started_at || '').slice(0, 16).replace('T', ' ') }),
+        el('td', null, links)
+      ]);
+    });
+
+    var table = el('table', { class: 'matrix' }, [
+      el('thead', null, [el('tr', null, [
+        el('th', { text: 'Status' }), el('th', { text: 'Lane' }),
+        el('th', { text: 'Task' }), el('th', { text: 'Worker' }),
+        el('th', { text: 'Started' }), el('th', { text: 'Details' })
+      ])]),
+      el('tbody', null, rows)
+    ]);
+    body.appendChild(el('div', { class: 'table-wrap' }, [table]));
+    body.appendChild(el('p', { class: 'section-note',
+      text: 'Showing ' + Math.min(tasks.length, 25) + ' of ' + tasks.length +
+        ' recorded tasks. Full detail, and the create/approve actions, are in OTHMODE.' }));
+  }
+  // Small helper: an Arabic note under a cell, or nothing at all.
+  function arPut2(text) {
+    if (!text) return null;
+    return el('div', { class: 'simple-ar', lang: 'ar', dir: 'rtl', text: text });
+  }
+
+  function loadOthmode() {
+    return fetch('/api/othmode/tasks', { cache: 'no-cache', credentials: 'omit' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('othmode tasks HTTP ' + r.status);
+        return r.json();
+      })
+      .then(renderOthmode)
+      .catch(function () { renderOthmode(null); });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     initReviewNow();
     initCompare();
     load(false);
     loadLive();
     setInterval(loadLive, 60000);
+    loadOthmode();
+    setInterval(loadOthmode, 60000);
   });
 })();
