@@ -2,6 +2,85 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-07 — MYTHOS V1: DELEGATION LAYER INTEGRATED AND PROVEN LIVE (Opus 5, 21:00–00:40 UTC) — **V1 PARTIAL**
+
+V1 is *Rapid Integration & Activation*: connect what exists, do not rebuild. This session integrated the one genuinely missing layer — delegation — and proved it with a real implementer run. It did **not** wire OTHMODE task creation to GitHub Issues, and it did **not** deploy the status-surface change (owner-gated).
+
+### What already worked and was NOT rebuilt (verified this session, not assumed)
+
+| Capability | Evidence |
+|---|---|
+| GitHub Issue = work queue | `MYTHOS_ISSUES_ENABLED=1` in the live bridge drop-in; label `task` |
+| Issue → Bridge → executor → worker → GitHub | **75 claims** in `~deploy/mythos-ai-executor/bridge/claims.json`; 88 executor task dirs |
+| Action → profile mapping | `bridge/action-resolution.js` **is on `main`** (the v2 `extractFields` fix landed; the older handover note that it sat on a fix branch is stale) |
+| OTHKM context | `lib/knowledge.js` read surface, activated 2026-08-20, store `~deploy/othk-store` |
+| OTHMODE control surface | `mythos-command-center.service` running; **34 routes**, incl. `GET/POST /api/othmode/tasks`, `/memory/search`, `/skills` |
+| AI provider routing | `provider-router.js` + `model-policy.json` |
+
+### New code (the only new code in this session)
+
+`projects/mythos-delegate/` — the MYTHOS side of the `amElnagdy/delegate-skills` boundary. ~400 lines plus a 68-assertion suite. It resolves a lane through the **vendor's own** `lane.mjs` (so project-config trust stays the vendor's decision), invokes the vendor relay with an explicit `--out-dir`, and normalises `delegate-relay.result.v1` → `mythos.delegate.result.v1`. It never writes lane config, never commits, never invents a model id, carries no credential, and disables itself fail-closed when the vendor tree is absent.
+
+Vendor installed **outside** the repo at `/home/deploy/delegate-skills`, pinned `b781ee2` (2026-08-31), MIT. Deliberately not vendored into Git.
+
+### Lanes — written after explicit owner approval (delegate-setup flow honoured)
+
+`discover → grounding menu → propose with Basis → scope → approve → write`. Owner chose **Quick defaults** + **global**. Written to `/home/deploy/.config/delegate-skills/config.json`:
+
+| Lane | Implementer | Dials | Basis |
+|---|---|---|---|
+| `feature` | codex | effort medium | repo (name) + my opinion |
+| `tests` | codex | effort low | repo (name) + my opinion |
+| `review` | claude | effort high, readOnly true | repo (name) + my opinion |
+| `ops` | codex | effort low | repo (name) + my opinion |
+
+Discovery: claude 2.1.226 ✓auth, codex 0.147.0 ✓auth, opencode 1.18.10 ✓auth. **No opencode lane** — opencode lanes require `model` in `provider/model` form and its model discovery returned `failed`; a model identifier must not be invented. The map is **quota-blind** (discovery cannot see plans or per-run cost); codex was placed on the burnable lanes as a labelled opinion, not evidence.
+
+### Real end-to-end test — the V1 acceptance criterion
+
+| Run | Result |
+|---|---|
+| #1 `v1-smoke-review` | `status: timeout`, exit 143, 6 turns, $0.41 — killed by the relay watchdog at `--timeout 20m`. **Correctly reported as `ok: false`.** |
+| #2 `v1-smoke-review-2` | **`status: completed`, `ok: true`**, exit 0, 2 turns, $0.21, session `3eea4947-d150-4cf5-8807-5e0f646397c4`, claude 2.1.226, `permissionMode: plan`, toolSurface `Read/Glob/Grep` |
+
+Run #2 is the proof: a real brief → real lane resolution → real implementer CLI → real artifact (`result.json`, `events.jsonl` 109KB) → normalised MYTHOS result. Artifacts under `~deploy/mythos-ai-executor/delegate/`.
+
+### Two defects the real runs found — both fixed, both regression-tested
+
+1. **`read_only` misreported.** A lane's `readOnly` dial enables read-only *inside the vendor* with no flag from us, so `normalizeResult` — reading only our own request — reported `read_only: false` for a run genuinely restricted to `plan` mode. Wrong in the one direction that matters. The vendor is now the authority in both directions. (Test §4b.)
+2. **`status` was coerced.** `String(raw.status)` accepted anything stringifying to a terminal word, so `{status:['completed'],exitCode:0}` became `ok: true`; `dispatch()` feeds this straight from `JSON.parse` of `result.json`, so a malformed or drifted file could reach it. Now read strictly as a string. **This was found by the delegated review itself** — the loop caught a bug in its own boundary. (Test §4c.)
+
+### Operational lesson — read-only tripwire false attribution
+
+Run #2 returned `read_only_violation: true` with `touched_files: [' M sites/status.mythosprod.xyz/index.html']`. **That edit was mine**, made in the same worktree while the review was running. The vendor documents exactly this: the tripwire is a reporting signal, not an OS boundary, and concurrent changes cannot be attributed. **Do not dispatch into a worktree you are concurrently editing** — use a dedicated worktree per dispatch, or the violation flag is meaningless.
+
+### Not done — and why
+
+- **OTHMODE → GitHub Issue is NOT wired.** OTHMODE tasks are an operational *record* (`createTask` refuses non-activated command text); they are not a queue and do not create Issues. A user still opens the Issue by hand. This is the single remaining gap in the user-facing loop.
+- **The bridge still dispatches to the executor's own `claude -p`, not through `delegate-skills`.** The delegation boundary exists, is tested and is proven, but the bridge is not yet routed through it. That routing is the next integration step.
+- **Status-surface change is committed but NOT deployed.** Installing the nginx proxy and copying the site files are owner steps (`sites/status.mythosprod.xyz/DEPLOYMENT.md`). The nginx edit was attempted and correctly refused by the permission classifier as a production config change.
+
+### Repository note
+
+Code landed in `othoth77/mythos-prod` (the source of truth per AGENTS.md §2.1). Documentation landed in `othoth77/mythos-os` on `mythos/v1-workflow-docs-20260906`. **AGENTS.md §2.1 still describes `mythos-os` as a stale 2026-07-29 copy that must not be used** — that is now out of date: its HEAD `425e7ac` is the owner's own V1 redefinition, and the owner directed V1 documentation there. AGENTS.md §2.1 should be reconciled with that reality.
+
+### Commits
+
+| Repo | Branch | Head | Contents |
+|---|---|---|---|
+| mythos-prod | `mythos/v1-integration-20260906` | `4009d19` | delegation boundary, both fixes, OTHMODE status section |
+| mythos-os | `mythos/v1-workflow-docs-20260906` | `a3d05d4` | `docs/V1_OPERATING_LOOP.md` + ROADMAP link |
+
+Tests: `node tests/mythos-delegate-test.js` → **68 passed, 0 failed**.
+
+### Next stage
+
+1. Route the bridge's dispatch through `projects/mythos-delegate` so Issues reach lanes instead of only the executor's own `claude -p`.
+2. Wire OTHMODE task creation to GitHub Issue creation (the last user-facing gap).
+3. Owner: install the nginx proxy + deploy the status files.
+4. Add an `opencode` lane once a real `provider/model` identifier is known.
+
+
 ## 2026-09-06 — MIGRATION 0007 APPLIED TO PRODUCTION (Sonnet 5, 17:37–17:43 UTC; explicit owner GO received: "GO — apply migration 0007")
 
 `db/0007-quote-lines-grant.sql` — `GRANT DELETE ON quote_lines TO erp_app` — applied to the real production `mythos_erp` database, following the full standing migration procedure.
