@@ -1,0 +1,131 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-250",
+  "project": "mythos-prod",
+  "objective": "Confirm that MYTHOS V1 can take a task from OTHMODE all the way to a delegated implementer. Read projects/mythos-delegate/README.md and report, in at most 15 lines, which implementer the `review` lane resolves to on this host and what the mythos.delegate.result.v1 `ok` field requires. Change nothing.",
+  "scope": [],
+  "constraints": [
+    "Do not modify any file",
+    "Do not commit or push"
+  ],
+  "priority": "normal",
+  "requested_action": "review",
+  "action_raw": "review",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "The report names the implementer the review lane resolves to",
+    "The report states both conditions required for ok:true",
+    "No file in the repository is modified"
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-07T06:48:59.718Z",
+  "created_by": "github-issue:othoth77",
+  "lane": "review",
+  "notes": "Source: GitHub Issue #250 https://github.com/othoth77/mythos-prod/issues/250 — \"V1 smoke — confirm the delegation lane reaches an implementer\"\n\nrequested_action: review — source explicit_current_issue (written as \"review\") → execution profile repo-read\n\nOpened from OTHMODE by the work intake (POST /api/othmode/work) as the first end-to-end proof of the MYTHOS V1 loop. The `review` lane is read-only by configuration, so this task cannot write.\n\n[task]\n| Key | Value |\n| --- | --- |\n| Lane | review |",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 250,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/250",
+    "issue_id": 5371074105,
+    "issue_node_id": "I_kwDOTnlaF88AAAABQCQWOQ",
+    "issue_title": "TASK: V1 smoke — confirm the delegation lane reaches an implementer",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-07T06:48:35Z",
+    "issue_updated_at": "2026-09-07T06:48:35Z",
+    "issue_labels": [
+      "task"
+    ],
+    "content_sha256": "d3637e97f1f90b28ce0af8d5084d4840acd8ecb9792331a6bd183c2998cbfbe4",
+    "attempt": 1,
+    "attempt_id": "gh-issue-250#1",
+    "idempotency_key": "4a36a0891c32d30a9ee8928f61cfc3738e56f75b306418e9017ae5d319880f42",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "review",
+      "action_raw": "review",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "review",
+          "action": "review",
+          "form": "table",
+          "line": 11
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-07T06:48:59.719Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-07T06:48:59.719Z",
+        "event": "issue_received",
+        "reason": "open Issue #250 with label task",
+        "content_sha256": "d3637e97f1f90b28ce0af8d5084d4840acd8ecb9792331a6bd183c2998cbfbe4"
+      },
+      {
+        "at": "2026-09-07T06:48:59.719Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → review (raw \"review\")"
+      },
+      {
+        "at": "2026-09-07T06:48:59.719Z",
+        "event": "profile_resolved",
+        "reason": "review → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-07T06:48:59.719Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-07T06:49:01.390Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-250.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-07T06:48:59.719Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5566239600,
+        "url": "https://github.com/othoth77/mythos-prod/issues/250#issuecomment-5566239600",
+        "at": "2026-09-07T06:49:00.566Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
