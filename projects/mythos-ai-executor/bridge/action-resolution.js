@@ -73,7 +73,10 @@ var FIELD_ALIASES = {
   priority: ['priority', 'الأولوية'],
   depends_on: ['depends on', 'depends_on', 'depends-on', 'dependencies', 'يعتمد على', 'الاعتماديات'],
   timeout: ['timeout', 'timeout seconds', 'timeout_seconds', 'المهلة'],
-  max_turns: ['max turns', 'max_turns', 'max-turns']
+  max_turns: ['max turns', 'max_turns', 'max-turns'],
+  // MYTHOS V1 — which delegation lane runs this task. Like `model`, it
+  // selects an entry in a server-side catalog and grants no authority.
+  lane: ['lane', 'delegate lane', 'delegate_lane', 'المسار', 'مسار']
 };
 var FIELD_KEYS = Object.keys(FIELD_ALIASES);
 

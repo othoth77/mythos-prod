@@ -1,0 +1,7 @@
+{
+  "enabled": true,
+  "vendor_root": "/home/deploy/delegate-skills",
+  "artifacts_root": "/home/deploy/mythos-ai-executor/delegate",
+  "default_timeout": "45m",
+  "description": "MYTHOS V1 delegation boundary over amElnagdy/delegate-skills (MIT, pinned b781ee2). MYTHOS does NOT implement delegation: it resolves a lane, writes a brief, invokes the vendor relay for the lane's implementer, and normalises delegate-relay.result.v1 into mythos.delegate.result.v1. Lane configuration is owned by delegate-setup (~/.config/delegate-skills/config.json) and is NEVER written from here. On any host where vendor_root is absent the layer disables itself fail-closed — a disabled layer is a normal, reportable state."
+}

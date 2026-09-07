@@ -24,6 +24,7 @@ var history = require('./history.js');
 var memory = require('./memory.js');
 var evolution = require('./evolution.js');
 var store = require('./store.js');
+var work = require('./work.js');
 var sessions = require('./sessions.js');
 var activation = require('./activation.js');
 var tasks = require('./tasks.js');
@@ -38,7 +39,7 @@ function sendJson(res, status, body) {
 }
 
 function inputError(res, err) {
-  if (err && (err.code === 'OTHMODE_EVOLUTION_INPUT' || err.code === 'OTHMODE_HEALTH_INPUT' || err.code === 'OTHMODE_TASK_INPUT')) {
+  if (err && (err.code === 'OTHMODE_EVOLUTION_INPUT' || err.code === 'OTHMODE_HEALTH_INPUT' || err.code === 'OTHMODE_TASK_INPUT' || err.code === 'OTHMODE_WORK_INPUT')) {
     return sendJson(res, 400, { error: err.message });
   }
   if (err && err.code === 'OTHMODE_STORE_ABSENT') {
@@ -55,7 +56,8 @@ function inputError(res, err) {
 // stage data must never carry a credential into the store.
 function enforceNoSecrets(res, body) {
   var fields = {};
-  ['description', 'rationale', 'note', 'trigger', 'title'].forEach(function (k) {
+  ['description', 'rationale', 'note', 'trigger', 'title',
+   'objective', 'context'].forEach(function (k) {
     if (body && typeof body[k] === 'string') fields[k] = body[k];
   });
   if (body && Array.isArray(body.evidence_texts)) fields.evidence = body.evidence_texts.join('\n');
@@ -64,6 +66,10 @@ function enforceNoSecrets(res, body) {
   // credential must not enter the persistent record through any field.
   if (body && body.sections) fields.sections = JSON.stringify(body.sections);
   if (body && typeof body.command === 'string') fields.command = body.command;
+  // Work intake carries lists of free text straight into a PUBLIC Issue
+  // body — scan them like everything else.
+  if (body && Array.isArray(body.acceptance)) fields.acceptance = body.acceptance.join('\n');
+  if (body && Array.isArray(body.constraints)) fields.constraints = body.constraints.join('\n');
   var report = secrets.scan(fields);
   if (report.blocked) {
     sendJson(res, 422, {
@@ -218,6 +224,33 @@ function buildRoutes(db, auth) {
       if (!enforceNoSecrets(res, body)) return;
       try { return sendJson(res, 201, { task: tasks.updateTask(decodeURIComponent(m[1]), body || {}, auth.identityFromRequest(req)) }); }
       catch (e) { return inputError(res, e); }
+    } },
+
+    // ── Work intake: OTHMODE → GitHub Issue ─────────────────────────────
+    // The one edge that turns "I want X" into queued work. It creates an
+    // Issue and returns its number/URL — it does NOT create a second task
+    // record: the Issue is the record, and the bridge reports back onto it.
+    { method: 'GET', auth: false, pattern: /^\/api\/othmode\/work$/, handler: function (req, res) {
+      var cfg = work.config();
+      return sendJson(res, 200, {
+        enabled: cfg.enabled,
+        reason: cfg.enabled ? null : work.disabledReason(cfg),
+        repositories: cfg.repos,
+        actions: work.ACTIONS,
+        priorities: work.PRIORITIES,
+        label: cfg.label
+      });
+    } },
+    { method: 'POST', auth: true, pattern: /^\/api\/othmode\/work$/, handler: function (req, res, m, q, body) {
+      if (!enforceNoSecrets(res, body)) return;
+      return work.createWork(body || {}, auth.identityFromRequest(req))
+        .then(function (created) { return sendJson(res, 201, { work: created }); })
+        .catch(function (e) {
+          if (e && e.code === 'OTHMODE_WORK_INPUT') return inputError(res, e);
+          // A configuration or upstream problem is not the caller's fault
+          // and must not be reported as a bad request.
+          return sendJson(res, 503, { error: (e && e.message) || 'work intake unavailable' });
+        });
     } },
 
     // ── Memory (read-first; ingestion stays on the operator CLI) ─────────

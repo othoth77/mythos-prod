@@ -189,3 +189,49 @@ default-vhost fallback, i.e. the darhijama.tn redirect.) Certificate
 removal, if ever wanted: `sudo certbot delete --cert-name
 status.mythosprod.xyz`. No database, no migrations — nothing else to
 undo.
+
+## OTHMODE section (MYTHOS V1) — owner step
+
+The `OTHMODE — Work in flight` section on the status page reads the OTHMODE
+task API same-origin at `/api/othmode/tasks`. That path does not exist on this
+vhost until the proxy is installed, and until then the section renders an
+explicit "OTHMODE is not reachable from this page" state — absence is reported,
+never painted green.
+
+Two steps, both owner-gated because they touch production:
+
+1. **Install the proxy.** Paste the contents of
+   `nginx-othmode-proxy.conf.example` inside the `server { … }` block of
+   `/etc/nginx/sites-enabled/status.mythosprod.xyz`, then:
+
+   ```bash
+   nginx -t && systemctl reload nginx
+   ```
+
+2. **Deploy the site files** (`index.html`, `assets/app.js`) to
+   `/var/www/status.mythosprod.xyz/` the usual way.
+
+The proxy is **GET-only** and strips cookies in both directions. Creating and
+approving tasks stays on `othmode.mythosprod.xyz`, where the operator session
+already lives — V1 deliberately does not create a second authenticated surface.
+
+## Work intake (OTHMODE → GitHub Issue) — owner step
+
+`POST /api/othmode/work` turns a request into a GitHub Issue labelled `task`,
+which the bridge already picks up. It is **disabled until configured**, and the
+status page reads its own status endpoint rather than assuming — so the
+`+ New Task` action only appears when the server would actually accept it.
+
+Set on the `mythos-command-center` unit (values are host configuration, never
+committed):
+
+| Variable | Meaning |
+| --- | --- |
+| `MYTHOS_WORK_REPOS` | comma-separated **allowlist** of `owner/repo`. There is no default: an empty list disables the intake. |
+| `MYTHOS_WORK_TOKEN_FILE` | path to a file holding a token with Issues **write** on those repositories. Never committed, never logged, never returned. |
+| `MYTHOS_WORK_LABEL` | optional; defaults to `task`, which is the label the bridge watches. |
+
+Then `systemctl --user restart mythos-command-center`.
+
+The allowlist is the security boundary: without it an authenticated OTHMODE
+user could open an Issue in any repository the token can reach.

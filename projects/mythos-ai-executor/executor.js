@@ -48,7 +48,11 @@ var PROJECTS = JSON.parse(fs.readFileSync(path.join(__dirname, 'config', 'projec
 
 var PROVIDERS = {
   'claude-code': require('./providers/claude-code'),
-  'openai-compat': require('./providers/openai-compat')
+  'openai-compat': require('./providers/openai-compat'),
+  // Runs an implementer CLI (claude/codex/opencode) chosen by the task's
+  // lane, through the delegate-skills boundary. Execution authority, like
+  // claude-code — a lane picks WHICH CLI, never what the task may do.
+  'delegate': require('./providers/delegate')
 };
 // The mock provider is test-only and must be impossible to reach in
 // production: the systemd unit never sets this variable.
@@ -130,6 +134,24 @@ function createTask(input) {
     engine.assertActionProfile(input.task_category, executionProfile, { task_id: input.attempt_id || input.stage || null, attempt_id: input.attempt_id || null });
   }
 
+  // Lane (MYTHOS V1). A lane is the same KIND of choice as `model`: it
+  // selects an entry in a server-side catalog owned by delegate-setup,
+  // an unavailable one is a refusal rather than a substitution, and it
+  // grants NO authority — execution_profile still comes from the action.
+  // The pairing is checked here so a malformed request never persists:
+  // the delegate provider is meaningless without a lane, and a lane is
+  // meaningless to any other provider.
+  var lane = input.lane ? String(input.lane).trim() : null;
+  if (lane && !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(lane)) {
+    throw new Error('LANE_INVALID: "' + lane.slice(0, 40) + '" is not a valid lane name');
+  }
+  if (provider === 'delegate' && !lane) {
+    throw new Error('LANE_MISSING: the delegate provider requires a lane');
+  }
+  if (lane && provider !== 'delegate') {
+    throw new Error('LANE_NOT_APPLICABLE: a lane only applies to the delegate provider, not "' + provider + '"');
+  }
+
   // Issue #100 — model selection. Only the Claude execution provider is
   // governed here: openai-compat and gemini carry THEIR OWN model names
   // (config/agents.json), a Claude model id would be meaningless there, and
@@ -175,6 +197,7 @@ function createTask(input) {
     requested_by: input.requested_by || 'n8n',
     mode: input.mode || 'autonomous',
     provider: provider,
+    lane: lane,
     model: modelChoice ? modelChoice.model : (input.model || null),
     fallback_model: fallbackModel,
     model_selection_mode: modelChoice ? modelChoice.mode : null,
