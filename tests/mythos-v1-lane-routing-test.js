@@ -130,6 +130,20 @@ console.log('\n§3 schemas declare lane (both are additionalProperties:false)');
     rel + ' constrains the lane name');
 });
 
+// Regression: declaring `lane` is not enough. The executor's task schema
+// also constrains `provider` with an enum, and `delegate` was missing from
+// it — so every lane-bearing task was converted from its Issue and then
+// refused at claim time with
+//   TASK_SCHEMA_INVALID: root.provider: value is not one of the permitted
+//   enum values
+// Observed live on gh-issue-250 (2026-09-07) after deployment.
+var execSchema = JSON.parse(fs.readFileSync(
+  path.join(BASE, 'projects', 'mythos-ai-executor', 'schemas', 'task.schema.json'), 'utf8'));
+ok(execSchema.properties.provider.enum.indexOf('delegate') !== -1,
+  'the executor task schema permits the delegate provider (a lane is useless without it)');
+ok(execSchema.properties.provider.enum.indexOf('claude-code') !== -1,
+  'and still permits claude-code — the default path is untouched');
+
 console.log('\n§4 the bridge routes on the presence of a lane');
 
 var bridgeSrc = fs.readFileSync(path.join(BASE, 'projects', 'mythos-ai-executor', 'bridge', 'github-bridge.js'), 'utf8');

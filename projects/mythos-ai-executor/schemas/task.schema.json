@@ -79,8 +79,10 @@
       "enum": [
         "claude-code",
         "openai-compat",
-        "mock"
-      ]
+        "mock",
+        "delegate"
+      ],
+      "description": "Execution/advisory provider. `delegate` runs the task through the delegation boundary, which resolves the task's `lane` and runs that lane's implementer CLI; it requires a lane and grants no authority beyond the task's execution_profile."
     },
     "model": {
       "type": [
