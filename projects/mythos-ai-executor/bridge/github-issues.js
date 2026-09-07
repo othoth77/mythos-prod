@@ -343,7 +343,7 @@ var SECTION_ALIASES = {
   max_turns: ['max turns', 'max_turns', 'max-turns'],
   model: ['model', 'claude model', 'النموذج', 'نموذج']
 };
-var SCALAR_KEYS = ['action', 'priority', 'depends_on', 'timeout', 'max_turns', 'model'];
+var SCALAR_KEYS = ['action', 'priority', 'depends_on', 'timeout', 'max_turns', 'model', 'lane'];
 
 // Size limits applied to Issue-derived text. They exist so a task file stays
 // a reviewable record and the executor prompt stays within its schema — NOT
@@ -613,6 +613,22 @@ function issueToTask(cfg, issue, attempt, previous) {
     task.model = model.model_key;
     task.model_raw = short(model.model_raw, 100);
     task.model_source = model.model_source;
+  }
+  // MYTHOS V1 — an optional `Lane:` routes the task through the
+  // delegation boundary instead of the executor's own Claude provider.
+  // Kept exactly as written: an unconfigured lane becomes a
+  // LANE_UNAVAILABLE refusal at the provider, never a substitution.
+  // scalar() unwraps firstField's {raw, form, line}. Reading the object
+  // itself would stringify to "[object Object]" and silently drop every
+  // lane — the same shape of misuse action-resolution.js exists to end.
+  var laneRaw = scalar(fields, 'lane');
+  if (laneRaw) {
+    var laneVal = String(laneRaw).trim();
+    if (/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(laneVal)) {
+      task.lane = laneVal;
+    } else {
+      notesParts.push('lane: ignored — "' + short(laneVal, 40) + '" is not a valid lane name');
+    }
   }
   task.notes = cut('notes', notesParts.join('\n\n'), LIMITS.notes);
   if (truncated.length) {

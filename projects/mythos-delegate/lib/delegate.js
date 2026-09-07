@@ -333,7 +333,9 @@ function normalizeResult(raw, context) {
 // Returns a mythos.delegate.result.v1 object. It does NOT throw on a
 // failed delegation — a failure is a result, not an exception. It throws
 // only when the request itself is unusable (bad lane, missing brief).
-function dispatch(cfg, opts) {
+// Everything both dispatch paths need, computed once so the synchronous
+// and asynchronous entry points cannot drift apart.
+function prepareDispatch(cfg, opts) {
   if (!cfg.enabled) throw dErr('delegation layer disabled: ' + cfg.reason);
   var o = opts || {};
   if (!o.lane) throw dErr('lane is required');
@@ -356,43 +358,87 @@ function dispatch(cfg, opts) {
 
   var args = ['--brief', brief, '--cd', repo, '--lane', o.lane, '--out-dir', outDir];
   if (o.readOnly) args.push('--read-only');
+  // Resume the SAME implementer session for rework, so a delta brief
+  // continues the conversation instead of starting from nothing.
+  if (o.sessionId) args = args.concat(['--session', String(o.sessionId)]);
   var timeout = o.timeout || cfg.defaultTimeout;
   if (timeout) args = args.concat(['--timeout', timeout]);
 
-  var startedAt = new Date().toISOString();
-  var run = runNode(relay, args, { cwd: repo });
+  return {
+    repo: repo, implementer: implementer, relay: relay, outDir: outDir,
+    args: args, readOnly: o.readOnly === true, lane: o.lane,
+    startedAt: new Date().toISOString()
+  };
+}
 
-  var resultPath = path.join(outDir, 'result.json');
+// Reads the vendor artifact, synthesising one when the relay could not
+// write it, so every dispatch yields exactly one inspectable record.
+function readDispatchResult(plan, exit, stderrText) {
+  var resultPath = path.join(plan.outDir, 'result.json');
   var rawResult = null;
   if (fs.existsSync(resultPath)) {
     try { rawResult = JSON.parse(fs.readFileSync(resultPath, 'utf8')); } catch (e) { rawResult = null; }
   }
-
   // A usage error exits 2 BEFORE result.json is written. Synthesise a
-  // result rather than returning nothing, so every dispatch produces one
-  // persistent, inspectable record — the same guarantee OTHMODE tasks give.
+  // result rather than returning nothing.
   if (!rawResult) {
     rawResult = {
       schema: 'delegate-relay.result.v1',
-      tool: implementer,
-      status: run.status === 2 ? 'failed' : 'failed',
-      exitCode: run.status === null ? -1 : run.status,
+      tool: plan.implementer,
+      status: 'failed',
+      exitCode: exit === null || exit === undefined ? -1 : exit,
       finalMessage: null,
-      error: (run.stderr || run.stdout || '').trim().slice(-4000) ||
-        (run.error ? String(run.error.message) : 'relay produced no result.json'),
+      error: String(stderrText || '').trim().slice(-4000) || 'relay produced no result.json',
       touchedFiles: null,
       synthesised_by_mythos: true
     };
   }
-
   return normalizeResult(rawResult, {
-    lane: o.lane,
-    implementer: implementer,
-    repo: repo,
-    readOnly: o.readOnly === true,
-    outDir: outDir,
-    startedAt: startedAt
+    lane: plan.lane, implementer: plan.implementer, repo: plan.repo,
+    readOnly: plan.readOnly, outDir: plan.outDir, startedAt: plan.startedAt
   });
+}
+
+// Asynchronous dispatch. The executor daemon runs a queue: a synchronous
+// spawn would block every other task for the whole implementer run, so
+// the daemon path MUST use this one. `onSpawn` receives the relay pid as
+// soon as it exists, which is what the lifecycle events record.
+function dispatchAsync(cfg, opts, onSpawn) {
+  var plan;
+  try { plan = prepareDispatch(cfg, opts); }
+  catch (e) { return Promise.reject(e); }
+
+  return new Promise(function (resolve) {
+    var child = cp.spawn(process.execPath, [plan.relay].concat(plan.args), {
+      cwd: plan.repo, env: process.env, stdio: ['ignore', 'pipe', 'pipe']
+    });
+    if (typeof onSpawn === 'function') onSpawn(child.pid || null);
+    var stdout = '', stderr = '';
+    var settled = false;
+    child.stdout.on('data', function (d) { stdout += d; });
+    child.stderr.on('data', function (d) { stderr += d; });
+    child.on('error', function (err) {
+      if (settled) return; settled = true;
+      var r = readDispatchResult(plan, null, 'SPAWN_ERROR: ' + err.message);
+      r.relay_stdout = stdout; r.relay_stderr = stderr;
+      r.relay_pid = child.pid || null;
+      resolve(r);
+    });
+    child.on('close', function (code) {
+      if (settled) return; settled = true;
+      var r = readDispatchResult(plan, code, stderr);
+      r.relay_stdout = stdout; r.relay_stderr = stderr;
+      r.relay_pid = child.pid || null;
+      resolve(r);
+    });
+  });
+}
+
+function dispatch(cfg, opts) {
+  var plan = prepareDispatch(cfg, opts);
+  var run = runNode(plan.relay, plan.args, { cwd: plan.repo });
+  return readDispatchResult(plan, run.status, run.stderr || run.stdout ||
+    (run.error ? run.error.message : ''));
 }
 
 module.exports = {
@@ -408,5 +454,8 @@ module.exports = {
   relayPathFor: relayPathFor,
   normalizeResult: normalizeResult,
   isTerminal: isTerminal,
+  prepareDispatch: prepareDispatch,
+  readDispatchResult: readDispatchResult,
+  dispatchAsync: dispatchAsync,
   dispatch: dispatch
 };

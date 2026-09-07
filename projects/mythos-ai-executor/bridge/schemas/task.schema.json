@@ -19,83 +19,365 @@
     "created_by"
   ],
   "properties": {
-    "protocol": { "type": "string", "enum": ["mythos-control/1"] },
+    "protocol": {
+      "type": "string",
+      "enum": [
+        "mythos-control/1"
+      ]
+    },
     "task_id": {
       "type": "string",
       "minLength": 6,
       "maxLength": 40,
       "pattern": "^[a-z0-9][a-z0-9-]{4,38}[a-z0-9]$"
     },
-    "project": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-z0-9][a-z0-9-]*$" },
-    "objective": { "type": "string", "minLength": 10, "maxLength": 20000 },
-    "scope": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 2000 } },
-    "constraints": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 2000 } },
-    "priority": { "type": "string", "enum": ["low", "normal", "high"] },
+    "project": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 20000
+    },
+    "scope": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "normal",
+        "high"
+      ]
+    },
     "requested_action": {
       "type": "string",
-      "enum": ["investigate", "review", "test", "document", "implement"]
+      "enum": [
+        "investigate",
+        "review",
+        "test",
+        "document",
+        "implement"
+      ]
     },
-    "validation_requirements": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 2000 } },
+    "validation_requirements": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
     "status": {
       "type": "string",
-      "enum": ["PENDING", "CLAIMED", "IN_PROGRESS", "VALIDATING", "COMPLETED", "BLOCKED", "FAILED", "CANCELLED"]
+      "enum": [
+        "PENDING",
+        "CLAIMED",
+        "IN_PROGRESS",
+        "VALIDATING",
+        "COMPLETED",
+        "BLOCKED",
+        "FAILED",
+        "CANCELLED"
+      ]
     },
-    "created_at": { "type": "string", "minLength": 20, "maxLength": 40 },
-    "created_by": { "type": "string", "minLength": 1, "maxLength": 64 },
-    "depends_on": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{4,38}[a-z0-9]$" } },
-    "timeout_seconds": { "type": "integer", "minimum": 60, "maximum": 21600 },
-    "max_turns": { "type": ["integer", "null"], "minimum": 1, "maximum": 500 },
-    "notes": { "type": "string", "maxLength": 16000 },
-    "action_raw": { "type": ["string", "null"], "maxLength": 100, "description": "The Action exactly as the creator wrote it (before normalisation), recorded by bridge/action-resolution.js so the decision can be audited without re-parsing the Issue." },
-    "action_source": { "type": ["string", "null"], "enum": ["explicit_current_issue", "action_label", "inherited_previous_attempt", "default", "task_file", null], "description": "Where requested_action came from, in precedence order: explicit Action in the current Issue body > action:<x> label > inherited from the previous attempt (rerun only) > configured default. A planner-written task file may omit it (the bridge records task_file)." },
-    "model_raw": { "type": ["string", "null"], "maxLength": 100, "description": "The Model exactly as written (e.g. \"Fable 5.1\"); `model` holds the catalog key it resolved to." },
-    "model_source": { "type": ["string", "null"], "enum": ["explicit_current_issue", "model_label", "inherited_previous_attempt", "task_file", "none", null] },
+    "created_at": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 40
+    },
+    "created_by": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]{4,38}[a-z0-9]$"
+      }
+    },
+    "timeout_seconds": {
+      "type": "integer",
+      "minimum": 60,
+      "maximum": 21600
+    },
+    "max_turns": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 500
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 16000
+    },
+    "action_raw": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100,
+      "description": "The Action exactly as the creator wrote it (before normalisation), recorded by bridge/action-resolution.js so the decision can be audited without re-parsing the Issue."
+    },
+    "action_source": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "explicit_current_issue",
+        "action_label",
+        "inherited_previous_attempt",
+        "default",
+        "task_file",
+        null
+      ],
+      "description": "Where requested_action came from, in precedence order: explicit Action in the current Issue body > action:<x> label > inherited from the previous attempt (rerun only) > configured default. A planner-written task file may omit it (the bridge records task_file)."
+    },
+    "model_raw": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100,
+      "description": "The Model exactly as written (e.g. \"Fable 5.1\"); `model` holds the catalog key it resolved to."
+    },
+    "model_source": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "explicit_current_issue",
+        "model_label",
+        "inherited_previous_attempt",
+        "task_file",
+        "none",
+        null
+      ]
+    },
     "model": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "maxLength": 40,
       "description": "Optional. Names the Claude model this task must run on (Haiku | Sonnet | Opus | Fable 5 | Fable 5.1, or a full id such as claude-sonnet-5). Omit it and the executor scores the task and picks haiku/sonnet/opus itself — fable is never chosen automatically. This is the ONE selection a task may make, and it selects a key in config/model-policy.json rather than supplying a string: an unknown or unavailable value is refused, never substituted. It grants no authority — provider, execution profile, working directory, tools, MCP capabilities and credentials all remain server-side decisions."
+    },
+    "lane": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "description": "Optional. Names the delegation lane that runs this task (delegate-skills chooses the implementer CLI from it). Like `model`, it selects an entry in a server-side catalog and grants NO authority: execution_profile still comes from requested_action. A lane that is not configured on the host stops the attempt as LANE_UNAVAILABLE before any provider starts; it is never replaced by another lane."
     },
     "source": {
       "type": "object",
       "description": "Origin of the task when an adapter converted it from another surface (a GitHub Issue, written by bridge/github-issues.js, or a Telegram private message, written by bridge/telegram.js). Informational for the executor; the adapter records its Issue notifications under `notifications`. A planner writing tasks by hand omits it.",
       "additionalProperties": false,
-      "required": ["kind"],
+      "required": [
+        "kind"
+      ],
       "properties": {
-        "kind": { "type": "string", "enum": ["github-issue", "telegram"] },
-        "update_id": { "type": "integer", "minimum": 0, "description": "Telegram: the Bot API update_id the task was converted from (task_id = tg-<update_id zero-padded to 9 digits>)." },
-        "chat_id": { "type": "integer", "description": "Telegram: the private chat the replies go to (equals user_id for private chats)." },
-        "user_id": { "type": "integer", "description": "Telegram: the allowlisted sender id. Never a username." },
-        "message_id": { "type": "integer", "description": "Telegram: the id of the message that became the task." },
-        "message_date": { "type": ["string", "null"], "maxLength": 40 },
-        "repo": { "type": "string", "maxLength": 200 },
-        "issue_number": { "type": "integer", "minimum": 1 },
-        "issue_url": { "type": "string", "maxLength": 400 },
-        "issue_id": { "type": ["integer", "null"] },
-        "issue_node_id": { "type": ["string", "null"], "maxLength": 100 },
-        "issue_title": { "type": "string", "maxLength": 300 },
-        "issue_author": { "type": ["string", "null"], "maxLength": 100 },
-        "issue_created_at": { "type": ["string", "null"], "maxLength": 40 },
-        "issue_updated_at": { "type": ["string", "null"], "maxLength": 40 },
-        "issue_labels": { "type": "array", "items": { "type": "string", "maxLength": 100 } },
-        "issue_state": { "type": ["string", "null"], "maxLength": 20 },
-        "content_sha256": { "type": "string", "maxLength": 64 },
-        "attempt": { "type": "integer", "minimum": 1 },
-        "attempt_id": { "type": ["string", "null"], "maxLength": 48 },
-        "idempotency_key": { "type": ["string", "null"], "maxLength": 64 },
-        "resolution": { "type": "object", "description": "The engine's decision record: requested_action / action_raw / action_source / candidates, execution_profile, model_key / model_raw / model_source / model_available." },
-        "truncated": { "type": "array", "items": { "type": "object" } },
-        "events": { "type": "array", "items": { "type": "object" } },
-        "rerun_of": { "type": ["string", "null"], "maxLength": 40 },
-        "inherited_from": { "type": ["string", "null"], "maxLength": 40 },
-        "inherited": { "type": "object" },
-        "converted_at": { "type": "string", "maxLength": 40 },
-        "converted_by": { "type": "string", "maxLength": 40 },
-        "notifications": { "type": "object" },
-        "labels": { "type": "object" },
-        "cancelled_from_issue": { "type": "object" }
+        "kind": {
+          "type": "string",
+          "enum": [
+            "github-issue",
+            "telegram"
+          ]
+        },
+        "update_id": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Telegram: the Bot API update_id the task was converted from (task_id = tg-<update_id zero-padded to 9 digits>)."
+        },
+        "chat_id": {
+          "type": "integer",
+          "description": "Telegram: the private chat the replies go to (equals user_id for private chats)."
+        },
+        "user_id": {
+          "type": "integer",
+          "description": "Telegram: the allowlisted sender id. Never a username."
+        },
+        "message_id": {
+          "type": "integer",
+          "description": "Telegram: the id of the message that became the task."
+        },
+        "message_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 40
+        },
+        "repo": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "issue_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "issue_url": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "issue_id": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "issue_node_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 100
+        },
+        "issue_title": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "issue_author": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 100
+        },
+        "issue_created_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 40
+        },
+        "issue_updated_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 40
+        },
+        "issue_labels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "issue_state": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20
+        },
+        "content_sha256": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "attempt_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 48
+        },
+        "idempotency_key": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "resolution": {
+          "type": "object",
+          "description": "The engine's decision record: requested_action / action_raw / action_source / candidates, execution_profile, model_key / model_raw / model_source / model_available."
+        },
+        "truncated": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "rerun_of": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 40
+        },
+        "inherited_from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 40
+        },
+        "inherited": {
+          "type": "object"
+        },
+        "converted_at": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "converted_by": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "notifications": {
+          "type": "object"
+        },
+        "labels": {
+          "type": "object"
+        },
+        "cancelled_from_issue": {
+          "type": "object"
+        }
       }
     },
-    "execution": { "type": "object" },
-    "history": { "type": "array", "items": { "type": "object" } }
+    "execution": {
+      "type": "object"
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
   }
 }

@@ -89,6 +89,15 @@
       ],
       "maxLength": 100
     },
+    "lane": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "description": "Optional. Names the delegation lane that runs this task (delegate-skills chooses the implementer CLI from it). Like `model`, it selects an entry in a server-side catalog and grants NO authority: execution_profile still comes from requested_action. A lane that is not configured on the host stops the attempt as LANE_UNAVAILABLE before any provider starts; it is never replaced by another lane."
+    },
     "fallback_model": {
       "type": [
         "string",
