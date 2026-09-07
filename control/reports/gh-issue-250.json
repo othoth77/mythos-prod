@@ -1,0 +1,126 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-250",
+  "attempt_id": "gh-issue-250#1",
+  "status": "COMPLETED",
+  "summary": "Read-only review of the MYTHOS V1 delegation boundary. projects/mythos-delegate/README.md, config/delegate.json and lib/delegate.js were read, plus the effective lane map at ~/.config/delegate-skills/config.json. The layer is enabled on this host (vendor_root /home/deploy/delegate-skills present, so not fail-closed). The `review` lane resolves to implementer `claude` (effort high, readOnly true) from the global delegate-fleet.v1 config; there is no .delegate/config.json in this worktree, so no project override applies. IMPLEMENTER_SKILL maps claude -> claude-delegate and the relay /home/deploy/delegate-skills/skills/claude-delegate/scripts/relay.mjs exists, so the OTHMODE -> delegate -> implementer chain is complete. In mythos.delegate.result.v1, ok is true only when BOTH conditions hold: the relay reported the terminal status exactly \"completed\" AND raw.exitCode === 0 (lib/delegate.js:294). No file was modified, nothing was committed, and no shell command was executed; the OTHMODE record was not mutated because that would be a write outside the read-only profile.",
+  "resolution": {
+    "requested_action": "review",
+    "action_raw": "review",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "model_requested": null,
+    "model_key": null,
+    "model": null,
+    "model_source": "none",
+    "model_selection_mode": null,
+    "model_selection_reason": null,
+    "base_sha": "0aeea09e1b98d84948db84dcdcabf86f8263a24b",
+    "branch": "mythos/gh/gh-issue-250",
+    "commit_sha": null
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "8a096ae20303c743198406fa00ecc0900462cfef",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "8a096ae20303c743198406fa00ecc0900462cfef",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-07T06:54:00.467Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Read-only review of the MYTHOS V1 delegation boundary. projects/mythos-delegate/README.md, config/delegate.json and lib/delegate.js were read, plus the effective lane map at ~/.config/delegate-skills/config.json. The layer is enabled on this host (vendor_root /home/deploy/delegate-skills present, so not fail-closed). The `review` lane resolves to implementer `claude` (effort high, readOnly true) from the global delegate-fleet.v1 config; there is no .delegate/config.json in this worktree, so no project override applies. IMPLEMENTER_SKILL maps claude -> claude-delegate and the relay /home/deploy/delegate-skills/skills/claude-delegate/scripts/relay.mjs exists, so the OTHMODE -> delegate -> implementer chain is complete. In mythos.delegate.result.v1, ok is true only when BOTH conditions hold: the relay reported the terminal status exactly \"completed\" AND raw.exitCode === 0 (lib/delegate.js:294). No file was modified, nothing was committed, and no shell command was executed; the OTHMODE record was not mutated because that would be a write outside the read-only profile.",
+    "tests": [
+      "report names the implementer the review lane resolves to: PASS (claude, via claude-delegate relay)",
+      "report states both conditions required for ok:true: PASS (status === 'completed' AND exitCode === 0)",
+      "no file in the repository modified: PASS (read-only tools only; working tree clean at 0aeea09e1b98)"
+    ],
+    "commit": null,
+    "remote_head": null,
+    "files_changed": [],
+    "residual_risks": [
+      "Lane resolution was verified by reading the vendor-owned config files, not by executing the vendor lane.mjs/config.mjs — a vendor-side override or untrusted-config fail-closed path would only surface at real dispatch time.",
+      "The global lane map lives outside Git (~/.config/delegate-skills/config.json) and is written by delegate-setup, so this finding is host-state, not repo-state, and can change without a commit."
+    ],
+    "next_stage": "Bridge closes OTH-2026-01782 / GitHub Issue #250 from this report; a live end-to-end proof would require an actual read-only dispatch on the review lane (mythos-delegate dispatch --lane review), which this task's constraints excluded."
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "report names the implementer the review lane resolves to: PASS (claude, via claude-delegate relay)",
+    "report states both conditions required for ok:true: PASS (status === 'completed' AND exitCode === 0)",
+    "no file in the repository modified: PASS (read-only tools only; working tree clean at 0aeea09e1b98)"
+  ],
+  "validation": {
+    "git_verified": null,
+    "remote_head": "0aeea09e1b98d84948db84dcdcabf86f8263a24b",
+    "report_problems": [],
+    "required_checks": [
+      "The report names the implementer the review lane resolves to",
+      "The report states both conditions required for ok:true",
+      "No file in the repository is modified"
+    ]
+  },
+  "problems": [],
+  "risks": [
+    "Lane resolution was verified by reading the vendor-owned config files, not by executing the vendor lane.mjs/config.mjs — a vendor-side override or untrusted-config fail-closed path would only surface at real dispatch time.",
+    "The global lane map lives outside Git (~/.config/delegate-skills/config.json) and is written by delegate-setup, so this finding is host-state, not repo-state, and can change without a commit."
+  ],
+  "next_recommended_action": "Bridge closes OTH-2026-01782 / GitHub Issue #250 from this report; a live end-to-end proof would require an actual read-only dispatch on the review lane (mythos-delegate dispatch --lane review), which this task's constraints excluded.",
+  "completed_at": "2026-09-07T07:20:20.531Z",
+  "execution": {
+    "executor_task_id": "t-20260907065401-c3qr7x",
+    "othmode_task_id": "OTH-2026-01782",
+    "execution_profile": "repo-read",
+    "provider": "delegate",
+    "model": "default",
+    "model_requested": null,
+    "model_source": "none",
+    "action_source": "explicit_current_issue",
+    "action_raw": "review",
+    "attempt_id": "gh-issue-250#1",
+    "fence": 13248,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:361277",
+      "fence": 13248,
+      "acquired_at": "2026-09-07T06:54:01.210Z",
+      "expires_at": "2026-09-07T08:24:01.210Z"
+    },
+    "snapshot_sha256": "f2ff51588e8311bd89415cee3540b966661cbf7876aca9bdae8f4afb3e00604e",
+    "model_selection_mode": null,
+    "model_selection_reason": null,
+    "claude_session_id": "2767db0e-ad54-4d12-b752-4d10cde1b09f",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-07T07:18:30.204Z",
+    "ended_at": "2026-09-07T07:19:24.703Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": null,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-250",
+    "branch": "mythos/gh/gh-issue-250",
+    "base_commit": "0aeea09e1b98d84948db84dcdcabf86f8263a24b",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-250",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
