@@ -81,6 +81,102 @@ function validateReport(report) {
   return problems;
 }
 
+// Report VALIDITY as an explicit predicate, separate from execution state.
+// These are two different questions and used to be conflated: a provider
+// process can exit 0 having produced a report that does not satisfy the
+// contract, and that is not a clean mission (gh-2026-09-07: COMPLETED with
+// "Result Summary: <not available>" and report_problems "missing field:
+// summary"). Callers must be able to ask "is this report usable?" without
+// re-deriving it from a problems array.
+function isValidReport(report) {
+  return validateReport(report).length === 0;
+}
+
+// The longest useful prose the provider actually wrote, with every fenced
+// block removed FIRST so a report block can never become its own summary.
+// This recovers the provider's OWN words; it never invents content, and
+// returns null when there is nothing to recover.
+var MAX_DERIVED_SUMMARY = 2000;
+
+function deriveSummary(text) {
+  if (typeof text !== 'string' || !text.trim()) return null;
+  var stripped = text
+    // fenced blocks (the mythos_report block among them)
+    .replace(/```[\s\S]*?```/g, ' ')
+    // an unterminated trailing fence
+    .replace(/```[\s\S]*$/, ' ')
+    // a bare JSON object that made up the whole message
+    .replace(/^\s*\{[\s\S]*\}\s*$/, ' ');
+  // Keep the first non-empty paragraph: it is the provider's own opening
+  // statement of what it did, which is what a summary is.
+  var paragraphs = stripped.split(/\n\s*\n/)
+    .map(function (b) { return b.replace(/\s+/g, ' ').trim(); })
+    .filter(function (b) { return b.length > 0; });
+  if (!paragraphs.length) return null;
+  // Skip markdown headings/list bullets used as decoration only.
+  var summary = paragraphs.map(function (b) {
+    return b.replace(/^#{1,6}\s*/, '').replace(/^[-*+]\s+/, '').trim();
+  }).filter(function (b) { return b.length > 0; })[0];
+  if (!summary) return null;
+  if (summary.length > MAX_DERIVED_SUMMARY) {
+    summary = summary.slice(0, MAX_DERIVED_SUMMARY - 1).replace(/\s+\S*$/, '') + '…';
+  }
+  return summary || null;
+}
+
+// Normalises one provider report against the contract.
+//
+// The rule: a MISSING summary is repairable from the provider's own final
+// text, and only from there. Everything else about the report is left
+// exactly as the provider wrote it. A report that is already valid is
+// returned untouched, attributed to the provider.
+//
+// Returns:
+//   report         the (possibly repaired) report object — never mutated in place
+//   valid          does it satisfy the contract NOW
+//   normalized     was anything repaired
+//   problems       the ORIGINAL contract violations, always preserved
+//   summary_source 'provider' | 'derived_from_text' | null
+function normalize(input) {
+  input = input || {};
+  var report = input.report || null;
+  var text = typeof input.text === 'string' ? input.text : '';
+  if (!report || typeof report !== 'object') {
+    return { report: null, valid: false, normalized: false,
+      problems: ['report is not an object'], summary_source: null };
+  }
+  var problems = validateReport(report);
+  if (!problems.length) {
+    return { report: report, valid: true, normalized: false, problems: [], summary_source: 'provider' };
+  }
+  // Only the summary is recoverable. An invalid status is the provider
+  // asserting something outside the vocabulary — repairing that would be
+  // inventing a decision, so it stays invalid.
+  var missingSummary = problems.indexOf('missing field: summary') !== -1;
+  var otherProblems = problems.filter(function (x) { return x !== 'missing field: summary'; });
+  if (!missingSummary || otherProblems.length) {
+    return { report: report, valid: false, normalized: false, problems: problems, summary_source: null };
+  }
+  var derived = deriveSummary(text);
+  if (!derived) {
+    // Nothing the provider said can serve as a summary. Do NOT fabricate
+    // one: the report stays invalid and the mission does not land green.
+    return { report: report, valid: false, normalized: false, problems: problems, summary_source: null };
+  }
+  var repaired = Object.assign({}, report, {
+    summary: derived,
+    summary_source: 'derived_from_text',
+    summary_derived: true
+  });
+  return {
+    report: repaired,
+    valid: isValidReport(repaired),
+    normalized: true,
+    problems: problems,
+    summary_source: 'derived_from_text'
+  };
+}
+
 // Human-readable execution report (mission §16 field list).
 function renderMarkdown(task, status, report, extras) {
   extras = extras || {};
@@ -104,7 +200,20 @@ function renderMarkdown(task, status, report, extras) {
   lines.push('| Remote HEAD | ' + (extras.remote_head ? '`' + extras.remote_head + '`' : '—') + ' |');
   lines.push('| Git verified | ' + (extras.git_verified === undefined ? '—' : String(extras.git_verified)) + ' |');
   lines.push('');
-  lines.push('**Summary:** ' + (r.summary || '(no structured report was produced)'));
+  // Three distinct states, never collapsed: no report at all, a report
+  // that carries no usable summary, and a real summary. The old single
+  // fallback claimed "no structured report was produced" even when one
+  // was produced and merely lacked a summary — a misleading report about
+  // a misleading report.
+  var summaryLine;
+  if (r.summary) summaryLine = String(r.summary);
+  else if (report) summaryLine = '(the provider produced a report but no usable summary, and none could be recovered from its output)';
+  else summaryLine = '(no structured report was produced)';
+  lines.push('**Summary:** ' + summaryLine);
+  if (r.summary_source === 'derived_from_text') {
+    lines.push('');
+    lines.push('> The summary above was recovered from the provider\'s own final message because its report block carried none. It is the provider\'s wording, not a generated one.');
+  }
   lines.push('');
   if (Array.isArray(r.tests) && r.tests.length) {
     lines.push('**Tests:**');
@@ -183,6 +292,9 @@ module.exports = {
   extractReport: extractReport,
   synthesize: synthesize,
   validateReport: validateReport,
+  isValidReport: isValidReport,
+  deriveSummary: deriveSummary,
+  normalize: normalize,
   renderMarkdown: renderMarkdown,
   VALID_REPORT_STATUS: VALID_REPORT_STATUS
 };

@@ -693,17 +693,38 @@ function procStartTicks(pid) {
 function handleSuccess(task, taskId, outcome, parsed) {
   var resultText = typeof parsed.result === 'string' ? parsed.result : JSON.stringify(parsed.result);
   var extracted = reporting.extractReport(resultText);
-  var problems = extracted.report ? reporting.validateReport(extracted.report) : [extracted.error];
-  var report = extracted.report;
+
+  // Execution success and report validity are TWO questions. The provider
+  // process exited 0 (that is why we are here); whether what it wrote
+  // satisfies the report contract is decided separately, and a failure
+  // here is not allowed to pass as a clean mission (gh-2026-09-07).
+  //
+  // A missing summary is repaired from the provider's OWN final text when
+  // there is any — never invented. When there is nothing to recover, the
+  // report stays invalid and the task lands BLOCKED for review.
+  var norm = reporting.normalize({ report: extracted.report, text: resultText });
+  var report = norm.report;
+  var reportValid = extracted.report ? norm.valid : false;
+  var problems = extracted.report ? norm.problems.slice() : [extracted.error];
 
   var extras = verifyGit(task, report);
   if (extras.problem) problems.push(extras.problem);
   extras.report_problems = problems.filter(Boolean);
+  extras.report_valid = reportValid;
+  extras.summary_source = extracted.report ? norm.summary_source : null;
 
   var finalState = 'COMPLETED';
   var nextAction = report && report.next_stage ? String(report.next_stage) : 'review report';
   if (report && report.status === 'failed') { finalState = 'FAILED'; nextAction = 'inspect failure report'; }
   if (report && report.status === 'blocked') { finalState = 'BLOCKED'; nextAction = 'owner decision required: ' + (report.summary || ''); }
+  // A report the contract cannot accept is not a completion, however the
+  // provider exited. It lands BLOCKED for review rather than silently
+  // green with an unusable report behind it.
+  if (extracted.report && !reportValid && finalState === 'COMPLETED') {
+    finalState = 'BLOCKED';
+    nextAction = 'the provider report does not satisfy the contract (' +
+      norm.problems.join('; ') + ') and no summary could be recovered from its output — review stdout.log';
+  }
   // A "successful" run that produced no usable report is not a clean
   // completion — it lands BLOCKED for review rather than silently green.
   // The reason names the exact failure shape (extractReport's diagnosis),
@@ -722,6 +743,16 @@ function handleSuccess(task, taskId, outcome, parsed) {
     blocker = engine.blocker('PROVIDER_FAILED', { reason: String(report.summary || '').slice(0, 800), task_id: taskId, attempt_id: task.attempt_id || null });
   } else if (!report) {
     blocker = engine.blocker('NO_STRUCTURED_REPORT', { reason: extracted.error || 'unknown reason', task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
+  } else if (!reportValid) {
+    // The block exists but does not satisfy the contract — a different
+    // diagnosis from "no report at all", and reported as its own code.
+    blocker = engine.blocker(engine.BLOCKER_CODES.REPORT_INVALID, {
+      reason: 'the provider report is missing required content: ' + norm.problems.join('; ') +
+        '. No summary could be recovered from the provider\'s output.',
+      task_id: taskId, attempt_id: task.attempt_id || null,
+      requested_action: task.task_category || null,
+      execution_profile: task.execution_profile || null, model: task.model || null
+    });
   }
   var structured = report ? Object.assign({}, report, { task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, action_raw: task.action_raw || null, action_source: task.action_source || null, execution_profile: task.execution_profile || null, model: task.model || null, branch: task.branch || null, blocker: blocker })
     : reporting.synthesize({ status: 'blocked', task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, action_raw: task.action_raw || null, action_source: task.action_source || null,
@@ -739,6 +770,12 @@ function handleSuccess(task, taskId, outcome, parsed) {
 
   state.writeJSON(taskId, 'report.json', {
     task_id: taskId, report: report, structured: structured, blocker: blocker, problems: extras.report_problems,
+    // Execution state lives in status.json; THIS is whether the report
+    // itself satisfies the contract. A consumer must be able to tell a
+    // completed mission with a usable report from a completed process
+    // with an unusable one.
+    report_valid: reportValid,
+    summary_source: extras.summary_source,
     git: extras, provider_result_tail: tailOf(resultText, 4000)
   });
   var md = reporting.renderMarkdown(task, status, report || structured, extras);

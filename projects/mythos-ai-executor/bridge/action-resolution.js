@@ -96,6 +96,10 @@ var BLOCKER_CODES = {
   RUNTIME_IDENTITY_UNVERIFIED: 'RUNTIME_IDENTITY_UNVERIFIED',
   STALE_WORKER: 'STALE_WORKER',
   NO_STRUCTURED_REPORT: 'NO_STRUCTURED_REPORT',
+  // The provider DID emit a report block, but it does not satisfy the
+  // contract (e.g. no summary, and none recoverable from its output).
+  // Distinct from NO_STRUCTURED_REPORT so the two are diagnosable apart.
+  REPORT_INVALID: 'REPORT_INVALID',
   PROVIDER_BLOCKED: 'PROVIDER_BLOCKED',
   PROVIDER_FAILED: 'PROVIDER_FAILED'
 };
