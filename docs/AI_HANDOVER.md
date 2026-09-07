@@ -2,6 +2,20 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-07 — LOGIN ACCOUNT DISCOVERY & FIRST-USE READINESS: **LOGIN_READY_WITH_MANUAL_CREDENTIAL_STEP** (Sonnet 5, 22:43–22:54 UTC)
+
+Read-only investigation, no secrets exposed, no database write. Determines the intended production login account for `https://erp.mythosprod.xyz`.
+
+| Item | Finding |
+|---|---|
+| User store | `mythos_erp.users` (Postgres), login identifier is `email` (citext, unique). Auth: `POST /api/v1/auth/login`, password verified via `lib/password.js` (scrypt/argon2id per the `users_algo_known` check constraint). No self-service reset route is mounted; no bootstrap/seed script exists in the repo — the account was provisioned by a direct, one-off operator action. |
+| Intended admin account | **`othmanhaddad@gmail.com`** (display name "othoth"), sole member of tenant `mythos` ("Mythos Prod"), role **`super_admin`**, `is_active=true`, not locked, `must_change_password=false`. `last_login_at = 2026-09-05T17:43:57Z` — a real successful login is on record, so a working password already existed before this check. **No reset was performed** — Phase 3's own gate ("only if no usable credential exists") does not apply here. |
+| Safe reset procedure (documented, not executed) | If the password is ever genuinely lost: reuse `lib/password.js`'s existing `hash()` (same parameters `verify()` already checks) in a one-off script to produce a new hash, then `UPDATE users SET password_hash=…, password_algo=…, must_change_password=true, failed_attempts=0 WHERE id=…` as `erp_owner` — touching only those four columns on that one row. No new mechanism invented, no role/tenant/business-table change. |
+| Incidental finding | `erp-api` was found `failed` (`Result=oom-kill`, `NRestarts=8`) at the start of this check, from a host-wide OOM wave at 22:43:41 UTC unrelated to ERP (killed a `mythos-wp` process and a concurrent, unrelated root Claude Code session's `ccd-cli`, ~901 MB RSS). Host had already calmed (load 1-min 1.44, memory/CPU PSI `avg10`/`avg60` back to 0.00, `avg300` still decaying) — recovered with a single `reset-failed`+`start`, no retry loop. `erp-api` now `active`/`Result=success`/`NRestarts=0`, `code_identity.head` matches the current checkout HEAD. Public URL confirmed serving again (`/` → 200, `/api/v1/session` unauth → 401). |
+| OTHKM | 3 non-secret observations (user-store location, intended admin account + role, documented reset procedure) proposed into staging `/home/deploy/othk-staging/erp-auth-discovery-20260907` via the existing propose→staging workflow — **not yet promoted to canonical**, pending an explicit promote instruction as in the prior 2026-09-07 entry. Zero secrets, hashes, or tokens recorded anywhere. |
+
+**LOGIN_READY_WITH_MANUAL_CREDENTIAL_STEP.** The system is fully functional and the correct account is identified; only the operator can supply the already-existing password for `othmanhaddad@gmail.com`, since it is stored one-way (hashed) and was never visible to this session.
+
 ## 2026-09-07 — PUBLIC URL / NGINX 403 FINAL FIX: **PUBLIC_URL_FIXED** (Sonnet 5, 06:47–06:52 UTC)
 
 `https://erp.mythosprod.xyz` returned `403 Forbidden`. Root cause and fix, host-level only — no ERP application code, schema, data, or migration touched.
