@@ -1644,3 +1644,48 @@ runs on explicit request. Path: GitHub Issue → bridge → executor, not rebuil
 | Diff hygiene | `git status --short`, `git diff --check`, and `git diff --stat` clean before this documentation update |
 | Issue #180 | **OPEN** — production integration verification remains outstanding |
 | Next step | Commit and push this reconciliation/handover update after final diff review |
+
+## 2026-09-07 — MYTHOS V1: DEPLOYMENT + LIVE VERIFICATION CLOSED — **V1 VERIFIED**
+
+The V1 deployment and verification cycle is now closed.
+
+### Live proof
+
+GitHub Issue #250 was created through OTHMODE work intake with `Lane: review` and successfully completed through the live chain:
+
+`OTHMODE → GitHub Issue → Bridge → Executor → provider: delegate → review lane → claude-delegate → Claude implementer → report`
+
+The task completed successfully as `gh-issue-250` / executor task `t-20260907065401-c3qr7x`.
+
+The review lane resolved to `claude` through `claude-delegate`. The result contract requires both terminal status `completed` and `raw.exitCode === 0` for `ok:true`.
+
+### V1 verification tests
+
+| Test | Result |
+|---|---:|
+| `mythos-v1-lane-routing-test.js` | 57 passed, 0 failed |
+| `othmode-work-intake-test.js` | 35 passed, 0 failed |
+| `mythos-delegate-test.js` | 68 passed, 0 failed |
+| `bridge-action-resolution-test.js` | 88 passed, 0 failed |
+| `mythos-github-bridge-test.js` | 150 passed, 0 failed |
+| `mythos-ai-executor-test.js` | 390 passed, 0 failed |
+| `mythos-github-issues-test.js` | 208 passed, 0 failed |
+
+**Total: 996 passed, 0 failed.**
+
+### Deployment verification
+
+- Permanent production worktree: `/home/deploy/projects/mythos-prod`
+- Branch: `main`
+- Pre-closure HEAD: `e27b44b0b2055f9029c65f86dec6cbe54118b04b`
+- Live Issue #250: completed
+- Nginx/status deployment: verified
+- Bridge/executor deployment: verified through live Issue execution
+- No credentials printed or exposed during the intake proof
+- Four unrelated OTHKM migration files remain untracked and were deliberately excluded from this V1 closure
+
+### V1 status
+
+**MYTHOS V1 = 100% VERIFIED.**
+
+Next stage: V2 work begins from the verified V1 baseline.
