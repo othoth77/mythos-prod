@@ -17,7 +17,7 @@
     "The report states both conditions required for ok:true",
     "No file in the repository is modified"
   ],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-07T06:48:59.718Z",
   "created_by": "github-issue:othoth77",
   "lane": "review",
@@ -154,8 +154,8 @@
     "claimed_at": "2026-09-07T06:54:01.210Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "aef1f493202dcf8f1d64290d57ec0fb915eaeca0d0c0fe88d9e9d28b8ce744f8",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-07T06:54:01.211Z",
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-07T07:19:00.041Z",
     "snapshot_sha256": "f2ff51588e8311bd89415cee3540b966661cbf7876aca9bdae8f4afb3e00604e",
     "fence": 13248,
     "lease": {
@@ -183,7 +183,8 @@
       "measured_at": "2026-09-07T06:54:00.467Z"
     },
     "model": null,
-    "model_selection_mode": null
+    "model_selection_mode": null,
+    "claude_session_id": null
   },
   "history": [
     {
@@ -192,6 +193,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260907065401-c3qr7x queued; OTHMODE OTH-2026-01782; action review (explicit_current_issue) → repo-read; model auto; fence 13248"
+    },
+    {
+      "at": "2026-09-07T07:19:00.041Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
