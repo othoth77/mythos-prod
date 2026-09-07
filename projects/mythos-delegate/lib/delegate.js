@@ -279,7 +279,8 @@ function normalizeResult(raw, context) {
   return {
     schema: 'mythos.delegate.result.v1',
     vendor_schema: vendorSchema,
-    lane: ctx.lane || null,
+    lane: (raw && raw.lane) || ctx.lane || null,
+    lane_source: (raw && raw.laneSource) || null,
     implementer: (raw && raw.tool) || ctx.implementer || null,
     repo: ctx.repo || null,
     status: status,
@@ -295,9 +296,20 @@ function normalizeResult(raw, context) {
     // This is the whole final tree, not attribution — callers must review.
     touched_files: raw && Object.prototype.hasOwnProperty.call(raw, 'touchedFiles')
       ? raw.touchedFiles : null,
-    read_only: ctx.readOnly === true,
+    // The vendor is the authority on whether the run was actually
+    // read-only: a lane's `readOnly` dial enables it without any flag
+    // from us, so trusting only our own request would report a
+    // safety-relevant field as false on exactly the runs that were
+    // restricted. Fall back to the request only when the vendor is silent.
+    read_only: raw && typeof raw.readOnly === 'boolean' ? raw.readOnly : ctx.readOnly === true,
     read_only_violation: raw && Object.prototype.hasOwnProperty.call(raw, 'readOnlyViolation')
       ? raw.readOnlyViolation : null,
+    // Promoted so a caller can act on a failure without re-parsing vendor
+    // internals. `timeout` is the deadline that was in force, not a status.
+    timeout: (raw && raw.timeout) || null,
+    error: (raw && raw.error) || null,
+    stderr_tail: raw && Array.isArray(raw.stderrTail) && raw.stderrTail.length
+      ? raw.stderrTail : null,
     artifacts_dir: ctx.outDir || null,
     started_at: ctx.startedAt || null,
     finished_at: new Date().toISOString(),

@@ -177,6 +177,46 @@ var roUnknown = delegate.normalizeResult({
 }, { readOnly: true });
 ok(roUnknown.read_only_violation === null, 'readOnlyViolation null (incomplete coverage) stays null, not false');
 
+console.log('\n§4b read-only authority — the vendor decides, not our request');
+
+// Regression: a lane's `readOnly` dial enables read-only WITHOUT any flag
+// from us. Reporting our own request here marked a genuinely restricted
+// run as read_only:false — a safety-relevant field, wrong in the one
+// direction that matters. Observed live on 2026-09-06 (lane `review`,
+// vendor permissionMode `plan`, toolSurface Read/Glob/Grep).
+var laneReadOnly = delegate.normalizeResult({
+  schema: 'delegate-relay.result.v1', tool: 'claude', status: 'timeout', exitCode: 143,
+  readOnly: true, readOnlyViolation: false, permissionMode: 'plan',
+  lane: 'review', laneSource: 'global', timeout: '20m',
+  error: 'claude did not finish within --timeout 20m; killed by the relay watchdog'
+}, { lane: 'review', implementer: 'claude', readOnly: false });
+
+ok(laneReadOnly.read_only === true,
+  'a lane-enabled read-only run reports read_only:true even when we passed no flag');
+ok(laneReadOnly.lane === 'review' && laneReadOnly.lane_source === 'global',
+  'the vendor-resolved lane and its source are carried');
+ok(laneReadOnly.status === 'timeout' && laneReadOnly.terminal === true && laneReadOnly.ok === false,
+  'a watchdog timeout is terminal and is NOT a success');
+ok(laneReadOnly.timeout === '20m', 'the deadline in force is promoted');
+ok(/watchdog/.test(laneReadOnly.error || ''), 'the vendor error is promoted for failure recovery');
+
+var noVendorReadOnly = delegate.normalizeResult({
+  schema: 'delegate-relay.result.v1', tool: 'codex', status: 'completed', exitCode: 0
+}, { readOnly: true });
+ok(noVendorReadOnly.read_only === true,
+  'when the vendor is silent about readOnly, our own request is used as the fallback');
+
+var writeRun = delegate.normalizeResult({
+  schema: 'delegate-relay.result.v1', tool: 'codex', status: 'completed', exitCode: 0, readOnly: false
+}, { readOnly: true });
+ok(writeRun.read_only === false,
+  'the vendor overrides our request in BOTH directions — a write run is never reported read-only');
+
+var noTail = delegate.normalizeResult({
+  schema: 'delegate-relay.result.v1', tool: 'claude', status: 'failed', exitCode: 1, stderrTail: []
+}, {});
+ok(noTail.stderr_tail === null, 'an empty stderrTail is reported as null, not an empty array');
+
 console.log('\n§5 dispatch input guards');
 
 var cfg = { enabled: true, vendorRoot: '/x', artifactsRoot: '/y' };
