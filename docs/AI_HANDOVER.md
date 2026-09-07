@@ -2,6 +2,85 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-07 — MISSION REPORT CONTRACT FIX (Opus 5) — **COMMITTED + PUSHED, NOT DEPLOYED**
+
+A production mission finished `COMPLETED` while its Mission Report was unusable:
+
+```
+Status: COMPLETED          report_status: completed
+Result Summary: <not available>
+Test Results: <not available>       report_problems: missing field: summary
+```
+
+### Root cause
+
+**Report validity was computed and then discarded.** `executor.js handleSuccess` called `reporting.validateReport()` and stored the result as `report_problems`, but nothing ever read it. The only paths that downgraded `finalState` from `COMPLETED` were an explicit `failed`/`blocked` status, or **no** report block at all. A block that WAS present, declared `"status": "completed"` and simply omitted `summary` therefore passed straight through as a clean mission. `structured` was built by spreading that object, so it had no summary either; the bridge copied `report.summary` (undefined) into the control report and the OS Console rendered its (correct) `<not available>` placeholder.
+
+Two contributing defects: there was **no recovery path** — `extractReport` is all-or-nothing on the JSON block, so the provider's own prose was never used; and `renderMarkdown` printed `(no structured report was produced)` whenever `summary` was falsy, which was false here — a report *was* produced.
+
+### What changed
+
+| File | Change |
+|---|---|
+| `projects/mythos-ai-executor/lib/report.js` | `isValidReport()` makes validity an explicit predicate; `deriveSummary()` recovers a summary from the provider's OWN final text with fenced blocks stripped FIRST (so a report block can never become its own summary); `normalize()` repairs **only** a missing summary and **only** from real text; markdown fallback now distinguishes three states |
+| `projects/mythos-ai-executor/executor.js` | validity now governs the outcome; persists `report_valid` and `summary_source` in `report.json` |
+| `projects/mythos-ai-executor/bridge/action-resolution.js` | new `REPORT_INVALID` blocker code, distinct from `NO_STRUCTURED_REPORT` |
+| `tests/mission-report-contract-test.js` | new — 49 assertions |
+| `tests/support/report-harness.js` | new — offline executor harness |
+
+**Execution COMPLETED and report VALID are now separate.** A completed execution no longer implies a valid report. Nothing is fabricated: no recoverable text ⇒ the report stays INVALID and the task lands `BLOCKED` under `REPORT_INVALID`. An out-of-vocabulary `status` is not repaired either — that would be inventing a decision.
+
+### Before vs after (same production input, reproduced offline)
+
+| | Before | After |
+|---|---|---|
+| executor state | `COMPLETED` | `COMPLETED` (execution genuinely succeeded) |
+| `report_valid` | did not exist | `true` |
+| `summary_source` | did not exist | `derived_from_text` |
+| `problems` | `["missing field: summary"]` | `["missing field: summary"]` (preserved) |
+| `structured.summary` | `undefined` → `<not available>` | the provider's own opening sentences |
+| `report.md` | `(no structured report was produced)` | the recovered summary + a note that it was recovered |
+
+The case that used to go silently green — report present, no summary, nothing recoverable — now lands `BLOCKED` / `report_valid: false`.
+
+### Tests
+
+| Suite | Result |
+|---|---|
+| `mission-report-contract-test.js` (new, targeted) | **49 passed, 0 failed** |
+| `mythos-ai-executor-test.js` | 390 passed, 0 failed |
+| `bridge-action-resolution-test.js` | 88 passed, 0 failed |
+| `mythos-github-bridge-test.js` | 150 passed, 0 failed |
+| `mythos-lifecycle-test.js` | 254 passed, 0 failed |
+| `mythos-github-issues-test.js` | 208 passed, 0 failed |
+| `mythos-bridge-whatsapp-notify-test.js` | 131 passed, 0 failed |
+| `mythos-telegram-channel-test.js` | 68 passed, 0 failed |
+
+The reproduction was confirmed **failing before** the fix, not only passing after.
+
+### Delivery
+
+| | |
+|---|---|
+| Branch | `fix/mission-report-summary-20260907` |
+| Commit | `2fdc2aaa95ea0d316b61fd981dde231788d9ef81` |
+| Remote HEAD (branch) | `2fdc2aaa95ea0d316b61fd981dde231788d9ef81` |
+| `origin/main` | `f0880bc15753` — **unchanged, not merged, not deployed** |
+| Worktree | `/home/deploy/worktrees/report-fix` (kept) |
+
+**NOT DEPLOYED.** The running executor still has the old behaviour. Merging and restarting are separate, owner-gated steps.
+
+### Notes for the next session
+
+- `remote.origin.pushurl` on the shared checkout is now **HTTPS**, which breaks `deploy`'s push path (`could not read Username`). It was SSH earlier the same day. This push used an explicit `git@github.com:` URL with `GIT_SSH_COMMAND` rather than mutating shared config. Worth reconciling.
+- The originating mission is **not** retroactively fixed — its `report.json` still lacks a summary. A rerun would now produce a valid report.
+- `tests/mythos-github-issues-test.js` remains flaky on this host (queue-drain timing); it passed here.
+
+### Next stage
+
+**V2 integration verification** — verify the contract end to end against the live bridge/OS Console path (control report → `outcome.summary` → mission report render), then merge and deploy.
+
+
 ## 2026-09-07 — PUBLIC URL / NGINX 403 FINAL FIX: **PUBLIC_URL_FIXED** (Sonnet 5, 06:47–06:52 UTC)
 
 `https://erp.mythosprod.xyz` returned `403 Forbidden`. Root cause and fix, host-level only — no ERP application code, schema, data, or migration touched.
