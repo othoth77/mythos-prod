@@ -2,6 +2,78 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-07 — MYTHOS V1: BOTH REMAINING EDGES WIRED (Opus 5, 06:00–07:00 UTC) — **V1 CODE-COMPLETE, DEPLOYMENT OWNER-GATED**
+
+The previous entry left two gaps. Both are now closed in code, tested, and pushed. Nothing here is deployed: every deployment step is owner-gated and listed at the end.
+
+### Edge 1 — the bridge routes through delegate-skills
+
+An Issue may now name `Lane: <name>`; that task runs through the delegation boundary instead of the executor's own Claude provider. An Issue with **no** Lane is completely unchanged.
+
+```text
+Issue `Lane: tests` → action-resolution → task.lane → provider `delegate` → that lane's implementer CLI
+```
+
+A lane is deliberately the same KIND of choice as `Model` (Issue #100): a server-side catalog entry, **never silently substituted**, granting **no authority** — `execution_profile` still comes from `Action`. Refusals happen before anything is spawned: `LANE_INVALID`, `LANE_MISSING`, `LANE_NOT_APPLICABLE` (createTask), `LANE_UNAVAILABLE` and `LANE_PROFILE_MISMATCH` (a read-only lane cannot deliver a commit).
+
+Files: `providers/delegate.js` (new, second execution-authority provider), `executor.js` (registration + pairing guards), `bridge/action-resolution.js` + `bridge/github-issues.js` (`Lane` scalar, Arabic aliases), `bridge/github-bridge.js` (provider chosen once, lane gated on it), **both** task schemas (they are `additionalProperties:false`, so an undeclared `lane` would have been rejected outright).
+
+`lib/delegate.js` gained `dispatchAsync` beside `dispatch`, sharing one `prepareDispatch`/`readDispatchResult` pair. **This mattered:** the executor daemon runs a queue, so the original synchronous spawn would have blocked every other task for a whole implementer run. Also added `--session` resume so rework continues the same conversation.
+
+### Edge 2 — OTHMODE opens the Issue
+
+`POST /api/othmode/work` turns a request into an Issue labelled `task`; `GET /api/othmode/work` reports whether intake is available, so the UI never offers an action the server would refuse. No second task abstraction: the Issue is the record, and the bridge already reports back onto it.
+
+Security: `repository` comes from a **server-side allowlist with no default**; `action` is one of the five closed actions; the token is read from an env-given path and never logged, returned, or written into the Issue; the routes layer's secret scan now also covers `objective`, `context`, `acceptance` and `constraints`, because those go straight into a public Issue body.
+
+The contract test does **not** match the body against a hand-written regex — it feeds the body OTHMODE writes to the real `bridge/action-resolution.js` and asserts the engine extracts the intended Action/Lane/Priority. If either side drifts, it fails.
+
+### Two bugs the tests caught during this work
+
+1. **`[object Object]` lanes.** The bridge read `firstField`'s `{raw, form, line}` object as a string, so every lane stringified to `[object Object]`, failed the name pattern and was silently dropped — the exact misuse `action-resolution.js` was written to end (gh-issue-111/114/117/118). Now read through `scalar()`, with a regression test.
+2. **A provider probe that took minutes.** `providers/delegate.js` `version()` originally ran full CLI discovery: >2 minutes, then timed out to `null` — which reads as "unavailable" for a layer that is perfectly available. It is now a cheap file read. Discovery belongs in the operator CLI.
+
+### Tests
+
+| Suite | Result |
+|---|---|
+| `mythos-v1-lane-routing-test.js` (new) | **55 passed, 0 failed** |
+| `othmode-work-intake-test.js` (new) | **35 passed, 0 failed** |
+| `mythos-delegate-test.js` | 68 passed, 0 failed |
+| `bridge-action-resolution-test.js` | 88 passed, 0 failed |
+| `mythos-github-bridge-test.js` | 150 passed, 0 failed |
+| `mythos-ai-executor-test.js` | 390 passed, 0 failed |
+| `mythos-github-issues-test.js` | 208 passed — **but see the flake below** |
+
+### `mythos-github-issues-test.js` is flaky AT ORIGIN/MAIN — not a regression
+
+One run on this branch reported `207 passed, 1 failed` (`concurrent: exactly one "created" comment on the Issue`). Rather than assume, this was baselined: a **clean detached worktree at `origin/main` (b336b24), with none of this work in it**, failed **2 of 4 runs**, each in a *different* place:
+
+- `rerun/setup: executor queue drained so #20 attempt 1 can finish`
+- `tick5: executor queue drained before the failure fixtures (deterministic order)`
+
+All are queue-drain timing assertions, never assertion logic. The host regularly sits at load 20–35, where a trivial `node -e "0"` takes 30+ seconds. **A single failure in this suite is not evidence that a change broke it** — re-run 3–4 times, and baseline at `origin/main` before claiming a regression. Do not "fix" it by loosening an assertion.
+
+### What is NOT done — all owner-gated deployment, no code left
+
+1. **Nothing is deployed.** The bridge, executor and command-center on this host still run the previous code.
+2. **Work intake needs configuration** on the `mythos-command-center` unit: `MYTHOS_WORK_REPOS` (allowlist — no default, empty means disabled) and `MYTHOS_WORK_TOKEN_FILE` (needs Issues **write**). Then restart the unit. Note the previous handover's finding that the host PAT lacked Issues write — verify that before enabling.
+3. **Status surface** still needs the GET-only nginx proxy plus a file copy — `sites/status.mythosprod.xyz/DEPLOYMENT.md`.
+4. **No lane has been exercised through the real bridge on this host.** The chain is proven offline against the real parser and the real Issues adapter, and the delegation boundary itself was proven live yesterday with two real dispatches (one `completed`, one `timeout`). The first live Issue carrying `Lane:` will be the end-to-end proof.
+5. **Still no `opencode` lane** — its model discovery returns `failed`, and a `provider/model` identifier must not be invented.
+
+### Commits
+
+| Repo | Branch | Head |
+|---|---|---|
+| mythos-prod | `mythos/v1-integration-20260906` | `405415a` (+ this entry) |
+| mythos-os | `mythos/v1-workflow-docs-20260906` | `162584b` |
+
+### Next stage
+
+Deploy in this order, each verifiable on its own: (1) configure + restart command-center, and open one real Issue from OTHMODE; (2) restart the bridge/executor so `Lane:` is understood, and run one Issue with `Lane: review` (read-only, safest); (3) install the nginx proxy and copy the status files.
+
+
 ## 2026-09-07 — MYTHOS V1: DELEGATION LAYER INTEGRATED AND PROVEN LIVE (Opus 5, 21:00–00:40 UTC) — **V1 PARTIAL**
 
 V1 is *Rapid Integration & Activation*: connect what exists, do not rebuild. This session integrated the one genuinely missing layer — delegation — and proved it with a real implementer run. It did **not** wire OTHMODE task creation to GitHub Issues, and it did **not** deploy the status-surface change (owner-gated).

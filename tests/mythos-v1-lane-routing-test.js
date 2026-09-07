@@ -62,6 +62,52 @@ ok(/var laneRaw = scalar\(fields, 'lane'\);/.test(giSrc),
 
 ok(engine.FIELD_ALIASES.lane.indexOf('lane') !== -1, 'lane is a first-class scalar field');
 
+console.log('\n§1b end-to-end: an OTHMODE-written Issue body becomes a delegate-routed task');
+
+// The real chain, no stubs: the body OTHMODE would POST, through the real
+// Issues adapter, to a task the bridge would route. This is the assertion
+// that would have caught the "[object Object]" bug on its own.
+process.env.MYTHOS_ISSUES_REPO = process.env.MYTHOS_ISSUES_REPO || 'fixture-org/fixture-repo';
+var issues = require(path.join(BASE, 'projects', 'mythos-ai-executor', 'bridge', 'github-issues.js'));
+var work = require(path.join(BASE, 'projects', 'command-center', 'reference', 'othmode', 'work.js'));
+var issuesCfg = issues.config();
+var WCFG = { enabled: true, repos: ['othoth77/mythos-prod'], invalidRepos: [], tokenFile: '/x', label: 'task', apiHost: 'api.github.com' };
+
+function issueFrom(extra, n) {
+  var t = work.normalize(Object.assign({
+    repository: 'othoth77/mythos-prod', title: 'TASK: add a health probe',
+    objective: 'Add a /health endpoint to the widget service.',
+    action: 'implement', priority: 'high'
+  }, extra), WCFG);
+  return {
+    number: n, title: 'TASK: add a health probe', body: work.buildIssueBody(t, 'owner'),
+    html_url: 'https://example.invalid/' + n, user: { login: 'othoth77' }, labels: [{ name: 'task' }]
+  };
+}
+
+var withLane = issues.issueToTask(issuesCfg, issueFrom({ lane: 'feature' }, 9001), 1);
+ok(withLane.task && withLane.errors.length === 0,
+  'an OTHMODE-written body parses into a valid task (' + withLane.errors.join('; ') + ')');
+ok(withLane.task.requested_action === 'implement',
+  'the action OTHMODE asked for survives the round trip');
+ok(withLane.task.priority === 'high', 'and so does the priority');
+ok(withLane.task.lane === 'feature',
+  'and the lane lands on the task — not "[object Object]", not dropped');
+ok((withLane.task.lane ? 'delegate' : 'claude-code') === 'delegate',
+  'so the bridge routes this task to the delegate provider');
+
+var noLane = issues.issueToTask(issuesCfg, issueFrom({}, 9002), 1);
+ok(noLane.task && !noLane.task.lane, 'a body with no Lane yields a task with no lane');
+ok((noLane.task.lane ? 'delegate' : 'claude-code') === 'claude-code',
+  'which keeps the executor\'s own Claude provider — the default path is unchanged');
+
+var badLane = issues.issueToTask(issuesCfg, {
+  number: 9003, title: 'TASK: bad lane', body: 'Objective: do the thing properly.\n\nAction: implement\nLane: not a lane!\n',
+  html_url: 'u', user: { login: 'x' }, labels: [{ name: 'task' }]
+}, 1);
+ok(badLane.task && !badLane.task.lane, 'a malformed lane is dropped rather than passed through');
+ok(/lane: ignored/.test(badLane.task.notes || ''), 'and the task notes say it was ignored');
+
 console.log('\n§2 lane grants no authority — the action still decides the profile');
 
 // The whole point of the guard: a lane must not become a way to smuggle
