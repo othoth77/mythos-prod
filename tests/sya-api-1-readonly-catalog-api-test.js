@@ -358,6 +358,20 @@ function get(p) { return request('GET', p); }
   // =========================================================================
   // 13. SYA-API-3 — part categories (KG-2)
   // =========================================================================
+  console.log('\n12b. Malformed input is a client error, not a server fault');
+  // PRE-EXISTING before SYA-API-3: a NUL byte reached PostgreSQL, which refuses
+  // it inside a text value, and the driver error surfaced as 500 "internal
+  // error" — a malformed CLIENT input reported as a SERVER fault. 5xx alerting
+  // then fires on trivially malformed requests.
+  var NUL = '%00';
+  ok((await get('/api/products?q=a' + NUL + 'b')).status === 400, 'a control character in q is a 400, never a 500');
+  ok((await get('/api/products?brand=a' + NUL + 'b')).status === 400, 'a control character in brand is a 400');
+  ok((await get('/api/products?brand_car=a' + NUL + 'b')).status === 400, 'a control character in brand_car is a 400');
+  ok((await get('/api/products?category=a' + NUL + 'b')).status === 400, 'a control character in category is a 400');
+  ok((await get('/api/quotes?uids=a' + NUL + 'b')).status === 400, 'a control character in uids is a 400');
+  var stillWorks = await get('/api/products?q=filtre&limit=1');
+  ok(stillWorks.status === 200 && stillWorks.body.total > 0, 'ordinary text is unaffected by the control-character check');
+
   console.log('\n13. Part categories (SYA-API-3, KG-2)');
   var catsRes = await get('/api/part-categories');
   ok(catsRes.status === 200, 'GET /api/part-categories returns 200');
@@ -427,6 +441,31 @@ function get(p) { return request('GET', p); }
     encodeURIComponent(biggest.category_slug) + ',nexiste-pas');
   ok(mixedKnown.body.total === biggest.product_count,
      'an unknown slug alongside a known one contributes nothing rather than erroring');
+
+  // Slugs appear in URLs, and a URL gets lower-cased by hand, by a CMS or by a
+  // crawler. The catalogue holds one capitalised slug among 71 lower-case
+  // siblings; before this it matched exact-case only, so the lower-cased link
+  // returned nothing while the product existed.
+  var capitalised = cats.filter(function (c) { return c.category_slug !== c.category_slug.toLowerCase(); })[0];
+  if (capitalised) {
+    var exact = await get('/api/products?limit=1&category=' + encodeURIComponent(capitalised.category_slug));
+    var lowered = await get('/api/products?limit=1&category=' + encodeURIComponent(capitalised.category_slug.toLowerCase()));
+    ok(exact.body.total === capitalised.product_count, 'a capitalised slug matches in its own case');
+    ok(lowered.body.total === exact.body.total, 'the same slug lower-cased matches identically (case-insensitive, like brand_car)');
+  } else {
+    ok(true, 'no capitalised slug in the live catalogue to test case-insensitivity against');
+  }
+  var upperKnown = await get('/api/products?limit=1&category=' + encodeURIComponent(biggest.category_slug.toUpperCase()));
+  ok(upperKnown.body.total === biggest.product_count, 'an upper-cased known slug matches the facet count');
+
+  // Every category must agree with its own filtered list, not just the largest:
+  // a facet that disagrees anywhere is a facet nobody can trust.
+  var mismatches = 0;
+  for (var mi = 0; mi < cats.length; mi++) {
+    var one = await get('/api/products?limit=1&category=' + encodeURIComponent(cats[mi].category_slug));
+    if (one.body.total !== cats[mi].product_count) mismatches++;
+  }
+  ok(mismatches === 0, 'all ' + cats.length + ' categories agree with their filtered list');
 
   // Category composes with the other filters rather than replacing them.
   var combo = await get('/api/products?limit=1&category=' + encodeURIComponent(biggest.category_slug) + '&brand_car=SSANGYONG');

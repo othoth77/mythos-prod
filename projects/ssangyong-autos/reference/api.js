@@ -158,6 +158,25 @@ function toInt(value) {
 // and every SQL value is passed as a bound parameter, never interpolated.
 // ---------------------------------------------------------------------------
 
+// Reject text a database column cannot hold.
+//
+// PostgreSQL refuses NUL inside a text value, so a request carrying one raised
+// a driver error and surfaced as 500 "internal error" — a malformed CLIENT
+// input reported as a SERVER fault. That is wrong twice over: the caller cannot
+// tell it made a mistake, and 5xx monitoring fires on trivially malformed
+// requests.
+//
+// PRE-EXISTING since SYA-API-1: `q` and `brand` behave the same way on the
+// deployed service. This is the one deliberate behaviour change in SYA-API-3 —
+// 500 becomes 400 for input that was never answerable. Other control characters
+// are refused with it: none can appear in a slug, a reference or a uid.
+function assertClean(value, label) {
+  if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value)) {
+    throw badRequest(label + ' contains a control character');
+  }
+  return value;
+}
+
 function parsePositiveInt(raw, label) {
   if (/^\d+$/.test(raw) === false) throw badRequest(label + ' must be a non-negative integer');
   var n = parseInt(raw, 10);
@@ -173,7 +192,7 @@ function parseBrandCar(q) {
   var raw = String(q.brand_car).trim();
   if (raw === '') return null;
   if (raw.length > 64) throw badRequest('brand_car must be at most 64 characters');
-  return raw;
+  return assertClean(raw, 'brand_car');
 }
 
 // One or more part-category slugs. Bounded like every other client-controlled
@@ -190,10 +209,14 @@ function parseCategories(q) {
   if (parts.length > MAX_CATEGORIES) throw badRequest('category accepts at most ' + MAX_CATEGORIES + ' slugs');
   parts.forEach(function (c) {
     if (c.length > 128) throw badRequest('a category slug must be at most 128 characters');
+    assertClean(c, 'category');
   });
   var seen = Object.create(null);
   var unique = [];
-  parts.forEach(function (c) { if (!seen[c]) { seen[c] = true; unique.push(c); } });
+  parts.forEach(function (c) {
+    var key = c.toLowerCase();
+    if (!seen[key]) { seen[key] = true; unique.push(key); }
+  });
   return unique;
 }
 
@@ -395,13 +418,13 @@ async function getProducts(res, q) {
   var params = [];
 
   if (q.q !== undefined && String(q.q).trim() !== '') {
-    params.push('%' + String(q.q).trim() + '%');
+    params.push('%' + assertClean(String(q.q).trim(), 'q') + '%');
     var i = params.length;
     where.push('(p.product_title ILIKE $' + i + ' OR p.canonical_reference ILIKE $' + i +
                ' OR p.oem_reference ILIKE $' + i + ')');
   }
   if (q.brand !== undefined && String(q.brand).trim() !== '') {
-    params.push(String(q.brand).trim());
+    params.push(assertClean(String(q.brand).trim(), 'brand'));
     where.push('p.product_brand = $' + params.length);
   }
   if (q.model_id !== undefined) {
@@ -430,7 +453,13 @@ async function getProducts(res, q) {
   var categories = parseCategories(q);
   if (categories !== null) {
     params.push(categories);
-    where.push(PART_CATEGORY + ' = ANY($' + params.length + '::text[])');
+    // Matched case-insensitively, like brand_car. The catalogue contains one
+    // capitalised slug among 71 lower-case siblings, and a URL is routinely
+    // lower-cased by hand, by a CMS or by a crawler — so the exact-case form
+    // returned 1 product and the lower-cased form returned 0. Verified safe:
+    // 72 distinct slugs lower-case to 72 distinct values, so no two slugs can
+    // merge and the facet still agrees with the list.
+    where.push('lower(' + PART_CATEGORY + ') = ANY($' + params.length + '::text[])');
   }
   var brandCar = parseBrandCar(q);
   if (brandCar !== null) {
@@ -574,6 +603,7 @@ function parseQuoteUids(q) {
   }
   parts.forEach(function (u) {
     if (u.length > 128) throw badRequest('a product_uid must be at most 128 characters');
+    assertClean(u, 'uids');
   });
   // De-duplicate while preserving the caller's order, so asking for the same
   // uid twice is answered once rather than rejected or double-counted.
