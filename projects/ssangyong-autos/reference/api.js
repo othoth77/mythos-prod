@@ -176,6 +176,27 @@ function parseBrandCar(q) {
   return raw;
 }
 
+// One or more part-category slugs. Bounded like every other client-controlled
+// sizing parameter: 72 slugs exist today, and a caller wanting all of them
+// wants /api/products with no filter instead.
+var MAX_CATEGORIES = 40;
+
+function parseCategories(q) {
+  if (q === undefined || q.category === undefined) return null;
+  var raw = String(q.category).trim();
+  if (raw === '') return null;
+  var parts = raw.split(',').map(function (c) { return c.trim(); }).filter(function (c) { return c !== ''; });
+  if (parts.length === 0) return null;
+  if (parts.length > MAX_CATEGORIES) throw badRequest('category accepts at most ' + MAX_CATEGORIES + ' slugs');
+  parts.forEach(function (c) {
+    if (c.length > 128) throw badRequest('a category slug must be at most 128 characters');
+  });
+  var seen = Object.create(null);
+  var unique = [];
+  parts.forEach(function (c) { if (!seen[c]) { seen[c] = true; unique.push(c); } });
+  return unique;
+}
+
 function parsePaging(q) {
   var limit = DEFAULT_LIMIT;
   var offset = 0;
@@ -400,11 +421,16 @@ async function getProducts(res, q) {
   // Part category (SYA-API-3). Filters on the same derived expression the
   // facet counts, so /api/part-categories and /api/products?category= can never
   // disagree about how many products a category has.
-  if (q.category !== undefined && String(q.category).trim() !== '') {
-    var category = String(q.category).trim();
-    if (category.length > 128) throw badRequest('category must be at most 128 characters');
-    params.push(category);
-    where.push(PART_CATEGORY + ' = $' + params.length);
+  //
+  // Accepts a comma-separated LIST because a storefront's customer-facing
+  // groups span several source slugs — Piece.Autos' "Filtration" covers six of
+  // them — and rendering such a group one slug at a time would be up to
+  // fourteen requests for one page. The grouping stays the storefront's; the
+  // Kitchen only agrees to answer about several slugs at once.
+  var categories = parseCategories(q);
+  if (categories !== null) {
+    params.push(categories);
+    where.push(PART_CATEGORY + ' = ANY($' + params.length + '::text[])');
   }
   var brandCar = parseBrandCar(q);
   if (brandCar !== null) {
@@ -706,6 +732,7 @@ module.exports = {
   DEFAULT_LIMIT: DEFAULT_LIMIT,
   MAX_LIMIT: MAX_LIMIT,
   MAX_QUOTE_UIDS: MAX_QUOTE_UIDS,
+  MAX_CATEGORIES: MAX_CATEGORIES,
   SHOP_ASSETS: SHOP_ASSETS,
   SHOP_CSP: SHOP_CSP
 };

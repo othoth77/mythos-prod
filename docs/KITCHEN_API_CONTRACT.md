@@ -61,7 +61,7 @@ The **part**-manufacturer facet (BOSCH, ASHIKA) — distinct axis from `vehicle-
 | `brand` | exact part brand |
 | `model_id`, `motorization_id` | positive integers; `EXISTS` over fitment |
 | `brand_car` | Case-insensitive vehicle manufacturer, via the fitment edge |
-| `category` | **NEW (SYA-API-3).** Exact part-category slug; > 128 chars → `400`; empty is ignored; composes with every other filter |
+| `category` | **NEW (SYA-API-3).** One slug, or a comma-separated list (≤ 40, de-duplicated) returning their union. Empty is ignored; a slug > 128 chars or a list > 40 → `400`; an unknown slug contributes nothing rather than erroring. Composes with every other filter |
 | `limit` | 1–200, default 50; outside → `400` |
 | `offset` | ≥ 0; negative → `400` |
 
@@ -92,7 +92,9 @@ the live catalogue uses are reported, so **every category has at least one produ
 page can be generated.
 
 Slugs are returned raw. Grouping them into customer-facing families is presentation and belongs to
-each storefront (shared contract §12).
+each storefront (shared contract §12) — which is why `?category=` accepts a **list**: a storefront
+group spans several slugs (Piece.Autos' "Filtration" covers six), and rendering it one slug at a
+time would be up to fourteen requests for one page.
 
 ### `GET /api/quotes?uids=a,b,c` — **NEW (SYA-API-2, KG-3)**
 Price and availability for many products in one request, for cart/checkout revalidation.
@@ -133,7 +135,7 @@ No order, customer, cart, stock-quantity, supplier, purchase-price or part-categ
 
 ## 6. Tests
 
-`tests/sya-api-1-readonly-catalog-api-test.js` — **110 checks** (60 → 94 → 110). `tests/sya-shop-1-storefront-test.js` — **41 checks**, unchanged. Both run real HTTP against the live read-only catalog.
+`tests/sya-api-1-readonly-catalog-api-test.js` — **114 checks** (60 → 94 → 114). `tests/sya-shop-1-storefront-test.js` — **41 checks**, unchanged. Both run real HTTP against the live read-only catalog.
 
 ## 7. Versioning
 

@@ -406,6 +406,28 @@ function get(p) { return request('GET', p); }
   ok(cats.length < 390,
      'only categories the live catalogue actually uses are reported (' + cats.length + ', not the 390-slug frontier)');
 
+  // A storefront's customer-facing group spans several source slugs, so the
+  // filter takes a list: rendering such a group must not be N requests.
+  var twoBiggest = cats.slice().sort(function (a, b) { return b.product_count - a.product_count; }).slice(0, 3);
+  var multi = await get('/api/products?limit=1&category=' +
+    twoBiggest.map(function (c) { return encodeURIComponent(c.category_slug); }).join(','));
+  var expectedMulti = twoBiggest.reduce(function (n, c) { return n + c.product_count; }, 0);
+  ok(multi.body.total === expectedMulti,
+     'a comma-separated category list returns the union of those categories (' + expectedMulti + ')');
+
+  var dupCat = await get('/api/products?limit=1&category=' +
+    encodeURIComponent(biggest.category_slug) + ',' + encodeURIComponent(biggest.category_slug));
+  ok(dupCat.body.total === biggest.product_count, 'a repeated slug is not counted twice');
+
+  var tooManyCats = [];
+  for (var ci = 0; ci < api.MAX_CATEGORIES + 1; ci++) tooManyCats.push('c' + ci);
+  ok((await get('/api/products?category=' + tooManyCats.join(','))).status === 400,
+     'more than MAX_CATEGORIES (' + api.MAX_CATEGORIES + ') slugs is a 400');
+  var mixedKnown = await get('/api/products?limit=1&category=' +
+    encodeURIComponent(biggest.category_slug) + ',nexiste-pas');
+  ok(mixedKnown.body.total === biggest.product_count,
+     'an unknown slug alongside a known one contributes nothing rather than erroring');
+
   // Category composes with the other filters rather than replacing them.
   var combo = await get('/api/products?limit=1&category=' + encodeURIComponent(biggest.category_slug) + '&brand_car=SSANGYONG');
   ok(combo.status === 200 && combo.body.total === biggest.product_count,
