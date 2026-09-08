@@ -251,9 +251,114 @@ function get(p) { return request('GET', p); }
   ok(/default_transaction_read_only=on/.test(dbSrc), 'db.js pins default_transaction_read_only=on as a connection option');
   ok(!/getClientForTransaction/.test(dbSrc), 'db.js exposes no transaction client — there is no write path to open one for');
 
+  // =========================================================================
+  // 11. SYA-API-2 — vehicle brands (KG-1)
+  // =========================================================================
+  console.log('\n11. Vehicle brands (SYA-API-2, KG-1)');
+  var brandsRes = await get('/api/vehicle-brands');
+  ok(brandsRes.status === 200, 'GET /api/vehicle-brands returns 200');
+  ok(Array.isArray(brandsRes.body.vehicle_brands), 'returns a vehicle_brands array');
+  ok(brandsRes.body.vehicle_brands.length >= 1, 'reports at least one vehicle brand');
+  var sy = brandsRes.body.vehicle_brands.filter(function (b) { return b.brand_car === 'SSANGYONG'; })[0];
+  ok(sy !== undefined, 'SSANGYONG is present');
+  ok(sy && sy.model_count === EXPECTED.vehicle_models,
+     'model_count matches the live model count (' + EXPECTED.vehicle_models + ')');
+  ok(sy && sy.product_count === EXPECTED.products,
+     'product_count matches the live product count (' + EXPECTED.products + ')');
+
+  // The facet must agree with the list it describes — the same rule LIVE_STATUS
+  // exists to enforce for every other count in this API.
+  var allProducts = await get('/api/products?limit=1');
+  ok(sy && sy.product_count === allProducts.body.total,
+     'brand product_count agrees with /api/products total');
+
+  var filtered = await get('/api/products?brand_car=SSANGYONG&limit=1');
+  ok(filtered.status === 200 && filtered.body.total === EXPECTED.products,
+     'brand_car filter returns every product of the only brand present');
+  var lower = await get('/api/products?brand_car=ssangyong&limit=1');
+  ok(lower.body.total === filtered.body.total, 'brand_car is case-insensitive');
+
+  var unknownBrand = await get('/api/products?brand_car=RENAULT&limit=1');
+  ok(unknownBrand.status === 200 && unknownBrand.body.total === 0,
+     'an unknown brand is an empty result, not an error');
+  var unknownModels = await get('/api/vehicle-models?brand_car=RENAULT');
+  ok(unknownModels.status === 200 && unknownModels.body.vehicle_models.length === 0,
+     'vehicle-models for an unknown brand is an empty list, not a 404');
+
+  var modelsFiltered = await get('/api/vehicle-models?brand_car=SSANGYONG');
+  ok(modelsFiltered.body.vehicle_models.length === EXPECTED.vehicle_models,
+     'vehicle-models?brand_car returns the brand\'s models');
+  var modelsUnfiltered = await get('/api/vehicle-models');
+  ok(JSON.stringify(modelsUnfiltered.body) === JSON.stringify(modelsFiltered.body),
+     'omitting brand_car is unchanged from before SYA-API-2 (backward compatible)');
+
+  var longBrand = await get('/api/vehicle-models?brand_car=' + encodeURIComponent('x'.repeat(65)));
+  ok(longBrand.status === 400, 'an over-long brand_car is rejected with 400');
+
+  // =========================================================================
+  // 12. SYA-API-2 — batched quotes (KG-3)
+  // =========================================================================
+  console.log('\n12. Batched quotes (SYA-API-2, KG-3)');
+  var page = await get('/api/products?limit=3');
+  var uids = page.body.products.map(function (p) { return p.product_uid; });
+
+  var quotes = await get('/api/quotes?uids=' + uids.map(encodeURIComponent).join(','));
+  ok(quotes.status === 200, 'GET /api/quotes returns 200');
+  ok(quotes.body.requested === uids.length, 'reports how many identifiers it was asked for');
+  ok(quotes.body.quotes.length === uids.length, 'prices every known product in one request');
+  ok(quotes.body.missing.length === 0 && quotes.body.complete === true,
+     'a fully satisfiable request is reported complete');
+
+  var q0 = quotes.body.quotes[0];
+  ok(typeof q0.price_tnd === 'string' && /^\d+\.\d{2}$/.test(q0.price_tnd),
+     'price is the exact NUMERIC(8,2) decimal string, never a float');
+  var single = await get('/api/products/' + encodeURIComponent(uids[0]));
+  ok(q0.price_tnd === single.body.price_tnd,
+     'the quoted price is byte-identical to the product document (one truth)');
+  ok(q0.availability === single.body.availability, 'quoted availability matches the product');
+  ok(q0.canonical_reference === single.body.canonical_reference, 'quote carries the reference');
+
+  var partial = await get('/api/quotes?uids=' + encodeURIComponent(uids[0]) + ',autopart.tn:does-not-exist');
+  ok(partial.status === 200, 'a partially satisfiable request is still 200');
+  ok(partial.body.quotes.length === 1, 'known products are priced');
+  ok(partial.body.missing.length === 1 && partial.body.missing[0] === 'autopart.tn:does-not-exist',
+     'an unknown product is NAMED in missing, never silently dropped');
+  ok(partial.body.complete === false, 'a partial answer is reported as incomplete');
+
+  var duped = await get('/api/quotes?uids=' + encodeURIComponent(uids[0]) + ',' + encodeURIComponent(uids[0]));
+  ok(duped.body.requested === 1 && duped.body.quotes.length === 1,
+     'a repeated identifier is answered once, not twice');
+
+  ok((await get('/api/quotes')).status === 400, 'quotes without uids is a 400');
+  ok((await get('/api/quotes?uids=')).status === 400, 'quotes with empty uids is a 400');
+  ok((await get('/api/quotes?uids=,,,')).status === 400, 'quotes with only separators is a 400');
+  var tooMany = [];
+  for (var qi = 0; qi < api.MAX_QUOTE_UIDS + 1; qi++) tooMany.push('u' + qi);
+  ok((await get('/api/quotes?uids=' + tooMany.join(','))).status === 400,
+     'more than MAX_QUOTE_UIDS (' + api.MAX_QUOTE_UIDS + ') identifiers is a 400, not a bulk export');
+  ok((await get('/api/quotes?uids=' + 'x'.repeat(129))).status === 400,
+     'an over-long identifier is a 400');
+
+  // A withdrawn part must not be quotable. LIVE_STATUS governs this route the
+  // same way it governs every list and facet.
+  var withdrawn = await db.query(
+    "SELECT product_uid FROM sya_products WHERE status NOT IN ('active','updated') LIMIT 1"
+  );
+  if (withdrawn.rows.length > 0) {
+    var wq = await get('/api/quotes?uids=' + encodeURIComponent(withdrawn.rows[0].product_uid));
+    ok(wq.body.quotes.length === 0 && wq.body.missing.length === 1,
+       'a withdrawn product is reported missing, never priced');
+  } else {
+    ok(true, 'no withdrawn product exists in the live catalog to test against (0 rows outside LIVE_STATUS)');
+  }
+
+  ok((await get('/api/quotes?uids=' + encodeURIComponent(uids[0]))).status === 200,
+     'quotes remains a GET-only read route');
+
   await new Promise(function (resolve) { server.close(resolve); });
   await db.closePool();
 
+  
   console.log('\nStage SYA-API-1 (read-only catalog API): ' + pass + ' passed, ' + fail + ' failed');
   process.exit(fail ? 1 : 0);
 })().catch(function (err) {

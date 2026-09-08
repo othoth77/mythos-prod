@@ -75,6 +75,12 @@ var db = require('./db.js');
 var DEFAULT_LIMIT = 50;
 var MAX_LIMIT = 200;
 
+// Upper bound on /api/quotes. A storefront cart is the only caller and the
+// Piece.Autos cart is capped at 30 distinct products, so 50 leaves headroom
+// without turning this into a bulk-export route: a caller wanting the whole
+// catalogue must page /api/products like everyone else.
+var MAX_QUOTE_UIDS = 50;
+
 // The single definition of "this part is currently in the catalogue".
 //
 // database/schema.sql's status domain is ('active','updated','inactive',
@@ -139,6 +145,17 @@ function parsePositiveInt(raw, label) {
   return n;
 }
 
+// A vehicle manufacturer name as the catalog stores it ('SSANGYONG'). Compared
+// case-insensitively because it is a human-facing label, not an identifier, and
+// bounded in length so a pathological value cannot reach the database.
+function parseBrandCar(q) {
+  if (q === undefined || q.brand_car === undefined) return null;
+  var raw = String(q.brand_car).trim();
+  if (raw === '') return null;
+  if (raw.length > 64) throw badRequest('brand_car must be at most 64 characters');
+  return raw;
+}
+
 function parsePaging(q) {
   var limit = DEFAULT_LIMIT;
   var offset = 0;
@@ -182,19 +199,69 @@ async function getHealth(res) {
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/vehicle-models
+// GET /api/vehicle-brands                                            (SYA-API-2)
+//
+// The vehicle-manufacturer facet. Added because a multi-brand consumer
+// otherwise has to fetch every model and derive the brand list client-side —
+// correct at today's 17 models, wrong at any real multi-brand scale, and a
+// derivation each consumer would have to repeat identically.
+//
+// `brand_car` lives on sya_vehicle_models, so this is a facet over an existing
+// column: no new table, no new taxonomy. The catalog holds one brand today
+// (all 17 models are SSANGYONG); this endpoint reports what is there rather
+// than implying more.
+// ---------------------------------------------------------------------------
+async function getVehicleBrands(res) {
+  var result = await db.query(
+    'SELECT m.brand_car, ' +
+    '  count(DISTINCT m.id) AS model_count, ' +
+    '  (SELECT count(DISTINCT c.product_id) FROM sya_product_vehicle_compatibility c ' +
+    '   JOIN sya_products p ON p.id = c.product_id AND p.' + LIVE_STATUS + ' ' +
+    '   JOIN sya_vehicle_models m2 ON m2.id = c.vehicle_model_id ' +
+    '   WHERE m2.brand_car = m.brand_car) AS product_count ' +
+    'FROM sya_vehicle_models m ' +
+    'GROUP BY m.brand_car ' +
+    'ORDER BY m.brand_car ASC'
+  );
+  sendJson(res, 200, {
+    vehicle_brands: result.rows.map(function (r) {
+      return {
+        brand_car: r.brand_car,
+        model_count: toInt(r.model_count),
+        product_count: toInt(r.product_count)
+      };
+    })
+  });
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/vehicle-models[?brand_car=...]
 // The storefront's top-level browse axis: pick your SsangYong, then its
 // engine. Ordered by name then generation so the list is stable.
+//
+// `brand_car` is optional and additive: omitting it returns every model, which
+// is exactly what this route did before SYA-API-2, so existing consumers are
+// unaffected. An unknown brand returns an empty list, not a 404 — asking
+// "which RENAULT models do you have?" is a valid question with the answer
+// "none", and that is not the same as a missing endpoint.
 // ---------------------------------------------------------------------------
-async function getVehicleModels(res) {
+async function getVehicleModels(res, q) {
+  var params = [];
+  var where = '';
+  var brand = parseBrandCar(q);
+  if (brand !== null) {
+    params.push(brand);
+    where = 'WHERE upper(m.brand_car) = upper($1) ';
+  }
   var result = await db.query(
     'SELECT m.id, m.brand_car, m.model_name, m.generation_code, m.year_from, m.year_to, m.model_url, ' +
     '  (SELECT count(*) FROM sya_vehicle_motorizations mo WHERE mo.vehicle_model_id = m.id) AS motorization_count, ' +
     '  (SELECT count(DISTINCT c.product_id) FROM sya_product_vehicle_compatibility c ' +
     '   JOIN sya_products p ON p.id = c.product_id AND p.' + LIVE_STATUS + ' ' +
     '   WHERE c.vehicle_model_id = m.id) AS product_count ' +
-    'FROM sya_vehicle_models m ' +
-    'ORDER BY m.model_name ASC, m.generation_code ASC NULLS FIRST'
+    'FROM sya_vehicle_models m ' + where +
+    'ORDER BY m.model_name ASC, m.generation_code ASC NULLS FIRST',
+    params
   );
   sendJson(res, 200, {
     vehicle_models: result.rows.map(function (r) {
@@ -306,6 +373,17 @@ async function getProducts(res, q) {
     where.push('EXISTS (SELECT 1 FROM sya_product_vehicle_compatibility c ' +
                'WHERE c.product_id = p.id AND c.vehicle_motorization_id = $' + params.length + ')');
   }
+  // Vehicle manufacturer (SYA-API-2). Reaches brand_car through the fitment
+  // edge, which is the only relationship between a part and a vehicle brand
+  // that the catalog actually models — a part has no brand_car column of its
+  // own, and inventing one would be a second taxonomy.
+  var brandCar = parseBrandCar(q);
+  if (brandCar !== null) {
+    params.push(brandCar);
+    where.push('EXISTS (SELECT 1 FROM sya_product_vehicle_compatibility c ' +
+               'JOIN sya_vehicle_models m ON m.id = c.vehicle_model_id ' +
+               'WHERE c.product_id = p.id AND upper(m.brand_car) = upper($' + params.length + '))');
+  }
 
   var whereSql = 'WHERE ' + where.join(' AND ');
 
@@ -385,6 +463,86 @@ async function getProduct(res, productUid) {
 }
 
 // ---------------------------------------------------------------------------
+// GET /api/quotes?uids=a,b,c                                        (SYA-API-2)
+//
+// Price and availability for several products in ONE request.
+//
+// Why it exists: a storefront must re-read price and availability from the
+// catalog immediately before it turns a cart into an order — the browser's
+// copy is never authoritative. Without this route the only way to do that is
+// GET /api/products/:uid per line, and each of those runs three queries
+// (product, images, compatibility) to return a full document of which the
+// caller needs three fields. A five-line cart therefore cost 5 round trips and
+// 15 queries; it now costs 1 and 1.
+//
+// PARTIAL RESULTS ARE EXPLICIT. A uid that is unknown, inactive or delisted is
+// not silently dropped from `quotes` — it is named in `missing`. Silence would
+// be indistinguishable from "this part is free" to a careless consumer, and a
+// checkout must be able to tell "withdrawn" apart from "not asked for".
+// ---------------------------------------------------------------------------
+function parseQuoteUids(q) {
+  if (q === undefined || q.uids === undefined) throw badRequest('uids is required');
+  var raw = String(q.uids);
+  if (raw.trim() === '') throw badRequest('uids must not be empty');
+  var parts = raw.split(',').map(function (u) { return u.trim(); }).filter(function (u) { return u !== ''; });
+  if (parts.length === 0) throw badRequest('uids must not be empty');
+  if (parts.length > MAX_QUOTE_UIDS) {
+    throw badRequest('uids must contain at most ' + MAX_QUOTE_UIDS + ' identifiers');
+  }
+  parts.forEach(function (u) {
+    if (u.length > 128) throw badRequest('a product_uid must be at most 128 characters');
+  });
+  // De-duplicate while preserving the caller's order, so asking for the same
+  // uid twice is answered once rather than rejected or double-counted.
+  var seen = Object.create(null);
+  var unique = [];
+  parts.forEach(function (u) { if (!seen[u]) { seen[u] = true; unique.push(u); } });
+  return unique;
+}
+
+async function getQuotes(res, q) {
+  var uids = parseQuoteUids(q);
+  var result = await db.query(
+    'SELECT product_uid, canonical_reference, product_title, price_tnd, currency, ' +
+    '  availability, last_checked_at ' +
+    'FROM sya_products WHERE ' + LIVE_STATUS + ' AND product_uid = ANY($1::text[])',
+    [uids]
+  );
+
+  var byUid = Object.create(null);
+  result.rows.forEach(function (r) { byUid[r.product_uid] = r; });
+
+  var quotes = [];
+  var missing = [];
+  uids.forEach(function (uid) {
+    var row = byUid[uid];
+    if (!row) { missing.push(uid); return; }
+    quotes.push({
+      product_uid: row.product_uid,
+      canonical_reference: row.canonical_reference,
+      product_title: row.product_title,
+      // The exact NUMERIC(8,2) decimal string, unchanged — same rule as
+      // everywhere else in this API. A consumer that parses it into a float
+      // has reintroduced the rounding the database refuses to have.
+      price_tnd: row.price_tnd,
+      currency: row.currency,
+      availability: row.availability,
+      last_checked_at: row.last_checked_at
+    });
+  });
+
+  sendJson(res, 200, {
+    requested: uids.length,
+    quotes: quotes,
+    missing: missing,
+    // When the caller asked for something this catalogue cannot price, say so
+    // in the envelope as well as in `missing`, so a consumer cannot treat a
+    // partial answer as a complete one by only reading `quotes`.
+    complete: missing.length === 0
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Storefront assets (SYA-SHOP-1)
 //
 // Serving the storefront from this same process is what migration-plan §22
@@ -438,9 +596,11 @@ function serveShopAsset(req, res, pathname) {
 
 var ROUTES = [
   { method: 'GET', pattern: /^\/api\/health$/, handler: function (req, res) { return getHealth(res); } },
-  { method: 'GET', pattern: /^\/api\/vehicle-models$/, handler: function (req, res) { return getVehicleModels(res); } },
+  { method: 'GET', pattern: /^\/api\/vehicle-brands$/, handler: function (req, res) { return getVehicleBrands(res); } },
+  { method: 'GET', pattern: /^\/api\/vehicle-models$/, handler: function (req, res, m, q) { return getVehicleModels(res, q); } },
   { method: 'GET', pattern: /^\/api\/vehicle-models\/([^/]+)\/motorizations$/, handler: function (req, res, m) { return getModelMotorizations(res, decodePathSegment(m[1])); } },
   { method: 'GET', pattern: /^\/api\/brands$/, handler: function (req, res) { return getBrands(res); } },
+  { method: 'GET', pattern: /^\/api\/quotes$/, handler: function (req, res, m, q) { return getQuotes(res, q); } },
   { method: 'GET', pattern: /^\/api\/products$/, handler: function (req, res, m, q) { return getProducts(res, q); } },
   { method: 'GET', pattern: /^\/api\/products\/([^/]+)$/, handler: function (req, res, m) { return getProduct(res, decodePathSegment(m[1])); } }
 ];
@@ -487,6 +647,7 @@ module.exports = {
   createServer: createServer,
   DEFAULT_LIMIT: DEFAULT_LIMIT,
   MAX_LIMIT: MAX_LIMIT,
+  MAX_QUOTE_UIDS: MAX_QUOTE_UIDS,
   SHOP_ASSETS: SHOP_ASSETS,
   SHOP_CSP: SHOP_CSP
 };
