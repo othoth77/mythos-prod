@@ -1,8 +1,8 @@
 # MYTHOS AUTO — Parts Network catalog API contract
 
 **Service:** `projects/ssangyong-autos/reference/api.js`
-**Contract stage:** SYA-API-2 (adds `/api/vehicle-brands`, `brand_car`, `/api/quotes`)
-**Shared Kitchen Contract:** consumers pin **1.1.0** (MINOR — additive only; §7)
+**Contract stage:** SYA-API-3 (adds `/api/part-categories` and `?category=`)
+**Shared Kitchen Contract:** consumers pin **1.2.0** (MINOR — additive only; §7)
 **Status:** SYA-API-1 routes **LIVE** at `https://store.ssangyong.autos/api`.
 SYA-API-2 routes are **implemented and live-verified on an isolated port, NOT DEPLOYED** — deployment is an owner/operator step (§8).
 
@@ -60,7 +60,8 @@ The **part**-manufacturer facet (BOSCH, ASHIKA) — distinct axis from `vehicle-
 | `q` | free text; `ILIKE '%q%'` over `product_title`, `canonical_reference`, `oem_reference` |
 | `brand` | exact part brand |
 | `model_id`, `motorization_id` | positive integers; `EXISTS` over fitment |
-| `brand_car` | **NEW.** Case-insensitive vehicle manufacturer, via the fitment edge |
+| `brand_car` | Case-insensitive vehicle manufacturer, via the fitment edge |
+| `category` | **NEW (SYA-API-3).** One slug, or a comma-separated list (≤ 40, de-duplicated) returning their union. **Case-insensitive**, like `brand_car`. Empty is ignored; a slug > 128 chars or a list > 40 → `400`; an unknown slug contributes nothing rather than erroring. Composes with every other filter |
 | `limit` | 1–200, default 50; outside → `400` |
 | `offset` | ≥ 0; negative → `400` |
 
@@ -71,6 +72,29 @@ Order: `product_brand, canonical_reference` — **a total order** (346 rows, 346
 Addressed by `product_uid` (`autopart.tn:<fiche-id>`), never the `BIGSERIAL`, which is deleted from the response. Raw and percent-encoded colons both work.
 Adds `source, pair_reference, criteria_text, technical_specs, delivery_note, status, collected_at`, plus `images[]` and `compatibility[]`.
 `404` on unknown uid — and consumers must not retry it: an answer is not an outage.
+
+### `GET /api/part-categories` — **NEW (SYA-API-3, KG-2)**
+Input: none. Response: `{ part_categories: [{ category_slug, product_count }] }`, ordered by slug.
+
+The category is **derived from `product_url`**, whose shape is fixed by the source:
+`/fiche/<category-slug>-<catId>/<brand-slug>-<brandId>/<ref>-<ficheId>.html`. It is a fact already
+in the row, not a taxonomy invented here — **no new table, no DDL, no migration**.
+Measured live: **346 of 346 products yield a slug, across 72 distinct values.**
+
+Derived once, in `PART_CATEGORY`, for the same reason `LIVE_STATUS` is: a facet can never disagree
+with the list it describes, and three consumers cannot drift into three slightly different regexes.
+Implemented as `regexp_replace(split_part(product_url,'/',5),'-[0-9]+$','')` rather than a full-URL
+regex match — identical output on all 346 rows (0 disagreements), at **~0.9 ms** against **28–48 ms**.
+
+**This is not the 390-slug frontier.** That is a sitemap measurement of a source holding 45,036
+products; importing it would create categories for products this catalog does not have. Only slugs
+the live catalogue uses are reported, so **every category has at least one product** and no empty
+page can be generated.
+
+Slugs are returned raw. Grouping them into customer-facing families is presentation and belongs to
+each storefront (shared contract §12) — which is why `?category=` accepts a **list**: a storefront
+group spans several slugs (Piece.Autos' "Filtration" covers six), and rendering it one slug at a
+time would be up to fourteen requests for one page.
 
 ### `GET /api/quotes?uids=a,b,c` — **NEW (SYA-API-2, KG-3)**
 Price and availability for many products in one request, for cart/checkout revalidation.
@@ -103,19 +127,37 @@ No order, customer, cart, stock-quantity, supplier, purchase-price or part-categ
 | **KG-4** orders | No table, no write path | Out of scope for a read API. Storefronts own channel orders provisionally |
 | **KG-5** stock | Not modelled anywhere | Not a gap to close by inventing a number |
 
+## 4a. Two defects fixed in SYA-API-3
+
+**Malformed input returned 500.** A NUL byte in any string parameter reached
+PostgreSQL, which refuses it inside a text value; the driver error surfaced as
+`500 {"error":"internal error"}` — a malformed *client* input reported as a
+*server* fault, which also means 5xx alerting fires on trivially malformed
+requests. **Pre-existing since SYA-API-1**: `q` and `brand` behave this way on
+the deployed service today. Now `400` with a named parameter, for `q`, `brand`,
+`brand_car`, `category` and `uids`.
+
+**`category` was case-sensitive while `brand_car` was not.** Slugs appear in
+URLs and URLs get lower-cased — by hand, by a CMS, by a crawler. The catalogue
+holds exactly one capitalised slug (`Poulie-Tendeur-Courroie-De-Distribution`)
+among 71 lower-case siblings, so the lower-cased link returned **0** while the
+product existed. Now matched case-insensitively. Verified safe: 72 distinct
+slugs lower-case to 72 distinct values, so no two can merge and the facet still
+agrees with the list.
+
 ## 5. Compatibility
 
-**Every SYA-API-2 change is additive.** Verified by diffing all responses between the deployed service and the candidate across 20 request shapes — existing routes, filters, paging, encodings, `400`/`404`/`405` cases: **20/20 byte-identical**. Storefront assets (`/`, `/index.html`, `/shop.css`, `/shop-ui.js`) hash-identical.
+**Every SYA-API-2 and SYA-API-3 change is additive except one deliberate fix.** Diffed against the deployed service across 21 request shapes: **20/21 byte-identical**, the single difference being the `500 → 400` above, which is a defect being corrected rather than a contract being changed (SsangYong's storefront never sends a control character). Plus 6 comparisons of SYA-API-3 against the SYA-API-2 candidate: identical — existing routes, filters, paging, encodings, `400`/`404`/`405` cases: **20/20 byte-identical**. Storefront assets (`/`, `/index.html`, `/shop.css`, `/shop-ui.js`) hash-identical.
 
 `shop-ui.js` calls `/api/health`, `/api/vehicle-models`, `/api/brands`, `/api/products` — all unchanged.
 
 ## 6. Tests
 
-`tests/sya-api-1-readonly-catalog-api-test.js` — **94 checks** (was 60; +34 for SYA-API-2). `tests/sya-shop-1-storefront-test.js` — **41 checks**, unchanged. Both run real HTTP against the live read-only catalog.
+`tests/sya-api-1-readonly-catalog-api-test.js` — **124 checks** (60 → 94 → 114 → 124), including one that walks **every** category and asserts its facet count equals its filtered-list total. `tests/sya-shop-1-storefront-test.js` — **41 checks**, unchanged. Both run real HTTP against the live read-only catalog.
 
 ## 7. Versioning
 
-`KITCHEN_CONTRACT_VERSION` **1.0.0 → 1.1.0** (MINOR). Adding a value or a route is MINOR; removing or renaming is MAJOR.
+`KITCHEN_CONTRACT_VERSION` **1.0.0 → 1.1.0** (SYA-API-2) **→ 1.2.0** (SYA-API-3). Both MINOR. Adding a value or a route is MINOR; removing or renaming is MAJOR.
 Old behaviour: no brand facet, no brand filter, no batch quote. New: all three, additive. A 1.0.0 consumer keeps working unchanged; a 1.1.0 consumer may use the new routes. **Rollback:** revert the commit; nothing persisted changed, and no migration ran.
 
 ## 8. Deployment — NOT DONE

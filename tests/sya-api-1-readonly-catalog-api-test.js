@@ -355,6 +355,123 @@ function get(p) { return request('GET', p); }
   ok((await get('/api/quotes?uids=' + encodeURIComponent(uids[0]))).status === 200,
      'quotes remains a GET-only read route');
 
+  // =========================================================================
+  // 13. SYA-API-3 — part categories (KG-2)
+  // =========================================================================
+  console.log('\n12b. Malformed input is a client error, not a server fault');
+  // PRE-EXISTING before SYA-API-3: a NUL byte reached PostgreSQL, which refuses
+  // it inside a text value, and the driver error surfaced as 500 "internal
+  // error" — a malformed CLIENT input reported as a SERVER fault. 5xx alerting
+  // then fires on trivially malformed requests.
+  var NUL = '%00';
+  ok((await get('/api/products?q=a' + NUL + 'b')).status === 400, 'a control character in q is a 400, never a 500');
+  ok((await get('/api/products?brand=a' + NUL + 'b')).status === 400, 'a control character in brand is a 400');
+  ok((await get('/api/products?brand_car=a' + NUL + 'b')).status === 400, 'a control character in brand_car is a 400');
+  ok((await get('/api/products?category=a' + NUL + 'b')).status === 400, 'a control character in category is a 400');
+  ok((await get('/api/quotes?uids=a' + NUL + 'b')).status === 400, 'a control character in uids is a 400');
+  var stillWorks = await get('/api/products?q=filtre&limit=1');
+  ok(stillWorks.status === 200 && stillWorks.body.total > 0, 'ordinary text is unaffected by the control-character check');
+
+  console.log('\n13. Part categories (SYA-API-3, KG-2)');
+  var catsRes = await get('/api/part-categories');
+  ok(catsRes.status === 200, 'GET /api/part-categories returns 200');
+  ok(Array.isArray(catsRes.body.part_categories), 'returns a part_categories array');
+  var cats = catsRes.body.part_categories;
+  ok(cats.length > 0, 'reports at least one category');
+
+  // Every live product must land in exactly one category, or a customer
+  // browsing by category cannot reach part of the catalogue.
+  var categorised = cats.reduce(function (n, c) { return n + c.product_count; }, 0);
+  ok(categorised === EXPECTED.products,
+     'every live product is in exactly one category (' + categorised + ' = ' + EXPECTED.products + ')');
+
+  ok(cats.every(function (c) { return c.product_count > 0; }),
+     'no category is reported with zero products — an empty category page must not exist');
+  ok(cats.every(function (c) { return typeof c.category_slug === 'string' && c.category_slug.length > 0; }),
+     'every category carries a non-empty slug');
+  ok(cats.every(function (c) { return c.category_slug.indexOf('/') === -1; }),
+     'a slug never contains a path separator');
+  var slugs = cats.map(function (c) { return c.category_slug; });
+  ok(new Set(slugs).size === slugs.length, 'slugs are unique');
+  ok(slugs.slice().sort().join() === slugs.join(), 'categories are returned in a stable order');
+
+  // This is the facet/list agreement rule LIVE_STATUS exists to guarantee,
+  // applied to the new dimension: both sides use the same derived expression.
+  var biggest = cats.slice().sort(function (a, b) { return b.product_count - a.product_count; })[0];
+  var byCat = await get('/api/products?limit=1&category=' + encodeURIComponent(biggest.category_slug));
+  ok(byCat.status === 200 && byCat.body.total === biggest.product_count,
+     'the facet count agrees exactly with the filtered list (' + biggest.category_slug + ')');
+
+  var pageOfCat = await get('/api/products?limit=200&category=' + encodeURIComponent(biggest.category_slug));
+  ok(pageOfCat.body.products.length === biggest.product_count,
+     'the filtered page returns exactly that many products');
+
+  var unknownCat = await get('/api/products?category=cette-categorie-nexiste-pas&limit=1');
+  ok(unknownCat.status === 200 && unknownCat.body.total === 0,
+     'an unknown category is an empty result, not an error');
+  ok((await get('/api/products?category=' + 'x'.repeat(129))).status === 400,
+     'an over-long category is rejected with 400');
+  var blankCat = await get('/api/products?category=&limit=1');
+  ok(blankCat.status === 200 && blankCat.body.total === EXPECTED.products,
+     'an empty category parameter is ignored rather than matching nothing');
+
+  // The frontier is not the catalogue: 390 slugs were measured across the
+  // source's 45,036 URLs, but only what these 346 products use is reported.
+  ok(cats.length < 390,
+     'only categories the live catalogue actually uses are reported (' + cats.length + ', not the 390-slug frontier)');
+
+  // A storefront's customer-facing group spans several source slugs, so the
+  // filter takes a list: rendering such a group must not be N requests.
+  var twoBiggest = cats.slice().sort(function (a, b) { return b.product_count - a.product_count; }).slice(0, 3);
+  var multi = await get('/api/products?limit=1&category=' +
+    twoBiggest.map(function (c) { return encodeURIComponent(c.category_slug); }).join(','));
+  var expectedMulti = twoBiggest.reduce(function (n, c) { return n + c.product_count; }, 0);
+  ok(multi.body.total === expectedMulti,
+     'a comma-separated category list returns the union of those categories (' + expectedMulti + ')');
+
+  var dupCat = await get('/api/products?limit=1&category=' +
+    encodeURIComponent(biggest.category_slug) + ',' + encodeURIComponent(biggest.category_slug));
+  ok(dupCat.body.total === biggest.product_count, 'a repeated slug is not counted twice');
+
+  var tooManyCats = [];
+  for (var ci = 0; ci < api.MAX_CATEGORIES + 1; ci++) tooManyCats.push('c' + ci);
+  ok((await get('/api/products?category=' + tooManyCats.join(','))).status === 400,
+     'more than MAX_CATEGORIES (' + api.MAX_CATEGORIES + ') slugs is a 400');
+  var mixedKnown = await get('/api/products?limit=1&category=' +
+    encodeURIComponent(biggest.category_slug) + ',nexiste-pas');
+  ok(mixedKnown.body.total === biggest.product_count,
+     'an unknown slug alongside a known one contributes nothing rather than erroring');
+
+  // Slugs appear in URLs, and a URL gets lower-cased by hand, by a CMS or by a
+  // crawler. The catalogue holds one capitalised slug among 71 lower-case
+  // siblings; before this it matched exact-case only, so the lower-cased link
+  // returned nothing while the product existed.
+  var capitalised = cats.filter(function (c) { return c.category_slug !== c.category_slug.toLowerCase(); })[0];
+  if (capitalised) {
+    var exact = await get('/api/products?limit=1&category=' + encodeURIComponent(capitalised.category_slug));
+    var lowered = await get('/api/products?limit=1&category=' + encodeURIComponent(capitalised.category_slug.toLowerCase()));
+    ok(exact.body.total === capitalised.product_count, 'a capitalised slug matches in its own case');
+    ok(lowered.body.total === exact.body.total, 'the same slug lower-cased matches identically (case-insensitive, like brand_car)');
+  } else {
+    ok(true, 'no capitalised slug in the live catalogue to test case-insensitivity against');
+  }
+  var upperKnown = await get('/api/products?limit=1&category=' + encodeURIComponent(biggest.category_slug.toUpperCase()));
+  ok(upperKnown.body.total === biggest.product_count, 'an upper-cased known slug matches the facet count');
+
+  // Every category must agree with its own filtered list, not just the largest:
+  // a facet that disagrees anywhere is a facet nobody can trust.
+  var mismatches = 0;
+  for (var mi = 0; mi < cats.length; mi++) {
+    var one = await get('/api/products?limit=1&category=' + encodeURIComponent(cats[mi].category_slug));
+    if (one.body.total !== cats[mi].product_count) mismatches++;
+  }
+  ok(mismatches === 0, 'all ' + cats.length + ' categories agree with their filtered list');
+
+  // Category composes with the other filters rather than replacing them.
+  var combo = await get('/api/products?limit=1&category=' + encodeURIComponent(biggest.category_slug) + '&brand_car=SSANGYONG');
+  ok(combo.status === 200 && combo.body.total === biggest.product_count,
+     'category composes with brand_car');
+
   await new Promise(function (resolve) { server.close(resolve); });
   await db.closePool();
 

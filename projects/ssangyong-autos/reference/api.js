@@ -94,6 +94,26 @@ var MAX_QUOTE_UIDS = 50;
 // endpoint's count and page agree by construction.
 var LIVE_STATUS = "status IN ('active', 'updated')";
 
+// The single definition of "which part category this product belongs to".
+//
+// The catalog has no category table (gap KG-2) and this stage does not add one:
+// the source's own category slug is already carried inside product_url, whose
+// shape is fixed —
+//   https://autopart.tn/fiche/<category-slug>-<catId>/<brand-slug>-<brandId>/<ref>-<ficheId>.html
+// — so the category is a FACT ALREADY IN THE ROW, not a taxonomy anyone invents
+// here. Measured against the live catalog: 346 of 346 products yield a slug,
+// across 72 distinct values.
+//
+// Deriving it here rather than in each storefront matters for the same reason
+// LIVE_STATUS lives here: one definition means a facet can never disagree with
+// the list it describes, and three consumers cannot drift into three slightly
+// different regexes.
+//
+// split_part + regexp_replace, not a full regex match on the whole URL: both
+// return identical values on all 346 rows (verified, 0 disagreements) but the
+// full-regex form costs ~28-48 ms per facet scan against ~0.9 ms for this one.
+var PART_CATEGORY = "regexp_replace(split_part(product_url, '/', 5), '-[0-9]+$', '')";
+
 // ---------------------------------------------------------------------------
 // Response helpers
 // ---------------------------------------------------------------------------
@@ -138,6 +158,25 @@ function toInt(value) {
 // and every SQL value is passed as a bound parameter, never interpolated.
 // ---------------------------------------------------------------------------
 
+// Reject text a database column cannot hold.
+//
+// PostgreSQL refuses NUL inside a text value, so a request carrying one raised
+// a driver error and surfaced as 500 "internal error" — a malformed CLIENT
+// input reported as a SERVER fault. That is wrong twice over: the caller cannot
+// tell it made a mistake, and 5xx monitoring fires on trivially malformed
+// requests.
+//
+// PRE-EXISTING since SYA-API-1: `q` and `brand` behave the same way on the
+// deployed service. This is the one deliberate behaviour change in SYA-API-3 —
+// 500 becomes 400 for input that was never answerable. Other control characters
+// are refused with it: none can appear in a slug, a reference or a uid.
+function assertClean(value, label) {
+  if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value)) {
+    throw badRequest(label + ' contains a control character');
+  }
+  return value;
+}
+
 function parsePositiveInt(raw, label) {
   if (/^\d+$/.test(raw) === false) throw badRequest(label + ' must be a non-negative integer');
   var n = parseInt(raw, 10);
@@ -153,7 +192,32 @@ function parseBrandCar(q) {
   var raw = String(q.brand_car).trim();
   if (raw === '') return null;
   if (raw.length > 64) throw badRequest('brand_car must be at most 64 characters');
-  return raw;
+  return assertClean(raw, 'brand_car');
+}
+
+// One or more part-category slugs. Bounded like every other client-controlled
+// sizing parameter: 72 slugs exist today, and a caller wanting all of them
+// wants /api/products with no filter instead.
+var MAX_CATEGORIES = 40;
+
+function parseCategories(q) {
+  if (q === undefined || q.category === undefined) return null;
+  var raw = String(q.category).trim();
+  if (raw === '') return null;
+  var parts = raw.split(',').map(function (c) { return c.trim(); }).filter(function (c) { return c !== ''; });
+  if (parts.length === 0) return null;
+  if (parts.length > MAX_CATEGORIES) throw badRequest('category accepts at most ' + MAX_CATEGORIES + ' slugs');
+  parts.forEach(function (c) {
+    if (c.length > 128) throw badRequest('a category slug must be at most 128 characters');
+    assertClean(c, 'category');
+  });
+  var seen = Object.create(null);
+  var unique = [];
+  parts.forEach(function (c) {
+    var key = c.toLowerCase();
+    if (!seen[key]) { seen[key] = true; unique.push(key); }
+  });
+  return unique;
 }
 
 function parsePaging(q) {
@@ -354,13 +418,13 @@ async function getProducts(res, q) {
   var params = [];
 
   if (q.q !== undefined && String(q.q).trim() !== '') {
-    params.push('%' + String(q.q).trim() + '%');
+    params.push('%' + assertClean(String(q.q).trim(), 'q') + '%');
     var i = params.length;
     where.push('(p.product_title ILIKE $' + i + ' OR p.canonical_reference ILIKE $' + i +
                ' OR p.oem_reference ILIKE $' + i + ')');
   }
   if (q.brand !== undefined && String(q.brand).trim() !== '') {
-    params.push(String(q.brand).trim());
+    params.push(assertClean(String(q.brand).trim(), 'brand'));
     where.push('p.product_brand = $' + params.length);
   }
   if (q.model_id !== undefined) {
@@ -377,6 +441,26 @@ async function getProducts(res, q) {
   // edge, which is the only relationship between a part and a vehicle brand
   // that the catalog actually models — a part has no brand_car column of its
   // own, and inventing one would be a second taxonomy.
+  // Part category (SYA-API-3). Filters on the same derived expression the
+  // facet counts, so /api/part-categories and /api/products?category= can never
+  // disagree about how many products a category has.
+  //
+  // Accepts a comma-separated LIST because a storefront's customer-facing
+  // groups span several source slugs — Piece.Autos' "Filtration" covers six of
+  // them — and rendering such a group one slug at a time would be up to
+  // fourteen requests for one page. The grouping stays the storefront's; the
+  // Kitchen only agrees to answer about several slugs at once.
+  var categories = parseCategories(q);
+  if (categories !== null) {
+    params.push(categories);
+    // Matched case-insensitively, like brand_car. The catalogue contains one
+    // capitalised slug among 71 lower-case siblings, and a URL is routinely
+    // lower-cased by hand, by a CMS or by a crawler — so the exact-case form
+    // returned 1 product and the lower-cased form returned 0. Verified safe:
+    // 72 distinct slugs lower-case to 72 distinct values, so no two slugs can
+    // merge and the facet still agrees with the list.
+    where.push('lower(' + PART_CATEGORY + ') = ANY($' + params.length + '::text[])');
+  }
   var brandCar = parseBrandCar(q);
   if (brandCar !== null) {
     params.push(brandCar);
@@ -463,6 +547,34 @@ async function getProduct(res, productUid) {
 }
 
 // ---------------------------------------------------------------------------
+// GET /api/part-categories                                          (SYA-API-3)
+//
+// The part-category facet, derived from product_url (see PART_CATEGORY).
+//
+// This is NOT the 390-slug frontier held in SPY: that is a sitemap measurement
+// of a source with 45,036 products, and importing it would create a dimension
+// for products this catalog does not have. This reports only what the 346 live
+// products actually use — 72 slugs — so every category returned has at least
+// one product behind it and no page can be generated with nothing on it.
+//
+// Slugs are returned raw. Grouping them into customer-facing families is
+// PRESENTATION and belongs to each storefront (shared-contract §12: SsangYong's
+// grouping is SsangYong's), so the Kitchen states the fact and takes no view.
+// ---------------------------------------------------------------------------
+async function getPartCategories(res) {
+  var result = await db.query(
+    'SELECT ' + PART_CATEGORY + ' AS category_slug, count(*) AS product_count ' +
+    'FROM sya_products WHERE ' + LIVE_STATUS + ' ' +
+    'GROUP BY 1 HAVING ' + PART_CATEGORY + " <> '' ORDER BY 1 ASC"
+  );
+  sendJson(res, 200, {
+    part_categories: result.rows.map(function (r) {
+      return { category_slug: r.category_slug, product_count: toInt(r.product_count) };
+    })
+  });
+}
+
+// ---------------------------------------------------------------------------
 // GET /api/quotes?uids=a,b,c                                        (SYA-API-2)
 //
 // Price and availability for several products in ONE request.
@@ -491,6 +603,7 @@ function parseQuoteUids(q) {
   }
   parts.forEach(function (u) {
     if (u.length > 128) throw badRequest('a product_uid must be at most 128 characters');
+    assertClean(u, 'uids');
   });
   // De-duplicate while preserving the caller's order, so asking for the same
   // uid twice is answered once rather than rejected or double-counted.
@@ -600,6 +713,7 @@ var ROUTES = [
   { method: 'GET', pattern: /^\/api\/vehicle-models$/, handler: function (req, res, m, q) { return getVehicleModels(res, q); } },
   { method: 'GET', pattern: /^\/api\/vehicle-models\/([^/]+)\/motorizations$/, handler: function (req, res, m) { return getModelMotorizations(res, decodePathSegment(m[1])); } },
   { method: 'GET', pattern: /^\/api\/brands$/, handler: function (req, res) { return getBrands(res); } },
+  { method: 'GET', pattern: /^\/api\/part-categories$/, handler: function (req, res) { return getPartCategories(res); } },
   { method: 'GET', pattern: /^\/api\/quotes$/, handler: function (req, res, m, q) { return getQuotes(res, q); } },
   { method: 'GET', pattern: /^\/api\/products$/, handler: function (req, res, m, q) { return getProducts(res, q); } },
   { method: 'GET', pattern: /^\/api\/products\/([^/]+)$/, handler: function (req, res, m) { return getProduct(res, decodePathSegment(m[1])); } }
@@ -648,6 +762,7 @@ module.exports = {
   DEFAULT_LIMIT: DEFAULT_LIMIT,
   MAX_LIMIT: MAX_LIMIT,
   MAX_QUOTE_UIDS: MAX_QUOTE_UIDS,
+  MAX_CATEGORIES: MAX_CATEGORIES,
   SHOP_ASSETS: SHOP_ASSETS,
   SHOP_CSP: SHOP_CSP
 };
