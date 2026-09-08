@@ -3,7 +3,7 @@
 **Product:** SsangYong Parts
 **Domain:** ssangyong.autos
 **Repository:** othoth77/mythos-prod (`projects/ssangyong-autos/`)
-**Current stage:** SYA-SHOP-1 — storefront consuming the catalog API natively (2026-08-16)
+**Current stage:** SYA-DEPLOY-1 — storefront public at `store.ssangyong.autos` (SYA-API-1, SYA-SHOP-1, SYA-DEPLOY-1 complete)
 **Consumption architecture:** migration plan §22 **option 3 ratified 2026-08-16** — new storefront consumes the catalog natively; legacy site untouched, retired later
 **Authoritative state record:** `docs/AI_HANDOVER.md`
 
@@ -19,7 +19,7 @@
 | `reference/db.js` | Read-only `pg` pool over the live database |
 | `reference/api.js` | GET-only HTTP catalog API (SYA-API-1) |
 | `reference/shop.html` · `shop.css` · `shop-ui.js` | Storefront (SYA-SHOP-1), served by the same process |
-| Public exposure | **None.** Loopback-only, not deployed, no nginx block, no service unit |
+| Public exposure | **Live** at `https://store.ssangyong.autos` (nginx vhost → `127.0.0.1:3011`, `limit_except GET HEAD` on `/api/`; systemd `--user` unit `ssangyong-storefront`; deployed by `scripts/deploy-sya-storefront.sh`). *Row corrected 2026-09-08 — it read "None" from 2026-08-16 until then (OTHKM `projects/ssangyong` noted the drift on 2026-09-06).* |
 
 The database is `ssangyong_autos` on PostgreSQL 15.18 at `127.0.0.1:5432`, owned by
 the dedicated non-superuser role `ssangyong_autos_owner`. It is a separate
@@ -194,3 +194,21 @@ architecture rather than consuming the catalog. The footer says so plainly:
   the API itself, only whatever serves the storefront.
 - Retirement of the legacy `/var/www/ssangyong.autos` site — explicitly *"later"*
   in the ratified option, and its own owner order. Not this workstream.
+
+
+---
+
+## Related work in `othoth77/ssangyong` (2026-09-07/08) — pointers, not copies
+
+This directory stays the **code of record** for the catalog, API, storefront, schema, migration
+and deployment (`othoth77/ssangyong docs/CANONICAL_ARCHITECTURE.md`, E1–E5). The project's
+documentation repository now holds, on branch `mythos-auto/ssangyong-completion-20260907`:
+
+| Artifact | Meaning for this directory |
+|---|---|
+| `data/sheets-snapshot-2026-09-07/` + `docs/data/RECONCILIATION_2026-09-07.md` | the reconciliation `database/migration/README.md` never had: the Sheets `products` tab (791 rows) = 346 distinct products + 445 fitment-expansion rows; 782 fitment triples = the 782 compatibility rows here; sheet ≡ `migration/input/` both ways (no loss) |
+| `docs/data/progress_reconstruction.json` | the measured crawl frontier (7 of 17 models never reached; no denominator exists — no percentage) |
+| `docs/data/schema-proposals/010…050_*.sql` | **additive, NOT APPLIED** proposals for `sya_part_categories`, `sya_product_price_history` (the §7 deferred table), `sya_import_batches` + `content_hash`, `sya_quarantine`, `sya_collection_state`; verified up+down on a scratch `postgres:15` container against this `schema.sql`. Applying any of them is a change **here**, owner-authorised, backup first |
+| `storefront/` | a Next.js storefront consuming this API read-only, on the MYTHOS AUTO shared kitchen contract (`othoth77/othkm projects/mythos-auto/SHARED_KITCHEN_CONTRACT.md`); WhatsApp-only commerce per the owner's 2026-09-07 decision. Not public; the hostname is owner decision D-7. **This directory's storefront keeps serving users until then.** |
+
+Nothing in that repository modifies this directory, the database or the running service.
