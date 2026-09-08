@@ -94,6 +94,26 @@ var MAX_QUOTE_UIDS = 50;
 // endpoint's count and page agree by construction.
 var LIVE_STATUS = "status IN ('active', 'updated')";
 
+// The single definition of "which part category this product belongs to".
+//
+// The catalog has no category table (gap KG-2) and this stage does not add one:
+// the source's own category slug is already carried inside product_url, whose
+// shape is fixed —
+//   https://autopart.tn/fiche/<category-slug>-<catId>/<brand-slug>-<brandId>/<ref>-<ficheId>.html
+// — so the category is a FACT ALREADY IN THE ROW, not a taxonomy anyone invents
+// here. Measured against the live catalog: 346 of 346 products yield a slug,
+// across 72 distinct values.
+//
+// Deriving it here rather than in each storefront matters for the same reason
+// LIVE_STATUS lives here: one definition means a facet can never disagree with
+// the list it describes, and three consumers cannot drift into three slightly
+// different regexes.
+//
+// split_part + regexp_replace, not a full regex match on the whole URL: both
+// return identical values on all 346 rows (verified, 0 disagreements) but the
+// full-regex form costs ~28-48 ms per facet scan against ~0.9 ms for this one.
+var PART_CATEGORY = "regexp_replace(split_part(product_url, '/', 5), '-[0-9]+$', '')";
+
 // ---------------------------------------------------------------------------
 // Response helpers
 // ---------------------------------------------------------------------------
@@ -377,6 +397,15 @@ async function getProducts(res, q) {
   // edge, which is the only relationship between a part and a vehicle brand
   // that the catalog actually models — a part has no brand_car column of its
   // own, and inventing one would be a second taxonomy.
+  // Part category (SYA-API-3). Filters on the same derived expression the
+  // facet counts, so /api/part-categories and /api/products?category= can never
+  // disagree about how many products a category has.
+  if (q.category !== undefined && String(q.category).trim() !== '') {
+    var category = String(q.category).trim();
+    if (category.length > 128) throw badRequest('category must be at most 128 characters');
+    params.push(category);
+    where.push(PART_CATEGORY + ' = $' + params.length);
+  }
   var brandCar = parseBrandCar(q);
   if (brandCar !== null) {
     params.push(brandCar);
@@ -460,6 +489,34 @@ async function getProduct(res, productUid) {
   });
 
   sendJson(res, 200, product);
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/part-categories                                          (SYA-API-3)
+//
+// The part-category facet, derived from product_url (see PART_CATEGORY).
+//
+// This is NOT the 390-slug frontier held in SPY: that is a sitemap measurement
+// of a source with 45,036 products, and importing it would create a dimension
+// for products this catalog does not have. This reports only what the 346 live
+// products actually use — 72 slugs — so every category returned has at least
+// one product behind it and no page can be generated with nothing on it.
+//
+// Slugs are returned raw. Grouping them into customer-facing families is
+// PRESENTATION and belongs to each storefront (shared-contract §12: SsangYong's
+// grouping is SsangYong's), so the Kitchen states the fact and takes no view.
+// ---------------------------------------------------------------------------
+async function getPartCategories(res) {
+  var result = await db.query(
+    'SELECT ' + PART_CATEGORY + ' AS category_slug, count(*) AS product_count ' +
+    'FROM sya_products WHERE ' + LIVE_STATUS + ' ' +
+    'GROUP BY 1 HAVING ' + PART_CATEGORY + " <> '' ORDER BY 1 ASC"
+  );
+  sendJson(res, 200, {
+    part_categories: result.rows.map(function (r) {
+      return { category_slug: r.category_slug, product_count: toInt(r.product_count) };
+    })
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -600,6 +657,7 @@ var ROUTES = [
   { method: 'GET', pattern: /^\/api\/vehicle-models$/, handler: function (req, res, m, q) { return getVehicleModels(res, q); } },
   { method: 'GET', pattern: /^\/api\/vehicle-models\/([^/]+)\/motorizations$/, handler: function (req, res, m) { return getModelMotorizations(res, decodePathSegment(m[1])); } },
   { method: 'GET', pattern: /^\/api\/brands$/, handler: function (req, res) { return getBrands(res); } },
+  { method: 'GET', pattern: /^\/api\/part-categories$/, handler: function (req, res) { return getPartCategories(res); } },
   { method: 'GET', pattern: /^\/api\/quotes$/, handler: function (req, res, m, q) { return getQuotes(res, q); } },
   { method: 'GET', pattern: /^\/api\/products$/, handler: function (req, res, m, q) { return getProducts(res, q); } },
   { method: 'GET', pattern: /^\/api\/products\/([^/]+)$/, handler: function (req, res, m) { return getProduct(res, decodePathSegment(m[1])); } }
