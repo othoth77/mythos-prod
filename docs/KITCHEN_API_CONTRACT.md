@@ -1,7 +1,7 @@
 # MYTHOS AUTO — Parts Network catalog API contract
 
 **Service:** `projects/ssangyong-autos/reference/api.js`
-**Contract stage:** SYA-API-3 (adds `/api/part-categories` and `?category=`)
+**Contract stage:** SYA-API-4 (adds `?ref=`)
 **Shared Kitchen Contract:** consumers pin **1.2.0** (MINOR — additive only; §7)
 **Status:** SYA-API-1 routes **LIVE** at `https://store.ssangyong.autos/api`.
 SYA-API-2 routes are **implemented and live-verified on an isolated port, NOT DEPLOYED** — deployment is an owner/operator step (§8).
@@ -61,6 +61,7 @@ The **part**-manufacturer facet (BOSCH, ASHIKA) — distinct axis from `vehicle-
 | `brand` | exact part brand |
 | `model_id`, `motorization_id` | positive integers; `EXISTS` over fitment |
 | `brand_car` | Case-insensitive vehicle manufacturer, via the fitment edge |
+| `ref` | **NEW (SYA-API-4).** Part-reference search, **punctuation-insensitive on both sides** — the stored reference and the caller's term are both stripped to alphanumerics, so they meet in the middle whichever carries the separators. Matches `canonical_reference` and `oem_reference`. Case-insensitive. > 64 chars, no alphanumeric character, or a control character → `400` |
 | `category` | **NEW (SYA-API-3).** One slug, or a comma-separated list (≤ 40, de-duplicated) returning their union. **Case-insensitive**, like `brand_car`. Empty is ignored; a slug > 128 chars or a list > 40 → `400`; an unknown slug contributes nothing rather than erroring. Composes with every other filter |
 | `limit` | 1–200, default 50; outside → `400` |
 | `offset` | ≥ 0; negative → `400` |
@@ -153,7 +154,7 @@ agrees with the list.
 
 ## 6. Tests
 
-`tests/sya-api-1-readonly-catalog-api-test.js` — **124 checks** (60 → 94 → 114 → 124), including one that walks **every** category and asserts its facet count equals its filtered-list total. `tests/sya-shop-1-storefront-test.js` — **41 checks**, unchanged. Both run real HTTP against the live read-only catalog.
+`tests/sya-api-1-readonly-catalog-api-test.js` — **135 checks** (60 → 94 → 114 → 124), including one that walks **every** category and asserts its facet count equals its filtered-list total. `tests/sya-shop-1-storefront-test.js` — **41 checks**, unchanged. Both run real HTTP against the live read-only catalog.
 
 ## 7. Versioning
 

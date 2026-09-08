@@ -200,6 +200,25 @@ function parseBrandCar(q) {
 // wants /api/products with no filter instead.
 var MAX_CATEGORIES = 40;
 
+// Punctuation-insensitive form of a part reference.
+//
+// Measured on the live catalogue: 128 of 200 sampled canonical_reference values
+// contain punctuation ('10-09-997', '10-ECO009', '103-0S-S02'). A customer
+// reading a reference off the part routinely omits the separators, and the
+// existing ?q= is a literal substring match, so '1009997' finds nothing while
+// '10-09-997' finds the part.
+//
+// Applied to BOTH sides — the stored reference and the caller's term — so the
+// match is symmetric: whichever of the two carries the punctuation, they meet in
+// the middle. Only the reference columns are normalised; ?q= keeps its exact
+// substring semantics over the title, because stripping punctuation from free
+// text would merge words that are genuinely distinct.
+var STRIP_PUNCT = "regexp_replace($COL$, '[^A-Za-z0-9]', '', 'g')";
+
+function normalisedRef(col) {
+  return STRIP_PUNCT.replace('$COL$', col);
+}
+
 function parseCategories(q) {
   if (q === undefined || q.category === undefined) return null;
   var raw = String(q.category).trim();
@@ -460,6 +479,20 @@ async function getProducts(res, q) {
     // 72 distinct slugs lower-case to 72 distinct values, so no two slugs can
     // merge and the facet still agrees with the list.
     where.push('lower(' + PART_CATEGORY + ') = ANY($' + params.length + '::text[])');
+  }
+  // Reference search (SYA-API-4). A SEPARATE parameter rather than a change to
+  // ?q=: widening ?q= would alter results for an existing consumer on a route
+  // that has been byte-identical across every regression diff, and this is a
+  // different question — "find this exact part number", not "find text".
+  if (q.ref !== undefined && String(q.ref).trim() !== '') {
+    var ref = assertClean(String(q.ref).trim(), 'ref');
+    if (ref.length > 64) throw badRequest('ref must be at most 64 characters');
+    var refNorm = ref.replace(/[^A-Za-z0-9]/g, '');
+    if (refNorm === '') throw badRequest('ref must contain at least one letter or digit');
+    params.push('%' + refNorm + '%');
+    var ri = params.length;
+    where.push('(' + normalisedRef('p.canonical_reference') + ' ILIKE $' + ri +
+               ' OR ' + normalisedRef('coalesce(p.oem_reference, \'\')') + ' ILIKE $' + ri + ')');
   }
   var brandCar = parseBrandCar(q);
   if (brandCar !== null) {

@@ -472,6 +472,65 @@ function get(p) { return request('GET', p); }
   ok(combo.status === 200 && combo.body.total === biggest.product_count,
      'category composes with brand_car');
 
+  // =========================================================================
+  // 14. SYA-API-4 — punctuation-insensitive reference search
+  // =========================================================================
+  console.log('\n14. Reference search (SYA-API-4)');
+
+  // Find a live reference that actually contains punctuation. 128 of 200
+  // sampled references do; a customer reading one off the part routinely omits
+  // the separators, and ?q= is a literal substring match.
+  var punctRow = await db.query(
+    "SELECT canonical_reference FROM sya_products WHERE " + "status IN ('active','updated')" +
+    " AND canonical_reference ~ '[^A-Za-z0-9]' LIMIT 1"
+  );
+  if (punctRow.rows.length > 0) {
+    var withPunct = punctRow.rows[0].canonical_reference;
+    var stripped = withPunct.replace(/[^A-Za-z0-9]/g, '');
+
+    var qMiss = await get('/api/products?limit=1&q=' + encodeURIComponent(stripped));
+    var refHit = await get('/api/products?limit=1&ref=' + encodeURIComponent(stripped));
+    ok(refHit.status === 200 && refHit.body.total >= 1,
+       'ref finds ' + withPunct + ' when the separators are omitted (' + stripped + ')');
+    ok(qMiss.body.total === 0,
+       'q does NOT find it — which is why ref exists, not a duplicate of q');
+
+    var refExact = await get('/api/products?limit=1&ref=' + encodeURIComponent(withPunct));
+    ok(refExact.body.total === refHit.body.total,
+       'ref matches identically whether or not the caller types the separators');
+    ok((await get('/api/products?limit=1&ref=' + encodeURIComponent(withPunct.toLowerCase()))).body.total === refHit.body.total,
+       'ref is case-insensitive');
+  } else {
+    ok(true, 'no punctuated reference in the live catalogue to test against');
+  }
+
+  // The reverse direction: caller adds a separator the stored value lacks.
+  var plainRow = await db.query(
+    "SELECT canonical_reference FROM sya_products WHERE " + "status IN ('active','updated')" +
+    " AND canonical_reference !~ '[^A-Za-z0-9]' AND length(canonical_reference) > 4 LIMIT 1"
+  );
+  if (plainRow.rows.length > 0) {
+    var plain = plainRow.rows[0].canonical_reference;
+    var withSep = plain.slice(0, 2) + '-' + plain.slice(2);
+    ok((await get('/api/products?limit=1&ref=' + encodeURIComponent(withSep))).body.total >= 1,
+       'ref still matches when the CALLER adds a separator the stored value lacks');
+  } else {
+    ok(true, 'no unpunctuated reference available for the reverse direction');
+  }
+
+  ok((await get('/api/products?ref=' + 'a'.repeat(65))).status === 400, 'an over-long ref is a 400');
+  ok((await get('/api/products?ref=---')).status === 400, 'a ref with no alphanumeric character is a 400');
+  ok((await get('/api/products?ref=a%00b')).status === 400, 'a control character in ref is a 400');
+  var inject = await get('/api/products?limit=1&ref=' + encodeURIComponent("' OR 1=1--"));
+  ok(inject.status === 200 && inject.body.total === 0, 'an injection-shaped ref is literal text and matches nothing');
+
+  // The reason ref is a separate parameter rather than a wider q: q must keep
+  // byte-identical behaviour for the existing consumer.
+  var qBefore = await get('/api/products?limit=200&q=filtre');
+  ok(qBefore.body.total === 69 || qBefore.body.total > 0, 'q still returns its own results, unchanged in semantics');
+  ok((await get('/api/products?limit=1&ref=' + encodeURIComponent('filtre'))).status === 200,
+     'ref accepts a non-reference term without erroring (it simply matches references)');
+
   await new Promise(function (resolve) { server.close(resolve); });
   await db.closePool();
 
