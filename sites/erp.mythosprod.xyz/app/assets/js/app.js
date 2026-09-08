@@ -61,6 +61,13 @@ async function boot() {
 
 function showLogin() {
   $('app').hidden = true; $('login').hidden = false; clear($('view'));
+  // Every path that shows this form (boot with no session, session-expired
+  // drop-back, explicit logout) must start from an empty state: neither field
+  // is cleared by onLogin() itself except password on success, so a value
+  // typed before a previous attempt can otherwise still be sitting here —
+  // clicking in and typing again then inserts at the cursor instead of
+  // replacing it, corrupting the submitted email/password.
+  $('login-email').value = ''; $('login-password').value = '';
   $('login-email').focus();
 }
 
