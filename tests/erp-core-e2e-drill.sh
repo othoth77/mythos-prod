@@ -493,7 +493,54 @@ A -X POST "$B/auth/logout" >/dev/null
 check "no password in the API log (documents)" "! grep -qF \"$ADMIN_PW\" $WORK/api.log" ""
 check "no PDF/PHP byte content leaked into the API log" "! grep -qF 'system(' $WORK/api.log" ""
 
-echo "§12 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
+echo "§12 user management: create → invite → self-service setup → login, rank cap, tenant reuse"
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+NEWUSER_EMAIL="teammate+e2e@mythos.test"
+NEWUSER_PW="$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9')"
+R=$(A -X POST "$B/users" --data "{\"email\":\"$NEWUSER_EMAIL\",\"display_name\":\"Teammate\",\"role_key\":\"finance_user\"}")
+check "super_admin creates a finance_user (201)" "[ $R = 201 ]" "$R $(cat $J)"
+SETUP_TOKEN=$(jget setup_token)
+check "setup_token returned, no password/hash in the response" "[ -n \"$SETUP_TOKEN\" ] && ! grep -qiE 'password_hash|scrypt' $J" "$(cat $J)"
+
+R=$(code -X POST "$B/auth/password-reset/complete" --data "{\"token\":\"$SETUP_TOKEN\",\"password\":\"$NEWUSER_PW\"}")
+check "unauthenticated reset-complete with the real setup token → 200" "[ $R = 200 ]" "$R $(cat $J)"
+
+login "$NEWUSER_EMAIL" "$NEWUSER_PW"
+check "new user logs in with the password they just set (200)" "[ $R = 200 ]" "$R $(cat $J)"
+
+R=$(code -X POST "$B/auth/password-reset/complete" --data "{\"token\":\"$SETUP_TOKEN\",\"password\":\"$NEWUSER_PW\"}")
+check "the same setup token cannot be replayed (422 invalid_token)" "[ $R = 422 ]" "$R $(cat $J)"
+
+R=$(code -X POST "$B/auth/password-reset/request" --data '{"email":"unknown-nobody+e2e@mythos.test"}')
+check "reset-request for a nonexistent address is still 200 (no account-existence oracle)" "[ $R = 200 ]" "$R $(cat $J)"
+
+login "rita@mythos.test" "$OTHER_PW"
+R=$(A -X POST "$B/users" --data "{\"email\":\"x+e2e@mythos.test\",\"display_name\":\"X\",\"role_key\":\"read_only\"}")
+check "read_only cannot create users (403, users.manage)" "[ $R = 403 ]" "$R $(cat $J)"
+
+login "bob@acme.test" "$OTHER_PW"
+R=$(A -X POST "$B/users" --data "{\"email\":\"y+e2e@mythos.test\",\"display_name\":\"Y\",\"role_key\":\"super_admin\"}")
+check "acme admin cannot grant super_admin — rank exceeds their own (403)" "[ $R = 403 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/users" --data "{\"email\":\"z+e2e@mythos.test\",\"display_name\":\"Z\",\"role_key\":\"manager\"}")
+check "acme admin CAN grant manager — within their own rank (201)" "[ $R = 201 ]" "$R $(cat $J)"
+
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+R=$(A -X POST "$B/users" --data "{\"email\":\"$NEWUSER_EMAIL\",\"display_name\":\"Teammate\",\"role_key\":\"manager\"}")
+check "creating the same email in the same tenant again → 409 already_member" "[ $R = 409 ]" "$R $(cat $J)"
+
+BEFORE_COUNT=$(q "select count(*) from users where email='bob@acme.test'")
+R=$(A -X POST "$B/users" --data "{\"email\":\"bob@acme.test\",\"display_name\":\"Bob\",\"role_key\":\"read_only\"}")
+check "reusing an existing user's email for a NEW tenant membership → 201, not a duplicate account" "[ $R = 201 ]" "$R $(cat $J)"
+AFTER_COUNT=$(q "select count(*) from users where email='bob@acme.test'")
+check "no duplicate users row was created for bob" "[ $BEFORE_COUNT = $AFTER_COUNT ]" "before=$BEFORE_COUNT after=$AFTER_COUNT"
+MEMBERSHIP_COUNT=$(q "select count(*) from tenant_memberships tm join users u on u.id=tm.user_id where u.email='bob@acme.test'")
+check "bob now has 2 tenant memberships (acme + mythos)" "[ $MEMBERSHIP_COUNT = 2 ]" "$MEMBERSHIP_COUNT"
+
+AUDIT_ROWS=$(q "select count(*) from audit_log where action='user.created'")
+check "user.created audit rows exist for every creation above (>= 3)" "[ $AUDIT_ROWS -ge 3 ]" "$AUDIT_ROWS"
+check "no password/hash ever appears in the API log (user management)" "! grep -qiE 'password_hash|scrypt' $WORK/api.log" "leak found"
+
+echo "§13 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
 # A dedicated restart of the same already-migrated database, at a tiny
 # threshold, so this section is fast and deterministic instead of needing
 # hundreds of requests against the default (400/10s) limit used everywhere
@@ -559,6 +606,7 @@ check "oversize-declared-body requests are counted by the limiter (429 on the 6t
 sleep 3.2
 R=$(curl -s -o /dev/null -w '%{http_code}' "$B/does-not-exist-xyz")
 check "the window elapses: the previously-limited source is served again (404, not 429)" "[ $R = 404 ]" "$R"
+
 
 echo
 echo "erp-core-e2e-drill: $PASS passed, $FAIL failed"

@@ -280,7 +280,14 @@ function validatePasswordStrength(pw) {
 }
 
 /* Reset request. The response is identical whether or not the address exists;
-   the caller must not branch on the return value either. */
+   the caller must not branch on the return value either.
+   deps.tenantId is optional: every existing caller runs this outside any
+   tenant transaction (GUC unset, current_tenant() is NULL), where omitting it
+   is exactly right — the audit row's tenant_id is NULL and the RLS insert
+   check (tenant_id IS NOT DISTINCT FROM current_tenant()) passes. A caller
+   running this INSIDE an already-tenant-scoped transaction (e.g. creating a
+   user and immediately inviting them) must pass the active tenant id, or
+   that same check rejects the write outright. */
 function requestPasswordReset(deps, email, ip) {
   var db = deps.db;
   var addr = String(email || '').trim().toLowerCase();
@@ -296,7 +303,8 @@ function requestPasswordReset(deps, email, ip) {
       ).then(function () {
         return audit.write(db, {
           actor_id: user.id, actor_label: addr, action: 'password.reset_requested',
-          entity_table: 'users', entity_id: user.id, outcome: 'ok', detail: {}, ip: ip || null
+          entity_table: 'users', entity_id: user.id, outcome: 'ok', detail: {}, ip: ip || null,
+          tenant_id: deps.tenantId || null
         });
       }).then(function () { return { ok: true, dispatched: true, token: token }; });
     });

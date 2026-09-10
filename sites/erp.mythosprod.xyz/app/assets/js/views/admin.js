@@ -46,7 +46,9 @@ export function settingsView(container) {
 }
 
 export function usersView(container) {
-  const body = h('div', { class: 'stack' }); container.appendChild(body);
+  const toolbar = h('div', { class: 'toolbar' },
+    h('button', { type: 'button', class: 'btn btn-primary', text: 'Nouvel utilisateur', onClick: () => createUser() }));
+  const body = h('div', { class: 'stack' }); container.append(toolbar, body);
   const ROLES = ['super_admin', 'admin', 'manager', 'production_user', 'finance_user', 'read_only'];
   load();
   async function load() {
@@ -63,8 +65,36 @@ export function usersView(container) {
         { key: 'is_active', label: 'Compte', render: (u) => badge(u.is_active ? 'actif' : 'inactif', u.is_active ? 'ok' : 'danger') },
         { key: 'last_login_at', label: 'Dernière connexion', render: (u) => fmtDate(u.last_login_at) }
       ], r.rows, (u) => [h('button', { type: 'button', class: 'btn btn-secondary btn-sm', text: 'Attribuer un rôle', onClick: () => assign(u) })]));
-      body.appendChild(h('p', { class: 'hint', text: 'La création de comptes passe par l\'API authentifiée (users.manage) ; aucun compte n\'est créé depuis cette page.' }));
     } catch (e) { clear(body).appendChild(errorBox(describeError(e), load, e.body && e.body.error)); }
+  }
+  function createUser() {
+    const emailEl = input({ type: 'email', name: 'email', required: true });
+    const nameEl = input({ name: 'display_name', required: true });
+    const sel = select(ROLES.map((k) => ({ value: k, label: k })), { name: 'role_key' });
+    const err = h('p', { class: 'error', role: 'alert', hidden: true });
+    const ok = h('button', { type: 'button', class: 'btn btn-primary', text: 'Créer' });
+    ok.addEventListener('click', async () => {
+      err.hidden = true; ok.disabled = true;
+      try {
+        const r = await api.post('/users', { email: emailEl.value.trim(), display_name: nameEl.value.trim(), role_key: sel.value });
+        showSetupToken(r);
+      } catch (e) { err.textContent = describeError(e); err.hidden = false; ok.disabled = false; }
+    });
+    modal({
+      title: 'Nouvel utilisateur',
+      body: h('div', {}, field('E-mail', emailEl), field('Nom affiché', nameEl), field('Rôle', sel), err),
+      actions: [h('button', { type: 'button', class: 'btn btn-ghost', text: 'Annuler', onClick: closeModal }), ok]
+    });
+  }
+  function showSetupToken(r) {
+    modal({
+      title: 'Compte créé — ' + r.display_name,
+      body: h('div', { class: 'stack' },
+        h('p', { text: 'Transmettez ce jeton à ' + r.email + ' en dehors de l\'application (ex. message direct). Il n\'est affiché qu\'une seule fois et ne sera plus jamais visible ensuite.' }),
+        h('p', { class: 'kv' }, h('code', { text: r.setup_token || '(compte existant : aucun nouveau jeton — utilisez son mot de passe existant)' })),
+        h('p', { class: 'hint', text: r.email + ' doit utiliser ce jeton sur l\'écran de connexion, lien « Mot de passe oublié », pour définir son mot de passe.' })),
+      actions: [h('button', { type: 'button', class: 'btn btn-primary', text: 'Fermer', onClick: () => { closeModal(); load(); } })]
+    });
   }
   function assign(u) {
     const sel = select(ROLES.map((k) => ({ value: k, label: k })), { name: 'role_key' });

@@ -27,6 +27,7 @@ var accounting = require('./modules/accounting');
 var invoices = require('./modules/invoices');
 var quotes = require('./modules/quotes');
 var documents = require('./modules/documents');
+var usersModule = require('./modules/users');
 var views = require('./modules/views');
 
 var MAX_BODY = 1024 * 1024;          // 1 MiB of JSON is already generous
@@ -117,6 +118,29 @@ route('POST', '/api/v1/auth/logout', null, function (ctx, client) {
     });
 });
 
+// Pure passthrough to lib/auth.js's already-tested requestPasswordReset /
+// completePasswordReset — both were built and unit-tested long before this,
+// just never reachable over HTTP. Paths match pipeline.js's own pre-existing
+// PUBLIC_ROUTES entries (unauthenticated, CSRF-exempt by construction — there
+// is no session yet to bind a token to). Both functions audit internally.
+route('POST', '/api/v1/auth/password-reset/request', null, function (ctx, client) {
+  return auth.requestPasswordReset({ db: client }, ctx.body && ctx.body.email, ctx.ip)
+    .then(function () {
+      // Identical response whether or not the address exists — the point of
+      // the underlying function is exactly this non-oracle behavior.
+      return { status: 200, body: { ok: true }, skipAudit: true };
+    });
+});
+
+route('POST', '/api/v1/auth/password-reset/complete', null, function (ctx, client) {
+  return auth.completePasswordReset(
+    { db: client }, ctx.body && ctx.body.token, ctx.body && ctx.body.password, ctx.ip
+  ).then(function (r) {
+    if (!r.ok) return { status: 422, body: { error: r.error }, skipAudit: true };
+    return { status: 200, body: { ok: true }, skipAudit: true };
+  });
+});
+
 // Session restore for a reloaded or newly opened tab. The CSRF token is stored
 // only as a hash, so it cannot be handed back; instead a fresh one is issued
 // here and bound to the session (rotation). The previous token stops working —
@@ -170,6 +194,7 @@ route('GET', '/api/v1/settings', 'settings', views.settings.read);
 route('PATCH', '/api/v1/settings', 'settings', views.settings.update);
 route('POST', '/api/v1/settings/modules', 'settings', views.settings.setModule);
 route('GET', '/api/v1/users', 'users', views.users.list);
+route('POST', '/api/v1/users', 'users', usersModule.handlers.create);
 route('POST', '/api/v1/users/roles', 'users', views.users.assignRole);
 route('GET', '/api/v1/audit', 'audit', views.audit.list);
 
