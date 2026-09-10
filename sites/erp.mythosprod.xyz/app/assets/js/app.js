@@ -49,6 +49,9 @@ async function boot() {
   $('login-form').addEventListener('submit', onLogin);
   $('logout').addEventListener('click', onLogout);
   $('tenant-select').addEventListener('change', onTenantChange);
+  $('login-show-setup').addEventListener('click', showSetup);
+  $('setup-show-login').addEventListener('click', showLogin);
+  $('setup-form').addEventListener('submit', onSetupPassword);
   document.addEventListener('erp:modules-changed', () => refreshModules().then(renderRail));
   // Always ask the server: the HttpOnly cookie may be valid even when this
   // tab holds no state yet (new tab). 401 → login form.
@@ -61,6 +64,7 @@ async function boot() {
 
 function showLogin() {
   $('app').hidden = true; $('login').hidden = false; clear($('view'));
+  $('login-form').hidden = false; $('setup-form').hidden = true;
   // Every path that shows this form (boot with no session, session-expired
   // drop-back, explicit logout) must start from an empty state: neither field
   // is cleared by onLogin() itself except password on success, so a value
@@ -69,6 +73,26 @@ function showLogin() {
   // replacing it, corrupting the submitted email/password.
   $('login-email').value = ''; $('login-password').value = '';
   $('login-email').focus();
+}
+
+function showSetup() {
+  $('login-form').hidden = true; $('setup-form').hidden = false;
+  $('setup-token').value = ''; $('setup-password').value = '';
+  $('setup-error').hidden = true; $('setup-ok').hidden = true;
+  $('setup-token').focus();
+}
+
+async function onSetupPassword(ev) {
+  ev.preventDefault();
+  const err = $('setup-error'); err.hidden = true;
+  const ok = $('setup-ok'); ok.hidden = true;
+  const btn = $('setup-submit'); btn.disabled = true;
+  try {
+    await api.post('/auth/password-reset/complete', { token: $('setup-token').value.trim(), password: $('setup-password').value });
+    $('setup-token').value = ''; $('setup-password').value = '';
+    ok.hidden = false;
+  } catch (e) { err.textContent = describeError(e); err.hidden = false; }
+  finally { btn.disabled = false; }
 }
 
 async function onLogin(ev) {
