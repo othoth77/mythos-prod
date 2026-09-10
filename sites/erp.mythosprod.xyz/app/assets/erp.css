@@ -294,6 +294,13 @@ table.data td.num { font-family: var(--mythos-font-mono); text-align: right; }
   min-height: 100vh; display: grid; place-items: center;
   padding: var(--mythos-space-6); background: var(--mythos-ground);
 }
+/* .login's own display:grid has the same specificity as [hidden]'s
+   display:none and comes later in the cascade, so it always won — the
+   hidden attribute was set correctly by app.js on every successful login
+   (verified: element.hidden === true) but had no visual effect, leaving
+   the login card visibly on screen over the now-rendered dashboard. This
+   selector's specificity (0,2,0) beats both, independent of source order. */
+.login[hidden] { display: none; }
 .login-card { width: min(420px, 100%); gap: var(--mythos-space-4); }
 .login-card h1 {
   font-family: var(--mythos-font-display); font-weight: var(--mythos-weight-semibold);
