@@ -485,6 +485,80 @@ function postPayment(client, ctx, payment) {
   });
 }
 
+/* Phase 2 (P1 Purchases) — the exact mirror of postInvoiceIssue/postPayment,
+ * flipped: a purchase debits the expense (and deductible VAT) instead of
+ * crediting revenue, and credits the payable instead of debiting the
+ * receivable. A supplier payment debits payable and credits treasury —
+ * money leaving instead of arriving. Same idempotency guard (source_table/
+ * source_id), same "skip silently for an unconfigured tenant, throw for a
+ * configured one that somehow fails to balance" contract. */
+function postPurchaseInvoice(client, ctx, purchase) {
+  // purchase: { id, reference, purchased_on, amount_ht, vat_rate }
+  return accountingActive(client).then(function (active) {
+    if (!active) return { skipped: 'accounting_not_configured' };
+    return Promise.all([systemAccounts(client), journalByKind(client, 'purchases'),
+      client.query('SELECT 1 FROM journal_entries WHERE source_table = $1 AND source_id = $2', ['purchases', purchase.id])])
+      .then(function (out) {
+        var acc = out[0], journal = out[1];
+        if (out[2].rows.length) return { skipped: 'already_posted' };
+        if (!acc.payable || !acc.purchases || !journal) return { skipped: 'system_accounts_missing' };
+        var ht = money(purchase.amount_ht);
+        var rate = Number(purchase.vat_rate || 0);
+        var vat = money(ht * rate / 100);
+        var ttc = money(ht + vat);
+        if (ttc <= 0) return { skipped: 'zero_amount' };
+        var label = purchase.reference || purchase.id;
+        var lines = [{ account_id: acc.purchases.id, label: 'Achat ' + label, debit: money(ht), credit: 0 }];
+        if (vat > 0) {
+          if (!acc.vat_deductible) return { skipped: 'system_accounts_missing' };
+          lines.push({ account_id: acc.vat_deductible.id, label: 'TVA déductible ' + rate + ' %', debit: vat, credit: 0, vat_rate: rate });
+        }
+        lines.push({ account_id: acc.payable.id, label: 'Fournisseur ' + label, debit: 0, credit: money(lines.reduce(function (a, l) { return a + l.debit; }, 0)) });
+        return createEntry(client, ctx, { journal_id: journal.id, entry_date: isoDate(purchase.purchased_on), reference: purchase.reference || null,
+          memo: 'Facture fournisseur ' + label, lines: lines, post: true, source_table: 'purchases', source_id: purchase.id })
+          .then(function (r) { if (r.error) throw Object.assign(new Error('accounting: ' + r.error), { status: r.status || 409, expose: true }); return { entry: r }; });
+      });
+  });
+}
+
+function postSupplierPayment(client, ctx, payment) {
+  // payment: { id, purchase_label, paid_on, amount, method }
+  return accountingActive(client).then(function (active) {
+    if (!active) return { skipped: 'accounting_not_configured' };
+    var cash = /esp[eè]ces|cash|caisse|liquide/i.test(String(payment.method || ''));
+    return Promise.all([systemAccounts(client), journalByKind(client, cash ? 'cash' : 'bank'),
+      client.query('SELECT 1 FROM journal_entries WHERE source_table = $1 AND source_id = $2', ['payments', payment.id])])
+      .then(function (out) {
+        var acc = out[0], journal = out[1] || null;
+        if (out[2].rows.length) return { skipped: 'already_posted' };
+        var treasury = cash ? (acc.cash || acc.bank) : acc.bank;
+        if (!acc.payable || !treasury || !journal) return { skipped: 'system_accounts_missing' };
+        var amt = money(payment.amount);
+        return createEntry(client, ctx, { journal_id: journal.id, entry_date: isoDate(payment.paid_on), reference: payment.purchase_label,
+          memo: 'Règlement fournisseur ' + payment.purchase_label + (payment.method ? ' (' + payment.method + ')' : ''),
+          lines: [{ account_id: acc.payable.id, label: 'Règlement ' + payment.purchase_label, debit: amt, credit: 0 },
+                  { account_id: treasury.id, label: 'Décaissement ' + payment.purchase_label, debit: 0, credit: amt }],
+          post: true, source_table: 'payments', source_id: payment.id })
+          .then(function (r) { if (r.error) throw Object.assign(new Error('accounting: ' + r.error), { status: r.status || 409, expose: true }); return { entry: r }; });
+      });
+  });
+}
+
+/* Purchase cancelled after confirmation: reverse its posting entry (payments
+   stay: money that moved is a fact) — the exact mirror of reverseInvoice. */
+function reversePurchase(client, ctx, purchase) {
+  return accountingActive(client).then(function (active) {
+    if (!active) return { skipped: 'accounting_not_configured' };
+    return client.query("SELECT id, status FROM journal_entries WHERE source_table = 'purchases' AND source_id = $1", [purchase.id]).then(function (r) {
+      var e = r.rows[0];
+      if (!e) return { skipped: 'no_issue_entry' };
+      if (e.status !== 'posted') return { skipped: 'issue_entry_' + e.status };
+      return reverseEntry(client, ctx, e.id, 'Annulation achat ' + (purchase.reference || purchase.id), { table: 'purchase_cancel', id: purchase.id })
+        .then(function (rv) { if (rv.error) throw Object.assign(new Error('accounting: ' + rv.error), { status: rv.status || 409, expose: true }); return { entry: rv.body.reversal }; });
+    });
+  });
+}
+
 /* Invoice cancelled after issue: reverse its issue entry (payments stay: money moved). */
 function reverseInvoice(client, ctx, invoice) {
   return accountingActive(client).then(function (active) {
@@ -502,5 +576,6 @@ function reverseInvoice(client, ctx, invoice) {
 module.exports = {
   entries: entries, periods: periods, reports: reports, setup: setup,
   postInvoiceIssue: postInvoiceIssue, postPayment: postPayment, reverseInvoice: reverseInvoice,
+  postPurchaseInvoice: postPurchaseInvoice, postSupplierPayment: postSupplierPayment, reversePurchase: reversePurchase,
   normaliseLines: normaliseLines, ensurePeriod: ensurePeriod
 };

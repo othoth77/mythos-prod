@@ -27,6 +27,7 @@ var accounting = require('./modules/accounting');
 var invoices = require('./modules/invoices');
 var quotes = require('./modules/quotes');
 var documents = require('./modules/documents');
+var purchases = require('./modules/purchases');
 var usersModule = require('./modules/users');
 var views = require('./modules/views');
 
@@ -219,6 +220,19 @@ route('PATCH',  '/api/v1/quotes/:id', 'finance', quotes.handlers.update,
       function (b) { return quotes.validateHeader(b, true); });
 route('DELETE', '/api/v1/quotes/:id', 'finance', quotes.handlers.retire);
 route('POST',   '/api/v1/quotes/:id/convert', 'finance', quotes.handlers.convert);
+
+// ── Purchases — dedicated (Phase 2, P1: real status lifecycle, supplier
+// payments, automatic accounting posting, not the flat header-only generic
+// CRUD registry.js used to drive; module stays 'finance', same permission
+// gate as invoices/quotes/purchases have always shared) ───────────────────
+route('GET',    '/api/v1/purchases', 'finance', purchases.handlers.list);
+route('POST',   '/api/v1/purchases', 'finance', purchases.handlers.create,
+      function (b) { return purchases.validateHeader(b, false); });
+route('GET',    '/api/v1/purchases/:id', 'finance', purchases.handlers.get);
+route('PATCH',  '/api/v1/purchases/:id', 'finance', purchases.handlers.update,
+      function (b) { return purchases.validateHeader(b, true); });
+route('DELETE', '/api/v1/purchases/:id', 'finance', purchases.handlers.retire);
+route('POST',   '/api/v1/purchases/:id/payments', 'finance', purchases.handlers.addPayment);
 
 // ── Comptabilité / general ledger (0005-accounting.sql) ───────────────────
 // All tenant-scoped, module 'accounting': GET = accounting.read, POST/PATCH =
