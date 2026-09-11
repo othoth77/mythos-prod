@@ -58,7 +58,7 @@ docker run -d --name "$C" -P -e POSTGRES_USER=erp_owner -e POSTGRES_DB=mythos_er
 # start; a single pg_isready success can land in that window. Require two in a row.
 OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
-for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql 0008-purchases-lifecycle.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
 done
@@ -540,7 +540,91 @@ AUDIT_ROWS=$(q "select count(*) from audit_log where action='user.created'")
 check "user.created audit rows exist for every creation above (>= 3)" "[ $AUDIT_ROWS -ge 3 ]" "$AUDIT_ROWS"
 check "no password/hash ever appears in the API log (user management)" "! grep -qiE 'password_hash|scrypt' $WORK/api.log" "leak found"
 
-echo "§13 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
+echo "§13 purchases: supplier → purchase → confirm/accounting → partial payment → final payment → accounting, tenancy, permissions"
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+R=$(A -X POST "$B/suppliers" --data '{"name":"Fournisseur E2E"}')
+check "create supplier (201)" "[ $R = 201 ]" "$R $(cat $J)"
+SUPPLIER_ID=$(jget id)
+
+R=$(A -X POST "$B/purchases" --data "{\"supplier_id\":\"$SUPPLIER_ID\",\"reference\":\"F-E2E-1\",\"amount_ht\":\"1000.000\",\"vat_rate\":19}")
+check "create purchase, draft (201)" "[ $R = 201 ]" "$R $(cat $J)"
+PURCHASE_ID=$(jget id)
+check "draft purchase totals computed HT/VAT/TTC" "[ \"$(jget totals.total_ttc)\" = \"1190.000\" ]" "$(cat $J)"
+check "draft purchase not yet posted to accounting" "[ \"$(jget accounting.skipped)\" = \"draft\" ]" "$(cat $J)"
+
+R=$(A -X POST "$B/purchases" --data '{"supplier_id":"00000000-0000-0000-0000-000000000000","amount_ht":"10.000"}')
+check "purchase against an unknown supplier → 422 invalid_reference" "[ $R = 422 ]" "$R $(cat $J)"
+
+R=$(A -X PATCH "$B/purchases/$PURCHASE_ID" --data '{"status":"confirmed"}')
+check "confirm the purchase (200)" "[ $R = 200 ]" "$R $(cat $J)"
+CONFIRM_ENTRY=$(jget accounting.entry_no)
+check "confirming posts a real accounting entry" "[ -n \"$CONFIRM_ENTRY\" ] && [ \"$CONFIRM_ENTRY\" != None ]" "$(cat $J)"
+
+DEBIT_PURCHASES=$(q "select coalesce(sum(l.debit),0) from journal_lines l join accounts a on a.id=l.account_id where a.system_key='purchases' and l.entry_id=(select id from journal_entries where source_table='purchases' and source_id='$PURCHASE_ID')")
+DEBIT_VAT=$(q "select coalesce(sum(l.debit),0) from journal_lines l join accounts a on a.id=l.account_id where a.system_key='vat_deductible' and l.entry_id=(select id from journal_entries where source_table='purchases' and source_id='$PURCHASE_ID')")
+CREDIT_PAYABLE=$(q "select coalesce(sum(l.credit),0) from journal_lines l join accounts a on a.id=l.account_id where a.system_key='payable' and l.entry_id=(select id from journal_entries where source_table='purchases' and source_id='$PURCHASE_ID')")
+check "purchase entry debits 606 (achats) for the HT amount" "[ \"$DEBIT_PURCHASES\" = \"1000.000\" ]" "$DEBIT_PURCHASES"
+check "purchase entry debits 4366 (TVA déductible) for the VAT amount" "[ \"$DEBIT_VAT\" = \"190.000\" ]" "$DEBIT_VAT"
+check "purchase entry credits 401 (fournisseurs) for the TTC amount" "[ \"$CREDIT_PAYABLE\" = \"1190.000\" ]" "$CREDIT_PAYABLE"
+BALANCED=$(q "select case when sum(debit)=sum(credit) then 'yes' else 'no' end from journal_lines where entry_id=(select id from journal_entries where source_table='purchases' and source_id='$PURCHASE_ID')")
+check "purchase entry itself is balanced (debit = credit)" "[ $BALANCED = yes ]" "$BALANCED"
+
+R=$(A -X POST "$B/purchases/$PURCHASE_ID/payments" --data '{"amount":"400.000","method":"virement","reference":"VIR-1"}')
+check "partial payment 400 (201)" "[ $R = 201 ]" "$R $(cat $J)"
+check "purchase_status after partial payment = part_paid" "[ \"$(jget purchase_status)\" = part_paid ]" "$(cat $J)"
+R=$(A "$B/purchases/$PURCHASE_ID")
+check "balance after partial payment = 790.000" "[ \"$(jget totals.balance)\" = \"790.000\" ]" "$(cat $J)"
+
+R=$(A -X POST "$B/purchases/$PURCHASE_ID/payments" --data '{"amount":"999.000"}')
+check "payment exceeding the outstanding balance is refused (422)" "[ $R = 422 ]" "$R $(cat $J)"
+
+R=$(A -X POST "$B/purchases/$PURCHASE_ID/payments" --data '{"amount":"790.000","method":"chèque"}')
+check "final payment 790 (201)" "[ $R = 201 ]" "$R $(cat $J)"
+check "purchase_status after final payment = paid" "[ \"$(jget purchase_status)\" = paid ]" "$(cat $J)"
+R=$(A "$B/purchases/$PURCHASE_ID")
+check "balance after final payment = 0.000" "[ \"$(jget totals.balance)\" = \"0.000\" ]" "$(cat $J)"
+
+R=$(A -X POST "$B/purchases/$PURCHASE_ID/payments" --data '{"amount":"1.000"}')
+check "a paid purchase accepts no further payment (409)" "[ $R = 409 ]" "$R $(cat $J)"
+
+PAYABLE_NET=$(q "select coalesce(sum(l.debit)-sum(l.credit),0)*-1 from journal_lines l join accounts a on a.id=l.account_id where a.system_key='payable'")
+check "the fournisseurs (401) account nets to zero: fully settled" "[ \"$PAYABLE_NET\" = \"0.000\" ]" "$PAYABLE_NET"
+TB_ROW=$(q "select debit_total, credit_total from (select sum(l.debit) as debit_total, sum(l.credit) as credit_total from journal_lines l join journal_entries e on e.id=l.entry_id where e.status='posted') t" | tr -d ' ')
+check "trial balance remains balanced after the full purchase lifecycle (debit = credit)" "[ \"$(echo $TB_ROW | cut -d'|' -f1)\" = \"$(echo $TB_ROW | cut -d'|' -f2)\" ]" "$TB_ROW"
+
+# -- second purchase: cancel before any payment, reversal expected --
+R=$(A -X POST "$B/purchases" --data "{\"supplier_id\":\"$SUPPLIER_ID\",\"reference\":\"F-E2E-2\",\"amount_ht\":\"200.000\",\"vat_rate\":19,\"status\":\"confirmed\"}")
+check "second purchase created already confirmed (201)" "[ $R = 201 ]" "$R $(cat $J)"
+PURCHASE2_ID=$(jget id)
+R=$(A -X DELETE "$B/purchases/$PURCHASE2_ID")
+check "cancel a confirmed, unpaid purchase (200)" "[ $R = 200 ]" "$R $(cat $J)"
+REVERSAL_ENTRY=$(jget accounting.reversal_entry_no)
+check "cancelling a posted purchase reverses its entry" "[ -n \"$REVERSAL_ENTRY\" ] && [ \"$REVERSAL_ENTRY\" != None ]" "$(cat $J)"
+
+# -- authorization and tenant isolation --
+login "rita@mythos.test" "$OTHER_PW"
+R=$(A -X POST "$B/purchases" --data "{\"supplier_id\":\"$SUPPLIER_ID\",\"amount_ht\":\"1.000\"}")
+check "read_only cannot create a purchase (403)" "[ $R = 403 ]" "$R $(cat $J)"
+R=$(A "$B/purchases")
+check "read_only CAN list purchases (finance.read, 200)" "[ $R = 200 ]" "$R $(cat $J)"
+
+login "bob@acme.test" "$OTHER_PW"
+R=$(A "$B/purchases/$PURCHASE_ID")
+check "acme cannot read a mythos purchase by id (404, RLS)" "[ $R = 404 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/purchases/$PURCHASE_ID/payments" --data '{"amount":"1.000"}')
+check "acme cannot pay against a mythos purchase (404, RLS)" "[ $R = 404 ]" "$R $(cat $J)"
+ACME_LIST=$(A "$B/purchases" >/dev/null; jget total)
+check "acme's own purchase list does not include mythos rows" "[ \"$ACME_LIST\" = 0 ] || [ -z \"$ACME_LIST\" ]" "$(cat $J)"
+
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+AUDIT_PURCHASE=$(q "select count(*) from audit_log where action='record.created' and entity_table='purchases'")
+check "purchase creation is audited" "[ $AUDIT_PURCHASE -ge 2 ]" "$AUDIT_PURCHASE"
+AUDIT_PURCHASE_UPDATE=$(q "select count(*) from audit_log where action='record.updated' and entity_table='purchases'")
+check "purchase confirmation is audited" "[ $AUDIT_PURCHASE_UPDATE -ge 1 ]" "$AUDIT_PURCHASE_UPDATE"
+AUDIT_PAYMENT=$(q "select count(*) from audit_log where action='record.created' and entity_table='payments' and detail->>'purchase_id' is not null")
+check "supplier payment is audited" "[ $AUDIT_PAYMENT -ge 2 ]" "$AUDIT_PAYMENT"
+
+echo "§14 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
 # A dedicated restart of the same already-migrated database, at a tiny
 # threshold, so this section is fast and deterministic instead of needing
 # hundreds of requests against the default (400/10s) limit used everywhere

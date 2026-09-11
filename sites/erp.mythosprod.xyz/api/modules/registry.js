@@ -135,14 +135,14 @@ var DEFS = {
   // than left registered, so the generic loop in server.js cannot also
   // register a second, conflicting set of routes for the same paths.
 
-  purchases: def({
-    module: 'finance', table: 'purchases',
-    columns: ['legacy_id', 'supplier_id', 'reference', 'purchased_on', 'amount_ht', 'vat_rate', 'notes', 'deleted_at'],
-    fields: ['supplier_id', 'reference', 'purchased_on', 'amount_ht', 'vat_rate', 'notes', 'legacy_id'],
-    required: [], searchable: ['reference', 'notes'], sortable: ['purchased_on'],
-    defaultSort: 'purchased_on', filters: ['supplier_id'], label: 'reference',
-    check: function (v) { return isNum(v.amount_ht) ? null : 'amount_ht must be numeric'; }
-  }),
+  // purchases: Phase 2 (P1) gap closed — moved to a dedicated module
+  // (modules/purchases.js, routed directly in server.js) with a real
+  // status lifecycle, supplier payments, and automatic accounting posting,
+  // the same shape invoices already has. The generic CRUD this DEF used to
+  // drive had no status, no payable, no accounting link. Removed from DEFS
+  // rather than left registered, for the same reason quotes was: the
+  // generic loop in server.js must not also register a second, conflicting
+  // set of routes for the same paths.
 
   expenses: def({
     module: 'finance', table: 'expenses',
