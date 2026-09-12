@@ -2,6 +2,103 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-12 — MYTHOS ERP PHASE 3: P1 BANK TRANSACTIONS + RECONCILIATION — **PHASE_3_COMPLETE** (Sonnet 5)
+
+Manual bank reconciliation, following Phase 1 (P0 user management, PR #259) and
+Phase 2 (P1 purchases, PR #260). Discovery, implementation, verification and
+production deployment all in this engagement; no Phase 4 work started.
+
+**Architecture decision — reuse, not duplicate.** `bank_entries` has existed
+since `schema.sql` (Stage 3, "legacy mp_bank_entries") with exactly the shape
+this feature needs: tenant-scoped, RLS-enabled, `account_id -> bank_accounts`,
+`entry_date`, `label`, `amount` (signed), and an unused `reconciled` boolean —
+but it was never wired to any handler, route, or UI. Migration `0009` extends
+it rather than creating a second "bank transaction" table, which would have
+left two tables representing the same concept. `status` (`unmatched` |
+`matched` | `ignored`) replaces the boolean as the single source of
+reconciliation state — a boolean cannot express three states — with a
+database `CHECK` (`bank_entries_match_consistency`) keeping `status` and
+`matched_payment_id` from drifting apart even at the row level.
+
+**The central invariant, and how it's enforced, not just documented.** A bank
+transaction is an external statement record, never a second accounting event.
+`accounting.js`'s `postPayment`/`postSupplierPayment` already post the ledger
+entry the moment a payment is recorded (idempotent on
+`source_table:'payments'`); `api/modules/bank.js` never imports
+`accounting.js` and never touches `journal_entries`/`journal_lines` — match,
+unmatch, and ignore only ever write to `bank_entries` itself. This was proven
+directly in the E2E suite, not merely asserted: the journal-entry count for a
+real payment is captured before and after matching/unmatching (both the
+invoice-payment and the supplier-payment sides) and asserted unchanged
+(exactly 1) in both cases.
+
+**One payment, at most one bank transaction.** Enforced by a partial unique
+index (`bank_entries_matched_payment_key ON bank_entries (matched_payment_id)
+WHERE matched_payment_id IS NOT NULL`), not application logic alone — proven
+with an actual concurrent-request test (two simultaneous `POST .../match`
+calls against the same payment; exactly one succeeds, the other gets 409, and
+the database still shows exactly one claim).
+
+**Migration `0009-bank-reconciliation.sql`** (additive, registered in
+`migrate.js`'s `FILES`, now 9 entries): adds `status`, `matched_payment_id`,
+`matched_at`, `matched_by`, the two `CHECK` constraints, and the partial
+unique index to `bank_entries`; makes `account_id` `NOT NULL` (safe — the
+table had zero rows anywhere, having never been wired to anything that could
+write to it). No new grants: `erp_app`'s original blanket
+`SELECT, INSERT, UPDATE ON ALL TABLES` already covers it, and `bank_entries`
+is never `DELETE`-d (soft-delete via `deleted_at`, same convention as every
+other business table).
+
+**API** (`api/modules/bank.js`, dedicated module, not the generic registry
+`bank_accounts` still uses — matching/unmatching/ignoring are audited state
+transitions a generic PATCH can't express safely): `GET/POST /bank_entries`,
+`GET/PATCH /bank_entries/:id`, `GET /bank_entries/:id/candidates` (read-only
+suggestion list: same tenant via RLS, amount within a 0.01 tolerance, date
+within a 30-day window — deliberately unscored, a human confirms the match,
+the endpoint never matches anything itself), `POST /bank_entries/:id/match`,
+`/unmatch`, `/ignore`. Module stays `finance` — same permission gate
+`bank_accounts` already had (`finance.read`/`finance.write`); no new
+permission family, per the task's own instruction not to create permissions
+for cosmetic separation.
+
+**Frontend** (`app/assets/js/views/bank.js`, wired into `app.js`'s `finance`
+module as the "Transactions bancaires" tab): mirrors `accounting.js`'s
+existing table/modal/toast patterns — a transactions list with account/status
+filters, row actions (Rapprocher / Ignorer / Dissocier depending on state),
+and a match modal showing server-suggested candidates the user explicitly
+confirms. No new UI primitives.
+
+**Security preserved and re-verified, not assumed**: RLS blocks a foreign
+tenant from reading a bank transaction (404), creating one against another
+tenant's bank account (422 `invalid_reference`, RLS-hidden), or matching a
+transaction to another tenant's payment (422, RLS-hidden) — cross-tenant
+isolation tested in both directions (transaction ownership AND payment
+ownership). `read_only` gets 403 on create/match, 200 on list. Every mutation
+returns an `audit` descriptor — the pipeline's existing hard-fail-if-missing
+rule (`api/lib/pipeline.js`) was relied on, not re-implemented.
+
+**One test-authoring bug found and fixed during this phase, worth recording**:
+the race-condition test's `wait` (no arguments) initially hung the whole E2E
+drill indefinitely, because a bare `wait` waits for *every* background job
+the shell owns — including the API server itself, started earlier with `&`
+and never meant to exit until the script's own cleanup trap. Fixed by
+capturing the two curl PIDs explicitly (`RACE_PID1=$!` / `RACE_PID2=$!`) and
+waiting on those only (`wait "$RACE_PID1" "$RACE_PID2"`).
+
+| Item | Detail |
+|---|---|
+| Discovery | Read-only pass confirmed `bank_accounts` was metadata-only, `bank_entries`/`cash_entries` existed but unwired, `payments.method` is free text, and the chart of accounts has exactly one ledger `bank`/`cash` account per tenant (`UNIQUE(tenant_id, system_key)`) — a minimal Phase 3 tracks statement transactions and reconciliation, not per-physical-account ledger balances. |
+| Implementation commit | `5c09a85` on `mythos/erp-p1-bank-reconciliation-20260912` |
+| PR | [#261](https://github.com/othoth77/mythos-prod/pull/261) — clean, mergeable, squash-merged |
+| Merge commit | `8804612e8305392af87b064a917ee88bb1c21a5f` on `origin/main` (PR #257, an unrelated `ssangyong-autos` kitchen-catalog change, merged to `main` between Phase 2 and Phase 3 with zero file overlap — verified before syncing) |
+| Tests | Core E2E **324/0** (new §14: creation/validation, candidates, full match/unmatch/ignore lifecycle, edit-blocked-while-matched, the concurrent-match race test, both accounting-invariant checks, cross-tenant isolation both directions, permissions, audit). Auth unit **125/0** (migration count 8→9). Frontend check **41/0**, frontend drill **48/0**. Acceptance **80/0**, security **59/0**, bootstrap **45/0**. **Total 722/722, zero regressions** vs the 683/683 Phase 2 baseline. |
+| Migration | `0009-bank-reconciliation.sql` — rehearsed against a disposable PostgreSQL 15 restored from the fresh production backup (real data shape), idempotency proven via direct double-`migrate()` invocation, then applied to production via the real runner. `schema_migrations` now has 9 rows. |
+| Backup | `mythos-backup-db.service` run fresh before migration: stage → verify-local → push → verify-remote, exit 0, "backup completed clean". `mythos_erp-20260912T084403Z.dump`, 213,537 bytes, sha256 `adc55548…8b8ee5c`, valid custom-format archive (537 TOC entries via `pg_restore --list`). |
+| Production revision | `8804612e8305392af87b064a917ee88bb1c21a5f`, verified via `code_identity` (`verified: true`) after `erp-api` restart (`Result=success`, `NRestarts=0`). |
+| Production smoke test | Unauthenticated `/api/v1/bank_entries` (GET/match/unmatch/candidates), `/bank_accounts`, `/invoices`, `/purchases`, `/users` all → 401. Authenticated: all → 200, existing clients/suppliers/invoices/accounting/trial-balance all reachable, new bank endpoints functional. No fake bank transaction, payment, or reconciliation created in production — smoke test was read-only plus a clean login/logout. |
+| Remaining gaps (non-blocking) | Per-physical-bank-account ledger balances remain out of scope (the single `bank`/`cash` system account constraint is unchanged by design); matching relies on amount+date proximity only (`payments.method` is unstructured free text, documented as a known limitation, not a defect); the pre-existing `0007` omission in the three drill bootstrap scripts, noted in Phase 2, remains untouched (out of this phase's scope, compensated by redundant inline grants). |
+| Next phase | Phase 4 (Mission Orders) — **not started**, per explicit instruction. Bank/reconciliation UI, cash register, fiscal stamp, expenses, contact import, backup UI, cost calculator, rédaction, reminder categories, and stock are all explicitly out of scope for this phase and were not touched. |
+
 ## 2026-09-07 — LOGIN ACCOUNT DISCOVERY & FIRST-USE READINESS: **LOGIN_READY_WITH_MANUAL_CREDENTIAL_STEP** (Sonnet 5, 22:43–22:54 UTC)
 
 Read-only investigation, no secrets exposed, no database write. Determines the intended production login account for `https://erp.mythosprod.xyz`.
