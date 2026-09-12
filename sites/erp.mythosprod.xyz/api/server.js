@@ -28,6 +28,7 @@ var invoices = require('./modules/invoices');
 var quotes = require('./modules/quotes');
 var documents = require('./modules/documents');
 var purchases = require('./modules/purchases');
+var bank = require('./modules/bank');
 var usersModule = require('./modules/users');
 var views = require('./modules/views');
 
@@ -233,6 +234,24 @@ route('PATCH',  '/api/v1/purchases/:id', 'finance', purchases.handlers.update,
       function (b) { return purchases.validateHeader(b, true); });
 route('DELETE', '/api/v1/purchases/:id', 'finance', purchases.handlers.retire);
 route('POST',   '/api/v1/purchases/:id/payments', 'finance', purchases.handlers.addPayment);
+
+// ── Bank transactions & reconciliation (Phase 3, P1) — dedicated, reusing
+// bank_entries (schema.sql) rather than the generic engine bank_accounts
+// still uses, because matching/unmatching/ignoring are deliberate audited
+// state transitions a generic PATCH cannot express safely. Module stays
+// 'finance', same gate bank_accounts already has (finance.read/write). This
+// module never touches accounting/journal_entries — see modules/bank.js's
+// header comment for why. ─────────────────────────────────────────────────
+route('GET',    '/api/v1/bank_entries', 'finance', bank.handlers.list);
+route('POST',   '/api/v1/bank_entries', 'finance', bank.handlers.create,
+      function (b) { return bank.validateHeader(b, false); });
+route('GET',    '/api/v1/bank_entries/:id', 'finance', bank.handlers.get);
+route('PATCH',  '/api/v1/bank_entries/:id', 'finance', bank.handlers.update,
+      function (b) { return bank.validateHeader(b, true); });
+route('GET',    '/api/v1/bank_entries/:id/candidates', 'finance', bank.handlers.candidates);
+route('POST',   '/api/v1/bank_entries/:id/match', 'finance', bank.handlers.match);
+route('POST',   '/api/v1/bank_entries/:id/unmatch', 'finance', bank.handlers.unmatch);
+route('POST',   '/api/v1/bank_entries/:id/ignore', 'finance', bank.handlers.ignore);
 
 // ── Comptabilité / general ledger (0005-accounting.sql) ───────────────────
 // All tenant-scoped, module 'accounting': GET = accounting.read, POST/PATCH =
