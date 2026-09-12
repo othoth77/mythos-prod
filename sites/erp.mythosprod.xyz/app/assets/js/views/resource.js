@@ -32,7 +32,8 @@ export const RESOURCE_TITLES = {
   projects: 'Projets', appointments: 'Rendez-vous', representations: 'Représentations', contracts: 'Contrats',
   quotes: 'Devis', purchases: 'Achats', expenses: 'Dépenses', documents: 'Documents', inventory_items: 'Articles',
   natures: 'Natures de projet', expense_categories: 'Catégories de dépense', bank_accounts: 'Comptes bancaires',
-  prospects: 'Prospects', accounts: 'Plan comptable', journals: 'Journaux', agenda_events: 'Agenda'
+  prospects: 'Prospects', accounts: 'Plan comptable', journals: 'Journaux', agenda_events: 'Agenda',
+  bank_entries: 'Transactions bancaires'
 };
 const HIDDEN_COLUMNS = ['id', 'deleted_at', 'legacy_id', 'notes', 'updated_at', 'storage_key', 'sha256', 'uploaded_by', 'address', 'postal_code'];
 const DATE_FIELDS = /(_on|_at)$/;

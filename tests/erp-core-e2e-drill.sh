@@ -58,7 +58,7 @@ docker run -d --name "$C" -P -e POSTGRES_USER=erp_owner -e POSTGRES_DB=mythos_er
 # start; a single pg_isready success can land in that window. Require two in a row.
 OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
-for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql 0008-purchases-lifecycle.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql 0008-purchases-lifecycle.sql 0009-bank-reconciliation.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
 done
@@ -624,7 +624,147 @@ check "purchase confirmation is audited" "[ $AUDIT_PURCHASE_UPDATE -ge 1 ]" "$AU
 AUDIT_PAYMENT=$(q "select count(*) from audit_log where action='record.created' and entity_table='payments' and detail->>'purchase_id' is not null")
 check "supplier payment is audited" "[ $AUDIT_PAYMENT -ge 2 ]" "$AUDIT_PAYMENT"
 
-echo "§14 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
+echo "§14 bank reconciliation: bank account → transaction → candidates → match/unmatch/ignore → accounting invariant, race, tenancy, permissions"
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+R=$(A -X POST "$B/bank_accounts" --data '{"label":"Compte courant E2E","iban":"TN5904018068001234567890","currency":"TND"}')
+check "create bank account (201)" "[ $R = 201 ]" "$R $(cat $J)"
+ACCOUNT_ID=$(jget id)
+
+R=$(A -X POST "$B/bank_entries" --data '{"amount":"0"}')
+check "amount zero rejected (422)" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/bank_entries" --data "{\"account_id\":\"00000000-0000-0000-0000-000000000000\",\"entry_date\":\"2026-09-05\",\"label\":\"x\",\"amount\":\"1\"}")
+check "transaction against an unknown bank account → 422 invalid_reference" "[ $R = 422 ]" "$R $(cat $J)"
+
+# The invoice payment of 500 (§2, VIR-1, paid_on 2026-09-05) and the purchase
+# payment of 790 (§13, chèque) are already-posted, real payments — reused
+# here rather than manufacturing new ones, exactly what reconciliation is
+# supposed to work against.
+INV_PAYMENT=$(q "select id from payments where amount='500.000' and invoice_id is not null limit 1")
+PURCHASE_PAYMENT=$(q "select id from payments where purchase_id='$PURCHASE_ID' and amount='790.000'")
+
+R=$(A -X POST "$B/bank_entries" --data "{\"account_id\":\"$ACCOUNT_ID\",\"entry_date\":\"2026-09-05\",\"label\":\"Virement reçu Théâtre Municipal\",\"amount\":\"500.000\"}")
+check "create bank transaction, unmatched (201)" "[ $R = 201 ]" "$R $(cat $J)"
+BANK_ID=$(jget id)
+check "new transaction status is unmatched" "[ \"$(jget status)\" = unmatched ]" "$(cat $J)"
+
+R=$(A "$B/bank_entries/$BANK_ID/candidates")
+check "candidates endpoint 200" "[ $R = 200 ]" "$R $(cat $J)"
+check "the matching invoice payment is offered as a candidate" "grep -q \"$INV_PAYMENT\" \"$J\"" "$(cat $J)"
+
+JE_BEFORE=$(q "select count(*) from journal_entries where source_table='payments' and source_id='$INV_PAYMENT'")
+check "the invoice payment already has exactly one posted journal entry before any matching" "[ $JE_BEFORE = 1 ]" "$JE_BEFORE"
+
+R=$(A -X POST "$B/bank_entries/$BANK_ID/match" --data "{\"payment_id\":\"$INV_PAYMENT\"}")
+check "match to the invoice payment (200)" "[ $R = 200 ]" "$R $(cat $J)"
+check "transaction status is now matched" "[ \"$(jget status)\" = matched ]" "$(cat $J)"
+
+JE_AFTER=$(q "select count(*) from journal_entries where source_table='payments' and source_id='$INV_PAYMENT'")
+check "CRITICAL: matching created NO new journal entry (still exactly 1)" "[ $JE_AFTER = 1 ]" "$JE_AFTER"
+
+R=$(A -X POST "$B/bank_entries" --data "{\"account_id\":\"$ACCOUNT_ID\",\"entry_date\":\"2026-09-05\",\"label\":\"Doublon\",\"amount\":\"500.000\"}")
+BANK_ID2=$(jget id)
+R=$(A -X POST "$B/bank_entries/$BANK_ID2/match" --data "{\"payment_id\":\"$INV_PAYMENT\"}")
+check "a second transaction cannot claim the same payment (409)" "[ $R = 409 ]" "$R $(cat $J)"
+
+R=$(A -X PATCH "$B/bank_entries/$BANK_ID" --data '{"label":"tentative"}')
+check "a matched transaction cannot be edited directly (409)" "[ $R = 409 ]" "$R $(cat $J)"
+
+R=$(A -X POST "$B/bank_entries/$BANK_ID/unmatch" --data '{}')
+check "unmatch (200)" "[ $R = 200 ]" "$R $(cat $J)"
+check "transaction status back to unmatched" "[ \"$(jget status)\" = unmatched ]" "$(cat $J)"
+
+JE_UNMATCH=$(q "select count(*) from journal_entries where source_table='payments' and source_id='$INV_PAYMENT'")
+check "CRITICAL: unmatching created/removed NO journal entry (still exactly 1)" "[ $JE_UNMATCH = 1 ]" "$JE_UNMATCH"
+PAYMENT_STILL_500=$(q "select amount from payments where id='$INV_PAYMENT'")
+check "the payment itself is untouched by unmatch (still 500.000)" "[ \"$PAYMENT_STILL_500\" = \"500.000\" ]" "$PAYMENT_STILL_500"
+
+R=$(A -X POST "$B/bank_entries/$BANK_ID/ignore" --data '{}')
+check "ignore an unmatched transaction (200)" "[ $R = 200 ]" "$R $(cat $J)"
+check "transaction status is ignored" "[ \"$(jget status)\" = ignored ]" "$(cat $J)"
+R=$(A -X POST "$B/bank_entries/$BANK_ID/match" --data "{\"payment_id\":\"$INV_PAYMENT\"}")
+check "an ignored transaction cannot be matched directly (409)" "[ $R = 409 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/bank_entries/$BANK_ID/unmatch" --data '{}')
+check "unmatch also clears ignored back to unmatched (200)" "[ $R = 200 ] && [ \"$(jget status)\" = unmatched ]" "$R $(cat $J)"
+
+# -- supplier-payment side, same invariant --
+R=$(A -X POST "$B/bank_entries" --data "{\"account_id\":\"$ACCOUNT_ID\",\"entry_date\":\"2026-09-05\",\"label\":\"Chèque fournisseur\",\"amount\":\"-790.000\"}")
+check "create a debit (negative) transaction for the supplier payment (201)" "[ $R = 201 ]" "$R $(cat $J)"
+BANK_ID3=$(jget id)
+JE_P_BEFORE=$(q "select count(*) from journal_entries where source_table='payments' and source_id='$PURCHASE_PAYMENT'")
+R=$(A -X POST "$B/bank_entries/$BANK_ID3/match" --data "{\"payment_id\":\"$PURCHASE_PAYMENT\"}")
+check "match a negative (debit) transaction to the supplier payment (200)" "[ $R = 200 ]" "$R $(cat $J)"
+JE_P_AFTER=$(q "select count(*) from journal_entries where source_table='payments' and source_id='$PURCHASE_PAYMENT'")
+check "CRITICAL: supplier-side matching also created NO new journal entry" "[ \"$JE_P_BEFORE\" = \"$JE_P_AFTER\" ] && [ $JE_P_AFTER = 1 ]" "$JE_P_BEFORE $JE_P_AFTER"
+
+# -- race: two concurrent match attempts on the same unclaimed payment --
+R=$(A -X POST "$B/purchases" --data "{\"supplier_id\":\"$SUPPLIER_ID\",\"reference\":\"F-E2E-RACE\",\"amount_ht\":\"50.000\",\"vat_rate\":19,\"status\":\"confirmed\"}")
+RACE_PURCHASE_ID=$(jget id)
+R=$(A -X POST "$B/purchases/$RACE_PURCHASE_ID/payments" --data '{"amount":"59.500","method":"virement"}')
+RACE_PAYMENT=$(q "select id from payments where purchase_id='$RACE_PURCHASE_ID'")
+R=$(A -X POST "$B/bank_entries" --data "{\"account_id\":\"$ACCOUNT_ID\",\"entry_date\":\"2026-09-06\",\"label\":\"Race T1\",\"amount\":\"59.500\"}")
+RACE_T1=$(jget id)
+R=$(A -X POST "$B/bank_entries" --data "{\"account_id\":\"$ACCOUNT_ID\",\"entry_date\":\"2026-09-06\",\"label\":\"Race T2\",\"amount\":\"59.500\"}")
+RACE_T2=$(jget id)
+curl -s -o "$WORK/race1.json" -w '%{http_code}' -X POST "$B/bank_entries/$RACE_T1/match" \
+  -H "Cookie: $COOKIE" -H "x-csrf-token: $CSRF" -H 'content-type: application/json' \
+  --data "{\"payment_id\":\"$RACE_PAYMENT\"}" > "$WORK/race1.code" &
+RACE_PID1=$!
+curl -s -o "$WORK/race2.json" -w '%{http_code}' -X POST "$B/bank_entries/$RACE_T2/match" \
+  -H "Cookie: $COOKIE" -H "x-csrf-token: $CSRF" -H 'content-type: application/json' \
+  --data "{\"payment_id\":\"$RACE_PAYMENT\"}" > "$WORK/race2.code" &
+RACE_PID2=$!
+# A bare `wait` would wait for EVERY background job this shell owns,
+# including the API server itself (started earlier with `&` and never
+# meant to exit until cleanup) — so it must name the two race PIDs, not
+# wait for all of them.
+wait "$RACE_PID1" "$RACE_PID2"
+RC1=$(cat "$WORK/race1.code"); RC2=$(cat "$WORK/race2.code")
+check "exactly one of two concurrent matches on the same payment succeeds" \
+  "( [ \"$RC1\" = 200 ] && [ \"$RC2\" = 409 ] ) || ( [ \"$RC1\" = 409 ] && [ \"$RC2\" = 200 ] )" "$RC1 $RC2"
+RACE_CLAIMS=$(q "select count(*) from bank_entries where matched_payment_id='$RACE_PAYMENT'")
+check "the database enforces exactly one claim on the payment, not the application alone" "[ $RACE_CLAIMS = 1 ]" "$RACE_CLAIMS"
+
+# -- authorization --
+login "rita@mythos.test" "$OTHER_PW"
+R=$(A -X POST "$B/bank_entries" --data "{\"account_id\":\"$ACCOUNT_ID\",\"entry_date\":\"2026-09-06\",\"label\":\"x\",\"amount\":\"1\"}")
+check "read_only cannot create a bank transaction (403)" "[ $R = 403 ]" "$R $(cat $J)"
+R=$(A "$B/bank_entries")
+check "read_only CAN list bank transactions (finance.read, 200)" "[ $R = 200 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/bank_entries/$BANK_ID/match" --data "{\"payment_id\":\"$INV_PAYMENT\"}")
+check "read_only cannot match (403)" "[ $R = 403 ]" "$R $(cat $J)"
+
+# -- tenant isolation --
+login "bob@acme.test" "$OTHER_PW"
+R=$(A "$B/bank_entries/$BANK_ID")
+check "acme cannot read a mythos bank transaction by id (404, RLS)" "[ $R = 404 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/bank_entries/$BANK_ID/match" --data "{\"payment_id\":\"$INV_PAYMENT\"}")
+check "acme cannot match a mythos bank transaction (404, RLS)" "[ $R = 404 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/bank_entries" --data "{\"account_id\":\"$ACCOUNT_ID\",\"entry_date\":\"2026-09-06\",\"label\":\"x\",\"amount\":\"1\"}")
+check "acme cannot create a transaction against a mythos bank account (422 invalid_reference, RLS-hidden)" "[ $R = 422 ]" "$R $(cat $J)"
+ACME_BANK_LIST=$(A "$B/bank_entries" >/dev/null; jget total)
+check "acme's own transaction list does not include mythos rows" "[ \"$ACME_BANK_LIST\" = 0 ] || [ -z \"$ACME_BANK_LIST\" ]" "$(cat $J)"
+R=$(A -X POST "$B/clients" --data '{"name":"Acme Client"}'); ACME_CLIENT=$(jget id)
+R=$(A -X POST "$B/invoices" --data "{\"client_id\":\"$ACME_CLIENT\",\"issued_on\":\"2026-09-06\",\"lines\":[{\"description\":\"x\",\"quantity\":1,\"unit_price\":100,\"vat_rate\":19}]}")
+ACME_INV=$(jget id)
+R=$(A -X PATCH "$B/invoices/$ACME_INV" --data '{"status":"sent"}')
+R=$(A -X POST "$B/invoices/$ACME_INV/payments" --data '{"amount":"119.000"}')
+ACME_PAYMENT=$(q "select id from payments where invoice_id='$ACME_INV'")
+
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+R=$(A -X POST "$B/bank_entries/$BANK_ID/match" --data "{\"payment_id\":\"$ACME_PAYMENT\"}")
+check "mythos cannot match its own transaction to an acme payment (422 invalid_reference, RLS-hidden)" "[ $R = 422 ]" "$R $(cat $J)"
+
+# -- audit --
+AUDIT_BANK_CREATE=$(q "select count(*) from audit_log where action='record.created' and entity_table='bank_entries'")
+check "bank transaction creation is audited" "[ $AUDIT_BANK_CREATE -ge 5 ]" "$AUDIT_BANK_CREATE"
+AUDIT_BANK_MATCH=$(q "select count(*) from audit_log where action='record.updated' and entity_table='bank_entries' and detail->>'transition'='match'")
+check "match is audited" "[ $AUDIT_BANK_MATCH -ge 2 ]" "$AUDIT_BANK_MATCH"
+AUDIT_BANK_UNMATCH=$(q "select count(*) from audit_log where action='record.updated' and entity_table='bank_entries' and detail->>'transition'='unmatch'")
+check "unmatch is audited" "[ $AUDIT_BANK_UNMATCH -ge 2 ]" "$AUDIT_BANK_UNMATCH"
+AUDIT_BANK_IGNORE=$(q "select count(*) from audit_log where action='record.updated' and entity_table='bank_entries' and detail->>'transition'='ignore'")
+check "ignore is audited" "[ $AUDIT_BANK_IGNORE -ge 1 ]" "$AUDIT_BANK_IGNORE"
+
+echo "§15 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
 # A dedicated restart of the same already-migrated database, at a tiny
 # threshold, so this section is fast and deterministic instead of needing
 # hundreds of requests against the default (400/10s) limit used everywhere
