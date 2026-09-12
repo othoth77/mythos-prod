@@ -2,6 +2,87 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-12 — MYTHOS ERP PHASE 4: P1 MISSION ORDERS — **PHASE_4_COMPLETE_WITH_MINOR_GAPS** (Sonnet 5)
+
+"Ordres de mission" — a vehicle/driver dispatch sheet — following Phase 3
+(bank reconciliation, PR #261/#262). Discovery, requirement determination,
+implementation, verification, and production deployment all in this
+engagement; no Phase 5 work started.
+
+**Objective, and why it stayed narrow.** Discovery (read-only pass over the
+legacy repository root, `js/shared/mission-orders.js` + `index.html`'s
+`#view-om-list`/`#view-om-new`) found a real, complete legacy feature: full
+CRUD + print, a nav entry, side-effect auto-creation of collaborator/vehicle
+records. But its actual shape is narrow — a vehicle/driver dispatch sheet,
+**not** a document tied to a client, project, event, quote, invoice, or
+amount. No numbering scheme either (legacy's only identifier was
+`'om_' + Date.now()`). None of those absent fields were invented for Phase
+4: the functional gap matrix was built strictly from legacy evidence, and
+everything legacy does NOT prove (client/project/event link, amount,
+approval workflow, accounting/invoice/payment effect) was marked
+`NOT_REQUIRED`, not silently added "for completeness."
+
+**Architecture — reuse, not a new module.** Mission orders live under the
+**existing** `production` module (`api/lib/authz.js`'s
+`production.read`/`production.write`, already seeded for the
+`production_user` role in `schema-auth.sql`) — the exact gate
+`collaborators`/`representations` already share. No new `tenant_modules`
+key, no new permission, no new role. `driver_id` optionally links to the
+existing `collaborators` table (reuse of the current personnel entity)
+while `driver_name`/`driver_cin`/`driver_license` stay as plain snapshot
+fields on the row — a mission's driver credentials are a fact about that
+trip, not something that should force a hard dependency on collaborator
+record hygiene, and legacy stored them the same way. `passengers` is a
+small JSONB roster (name only) rather than a child table: nothing is
+computed or queried per passenger, only a list to print — the same
+reasoning `0008-purchases-lifecycle.sql`'s own header used for not giving
+purchases a lines table.
+
+**No accounting effect, verified, not assumed.** Mission orders carry no
+amount field at all and `api/modules/mission-orders.js` never imports
+`accounting.js`. Production smoke test confirmed `journal_entries` stayed
+at 0 rows throughout.
+
+**Printing** reuses the legacy's own approach — a generated HTML document
+opened in a new window and sent to `window.print()` — rather than
+introducing a server-side PDF engine the current ERP has never needed for
+anything else (`documents.js` only stores/serves uploaded blobs). All
+interpolated fields are HTML-escaped before being written into the new
+window's document.
+
+**One genuine pre-existing gap found and documented, not silently worked
+around**: the `production` module has **no delete permission at all** in
+the permissions catalogue (`schema-auth.sql` seeds only
+`production.read`/`production.write`) — meaning `collaborators` and
+`representations` already had an unreachable `DELETE` route registered by
+`registry.js`'s generic loop (`api/lib/authz.js`'s `authorize()` denies any
+method with no permission key mapped, unconditionally). This is why
+mission orders has **no retire/archive capability**: exposing one would
+either be equally unreachable (same gap) or require adding a new
+`production.delete` permission across the whole module — shared
+infrastructure beyond this phase's scope, per the task's own stop
+condition ("if an unrelated security defect is discovered, document it and
+stop before expanding scope"). Fixing this is a candidate for a future,
+explicitly-scoped small task, not something to bundle into an unrelated
+feature phase.
+
+| Item | Detail |
+|---|---|
+| Discovery | Legacy `js/shared/mission-orders.js` (329 lines): full field list (driver name/CIN/permit, vehicle plate, mission type aller_retour/aller_simple, mission text, departure/arrival location and time, passenger roster with signature lines, optional company stamp), `localStorage`-persisted (`mp_oms`), unauthenticated — architecture not reused, only the business fields. Current ERP had no equivalent under any name; the `-- legacy mp_oms (ordres de mission)` comment on `projects` in `schema.sql` is stale (current `projects` schema has none of the OM fields). |
+| Implementation commit | `f00ad5b` on `mythos/erp-p1-mission-orders-20260912` |
+| PR | [#263](https://github.com/othoth77/mythos-prod/pull/263) — clean, mergeable, squash-merged |
+| Merge commit | `4e86154464bf22206468d7c93cf2e740adb7b711` on `origin/main` |
+| Migration | `0010-mission-orders.sql` — new `mission_orders` table, tenant-scoped RLS, `CHECK` constraints (`mission_type`, dates ordered, `passengers` is a JSON array), FKs to `collaborators`/`users`/`tenants`, its own `erp_app` grant guarded exactly like `0004`/`0006`'s pattern (`IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'erp_app')`) since throwaway test drills create that role *after* running migrations. One bug found and fixed before merge: the grant was originally unconditional and failed in the drill/rehearsal bootstrap order — caught during E2E, not in production. |
+| Migration rehearsal | Disposable PostgreSQL 15 restored from the fresh production backup (real data shape). `migrate()` run twice via the real runner: run 1 applied only `0010` (9 prior migrations skipped), run 2 skipped all 10 — idempotency proven. Schema/constraints/indexes/RLS/grants verified identical to production. Container destroyed after verification. |
+| Backup | `mythos-backup-db.service` run fresh before migration: stage → verify-local → push → verify-remote, exit 0. `mythos_erp-20260912T095304Z.dump`, 215,837 bytes, sha256 `22ac9718…8b90391d`, valid custom-format archive (541 TOC entries via `pg_restore --list`). |
+| Production migration result | Applied via the real runner: `{"applied":["0010-mission-orders.sql"],"skipped":[9 prior files]}`. `schema_migrations` now has 10 rows. Post-migration schema/RLS/grants verified identical to rehearsal; `mission_orders` confirmed 0 rows. |
+| Tests | Core E2E **345/0** (21 new mission-order assertions: required-field/unknown-driver/unknown-type/date-order validation, creation with driver hydration and passenger roster, confirmation that no client/project/amount field exists on the row, list/filter/search, update, confirmation the intentionally-absent DELETE returns 404, permission checks, cross-tenant isolation on both the order and the driver-reference side, audit trail). Auth **125/0** (migration count 9→10). Frontend check **42/0**, frontend drill **48/0**. Acceptance **80/0**, security **59/0**, bootstrap **45/0**. **Total 744/744, zero regressions** vs the 722/722 Phase 3 baseline. |
+| Production revision | `4e86154464bf22206468d7c93cf2e740adb7b711`, verified via `code_identity` (`verified: true`) after `erp-api` restart (`Result=success`, `NRestarts=0`). |
+| Production smoke test | Unauthenticated `/api/v1/mission_orders` (list/create/update/delete) → 401 (DELETE → 404, the intentional absence). Authenticated: 200, and all existing endpoints (`invoices`, `purchases`, `bank_entries`, `clients`, `suppliers`, `dashboard`, `accounting/trial-balance`, `representations`) still reachable. `journal_entries`/`invoices`/`payments`/`purchases`/`bank_entries`/`mission_orders`/`collaborators` all confirmed at 0 rows after the smoke test — no fake business data created. |
+| Frontend | `app/assets/js/views/mission-orders.js` — list with driver/search filters, create/edit modal (driver select from collaborators + snapshot fields, passenger roster editor, add-stamp checkbox), detail view, browser-print action. Wired into `app.js`'s existing `production` module as a third resource alongside `representations`/`collaborators`. |
+| Remaining gaps (non-blocking) | No retire/archive capability (the pre-existing `production.delete` permission gap, documented above — not fixed in this phase); no numbering/reference scheme (matches legacy, evidence-based); matching driver identity relies on an optional FK plus snapshot fields rather than a single source of truth (deliberate, avoids forcing collaborator data hygiene); print uses browser `window.print()`, not a downloadable server-generated PDF (matches legacy, no new PDF engine introduced). |
+| Next phase | Phase 5 — **not started**, per explicit instruction. Fiscal stamp, cash register, expense enhancement, contact import, backup UI, cost calculator, rédaction, reminder categories, and stock are all explicitly out of scope for this phase and were not touched. The `production.delete` permission gap is a candidate for a future, explicitly-scoped task. |
+
 ## 2026-09-12 — MYTHOS ERP PHASE 3: P1 BANK TRANSACTIONS + RECONCILIATION — **PHASE_3_COMPLETE** (Sonnet 5)
 
 Manual bank reconciliation, following Phase 1 (P0 user management, PR #259) and
