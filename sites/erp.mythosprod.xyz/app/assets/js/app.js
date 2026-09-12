@@ -19,6 +19,7 @@ import { accountingView } from './views/accounting.js';
 import { agendaView } from './views/agenda.js';
 import { documentsView } from './views/documents.js';
 import { bankTransactionsView } from './views/bank.js';
+import { missionOrdersView } from './views/mission-orders.js';
 
 /* Module → what the view shows. A module with several resources gets tabs. */
 const MODULES = {
@@ -28,7 +29,7 @@ const MODULES = {
   projects:   { title: 'Projets', kicker: 'Production', glyph: '▲', resources: ['projects', 'contracts'] },
   planning:   { title: 'Planning', kicker: 'Rendez-vous', glyph: '◔', resources: ['appointments'] },
   agenda:     { title: 'Agenda', kicker: 'Événements, tâches, rappels', glyph: '◉', view: (el, r) => agendaView(el, r) },
-  production: { title: 'Production', kicker: 'Spectacles', glyph: '◆', resources: ['representations', 'collaborators'] },
+  production: { title: 'Production', kicker: 'Spectacles', glyph: '◆', resources: ['representations', 'collaborators', 'mission_orders'] },
   finance:    { title: 'Finance', kicker: 'Flux', glyph: '■', resources: ['invoices', 'quotes', 'purchases', 'expenses', 'bank_accounts', 'bank_entries'] },
   accounting: { title: 'Comptabilité', kicker: 'Grand livre', glyph: '⚖', view: (el, r) => accountingView(el, r) },
   documents:  { title: 'Documents', kicker: 'Pièces', glyph: '▬', resources: ['documents'] },
@@ -179,6 +180,7 @@ function route(r) {
     if (res === 'settings') return settingsView(body);
     if (res === 'documents') return documentsView(body);
     if (res === 'bank_entries') return bankTransactionsView(body);
+    if (res === 'mission_orders') return missionOrdersView(body, r);
     resourceView(res, body);
   } catch (e) { body.appendChild(errorBox('Cette vue n\'a pas pu s\'afficher.', () => route(r), String(e && e.message))); }
 }

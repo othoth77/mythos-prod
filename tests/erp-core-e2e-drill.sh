@@ -58,7 +58,7 @@ docker run -d --name "$C" -P -e POSTGRES_USER=erp_owner -e POSTGRES_DB=mythos_er
 # start; a single pg_isready success can land in that window. Require two in a row.
 OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
-for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql 0008-purchases-lifecycle.sql 0009-bank-reconciliation.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql 0008-purchases-lifecycle.sql 0009-bank-reconciliation.sql 0010-mission-orders.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
 done
@@ -764,7 +764,64 @@ check "unmatch is audited" "[ $AUDIT_BANK_UNMATCH -ge 2 ]" "$AUDIT_BANK_UNMATCH"
 AUDIT_BANK_IGNORE=$(q "select count(*) from audit_log where action='record.updated' and entity_table='bank_entries' and detail->>'transition'='ignore'")
 check "ignore is audited" "[ $AUDIT_BANK_IGNORE -ge 1 ]" "$AUDIT_BANK_IGNORE"
 
-echo "§15 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
+echo "§15 mission orders: driver/vehicle dispatch sheet, no client/project/amount link, validation, tenancy, permissions, audit"
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+R=$(A -X POST "$B/collaborators" --data '{"full_name":"Chauffeur E2E","role_label":"Chauffeur"}')
+check "create driver collaborator (201)" "[ $R = 201 ]" "$R $(cat $J)"
+DRIVER_ID=$(jget id)
+
+R=$(A -X POST "$B/mission_orders" --data '{"driver_name":"x"}')
+check "missing required fields → 422" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/mission_orders" --data "{\"driver_id\":\"00000000-0000-0000-0000-000000000000\",\"driver_name\":\"x\",\"vehicle_plate\":\"123 TUN 456\",\"mission\":\"x\",\"departure_location\":\"Tunis\",\"arrival_location\":\"Sfax\",\"starts_at\":\"2026-10-01T08:00:00Z\"}")
+check "unknown driver_id → 422 invalid_reference" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/mission_orders" --data "{\"driver_name\":\"x\",\"vehicle_plate\":\"123 TUN 456\",\"mission_type\":\"bogus\",\"mission\":\"x\",\"departure_location\":\"Tunis\",\"arrival_location\":\"Sfax\",\"starts_at\":\"2026-10-01T08:00:00Z\"}")
+check "unknown mission_type → 422" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/mission_orders" --data "{\"driver_name\":\"x\",\"vehicle_plate\":\"123 TUN 456\",\"mission\":\"x\",\"departure_location\":\"Tunis\",\"arrival_location\":\"Sfax\",\"starts_at\":\"2026-10-01T08:00:00Z\",\"ends_at\":\"2026-09-30T08:00:00Z\"}")
+check "ends_at before starts_at → 422" "[ $R = 422 ]" "$R $(cat $J)"
+
+R=$(A -X POST "$B/mission_orders" --data "{\"driver_id\":\"$DRIVER_ID\",\"driver_name\":\"Chauffeur E2E\",\"driver_cin\":\"12345678\",\"driver_license\":\"P-0001\",\"vehicle_plate\":\"123 TUN 456\",\"mission_type\":\"aller_retour\",\"mission\":\"Transport matériel\",\"departure_location\":\"Tunis\",\"arrival_location\":\"Sfax\",\"starts_at\":\"2026-10-01T08:00:00Z\",\"add_stamp\":true,\"passengers\":[{\"name\":\"Alice\"},{\"name\":\"Bob\"}]}")
+check "create mission order (201)" "[ $R = 201 ]" "$R $(cat $J)"
+MO_ID=$(jget id)
+check "driver is hydrated from the collaborator link" "[ \"$(jget driver.full_name)\" = 'Chauffeur E2E' ]" "$(cat $J)"
+check "no client/project/amount fields exist on the row (none invented)" "! grep -qE '\"client_id\"|\"project_id\"|\"amount\"' $J" "$(cat $J)"
+
+R=$(A "$B/mission_orders/$MO_ID")
+check "get mission order (200), 2 passengers" "[ $R = 200 ] && [ \"$(jget passengers.1.name)\" = Bob ]" "$(cat $J)"
+
+R=$(A "$B/mission_orders")
+check "list includes the created order" "[ $R = 200 ] && grep -q \"$MO_ID\" \"$J\"" "$(cat $J)"
+R=$(A "$B/mission_orders$(printf '?driver_id=%s' "$DRIVER_ID")")
+check "filter by driver_id returns it" "grep -q \"$MO_ID\" \"$J\"" "$(cat $J)"
+R=$(A "$B/mission_orders?search=Sfax")
+check "search by location returns it" "grep -q \"$MO_ID\" \"$J\"" "$(cat $J)"
+
+R=$(A -X PATCH "$B/mission_orders/$MO_ID" --data '{"mission":"Transport matériel — mise à jour"}')
+check "update mission order (200)" "[ $R = 200 ] && [ \"$(jget mission)\" = 'Transport matériel — mise à jour' ]" "$(cat $J)"
+
+R=$(A -X DELETE "$B/mission_orders/$MO_ID")
+check "no delete route exists (404) — production has no delete permission, documented, not implemented" "[ $R = 404 ]" "$R $(cat $J)"
+
+login "rita@mythos.test" "$OTHER_PW"
+R=$(A "$B/mission_orders")
+check "read_only CAN list mission orders (production.read, 200)" "[ $R = 200 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/mission_orders" --data "{\"driver_name\":\"x\",\"vehicle_plate\":\"x\",\"mission\":\"x\",\"departure_location\":\"x\",\"arrival_location\":\"x\",\"starts_at\":\"2026-10-01T08:00:00Z\"}")
+check "read_only cannot create a mission order (403)" "[ $R = 403 ]" "$R $(cat $J)"
+
+login "bob@acme.test" "$OTHER_PW"
+R=$(A "$B/mission_orders/$MO_ID")
+check "acme cannot read a mythos mission order by id (404, RLS)" "[ $R = 404 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/mission_orders" --data "{\"driver_id\":\"$DRIVER_ID\",\"driver_name\":\"x\",\"vehicle_plate\":\"x\",\"mission\":\"x\",\"departure_location\":\"x\",\"arrival_location\":\"x\",\"starts_at\":\"2026-10-01T08:00:00Z\"}")
+check "acme cannot create against a mythos driver_id (422 invalid_reference, RLS-hidden)" "[ $R = 422 ]" "$R $(cat $J)"
+ACME_MO_LIST=$(A "$B/mission_orders" >/dev/null; jget total)
+check "acme's own list does not include mythos rows" "[ \"$ACME_MO_LIST\" = 0 ] || [ -z \"$ACME_MO_LIST\" ]" "$(cat $J)"
+
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+AUDIT_MO_CREATE=$(q "select count(*) from audit_log where action='record.created' and entity_table='mission_orders'")
+check "mission order creation is audited" "[ $AUDIT_MO_CREATE -ge 1 ]" "$AUDIT_MO_CREATE"
+AUDIT_MO_UPDATE=$(q "select count(*) from audit_log where action='record.updated' and entity_table='mission_orders'")
+check "mission order update is audited" "[ $AUDIT_MO_UPDATE -ge 1 ]" "$AUDIT_MO_UPDATE"
+
+echo "§16 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
 # A dedicated restart of the same already-migrated database, at a tiny
 # threshold, so this section is fast and deterministic instead of needing
 # hundreds of requests against the default (400/10s) limit used everywhere
