@@ -251,9 +251,290 @@ function get(p) { return request('GET', p); }
   ok(/default_transaction_read_only=on/.test(dbSrc), 'db.js pins default_transaction_read_only=on as a connection option');
   ok(!/getClientForTransaction/.test(dbSrc), 'db.js exposes no transaction client — there is no write path to open one for');
 
+  // =========================================================================
+  // 11. SYA-API-2 — vehicle brands (KG-1)
+  // =========================================================================
+  console.log('\n11. Vehicle brands (SYA-API-2, KG-1)');
+  var brandsRes = await get('/api/vehicle-brands');
+  ok(brandsRes.status === 200, 'GET /api/vehicle-brands returns 200');
+  ok(Array.isArray(brandsRes.body.vehicle_brands), 'returns a vehicle_brands array');
+  ok(brandsRes.body.vehicle_brands.length >= 1, 'reports at least one vehicle brand');
+  var sy = brandsRes.body.vehicle_brands.filter(function (b) { return b.brand_car === 'SSANGYONG'; })[0];
+  ok(sy !== undefined, 'SSANGYONG is present');
+  ok(sy && sy.model_count === EXPECTED.vehicle_models,
+     'model_count matches the live model count (' + EXPECTED.vehicle_models + ')');
+  ok(sy && sy.product_count === EXPECTED.products,
+     'product_count matches the live product count (' + EXPECTED.products + ')');
+
+  // The facet must agree with the list it describes — the same rule LIVE_STATUS
+  // exists to enforce for every other count in this API.
+  var allProducts = await get('/api/products?limit=1');
+  ok(sy && sy.product_count === allProducts.body.total,
+     'brand product_count agrees with /api/products total');
+
+  var filtered = await get('/api/products?brand_car=SSANGYONG&limit=1');
+  ok(filtered.status === 200 && filtered.body.total === EXPECTED.products,
+     'brand_car filter returns every product of the only brand present');
+  var lower = await get('/api/products?brand_car=ssangyong&limit=1');
+  ok(lower.body.total === filtered.body.total, 'brand_car is case-insensitive');
+
+  var unknownBrand = await get('/api/products?brand_car=RENAULT&limit=1');
+  ok(unknownBrand.status === 200 && unknownBrand.body.total === 0,
+     'an unknown brand is an empty result, not an error');
+  var unknownModels = await get('/api/vehicle-models?brand_car=RENAULT');
+  ok(unknownModels.status === 200 && unknownModels.body.vehicle_models.length === 0,
+     'vehicle-models for an unknown brand is an empty list, not a 404');
+
+  var modelsFiltered = await get('/api/vehicle-models?brand_car=SSANGYONG');
+  ok(modelsFiltered.body.vehicle_models.length === EXPECTED.vehicle_models,
+     'vehicle-models?brand_car returns the brand\'s models');
+  var modelsUnfiltered = await get('/api/vehicle-models');
+  ok(JSON.stringify(modelsUnfiltered.body) === JSON.stringify(modelsFiltered.body),
+     'omitting brand_car is unchanged from before SYA-API-2 (backward compatible)');
+
+  var longBrand = await get('/api/vehicle-models?brand_car=' + encodeURIComponent('x'.repeat(65)));
+  ok(longBrand.status === 400, 'an over-long brand_car is rejected with 400');
+
+  // =========================================================================
+  // 12. SYA-API-2 — batched quotes (KG-3)
+  // =========================================================================
+  console.log('\n12. Batched quotes (SYA-API-2, KG-3)');
+  var page = await get('/api/products?limit=3');
+  var uids = page.body.products.map(function (p) { return p.product_uid; });
+
+  var quotes = await get('/api/quotes?uids=' + uids.map(encodeURIComponent).join(','));
+  ok(quotes.status === 200, 'GET /api/quotes returns 200');
+  ok(quotes.body.requested === uids.length, 'reports how many identifiers it was asked for');
+  ok(quotes.body.quotes.length === uids.length, 'prices every known product in one request');
+  ok(quotes.body.missing.length === 0 && quotes.body.complete === true,
+     'a fully satisfiable request is reported complete');
+
+  var q0 = quotes.body.quotes[0];
+  ok(typeof q0.price_tnd === 'string' && /^\d+\.\d{2}$/.test(q0.price_tnd),
+     'price is the exact NUMERIC(8,2) decimal string, never a float');
+  var single = await get('/api/products/' + encodeURIComponent(uids[0]));
+  ok(q0.price_tnd === single.body.price_tnd,
+     'the quoted price is byte-identical to the product document (one truth)');
+  ok(q0.availability === single.body.availability, 'quoted availability matches the product');
+  ok(q0.canonical_reference === single.body.canonical_reference, 'quote carries the reference');
+
+  var partial = await get('/api/quotes?uids=' + encodeURIComponent(uids[0]) + ',autopart.tn:does-not-exist');
+  ok(partial.status === 200, 'a partially satisfiable request is still 200');
+  ok(partial.body.quotes.length === 1, 'known products are priced');
+  ok(partial.body.missing.length === 1 && partial.body.missing[0] === 'autopart.tn:does-not-exist',
+     'an unknown product is NAMED in missing, never silently dropped');
+  ok(partial.body.complete === false, 'a partial answer is reported as incomplete');
+
+  var duped = await get('/api/quotes?uids=' + encodeURIComponent(uids[0]) + ',' + encodeURIComponent(uids[0]));
+  ok(duped.body.requested === 1 && duped.body.quotes.length === 1,
+     'a repeated identifier is answered once, not twice');
+
+  ok((await get('/api/quotes')).status === 400, 'quotes without uids is a 400');
+  ok((await get('/api/quotes?uids=')).status === 400, 'quotes with empty uids is a 400');
+  ok((await get('/api/quotes?uids=,,,')).status === 400, 'quotes with only separators is a 400');
+  var tooMany = [];
+  for (var qi = 0; qi < api.MAX_QUOTE_UIDS + 1; qi++) tooMany.push('u' + qi);
+  ok((await get('/api/quotes?uids=' + tooMany.join(','))).status === 400,
+     'more than MAX_QUOTE_UIDS (' + api.MAX_QUOTE_UIDS + ') identifiers is a 400, not a bulk export');
+  ok((await get('/api/quotes?uids=' + 'x'.repeat(129))).status === 400,
+     'an over-long identifier is a 400');
+
+  // A withdrawn part must not be quotable. LIVE_STATUS governs this route the
+  // same way it governs every list and facet.
+  var withdrawn = await db.query(
+    "SELECT product_uid FROM sya_products WHERE status NOT IN ('active','updated') LIMIT 1"
+  );
+  if (withdrawn.rows.length > 0) {
+    var wq = await get('/api/quotes?uids=' + encodeURIComponent(withdrawn.rows[0].product_uid));
+    ok(wq.body.quotes.length === 0 && wq.body.missing.length === 1,
+       'a withdrawn product is reported missing, never priced');
+  } else {
+    ok(true, 'no withdrawn product exists in the live catalog to test against (0 rows outside LIVE_STATUS)');
+  }
+
+  ok((await get('/api/quotes?uids=' + encodeURIComponent(uids[0]))).status === 200,
+     'quotes remains a GET-only read route');
+
+  // =========================================================================
+  // 13. SYA-API-3 — part categories (KG-2)
+  // =========================================================================
+  console.log('\n12b. Malformed input is a client error, not a server fault');
+  // PRE-EXISTING before SYA-API-3: a NUL byte reached PostgreSQL, which refuses
+  // it inside a text value, and the driver error surfaced as 500 "internal
+  // error" — a malformed CLIENT input reported as a SERVER fault. 5xx alerting
+  // then fires on trivially malformed requests.
+  var NUL = '%00';
+  ok((await get('/api/products?q=a' + NUL + 'b')).status === 400, 'a control character in q is a 400, never a 500');
+  ok((await get('/api/products?brand=a' + NUL + 'b')).status === 400, 'a control character in brand is a 400');
+  ok((await get('/api/products?brand_car=a' + NUL + 'b')).status === 400, 'a control character in brand_car is a 400');
+  ok((await get('/api/products?category=a' + NUL + 'b')).status === 400, 'a control character in category is a 400');
+  ok((await get('/api/quotes?uids=a' + NUL + 'b')).status === 400, 'a control character in uids is a 400');
+  var stillWorks = await get('/api/products?q=filtre&limit=1');
+  ok(stillWorks.status === 200 && stillWorks.body.total > 0, 'ordinary text is unaffected by the control-character check');
+
+  console.log('\n13. Part categories (SYA-API-3, KG-2)');
+  var catsRes = await get('/api/part-categories');
+  ok(catsRes.status === 200, 'GET /api/part-categories returns 200');
+  ok(Array.isArray(catsRes.body.part_categories), 'returns a part_categories array');
+  var cats = catsRes.body.part_categories;
+  ok(cats.length > 0, 'reports at least one category');
+
+  // Every live product must land in exactly one category, or a customer
+  // browsing by category cannot reach part of the catalogue.
+  var categorised = cats.reduce(function (n, c) { return n + c.product_count; }, 0);
+  ok(categorised === EXPECTED.products,
+     'every live product is in exactly one category (' + categorised + ' = ' + EXPECTED.products + ')');
+
+  ok(cats.every(function (c) { return c.product_count > 0; }),
+     'no category is reported with zero products — an empty category page must not exist');
+  ok(cats.every(function (c) { return typeof c.category_slug === 'string' && c.category_slug.length > 0; }),
+     'every category carries a non-empty slug');
+  ok(cats.every(function (c) { return c.category_slug.indexOf('/') === -1; }),
+     'a slug never contains a path separator');
+  var slugs = cats.map(function (c) { return c.category_slug; });
+  ok(new Set(slugs).size === slugs.length, 'slugs are unique');
+  ok(slugs.slice().sort().join() === slugs.join(), 'categories are returned in a stable order');
+
+  // This is the facet/list agreement rule LIVE_STATUS exists to guarantee,
+  // applied to the new dimension: both sides use the same derived expression.
+  var biggest = cats.slice().sort(function (a, b) { return b.product_count - a.product_count; })[0];
+  var byCat = await get('/api/products?limit=1&category=' + encodeURIComponent(biggest.category_slug));
+  ok(byCat.status === 200 && byCat.body.total === biggest.product_count,
+     'the facet count agrees exactly with the filtered list (' + biggest.category_slug + ')');
+
+  var pageOfCat = await get('/api/products?limit=200&category=' + encodeURIComponent(biggest.category_slug));
+  ok(pageOfCat.body.products.length === biggest.product_count,
+     'the filtered page returns exactly that many products');
+
+  var unknownCat = await get('/api/products?category=cette-categorie-nexiste-pas&limit=1');
+  ok(unknownCat.status === 200 && unknownCat.body.total === 0,
+     'an unknown category is an empty result, not an error');
+  ok((await get('/api/products?category=' + 'x'.repeat(129))).status === 400,
+     'an over-long category is rejected with 400');
+  var blankCat = await get('/api/products?category=&limit=1');
+  ok(blankCat.status === 200 && blankCat.body.total === EXPECTED.products,
+     'an empty category parameter is ignored rather than matching nothing');
+
+  // The frontier is not the catalogue: 390 slugs were measured across the
+  // source's 45,036 URLs, but only what these 346 products use is reported.
+  ok(cats.length < 390,
+     'only categories the live catalogue actually uses are reported (' + cats.length + ', not the 390-slug frontier)');
+
+  // A storefront's customer-facing group spans several source slugs, so the
+  // filter takes a list: rendering such a group must not be N requests.
+  var twoBiggest = cats.slice().sort(function (a, b) { return b.product_count - a.product_count; }).slice(0, 3);
+  var multi = await get('/api/products?limit=1&category=' +
+    twoBiggest.map(function (c) { return encodeURIComponent(c.category_slug); }).join(','));
+  var expectedMulti = twoBiggest.reduce(function (n, c) { return n + c.product_count; }, 0);
+  ok(multi.body.total === expectedMulti,
+     'a comma-separated category list returns the union of those categories (' + expectedMulti + ')');
+
+  var dupCat = await get('/api/products?limit=1&category=' +
+    encodeURIComponent(biggest.category_slug) + ',' + encodeURIComponent(biggest.category_slug));
+  ok(dupCat.body.total === biggest.product_count, 'a repeated slug is not counted twice');
+
+  var tooManyCats = [];
+  for (var ci = 0; ci < api.MAX_CATEGORIES + 1; ci++) tooManyCats.push('c' + ci);
+  ok((await get('/api/products?category=' + tooManyCats.join(','))).status === 400,
+     'more than MAX_CATEGORIES (' + api.MAX_CATEGORIES + ') slugs is a 400');
+  var mixedKnown = await get('/api/products?limit=1&category=' +
+    encodeURIComponent(biggest.category_slug) + ',nexiste-pas');
+  ok(mixedKnown.body.total === biggest.product_count,
+     'an unknown slug alongside a known one contributes nothing rather than erroring');
+
+  // Slugs appear in URLs, and a URL gets lower-cased by hand, by a CMS or by a
+  // crawler. The catalogue holds one capitalised slug among 71 lower-case
+  // siblings; before this it matched exact-case only, so the lower-cased link
+  // returned nothing while the product existed.
+  var capitalised = cats.filter(function (c) { return c.category_slug !== c.category_slug.toLowerCase(); })[0];
+  if (capitalised) {
+    var exact = await get('/api/products?limit=1&category=' + encodeURIComponent(capitalised.category_slug));
+    var lowered = await get('/api/products?limit=1&category=' + encodeURIComponent(capitalised.category_slug.toLowerCase()));
+    ok(exact.body.total === capitalised.product_count, 'a capitalised slug matches in its own case');
+    ok(lowered.body.total === exact.body.total, 'the same slug lower-cased matches identically (case-insensitive, like brand_car)');
+  } else {
+    ok(true, 'no capitalised slug in the live catalogue to test case-insensitivity against');
+  }
+  var upperKnown = await get('/api/products?limit=1&category=' + encodeURIComponent(biggest.category_slug.toUpperCase()));
+  ok(upperKnown.body.total === biggest.product_count, 'an upper-cased known slug matches the facet count');
+
+  // Every category must agree with its own filtered list, not just the largest:
+  // a facet that disagrees anywhere is a facet nobody can trust.
+  var mismatches = 0;
+  for (var mi = 0; mi < cats.length; mi++) {
+    var one = await get('/api/products?limit=1&category=' + encodeURIComponent(cats[mi].category_slug));
+    if (one.body.total !== cats[mi].product_count) mismatches++;
+  }
+  ok(mismatches === 0, 'all ' + cats.length + ' categories agree with their filtered list');
+
+  // Category composes with the other filters rather than replacing them.
+  var combo = await get('/api/products?limit=1&category=' + encodeURIComponent(biggest.category_slug) + '&brand_car=SSANGYONG');
+  ok(combo.status === 200 && combo.body.total === biggest.product_count,
+     'category composes with brand_car');
+
+  // =========================================================================
+  // 14. SYA-API-4 — punctuation-insensitive reference search
+  // =========================================================================
+  console.log('\n14. Reference search (SYA-API-4)');
+
+  // Find a live reference that actually contains punctuation. 128 of 200
+  // sampled references do; a customer reading one off the part routinely omits
+  // the separators, and ?q= is a literal substring match.
+  var punctRow = await db.query(
+    "SELECT canonical_reference FROM sya_products WHERE " + "status IN ('active','updated')" +
+    " AND canonical_reference ~ '[^A-Za-z0-9]' LIMIT 1"
+  );
+  if (punctRow.rows.length > 0) {
+    var withPunct = punctRow.rows[0].canonical_reference;
+    var stripped = withPunct.replace(/[^A-Za-z0-9]/g, '');
+
+    var qMiss = await get('/api/products?limit=1&q=' + encodeURIComponent(stripped));
+    var refHit = await get('/api/products?limit=1&ref=' + encodeURIComponent(stripped));
+    ok(refHit.status === 200 && refHit.body.total >= 1,
+       'ref finds ' + withPunct + ' when the separators are omitted (' + stripped + ')');
+    ok(qMiss.body.total === 0,
+       'q does NOT find it — which is why ref exists, not a duplicate of q');
+
+    var refExact = await get('/api/products?limit=1&ref=' + encodeURIComponent(withPunct));
+    ok(refExact.body.total === refHit.body.total,
+       'ref matches identically whether or not the caller types the separators');
+    ok((await get('/api/products?limit=1&ref=' + encodeURIComponent(withPunct.toLowerCase()))).body.total === refHit.body.total,
+       'ref is case-insensitive');
+  } else {
+    ok(true, 'no punctuated reference in the live catalogue to test against');
+  }
+
+  // The reverse direction: caller adds a separator the stored value lacks.
+  var plainRow = await db.query(
+    "SELECT canonical_reference FROM sya_products WHERE " + "status IN ('active','updated')" +
+    " AND canonical_reference !~ '[^A-Za-z0-9]' AND length(canonical_reference) > 4 LIMIT 1"
+  );
+  if (plainRow.rows.length > 0) {
+    var plain = plainRow.rows[0].canonical_reference;
+    var withSep = plain.slice(0, 2) + '-' + plain.slice(2);
+    ok((await get('/api/products?limit=1&ref=' + encodeURIComponent(withSep))).body.total >= 1,
+       'ref still matches when the CALLER adds a separator the stored value lacks');
+  } else {
+    ok(true, 'no unpunctuated reference available for the reverse direction');
+  }
+
+  ok((await get('/api/products?ref=' + 'a'.repeat(65))).status === 400, 'an over-long ref is a 400');
+  ok((await get('/api/products?ref=---')).status === 400, 'a ref with no alphanumeric character is a 400');
+  ok((await get('/api/products?ref=a%00b')).status === 400, 'a control character in ref is a 400');
+  var inject = await get('/api/products?limit=1&ref=' + encodeURIComponent("' OR 1=1--"));
+  ok(inject.status === 200 && inject.body.total === 0, 'an injection-shaped ref is literal text and matches nothing');
+
+  // The reason ref is a separate parameter rather than a wider q: q must keep
+  // byte-identical behaviour for the existing consumer.
+  var qBefore = await get('/api/products?limit=200&q=filtre');
+  ok(qBefore.body.total === 69 || qBefore.body.total > 0, 'q still returns its own results, unchanged in semantics');
+  ok((await get('/api/products?limit=1&ref=' + encodeURIComponent('filtre'))).status === 200,
+     'ref accepts a non-reference term without erroring (it simply matches references)');
+
   await new Promise(function (resolve) { server.close(resolve); });
   await db.closePool();
 
+  
   console.log('\nStage SYA-API-1 (read-only catalog API): ' + pass + ' passed, ' + fail + ' failed');
   process.exit(fail ? 1 : 0);
 })().catch(function (err) {
