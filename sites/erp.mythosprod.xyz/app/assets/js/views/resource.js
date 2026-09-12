@@ -33,7 +33,7 @@ export const RESOURCE_TITLES = {
   quotes: 'Devis', purchases: 'Achats', expenses: 'Dépenses', documents: 'Documents', inventory_items: 'Articles',
   natures: 'Natures de projet', expense_categories: 'Catégories de dépense', bank_accounts: 'Comptes bancaires',
   prospects: 'Prospects', accounts: 'Plan comptable', journals: 'Journaux', agenda_events: 'Agenda',
-  bank_entries: 'Transactions bancaires'
+  bank_entries: 'Transactions bancaires', mission_orders: 'Ordres de mission'
 };
 const HIDDEN_COLUMNS = ['id', 'deleted_at', 'legacy_id', 'notes', 'updated_at', 'storage_key', 'sha256', 'uploaded_by', 'address', 'postal_code'];
 const DATE_FIELDS = /(_on|_at)$/;

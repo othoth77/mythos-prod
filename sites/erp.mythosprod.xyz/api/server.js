@@ -29,6 +29,7 @@ var quotes = require('./modules/quotes');
 var documents = require('./modules/documents');
 var purchases = require('./modules/purchases');
 var bank = require('./modules/bank');
+var missionOrders = require('./modules/mission-orders');
 var usersModule = require('./modules/users');
 var views = require('./modules/views');
 
@@ -252,6 +253,29 @@ route('GET',    '/api/v1/bank_entries/:id/candidates', 'finance', bank.handlers.
 route('POST',   '/api/v1/bank_entries/:id/match', 'finance', bank.handlers.match);
 route('POST',   '/api/v1/bank_entries/:id/unmatch', 'finance', bank.handlers.unmatch);
 route('POST',   '/api/v1/bank_entries/:id/ignore', 'finance', bank.handlers.ignore);
+
+// ── Mission orders (Phase 4, P1) — vehicle/driver dispatch sheets, no
+// client/project/amount/approval link (legacy evidence proves none exist);
+// module reuses the EXISTING 'production' module and its already-seeded
+// production.read/production.write permissions, the same gate collaborators
+// and representations already share — no new module, no new permission. ──
+route('GET',    '/api/v1/mission_orders', 'production', missionOrders.handlers.list);
+route('POST',   '/api/v1/mission_orders', 'production', missionOrders.handlers.create,
+      function (b) { return missionOrders.validateHeader(b, false); });
+route('GET',    '/api/v1/mission_orders/:id', 'production', missionOrders.handlers.get);
+route('PATCH',  '/api/v1/mission_orders/:id', 'production', missionOrders.handlers.update,
+      function (b) { return missionOrders.validateHeader(b, true); });
+// No DELETE route: the 'production' module has no delete permission at all
+// in the permissions catalogue (only production.read/production.write exist
+// — schema-auth.sql), so collaborators/representations (registry.js, same
+// module) already have a DELETE route registered by the generic loop below
+// that is unreachable in practice (authz.authorize denies any method with
+// no permission key mapped, unconditionally — api/lib/authz.js). This is a
+// pre-existing gap, not something Mission Orders introduces; fixing it would
+// mean adding a new production.delete permission across the whole module,
+// which is shared infrastructure beyond this phase's scope. Documented, not
+// silently worked around: mission_orders has no retire/archive capability
+// for now.
 
 // ── Comptabilité / general ledger (0005-accounting.sql) ───────────────────
 // All tenant-scoped, module 'accounting': GET = accounting.read, POST/PATCH =
