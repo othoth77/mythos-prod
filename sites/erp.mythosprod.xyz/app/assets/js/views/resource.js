@@ -38,7 +38,7 @@ export const RESOURCE_TITLES = {
 const HIDDEN_COLUMNS = ['id', 'deleted_at', 'legacy_id', 'notes', 'updated_at', 'storage_key', 'sha256', 'uploaded_by', 'address', 'postal_code'];
 const DATE_FIELDS = /(_on|_at)$/;
 const NUM_FIELDS = /^(amount|amount_ht|amount_ttc|vat_rate|capacity|min_quantity|byte_size|score|expected_value)$/;
-const LOOKUPS = { client_id: 'clients', project_id: 'projects', supplier_id: 'suppliers', nature_id: 'natures', category_id: 'expense_categories' };
+const LOOKUPS = { client_id: 'clients', project_id: 'projects', supplier_id: 'suppliers', nature_id: 'natures', category_id: 'expense_categories', account_id: 'accounts' };
 
 export function label(k) { return LABELS[k] || k; }
 

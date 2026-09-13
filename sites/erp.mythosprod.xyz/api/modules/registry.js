@@ -45,7 +45,7 @@ var STATUS_QUOTE   = ['draft', 'sent', 'accepted', 'refused', 'expired'];
 var STATUS_PROSPECT = ['new', 'contacted', 'qualified', 'proposal', 'won', 'lost'];
 var ACCOUNT_TYPES = ['asset', 'liability', 'equity', 'revenue', 'expense'];
 var ACCOUNT_SYSTEM_KEYS = ['receivable', 'payable', 'bank', 'cash', 'vat_collected', 'vat_deductible', 'sales', 'purchases',
-  'stamp_collected', 'stamp_expense'];
+  'stamp_collected', 'stamp_expense', 'expenses'];
 var JOURNAL_KINDS = ['sales', 'purchases', 'bank', 'cash', 'general'];
 var ENTRY_STATUSES = ['draft', 'posted', 'reversed', 'void'];
 var AGENDA_KINDS = ['event', 'task', 'reminder'];
@@ -145,14 +145,11 @@ var DEFS = {
   // generic loop in server.js must not also register a second, conflicting
   // set of routes for the same paths.
 
-  expenses: def({
-    module: 'finance', table: 'expenses',
-    columns: ['legacy_id', 'category_id', 'project_id', 'spent_on', 'amount', 'description', 'deleted_at'],
-    fields: ['category_id', 'project_id', 'spent_on', 'amount', 'description', 'legacy_id'],
-    required: ['description'], searchable: ['description'], sortable: ['spent_on'],
-    defaultSort: 'spent_on', filters: ['category_id', 'project_id'], label: 'description',
-    check: function (v) { return isNum(v.amount) ? null : 'amount must be numeric'; }
-  }),
+  // expenses: Phase 7 — moved to a dedicated module (modules/expenses.js,
+  // routed directly in server.js) that posts each expense to the ledger and
+  // keeps posted amounts immutable, the same shape purchases took in
+  // Phase 2. Removed from DEFS for the same reason: the generic loop must
+  // not register a second, conflicting set of routes for the same paths.
 
   documents: def({
     module: 'documents', table: 'documents',
@@ -182,8 +179,10 @@ var DEFS = {
 
   expense_categories: def({
     module: 'settings', table: 'expense_categories',
-    columns: ['legacy_id', 'label', 'deleted_at'],
-    fields: ['label', 'legacy_id'], required: ['label'], searchable: ['label'],
+    // account_id (0013): the expense account this category's lines debit;
+    // NULL falls back to the tenant's 'expenses' system account.
+    columns: ['legacy_id', 'label', 'account_id', 'deleted_at'],
+    fields: ['label', 'account_id', 'legacy_id'], required: ['label'], searchable: ['label'],
     sortable: ['label'], defaultSort: 'label', label: 'label'
   }),
 

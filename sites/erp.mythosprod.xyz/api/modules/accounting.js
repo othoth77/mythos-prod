@@ -581,6 +581,73 @@ function reversePurchase(client, ctx, purchase) {
   });
 }
 
+/* Phase 7 — an expense is money already spent: one entry in the cash or
+   bank journal (same method rule as payments), debiting the category's
+   account (expense_categories.account_id) or the tenant's default expense
+   account (system_key 'expenses'), plus deductible VAT when vat_rate > 0,
+   crediting treasury for the amount paid. Idempotent on the expense id. A
+   configured tenant with no usable expense account fails loudly. */
+function postExpense(client, ctx, expense) {
+  // expense: { id, category_id, spent_on, amount, vat_rate, payment_method, description }
+  return accountingActive(client).then(function (active) {
+    if (!active) return { skipped: 'accounting_not_configured' };
+    var cash = /esp[eè]ces|cash|caisse|liquide/i.test(String(expense.payment_method || ''));
+    return Promise.all([systemAccounts(client), journalByKind(client, cash ? 'cash' : 'bank'),
+      client.query('SELECT 1 FROM journal_entries WHERE source_table = $1 AND source_id = $2', ['expenses', expense.id]),
+      expense.category_id
+        ? client.query('SELECT c.account_id, a.id, a.code FROM expense_categories c' +
+                       ' LEFT JOIN accounts a ON a.id = c.account_id AND a.deleted_at IS NULL AND a.is_active AND a.type = \'expense\'' +
+                       ' WHERE c.id = $1', [expense.category_id])
+        : Promise.resolve({ rows: [] })])
+      .then(function (out) {
+        var acc = out[0], journal = out[1] || null;
+        if (out[2].rows.length) return { skipped: 'already_posted' };
+        var treasury = cash ? (acc.cash || acc.bank) : acc.bank;
+        var cat = out[3].rows[0] || null;
+        // A category that names an account must name a usable EXPENSE account
+        // (active, not retired, type 'expense', this tenant's — RLS hides any
+        // other): never silently fall back to the default (review finding).
+        if (cat && cat.account_id && !cat.id) {
+          throw Object.assign(new Error('accounting: this expense category points at an account that is missing, inactive, or not an expense account — fix it in Paramètres › Catégories de dépense'), { status: 409, expose: true });
+        }
+        var expenseAcc = (cat && cat.id) ? cat : acc.expenses;
+        if (!treasury || !journal) return { skipped: 'system_accounts_missing' };
+        if (!expenseAcc) {
+          throw Object.assign(new Error('accounting: no account with system_key expenses (or on this category) — set one in the Plan comptable or run /accounting/setup'), { status: 409, expose: true });
+        }
+        var amount = money(expense.amount);
+        if (amount <= 0) return { skipped: 'zero_amount' };
+        var rate = Number(expense.vat_rate || 0);
+        var ht = money(amount / (1 + rate / 100));
+        var vat = money(amount - ht);
+        var label = expense.description || expense.id;
+        var lines = [{ account_id: expenseAcc.id, label: 'Dépense ' + label, debit: ht, credit: 0 }];
+        if (vat > 0) {
+          if (!acc.vat_deductible) return { skipped: 'system_accounts_missing' };
+          lines.push({ account_id: acc.vat_deductible.id, label: 'TVA déductible ' + rate + ' %', debit: vat, credit: 0, vat_rate: rate });
+        }
+        lines.push({ account_id: treasury.id, label: 'Décaissement ' + label, debit: 0, credit: money(lines.reduce(function (a, l) { return a + l.debit; }, 0)) });
+        return createEntry(client, ctx, { journal_id: journal.id, entry_date: isoDate(expense.spent_on), reference: null,
+          memo: 'Dépense ' + label + (expense.payment_method ? ' (' + expense.payment_method + ')' : ''),
+          lines: lines, post: true, source_table: 'expenses', source_id: expense.id })
+          .then(function (r) { if (r.error) throw Object.assign(new Error('accounting: ' + r.error), { status: r.status || 409, expose: true }); return { entry: r }; });
+      });
+  });
+}
+
+function reverseExpense(client, ctx, expense) {
+  return accountingActive(client).then(function (active) {
+    if (!active) return { skipped: 'accounting_not_configured' };
+    return client.query("SELECT id, status FROM journal_entries WHERE source_table = 'expenses' AND source_id = $1", [expense.id]).then(function (r) {
+      var e = r.rows[0];
+      if (!e) return { skipped: 'no_expense_entry' };
+      if (e.status !== 'posted') return { skipped: 'expense_entry_' + e.status };
+      return reverseEntry(client, ctx, e.id, 'Annulation dépense ' + (expense.description || expense.id), { table: 'expense_cancel', id: expense.id })
+        .then(function (rv) { if (rv.error) throw Object.assign(new Error('accounting: ' + rv.error), { status: rv.status || 409, expose: true }); return { entry: rv.body.reversal }; });
+    });
+  });
+}
+
 /* Invoice cancelled after issue: reverse its issue entry (payments stay: money moved). */
 function reverseInvoice(client, ctx, invoice) {
   return accountingActive(client).then(function (active) {
@@ -599,5 +666,6 @@ module.exports = {
   entries: entries, periods: periods, reports: reports, setup: setup,
   postInvoiceIssue: postInvoiceIssue, postPayment: postPayment, reverseInvoice: reverseInvoice,
   postPurchaseInvoice: postPurchaseInvoice, postSupplierPayment: postSupplierPayment, reversePurchase: reversePurchase,
+  postExpense: postExpense, reverseExpense: reverseExpense,
   normaliseLines: normaliseLines, ensurePeriod: ensurePeriod
 };
