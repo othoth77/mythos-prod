@@ -88,7 +88,7 @@ ERP_DATABASE_URL="$OWNER_URL" python3 "$WORK/drive.py" "$API/bin/create-super-ad
 rm -f "$WORK/answers.json"
 echo "[frontend-drill] super_admin bootstrapped"
 
-ERP_DATABASE_URL="$APP_URL" ERP_API_PORT="$API_PORT" ERP_SERVE_APP=1 node "$API/server.js" >"$WORK/api.log" 2>&1 &
+ERP_DATABASE_URL="$APP_URL" ERP_API_PORT="$API_PORT" ERP_SERVE_APP=1 ERP_BACKUP_HEALTH_FILE="$WORK/backup-health.json" node "$API/server.js" >"$WORK/api.log" 2>&1 &
 API_PID=$!
 for i in $(seq 1 40); do curl -s -o /dev/null "http://127.0.0.1:$API_PORT/api/v1/health" && break; sleep 0.25; done
 B="http://127.0.0.1:$API_PORT"; J="$WORK/b"; H="$WORK/h"
@@ -184,6 +184,7 @@ dom "$P/#/reports/revenue"
 check "reports: revenue tab with chart and month table" "has 'class=\"chart\"' && txt '$(date -u +%Y-%m)'" "$(grep -o 'Analyse.\{0,400\}' $WORK/dom.txt | head -c 400)"
 dom "$P/#/settings"
 check "settings: tenant identity form + module toggles" "has 'name=\"display_name\"' && has 'id=\"mod-invoices\"' && txt 'Mythos Prod'" ""
+check "settings: backup status card renders INCONNU with the no-record explanation when no health file exists (Phase 10)" "has 'data-card=\"backup\"' && txt 'Sauvegardes' && txt 'INCONNU' && txt 'Aucun compte rendu de sauvegarde'" "$(grep -o 'Sauvegardes.\{0,200\}' $WORK/dom.txt | head -c 200)"
 dom "$P/#/users"
 check "users: the super admin is listed with role badge" "txt 'owner+frontend@mythos.test' && txt 'super_admin'" "$(head -c 300 $WORK/dom.txt)"
 dom "$P/#/audit"

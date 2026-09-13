@@ -198,6 +198,8 @@ route('GET', '/api/v1/reports/inventory', 'reports', views.reports.inventory);
 route('GET', '/api/v1/settings', 'settings', views.settings.read);
 route('PATCH', '/api/v1/settings', 'settings', views.settings.update);
 route('POST', '/api/v1/settings/modules', 'settings', views.settings.setModule);
+// Phase 10: read-only backup health (settings.read); host-level, redacted.
+route('GET', '/api/v1/settings/backup', 'settings', views.settings.backup);
 route('GET', '/api/v1/users', 'users', views.users.list);
 route('POST', '/api/v1/users', 'users', usersModule.handlers.create);
 route('POST', '/api/v1/users/roles', 'users', views.users.assignRole);
