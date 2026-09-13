@@ -1,4 +1,4 @@
-/* Dashboard: the seven counters the API measures, plus revenue by month.
+/* Dashboard: the nine counters the API measures, plus revenue by month.
  * A value the server has not returned is shown as loading or as an error —
  * never as an invented number. */
 import { api, describeError } from '../api.js';
@@ -11,10 +11,12 @@ const TILES = [
   ['invoiced_ttc_ytd', 'Facturé TTC (année)', (v) => fmtMoney(v)],
   ['collected_ytd', 'Encaissé (année)', (v) => fmtMoney(v)],
   ['appointments_next_7d', 'RDV — 7 jours', (v) => fmtNum(v, 0)],
+  ['reminders_due', 'Rappels dus (aujourd\'hui)', (v) => fmtNum(v, 0)],
+  ['invoices_overdue', 'Factures en retard', (v) => fmtNum(v, 0)],
   ['items_below_reorder', 'Articles sous seuil', (v) => fmtNum(v, 0)]
 ];
 
-// A ninth tile the server measures separately (prospects.win_rate): shown
+// A tenth tile the server measures separately (prospects.win_rate): shown
 // only once the API answers, same rule as every other tile — never a guess.
 const PROSPECT_TILE = ['prospect_win_rate', 'Conversion prospects', (v) => v === null ? '—' : fmtPct(v)];
 

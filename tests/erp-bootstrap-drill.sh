@@ -170,7 +170,7 @@ R=$(code -H "Cookie: $COOKIE" "$B/session");            check "GET /session with
 CSRF=$(python3 -c "import json; print(json.load(open('$J')).get('csrf',''))")
 R=$(code "$B/users");                                   check "GET /users without cookie → 401" "[ $R = 401 ]" "$R"
 R=$(code -H "Cookie: $COOKIE" "$B/users");              check "GET /users as super_admin (users.read) → 200" "[ $R = 200 ]" "$R $(cat $J)"
-R=$(code -H "Cookie: $COOKIE" "$B/dashboard");          check "GET /dashboard → 200 with all seven counters" "[ $R = 200 ] && python3 -c \"import json; d=json.load(open('$J')); assert set(d)=={'clients','open_projects','unpaid_invoices','invoiced_ttc_ytd','collected_ytd','appointments_next_7d','items_below_reorder'}, d\"" "$R $(cat $J)"
+R=$(code -H "Cookie: $COOKIE" "$B/dashboard");          check "GET /dashboard → 200 with all nine counters (Phase 9 added reminders_due / invoices_overdue)" "[ $R = 200 ] && python3 -c \"import json; d=json.load(open('$J')); assert set(d)=={'clients','open_projects','unpaid_invoices','invoiced_ttc_ytd','collected_ytd','appointments_next_7d','reminders_due','invoices_overdue','items_below_reorder'}, d\"" "$R $(cat $J)"
 for rep in revenue receivables expenses; do R=$(code -H "Cookie: $COOKIE" "$B/reports/$rep"); check "GET /reports/$rep → 200" "[ $R = 200 ]" "$R $(head -c 200 $J)"; done
 R=$(code -H "Cookie: $COOKIE" "$B/settings");           check "GET /settings → 200" "[ $R = 200 ]" "$R $(head -c 200 $J)"
 R=$(code -H "Cookie: $COOKIE" "$B/tenants");            check "GET /tenants → 200" "[ $R = 200 ]" "$R"

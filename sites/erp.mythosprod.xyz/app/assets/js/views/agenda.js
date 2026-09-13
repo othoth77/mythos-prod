@@ -5,11 +5,11 @@
  * agenda_events through the declared contract in GET /meta. */
 import { api, qs, describeError } from '../api.js';
 import { session } from '../session.js';
-import { h, clear, tabs, skeletonRows, empty, errorBox, toast, modal, closeModal, confirmDialog,
+import { h, clear, tabs, table, skeletonRows, empty, errorBox, toast, modal, closeModal, confirmDialog,
   field, input, select, fmtDate, badge, statusBadge } from '../ui.js';
 import { resourceView } from './resource.js';
 
-const TABS = [{ key: 'list', label: 'Liste' }, { key: 'calendar', label: 'Calendrier' }];
+const TABS = [{ key: 'list', label: 'Liste' }, { key: 'due', label: 'À traiter' }, { key: 'calendar', label: 'Calendrier' }];
 const KIND_LABEL = { event: 'Événement', task: 'Tâche', reminder: 'Rappel' };
 const KIND_GLYPH = { event: '●', task: '☑', reminder: '◔' };
 const PRIORITY_TONE = { high: 'danger', normal: '', low: 'info' };
@@ -20,7 +20,42 @@ export function agendaView(container, route) {
   const panel = h('div', { id: 'panel-' + active, role: 'tabpanel', 'aria-labelledby': 'tab-' + active });
   container.appendChild(panel);
   if (active === 'calendar') return calendarView(panel);
+  if (active === 'due') return dueView(panel);
   return resourceView('agenda_events', panel);
+}
+
+/* À traiter (Phase 9): scheduled reminders and tasks that are due (remind_at
+ * or starts_at passed) plus the coming days — the legacy "DU" badge as a
+ * list, no notification framework. Marking one done goes through the
+ * generic PATCH (audited). */
+function dueView(root) {
+  const state = { days: 7 };
+  const horizon = select([{ value: '0', label: 'Aujourd\'hui (et en retard)' }, { value: '7', label: '7 jours', selected: true }, { value: '30', label: '30 jours' }], { 'aria-label': 'Horizon' });
+  horizon.addEventListener('change', () => { state.days = Number(horizon.value); load(); });
+  const body = h('div', {});
+  root.append(h('div', { class: 'toolbar' }, field('Horizon', horizon), h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn btn-primary btn-sm', text: 'Nouveau rappel', onClick: () => itemForm(null, load) }))), body);
+  async function load() {
+    clear(body).appendChild(skeletonRows(4));
+    try {
+      const r = await api.get('/agenda_events/due' + qs({ days: state.days }));
+      clear(body);
+      body.appendChild(h('p', {}, h('strong', { class: 'mono', text: String(r.overdue) }), ' en retard (échéance passée), ', h('strong', { class: 'mono', text: String(r.total) }), ' à traiter sur l\'horizon.'));
+      if (!r.rows.length) { body.appendChild(empty('Rien à traiter', 'Aucun rappel ni tâche planifié(e) n\'est arrivé(e) à échéance sur cet horizon.')); return; }
+      body.appendChild(table([
+        { key: 'due_at', label: 'Échéance', render: (x) => fmtDate(x.due_at) },
+        { key: 'kind', label: 'Type', render: (x) => KIND_LABEL[x.kind] || x.kind },
+        { key: 'title', label: 'Titre' },
+        { key: 'priority', label: 'Priorité', render: (x) => badge(x.priority, PRIORITY_TONE[x.priority]) },
+        { key: 'overdue', label: 'État', render: (x) => x.overdue ? badge('DU', 'danger') : badge('à venir', 'info') }
+      ], r.rows, (x) => [
+        h('button', { type: 'button', class: 'btn btn-primary btn-sm', text: 'Marquer fait', onClick: async () => {
+          try { await api.patch('/agenda_events/' + x.id, { status: 'done' }); toast('Marqué fait.', 'ok'); load(); } catch (e) { toast(describeError(e), 'danger'); }
+        } }),
+        h('button', { type: 'button', class: 'btn btn-ghost btn-sm', text: 'Modifier', onClick: () => itemForm(x, load) })
+      ]));
+    } catch (e) { clear(body).appendChild(errorBox(describeError(e), load, e.body && e.body.error)); }
+  }
+  load();
 }
 
 function monthBounds(d) {
@@ -102,7 +137,8 @@ async function itemForm(row, done) {
     field('Titre', input({ name: 'title', value: (row && row.title) || '', required: true })),
     field('Début', input({ name: 'starts_at', type: 'datetime-local', value: row ? String(row.starts_at).slice(0, 16) : new Date().toISOString().slice(0, 16), required: true })),
     field('Fin', input({ name: 'ends_at', type: 'datetime-local', value: row && row.ends_at ? String(row.ends_at).slice(0, 16) : '' })),
-    field('Lieu', input({ name: 'location', value: (row && row.location) || '' })));
+    field('Lieu', input({ name: 'location', value: (row && row.location) || '' })),
+    field('Rappel le', input({ name: 'remind_at', type: 'datetime-local', value: row && row.remind_at ? String(row.remind_at).slice(0, 16) : '' }), { hint: 'Vide = le début fait foi dans « À traiter ».' }));
   const desc = field('Description', input({ name: 'description', value: (row && row.description) || '' }));
   const err = h('p', { class: 'error', role: 'alert', hidden: true });
   const submit = h('button', { type: 'button', class: 'btn btn-primary', text: isEdit ? 'Enregistrer' : 'Créer' });

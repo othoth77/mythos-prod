@@ -1037,7 +1037,49 @@ R=$(A -X DELETE "$B/cash_entries/$CM1"); check "acme cannot retire a mythos cash
 login "$ADMIN_EMAIL" "$ADMIN_PW"
 check "cash movements are audited (created/updated/deleted)" "[ \"$(q "select count(*) from audit_log where entity_table='cash_entries' and action='record.created'")\" -ge 3 ] && [ \"$(q "select count(*) from audit_log where entity_table='cash_entries' and action='record.updated'")\" -ge 1 ] && [ \"$(q "select count(*) from audit_log where entity_table='cash_entries' and action='record.deleted'")\" -ge 1 ]" ""
 
-echo "§20 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
+echo "§20 reminders / due items: /agenda_events/due horizon, overdue flag, mark done, dashboard counters, overdue receivables, permissions, tenancy"
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+R=$(code "$B/agenda_events/due"); check "unauthenticated /agenda_events/due → 401" "[ $R = 401 ]" "$R"
+R=$(A -X POST "$B/agenda_events" --data '{"kind":"reminder","title":"Relance impayé","starts_at":"2026-09-20T09:00:00Z","remind_at":"2026-09-01T08:00:00Z","priority":"high"}')
+check "reminder with a PAST remind_at and a future starts_at → 201" "[ $R = 201 ] && [ -n \"$(jget remind_at)\" ]" "$R $(cat $J)"; RM1=$(jget id)
+R=$(A -X POST "$B/agenda_events" --data "{\"kind\":\"task\",\"title\":\"Bilan trimestriel\",\"starts_at\":\"$(date -u -d '+40 days' +%FT%T)Z\"}")
+check "task 40 days ahead (no remind_at) → 201" "[ $R = 201 ]" "$R"; RM2=$(jget id)
+R=$(A -X POST "$B/agenda_events" --data '{"kind":"event","title":"Réunion passée","starts_at":"2026-09-01T09:00:00Z"}'); [ "$R" = 201 ] || bad "past event created" "$R"; EVX=$(jget id)
+R=$(A "$B/agenda_events/due")
+check "due list (default 7 days): 200, the past reminder is there and flagged overdue (remind_at wins over starts_at)" "[ $R = 200 ] && grep -q \"$RM1\" $J && [ \"$(python3 -c "import json; d=json.load(open('$J')); print([r['overdue'] for r in d['rows'] if r['id']=='$RM1'][0])")\" = True ]" "$R $(cat $J | head -c 400)"
+check "due list excludes the task 40 days out and plain events" "! grep -q \"$RM2\" $J && ! grep -q \"$EVX\" $J" ""
+check "due list counts: total ≥ overdue ≥ 1, days echoed as 7" "[ \"$(jget total)\" -ge \"$(jget overdue)\" ] && [ \"$(jget overdue)\" -ge 1 ] && [ \"$(jget days)\" = 7 ]" "$(jget total) $(jget overdue) $(jget days)"
+check "due rows carry due_at = remind_at for the reminder" "[ \"$(python3 -c "import json; d=json.load(open('$J')); r=[r for r in d['rows'] if r['id']=='$RM1'][0]; print(r['due_at']==r['remind_at'])")\" = True ]" ""
+R=$(A "$B/agenda_events/due?days=60"); check "horizon 60 days pulls the task in (not overdue)" "[ $R = 200 ] && grep -q \"$RM2\" $J && [ \"$(python3 -c "import json; d=json.load(open('$J')); print([r['overdue'] for r in d['rows'] if r['id']=='$RM2'][0])")\" = False ]" "$R"
+R=$(A "$B/agenda_events/due?days=0"); check "horizon 0 = overdue/today only; the task is out again" "[ $R = 200 ] && ! grep -q \"$RM2\" $J && grep -q \"$RM1\" $J" "$R"
+R=$(A "$B/agenda_events/due?days=9999&limit=1"); check "days is clamped (365) and limit honoured (1 row)" "[ $R = 200 ] && [ \"$(jget days)\" = 365 ] && [ \"$(jget total)\" = 1 ]" "$(jget days) $(jget total)"
+R=$(A "$B/agenda_events/due?days=abc"); check "non-numeric days falls back to 0, never a 500" "[ $R = 200 ] && [ \"$(jget days)\" = 0 ]" "$R $(jget days)"
+R=$(A "$B/dashboard"); check "dashboard reminders_due ≥ 1 (counts the overdue reminder)" "[ $R = 200 ] && [ \"$(jget reminders_due)\" -ge 1 ]" "$(cat $J)"
+DUE_BEFORE=$(jget reminders_due)
+R=$(A -X PATCH "$B/agenda_events/$RM1" --data '{"status":"done"}'); check "mark the reminder done (200)" "[ $R = 200 ] && [ \"$(jget status)\" = done ]" "$R"
+R=$(A "$B/agenda_events/due"); check "done reminder leaves the due list" "[ $R = 200 ] && ! grep -q \"$RM1\" $J" ""
+R=$(A "$B/dashboard"); check "dashboard reminders_due decremented by exactly 1" "[ \"$(jget reminders_due)\" = $((DUE_BEFORE - 1)) ]" "$DUE_BEFORE → $(jget reminders_due)"
+echo "-- overdue receivables --"
+OVD_BEFORE=$(jget invoices_overdue)
+R=$(A -X POST "$B/invoices" --data "{\"client_id\":\"$CLIENT\",\"issued_on\":\"2026-09-01\",\"due_on\":\"2026-09-05\",\"status\":\"sent\",\"lines\":[{\"description\":\"Prestation échue\",\"quantity\":1,\"unit_price\":100,\"vat_rate\":19}]}")
+check "invoice issued with a past due_on → 201 (posted)" "[ $R = 201 ] && [ -n \"$(jget accounting.entry_no)\" ]" "$R $(cat $J | head -c 300)"; OVD_INV=$(jget id); OVD_TTC=$(jget totals.total_ttc)
+R=$(A -X POST "$B/invoices" --data "{\"client_id\":\"$CLIENT\",\"issued_on\":\"2026-09-06\",\"due_on\":\"$(date -u -d '+60 days' +%F)\",\"status\":\"sent\",\"lines\":[{\"description\":\"Prestation à échoir\",\"quantity\":1,\"unit_price\":100,\"vat_rate\":19}]}")
+[ "$R" = 201 ] || bad "control invoice with a future due_on" "$R $(cat $J | head -c 300)"; FUT_INV=$(jget id)
+R=$(A "$B/reports/receivables")
+check "receivables: the overdue invoice is flagged overdue=true, the future-dated one is not" "[ $R = 200 ] && [ \"$(python3 -c "import json; d=json.load(open('$J')); print([r['overdue'] for r in d['rows'] if r['id']=='$OVD_INV'][0])")\" = True ] && [ \"$(python3 -c "import json; d=json.load(open('$J')); print([r['overdue'] for r in d['rows'] if r['id']=='$FUT_INV'][0])")\" = False ]" "$(cat $J | head -c 600)"
+check "receivables overdue_count ≥ 1 and overdue_total = sum of overdue balances (includes $OVD_TTC)" "[ \"$(jget overdue_count)\" -ge 1 ] && [ \"$(python3 -c "import json; d=json.load(open('$J')); print(abs(sum(float(r['balance']) for r in d['rows'] if r['overdue'])-float(d['overdue_total']))<0.001 and float(d['overdue_total'])>=float('$OVD_TTC'))")\" = True ]" "$(jget overdue_count) $(jget overdue_total)"
+R=$(A "$B/dashboard"); check "dashboard invoices_overdue incremented by exactly 1" "[ \"$(jget invoices_overdue)\" = $((OVD_BEFORE + 1)) ]" "$OVD_BEFORE → $(jget invoices_overdue)"
+login "rita@mythos.test" "$OTHER_PW"
+R=$(A "$B/agenda_events/due"); check "read_only can read the due list (200)" "[ $R = 200 ]" "$R"
+R=$(A -X PATCH "$B/agenda_events/$RM2" --data '{"status":"done"}'); check "read_only cannot mark done (403)" "[ $R = 403 ]" "$R"
+login "bob@acme.test" "$OTHER_PW"
+R=$(A "$B/agenda_events/due?days=365"); check "acme sees 0 mythos due items (RLS)" "[ $R = 200 ] && [ \"$(jget total)\" = 0 ]" "$(cat $J)"
+R=$(A "$B/reports/receivables"); check "acme receivables: no mythos overdue invoice" "[ $R = 200 ] && ! grep -q \"$OVD_INV\" $J" ""
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+check "the mark-done is audited (record.updated on agenda_events for the reminder)" "[ \"$(q "select count(*) from audit_log where entity_table='agenda_events' and entity_id='$RM1' and action='record.updated'")\" -ge 1 ]" ""
+R=$(A "$B/agenda_events/due?days=365"); check "due rows carry ends_at/location/all_day so the edit form opened from the list cannot blank them" "[ $R = 200 ] && grep -q '\"location\"' $J && grep -q '\"all_day\"' $J && grep -q '\"ends_at\"' $J" "$(cat $J | head -c 300)"
+
+echo "§21 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
 # A dedicated restart of the same already-migrated database, at a tiny
 # threshold, so this section is fast and deterministic instead of needing
 # hundreds of requests against the default (400/10s) limit used everywhere
