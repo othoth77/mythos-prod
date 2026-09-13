@@ -9,7 +9,7 @@
  */
 import { api, qs, describeError } from '../api.js';
 import { session } from '../session.js';
-import { h, clear, table, pagination, skeletonRows, empty, errorBox, toast, modal, closeModal,
+import { h, clear, table, pagination, skeletonRows, empty, errorBox, toast, modal, closeModal, confirmDialog,
   field, input, select, textarea, formValues, fmtDate, fmtNum } from '../ui.js';
 
 const MISSION_TYPE_LABEL = { aller_retour: 'Aller-retour', aller_simple: 'Aller simple' };
@@ -84,7 +84,12 @@ async function orderDetail(root, id) {
     h('h3', { text: 'Ordre de mission — ' + mo.vehicle_plate }),
     h('div', { class: 'actions' },
       h('button', { type: 'button', class: 'btn btn-secondary btn-sm', text: 'Modifier', onClick: () => orderFormEdit(mo, reload) }),
-      h('button', { type: 'button', class: 'btn btn-primary btn-sm', text: 'Imprimer', onClick: () => printOrder(mo) }))));
+      h('button', { type: 'button', class: 'btn btn-primary btn-sm', text: 'Imprimer', onClick: () => printOrder(mo) }),
+      h('button', { type: 'button', class: 'btn btn-danger btn-sm', text: 'Retirer', onClick: async () => {
+        if (!(await confirmDialog({ title: 'Retirer cet ordre de mission ?', danger: true, confirmLabel: 'Retirer', text: 'Il disparaît de la liste ; rien n\'est effacé, l\'opération est tracée.' }))) return;
+        try { await api.del('/mission_orders/' + mo.id); toast('Ordre de mission retiré.', 'ok'); window.location.hash = '#/production/mission_orders'; }
+        catch (e) { toast(describeError(e), 'danger'); }
+      } }))));
   const dl = h('dl', { class: 'kv' });
   [['Chauffeur', mo.driver_name], ['CIN', mo.driver_cin || '—'], ['Permis', mo.driver_license || '—'],
    ['Véhicule', mo.vehicle_plate], ['Type', MISSION_TYPE_LABEL[mo.mission_type] || mo.mission_type],

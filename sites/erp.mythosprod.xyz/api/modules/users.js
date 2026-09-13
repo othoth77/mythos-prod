@@ -132,4 +132,4 @@ function addMembership(client, userId, tenantId, roleId, ip, info) {
   });
 }
 
-module.exports = { ROLE_KEYS: ROLE_KEYS, handlers: { create: create } };
+module.exports = { ROLE_KEYS: ROLE_KEYS, callerMaxRank: callerMaxRank, handlers: { create: create } };
