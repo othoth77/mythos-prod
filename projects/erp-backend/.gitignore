@@ -1,0 +1,6 @@
+# Never commit runtime data or secrets.
+*.db
+*.db-wal
+*.db-shm
+uploads/
+.env

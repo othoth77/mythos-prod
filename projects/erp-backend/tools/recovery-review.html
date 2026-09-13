@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mythos ERP — Invoice recovery review</title>
+<style>
+  :root{--bg:#0e0e0e;--surface:#161616;--card:#1d1d1d;--border:#2a2a2a;--gold:#D9A441;
+        --text:#e8e4dc;--muted:#A8A498;--green:#4ADE80;--danger:#F1706A;--blue:#7DC4EA;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 'Inter',system-ui,sans-serif;padding:24px;}
+  h1{font-size:20px;color:var(--gold);margin:0 0 4px}
+  p.sub{color:var(--muted);margin:0 0 18px}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+  input,button{font:inherit}
+  input[type=text]{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;min-width:260px}
+  input[type=file]{color:var(--muted)}
+  button{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 12px;cursor:pointer}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  button.primary{background:var(--gold);color:#0e0e0e;border-color:var(--gold);font-weight:600}
+  table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);font-size:13px;vertical-align:top}
+  thead th{color:var(--gold);background:#111;position:sticky;top:0}
+  tr.dup td{background:rgba(241,112,106,.06)}
+  .pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600}
+  .pill.review{color:var(--gold);background:rgba(217,164,65,.12)}
+  .pill.keep{color:var(--green);background:rgba(74,222,128,.12)}
+  .pill.delete{color:var(--danger);background:rgba(241,112,106,.12)}
+  .pill.merge{color:var(--blue);background:rgba(125,196,234,.12)}
+  .act button{padding:4px 8px;font-size:12px;margin-right:4px}
+  .note{color:var(--muted);font-size:12px;margin-top:14px}
+  #status{margin-left:auto;color:var(--muted)}
+</style>
+</head>
+<body>
+<h1>Invoice recovery review</h1>
+<p class="sub">Review the recovered candidates and mark each <strong>KEEP / DELETE / MERGE</strong>.
+Nothing is ever deleted automatically — a decision only sets a flag; the source record and its provenance are preserved.</p>
+
+<div class="bar">
+  <label>Backend base:
+    <input id="base" type="text" placeholder="https://erp.mythosprod.xyz (blank = same origin)">
+  </label>
+  <button id="load-srv">Load from backend</button>
+  <span>or</span>
+  <label>Load an exported recovery JSON: <input id="file" type="file" accept="application/json"></label>
+  <button id="save" class="primary" hidden>Save decisions to backend</button>
+  <span id="status"></span>
+</div>
+
+<table id="tbl" hidden>
+  <thead><tr>
+    <th scope="col">N°</th><th scope="col">Date</th><th scope="col">Client</th>
+    <th scope="col">Amount</th><th scope="col">Source</th><th scope="col">Original ID</th>
+    <th scope="col">Recovery status</th><th scope="col">Decision</th><th scope="col">Action</th>
+  </tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+<p class="note">Duplicate/conflicting candidates (e.g. 007 and 008) appear as separate rows and are lightly highlighted — both are preserved for you to decide. Source data is never modified by loading this page.</p>
+
+<script src="/secure-client.js" onerror="/* offline file mode still works */"></script>
+<script>
+(function(){
+  'use strict';
+  var records = [], version = 0, dirty = false;
+  var $ = function(id){ return document.getElementById(id); };
+  function num(r){ return r.num||r.invoiceNumber||r.number||''; }
+  function amount(r){ var v=r.ttc!=null?r.ttc:(r.totalTTC!=null?r.totalTTC:(r.total!=null?r.total:r.amount)); return v==null?'':v; }
+  function client(r){ return r.client||r.clientName||''; }
+  function decisionPill(d){
+    var cls = d==='KEEP'?'keep':d==='DELETE'?'delete':d==='MERGE'?'merge':'review';
+    var txt = d||'RECOVERY_REVIEW';
+    return '<span class="pill '+cls+'">'+txt+'</span>';
+  }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  function render(){
+    var tb = $('rows'); tb.innerHTML='';
+    records.forEach(function(r,i){
+      var tr=document.createElement('tr');
+      if(r.duplicateCandidate) tr.className='dup';
+      tr.innerHTML =
+        '<td>'+esc(num(r))+'</td>'+
+        '<td>'+esc(r.date||'')+'</td>'+
+        '<td>'+esc(client(r))+'</td>'+
+        '<td>'+esc(amount(r))+'</td>'+
+        '<td>'+esc(r.source||'')+'</td>'+
+        '<td>'+esc(r.originalId||r.id||'')+'</td>'+
+        '<td>'+decisionPill(null).replace('RECOVERY_REVIEW', esc(r.recoveryStatus||'RECOVERY_REVIEW'))+'</td>'+
+        '<td id="dec-'+i+'">'+decisionPill(r.reviewDecision)+'</td>'+
+        '<td class="act">'+
+          '<button data-i="'+i+'" data-d="KEEP">Keep</button>'+
+          '<button data-i="'+i+'" data-d="DELETE">Delete</button>'+
+          '<button data-i="'+i+'" data-d="MERGE">Merge</button>'+
+        '</td>';
+      tb.appendChild(tr);
+    });
+    $('tbl').hidden = records.length===0;
+    $('save').hidden = records.length===0 || typeof window.MythosSecure!=='object';
+  }
+  document.addEventListener('click', function(e){
+    var b=e.target.closest('button[data-d]'); if(!b) return;
+    var i=+b.getAttribute('data-i'), d=b.getAttribute('data-d');
+    records[i].reviewDecision = d;               // marks only — never removes the record
+    $('dec-'+i).innerHTML = decisionPill(d);
+    dirty=true; $('status').textContent='unsaved decisions';
+  });
+
+  function setBase(){ try{ if($('base').value) localStorage.setItem('mythos_secure_base',$('base').value); }catch(e){} }
+  $('load-srv').addEventListener('click', function(){
+    if(typeof window.MythosSecure!=='object'){ $('status').textContent='secure client not loaded (use file mode)'; return; }
+    setBase();
+    $('status').textContent='loading…';
+    window.MythosSecure.me().catch(function(){ throw new Error('not logged in — open the ERP and log in first'); })
+      .then(function(){ return window.MythosSecure.getCollection('mp_invoices_recovery'); })
+      .then(function(res){ records=res.data||[]; version=res.version||0; render(); $('status').textContent=records.length+' records (v'+version+')'; })
+      .catch(function(err){ $('status').textContent='error: '+err.message; });
+  });
+  $('file').addEventListener('change', function(e){
+    var f=e.target.files[0]; if(!f) return;
+    var rd=new FileReader();
+    rd.onload=function(){ try{
+      var j=JSON.parse(rd.result);
+      records = Array.isArray(j)?j:(j.candidates||j.invoices||j.records||j.data||[]);
+      version=0; render(); $('status').textContent=records.length+' records (file mode — read-only)';
+    }catch(err){ $('status').textContent='invalid JSON'; } };
+    rd.readAsText(f);
+  });
+  $('save').addEventListener('click', function(){
+    if(typeof window.MythosSecure!=='object') return;
+    $('status').textContent='saving…';
+    window.MythosSecure.putCollection('mp_invoices_recovery', records, version)
+      .then(function(res){ version=res.version; dirty=false; $('status').textContent='saved (v'+version+') — nothing deleted, decisions recorded'; })
+      .catch(function(err){ $('status').textContent='save failed: '+err.message+(err.status===409?' (reload — someone else changed it)':''); });
+  });
+})();
+</script>
+</body>
+</html>

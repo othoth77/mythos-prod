@@ -121,7 +121,7 @@ function saveCapturedPhoto() {
   if (_cameraContext === 'doc-form') {
     var prev = document.getElementById('doc-photo-preview');
     if (prev) {
-      prev.innerHTML = '<img src="'+_capturedDataUrl+'" style="max-width:100%;max-height:180px;border-radius:8px;border:1px solid #333;margin-top:4px;">';
+      prev.innerHTML = '<img alt="Photo capturée" src="'+_capturedDataUrl+'" style="max-width:100%;max-height:180px;border-radius:8px;border:1px solid #333;margin-top:4px;">';
       prev.dataset.photoData = _capturedDataUrl;
       prev.dataset.photoType = 'image';
     }
