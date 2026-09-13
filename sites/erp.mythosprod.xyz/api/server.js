@@ -31,6 +31,7 @@ var purchases = require('./modules/purchases');
 var bank = require('./modules/bank');
 var missionOrders = require('./modules/mission-orders');
 var expenses = require('./modules/expenses');
+var contacts = require('./modules/contacts');
 var cash = require('./modules/cash');
 var usersModule = require('./modules/users');
 var views = require('./modules/views');
@@ -200,6 +201,21 @@ route('PATCH', '/api/v1/settings', 'settings', views.settings.update);
 route('POST', '/api/v1/settings/modules', 'settings', views.settings.setModule);
 // Phase 10: read-only backup health (settings.read); host-level, redacted.
 route('GET', '/api/v1/settings/backup', 'settings', views.settings.backup);
+
+// ── Contacts import / dedup (Phase 11) — module 'clients' ─────────────────
+// Fixed paths; the generic /contacts/:id only matches a UUID. File text is
+// carried in the JSON body (the browser reads the file), so these two routes
+// take a larger body cap than the 1 MiB default: MAX_TEXT is in characters,
+// the cap in bytes — non-ASCII text is up to 3 bytes/char in UTF-8 JSON, so
+// the cap admits the whole allowed text and validation applies the limit.
+var IMPORT_BODY_CAP = contacts.MAX_TEXT * 3 + 256 * 1024;
+route('POST',   '/api/v1/contacts/import/preview', 'clients', contacts.handlers.preview, contacts.validateImport, IMPORT_BODY_CAP);
+route('POST',   '/api/v1/contacts/import', 'clients', contacts.handlers.importFile, contacts.validateImport, IMPORT_BODY_CAP);
+route('GET',    '/api/v1/contacts/imports', 'clients', contacts.handlers.imports);
+route('PATCH',  '/api/v1/contacts/imports/:id', 'clients', contacts.handlers.relabel, contacts.validateLabel);
+route('DELETE', '/api/v1/contacts/imports/:id', 'clients', contacts.handlers.retireImport);
+route('GET',    '/api/v1/contacts/duplicates', 'clients', contacts.handlers.duplicates);
+route('POST',   '/api/v1/contacts/merge', 'clients', contacts.handlers.merge, contacts.validateMerge);
 route('GET', '/api/v1/users', 'users', views.users.list);
 route('POST', '/api/v1/users', 'users', usersModule.handlers.create);
 route('POST', '/api/v1/users/roles', 'users', views.users.assignRole);

@@ -62,7 +62,7 @@ echo "[frontend-drill] throwaway PostgreSQL 15: $C"
 docker run -d --name "$C" -P -e POSTGRES_USER=erp_owner -e POSTGRES_DB=mythos_erp -e POSTGRES_PASSWORD="$PW" postgres:15-alpine >/dev/null
 OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
-for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql 0008-purchases-lifecycle.sql 0009-bank-reconciliation.sql 0010-mission-orders.sql 0011-fiscal-stamp.sql 0012-rbac-delete-permissions.sql 0013-expenses-ledger.sql 0014-cash-register.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql 0008-purchases-lifecycle.sql 0009-bank-reconciliation.sql 0010-mission-orders.sql 0011-fiscal-stamp.sql 0012-rbac-delete-permissions.sql 0013-expenses-ledger.sql 0014-cash-register.sql 0015-contact-import.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
 done
@@ -182,6 +182,10 @@ check "invoice detail: payment action offered for part_paid, edit hidden (not dr
 
 dom "$P/#/reports/revenue"
 check "reports: revenue tab with chart and month table" "has 'class=\"chart\"' && txt '$(date -u +%Y-%m)'" "$(grep -o 'Analyse.\{0,400\}' $WORK/dom.txt | head -c 400)"
+dom "$P/#/clients/contacts/import"
+check "contacts: import tab renders the file picker, label field and duplicate toggle (Phase 11)" "has 'id=\"contacts-import-file\"' && has 'type=\"file\"' && has 'id=\"imp-skip\"' && txt 'Importer des contacts' && txt 'Doublons'" "$(grep -o 'Importer des contacts.\{0,200\}' $WORK/dom.txt | head -c 200)"
+dom "$P/#/clients/contacts/imports"
+check "contacts: imports history tab renders its empty state" "txt 'Aucun import' && txt 'Nouvel import'" "$(grep -o 'Imports.\{0,200\}' $WORK/dom.txt | head -c 200)"
 dom "$P/#/settings"
 check "settings: tenant identity form + module toggles" "has 'name=\"display_name\"' && has 'id=\"mod-invoices\"' && txt 'Mythos Prod'" ""
 check "settings: backup status card renders INCONNU with the no-record explanation when no health file exists (Phase 10)" "has 'data-card=\"backup\"' && txt 'Sauvegardes' && txt 'INCONNU' && txt 'Aucun compte rendu de sauvegarde'" "$(grep -o 'Sauvegardes.\{0,200\}' $WORK/dom.txt | head -c 200)"

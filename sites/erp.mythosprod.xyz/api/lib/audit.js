@@ -27,7 +27,10 @@ var ACTIONS = [
   // is recorded as permission.denied like any other refusal.
   'tenant.switched', 'tenant.created', 'tenant.updated',
   'module.enabled', 'module.disabled',
-  'membership.granted', 'membership.revoked'
+  'membership.granted', 'membership.revoked',
+  // Contacts (Phase 11): a file of personal data crossed the API (contents
+  // never recorded), and a merge that retired the other members of a group.
+  'contacts.import_previewed', 'contacts.merged'
 ];
 var OUTCOMES = ['ok', 'denied', 'error'];
 
