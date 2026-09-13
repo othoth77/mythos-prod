@@ -2,6 +2,56 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-13 — MYTHOS ERP PHASE 10: P2 BACKUP STATUS UI — **PHASE_10_COMPLETE** (Fable 5.1)
+
+Discovery: the scheduled off-host backup (`ops/backup/mythos-backup-run-db.sh`,
+`mythos-backup-db.timer` daily, `…-verify.timer` daily, restore-test monthly;
+all run as `deploy`) writes one redacted health record after every run —
+`~deploy/mythos-backups/health/backup-health-db.json` (0600 deploy; the API
+runs as deploy). Nothing in the ERP showed it. **No migration.** The UI
+reads; it never triggers a backup (host operation, not an ERP action).
+
+**API.** `GET /settings/backup` — module `settings`, `settings.read` **and**
+the platform role `super_admin` (rank via `users.callerMaxRank`): the record
+is host-level, one database for every tenant, so a tenant admin of another
+company gets 403 (review finding — decided policy, documented in the route
+comment). Read at request time (`ERP_BACKUP_HEALTH_FILE` override for the
+drills; default = the writer's default path for `deploy`), guarded: regular
+file, ≤ 64 KiB, JSON object — anything else is a 200 `available:false` with
+`reason` (`no_health_record` / `unreadable` / `invalid_record`), never a 500,
+and the promise always settles. `state` = `failed` (status ≠ ok or non-zero
+exit; a missing exit_code is "not reported") / `stale` (> 36 h since
+`last_success_at`) / `ok`. Fields normalised (ISO dates or null, ints or
+null, mode whitelist). `source` and `backup_prefix` are never returned; the
+error tail is redacted — `scheme://`, `remote:bucket/…` specs, `key=value`
+secrets incl. `PGPASSWORD=`, `host=`/`port`, `user@host`, IPv4/IPv6
+host:port, absolute, `~/`, `./` and relative paths (which is how the prefix
+would appear) — then cut at 200 chars without ending on a partial marker.
+
+**UI.** Paramètres › Sauvegardes: badge `OK / ÉCHEC / OBSOLÈTE / INCONNU`
+suffixed with the run mode (the record covers the latest run of ANY mode —
+"OK — vérification" is not "the backup succeeded"; the writer keeps a single
+`last_success_at` across modes, a known limitation outside this diff), last
+run, last success + hours, consecutive failures, threshold, redacted error;
+a RÉSERVÉ sentence on 403 instead of an error box.
+
+**Independent review**: 0 blockers; majors fixed — redaction bypasses (each
+shape now has a drill fixture), tenant exposure (super_admin gate); minors
+fixed — stat/size cap/try-catch, marker-safe truncation,
+`hours_since_success` from the validated date, audit count before/after.
+
+| Item | Detail |
+|---|---|
+| Implementation commit | `c909cda` on `mythos/erp-p2-backup-status-20260913` |
+| PR / merge | [#275](https://github.com/othoth77/mythos-prod/pull/275), squash-merged → `d6fc14f411a1b0b5c2eb7030f459d8bef1666190` (5 files: `views.js`, `server.js`, `admin.js`, two drills) |
+| Migration | None. `migrate.js --dry-run` on production after the sync: `WOULD APPLY: nothing`, 14 applied. Rehearsal NOT_REQUIRED. |
+| Backup | `mythos_erp-20260913T101152Z.dump`, 227,434 B, sha256 `8627ccbe…`, 46 TABLE DATA TOC entries, stage/manifest/verify-local/push/verify-remote, "backup completed clean", health `ok`, 0 consecutive failures. |
+| Production | Checkout ff to `d6fc14f`; `erp-api` restarted `Result=success`, `NRestarts=0`, `active`; `code_identity.head` `d6fc14f4…`, `verified: true`. |
+| Smoke | Unauthenticated `/settings/backup` → 401; owner super_admin → 200 `{available true, state ok, mode backup, exit_code 0, duration 3 s, 0 failures, error ''}`; no `source`/`backup_prefix` key and not a single `/` in the body; `/settings` 200; `views/admin.js` served. Zero rows in `agenda_events` / `invoices` / `journal_entries`; no audit rows from the reads. |
+| Tests | Core E2E **487/0** (§21, 17 assertions: 401; read_only 403; finance_user 403; no record → unknown/no_health_record; fresh ok record → ok/backup/0 failures/hours < 1; source+prefix absent; failed verify → failed/verify/exit 3/2 failures/≥ 72 h; redaction of path/URL/secret/user@host with markers; bypass shapes — remote spec, relative path & prefix, key=value incl. PGPASSWORD, host/port, IPv4/IPv6, ~/ ./ comma-delimited — none leak; marker-safe cut + missing exit_code not a failure; stale after 3 days; odd values normalised; malformed → invalid_record; non-object → invalid_record; tenant admin 403; super_admin 200; three GETs leave the audit count unchanged). Auth **125/0**, frontend-check **45/0**, frontend-drill **49/0** (card renders INCONNU + no-record sentence), acceptance **80/0**, security **59/0**, bootstrap **45/0**. **Total 890/890**, re-run from the deployed checkout. |
+| Remaining gaps | The writer's single `last_success_at` across backup/verify/restore-test modes (a successful verify after a failed backup reads as "OK — vérification"); the erp-api unit does not pin `ERP_BACKUP_HEALTH_FILE` (default = writer default for `deploy`; a unit `Environment=` line would remove the drift risk — owner/ops step, unit file untouched here); writer escapes `"`/newline but not `\` in the error tail (invalid JSON → card says "invalid record"). All outside the ERP diff. |
+| Next phase | Contact import / dedup discovery (P2 — decide REQUIRED vs NOT_REQUIRED on legacy evidence), then the final integration/security/UX/data-integrity audits; production fiscal-stamp policy still awaiting owner GO. |
+
 ## 2026-09-13 — MYTHOS ERP PHASE 9: P2 REMINDERS / DUE ITEMS — **PHASE_9_COMPLETE** (Fable 5.1)
 
 Discovery found the data model already complete: `agenda_events` (0006)
