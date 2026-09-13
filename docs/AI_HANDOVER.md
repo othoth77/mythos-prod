@@ -2,6 +2,87 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-13 — MYTHOS ERP PHASE 5: P0 FISCAL STAMP (DROIT DE TIMBRE) + ACHATS UI — **PHASE_5_COMPLETE_WITH_MINOR_GAPS** (Fable 5.1)
+
+Selected by a fresh read-only gap audit of the legacy ERP and the current
+ERP (nine remaining candidates scored on business need, legal weight,
+accounting and migration risk). Two P0 items, tightly coupled, one phase:
+
+**1. The Tunisian droit de timbre was missing from every invoice the new ERP
+issues.** Legal basis verified against the DGI's own texts, not assumed:
+CDET art. 117 §I n°6 — **1,000 TND per invoice**, raised from 0,600 by
+décret-loi 2022-79 (LF2023) art. 69, applicable to invoices issued from
+1 Jan 2023 (DGI Note commune 02/2023 §II, §IV); due on every invoice
+including partial invoices and credit notes (NC 06/2004 §II.1); exempt for
+export invoices, totally-exporting enterprises, and where the duty is
+legally borne by the State (art. 118; NC 06/2004 §3). Flat per document,
+outside the VAT base, shown after the VAT total. The LF2026 tiered tariff
+(1,5/2 TND) applies only to *grandes surfaces* — not Mythos. The legacy
+ERP carried exactly this (`js/shared/invoices.js:172-216`: `timbre`
+after VAT on invoices and quotes, forced to 0 for VAT-exempt documents).
+
+**2. Finance › Achats was a dead tab in production.** When purchases became
+a dedicated module in Phase 2 it left `registry.js`, so `/meta` stopped
+publishing it and `resourceView('purchases')` rendered "Ressource
+inconnue" — a complete backend (lifecycle, supplier payments, accounting)
+unreachable from the UI. Found by this phase's discovery, verified in
+code, fixed with `views/purchases.js` (list, detail, create/edit,
+confirm, supplier payment, cancel) mirroring `views/invoices.js`.
+
+**Model.** `stamp_amount numeric(14,3)` snapshot on `invoices`, `quotes`
+and `purchases` (0 = exempt, per-document override; a later rate change
+never rewrites history). Tenant default in `tenants.settings.fiscal_stamp`
+`{enabled, amount}` — the jsonb column that was plumbed since tenancy and
+read by nothing until now. **Absent = disabled**: nothing changed for any
+existing total; enabling it is done in Paramètres › Timbre fiscal (or
+`PATCH /settings`, `settings.manage`) and is audited (`tenant.updated`).
+TTC = HT + VAT + stamp in `totals()` (invoices, quotes, purchases), so
+balance/overpayment/status derivation, receivables, revenue (new `stamp`
+column) and the dashboard all agree. Quote→invoice conversion carries it.
+
+**Accounting (no duplicate effects, verified).** A stamped sales invoice
+posts one extra credit leg on a new `stamp_collected` system account —
+money collected for the State, a liability, never revenue; the receivable
+debit becomes HT+TVA+timbre. A stamped supplier invoice posts one extra
+debit leg on `stamp_expense`. Both are seeded by `0011` for every tenant
+whose chart exists (keyed on the system_key's absence, `ON CONFLICT
+(tenant_id, code) DO NOTHING`) and by `accounting_seed_tenant` for new
+ones. **IMPLEMENTATION ASSUMPTION, flagged**: the seeded codes `4368`
+("État, droits de timbre collectés") and `6354` ("Droits d'enregistrement
+et de timbre") follow the chart 0005 already seeds; codes/labels are the
+tenant's to rename — only the system_key is looked up. A configured tenant
+that stamps a document but has no such account gets a 409 naming the fix,
+never a silently dropped sales entry (review finding).
+
+**Independent code review** (second agent, read-only) found six issues,
+all fixed and pinned by assertions before commit: a non-finite/oversized
+policy amount could have blocked every later document creation (now
+finite, 0..1000, stored normalised); a missing stamp account silently
+skipped the whole posting (now a loud 409); non-numeric `stamp_amount`
+reached PostgreSQL (now coerced, blank = absent); revenue's inner join
+diverged from receivables on line-less invoices (LEFT JOIN); the
+`zero_amount` guard ignored the stamp; and an edit-form hint was wrong.
+
+**One stale test harness fixed on the way**: `tests/erp-frontend-drill.sh`
+still applied migrations only through `0006` — invisible to Phases 2–4,
+which never touched the invoice code path it exercises — and failed with a
+500 (missing `stamp_amount`) until its list was brought in line with the
+other drills.
+
+| Item | Detail |
+|---|---|
+| Implementation commit | `25f7571` on `mythos/erp-p0-fiscal-stamp-20260913` |
+| PR / merge | [#265](https://github.com/othoth77/mythos-prod/pull/265), squash-merged → `0fd6c3d8a7f5e3f2fe03fc19910590ce6c4e61b3` on `origin/main` (19 files, all under `sites/erp.mythosprod.xyz/` and `tests/erp-*`) |
+| Migration | `0011-fiscal-stamp.sql` — additive: three `stamp_amount` columns + non-negative CHECKs, `account_system_key_known` extended with `stamp_collected`/`stamp_expense`, `accounting_seed_tenant` replaced (18 accounts), backfill for configured tenants. No new grants needed. |
+| Backup | `mythos-backup-db.service` before migration: stage → verify-local → push → verify-remote, "backup completed clean". `mythos_erp-20260913T080151Z.dump`, 221,698 B, sha256 `d6e8f022…4adb0`, 554 TOC entries. |
+| Rehearsal | Disposable PG15 restored from that backup: run 1 applied only `0011`, run 2 skipped all 11; columns/CHECKs/system-key CHECK/RLS/grants/function verified; `mythos` chart 16→18; users/invoices counts unchanged. Container destroyed. |
+| Production migration | Applied via the production checkout's runner: `applied=["0011-fiscal-stamp.sql"]`, `schema_migrations` = 11; post-checks identical to rehearsal; `tenants.settings` = `{}` (policy **off**). |
+| Production revision | `0fd6c3d8a7f5e3f2fe03fc19910590ce6c4e61b3`, `code_identity.verified: true`, `erp-api` `Result=success`, `NRestarts=0`. |
+| Smoke test | Unauthenticated `/invoices`, `/quotes`, `/purchases`, `/settings`, `/reports/*`, `/accounts`, `PATCH /settings` → 401. Authenticated: all 200; `accounting/setup` lists the two new system keys among 18 accounts; `views/purchases.js` served. Zero business rows in every table after the test. |
+| Tests | Core E2E **374/0** (new §16, 29 assertions: policy off→on, read_only 403 on the policy, malformed/non-finite/negative/non-numeric/blank handling, 4368 credit 1.000 vs 706 credit 1000.000, receivable 1191.000, balanced entry, receivables/revenue carry the stamp, exemption override posts no stamp leg, quote conversion, purchase 6354 debit 1.000 / 401 credit 120.000, purchase paid to the exact TTC, trial balance balanced, per-tenant isolation, audit). Auth **125/0** (11 migrations). Frontend-check **43/0**, frontend-drill **48/0**, acceptance **80/0**, security **59/0**, bootstrap **45/0**. **Total 774/774**, all re-run against the deployed revision. Two §8 chart-size expectations updated 16→18 (the two new system accounts — an intended change, not a weakened test). |
+| Remaining gaps (non-blocking) | **The production tenant's policy is still OFF** — enabling it changes every new invoice's total by +1,000 TND and is a business decision: owner GO required, then `Paramètres › Timbre fiscal` (or one `PATCH /settings`). Printed invoice shows the stamp as a line in the totals card (browser print, as before); no dedicated print layout. The stamp on credit notes is covered only insofar as a credit note is an invoice with negative/zero lines (the ERP has no credit-note document type). |
+| Next phase | Continuing the roadmap by priority from the same audit: RBAC hardening (`production`/`inventory` DELETE dead-zones, `roles.manage` not enforced on `POST /users/roles`) as a small P1, then cash register / expenses-in-ledger (P1). |
+
 ## 2026-09-12 — MYTHOS ERP PHASE 4: P1 MISSION ORDERS — **PHASE_4_COMPLETE_WITH_MINOR_GAPS** (Sonnet 5)
 
 "Ordres de mission" — a vehicle/driver dispatch sheet — following Phase 3
