@@ -648,6 +648,65 @@ function reverseExpense(client, ctx, expense) {
   });
 }
 
+/* Phase 8 — a manual cash movement (cash_entries): one CA-journal entry.
+   withdrawal: bank → till; deposit: till → bank; other_in/other_out: the
+   till against an explicit counterpart account. Idempotent on the row id. */
+function postCashMovement(client, ctx, mv) {
+  // mv: { id, entry_date, label, amount, kind, counterpart_account_id, reference }
+  return accountingActive(client).then(function (active) {
+    if (!active) return { skipped: 'accounting_not_configured' };
+    return Promise.all([systemAccounts(client), journalByKind(client, 'cash'),
+      client.query('SELECT 1 FROM journal_entries WHERE source_table = $1 AND source_id = $2', ['cash_entries', mv.id]),
+      mv.counterpart_account_id
+        ? client.query('SELECT id, code FROM accounts WHERE id = $1 AND deleted_at IS NULL AND is_active', [mv.counterpart_account_id])
+        : Promise.resolve({ rows: [] })])
+      .then(function (out) {
+        var acc = out[0], journal = out[1] || null;
+        if (out[2].rows.length) return { skipped: 'already_posted' };
+        // A configured tenant that cannot post a cash movement must not keep
+        // the row with no entry (review finding): fail loudly, roll back.
+        if (!acc.cash || !journal) {
+          throw Object.assign(new Error('accounting: no active cash account (system_key cash) or CA journal — fix the Plan comptable / Journaux'), { status: 409, expose: true });
+        }
+        var amount = money(mv.amount);
+        if (amount <= 0) return { skipped: 'zero_amount' };
+        var other = out[3].rows[0] || null;
+        var lines;
+        if (mv.kind === 'withdrawal' || mv.kind === 'deposit') {
+          if (!acc.bank) {
+            throw Object.assign(new Error('accounting: no active bank account (system_key bank) — fix the Plan comptable'), { status: 409, expose: true });
+          }
+          lines = mv.kind === 'withdrawal'
+            ? [{ account_id: acc.cash.id, label: 'Retrait ' + mv.label, debit: amount, credit: 0 }, { account_id: acc.bank.id, label: 'Retrait ' + mv.label, debit: 0, credit: amount }]
+            : [{ account_id: acc.bank.id, label: 'Dépôt ' + mv.label, debit: amount, credit: 0 }, { account_id: acc.cash.id, label: 'Dépôt ' + mv.label, debit: 0, credit: amount }];
+        } else {
+          if (!other) {
+            throw Object.assign(new Error('accounting: the counterpart account is missing or inactive — choose an active account of the Plan comptable'), { status: 409, expose: true });
+          }
+          lines = mv.kind === 'other_in'
+            ? [{ account_id: acc.cash.id, label: 'Entrée caisse ' + mv.label, debit: amount, credit: 0 }, { account_id: other.id, label: 'Entrée caisse ' + mv.label, debit: 0, credit: amount }]
+            : [{ account_id: other.id, label: 'Sortie caisse ' + mv.label, debit: amount, credit: 0 }, { account_id: acc.cash.id, label: 'Sortie caisse ' + mv.label, debit: 0, credit: amount }];
+        }
+        return createEntry(client, ctx, { journal_id: journal.id, entry_date: isoDate(mv.entry_date), reference: mv.reference || null,
+          memo: 'Mouvement de caisse — ' + mv.label, lines: lines, post: true, source_table: 'cash_entries', source_id: mv.id })
+          .then(function (r) { if (r.error) throw Object.assign(new Error('accounting: ' + r.error), { status: r.status || 409, expose: true }); return { entry: r }; });
+      });
+  });
+}
+
+function reverseCashMovement(client, ctx, mv) {
+  return accountingActive(client).then(function (active) {
+    if (!active) return { skipped: 'accounting_not_configured' };
+    return client.query("SELECT id, status FROM journal_entries WHERE source_table = 'cash_entries' AND source_id = $1", [mv.id]).then(function (r) {
+      var e = r.rows[0];
+      if (!e) return { skipped: 'no_cash_entry' };
+      if (e.status !== 'posted') return { skipped: 'cash_entry_' + e.status };
+      return reverseEntry(client, ctx, e.id, 'Annulation mouvement de caisse ' + (mv.label || mv.id), { table: 'cash_cancel', id: mv.id })
+        .then(function (rv) { if (rv.error) throw Object.assign(new Error('accounting: ' + rv.error), { status: rv.status || 409, expose: true }); return { entry: rv.body.reversal }; });
+    });
+  });
+}
+
 /* Invoice cancelled after issue: reverse its issue entry (payments stay: money moved). */
 function reverseInvoice(client, ctx, invoice) {
   return accountingActive(client).then(function (active) {
@@ -667,5 +726,6 @@ module.exports = {
   postInvoiceIssue: postInvoiceIssue, postPayment: postPayment, reverseInvoice: reverseInvoice,
   postPurchaseInvoice: postPurchaseInvoice, postSupplierPayment: postSupplierPayment, reversePurchase: reversePurchase,
   postExpense: postExpense, reverseExpense: reverseExpense,
+  postCashMovement: postCashMovement, reverseCashMovement: reverseCashMovement,
   normaliseLines: normaliseLines, ensurePeriod: ensurePeriod
 };

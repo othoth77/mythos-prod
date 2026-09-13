@@ -31,6 +31,7 @@ var purchases = require('./modules/purchases');
 var bank = require('./modules/bank');
 var missionOrders = require('./modules/mission-orders');
 var expenses = require('./modules/expenses');
+var cash = require('./modules/cash');
 var usersModule = require('./modules/users');
 var views = require('./modules/views');
 
@@ -284,6 +285,21 @@ route('GET',    '/api/v1/expenses/:id', 'finance', expenses.handlers.get);
 route('PATCH',  '/api/v1/expenses/:id', 'finance', expenses.handlers.update,
       function (b) { return expenses.validateHeader(b, true); });
 route('DELETE', '/api/v1/expenses/:id', 'finance', expenses.handlers.retire);
+
+// ── Cash register (Phase 8, P1): manual cash movements posting to the CA
+// journal (bank ⇄ till, other in/out against a chosen account), reversed
+// on retire; the cash book itself is the ledger of the 'cash' system
+// account. /summary is a fixed path — ':id' only matches a UUID. ─────────
+route('GET',    '/api/v1/cash_entries/summary', 'finance', cash.handlers.summary);
+route('GET',    '/api/v1/cash_entries/book', 'finance', cash.handlers.book);
+route('GET',    '/api/v1/cash_entries/counterparts', 'finance', cash.handlers.counterparts);
+route('GET',    '/api/v1/cash_entries', 'finance', cash.handlers.list);
+route('POST',   '/api/v1/cash_entries', 'finance', cash.handlers.create,
+      function (b) { return cash.validateHeader(b, false); });
+route('GET',    '/api/v1/cash_entries/:id', 'finance', cash.handlers.get);
+route('PATCH',  '/api/v1/cash_entries/:id', 'finance', cash.handlers.update,
+      function (b) { return cash.validateHeader(b, true); });
+route('DELETE', '/api/v1/cash_entries/:id', 'finance', cash.handlers.retire);
 
 // ── Comptabilité / general ledger (0005-accounting.sql) ───────────────────
 // All tenant-scoped, module 'accounting': GET = accounting.read, POST/PATCH =

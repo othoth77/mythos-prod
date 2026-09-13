@@ -58,7 +58,7 @@ docker run -d --name "$C" -P -e POSTGRES_USER=erp_owner -e POSTGRES_DB=mythos_er
 # start; a single pg_isready success can land in that window. Require two in a row.
 OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
-for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql 0008-purchases-lifecycle.sql 0009-bank-reconciliation.sql 0010-mission-orders.sql 0011-fiscal-stamp.sql 0012-rbac-delete-permissions.sql 0013-expenses-ledger.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql 0008-purchases-lifecycle.sql 0009-bank-reconciliation.sql 0010-mission-orders.sql 0011-fiscal-stamp.sql 0012-rbac-delete-permissions.sql 0013-expenses-ledger.sql 0014-cash-register.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
 done
@@ -991,7 +991,53 @@ R=$(A -X DELETE "$B/expenses/$EXP1"); check "acme cannot retire a mythos expense
 login "$ADMIN_EMAIL" "$ADMIN_PW"
 check "expense creation / update / retire are audited" "[ \"$(q "select count(*) from audit_log where entity_table='expenses' and action='record.created'")\" -ge 3 ] && [ \"$(q "select count(*) from audit_log where entity_table='expenses' and action='record.updated'")\" -ge 1 ] && [ \"$(q "select count(*) from audit_log where entity_table='expenses' and action='record.deleted'")\" -ge 1 ]" ""
 
-echo "§19 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
+echo "§19 cash register: summary from the ledger, manual movements (withdrawal/deposit/other) posted to CA, immutability, reversal, tenancy, permissions"
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+R=$(A "$B/cash_entries/summary"); check "cash summary (200) names the cash system account (54)" "[ $R = 200 ] && [ \"$(jget account.code)\" = 54 ] && [ \"$(jget configured)\" = True ]" "$R $(cat $J)"
+CASH_ACC=$(jget account.id)
+LEDGER_BAL=$(q "select (coalesce(sum(l.debit),0)-coalesce(sum(l.credit),0))::numeric(14,3) from journal_lines l join journal_entries e on e.id=l.entry_id where l.account_id='$CASH_ACC' and e.status in ('posted','reversed')")
+check "summary balance equals the ledger balance of the cash account" "[ \"$(jget balance)\" = \"$LEDGER_BAL\" ]" "$(jget balance) vs $LEDGER_BAL"
+R=$(A -X POST "$B/cash_entries" --data '{"kind":"other_out","entry_date":"2026-09-06","label":"x","amount":10}'); check "other_out without a counterpart account refused (422)" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/cash_entries" --data '{"kind":"bogus","entry_date":"2026-09-06","label":"x","amount":10}'); check "unknown kind refused (422)" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/cash_entries" --data '{"kind":"withdrawal","entry_date":"2026-09-06","label":"x","amount":0}'); check "amount 0 refused (422)" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/cash_entries" --data '{"kind":"withdrawal","entry_date":"2026-09-06","label":"Retrait BIAT pour la caisse","amount":300,"reference":"RET-1"}')
+check "withdrawal bank → till recorded and posted (201)" "[ $R = 201 ] && [ -n \"$(jget accounting.entry_no)\" ] && [ \"$(jget accounting.entry_no)\" != None ]" "$R $(cat $J)"; CM1=$(jget id)
+C1=$(q "select id from journal_entries where source_table='cash_entries' and source_id='$CM1'")
+check "withdrawal: 54 debit 300.000, 532 credit 300.000, CA journal" "[ \"$(q "select coalesce(sum(l.debit),0) from journal_lines l join accounts a on a.id=l.account_id where a.system_key='cash' and l.entry_id='$C1'")\" = \"300.000\" ] && [ \"$(q "select coalesce(sum(l.credit),0) from journal_lines l join accounts a on a.id=l.account_id where a.system_key='bank' and l.entry_id='$C1'")\" = \"300.000\" ] && [ \"$(q "select j.kind from journal_entries e join journals j on j.id=e.journal_id where e.id='$C1'")\" = cash ]" ""
+R=$(A -X POST "$B/cash_entries" --data '{"kind":"deposit","entry_date":"2026-09-06","label":"Dépôt en banque","amount":100}'); CM2=$(jget id)
+C2=$(q "select id from journal_entries where source_table='cash_entries' and source_id='$CM2'")
+check "deposit till → bank: 532 debit 100.000, 54 credit 100.000" "[ \"$(q "select coalesce(sum(l.debit),0) from journal_lines l join accounts a on a.id=l.account_id where a.system_key='bank' and l.entry_id='$C2'")\" = \"100.000\" ] && [ \"$(q "select coalesce(sum(l.credit),0) from journal_lines l join accounts a on a.id=l.account_id where a.system_key='cash' and l.entry_id='$C2'")\" = \"100.000\" ]" ""
+ACC75=$(q "select id from accounts where code='75' and tenant_id=(select id from tenants where key='mythos')")
+R=$(A -X POST "$B/cash_entries" --data "{\"kind\":\"other_in\",\"entry_date\":\"2026-09-06\",\"label\":\"Apport\",\"amount\":50,\"counterpart_account_id\":\"$ACC75\"}"); CM3=$(jget id)
+C3=$(q "select id from journal_entries where source_table='cash_entries' and source_id='$CM3'")
+check "other_in against 75: 54 debit 50.000, 75 credit 50.000" "[ \"$(q "select coalesce(sum(l.debit),0) from journal_lines l join accounts a on a.id=l.account_id where a.system_key='cash' and l.entry_id='$C3'")\" = \"50.000\" ] && [ \"$(q "select coalesce(sum(l.credit),0) from journal_lines l where l.account_id='$ACC75' and l.entry_id='$C3'")\" = \"50.000\" ]" ""
+R=$(A -X POST "$B/cash_entries" --data '{"kind":"other_out","entry_date":"2026-09-06","label":"x","amount":5,"counterpart_account_id":"00000000-0000-0000-0000-000000000000"}'); check "unknown counterpart account → 422 invalid_reference" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A "$B/cash_entries/summary"); check "summary balance moved by +300 −100 +50 = +250.000 vs the earlier ledger balance" "[ \"$(python3 -c "print('%.3f' % (float('$(jget balance)') - float('$LEDGER_BAL')))")\" = \"250.000\" ]" "$(jget balance) $LEDGER_BAL"
+R=$(A -X PATCH "$B/cash_entries/$CM1" --data '{"amount":999}'); check "amount of a posted movement is immutable (409)" "[ $R = 409 ]" "$R $(cat $J)"
+R=$(A -X PATCH "$B/cash_entries/$CM1" --data '{"reference":"RET-1-bis"}'); check "reference stays editable (200), no second entry" "[ $R = 200 ] && [ \"$(q "select count(*) from journal_entries where source_table='cash_entries' and source_id='$CM1'")\" = 1 ]" "$R"
+R=$(A -X DELETE "$B/cash_entries/$CM2"); check "retire the deposit (200) → reversal entry" "[ $R = 200 ] && [ -n \"$(jget accounting.reversal_entry_no)\" ] && [ \"$(jget accounting.reversal_entry_no)\" != None ]" "$R $(cat $J)"
+check "reversal recorded (cash_cancel), original reversed" "[ \"$(q "select count(*) from journal_entries where source_table='cash_cancel' and source_id='$CM2'")\" = 1 ] && [ \"$(q "select status from journal_entries where id='$C2'")\" = reversed ]" ""
+R=$(A "$B/cash_entries/summary"); check "reversing the deposit puts the 100 back in the till: +350.000 vs the earlier ledger balance" "[ \"$(python3 -c "print('%.3f' % (float('$(jget balance)') - float('$LEDGER_BAL')))")\" = \"350.000\" ]" "$(jget balance)"
+R=$(A "$B/accounting/ledger?account_id=$CASH_ACC"); check "the cash book (ledger of 54) lists the movements with a running balance" "[ $R = 200 ] && grep -q 'running_balance' $J && grep -q 'Retrait' $J" "$(cat $J | head -c 200)"
+TB_ROW=$(q "select debit_total, credit_total from (select sum(l.debit) as debit_total, sum(l.credit) as credit_total from journal_lines l join journal_entries e on e.id=l.entry_id where e.status in ('posted','reversed')) t" | tr -d ' ')
+check "trial balance still balanced with cash movements" "[ \"$(echo $TB_ROW | cut -d'|' -f1)\" = \"$(echo $TB_ROW | cut -d'|' -f2)\" ]" "$TB_ROW"
+login "$NEWUSER_EMAIL" "$NEWUSER_PW"
+R=$(A "$B/accounting/ledger?account_id=$CASH_ACC"); check "finance_user holds accounting.read (0005) → the raw ledger is 200" "[ $R = 200 ]" "$R"
+R=$(A "$B/cash_entries/book"); check "the finance-gated cash book is 200 for a finance_user, cash account forced server-side (54)" "[ $R = 200 ] && [ \"$(jget account.code)\" = 54 ] && grep -q 'running_balance' $J" "$R $(cat $J | head -c 200)"
+R=$(A "$B/cash_entries/counterparts"); check "finance_user gets the counterpart account list (200)" "[ $R = 200 ] && grep -q '\"code\"' $J" "$R"
+ACC62=$(q "select id from accounts where code='62' and tenant_id=(select id from tenants where key='mythos')")
+R=$(A -X POST "$B/cash_entries" --data "{\"kind\":\"other_out\",\"entry_date\":\"2026-09-06\",\"label\":\"Petite fourniture\",\"amount\":12.5,\"counterpart_account_id\":\"$ACC62\"}")
+check "finance_user records an other_out against 62 (201, posted)" "[ $R = 201 ] && [ -n \"$(jget accounting.entry_no)\" ] && [ \"$(jget accounting.entry_no)\" != None ]" "$R $(cat $J)"
+login "rita@mythos.test" "$OTHER_PW"
+R=$(A -X POST "$B/cash_entries" --data '{"kind":"withdrawal","entry_date":"2026-09-06","label":"x","amount":1}'); check "read_only cannot record a cash movement (403)" "[ $R = 403 ]" "$R"
+R=$(A "$B/cash_entries/summary"); check "read_only can read the cash summary (200)" "[ $R = 200 ]" "$R"
+login "bob@acme.test" "$OTHER_PW"
+R=$(A "$B/cash_entries/$CM1"); check "acme cannot read a mythos cash movement (404, RLS)" "[ $R = 404 ]" "$R"
+R=$(A -X DELETE "$B/cash_entries/$CM1"); check "acme cannot retire a mythos cash movement (404, RLS)" "[ $R = 404 ]" "$R"
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+check "cash movements are audited (created/updated/deleted)" "[ \"$(q "select count(*) from audit_log where entity_table='cash_entries' and action='record.created'")\" -ge 3 ] && [ \"$(q "select count(*) from audit_log where entity_table='cash_entries' and action='record.updated'")\" -ge 1 ] && [ \"$(q "select count(*) from audit_log where entity_table='cash_entries' and action='record.deleted'")\" -ge 1 ]" ""
+
+echo "§20 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
 # A dedicated restart of the same already-migrated database, at a tiny
 # threshold, so this section is fast and deterministic instead of needing
 # hundreds of requests against the default (400/10s) limit used everywhere
