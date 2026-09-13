@@ -41,6 +41,25 @@ export function settingsView(container) {
         mods.appendChild(h('label', { class: 'toggle', for: 'mod-' + m.module_key }, cb, h('span', { text: m.module_key })));
       }
       body.appendChild(h('article', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', { text: 'Modules activés' })), mods));
+      // Phase 5 — fiscal stamp policy (droit de timbre, CDET art. 117 n°6:
+      // 1,000 TND per invoice). Stored in tenants.settings.fiscal_stamp; the
+      // rest of settings is carried over untouched.
+      const fsCur = (t.settings && t.settings.fiscal_stamp) || {};
+      const fsOn = h('input', { type: 'checkbox', name: 'fiscal_stamp_enabled', id: 'fs-enabled', checked: fsCur.enabled === true || null });
+      const fsAmt = input({ name: 'fiscal_stamp_amount', type: 'number', step: '0.001', min: '0', value: fsCur.amount !== undefined ? fsCur.amount : '1.000' });
+      const fsErr = h('p', { class: 'error', role: 'alert', hidden: true });
+      const fsSave = h('button', { type: 'button', class: 'btn btn-primary', text: 'Enregistrer le timbre' });
+      fsSave.addEventListener('click', async () => {
+        fsErr.hidden = true; fsSave.disabled = true;
+        try {
+          const settings = Object.assign({}, t.settings || {}, { fiscal_stamp: { enabled: fsOn.checked, amount: Number(fsAmt.value) } });
+          await api.patch('/settings', { settings }); toast('Timbre fiscal enregistré.', 'ok'); load();
+        } catch (e) { fsErr.textContent = describeError(e); fsErr.hidden = false; fsSave.disabled = false; }
+      });
+      body.appendChild(h('article', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', { text: 'Timbre fiscal' })),
+        h('p', { text: 'Droit de timbre appliqué par défaut à chaque nouvelle facture, devis et achat (1,000 TND par facture — art. 117 n°6 du Code des droits d\'enregistrement et de timbre). Modifiable document par document ; 0 pour une opération exonérée (export).' }),
+        h('div', { class: 'field-row' }, field('', h('label', { class: 'toggle', for: 'fs-enabled' }, fsOn, h('span', { text: 'Appliquer le timbre fiscal' }))), field('Montant (TND)', fsAmt)),
+        fsErr, h('div', {}, fsSave)));
     } catch (e) { clear(body).appendChild(errorBox(describeError(e), load, e.body && e.body.error)); }
   }
 }

@@ -16,11 +16,16 @@ var dashboard = {
       client.query('SELECT count(*)::int AS n FROM clients WHERE deleted_at IS NULL'),
       client.query("SELECT count(*)::int AS n FROM projects WHERE deleted_at IS NULL AND status <> 'closed'"),
       client.query("SELECT count(*)::int AS n FROM invoices WHERE deleted_at IS NULL AND status IN ('sent','part_paid')"),
+      // Phase 5: TTC includes each invoice's fiscal stamp (one per document,
+      // so it is summed on invoices, not multiplied through the lines join).
       client.query(
-        "SELECT coalesce(sum(l.line_ht * (1 + l.vat_rate/100)),0)::numeric(14,3) AS ttc" +
-        ' FROM invoice_lines l JOIN invoices i ON i.id = l.invoice_id' +
-        " WHERE i.deleted_at IS NULL AND i.status IN ('sent','part_paid','paid')" +
-        "   AND i.issued_on >= date_trunc('year', current_date)"),
+        "SELECT ((SELECT coalesce(sum(l.line_ht * (1 + l.vat_rate/100)),0)" +
+        '           FROM invoice_lines l JOIN invoices i ON i.id = l.invoice_id' +
+        "          WHERE i.deleted_at IS NULL AND i.status IN ('sent','part_paid','paid')" +
+        "            AND i.issued_on >= date_trunc('year', current_date))" +
+        '       + (SELECT coalesce(sum(i.stamp_amount),0) FROM invoices i' +
+        "          WHERE i.deleted_at IS NULL AND i.status IN ('sent','part_paid','paid')" +
+        "            AND i.issued_on >= date_trunc('year', current_date)))::numeric(14,3) AS ttc"),
       client.query('SELECT coalesce(sum(amount),0)::numeric(14,3) AS paid FROM payments' +
         " WHERE paid_on >= date_trunc('year', current_date)"),
       client.query('SELECT count(*)::int AS n FROM appointments' +
@@ -61,12 +66,17 @@ var reports = {
   revenue: function (ctx, client) {
     var r = dateRange(ctx.query, 'i.issued_on');
     var where = ["i.deleted_at IS NULL", "i.status <> 'cancelled'"].concat(r.where);
+    // Phase 5: lines are pre-aggregated per invoice so the per-document
+    // fiscal stamp is added once, not once per line.
     return client.query(
       "SELECT to_char(date_trunc('month', i.issued_on), 'YYYY-MM') AS month," +
-      ' coalesce(sum(l.line_ht),0)::numeric(14,3) AS ht,' +
-      ' coalesce(sum(l.line_ht * l.vat_rate/100),0)::numeric(14,3) AS vat,' +
-      ' coalesce(sum(l.line_ht * (1 + l.vat_rate/100)),0)::numeric(14,3) AS ttc' +
-      ' FROM invoices i JOIN invoice_lines l ON l.invoice_id = i.id' +
+      ' coalesce(sum(t.ht),0)::numeric(14,3) AS ht,' +
+      ' coalesce(sum(t.vat),0)::numeric(14,3) AS vat,' +
+      ' coalesce(sum(i.stamp_amount),0)::numeric(14,3) AS stamp,' +
+      ' (coalesce(sum(t.ttc),0) + coalesce(sum(i.stamp_amount),0))::numeric(14,3) AS ttc' +
+      ' FROM invoices i LEFT JOIN (SELECT invoice_id, sum(line_ht) AS ht, sum(line_ht * vat_rate/100) AS vat,' +
+      '                        sum(line_ht * (1 + vat_rate/100)) AS ttc FROM invoice_lines GROUP BY invoice_id) t' +
+      '   ON t.invoice_id = i.id' +
       ' WHERE ' + where.join(' AND ') +
       ' GROUP BY 1 ORDER BY 1 DESC LIMIT 24', r.params
     ).then(function (res) { return { status: 200, body: { months: res.rows, filter: { from: ctx.query && ctx.query.from || null, to: ctx.query && ctx.query.to || null } } }; });
@@ -75,9 +85,9 @@ var reports = {
   receivables: function (ctx, client) {
     return client.query(
       'SELECT i.id, i.number, i.client_id, c.name AS client_name, i.issued_on, i.due_on, i.status,' +
-      ' coalesce(t.ttc,0)::numeric(14,3) AS total_ttc,' +
+      ' (coalesce(t.ttc,0) + i.stamp_amount)::numeric(14,3) AS total_ttc,' +
       ' coalesce(p.paid,0)::numeric(14,3) AS paid,' +
-      ' (coalesce(t.ttc,0) - coalesce(p.paid,0))::numeric(14,3) AS balance' +
+      ' (coalesce(t.ttc,0) + i.stamp_amount - coalesce(p.paid,0))::numeric(14,3) AS balance' +
       ' FROM invoices i' +
       ' LEFT JOIN clients c ON c.id = i.client_id' +
       ' LEFT JOIN (SELECT invoice_id, sum(line_ht * (1 + vat_rate/100)) AS ttc' +
@@ -177,6 +187,30 @@ var settings = {
       sets.push('"' + k + '" = $' + params.length + (k === 'settings' ? '::jsonb' : ''));
     });
     if (!sets.length) return Promise.resolve({ status: 422, body: { error: 'nothing to update' } });
+    // Phase 5: settings.fiscal_stamp = { enabled, amount } — the only key read
+    // out of the jsonb today (lib/tenancy.js fiscalStamp). Shape-checked so a
+    // malformed policy cannot silently disable or mis-price the stamp.
+    if (b.settings !== undefined) {
+      if (!b.settings || typeof b.settings !== 'object' || Array.isArray(b.settings)) {
+        return Promise.resolve({ status: 422, body: { error: 'settings must be an object' } });
+      }
+      var fs = b.settings.fiscal_stamp;
+      if (fs !== undefined) {
+        var amt = (fs && fs.amount !== undefined && fs.amount !== null && fs.amount !== '') ? Number(fs.amount) : 1;
+        if (!fs || typeof fs !== 'object' || Array.isArray(fs) || typeof fs.enabled !== 'boolean' ||
+            !Number.isFinite(amt) || amt < 0 || amt > tenancy.STAMP_MAX) {
+          return Promise.resolve({ status: 422, body: { error: 'settings.fiscal_stamp must be { enabled: boolean, amount?: number between 0 and ' + tenancy.STAMP_MAX + ' }' } });
+        }
+        // Stored normalised (a finite number to the millime), so what is read
+        // back by lib/tenancy.js fiscalStamp is exactly what was validated.
+        b.settings = Object.assign({}, b.settings, { fiscal_stamp: { enabled: fs.enabled, amount: Number(amt.toFixed(3)) } });
+        // sets[i] and params[i] were pushed together above, so the settings
+        // parameter is the one whose SET clause names the column.
+        for (var si = 0; si < sets.length; si++) {
+          if (/^"settings"/.test(sets[si])) params[si] = JSON.stringify(b.settings);
+        }
+      }
+    }
     for (var i = 0; i < params.length; i++) {
       if (typeof params[i] === 'string' && /^brand_/.test(allowed[i])) { /* checked below */ }
     }

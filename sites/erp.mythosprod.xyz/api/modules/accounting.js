@@ -445,13 +445,26 @@ function postInvoiceIssue(client, ctx, invoice) {
           ht += lh; byRate[rate] = (byRate[rate] || 0) + lh * rate / 100;
         });
         var vat = Object.keys(byRate).reduce(function (a, k) { return a + byRate[k]; }, 0);
-        var ttc = money(ht + vat);
+        var stamp = money(invoice.stamp_amount || 0);
+        var ttc = money(ht + vat + stamp);
         if (ttc <= 0) return { skipped: 'zero_amount' };
         var lines = [{ account_id: acc.receivable.id, label: 'Facture ' + invoice.number, debit: ttc, credit: 0 },
                      { account_id: acc.sales.id, label: 'Ventes HT ' + invoice.number, debit: 0, credit: money(ht) }];
         Object.keys(byRate).sort().forEach(function (rate) {
           if (money(byRate[rate]) > 0) lines.push({ account_id: acc.vat_collected.id, label: 'TVA collectée ' + rate + ' %', debit: 0, credit: money(byRate[rate]), vat_rate: Number(rate) });
         });
+        // Phase 5: the fiscal stamp charged on the invoice is collected for the
+        // State (CDET art. 117 n°6) — a liability, never revenue: one credit leg
+        // on the stamp_collected system account, added to the receivable below.
+        if (stamp > 0) {
+          // A configured tenant that stamps an invoice but has no account to
+          // carry the duty must not lose the WHOLE sales entry silently
+          // (review finding): fail the issue loudly with the fix spelled out.
+          if (!acc.stamp_collected) {
+            throw Object.assign(new Error('accounting: no account with system_key stamp_collected — add one in the Plan comptable or run /accounting/setup'), { status: 409, expose: true });
+          }
+          lines.push({ account_id: acc.stamp_collected.id, label: 'Droit de timbre ' + invoice.number, debit: 0, credit: stamp });
+        }
         // rounding: force balance on the receivable side to the millime
         var sumC = lines.slice(1).reduce(function (a, l) { return a + l.credit; }, 0);
         lines[0].debit = money(sumC);
@@ -505,13 +518,22 @@ function postPurchaseInvoice(client, ctx, purchase) {
         var ht = money(purchase.amount_ht);
         var rate = Number(purchase.vat_rate || 0);
         var vat = money(ht * rate / 100);
-        var ttc = money(ht + vat);
+        var stamp = money(purchase.stamp_amount || 0);
+        var ttc = money(ht + vat + stamp);
         if (ttc <= 0) return { skipped: 'zero_amount' };
         var label = purchase.reference || purchase.id;
         var lines = [{ account_id: acc.purchases.id, label: 'Achat ' + label, debit: money(ht), credit: 0 }];
         if (vat > 0) {
           if (!acc.vat_deductible) return { skipped: 'system_accounts_missing' };
           lines.push({ account_id: acc.vat_deductible.id, label: 'TVA déductible ' + rate + ' %', debit: vat, credit: 0, vat_rate: rate });
+        }
+        // Phase 5: the supplier's fiscal stamp is a cost to us (not deductible
+        // VAT, not merchandise): one debit leg on stamp_expense, part of the payable.
+        if (stamp > 0) {
+          if (!acc.stamp_expense) {
+            throw Object.assign(new Error('accounting: no account with system_key stamp_expense — add one in the Plan comptable or run /accounting/setup'), { status: 409, expose: true });
+          }
+          lines.push({ account_id: acc.stamp_expense.id, label: 'Droit de timbre ' + label, debit: stamp, credit: 0 });
         }
         lines.push({ account_id: acc.payable.id, label: 'Fournisseur ' + label, debit: 0, credit: money(lines.reduce(function (a, l) { return a + l.debit; }, 0)) });
         return createEntry(client, ctx, { journal_id: journal.id, entry_date: isoDate(purchase.purchased_on), reference: purchase.reference || null,

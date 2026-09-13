@@ -14,16 +14,24 @@ var STATUS = ['draft', 'sent', 'accepted', 'refused', 'expired'];
 var USER_SETTABLE = STATUS; // unlike invoices, no status here is money-derived
 
 var COLUMNS = ['id', 'number', 'client_id', 'project_id', 'issued_on',
-  'valid_until', 'status', 'currency', 'notes', 'legacy_id',
+  'valid_until', 'status', 'currency', 'notes', 'stamp_amount', 'legacy_id',
   'created_at', 'updated_at'];
 
 function validateHeader(body, partial) {
   var b = body || {};
   var out = {};
   ['client_id', 'project_id', 'issued_on', 'valid_until', 'currency',
-   'notes', 'legacy_id', 'status'].forEach(function (f) {
+   'notes', 'legacy_id', 'status', 'stamp_amount'].forEach(function (f) {
     if (Object.prototype.hasOwnProperty.call(b, f)) out[f] = b[f];
   });
+  if (out.stamp_amount === null || (typeof out.stamp_amount === 'string' && out.stamp_amount.trim() === '')) delete out.stamp_amount;
+  if (out.stamp_amount !== undefined) {
+    var stampN = (typeof out.stamp_amount === 'number' || typeof out.stamp_amount === 'string') ? Number(String(out.stamp_amount).trim()) : NaN;
+    if (!Number.isFinite(stampN) || stampN < 0 || stampN > 1000) {
+      return { ok: false, error: 'stamp_amount must be a number between 0 and 1000' };
+    }
+    out.stamp_amount = Number(stampN.toFixed(3));
+  }
   if (out.status !== undefined && USER_SETTABLE.indexOf(String(out.status)) < 0) {
     return { ok: false, error: 'status must be one of ' + USER_SETTABLE.join('|') };
   }
@@ -73,12 +81,15 @@ function replaceLines(client, quoteId, tenantId, lines) {
 }
 
 function totals(client, quoteId) {
+  // Phase 5: TTC = HT + VAT + the document's fiscal stamp, same as invoices.
   return client.query(
-    'SELECT coalesce(sum(line_ht),0)::numeric(14,3) AS total_ht,' +
-    ' coalesce(sum(line_ht * vat_rate / 100),0)::numeric(14,3) AS total_vat,' +
-    ' coalesce(sum(line_ht * (1 + vat_rate / 100)),0)::numeric(14,3) AS total_ttc' +
-    ' FROM quote_lines WHERE quote_id = $1', [quoteId]
-  ).then(function (r) { return r.rows[0]; });
+    'SELECT coalesce(sum(l.line_ht),0)::numeric(14,3) AS total_ht,' +
+    ' coalesce(sum(l.line_ht * l.vat_rate / 100),0)::numeric(14,3) AS total_vat,' +
+    ' q.stamp_amount::numeric(14,3) AS stamp_amount,' +
+    ' (coalesce(sum(l.line_ht * (1 + l.vat_rate / 100)),0) + q.stamp_amount)::numeric(14,3) AS total_ttc' +
+    ' FROM quotes q LEFT JOIN quote_lines l ON l.quote_id = q.id' +
+    ' WHERE q.id = $1 GROUP BY q.stamp_amount', [quoteId]
+  ).then(function (r) { return r.rows[0] || { total_ht: '0.000', total_vat: '0.000', stamp_amount: '0.000', total_ttc: '0.000' }; });
 }
 
 function hydrate(client, row) {
@@ -142,14 +153,16 @@ var handlers = {
     // (server.js's PG-error map) — not silently retried inside a
     // transaction a failed INSERT has already aborted.
     var number = 'DEV-' + new Date().getUTCFullYear() + '-' + require('crypto').randomBytes(4).toString('hex').toUpperCase();
-    var cols = ['tenant_id', 'number'];
-    var params = [ctx.tenantId, number];
-    Object.keys(h).forEach(function (k) { cols.push(k); params.push(h[k]); });
-    return client.query(
-      'INSERT INTO quotes (' + cols.map(function (c) { return '"' + c + '"'; }).join(',') + ')' +
-      ' VALUES (' + params.map(function (_, i) { return '$' + (i + 1); }).join(',') + ')' +
-      ' RETURNING ' + COLUMNS.map(function (c) { return '"' + c + '"'; }).join(','), params
-    ).then(function (r) {
+    return require('../lib/tenancy').fiscalStamp(client).then(function (fs) {
+      if (h.stamp_amount === undefined) h.stamp_amount = fs.enabled ? fs.amount : 0;
+      var cols = ['tenant_id', 'number'];
+      var params = [ctx.tenantId, number];
+      Object.keys(h).forEach(function (k) { cols.push(k); params.push(h[k]); });
+      return client.query(
+        'INSERT INTO quotes (' + cols.map(function (c) { return '"' + c + '"'; }).join(',') + ')' +
+        ' VALUES (' + params.map(function (_, i) { return '$' + (i + 1); }).join(',') + ')' +
+        ' RETURNING ' + COLUMNS.map(function (c) { return '"' + c + '"'; }).join(','), params);
+    }).then(function (r) {
       var row = r.rows[0];
       return replaceLines(client, row.id, ctx.tenantId, ctx.input.lines)
         .then(function () { return hydrate(client, row); })
@@ -233,7 +246,7 @@ var handlers = {
           if (!lines.length) return { status: 409, body: { error: 'quote has no lines to convert' } };
           return tenancy.claimInvoiceNumber(client).then(function (number) {
             var header = { tenant_id: ctx.tenantId, number: number, client_id: q.client_id, project_id: q.project_id,
-              quote_id: q.id, currency: q.currency, notes: q.notes };
+              quote_id: q.id, currency: q.currency, notes: q.notes, stamp_amount: q.stamp_amount };
             var cols = Object.keys(header);
             var params = cols.map(function (k) { return header[k]; });
             return client.query(

@@ -73,6 +73,7 @@ async function detail(root, id) {
       h('dl', { class: 'kv' },
         h('dt', { text: 'Total HT' }), h('dd', { text: fmtMoney(t.total_ht, inv.currency) }),
         h('dt', { text: 'TVA' }), h('dd', { text: fmtMoney(t.total_vat, inv.currency) }),
+        h('dt', { text: 'Timbre fiscal' }), h('dd', { text: fmtMoney(t.stamp_amount ?? inv.stamp_amount ?? 0, inv.currency) }),
         h('dt', { text: 'Total TTC' }), h('dd', { text: fmtMoney(t.total_ttc, inv.currency) }),
         h('dt', { text: 'Payé' }), h('dd', { text: fmtMoney(t.paid, inv.currency) }),
         h('dt', { text: 'Reste dû' }), h('dd', { text: fmtMoney(t.balance ?? (t.total_ttc !== undefined && t.paid !== undefined ? Number(t.total_ttc) - Number(t.paid) : null), inv.currency) })))));
@@ -111,7 +112,9 @@ async function invoiceForm(inv, done) {
     field('Émise le', input({ name: 'issued_on', type: 'date', value: inv && inv.issued_on ? String(inv.issued_on).slice(0, 10) : new Date().toISOString().slice(0, 10), required: true })),
     field('Échéance', input({ name: 'due_on', type: 'date', value: inv && inv.due_on ? String(inv.due_on).slice(0, 10) : '' })),
     field('Devise', input({ name: 'currency', value: (inv && inv.currency) || 'TND', maxlength: 3 })),
-    field('Mode de paiement', input({ name: 'payment_mode', value: (inv && inv.payment_mode) || '' })));
+    field('Mode de paiement', input({ name: 'payment_mode', value: (inv && inv.payment_mode) || '' })),
+    field('Timbre fiscal', input({ name: 'stamp_amount', type: 'number', step: '0.001', min: '0', value: inv && inv.stamp_amount !== undefined && inv.stamp_amount !== null ? inv.stamp_amount : '', placeholder: 'selon Paramètres' }),
+      { hint: isEdit ? 'Vide = inchangé. 0 = exonéré (export).' : 'Vide = valeur par défaut de l\'entité. 0 = exonéré (export).' }));
   const notes = field('Notes', textarea({ name: 'notes', text: (inv && inv.notes) || '' }));
   const tbody = h('tbody', {}, ((inv && inv.lines && inv.lines.length) ? inv.lines : [{}]).map(lineRow));
   const linesTable = h('div', { class: 'table-wrap' }, h('table', { class: 'data lines' },
