@@ -2,6 +2,94 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-13 — MYTHOS ERP FINAL INTEGRATION PHASE — **ERP_PRODUCTION_READY_WITH_MINOR_GAPS** (Fable 5.1)
+
+The master completion order (Phase 5 → final) is executed: Phases 3–11
+delivered and deployed (bank reconciliation, mission orders, fiscal stamp,
+RBAC hardening, expenses → ledger, cash register, reminders / due items,
+backup status UI, contact import / dedup). This entry records the final
+audits, the one production fix they produced, the classification of the
+remaining backlog, and the state a successor session starts from.
+
+**Final production revision.** Code `6a2e965931e890ac2febd320483afe784a998f71`
+(PR #277; `code_identity.head` verified by `/api/v1/health`), checkout
+`635a603` (= `origin/main`; the later commits are docs + the nginx vhost, no
+backend change, so `erp-api` was not restarted — its identity still names
+`6a2e965`, which is the code it runs). 15 migrations; `migrate.js --dry-run`:
+nothing pending, every checksum matches its file.
+
+**Audits (read-only unless stated).**
+- *Data integrity / tenancy*: 47 public tables; 39 with RLS = every table
+  that carries `tenant_id` (0 without), each with `tenant_isolation`
+  except `audit_log` (`audit_tenant_read` / `audit_tenant_insert`) and
+  `tenants` (`tenant_self`) which carry their own tenant-scoped policies; the
+  8 non-RLS tables are global catalogs / auth (`schema_migrations, roles,
+  role_permissions, permissions, login_attempts, password_reset_tokens,
+  users, sessions`). `erp_app`: not superuser, no BYPASSRLS, no CREATEROLE,
+  DELETE only on `invoice_lines / quote_lines / journal_lines` (line
+  replacement by design). All business tables empty (15 counted: clients,
+  contacts, quotes, invoices, payments, purchases, expenses, cash_entries,
+  bank_entries, mission_orders, journal_entries, agenda_events, documents,
+  prospects, contact_imports). Accounting seed intact: 18 accounts (11 system
+  keys), 5 journals, 0 periods (auto-created on first posting), fiscal-stamp
+  policy absent (= OFF, awaiting owner GO). 1 tenant, 1 user, 6 roles, 44
+  permissions, 16 modules enabled. Audit log: 97 rows, auth/admin actions
+  only — no test residue.
+- *Security (live)*: 401 on every API surface without a session (meta,
+  settings, users, audit, ledger, documents, clients, all Phase 11 routes);
+  CSRF-less and wrong-token PATCH → 403; session cookie `__Host-erp_session;
+  Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=28800`; logout revokes
+  (401 after); traversal 404, dotfiles 403, PHP 404; TLS Let's Encrypt valid
+  to 2026-11-20; HTTP → 301 HTTPS. **Finding, FIXED**: nginx served the
+  app statically without the API's `APP_CSP` and without HSTS — PR #279
+  (`635a603`) tracks the vhost under `deploy/nginx-erp.mythosprod.xyz.conf`
+  with CSP on `location /` (byte-for-byte `APP_CSP`) and HSTS
+  `max-age=31536000` (no preload / includeSubDomains); tested through a
+  throwaway `nginx -t` wrapper, installed as root, `nginx -t` + reload,
+  verified: `/` and assets carry the CSP + HSTS + the five existing headers,
+  `/api/` keeps the API's own single stricter CSP, headless Chromium renders
+  the app with 0 CSP violations. Rollback: previous vhost kept at
+  `deploy/README.md` instructions (reinstall / `max-age=0`). Rate limiting
+  is exercised by the drill (§23), not against production.
+- *UX*: frontend-drill (51 checks, headless Chromium, the deployed revision)
+  + production entry page rendered under the new CSP (login form, app shell,
+  0 inline scripts / handlers). Every business flow of the order — client →
+  quote → invoice → payment (§2), purchases (§13), bank reconciliation (§14),
+  mission orders (§15), fiscal stamp (§16), expenses (§18), cash (§19),
+  reminders (§20), contacts (§22), accounting invariants (§8) — runs in the
+  core E2E on the deployed checkout.
+- *Host*: erp-api + the other units active; `nginx`, `docker` active;
+  `idauto-postgres` healthy (3 weeks); backup timers scheduled (DB daily
+  04:07 UTC, verify 15:33 UTC); both health records `ok`, 0 consecutive
+  failures; 0 erp-api errors in 24 h; no OOM; memory PSI ≈ 0, ~2.9–3.4 GB
+  available. **Flag (owner)**: disk 92 % (66/72 GB, 5.8 GB free) — Docker
+  images 20.6 GB (omniroute, n8n, jellyfin, evolution ×2, mysql… none of
+  them the ERP), 2 GB reclaimable volumes, `/root/workspaces` 2 GB; no
+  cleanup was run (global Docker cleanup is forbidden by standing order) —
+  an owner decision on which images/volumes to drop.
+
+**Backlog classification (with evidence).** Production costing:
+NOT_REQUIRED — no costing anywhere in the legacy ERP. Stock: NOT_REQUIRED —
+no stock module in the legacy ERP; the current `inventory_items /
+inventory_movements` already exceed it. Document generation: NOT_REQUIRED
+— the legacy `docx` references are attachment-type icons and printing is
+`window.print`, both already covered (documents module, print views for
+invoices / quotes / mission orders). Reminder categories: **MINOR GAP** —
+the legacy had a settings-managed type list (`Fiscal, Administratif,
+Contrat, Relance client, Paie, Juridique, Autre`) and a `periode`
+(recurrence) on reminders; `agenda_events` has kind/priority only. Not
+blocking daily use (title/description carry the category), recorded rather
+than dropped. Production fiscal-stamp policy: implemented (Phase 5), OFF on
+the production tenant until the owner says GO.
+
+| Item | Detail |
+|---|---|
+| Regression (deployed checkout `6a2e965`) | **946/946** — core E2E 540, auth 125, frontend-check 46, acceptance 80, security 59, bootstrap 45, frontend-drill 51 |
+| Backups today | 4 clean runs (`…T094112Z`, `…T101152Z`, `…T110942Z` + verify), each stage/verify-local/push/verify-remote |
+| PRs this order | Verified in this session: #261 (Phase 3), #263 (Phase 4), #271/#272 (Phase 8), #273/#274 (Phase 9), #275/#276 (Phase 10), #277/#278 (Phase 11), #279 (final audit fix); Phases 5–7 PRs are recorded in their own entries below. All squash merges; `origin/main` = production checkout at every step. |
+| Owner-gated items | GO STAMP (enable `settings.fiscal_stamp` on the production tenant); disk headroom (which Docker images/volumes to remove); optional `Environment=ERP_BACKUP_HEALTH_FILE` in the erp-api unit |
+| Next | V2 candidates: reminder categories + recurrence, per-mode backup `last_success`, contact merge undo, printable daily cash sheet, manual-movement UI filters, tenant-timezone day boundaries in reports |
+
 ## 2026-09-13 — MYTHOS ERP PHASE 11: P2 CONTACT IMPORT / DEDUP — **PHASE_11_COMPLETE** (Fable 5.1)
 
 Discovery evidence (legacy `js/shared/contacts.js`, 1,264 lines, plus
