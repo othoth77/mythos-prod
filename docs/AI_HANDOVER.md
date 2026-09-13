@@ -2,6 +2,53 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-13 — MYTHOS ERP PHASE 9: P2 REMINDERS / DUE ITEMS — **PHASE_9_COMPLETE** (Fable 5.1)
+
+Discovery found the data model already complete: `agenda_events` (0006)
+carries `kind` reminder/task, `remind_at`, `status`, links to
+client/project/invoice/quote, RLS and audit. What was missing was the
+legacy ERP's "DU" badge — a place where a person sees what is due — and the
+dashboard had no due counters. No notification framework, no e-mail, no
+cron: the legacy had none, and a list a person opens is the functional
+requirement. **No migration.**
+
+**API.** `GET /agenda_events/due?days=&limit=` (module `agenda`,
+`agenda.read`, RLS-scoped): scheduled reminders/tasks whose
+`coalesce(remind_at, starts_at)` falls through the END of the Nth day ahead
+(default 7, clamped 0..365; unparseable → 0, never a 500), each row flagged
+`overdue` when the instant has passed; full rows (`ends_at`, `location`,
+`all_day` included) so the edit form opened from the list cannot blank
+fields it never saw. `/dashboard` + `reminders_due` (due through end of
+today — same bound as the tab's horizon 0) and `invoices_overdue`
+(sent/part_paid with `due_on < current_date`); `/reports/receivables` +
+per-row `overdue`, `overdue_count`, `overdue_total`. All additive; day
+boundaries follow the database session timezone like every `current_date`
+report (IMPLEMENTATION ASSUMPTION, consistent with the existing YTD
+figures).
+
+**UI.** Agenda › À traiter (horizon today/7/30, DU badge, "Marquer fait"
+through the audited generic PATCH, edit), `Rappel le` (`remind_at`) in the
+agenda form, dashboard tiles "Rappels dus (aujourd'hui)" / "Factures en
+retard", overdue column + "dont en retard" total on the receivables report.
+`#/agenda` still lands on Liste (frontend drill contract preserved).
+
+**Independent review**: 0 blockers; fixed — edit-from-list blanked
+`ends_at`/`location` (due SELECT now returns the full row), a 2027 date
+bomb in the drill (`due_on` now `+60 days`), "aujourd'hui" semantics (the
+horizon is bounded at end of day, tile and tab agree), tab order.
+
+| Item | Detail |
+|---|---|
+| Implementation commit | `58679f8` on `mythos/erp-p2-reminders-20260913` |
+| PR / merge | [#273](https://github.com/othoth77/mythos-prod/pull/273), squash-merged → `037da059e9b2cb31218aa02b97344987ce627722` (7 files: `views.js`, `server.js`, `agenda.js`, `dashboard.js`, `reports.js`, two drills) |
+| Migration | None. `migrate.js --dry-run` on production: `WOULD APPLY: nothing`, 14 already applied. Rehearsal NOT_REQUIRED (no schema change). |
+| Backup | `mythos_erp-20260913T094112Z.dump`, 227,230 B, sha256 `fcae8609…`, 46 TABLE DATA entries in the TOC, local + remote verified by the service, "backup completed clean", health `status: ok`, `consecutive_failures: 0`. |
+| Production | Checkout ff to `037da05` (clean apart from the pre-existing untracked OTHKM seed files); `erp-api` restarted, `active`; `code_identity.head` `037da059…`, `verified: true`. |
+| Smoke | Unauthenticated `/agenda_events/due`, `/dashboard` → 401; authenticated `/due` → 200 `{total 0, overdue 0, days 7}`, `?days=abc` → 200 `days 0`; `/dashboard` → the nine keys; `/reports/receivables` → `overdue_count 0`; `/meta`, `/`, `views/agenda.js` → 200. Zero rows in `agenda_events` / `invoices` / `cash_entries` / `expenses` / `journal_entries` after the test. |
+| Tests | Core E2E **470/0** (§20, 25 assertions: 401; past `remind_at` beats future `starts_at`; task 40 days out excluded at 7/0, included at 60; clamp 365 + limit; non-numeric days; dashboard `reminders_due` −1 after mark done; overdue invoice → receivables `overdue=true`, control invoice `false`, `overdue_total` = Σ overdue balances, `invoices_overdue` +1; read_only 200 / 403; acme 0 rows and no leaked invoice; audit; full-row contract). Auth **125/0**, frontend-check **45/0**, frontend-drill **48/0**, acceptance **80/0**, security **59/0**, bootstrap **45/0** (dashboard shape = nine counters, exact set). **Total 872/872**, re-run from the deployed checkout. |
+| Remaining gaps | No push/e-mail notification (NOT_REQUIRED — no legacy evidence); `days=0` "today" is the DB session day, not the tenant's timezone (minor, same as every `current_date` report). |
+| Next phase | Backup status UI (P2, read-only card from `backup-health-db.json`), then contact import discovery; production fiscal-stamp policy still awaiting owner GO. |
+
 ## 2026-09-13 — MYTHOS ERP PHASE 8: P1 CASH REGISTER — **PHASE_8_COMPLETE** (Fable 5.1)
 
 Discovery re-verified what the till already had: the `cash` system
