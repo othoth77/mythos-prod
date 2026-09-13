@@ -2,6 +2,94 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-13 — MYTHOS ERP PHASE 11: P2 CONTACT IMPORT / DEDUP — **PHASE_11_COMPLETE** (Fable 5.1)
+
+Discovery evidence (legacy `js/shared/contacts.js`, 1,264 lines, plus
+`plugins/contacts.*`): the legacy "Répertoire de contacts" imported from the
+phone (Contact Picker API), from a vCard file, or from Google (server-side
+OAuth via PHP); kept an import history (`mp_repertoire_imports`: date, count,
+label, source) filterable and deletable as a whole; detected duplicates on
+identical tel1 or email; merged a group into its first member (empty fields
+filled from the others); exported a CSV (`Nom, Prénom, Téléphone 1/2, Email,
+Ville, Métier, Domaine, Responsable, Tags, Dernier contact, Statut, Note`).
+The current ERP already had `contacts` (schema.sql maps it to
+`mp_repertoire_contacts`) but only name/email/phone/role/source — no
+import, no batches, no duplicate detection. **REQUIRED** on that evidence.
+
+**Reproduced.** File import (vCard: RFC 6350 folding, quoted-printable with
+soft breaks, `item1.TEL`, `tel:` URIs; CSV: RFC-4180 quoting, `,`/`;`/tab
+auto-detect, BOM, the legacy French export header, plain FR/EN headers,
+Google Contacts' export header), server-side preview that classifies every
+row (new / duplicate of an existing contact / duplicate inside the file /
+invalid) before anything is written, import batches with label/counts and
+whole-batch retirement, duplicate groups on phone-or-email (overlapping
+groups united), merge into the first (oldest) contact.
+**NOT_REQUIRED, with reasons.** Phone Contact Picker (browser API only on
+Chrome/Android; the phone's own "export vCard" feeds the file path);
+Google OAuth (the master order forbids reviving legacy PHP endpoints; a
+Google CSV export imports through the CSV path — tested); CRM call history
+/ outcomes / tags / follow-ups (reminders and tasks linked to a client live
+in `agenda_events`, Phase 9; a per-contact call log was not asked for and
+is not a completion gap).
+
+**Model (0015, additive).** `contact_imports` (tenant_id, source vcard|csv,
+label, file_name, row/imported/skipped counts, created_by; RLS
+`tenant_isolation`, `set_updated_at`, guarded grant SELECT/INSERT/UPDATE).
+`contacts` + `phone2, address, city, country, job_title (métier), domain
+(domaine/organisation), notes, import_id → contact_imports`, and
+`phone_norm text GENERATED ALWAYS AS (digits and a leading '+') STORED` —
+the legacy `_rcCleanPhone` key computed by the database so every writer
+yields the same key; partial indexes on `(tenant_id, phone_norm)`,
+`(tenant_id, email)` (citext), `import_id`. `audit_action_known` redefined
+(the explicit list + `contacts.import_previewed`, `contacts.merged`;
+`lib/audit.js ACTIONS` mirrors it). No country-code rewriting (`00216…` and
+`+216…` are two keys — the legacy never guessed either).
+
+**API (module `clients`).** `POST /contacts/import/preview` and
+`POST /contacts/import` (clients.write; body `{source, text, file_name,
+label, skip_duplicates=true}`; 4 MiB of text, 5,000 rows checked before
+parsing, byte-aware route cap; duplicates looked up by the file's own keys
+only; 422 `nothing_to_import` when every row is a duplicate/invalid — no
+empty batch); `GET /contacts/imports` (live counts), `PATCH …/:id` (label),
+`DELETE …/:id` (clients.delete; retires the batch and its still-live
+contacts, soft); `GET /contacts/duplicates`; `POST /contacts/merge` —
+requires **clients.delete** (it retires contacts, whatever verb carries it),
+accepts only real duplicates of the kept contact (shared phone key or
+e-mail → otherwise 422 `not_duplicates`), fills empty fields — **never
+client_id / role_label** (relationship fields) — replaces a placeholder name,
+re-points `inscriptions.contact_id`, detaches the survivor from its batch
+(`import_id = NULL`, so retiring the batch later cannot take it), retires
+the others; audited `contacts.merged`.
+
+**UI.** Clients › Contacts: Liste (generic registry view, new columns) /
+Importer (file picker with 4 Mo and non-UTF-8 guards → preview table with
+states and match details → "Importer N contact(s)") / Doublons (one card
+per group with names, domain/métier; per-group merge with an explicit
+confirmation; **no "merge all"** — a shared switchboard number forms a
+group too) / Imports (history, rename via modal, retire batch).
+
+**Independent review**: 0 blockers; majors fixed — merge was a
+clients.delete bypass with arbitrary ids, quadratic TEL de-dup on hostile
+cards, one-click merge-all; minors fixed — QP soft breaks, batch
+retirement vs merge survivors, row cap before parsing, keyed duplicate
+lookup, citext grouping, registry e-mail length guard (clients and
+contacts), dangling detail links, prompt → modal, client-side size/encoding
+guard, drill diagnostics (api.log tail printed from the EXIT trap when a
+run fails or aborts).
+
+| Item | Detail |
+|---|---|
+| Implementation commit | `75a5820` on `mythos/erp-p2-contact-import-20260913` |
+| PR / merge | [#277](https://github.com/othoth77/mythos-prod/pull/277), squash-merged → `6a2e965931e890ac2febd320483afe784a998f71` (13 files: 0015, `contacts.js` module + view, `audit.js`, `migrate.js`, `registry.js`, `server.js`, `app.js`, five test files) |
+| Migration | `0015-contact-import.sql` — additive; no default rewrites a row; the audit CHECK list is a superset of the previous one. Production = **15** migrations. |
+| Backup | `mythos_erp-20260913T110942Z.dump`, 227,660 B, sha256 `902d9af3…`, 46 TABLE DATA TOC entries (`contacts`, `audit_log`, `schema_migrations` present), stage/manifest/verify-local/push/verify-remote, "backup completed clean", health `ok`. |
+| Rehearsal | Disposable `postgres:15-alpine` restore of that dump (14 migrations, 1 user, 1 tenant, 0 contacts): run 1 `APPLIED: 0015` only; run 2 `APPLIED: nothing`, 15 already applied; verified the 9 new columns (`phone_norm` generated ALWAYS), `contact_imports` RLS + 1 policy + `INSERT,SELECT,UPDATE` for erp_app, 3 partial indexes, audit CHECK carries both new actions; users/tenants/audit_log/accounts counts unchanged. Container destroyed. |
+| Production | Checkout ff to `6a2e965`; real runner `APPLIED: 0015-contact-import.sql`, 14 skipped; post-checks identical to the rehearsal (15 migrations, 0 contacts, 0 batches); `erp-api` restarted `Result=success`, `NRestarts=0`, `active`; `code_identity.head` `6a2e9659…`, `verified: true`. |
+| Smoke | Unauthenticated preview/import/imports/duplicates/merge → 401 ×5; owner: imports 200 `total 0`, duplicates 200 `total 0`, preview with an invalid source → 422 (validation, no audit row), merge with one id → 422, `/meta` publishes `phone2`/`job_title`, `/contacts` 200 `total 0`, `views/contacts.js` served. Afterwards: `contacts` 0, `contact_imports` 0, `contacts.*` audit rows 0 — no residue. |
+| Tests | Core E2E **540/0** (§22, 53 assertions: RLS/grants/generated column/indexes/audit CHECK; 401 / read_only 403 / finance_user 403; vCard preview 5 cards → 3 new, 1 in-file duplicate, 1 invalid, nothing written; parsed fields incl. ADR/ORG/TITLE, `N` → "Sonia Trabelsi", two TEL forms; preview trace without contents; import 201 +3 with batch/source/key; second preview → 4 duplicate_existing; re-import → 422 no batch; forced import 201 ×4; 3 united groups; merge fills notes, retires 2, detaches the survivor; non-duplicates 422; manager 403 (role lent for one call); single/unknown/repeated ids 422; legacy CSV with BOM/`;`/quoted quotes → 1 new + 1 e-mail duplicate, CRM columns ignored; Google CSV mapped; no recognised column / no card / unknown source / 5,001 cards / > 4 MiB → 422; batches list with live counts, relabel trimmed, relabel without label 422; read_only 403; acme 0 batches / 0 groups / 404 / 422; retire batch → 2 contacts retired, again 404, history 2, no groups left; net +4; generic list exposes `city`; audit ×3 created / 1 updated / 1 deleted). Auth **125/0** (15 migrations), frontend-check **46/0**, frontend-drill **51/0** (import tab + empty history), acceptance **80/0**, security **59/0**, bootstrap **45/0**. **Total 946/946**, re-run from the deployed checkout. |
+| Remaining gaps | `contacts.source` comment in schema.sql (`manual | google_import`) is stale — an applied file is never edited; values are `vcard_import` / `csv_import`. No per-contact merge undo (soft-deleted rows keep their data; an owner-level SQL restore is possible). Excel cp1252 CSVs are warned about, not transcoded. |
+| Next phase | Final integration phase: ERP-wide integration audit, business flows 1–6, security audit, host audit, UX audit (browser), data-integrity audit, then the FINAL COMPLETION REPORT. Production fiscal-stamp policy still awaiting owner GO. |
+
 ## 2026-09-13 — MYTHOS ERP PHASE 10: P2 BACKUP STATUS UI — **PHASE_10_COMPLETE** (Fable 5.1)
 
 Discovery: the scheduled off-host backup (`ops/backup/mythos-backup-run-db.sh`,
