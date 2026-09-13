@@ -58,7 +58,7 @@ docker run -d --name "$C" -P -e POSTGRES_USER=erp_owner -e POSTGRES_DB=mythos_er
 # start; a single pg_isready success can land in that window. Require two in a row.
 OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
-for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql 0008-purchases-lifecycle.sql 0009-bank-reconciliation.sql 0010-mission-orders.sql 0011-fiscal-stamp.sql 0012-rbac-delete-permissions.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql 0008-purchases-lifecycle.sql 0009-bank-reconciliation.sql 0010-mission-orders.sql 0011-fiscal-stamp.sql 0012-rbac-delete-permissions.sql 0013-expenses-ledger.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
 done
@@ -941,7 +941,57 @@ R=$(A -X DELETE "$B/collaborators/$DRIVER_ID")
 check "read_only cannot retire a collaborator (403, production.delete)" "[ $R = 403 ]" "$R $(cat $J)"
 R=$(A "$B/collaborators"); check "read_only can still list collaborators (200)" "[ $R = 200 ]" "$R"
 
-echo "§18 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
+echo "§18 expenses → ledger: cash/bank posting, HT/VAT split, category account, immutability once posted, reversal on retire, reports, tenancy, permissions"
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+R=$(A -X POST "$B/expense_categories" --data '{"label":"Transport E2E"}'); check "create an expense category (201)" "[ $R = 201 ]" "$R $(cat $J)"; CAT_ID=$(jget id)
+R=$(A -X POST "$B/expenses" --data '{"description":"x","amount":0}'); check "amount 0 refused (422)" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/expenses" --data '{"description":"x","amount":10,"vat_rate":150}'); check "vat_rate 150 refused (422)" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/expenses" --data '{"description":"x","amount":10,"category_id":"00000000-0000-0000-0000-000000000000"}'); check "unknown category → 422 invalid_reference" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/expenses" --data "{\"description\":\"Taxi aéroport\",\"amount\":119,\"vat_rate\":19,\"payment_method\":\"espèces\",\"category_id\":\"$CAT_ID\",\"spent_on\":\"2026-09-06\"}")
+check "cash expense recorded (201): paid 119.000 → HT 100.000 / TVA 19.000" "[ $R = 201 ] && [ \"$(jget totals.total_ht)\" = 100.000 ] && [ \"$(jget totals.total_vat)\" = 19.000 ]" "$R $(cat $J)"
+EXP1=$(jget id); check "…and posted to the ledger at creation" "[ -n \"$(jget accounting.entry_no)\" ] && [ \"$(jget accounting.entry_no)\" != None ]" "$(cat $J)"
+E1=$(q "select id from journal_entries where source_table='expenses' and source_id='$EXP1'")
+EXP_DEBIT=$(q "select coalesce(sum(l.debit),0) from journal_lines l join accounts a on a.id=l.account_id where a.system_key='expenses' and l.entry_id='$E1'")
+VAT_DEBIT=$(q "select coalesce(sum(l.debit),0) from journal_lines l join accounts a on a.id=l.account_id where a.system_key='vat_deductible' and l.entry_id='$E1'")
+CASH_CREDIT=$(q "select coalesce(sum(l.credit),0) from journal_lines l join accounts a on a.id=l.account_id where a.system_key='cash' and l.entry_id='$E1'")
+check "entry: 62 (expenses) debit 100.000, 4366 debit 19.000, 54 (caisse) credit 119.000 — 'espèces' → cash journal" "[ \"$EXP_DEBIT\" = \"100.000\" ] && [ \"$VAT_DEBIT\" = \"19.000\" ] && [ \"$CASH_CREDIT\" = \"119.000\" ]" "$EXP_DEBIT $VAT_DEBIT $CASH_CREDIT"
+check "expense entry is balanced" "[ \"$(q "select case when sum(debit)=sum(credit) then 'yes' else 'no' end from journal_lines where entry_id='$E1'")\" = yes ]" ""
+R=$(A -X POST "$B/expenses" --data '{"description":"Hôtel","amount":200,"payment_method":"virement","spent_on":"2026-09-06"}')
+check "bank expense recorded (201), no VAT split" "[ $R = 201 ] && [ \"$(jget totals.total_vat)\" = 0.000 ]" "$R $(cat $J)"; EXP2=$(jget id)
+E2=$(q "select id from journal_entries where source_table='expenses' and source_id='$EXP2'")
+check "'virement' → bank journal: 532 credit 200.000" "[ \"$(q "select coalesce(sum(l.credit),0) from journal_lines l join accounts a on a.id=l.account_id where a.system_key='bank' and l.entry_id='$E2'")\" = \"200.000\" ]" ""
+ACC61=$(q "select id from accounts where code='61' and tenant_id=(select id from tenants where key='mythos')")
+R=$(A -X PATCH "$B/expense_categories/$CAT_ID" --data "{\"account_id\":\"$ACC61\"}"); check "category mapped to account 61 (200)" "[ $R = 200 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/expenses" --data "{\"description\":\"Location camion\",\"amount\":50,\"payment_method\":\"chèque\",\"category_id\":\"$CAT_ID\",\"spent_on\":\"2026-09-06\"}"); EXP3=$(jget id)
+E3=$(q "select id from journal_entries where source_table='expenses' and source_id='$EXP3'")
+check "a category with an account debits THAT account (61), not the default" "[ \"$(q "select coalesce(sum(l.debit),0) from journal_lines l where l.account_id='$ACC61' and l.entry_id='$E3'")\" = \"50.000\" ]" ""
+ACC411=$(q "select id from accounts where code='411' and tenant_id=(select id from tenants where key='mythos')")
+R=$(A -X PATCH "$B/expense_categories/$CAT_ID" --data "{\"account_id\":\"$ACC411\"}"); [ "$R" = 200 ] || bad "category remapped to 411 for the guard test" "$R"
+R=$(A -X POST "$B/expenses" --data "{\"description\":\"Mauvais compte\",\"amount\":10,\"category_id\":\"$CAT_ID\"}")
+check "a category pointing at a NON-expense account (411) refuses the posting loudly (409), never silently falls back" "[ $R = 409 ]" "$R $(cat $J)"
+check "…and the refused expense was not recorded (transaction rolled back)" "[ \"$(q "select count(*) from expenses where description='Mauvais compte'")\" = 0 ]" ""
+R=$(A -X PATCH "$B/expense_categories/$CAT_ID" --data "{\"account_id\":\"$ACC61\"}"); [ "$R" = 200 ] || bad "category restored to 61" "$R"
+R=$(A -X POST "$B/expenses" --data '{"description":"x","amount":true}'); check "non-numeric amount type refused (422)" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X PATCH "$B/expenses/$EXP1" --data '{"amount":500}'); check "amount of a posted expense is immutable (409)" "[ $R = 409 ]" "$R $(cat $J)"
+R=$(A -X PATCH "$B/expenses/$EXP1" --data '{"description":"Taxi aéroport (retour)"}'); check "description of a posted expense stays editable (200)" "[ $R = 200 ]" "$R $(cat $J)"
+check "editing did not create a second entry (still exactly 1)" "[ \"$(q "select count(*) from journal_entries where source_table='expenses' and source_id='$EXP1'")\" = 1 ]" ""
+R=$(A -X DELETE "$B/expenses/$EXP2"); check "retire a posted expense (200) → reversal entry" "[ $R = 200 ] && [ -n \"$(jget accounting.reversal_entry_no)\" ] && [ \"$(jget accounting.reversal_entry_no)\" != None ]" "$R $(cat $J)"
+check "reversal recorded (expense_cancel), original marked reversed" "[ \"$(q "select count(*) from journal_entries where source_table='expense_cancel' and source_id='$EXP2'")\" = 1 ] && [ \"$(q "select status from journal_entries where id='$E2'")\" = reversed ]" ""
+R=$(A "$B/expenses/$EXP2"); check "retired expense hidden (404)" "[ $R = 404 ]" "$R"
+TB_ROW=$(q "select debit_total, credit_total from (select sum(l.debit) as debit_total, sum(l.credit) as credit_total from journal_lines l join journal_entries e on e.id=l.entry_id where e.status in ('posted','reversed')) t" | tr -d ' ')
+check "trial balance still balanced with expense entries" "[ \"$(echo $TB_ROW | cut -d'|' -f1)\" = \"$(echo $TB_ROW | cut -d'|' -f2)\" ]" "$TB_ROW"
+R=$(A "$B/accounting/vat"); check "VAT report: expense VAT counted as deductible (≥ 19.000)" "[ $R = 200 ] && python3 -c \"import json;d=json.load(open('$J'));assert float(d['deductible'])>=19.0\"" "$(cat $J | head -c 200)"
+R=$(A "$B/reports/expenses?from=2026-09-06&to=2026-09-06"); check "expenses report (by category) still works and excludes the retired one (169.000)" "[ $R = 200 ] && [ \"$(jget total)\" = 169.000 ]" "$(cat $J)"
+login "rita@mythos.test" "$OTHER_PW"
+R=$(A -X POST "$B/expenses" --data '{"description":"x","amount":1}'); check "read_only cannot record an expense (403)" "[ $R = 403 ]" "$R"
+R=$(A "$B/expenses"); check "read_only can list expenses (200)" "[ $R = 200 ]" "$R"
+login "bob@acme.test" "$OTHER_PW"
+R=$(A "$B/expenses/$EXP1"); check "acme cannot read a mythos expense (404, RLS)" "[ $R = 404 ]" "$R"
+R=$(A -X DELETE "$B/expenses/$EXP1"); check "acme cannot retire a mythos expense (404, RLS)" "[ $R = 404 ]" "$R"
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+check "expense creation / update / retire are audited" "[ \"$(q "select count(*) from audit_log where entity_table='expenses' and action='record.created'")\" -ge 3 ] && [ \"$(q "select count(*) from audit_log where entity_table='expenses' and action='record.updated'")\" -ge 1 ] && [ \"$(q "select count(*) from audit_log where entity_table='expenses' and action='record.deleted'")\" -ge 1 ]" ""
+
+echo "§19 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
 # A dedicated restart of the same already-migrated database, at a tiny
 # threshold, so this section is fast and deterministic instead of needing
 # hundreds of requests against the default (400/10s) limit used everywhere

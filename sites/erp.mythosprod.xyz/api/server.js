@@ -30,6 +30,7 @@ var documents = require('./modules/documents');
 var purchases = require('./modules/purchases');
 var bank = require('./modules/bank');
 var missionOrders = require('./modules/mission-orders');
+var expenses = require('./modules/expenses');
 var usersModule = require('./modules/users');
 var views = require('./modules/views');
 
@@ -271,6 +272,18 @@ route('PATCH',  '/api/v1/mission_orders/:id', 'production', missionOrders.handle
 // them in api/lib/authz.js, which also made the generic DELETE routes of
 // collaborators, representations, inventory_items and suppliers reachable.
 route('DELETE', '/api/v1/mission_orders/:id', 'production', missionOrders.handlers.retire);
+
+// ── Expenses — dedicated (Phase 7, P1): each expense posts to the ledger at
+// creation (cash/bank by the payment_method rule, HT + deductible VAT), is
+// reversed on retire, and keeps its posted amount/date/VAT/method/category
+// immutable. Module stays 'finance', the gate the generic DEF used. ────────
+route('GET',    '/api/v1/expenses', 'finance', expenses.handlers.list);
+route('POST',   '/api/v1/expenses', 'finance', expenses.handlers.create,
+      function (b) { return expenses.validateHeader(b, false); });
+route('GET',    '/api/v1/expenses/:id', 'finance', expenses.handlers.get);
+route('PATCH',  '/api/v1/expenses/:id', 'finance', expenses.handlers.update,
+      function (b) { return expenses.validateHeader(b, true); });
+route('DELETE', '/api/v1/expenses/:id', 'finance', expenses.handlers.retire);
 
 // ── Comptabilité / general ledger (0005-accounting.sql) ───────────────────
 // All tenant-scoped, module 'accounting': GET = accounting.read, POST/PATCH =
