@@ -61,17 +61,25 @@ var DEFS = {
     searchable: ['name', 'email', 'phone', 'tax_id'],
     sortable: ['name'], defaultSort: 'name',
     check: function (v) {
-      if (v.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v.email))) return 'email is not a valid address';
+      if (v.email && (String(v.email).length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v.email)))) return 'email is not a valid address';
       return null;
     }
   }),
 
   contacts: def({
     module: 'clients', table: 'contacts',
-    columns: ['legacy_id', 'client_id', 'full_name', 'email', 'phone', 'role_label', 'source', 'deleted_at'],
-    fields: ['client_id', 'full_name', 'email', 'phone', 'role_label', 'source', 'legacy_id'],
-    required: ['full_name'], searchable: ['full_name', 'email', 'phone'],
-    sortable: ['full_name'], defaultSort: 'full_name', filters: ['client_id'], label: 'full_name'
+    // Phase 11 (0015): the legacy répertoire fields; phone_norm is generated
+    // by the database and import_id is set by the importer only.
+    columns: ['legacy_id', 'client_id', 'full_name', 'email', 'phone', 'phone2', 'address', 'city', 'country',
+      'job_title', 'domain', 'notes', 'role_label', 'source', 'import_id', 'deleted_at'],
+    fields: ['client_id', 'full_name', 'email', 'phone', 'phone2', 'address', 'city', 'country',
+      'job_title', 'domain', 'notes', 'role_label', 'source', 'legacy_id'],
+    required: ['full_name'], searchable: ['full_name', 'email', 'phone', 'phone2', 'domain', 'city'],
+    sortable: ['full_name', 'city', 'domain'], defaultSort: 'full_name', filters: ['client_id', 'import_id'], label: 'full_name',
+    check: function (v) {
+      if (v.email && (String(v.email).length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v.email)))) return 'email is not a valid address';
+      return null;
+    }
   }),
 
   suppliers: def({

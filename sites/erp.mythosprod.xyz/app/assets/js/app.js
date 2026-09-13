@@ -22,6 +22,7 @@ import { bankTransactionsView } from './views/bank.js';
 import { missionOrdersView } from './views/mission-orders.js';
 import { purchasesView } from './views/purchases.js';
 import { expensesView } from './views/expenses.js';
+import { contactsView } from './views/contacts.js';
 import { cashView } from './views/cash.js';
 
 /* Module → what the view shows. A module with several resources gets tabs. */
@@ -186,6 +187,7 @@ function route(r) {
     if (res === 'mission_orders') return missionOrdersView(body, r);
     if (res === 'purchases') return purchasesView(body, r.id);
     if (res === 'expenses') return expensesView(body, r.id);
+    if (res === 'contacts') return contactsView(body, r.id);
     if (res === 'cash_entries') return cashView(body);
     resourceView(res, body);
   } catch (e) { body.appendChild(errorBox('Cette vue n\'a pas pu s\'afficher.', () => route(r), String(e && e.message))); }

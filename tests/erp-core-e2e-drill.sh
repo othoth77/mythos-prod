@@ -27,7 +27,16 @@ PASS=0; FAIL=0
 ok()    { PASS=$((PASS+1)); echo "  PASS $1"; }
 bad()   { FAIL=$((FAIL+1)); echo "  FAIL $1 — $2"; }
 check() { if eval "$2"; then ok "$1"; else bad "$1" "$3"; fi; }
-cleanup() { [ -n "$API_PID" ] && kill "$API_PID" >/dev/null 2>&1 || true; docker rm -f -v "$C" >/dev/null 2>&1 || true; rm -rf "$WORK"; }
+cleanup() {
+  local rc=$?
+  # Diagnostics only when something went wrong (a failed check, or an abort
+  # under set -e): the API log lives in $WORK, which is removed below.
+  if { [ "$rc" -ne 0 ] || [ "${FAIL:-0}" -gt 0 ]; } && [ -f "$WORK/api.log" ]; then
+    echo "--- api.log (last 40 lines; rc=$rc, failed=${FAIL:-0}) ---"
+    grep -v -i "password" "$WORK/api.log" | tail -40
+  fi
+  [ -n "$API_PID" ] && kill "$API_PID" >/dev/null 2>&1 || true; docker rm -f -v "$C" >/dev/null 2>&1 || true; rm -rf "$WORK"
+}
 trap cleanup EXIT
 if [ ! -d "$API/node_modules/pg" ]; then
   export NODE_PATH="${ERP_NODE_MODULES:-/home/deploy/projects/mythos-prod/sites/erp.mythosprod.xyz/api/node_modules}"
@@ -58,7 +67,7 @@ docker run -d --name "$C" -P -e POSTGRES_USER=erp_owner -e POSTGRES_DB=mythos_er
 # start; a single pg_isready success can land in that window. Require two in a row.
 OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
-for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql 0008-purchases-lifecycle.sql 0009-bank-reconciliation.sql 0010-mission-orders.sql 0011-fiscal-stamp.sql 0012-rbac-delete-permissions.sql 0013-expenses-ledger.sql 0014-cash-register.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql 0008-purchases-lifecycle.sql 0009-bank-reconciliation.sql 0010-mission-orders.sql 0011-fiscal-stamp.sql 0012-rbac-delete-permissions.sql 0013-expenses-ledger.sql 0014-cash-register.sql 0015-contact-import.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
 done
@@ -1140,7 +1149,96 @@ R=$(A "$B/settings/backup"); check "the platform super_admin reads it (200)" "[ 
 A "$B/settings/backup" >/dev/null; A "$B/settings/backup" >/dev/null
 check "backup status reads leave no audit rows (three GETs, audit count unchanged)" "[ \"$(q "select count(*) from audit_log")\" = \"$AUDIT_BEFORE_BK\" ]" "$AUDIT_BEFORE_BK → $(q "select count(*) from audit_log")"
 
-echo "§22 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
+echo "§22 contact import / dedup: schema, vCard + CSV preview, batches, duplicates, merge, permissions, tenancy"
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+check "contact_imports has RLS + tenant_isolation policy" "[ \"$(q "select relrowsecurity from pg_class where relname='contact_imports'")\" = t ] && [ \"$(q "select count(*) from pg_policies where tablename='contact_imports'")\" = 1 ]" ""
+check "erp_app on contact_imports: SELECT/INSERT/UPDATE only" "[ \"$(q "select string_agg(privilege_type,',' order by privilege_type) from information_schema.role_table_grants where grantee='erp_app' and table_name='contact_imports'")\" = INSERT,SELECT,UPDATE ]" ""
+check "contacts.phone_norm is a stored generated column; partial indexes on phone_norm / email / import_id exist" "[ \"$(q "select is_generated from information_schema.columns where table_name='contacts' and column_name='phone_norm'")\" = ALWAYS ] && [ \"$(q "select count(*) from pg_indexes where tablename='contacts' and indexname in ('contacts_phone_norm_idx','contacts_email_idx','contacts_import_idx')")\" = 3 ]" ""
+check "meta publishes the new contact fields" "[ $(A "$B/meta") = 200 ] && grep -q '\"job_title\"' $J && grep -q '\"phone2\"' $J" ""
+check "audit_action_known admits contacts.import_previewed and contacts.merged (0015 redefined the explicit list)" "[ \"$(q "select (pg_get_constraintdef(oid) like '%contacts.import_previewed%' and pg_get_constraintdef(oid) like '%contacts.merged%' and pg_get_constraintdef(oid) like '%membership.revoked%') from pg_constraint where conname='audit_action_known'")\" = t ]" ""
+CT_BEFORE=$(q "select count(*) from contacts where deleted_at is null")
+VCF='BEGIN:VCARD\nVERSION:3.0\nFN:Amine Ben Salah\nTEL;TYPE=CELL:+216 22 333 444\nEMAIL:Amine@Example.tn\nADR;TYPE=HOME:;;12 rue de Carthage;Tunis;;1000;Tunisie\nORG:Théâtre National;Direction\nTITLE:Régisseur\nEND:VCARD\nBEGIN:VCARD\nN:Trabelsi;Sonia;;;\nTEL:55-666-777\nitem1.TEL:tel:71 000 111\nEND:VCARD\nBEGIN:VCARD\nFN:Amine (doublon fichier)\nTEL:+216-22-333-444\nEND:VCARD\nBEGIN:VCARD\nNOTE:rien\nEND:VCARD\nBEGIN:VCARD\nEMAIL:contact@example.tn\nEND:VCARD\n'
+python3 -c "import json,sys; print(json.dumps({'source':'vcard','text':sys.argv[1].encode().decode('unicode_escape').encode('latin1').decode('utf8'),'file_name':'tel.vcf'}))" "$VCF" > "$WORK/vcf.json"
+R=$(code -X POST "$B/contacts/import/preview" -H 'content-type: application/json' --data-binary "@$WORK/vcf.json"); check "unauthenticated preview → 401" "[ $R = 401 ]" "$R"
+login "rita@mythos.test" "$OTHER_PW"; R=$(A -X POST "$B/contacts/import/preview" --data-binary "@$WORK/vcf.json"); check "read_only cannot preview an import (403, clients.write)" "[ $R = 403 ]" "$R"
+login "$NEWUSER_EMAIL" "$NEWUSER_PW"; R=$(A -X POST "$B/contacts/import/preview" --data-binary "@$WORK/vcf.json"); check "finance_user (clients.read only) → 403" "[ $R = 403 ]" "$R"
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+R=$(A -X POST "$B/contacts/import/preview" --data-binary "@$WORK/vcf.json")
+check "vCard preview: 5 cards → 3 new, 1 duplicate in file (+216-22-333-444 = +216 22 333 444), 1 invalid; nothing written" "[ $R = 200 ] && [ \"$(jget summary.new)\" = 3 ] && [ \"$(jget summary.duplicate_in_file)\" = 1 ] && [ \"$(jget summary.invalid)\" = 1 ] && [ \"$(jget summary.duplicate_existing)\" = 0 ] && [ \"$(q "select count(*) from contacts where deleted_at is null")\" = \"$CT_BEFORE\" ]" "$R $(cat $J | head -c 600)"
+check "card 1 parsed: name, phone key +21622333444, e-mail lower-cased, city/country from ADR, ORG → domain, TITLE → job_title" "python3 -c \"import json; r=json.load(open('$J'))['rows'][0]; assert (r['full_name'],r['phone'],r['email'],r['city'],r['country'],r['domain'],r['job_title'])==('Amine Ben Salah','+21622333444','amine@example.tn','Tunis','Tunisie','Théâtre National','Régisseur'), r\"" "$(python3 -c "import json; print(json.load(open('$J'))['rows'][0])")"
+check "card 2: N → 'Sonia Trabelsi', two TELs (item1./tel: forms) → phone + phone2" "python3 -c \"import json; r=json.load(open('$J'))['rows'][1]; assert (r['full_name'],r['phone'],r['phone2'])==('Sonia Trabelsi','55666777','71000111'), r\"" ""
+check "card 3 flagged duplicate_in_file of row 1 on phone; card 4 invalid (no identity); card 5 e-mail-only gets name_missing warning" "python3 -c \"import json; rs=json.load(open('$J'))['rows']; assert rs[2]['status']=='duplicate_in_file' and rs[2]['match']=={'index':0,'on':'phone'}; assert rs[3]['status']=='invalid'; assert rs[4]['status']=='new' and rs[4]['full_name']=='contact@example.tn' and 'name_missing' in rs[4]['warnings'], rs\"" ""
+check "preview is traced (contacts.import_previewed) without the file contents" "[ \"$(q "select count(*) from audit_log where action='contacts.import_previewed'")\" -ge 1 ] && [ \"$(q "select count(*) from audit_log where action='contacts.import_previewed' and detail::text like '%Carthage%'")\" = 0 ]" ""
+python3 -c "import json; d=json.load(open('$WORK/vcf.json')); d['label']='Export téléphone'; json.dump(d, open('$WORK/vcf-imp.json','w'))"
+R=$(A -X POST "$B/contacts/import" --data-binary "@$WORK/vcf-imp.json")
+check "vCard import → 201: batch created, 3 imported, 2 skipped, contacts +3" "[ $R = 201 ] && [ \"$(jget imported)\" = 3 ] && [ \"$(jget skipped)\" = 2 ] && [ \"$(jget import.source)\" = vcard ] && [ \"$(jget import.label)\" = 'Export téléphone' ] && [ \"$(q "select count(*) from contacts where deleted_at is null")\" = $((CT_BEFORE + 3)) ]" "$R $(cat $J | head -c 400)"; IMP1=$(jget import.id)
+check "imported rows carry source vcard_import, the batch id and a generated phone key" "[ \"$(q "select count(*) from contacts where import_id='$IMP1' and source='vcard_import'")\" = 3 ] && [ \"$(q "select phone_norm from contacts where import_id='$IMP1' and full_name='Amine Ben Salah'")\" = '+21622333444' ]" ""
+R=$(A -X POST "$B/contacts/import/preview" --data-binary "@$WORK/vcf.json"); check "second preview of the same file: the 4 identifiable cards are now duplicate_existing (the in-file twin now matches the stored contact), 1 invalid" "[ $R = 200 ] && [ \"$(jget summary.duplicate_existing)\" = 4 ] && [ \"$(jget summary.new)\" = 0 ] && [ \"$(jget summary.duplicate_in_file)\" = 0 ] && [ \"$(jget rows.0.match.on)\" = phone ] && [ \"$(jget rows.4.match.on)\" = email ]" "$(cat $J | head -c 500)"
+IMPS_BEFORE=$(q "select count(*) from contact_imports where deleted_at is null")
+R=$(A -X POST "$B/contacts/import" --data-binary "@$WORK/vcf-imp.json"); check "re-import with duplicates skipped → 422 nothing_to_import, no batch row" "[ $R = 422 ] && [ \"$(jget error)\" = nothing_to_import ] && [ \"$(q "select count(*) from contact_imports where deleted_at is null")\" = \"$IMPS_BEFORE\" ]" "$R $(cat $J)"
+python3 -c "import json; d=json.load(open('$WORK/vcf-imp.json')); d['skip_duplicates']=False; d['label']='Doublons forcés'; json.dump(d, open('$WORK/vcf-dup.json','w'))"
+R=$(A -X POST "$B/contacts/import" --data-binary "@$WORK/vcf-dup.json"); check "re-import with skip_duplicates=false → 201, 4 imported (3 existing dupes + the in-file dupe), invalid still skipped" "[ $R = 201 ] && [ \"$(jget imported)\" = 4 ] && [ \"$(jget skipped)\" = 1 ]" "$R $(cat $J | head -c 300)"; IMP2=$(jget import.id)
+R=$(A "$B/contacts/duplicates"); check "duplicates: 3 groups (Amine ×3 on phone AND email collapse to one group; Sonia ×2; contact@ ×2)" "[ $R = 200 ] && [ \"$(jget total)\" = 3 ]" "$(cat $J | head -c 600)"
+AMINE_G=$(python3 -c "import json; d=json.load(open('$J')); g=[g for g in d['groups'] if g['key'].startswith('+21622333444')][0]; assert g['matched_on']=='email+phone', g; print(' '.join(c['id'] for c in g['contacts']))" 2>"$WORK/amine.err" || true)
+AMINE_N=$(echo $AMINE_G | wc -w); check "the +21622333444 group (phone AND e-mail overlap united) holds 3 contacts, oldest first" "[ $AMINE_N = 3 ] && [ \"$(echo $AMINE_G | cut -d' ' -f1)\" = \"$(q "select id from contacts where import_id='$IMP1' and full_name='Amine Ben Salah'")\" ]" "$AMINE_G $(tail -c 300 "$WORK/amine.err" 2>/dev/null) $(head -c 400 $J)"
+PRIMARY=$(echo $AMINE_G | cut -d' ' -f1); OTHERS=$(echo $AMINE_G | cut -d' ' -f2-)
+q "update contacts set city=null, notes=null where id='$PRIMARY'" >/dev/null; q "update contacts set notes='Note du doublon' where id='$(echo $OTHERS | cut -d' ' -f1)'" >/dev/null
+R=$(A -X POST "$B/contacts/merge" --data "{\"ids\":[\"$PRIMARY\",$(echo $OTHERS | sed 's/ /","/g; s/^/"/; s/$/"/')]}")
+check "merge → 200: primary kept, empty notes filled from a duplicate, 2 retired" "[ $R = 200 ] && [ \"$(jget contact.id)\" = \"$PRIMARY\" ] && [ \"$(jget contact.notes)\" = 'Note du doublon' ] && [ \"$(jget retired)\" = 2 ] && grep -q '\"notes\"' $J && [ \"$(q "select count(*) from contacts where id in ('$(echo $OTHERS | sed "s/ /','/g")') and deleted_at is not null")\" = 2 ]" "$R $(cat $J | head -c 400)"
+check "merge is audited (contacts.merged on the primary, merged ids in detail)" "[ \"$(q "select count(*) from audit_log where action='contacts.merged' and entity_id='$PRIMARY'")\" = 1 ]" ""
+check "the kept contact is detached from its import batch (import_id NULL), so retiring the batch later cannot take the merge survivor" "[ \"$(q "select import_id is null from contacts where id='$PRIMARY'")\" = t ] && [ \"$(q "select count(*) from contacts where import_id='$IMP1' and deleted_at is null")\" = 2 ]" "$(q "select import_id from contacts where id='$PRIMARY'")"
+SONIA=$(q "select id from contacts where import_id='$IMP1' and full_name='Sonia Trabelsi'")
+R=$(A -X POST "$B/contacts/merge" --data "{\"ids\":[\"$PRIMARY\",\"$SONIA\"]}"); check "merging two contacts that share neither phone key nor e-mail → 422 not_duplicates (the endpoint is not a generic delete)" "[ $R = 422 ] && [ \"$(jget error)\" = not_duplicates ] && [ \"$(q "select deleted_at is null from contacts where id='$SONIA'")\" = t ]" "$R $(cat $J)"
+# A manager holds clients.write but not clients.delete: merging retires
+# contacts, so it must be refused. Lend rita the manager role for one call.
+q "insert into user_roles (user_id, role_id, tenant_id) select u.id, r.id, t.id from users u, roles r, tenants t where u.email='rita@mythos.test' and r.key='manager' and t.key='mythos'" >/dev/null
+login "rita@mythos.test" "$OTHER_PW"
+SONIA2=$(q "select id from contacts where import_id='$IMP2' and full_name='Sonia Trabelsi'")
+R=$(A -X POST "$B/contacts/merge" --data "{\"ids\":[\"$SONIA\",\"$SONIA2\"]}"); check "manager (clients.write, no clients.delete) cannot merge → 403; nothing retired" "[ $R = 403 ] && [ \"$(q "select count(*) from contacts where id in ('$SONIA','$SONIA2') and deleted_at is null")\" = 2 ]" "$R $(cat $J)"
+q "delete from user_roles ur using roles r, users u where ur.role_id=r.id and ur.user_id=u.id and r.key='manager' and u.email='rita@mythos.test'" >/dev/null
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+R=$(A "$B/contacts/duplicates"); check "after the merge: 2 groups left" "[ $R = 200 ] && [ \"$(jget total)\" = 2 ]" "$(jget total)"
+R=$(A -X POST "$B/contacts/merge" --data "{\"ids\":[\"$PRIMARY\"]}"); check "merge with a single id → 422" "[ $R = 422 ]" "$R"
+R=$(A -X POST "$B/contacts/merge" --data "{\"ids\":[\"$PRIMARY\",\"00000000-0000-4000-8000-000000000000\"]}"); check "merge with an unknown id → 422 invalid_reference (nothing changed)" "[ $R = 422 ] && [ \"$(jget error)\" = invalid_reference ]" "$R $(cat $J)"
+R=$(A -X POST "$B/contacts/merge" --data "{\"ids\":[\"$PRIMARY\",\"$PRIMARY\"]}"); check "merge with repeated ids → 422" "[ $R = 422 ]" "$R"
+echo "-- CSV --"
+printf '\xef\xbb\xbf"Nom";"Prénom";"Téléphone 1";"Téléphone 2";"Email";"Ville";"Métier";"Domaine";"Responsable";"Tags";"Dernier contact";"Statut";"Note"\r\n"Gharbi";"Nadia";"98 111 222";"";"nadia@example.tn";"Sfax";"Comptable";"Finance";"";"";"";"";"Note ""libre""; avec ; point-virgule"\r\n"Ben Salah";"Amine";"";"";"AMINE@example.tn";"";"";"";"";"";"";"";""\r\n' > "$WORK/legacy.csv"
+python3 -c "import json,sys; print(json.dumps({'source':'csv','text':open('$WORK/legacy.csv',encoding='utf-8-sig').read(),'file_name':'annuaire_contacts.csv','label':'Export annuaire'}))" > "$WORK/csv.json"
+R=$(A -X POST "$B/contacts/import/preview" --data-binary "@$WORK/csv.json")
+check "legacy CSV export (BOM, ';', quoted quotes): 1 new + 1 duplicate_existing on e-mail; ';' detected; CRM columns reported as ignored" "[ $R = 200 ] && [ \"$(jget summary.new)\" = 1 ] && [ \"$(jget summary.duplicate_existing)\" = 1 ] && [ \"$(jget delimiter)\" = ';' ] && grep -q 'Responsable' $J && grep -q 'Dernier contact' $J && [ \"$(jget rows.1.match.on)\" = email ]" "$R $(cat $J | head -c 500)"
+check "CSV row parsed: 'Nadia Gharbi', phone 98111222, Sfax, Comptable / Finance, note with quotes and semicolons intact" "python3 -c \"import json; r=json.load(open('$J'))['rows'][0]; assert (r['full_name'],r['phone'],r['city'],r['job_title'],r['domain'],r['notes'])==('Nadia Gharbi','98111222','Sfax','Comptable','Finance','Note \\\"libre\\\"; avec ; point-virgule'), r\"" "$(python3 -c "import json; print(json.load(open('$J'))['rows'][0])")"
+R=$(A -X POST "$B/contacts/import" --data-binary "@$WORK/csv.json"); check "CSV import → 201, 1 imported, 1 skipped, source csv" "[ $R = 201 ] && [ \"$(jget imported)\" = 1 ] && [ \"$(jget skipped)\" = 1 ] && [ \"$(jget import.source)\" = csv ]" "$R $(cat $J | head -c 300)"; IMP3=$(jget import.id)
+printf 'Name,Given Name,Family Name,E-mail 1 - Value,Phone 1 - Value,Organization 1 - Name\nKarim Jlassi,Karim,Jlassi,karim@example.tn,+216 98 000 000,Studio K\n' > "$WORK/google.csv"
+python3 -c "import json; print(json.dumps({'source':'csv','text':open('$WORK/google.csv').read(),'file_name':'google.csv'}))" > "$WORK/google.json"
+R=$(A -X POST "$B/contacts/import/preview" --data-binary "@$WORK/google.json"); check "Google Contacts CSV header is recognised (',' delimiter, phone/e-mail/organisation mapped)" "[ $R = 200 ] && [ \"$(jget delimiter)\" = ',' ] && [ \"$(jget rows.0.phone)\" = '+21698000000' ] && [ \"$(jget rows.0.domain)\" = 'Studio K' ] && [ \"$(jget summary.new)\" = 1 ]" "$(cat $J | head -c 400)"
+R=$(A -X POST "$B/contacts/import/preview" --data '{"source":"csv","text":"a,b\n1,2\n"}'); check "CSV without any recognised column → 422 no_recognised_columns" "[ $R = 422 ] && [ \"$(jget error)\" = no_recognised_columns ]" "$R $(cat $J)"
+R=$(A -X POST "$B/contacts/import/preview" --data '{"source":"vcard","text":"hello"}'); check "vCard text without a card → 422 no_rows" "[ $R = 422 ] && [ \"$(jget error)\" = no_rows ]" "$R"
+R=$(A -X POST "$B/contacts/import/preview" --data '{"source":"xls","text":"x"}'); check "unknown source → 422" "[ $R = 422 ]" "$R"
+python3 -c "import json; print(json.dumps({'source':'vcard','text':'BEGIN:VCARD\nFN:x\nEND:VCARD\n'*5001}))" > "$WORK/many.json"
+R=$(A -X POST "$B/contacts/import/preview" --data-binary "@$WORK/many.json"); check "5001 cards → 422 too_many_rows (cap 5000)" "[ $R = 422 ] && [ \"$(jget error)\" = too_many_rows ]" "$R $(cat $J)"
+python3 -c "import json; print(json.dumps({'source':'csv','text':'Nom,Email\n'+('a'*4200000)}))" > "$WORK/big.json"
+R=$(A -X POST "$B/contacts/import/preview" --data-binary "@$WORK/big.json"); check "text over 4 MiB → 422 (route cap admits it, validation refuses it)" "[ $R = 422 ] && grep -q '4 MiB' $J" "$R $(cat $J | head -c 200)"
+rm -f "$WORK/big.json" "$WORK/many.json"
+echo "-- batches --"
+R=$(A "$B/contacts/imports"); check "imports history lists the 3 batches, newest first, with live counts (forced-duplicates batch lost 2 to the merge)" "[ $R = 200 ] && [ \"$(jget total)\" = 3 ] && [ \"$(jget rows.0.id)\" = \"$IMP3\" ] && [ \"$(python3 -c "import json; d=json.load(open('$J')); print([r['live_count'] for r in d['rows'] if r['id']=='$IMP2'][0])")\" = 2 ]" "$(cat $J | head -c 600)"
+R=$(A -X PATCH "$B/contacts/imports/$IMP2" --data '{"label":"  Doublons (à retirer)  "}'); check "relabel a batch → 200, trimmed" "[ $R = 200 ] && [ \"$(jget label)\" = 'Doublons (à retirer)' ]" "$R $(cat $J)"
+R=$(A -X PATCH "$B/contacts/imports/$IMP2" --data '{"nope":1}'); check "relabel without label → 422" "[ $R = 422 ]" "$R"
+login "rita@mythos.test" "$OTHER_PW"; R=$(A -X DELETE "$B/contacts/imports/$IMP2"); check "read_only cannot retire a batch (403)" "[ $R = 403 ]" "$R"
+login "bob@acme.test" "$OTHER_PW"
+R=$(A "$B/contacts/imports"); check "acme sees no mythos batches (RLS)" "[ $R = 200 ] && [ \"$(jget total)\" = 0 ]" "$(cat $J)"
+R=$(A "$B/contacts/duplicates"); check "acme sees no mythos duplicate groups" "[ $R = 200 ] && [ \"$(jget total)\" = 0 ]" ""
+R=$(A -X DELETE "$B/contacts/imports/$IMP2"); check "acme cannot retire a mythos batch (404, RLS)" "[ $R = 404 ]" "$R"
+R=$(A -X POST "$B/contacts/merge" --data "{\"ids\":[\"$PRIMARY\",\"$(echo $OTHERS | cut -d' ' -f1)\"]}"); check "acme cannot merge mythos contacts (422 unknown ids, RLS)" "[ $R = 422 ]" "$R"
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+R=$(A -X DELETE "$B/contacts/imports/$IMP2"); check "retire the forced-duplicates batch → 200, its 2 live contacts retired with it" "[ $R = 200 ] && [ \"$(jget contacts_retired)\" = 2 ] && [ \"$(q "select count(*) from contacts where import_id='$IMP2' and deleted_at is null")\" = 0 ]" "$R $(cat $J)"
+R=$(A -X DELETE "$B/contacts/imports/$IMP2"); check "retiring it again → 404" "[ $R = 404 ]" "$R"
+R=$(A "$B/contacts/imports"); check "retired batch leaves the history (2 left)" "[ $R = 200 ] && [ \"$(jget total)\" = 2 ]" "$(jget total)"
+R=$(A "$B/contacts/duplicates"); check "no duplicate group left after retiring the forced batch" "[ $R = 200 ] && [ \"$(jget total)\" = 0 ]" "$(cat $J | head -c 300)"
+check "net contacts: +4 live (Amine, Sonia, contact@, Nadia)" "[ \"$(q "select count(*) from contacts where deleted_at is null")\" = $((CT_BEFORE + 4)) ]" "$(q "select count(*) from contacts where deleted_at is null") vs $CT_BEFORE"
+R=$(A "$B/contacts?search=Gharbi"); check "generic contacts list exposes the new columns (city Sfax via search)" "[ $R = 200 ] && [ \"$(jget total)\" = 1 ] && [ \"$(jget rows.0.city)\" = Sfax ]" "$(cat $J | head -c 300)"
+check "batch lifecycle audited (record.created ×3, record.updated, record.deleted on contact_imports)" "[ \"$(q "select count(*) from audit_log where entity_table='contact_imports' and action='record.created'")\" = 3 ] && [ \"$(q "select count(*) from audit_log where entity_table='contact_imports' and action='record.updated'")\" = 1 ] && [ \"$(q "select count(*) from audit_log where entity_table='contact_imports' and action='record.deleted'")\" = 1 ]" ""
+
+echo "§23 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
 # A dedicated restart of the same already-migrated database, at a tiny
 # threshold, so this section is fast and deterministic instead of needing
 # hundreds of requests against the default (400/10s) limit used everywhere
