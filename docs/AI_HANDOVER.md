@@ -2,6 +2,55 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-13 — MYTHOS ERP PHASE 8: P1 CASH REGISTER — **PHASE_8_COMPLETE** (Fable 5.1)
+
+Discovery re-verified what the till already had: the `cash` system
+account (`54`) and `CA` journal (0005), every customer receipt, supplier
+payment and cash-paid expense posting there, and `GET /accounting/ledger`
+as a cash book with opening/running/closing balances. What was missing —
+per the legacy cash module's own evidence ("Retraits en espèces du compte
+BIAT", bank ⇄ till links) — were the movements that are NOT documents, and
+an operational view. `cash_entries` (legacy `mp_cash_entries`, unwired since
+Stage 3) became the manual movement. No closing / count / variance workflow:
+the legacy ERP had none → NOT_REQUIRED, not deferred by accident.
+
+**Model.** `kind` withdrawal (bank → till: debit 54 / credit 532), deposit
+(till → bank), other_in / other_out against an explicit
+`counterpart_account_id` — any active account of the tenant, the
+accountant's judgement, never a hidden default. One balanced `CA` entry per
+movement at creation, idempotent on the row id, reversed on retire
+(`cash_cancel`); amount/date/kind/counterpart immutable once posted, label/
+reference editable (the Phase 7 rule). A configured tenant missing the
+cash/bank account or the CA journal gets a 409 and a rollback — never a row
+without an entry (review finding).
+
+**API/UI.** `/cash_entries` CRUD, `/summary` (ledger balance of the cash
+account, today's in/out in the tenant's timezone), `/book` (the cash
+account's ledger with the account forced server-side), `/counterparts`.
+Finance › Caisse: balance card, cash book with running balance, manual
+movements, new-movement form.
+
+**Independent review**: five items fixed — migration defaults safe for
+legacy rows (`kind` defaults to `withdrawal` then the default is dropped;
+`amount > 0` added `NOT VALID`), loud 409 on missing system accounts,
+kind/counterpart coherence on PATCH, tenant-timezone "today", pagination
+offset. One reviewer claim was wrong and is recorded as such: `finance_user`
+DOES hold `accounting.read` (0005), so `/book` is a convenience with the
+account forced server-side, not a permission workaround.
+
+| Item | Detail |
+|---|---|
+| Implementation commit | `c600b59` on `mythos/erp-p1-cash-register-20260913` |
+| PR / merge | [#271](https://github.com/othoth77/mythos-prod/pull/271), squash-merged → `1371c05271da7ef96a9822f7939eaf695b527814` (13 files, ERP paths only) |
+| Migration | `0014-cash-register.sql` — additive: `cash_entries.kind / counterpart_account_id / reference`, CHECKs (`kind_known`, `counterpart_when_other`, `amount_positive NOT VALID`), index. No new grants. |
+| Backup | `mythos_erp-20260913T090832Z.dump`, 225,357 B, sha256 `246e42e2…4136`, 558 TOC entries, local + remote verified, "completed clean". |
+| Rehearsal | Restore of that backup: run 1 applied only `0014`, run 2 skipped all 14; columns, CHECKs (`amount_positive` `convalidated=f` as intended), RLS, grants verified; users unchanged. Container destroyed. |
+| Production | Checkout ff to `1371c05`; migration applied via the real runner (`applied=["0014…"]`, 13 skipped); post-checks identical; `erp-api` restarted `Result=success`, `NRestarts=0`; `code_identity.head` `1371c052…`, `verified:true`. |
+| Smoke | Unauthenticated `/cash_entries`, `/summary`, `/book`, `/counterparts`, `POST` → 401; `views/cash.js` served; authenticated GETs → 200; summary names `54 — Caisse`, balance `0.000`. Zero rows in `cash_entries` / `journal_entries` / `expenses` after the test. |
+| Tests | Core E2E **445/0** (§19, 27 assertions: summary = ledger balance; other_out without counterpart / unknown kind / amount 0 / unknown counterpart refused; withdrawal 54 D 300 · 532 C 300 in the CA journal; deposit; other_in against 75; balance deltas +250 then +350 after reversing the deposit; immutability 409; reference edit without a second entry; retire → reversal; cash book rows with running balance; trial balance balanced; finance_user ledger/book/counterparts/other_out; read_only 403 / summary 200; acme 404 ×2; audit). Auth **125/0** (14 migrations), frontend-check **45/0**, frontend-drill **48/0**, acceptance **80/0**, security **59/0**, bootstrap **45/0**. **Total 847/847**, re-run against the deployed revision. |
+| Remaining gaps | Manual movements list has no date/kind filter in the UI (API supports both); the cash book is the ledger view, not a printable daily sheet (no legacy evidence for one). |
+| Next phase | Reminders (P2) / contact import (P2) / backup status (P2) — discovery decides; production fiscal-stamp policy still awaiting owner GO. |
+
 ## 2026-09-13 — MYTHOS ERP PHASE 7: P1 EXPENSES → LEDGER — **PHASE_7_COMPLETE** (Fable 5.1)
 
 Expenses (legacy `mp_expenses`: date, label, category, payment mode,
