@@ -30,6 +30,15 @@ var dashboard = {
         " WHERE paid_on >= date_trunc('year', current_date)"),
       client.query('SELECT count(*)::int AS n FROM appointments' +
         ' WHERE deleted_at IS NULL AND starts_at >= now() AND starts_at < now() + interval \'7 days\''),
+      // Phase 9: what is due — counts only (content lives behind agenda.read
+      // and invoices.read respectively; a count reveals nothing more than the
+      // dashboard already does for invoices).
+      // reminders_due = due through the end of today (same bound as the
+      // "À traiter" tab at horizon 0), so the tile and the tab agree.
+      client.query("SELECT count(*)::int AS n FROM agenda_events WHERE deleted_at IS NULL AND status = 'scheduled'" +
+        " AND kind IN ('reminder','task') AND coalesce(remind_at, starts_at) < date_trunc('day', now()) + interval '1 day'"),
+      client.query("SELECT count(*)::int AS n FROM invoices WHERE deleted_at IS NULL AND status IN ('sent','part_paid')" +
+        ' AND due_on IS NOT NULL AND due_on < current_date'),
       // Stock is not a column: on-hand = the signed sum of inventory_movements,
       // and the reorder threshold is inventory_items.min_quantity (0 = none).
       // The previous query named reorder_level / quantity_on_hand, columns that
@@ -45,7 +54,9 @@ var dashboard = {
         invoiced_ttc_ytd: r[3].rows[0].ttc,
         collected_ytd: r[4].rows[0].paid,
         appointments_next_7d: r[5].rows[0].n,
-        items_below_reorder: r[6].rows[0].n
+        reminders_due: r[6].rows[0].n,
+        invoices_overdue: r[7].rows[0].n,
+        items_below_reorder: r[8].rows[0].n
       } };
     });
   }
@@ -87,7 +98,8 @@ var reports = {
       'SELECT i.id, i.number, i.client_id, c.name AS client_name, i.issued_on, i.due_on, i.status,' +
       ' (coalesce(t.ttc,0) + i.stamp_amount)::numeric(14,3) AS total_ttc,' +
       ' coalesce(p.paid,0)::numeric(14,3) AS paid,' +
-      ' (coalesce(t.ttc,0) + i.stamp_amount - coalesce(p.paid,0))::numeric(14,3) AS balance' +
+      ' (coalesce(t.ttc,0) + i.stamp_amount - coalesce(p.paid,0))::numeric(14,3) AS balance,' +
+      ' (i.due_on IS NOT NULL AND i.due_on < current_date) AS overdue' +
       ' FROM invoices i' +
       ' LEFT JOIN clients c ON c.id = i.client_id' +
       ' LEFT JOIN (SELECT invoice_id, sum(line_ht * (1 + vat_rate/100)) AS ttc' +
@@ -98,7 +110,10 @@ var reports = {
       ' ORDER BY i.due_on NULLS LAST, i.issued_on'
     ).then(function (r) {
       var open = r.rows.reduce(function (a, x) { return a + Number(x.balance); }, 0);
-      return { status: 200, body: { rows: r.rows, outstanding_total: open.toFixed(3) } };
+      var overdueRows = r.rows.filter(function (x) { return x.overdue === true; });
+      var overdue = overdueRows.reduce(function (a, x) { return a + Number(x.balance); }, 0);
+      return { status: 200, body: { rows: r.rows, outstanding_total: open.toFixed(3),
+        overdue_count: overdueRows.length, overdue_total: overdue.toFixed(3) } };
     });
   },
 
@@ -339,4 +354,36 @@ var auditView = {
   }
 };
 
-module.exports = { dashboard: dashboard, reports: reports, settings: settings, users: users, audit: auditView };
+/* Phase 9 — what is due: scheduled reminders and tasks whose remind_at (or,
+   failing that, starts_at) has passed, plus the ones within ?days ahead.
+   Read-only, module 'agenda' (agenda.read); RLS scopes it. The legacy ERP's
+   "DU" badge, without a notification framework: a list a person opens. */
+var agenda = {
+  due: function (ctx, client) {
+    var q = ctx.query || {};
+    // Default horizon 7 days (what the "À traiter" tab opens on); an explicit
+    // but unparseable value means "overdue/today only", never a 500.
+    var days = q.days === undefined ? 7 : Math.min(Math.max(parseInt(q.days, 10) || 0, 0), 365);
+    var limit = Math.min(Math.max(parseInt(q.limit, 10) || 100, 1), 200);
+    return client.query(
+      // Full row (ends_at/location/all_day included) so the edit form opened
+      // from this list does not blank fields it never saw (review finding).
+      // Horizon N = through the END of the Nth day ahead (0 = the rest of
+      // today); "overdue" = the instant has passed. Day boundaries follow the
+      // database session timezone, like every current_date report here.
+      'SELECT id, kind, title, description, starts_at, ends_at, all_day, location, remind_at, priority, status,' +
+      ' client_id, project_id, invoice_id, quote_id, assigned_to,' +
+      ' coalesce(remind_at, starts_at) AS due_at,' +
+      ' (coalesce(remind_at, starts_at) <= now()) AS overdue' +
+      ' FROM agenda_events' +
+      " WHERE deleted_at IS NULL AND status = 'scheduled' AND kind IN ('reminder','task')" +
+      "   AND coalesce(remind_at, starts_at) < date_trunc('day', now()) + (($1::int + 1) * interval '1 day')" +
+      " ORDER BY coalesce(remind_at, starts_at), CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END LIMIT " + limit, [days]
+    ).then(function (r) {
+      var overdue = r.rows.filter(function (x) { return x.overdue === true; }).length;
+      return { status: 200, body: { rows: r.rows, total: r.rows.length, overdue: overdue, days: days } };
+    });
+  }
+};
+
+module.exports = { dashboard: dashboard, reports: reports, settings: settings, users: users, audit: auditView, agenda: agenda };

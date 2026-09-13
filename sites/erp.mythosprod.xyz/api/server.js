@@ -334,6 +334,9 @@ route('GET',  '/api/v1/documents/:id/download', 'documents', documents.handlers.
 // the handler, on prospects.convert. Declared before the generic resources so
 // the more specific path is matched first.
 route('POST', '/api/v1/prospects/:id/convert', 'prospects', prospects.convert);
+// Phase 9: due reminders/tasks (agenda.read). A fixed path — ':id' only
+// matches a UUID, so it cannot shadow the generic agenda_events/:id.
+route('GET', '/api/v1/agenda_events/due', 'agenda', views.agenda.due);
 
 // ── Declarative resources ─────────────────────────────────────────────────
 Object.keys(registry.DEFS).forEach(function (name) {

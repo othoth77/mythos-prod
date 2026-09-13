@@ -56,10 +56,11 @@ function renderRevenue(panel, r) {
 
 function renderReceivables(panel, r) {
   const rows = r.rows || [];
-  panel.appendChild(h('p', {}, 'Encours total : ', h('strong', { class: 'mono', text: fmtMoney(r.outstanding_total) })));
+  panel.appendChild(h('p', {}, 'Encours total : ', h('strong', { class: 'mono', text: fmtMoney(r.outstanding_total) }),
+    r.overdue_count !== undefined ? h('span', {}, ' — dont en retard : ', h('strong', { class: 'mono', text: fmtMoney(r.overdue_total) }), ' (' + r.overdue_count + ')') : null));
   if (!rows.length) { panel.appendChild(empty('Aucune créance')); return; }
-  const cols = Object.keys(rows[0]).filter((k) => k !== 'id').map((k) => ({ key: k, label: k, num: /total|paid|balance|outstanding|amount/.test(k),
-    render: (x) => /_on$/.test(k) ? fmtDate(x[k]) : (/total|paid|balance|outstanding|amount/.test(k) ? fmtNum(x[k]) : (x[k] ?? '—')) }));
+  const cols = Object.keys(rows[0]).filter((k) => k !== 'id').map((k) => ({ key: k, label: k === 'overdue' ? 'retard' : k, num: /total|paid|balance|outstanding|amount/.test(k),
+    render: (x) => k === 'overdue' ? (x[k] ? 'EN RETARD' : '') : (/_on$/.test(k) ? fmtDate(x[k]) : (/total|paid|balance|outstanding|amount/.test(k) ? fmtNum(x[k]) : (x[k] ?? '—'))) }));
   panel.appendChild(table(cols, rows, (x) => [h('a', { class: 'btn btn-ghost btn-sm', href: '#/finance/invoices/' + x.id, text: 'Ouvrir' })]));
 }
 
