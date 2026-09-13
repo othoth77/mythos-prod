@@ -270,22 +270,54 @@ var users = {
     ).then(function (r) { return { status: 200, body: { rows: r.rows } }; });
   },
 
+  /* Phase 6 (RBAC hardening). Two rules this handler lacked, both already
+     enforced by POST /users (modules/users.js, Phase 1) and now shared:
+       - RANK CAP: nobody grants a role ranked above the highest role they
+         hold in this tenant. users.manage is held by admin, who by design
+         does NOT hold roles.manage (schema-auth.sql) — without this cap an
+         admin could POST {user_id: <self>, role_key: 'super_admin'} and be
+         a super_admin "with extra steps", which is exactly what that
+         separation exists to prevent. Refusals are audited.
+       - MEMBERSHIP: the target must be an active member of this tenant. The
+         INSERT was always RLS-checked for the tenant, but a row for a
+         non-member was accepted and meaningless; now it is a 422. */
   assignRole: function (ctx, client) {
+    var usersModule = require('./users');
+    var audit = require('../lib/audit');
     var b = ctx.body || {};
-    return client.query('SELECT id FROM roles WHERE key = $1', [b.role_key]).then(function (r) {
-      var role = (r.rows || [])[0];
-      if (!role) return { status: 422, body: { error: 'unknown role' } };
-      // The INSERT is RLS-checked: a user_roles row for another tenant is
-      // refused by the database, so this cannot grant access elsewhere.
-      return client.query(
-        'INSERT INTO user_roles (user_id, tenant_id, role_id) VALUES ($1,$2,$3)' +
-        ' ON CONFLICT DO NOTHING', [b.user_id, ctx.tenantId, role.id]
-      ).then(function () {
-        return {
-          status: 200, body: { assigned: true },
-          audit: { action: 'role.assigned', entity_table: 'user_roles', entity_id: b.user_id,
-                   detail: { role: b.role_key } }
-        };
+    var roleKey = String(b.role_key || '').trim();
+    var targetRank = usersModule.ROLE_KEYS.indexOf(roleKey);
+    if (targetRank === -1) return Promise.resolve({ status: 422, body: { error: 'unknown role' } });
+    if (!require('../lib/db').UUID.test(String(b.user_id || ''))) return Promise.resolve({ status: 422, body: { error: 'user_id must be a uuid' } });
+    return usersModule.callerMaxRank(client, ctx.user.id, ctx.tenantId).then(function (myRank) {
+      if (targetRank > myRank) {
+        return audit.write(client, {
+          actor_id: ctx.user.id, actor_label: ctx.user.email, action: 'permission.denied',
+          entity_table: 'user_roles', entity_id: b.user_id, outcome: 'denied',
+          detail: { reason: 'role_exceeds_own_rank', requested: roleKey }, ip: ctx.ip, tenant_id: ctx.tenantId
+        }).then(function () {
+          return { status: 403, body: { error: 'forbidden', required: 'cannot grant a role above your own' } };
+        });
+      }
+      return Promise.all([
+        client.query('SELECT id FROM roles WHERE key = $1', [roleKey]),
+        client.query("SELECT 1 FROM tenant_memberships WHERE user_id = $1 AND tenant_id = $2 AND status = 'active'", [b.user_id, ctx.tenantId])
+      ]).then(function (out) {
+        var role = (out[0].rows || [])[0];
+        if (!role) return { status: 422, body: { error: 'unknown role' } };
+        if (!out[1].rows.length) return { status: 422, body: { error: 'invalid_reference', detail: 'user is not a member of this tenant' } };
+        // The INSERT is RLS-checked: a user_roles row for another tenant is
+        // refused by the database, so this cannot grant access elsewhere.
+        return client.query(
+          'INSERT INTO user_roles (user_id, tenant_id, role_id) VALUES ($1,$2,$3)' +
+          ' ON CONFLICT DO NOTHING', [b.user_id, ctx.tenantId, role.id]
+        ).then(function () {
+          return {
+            status: 200, body: { assigned: true },
+            audit: { action: 'role.assigned', entity_table: 'user_roles', entity_id: b.user_id,
+                     detail: { role: roleKey } }
+          };
+        });
       });
     });
   }

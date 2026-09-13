@@ -163,11 +163,24 @@ var handlers = {
             });
         });
       });
+  },
+
+  /* Soft delete (deleted_at), same convention as every business table.
+     Reachable since 0012 seeded production.delete (Phase 6). */
+  retire: function (ctx, client) {
+    return client.query(
+      'UPDATE mission_orders SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING id, driver_name, vehicle_plate',
+      [ctx.id]
+    ).then(function (r) {
+      var row = (r.rows || [])[0];
+      if (!row) return { status: 404, body: { error: 'not_found' } };
+      return {
+        status: 200, body: { id: row.id, retired: true },
+        audit: { action: 'record.deleted', entity_table: 'mission_orders', entity_id: row.id,
+                 detail: { driver_name: row.driver_name, vehicle_plate: row.vehicle_plate } }
+      };
+    });
   }
-  // No retire/archive handler: the 'production' module has no delete
-  // permission in the catalogue (schema-auth.sql only seeds production.read
-  // and production.write) — see server.js's routing comment for the full
-  // reasoning. Not implemented here rather than exposed unreachable.
 };
 
 module.exports = { MISSION_TYPES: MISSION_TYPES, COLUMNS: COLUMNS, validateHeader: validateHeader, handlers: handlers };

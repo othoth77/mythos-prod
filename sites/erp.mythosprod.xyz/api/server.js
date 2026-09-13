@@ -265,17 +265,12 @@ route('POST',   '/api/v1/mission_orders', 'production', missionOrders.handlers.c
 route('GET',    '/api/v1/mission_orders/:id', 'production', missionOrders.handlers.get);
 route('PATCH',  '/api/v1/mission_orders/:id', 'production', missionOrders.handlers.update,
       function (b) { return missionOrders.validateHeader(b, true); });
-// No DELETE route: the 'production' module has no delete permission at all
-// in the permissions catalogue (only production.read/production.write exist
-// — schema-auth.sql), so collaborators/representations (registry.js, same
-// module) already have a DELETE route registered by the generic loop below
-// that is unreachable in practice (authz.authorize denies any method with
-// no permission key mapped, unconditionally — api/lib/authz.js). This is a
-// pre-existing gap, not something Mission Orders introduces; fixing it would
-// mean adding a new production.delete permission across the whole module,
-// which is shared infrastructure beyond this phase's scope. Documented, not
-// silently worked around: mission_orders has no retire/archive capability
-// for now.
+// Retire (soft delete). Phase 4 shipped without this route because the
+// 'production' module had no delete permission in the catalogue at all;
+// 0012 (Phase 6) seeded production.delete / inventory.delete and mapped
+// them in api/lib/authz.js, which also made the generic DELETE routes of
+// collaborators, representations, inventory_items and suppliers reachable.
+route('DELETE', '/api/v1/mission_orders/:id', 'production', missionOrders.handlers.retire);
 
 // ── Comptabilité / general ledger (0005-accounting.sql) ───────────────────
 // All tenant-scoped, module 'accounting': GET = accounting.read, POST/PATCH =
