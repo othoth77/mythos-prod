@@ -101,7 +101,7 @@ INSERT INTO user_roles (user_id, tenant_id, role_id) SELECT u.id, t.id, r.id FRO
 SQL
 echo "[e2e] tenants mythos + acme, users owner / bob(acme admin) / rita(mythos read_only)"
 
-ERP_DATABASE_URL="$APP_URL" ERP_API_PORT="$API_PORT" ERP_DOCUMENTS_DIR="$WORK/documents" node "$API/server.js" >"$WORK/api.log" 2>&1 &
+ERP_DATABASE_URL="$APP_URL" ERP_API_PORT="$API_PORT" ERP_DOCUMENTS_DIR="$WORK/documents" ERP_BACKUP_HEALTH_FILE="$WORK/backup-health.json" node "$API/server.js" >"$WORK/api.log" 2>&1 &
 API_PID=$!
 for i in $(seq 1 40); do curl -s -o /dev/null "http://127.0.0.1:$API_PORT/api/v1/health" && break; sleep 0.25; done
 B="http://127.0.0.1:$API_PORT/api/v1"; J="$WORK/b"; H="$WORK/h"
@@ -1079,7 +1079,68 @@ login "$ADMIN_EMAIL" "$ADMIN_PW"
 check "the mark-done is audited (record.updated on agenda_events for the reminder)" "[ \"$(q "select count(*) from audit_log where entity_table='agenda_events' and entity_id='$RM1' and action='record.updated'")\" -ge 1 ]" ""
 R=$(A "$B/agenda_events/due?days=365"); check "due rows carry ends_at/location/all_day so the edit form opened from the list cannot blank them" "[ $R = 200 ] && grep -q '\"location\"' $J && grep -q '\"all_day\"' $J && grep -q '\"ends_at\"' $J" "$(cat $J | head -c 300)"
 
-echo "§21 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
+echo "§21 backup status: /settings/backup reads the redacted health record at request time — ok/failed/stale/unknown, redaction, permissions, never a 500"
+BH="$WORK/backup-health.json"
+NOW_ISO=$(date -u +%FT%TZ); OLD_ISO=$(date -u -d '-3 days' +%FT%TZ)
+R=$(code "$B/settings/backup"); check "unauthenticated /settings/backup → 401" "[ $R = 401 ]" "$R"
+login "rita@mythos.test" "$OTHER_PW"; R=$(A "$B/settings/backup"); check "read_only lacks settings.read → 403" "[ $R = 403 ]" "$R"
+login "$NEWUSER_EMAIL" "$NEWUSER_PW"; R=$(A "$B/settings/backup"); check "finance_user lacks settings.read → 403" "[ $R = 403 ]" "$R"
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+rm -f "$BH"
+R=$(A "$B/settings/backup"); check "no health record yet → 200 available=false state=unknown reason=no_health_record (not a 500)" "[ $R = 200 ] && [ \"$(jget available)\" = False ] && [ \"$(jget state)\" = unknown ] && [ \"$(jget reason)\" = no_health_record ]" "$R $(cat $J)"
+cat > "$BH" <<EOF
+{ "schema_version": "1.0.0", "source": "ops/backup/mythos-backup-run-db.sh", "mode": "backup", "status": "ok", "exit_code": 0,
+  "started_at": "$NOW_ISO", "finished_at": "$NOW_ISO", "duration_s": 2, "backup_prefix": "mythos-erp/daily",
+  "last_success_at": "$NOW_ISO", "consecutive_failures": 0, "error": "" }
+EOF
+R=$(A "$B/settings/backup"); check "fresh successful backup → state=ok, mode=backup, 0 consecutive failures, hours_since_success ≈ 0" "[ $R = 200 ] && [ \"$(jget available)\" = True ] && [ \"$(jget state)\" = ok ] && [ \"$(jget mode)\" = backup ] && [ \"$(jget consecutive_failures)\" = 0 ] && [ \"$(jget stale_after_hours)\" = 36 ] && python3 -c \"import json; d=json.load(open('$J')); assert 0 <= d['hours_since_success'] < 1, d\"" "$R $(cat $J)"
+check "the record's source path and backup prefix are never returned" "! grep -q 'source' $J && ! grep -q 'backup_prefix' $J && ! grep -q 'mythos-backup-run' $J && ! grep -q 'mythos-erp/daily' $J" "$(cat $J)"
+cat > "$BH" <<EOF
+{ "schema_version": "1.0.0", "source": "ops/backup/mythos-backup-run-db.sh", "mode": "verify", "status": "failed", "exit_code": 3,
+  "started_at": "$NOW_ISO", "finished_at": "$NOW_ISO", "duration_s": 9, "backup_prefix": "mythos-erp/daily",
+  "last_success_at": "$OLD_ISO", "consecutive_failures": 2,
+  "error": "/home/deploy/projects/mythos-prod/ops/backup/run.sh: line 42: pg_dump: error: connection to postgres://erp_owner:s3cret@127.0.0.1:5432/mythos_erp failed for deploy@vps-4722f0a9 see /var/log/x.log" }
+EOF
+R=$(A "$B/settings/backup"); check "failed verify → state=failed, mode=verify, exit_code 3, 2 consecutive failures, hours_since_success ≥ 72" "[ $R = 200 ] && [ \"$(jget state)\" = failed ] && [ \"$(jget mode)\" = verify ] && [ \"$(jget exit_code)\" = 3 ] && [ \"$(jget consecutive_failures)\" = 2 ] && python3 -c \"import json; d=json.load(open('$J')); assert d['hours_since_success'] >= 72, d\"" "$R $(cat $J)"
+check "error tail is redacted: no path, no connection URL, no secret, no user@host; markers present; ≤ 200 chars" "! grep -q '/home/deploy' $J && ! grep -q '/var/log' $J && ! grep -q 'postgres://' $J && ! grep -q 's3cret' $J && ! grep -q 'deploy@vps' $J && grep -q '\\[path\\]' $J && grep -q '\\[url\\]' $J && grep -q '\\[redacted\\]' $J && python3 -c \"import json; d=json.load(open('$J')); assert len(d['error']) <= 200 and 'pg_dump' in d['error'], d\"" "$(jget error)"
+cat > "$BH" <<EOF
+{ "mode": "verify", "status": "failed", "exit_code": 1, "finished_at": "$NOW_ISO", "last_success_at": "$NOW_ISO", "consecutive_failures": 1,
+  "error": "rclone copy remote:bucket/mythos-erp/daily failed; ops/backup/mythos-backup-run-db.sh: line 9; host=db.internal port=5432 password=s3cret PGPASSWORD=s3cret token=abcDEF123; connection to server at 127.0.0.1, port 5432 and [::1]:5432 refused; see ~/mythos-backups/x.log and ./run.sh,/var/tmp/y.log" }
+EOF
+R=$(A "$B/settings/backup"); check "redaction bypass shapes (review): remote spec, relative path / backup prefix, key=value secrets, IPv4/IPv6 host:port, ~/ ./ and comma-delimited paths — none leak" "[ $R = 200 ] && python3 -c \"
+import json; e=json.load(open('$J'))['error']
+for bad in ('mythos-erp/daily','bucket','ops/backup','run-db.sh','s3cret','abcDEF123','127.0.0.1','5432','::1','/var/tmp','y.log','x.log','db.internal'): assert bad not in e, (bad, e)
+assert len(e) <= 201 and not e.rstrip('…').endswith('[') and '[url]' in e and '[path]' in e and '[redacted]' in e and '[host]' in e, e\"" "$(jget error)"
+cat > "$BH" <<EOF
+{ "mode": "backup", "status": "ok", "finished_at": "$NOW_ISO", "last_success_at": "$NOW_ISO", "consecutive_failures": 0, "error": "$(printf 'x%.0s' $(seq 1 190)) deploy@vps-4722f0a9 more" }
+EOF
+R=$(A "$B/settings/backup"); check "a 200-char cut never ends on a partial marker; a missing exit_code is 'not reported', not a failure" "[ $R = 200 ] && [ \"$(jget state)\" = ok ] && python3 -c \"
+import json,re; d=json.load(open('$J')); e=d['error']
+assert d['exit_code'] is None and 'deploy@' not in e and not re.search(r'\\[[a-z]*\$', e.rstrip('…')) and e.endswith('…'), d\"" "$(cat $J)"
+cat > "$BH" <<EOF
+{ "schema_version": "1.0.0", "mode": "backup", "status": "ok", "exit_code": 0, "started_at": "$OLD_ISO", "finished_at": "$OLD_ISO", "duration_s": 2,
+  "last_success_at": "$OLD_ISO", "consecutive_failures": 0, "error": "" }
+EOF
+R=$(A "$B/settings/backup"); check "last success 3 days ago with no failure → state=stale (36 h threshold)" "[ $R = 200 ] && [ \"$(jget state)\" = stale ] && [ \"$(jget status)\" = ok ]" "$R $(cat $J)"
+cat > "$BH" <<EOF
+{ "mode": "bogus", "status": "ok", "exit_code": "0", "started_at": "not a date", "finished_at": "$NOW_ISO", "duration_s": "x", "last_success_at": "$NOW_ISO", "consecutive_failures": "-4", "error": null }
+EOF
+R=$(A "$B/settings/backup"); check "odd values are normalised: unknown mode, string exit_code → 0, bad date → null, bad duration → null, negative failures → 0, null error → ''" "[ $R = 200 ] && python3 -c \"import json; d=json.load(open('$J')); assert d['mode']=='unknown' and d['exit_code']==0 and d['state']=='ok' and d['started_at'] is None and d['duration_s'] is None and d['consecutive_failures']==0 and d['error']=='', d\"" "$R $(cat $J)"
+printf '{ not json' > "$BH"
+R=$(A "$B/settings/backup"); check "malformed record → 200 available=false reason=invalid_record (not a 500)" "[ $R = 200 ] && [ \"$(jget available)\" = False ] && [ \"$(jget reason)\" = invalid_record ]" "$R $(cat $J)"
+printf '[1,2]' > "$BH"
+R=$(A "$B/settings/backup"); check "non-object record → invalid_record" "[ $R = 200 ] && [ \"$(jget reason)\" = invalid_record ]" "$R $(cat $J)"
+cat > "$BH" <<EOF
+{ "mode": "backup", "status": "ok", "exit_code": 0, "finished_at": "$NOW_ISO", "last_success_at": "$NOW_ISO", "consecutive_failures": 0, "error": "" }
+EOF
+login "bob@acme.test" "$OTHER_PW"; R=$(A "$B/settings/backup"); check "a tenant admin (settings.read, not super_admin) gets 403: the host-level record is for the platform role only" "[ $R = 403 ] && grep -q super_admin $J" "$R $(cat $J)"
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+AUDIT_BEFORE_BK=$(q "select count(*) from audit_log")
+R=$(A "$B/settings/backup"); check "the platform super_admin reads it (200)" "[ $R = 200 ] && [ \"$(jget state)\" = ok ]" "$R"
+A "$B/settings/backup" >/dev/null; A "$B/settings/backup" >/dev/null
+check "backup status reads leave no audit rows (three GETs, audit count unchanged)" "[ \"$(q "select count(*) from audit_log")\" = \"$AUDIT_BEFORE_BK\" ]" "$AUDIT_BEFORE_BK → $(q "select count(*) from audit_log")"
+
+echo "§22 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
 # A dedicated restart of the same already-migrated database, at a tiny
 # threshold, so this section is fast and deterministic instead of needing
 # hundreds of requests against the default (400/10s) limit used everywhere
@@ -1088,7 +1149,7 @@ echo "§21 rate limiting: the authoritative check runs before routing, so it can
 # against the default one.
 kill "$API_PID" >/dev/null 2>&1 || true
 wait "$API_PID" 2>/dev/null || true
-ERP_DATABASE_URL="$APP_URL" ERP_API_PORT="$API_PORT" ERP_DOCUMENTS_DIR="$WORK/documents" \
+ERP_DATABASE_URL="$APP_URL" ERP_API_PORT="$API_PORT" ERP_DOCUMENTS_DIR="$WORK/documents" ERP_BACKUP_HEALTH_FILE="$WORK/backup-health.json" \
   ERP_RATE_LIMIT_MAX=5 ERP_RATE_LIMIT_WINDOW_MS=3000 node "$API/server.js" >>"$WORK/api.log" 2>&1 &
 API_PID=$!
 for i in $(seq 1 40); do curl -s -o /dev/null "http://127.0.0.1:$API_PORT/api/v1/health" && break; sleep 0.25; done

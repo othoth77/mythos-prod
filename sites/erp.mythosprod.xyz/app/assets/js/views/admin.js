@@ -60,7 +60,49 @@ export function settingsView(container) {
         h('p', { text: 'Droit de timbre appliqué par défaut à chaque nouvelle facture, devis et achat (1,000 TND par facture — art. 117 n°6 du Code des droits d\'enregistrement et de timbre). Modifiable document par document ; 0 pour une opération exonérée (export).' }),
         h('div', { class: 'field-row' }, field('', h('label', { class: 'toggle', for: 'fs-enabled' }, fsOn, h('span', { text: 'Appliquer le timbre fiscal' }))), field('Montant (TND)', fsAmt)),
         fsErr, h('div', {}, fsSave)));
+      // Phase 10 — backup status: the scheduled off-host backup's health
+      // record, read-only. Its own request so a missing record never hides
+      // the rest of the settings page.
+      const bkBody = h('div', { text: 'Chargement…' });
+      body.appendChild(h('article', { class: 'card', dataset: { card: 'backup' } }, h('div', { class: 'card-head' }, h('h3', { text: 'Sauvegardes' })),
+        h('p', { text: 'Sauvegarde quotidienne hors site de la base de données (planifiée sur le serveur). Cette carte lit le dernier compte rendu ; elle ne déclenche rien.' }), bkBody));
+      loadBackup(bkBody);
     } catch (e) { clear(body).appendChild(errorBox(describeError(e), load, e.body && e.body.error)); }
+  }
+}
+
+const BACKUP_STATE = { ok: ['OK', 'ok'], failed: ['ÉCHEC', 'danger'], stale: ['OBSOLÈTE', 'warn'], unknown: ['INCONNU', ''] };
+const BACKUP_MODE = { backup: 'sauvegarde', verify: 'vérification', 'restore-test': 'test de restauration', unknown: '—' };
+const BACKUP_REASON = { no_health_record: 'Aucun compte rendu de sauvegarde n\'a encore été écrit sur ce serveur.', unreadable: 'Le compte rendu existe mais n\'est pas lisible par l\'API.', invalid_record: 'Le compte rendu n\'est pas un enregistrement valide.' };
+async function loadBackup(el) {
+  try {
+    const b = await api.get('/settings/backup');
+    clear(el);
+    const [label, tone] = BACKUP_STATE[b.state] || BACKUP_STATE.unknown;
+    // The badge names the run it describes: the record covers the latest run
+    // of any mode (backup / verify / restore test), so "OK — vérification"
+    // must not be read as "the backup itself succeeded".
+    const modeLabel = BACKUP_MODE[b.mode] || b.mode;
+    el.appendChild(h('p', {}, badge(b.available ? label + ' — ' + modeLabel : label, tone), ' ', b.available
+      ? 'Dernière exécution : ' + modeLabel + (b.finished_at ? ' le ' + fmtDate(b.finished_at) : '')
+      : (BACKUP_REASON[b.reason] || 'Statut indisponible.')));
+    if (!b.available) return;
+    const dl = h('dl', { class: 'kv' });
+    [['Résultat', b.status === 'ok' ? 'succès' : 'échec' + (b.exit_code !== null ? ' (code ' + b.exit_code + ')' : '')],
+      ['Durée', b.duration_s === null ? '—' : b.duration_s + ' s'],
+      ['Dernier succès', b.last_success_at ? fmtDate(b.last_success_at) + (b.hours_since_success !== null ? ' (il y a ' + b.hours_since_success + ' h)' : '') : 'jamais'],
+      ['Échecs consécutifs', String(b.consecutive_failures)],
+      ['Seuil d\'obsolescence', b.stale_after_hours + ' h sans succès'],
+      ['Erreur', b.error || '—']]
+      .forEach(([k, v]) => dl.append(h('dt', { text: k }), h('dd', { text: v })));
+    el.appendChild(dl);
+    if (b.state === 'failed') el.appendChild(h('p', { class: 'hint', text: 'La dernière exécution a échoué : vérifier le journal du service de sauvegarde sur le serveur.' }));
+    else if (b.state === 'stale') el.appendChild(h('p', { class: 'hint', text: 'Aucun succès récent : le minuteur de sauvegarde n\'a peut-être pas tourné.' }));
+  } catch (e) {
+    // Host-level record: the API shows it to the platform role only. A tenant
+    // admin gets a plain sentence, not an error box.
+    if (e && e.status === 403) { clear(el).appendChild(h('p', {}, badge('RÉSERVÉ', ''), ' Visible par le super administrateur de la plateforme uniquement.')); return; }
+    clear(el).appendChild(errorBox(describeError(e), () => loadBackup(el), e.body && e.body.error));
   }
 }
 
