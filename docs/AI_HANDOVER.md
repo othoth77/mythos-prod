@@ -2,6 +2,55 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-13 — MYTHOS ERP PHASE 6: P0 RBAC HARDENING — **PHASE_6_COMPLETE** (Fable 5.1)
+
+A small security phase pulled forward by the Phase 5 audit, which found a
+real privilege escalation: **`POST /api/v1/users/roles` had no rank cap
+and was gated only by `users.manage`**, which `admin` holds — so an admin
+could `POST {user_id: <self>, role_key: 'super_admin'}` and become a
+super_admin, precisely the escalation `schema-auth.sql`'s tier separation
+(admin lacks `roles.manage`) exists to prevent. Phase 1's `POST /users`
+had the cap since day one; this older handler never got it. Verified in
+code (`views.js assignRole`) before acting.
+
+**Fix.** `assignRole` now shares `users.js`'s `callerMaxRank` (per user,
+per ACTIVE tenant — `ctx.tenantId` is set by the pipeline only after
+membership is verified, body tenant ids are never read): a caller cannot
+grant a role ranked above their own highest role in that tenant; the
+target must be an active member of that tenant (explicit `tenant_id`
+predicate, not RLS alone); `user_id` is validated with `db.UUID`; refusals
+are audited (`permission.denied`, `role_exceeds_own_rank`). No permission
+rows changed for this: admin keeps `users.manage` and still lacks
+`roles.manage`.
+
+**Dead DELETE zones closed.** The `production` and `inventory` modules had
+no `*.delete` permission in the catalogue at all, so the generic `DELETE`
+routes of `collaborators`, `representations`, `inventory_items` and
+`suppliers` denied everyone — `super_admin` included — with
+`no_permission_mapping` and an audit row each time, and Phase 4 shipped
+mission orders without a retire route for the same reason. Migration
+`0012` seeds `production.delete` / `inventory.delete` for `super_admin`
+and `admin` (the same grant pattern as every other delete key);
+`authz.js` maps them; `mission_orders` gains a soft-delete retire route
+and a "Retirer" button. Still without a DELETE key, deliberately:
+`accounting` (accounts/journals must never be deletable) — and, noted for
+a future small task, `planning`/`settings` (appointments, natures,
+expense_categories: same dead-route noise, not touched here).
+
+| Item | Detail |
+|---|---|
+| Implementation commit | `565395f` on `mythos/erp-p0-rbac-hardening-20260913` |
+| PR / merge | [#267](https://github.com/othoth77/mythos-prod/pull/267), squash-merged → `8d8ffb32e8030abb871f8d99f63e2969e9d3620e` (13 files, ERP paths only) |
+| Migration | `0012-rbac-delete-permissions.sql` — additive: two permissions + four `role_permissions` rows, `ON CONFLICT` both. |
+| Backup | `mythos_erp-20260913T082044Z.dump`, 222,784 B, sha256 `55a6e6ae…0e05`, 554 TOC entries, local + remote verified, "completed clean". |
+| Rehearsal | Restore of that backup: run 1 applied only `0012`, run 2 skipped all 12; permissions 42→44, `role_permissions` 142→146, `mythos` super_admin effective permissions 44; users unchanged. Container destroyed. |
+| Production | Checkout ff to `8d8ffb3`; migration applied via the real runner (`applied=["0012…"]`, 11 skipped); post-checks identical to rehearsal; `erp-api` restarted `Result=success`, `NRestarts=0`; `code_identity.head` `8d8ffb32…`, `verified:true`. |
+| Smoke | Unauthenticated `GET /users`, `POST /users/roles`, `DELETE /mission_orders/:id`, `DELETE /collaborators/:id` → 401. Authenticated GETs → 200; `DELETE` of a nonexistent mission order as super_admin → **404** (route reachable and authorized — before 0012 it was 404 for lack of a route, and would have been 403 if routed). Zero business rows, `user_roles` = 1. |
+| Independent review | Two hardening nits applied (explicit tenant predicate on the membership check; strict `db.UUID`). Rank cap, RLS scoping, migration targets, soft-delete semantics, frontend all found clean. |
+| Tests | Core E2E **389/0** (§17 RBAC: admin self-elevation 403 + audited, within-rank 200, non-member 422 with no row, malformed uuid 422, delete keys granted to admin/super_admin only, collaborator/inventory retire now 200, read_only 403; §15 mission retire: read_only 403, foreign tenant 404, super_admin 200, row kept). Auth **125/0** (12 migrations), frontend-check **43/0**, frontend-drill **48/0**, acceptance **80/0**, security **59/0**, bootstrap **45/0** (effective permissions 42→44, intended). **Total 789/789**, re-run against the deployed revision. |
+| Remaining gaps | `roles.manage`, `reports.export`, `backup.manage` remain seeded-but-unreferenced (documented, harmless); `planning`/`settings` DELETE dead-routes (see above). |
+| Next phase | Expenses into the ledger (P1 accounting truth) — see the next entry. |
+
 ## 2026-09-13 — MYTHOS ERP PHASE 5: P0 FISCAL STAMP (DROIT DE TIMBRE) + ACHATS UI — **PHASE_5_COMPLETE_WITH_MINOR_GAPS** (Fable 5.1)
 
 Selected by a fresh read-only gap audit of the legacy ERP and the current
