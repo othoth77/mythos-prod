@@ -2,6 +2,64 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-13 — MYTHOS ERP PHASE 7: P1 EXPENSES → LEDGER — **PHASE_7_COMPLETE** (Fable 5.1)
+
+Expenses (legacy `mp_expenses`: date, label, category, payment mode,
+amount — the most-used money record after invoices) were the one flow
+that never reached the general ledger: `reports/expenses` and the trial
+balance were two truths that could not agree. Discovery re-verified the
+current code (generic registry CRUD, no `postExpense`, no VAT, no payment
+method) and the legacy form (8 seeded categories, modes BIAT / Virement /
+Espèces / Chèque / Carte, no VAT, no approval, no attachment).
+
+**Model — legacy parity, nothing invented.** `expenses` gains
+`payment_method` (free text, same convention and cash/bank rule as
+`payments.method`), `vat_rate` (default 0: the amount is what was PAID;
+a rate splits it into HT + deductible VAT exactly like the legacy purchase
+calculator reversed a TTC), and an optional `supplier_id` (reuse of the
+existing entity). `expense_categories.account_id` lets a category name the
+expense account its lines debit; otherwise the tenant's new `expenses`
+system account is used — **IMPLEMENTATION ASSUMPTION, flagged**: placed on
+the already-seeded `62 — Autres services extérieurs`; the tenant may move
+it in the Plan comptable, only the system_key is looked up.
+
+**Posting.** One entry per expense at creation (the cash has already left):
+category/default expense account debit HT, `vat_deductible` debit when
+VAT > 0, treasury credit for the amount — cash journal when the method says
+espèces/caisse/cash/liquide, bank otherwise. Idempotent on
+`(source_table 'expenses', source_id)`; reversed on retire
+(`expense_cancel`). **Amount, date, VAT, method and category are immutable
+once posted** — retire and record a new one — the same rule invoices apply
+to a paid document; description and links stay editable. A category that
+points at a missing, inactive, cross-tenant (RLS-hidden) or non-expense
+account refuses the posting with a 409 and the transaction rolls back —
+never a silent fallback (review finding). Rows that existed before the
+migration are not retro-posted (production had none).
+
+**UI.** `expenses` left `registry.js` for a dedicated module (as purchases
+did in Phase 2) and a dedicated Finance › Dépenses view: list with
+category/search filters, detail with the HT/VAT split and the ledger entry
+number, create, edit (locked fields disabled once posted), retire with a
+confirm that says the entry is reversed.
+
+**Independent review** found three defects, all fixed and pinned by
+assertions: the edit form could not clear a supplier/project link; the
+category account fell back silently to the default and was not checked
+for type `expense`; a boolean `amount` coerced to 1.
+
+| Item | Detail |
+|---|---|
+| Implementation commit | `07f87f1` on `mythos/erp-p1-expenses-ledger-20260913` |
+| PR / merge | [#269](https://github.com/othoth77/mythos-prod/pull/269), squash-merged → `f00ba311791f80458725bd4191e9ca6b9f383b2b` (14 files, ERP paths only) |
+| Migration | `0013-expenses-ledger.sql` — additive: `expenses.payment_method / vat_rate / supplier_id` + CHECKs + indexes, `expense_categories.account_id`, `account_system_key_known` extended with `expenses`, `accounting_seed_tenant` replaced (`'62'` carries the key), `'62'` rows of configured tenants keyed on the absence of `expenses`. No new grants. |
+| Backup | `mythos_erp-20260913T084258Z.dump`, 223,195 B, sha256 `db9b4aa8…ee21d`, 554 TOC entries, local + remote verified, "completed clean". |
+| Rehearsal | Restore of that backup: run 1 applied only `0013`, run 2 skipped all 13; columns/CHECKs/system-key CHECK/RLS/grants verified; `62` → `expenses`; `mythos` chart still 18 accounts; users unchanged. Container destroyed. |
+| Production | Checkout ff to `f00ba31`; migration applied via the real runner (`applied=["0013…"]`, 12 skipped); post-checks identical to rehearsal; `erp-api` restarted `Result=success`, `NRestarts=0`; `code_identity.head` `f00ba311…`, `verified:true`. |
+| Smoke | Unauthenticated `/expenses` (GET/POST/GET:id), `/expense_categories` → 401; `views/expenses.js` served; authenticated GETs → 200; `accounting/setup` lists `expenses` among 11 system keys. Zero rows in `expenses` / `journal_entries` / `invoices` after the test. |
+| Tests | Core E2E **418/0** (§18, 32 assertions: amount 0 / VAT 150 / unknown category / boolean amount refused; cash expense 119 @19 → 62 debit 100.000, 4366 debit 19.000, 54 credit 119.000, balanced; bank expense → 532 credit; category account routing to 61; non-expense account → 409 + rollback; amount immutable 409; description edit without a second entry; retire → reversal (`expense_cancel`), original `reversed`; trial balance balanced; VAT report counts the deductible VAT; expenses report excludes the retired one; read_only 403/200; acme 404/404; audit created/updated/deleted). Auth **125/0** (13 migrations), frontend-check **44/0**, frontend-drill **48/0**, acceptance **80/0**, security **59/0**, bootstrap **45/0**. **Total 819/819**, re-run against the deployed revision. |
+| Remaining gaps | No approval workflow or attachments (no legacy evidence — deferred, not refused); the `reports/expenses` report still groups by category only (the legacy also grouped by payment mode — small, deferred). |
+| Next phase | Cash register (P1): with expenses and payments now posting to `54`/`CA`, what remains is a cash book over the ledger plus manual cash movements (bank ↔ till, adjustments) — see the next entry. |
+
 ## 2026-09-13 — MYTHOS ERP PHASE 6: P0 RBAC HARDENING — **PHASE_6_COMPLETE** (Fable 5.1)
 
 A small security phase pulled forward by the Phase 5 audit, which found a
