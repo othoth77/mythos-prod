@@ -2,6 +2,55 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-13 — GO STAMP: fiscal-stamp policy ENABLED on the production tenant (owner-authorised, Fable 5.1)
+
+Owner order "GO STAMP" (2026-09-13, ~16:56 UTC). Configuration change only —
+no code, no migration, no other setting touched.
+
+**Verified before the change.** Deployed implementation = Phase 5 as
+merged: `tenancy.fiscalStamp()` reads `tenants.settings.fiscal_stamp`
+(`enabled === true`, amount 0..1000, default 1.000); invoices, quotes and
+purchases default `stamp_amount` from it at creation; `settings.update`
+validates the key; issue posts a credit leg on `stamp_collected` (4368) and
+a purchase invoice a debit leg on `stamp_expense` (6354), receivable/payable
+= HT + VAT + stamp, 409 if an account is missing. Production tenant: both
+accounts present and active (`4368 État, droits de timbre collectés`,
+`6354 Droits d'enregistrement et de timbre`), `settings = {}` (policy OFF),
+0 invoices / quotes / purchases / journal entries / payments. Legal basis
+as documented in `db/0011-fiscal-stamp.sql`: CDET art. 117 §I n°6, 1,000
+TND per invoice since 1 Jan 2023 (décret-loi 2022-79 art. 69, DGI NC
+02/2023), also on partial invoices / credit notes (NC 06/2004); not due on
+exports / totally exporting enterprises / State-borne (art. 118) — recorded
+per document as `stamp_amount = 0`. Accounting codes 4368/6354 remain an
+IMPLEMENTATION ASSUMPTION for the accountant to confirm.
+
+**Change.** As the owner, through the real API: `PATCH /api/v1/settings
+{"settings":{"fiscal_stamp":{"enabled":true,"amount":1}}}` → 200. Audited
+`tenant.updated` on `tenants` (detail: `fields`).
+
+**Verified after.** `GET /settings` → `settings.fiscal_stamp = {enabled:
+true, amount: 1}`; `tenants.settings` in the database identical; the
+deployed `fiscalStamp()` evaluated read-only as `erp_app` under the tenant
+context → `{"enabled":true,"amount":1}` (rolled back, nothing written).
+Business rows unchanged: invoices / quotes / purchases / journal entries /
+journal lines / payments = 0/0/0/0/0/0 before and after; audit rows 101 →
+104 (login, tenant.updated, logout). No document was created in production
+to "test" the stamp — the behaviour is proven by core E2E §16 on the
+deployed revision (default 1.000 on a new invoice / quote / purchase,
+4368 credit 1.000, receivable 1191.000 on a 1000 HT + 19 % invoice, export
+at 0, quote → invoice carries the stamp).
+
+**Effect from now on.** Every new invoice, quote and purchase of the Mythos
+tenant defaults to `stamp_amount = 1.000` (editable per document; 0 for an
+exempt export); issued invoices post the 4368 leg; the receivables and
+revenue reports include it. Existing documents: none.
+
+**Observation (unchanged, pre-existing).** `tenants` has no
+`set_updated_at` trigger, so `tenants.updated_at` still shows 2026-08-30;
+the audit row is the timestamp of record. Rollback if ever needed: the same
+PATCH with `enabled: false` (documents already created keep their own
+`stamp_amount`).
+
 ## 2026-09-13 — MYTHOS ERP FINAL INTEGRATION PHASE — **ERP_PRODUCTION_READY_WITH_MINOR_GAPS** (Fable 5.1)
 
 The master completion order (Phase 5 → final) is executed: Phases 3–11
