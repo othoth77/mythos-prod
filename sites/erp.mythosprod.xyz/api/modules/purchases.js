@@ -25,15 +25,25 @@ var STATUS = ['draft', 'confirmed', 'part_paid', 'paid', 'cancelled'];
 var USER_SETTABLE = ['draft', 'confirmed', 'cancelled'];
 
 var COLUMNS = ['id', 'supplier_id', 'reference', 'purchased_on', 'due_on',
-  'amount_ht', 'vat_rate', 'status', 'notes', 'legacy_id', 'created_at', 'updated_at'];
+  'amount_ht', 'vat_rate', 'stamp_amount', 'status', 'notes', 'legacy_id', 'created_at', 'updated_at'];
 
 function validateHeader(body, partial) {
   var b = body || {};
   var out = {};
   ['supplier_id', 'reference', 'purchased_on', 'due_on', 'amount_ht', 'vat_rate',
-   'notes', 'legacy_id', 'status'].forEach(function (f) {
+   'notes', 'legacy_id', 'status', 'stamp_amount'].forEach(function (f) {
     if (Object.prototype.hasOwnProperty.call(b, f)) out[f] = b[f];
   });
+  // Phase 5: the supplier's fiscal stamp, part of what is owed (TTC), a
+  // per-document snapshot (0 when the supplier's invoice carries none).
+  if (out.stamp_amount === null || (typeof out.stamp_amount === 'string' && out.stamp_amount.trim() === '')) delete out.stamp_amount;
+  if (out.stamp_amount !== undefined) {
+    var stampN = (typeof out.stamp_amount === 'number' || typeof out.stamp_amount === 'string') ? Number(String(out.stamp_amount).trim()) : NaN;
+    if (!Number.isFinite(stampN) || stampN < 0 || stampN > 1000) {
+      return { ok: false, error: 'stamp_amount must be a number between 0 and 1000' };
+    }
+    out.stamp_amount = Number(stampN.toFixed(3));
+  }
   if (out.status !== undefined && USER_SETTABLE.indexOf(String(out.status)) < 0) {
     return { ok: false, error: 'status may only be set to ' + USER_SETTABLE.join('|') +
                               ' — paid and part_paid follow from payments' };
@@ -61,7 +71,9 @@ function money(n) { return Number(Number(n || 0).toFixed(3)); }
 function totals(row) {
   var ht = money(row.amount_ht);
   var vat = money(ht * Number(row.vat_rate || 0) / 100);
-  return { total_ht: ht.toFixed(3), total_vat: vat.toFixed(3), total_ttc: money(ht + vat).toFixed(3) };
+  var stamp = money(row.stamp_amount || 0);
+  return { total_ht: ht.toFixed(3), total_vat: vat.toFixed(3), stamp_amount: stamp.toFixed(3),
+           total_ttc: money(ht + vat + stamp).toFixed(3) };
 }
 
 function paidSoFar(client, purchaseId) {
@@ -75,7 +87,7 @@ function paidSoFar(client, purchaseId) {
    the exact mirror of invoices.js's reconcileStatus. */
 function reconcileStatus(client, purchaseId) {
   return Promise.all([
-    client.query('SELECT amount_ht, vat_rate, status FROM purchases WHERE id = $1', [purchaseId]),
+    client.query('SELECT amount_ht, vat_rate, stamp_amount, status FROM purchases WHERE id = $1', [purchaseId]),
     paidSoFar(client, purchaseId)
   ]).then(function (out) {
     var row = out[0].rows[0];
@@ -136,7 +148,12 @@ var handlers = {
 
   create: function (ctx, client) {
     var h = ctx.input;
-    return client.query('SELECT 1 FROM suppliers WHERE id = $1 AND deleted_at IS NULL', [h.supplier_id]).then(function (sr) {
+    return require('../lib/tenancy').fiscalStamp(client).then(function (fs) {
+      // A Tunisian supplier's invoice carries the same stamp; the tenant's
+      // policy is the default, 0 when the supplier's document has none.
+      if (h.stamp_amount === undefined) h.stamp_amount = fs.enabled ? fs.amount : 0;
+      return client.query('SELECT 1 FROM suppliers WHERE id = $1 AND deleted_at IS NULL', [h.supplier_id]);
+    }).then(function (sr) {
       if (!sr.rows.length) return { status: 422, body: { error: 'invalid_reference', detail: 'unknown supplier_id' } };
       var cols = ['tenant_id'].concat(Object.keys(h));
       var params = [ctx.tenantId].concat(Object.keys(h).map(function (k) { return h[k]; }));
@@ -221,7 +238,7 @@ var handlers = {
     var b = ctx.body || {};
     var amount = Number(b.amount);
     if (!(amount > 0)) return Promise.resolve({ status: 422, body: { error: 'amount must be greater than zero' } });
-    return client.query('SELECT id, status, reference, amount_ht, vat_rate FROM purchases WHERE id = $1 AND deleted_at IS NULL', [ctx.id])
+    return client.query('SELECT id, status, reference, amount_ht, vat_rate, stamp_amount FROM purchases WHERE id = $1 AND deleted_at IS NULL', [ctx.id])
       .then(function (r) {
         if (!(r.rows || []).length) return { status: 404, body: { error: 'not_found' } };
         var cur = r.rows[0];
@@ -236,7 +253,7 @@ var handlers = {
               .then(function (u) { return hydrate(client, u.rows[0]); })
               .then(function (full) { return accounting.postPurchaseInvoice(client, ctx, full); });
         return confirm.then(function (confirmed) {
-          return Promise.all([client.query('SELECT amount_ht, vat_rate FROM purchases WHERE id = $1', [ctx.id]), paidSoFar(client, ctx.id)]).then(function (tp) {
+          return Promise.all([client.query('SELECT amount_ht, vat_rate, stamp_amount FROM purchases WHERE id = $1', [ctx.id]), paidSoFar(client, ctx.id)]).then(function (tp) {
             var balance = Number(totals(tp[0].rows[0]).total_ttc) - tp[1];
             if (amount > balance + 0.0005) {
               return { status: 422, body: { error: 'amount exceeds the outstanding balance', balance: balance.toFixed(3) } };

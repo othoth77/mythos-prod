@@ -90,12 +90,32 @@ function formatInvoiceNumber(pattern, prefix, seq, now) {
     .replace('{seq}', String(seq));
 }
 
+/* Phase 5 — the tenant's fiscal-stamp policy (Tunisian droit de timbre,
+   CDET art. 117 n°6: 1,000 dinar per invoice since 1 Jan 2023), read from
+   tenants.settings->'fiscal_stamp' = { enabled, amount }. Absent or malformed
+   → disabled: enabling it is a decision the tenant makes in Paramètres,
+   never a silent change to what an invoice totals. The amount defaults to the
+   legal 1,000 when enabled without one. Runs inside the tenant transaction,
+   so RLS hands back the one tenant row. */
+var STAMP_MAX = 1000; // sanity ceiling: the legal duty is 1,000 (2,000 at most for grandes surfaces)
+function fiscalStamp(exec) {
+  return exec.query('SELECT settings FROM tenants LIMIT 1').then(function (r) {
+    var s = ((r.rows || [])[0] || {}).settings;
+    var fs = (s && typeof s === 'object' && s.fiscal_stamp && typeof s.fiscal_stamp === 'object') ? s.fiscal_stamp : {};
+    var amount = (fs.amount === null || fs.amount === undefined || fs.amount === '') ? NaN : Number(fs.amount);
+    if (!Number.isFinite(amount) || amount < 0 || amount > STAMP_MAX) amount = 1;
+    return { enabled: fs.enabled === true, amount: Number(amount.toFixed(3)) };
+  });
+}
+
 module.exports = {
   MODULES: MODULES,
   membershipsFor: membershipsFor,
   isMember: isMember,
   isModuleEnabled: isModuleEnabled,
   tenantSettings: tenantSettings,
+  fiscalStamp: fiscalStamp,
+  STAMP_MAX: STAMP_MAX,
   claimInvoiceNumber: claimInvoiceNumber,
   formatInvoiceNumber: formatInvoiceNumber
 };

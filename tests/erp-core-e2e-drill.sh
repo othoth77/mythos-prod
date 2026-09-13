@@ -58,7 +58,7 @@ docker run -d --name "$C" -P -e POSTGRES_USER=erp_owner -e POSTGRES_DB=mythos_er
 # start; a single pg_isready success can land in that window. Require two in a row.
 OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
-for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql 0008-purchases-lifecycle.sql 0009-bank-reconciliation.sql 0010-mission-orders.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql 0008-purchases-lifecycle.sql 0009-bank-reconciliation.sql 0010-mission-orders.sql 0011-fiscal-stamp.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
 done
@@ -277,8 +277,8 @@ login "$ADMIN_EMAIL" "$ADMIN_PW"; [ "$R" = 200 ] || bad "owner login for account
 check "6 accounting tables with RLS + tenant_isolation" "[ \"$(q "select count(*) from pg_tables where schemaname='public' and rowsecurity and tablename in ('accounts','journals','fiscal_periods','accounting_counters','journal_entries','journal_lines')")\" = 6 ] && [ \"$(q "select count(*) from pg_policies where tablename in ('accounts','journals','fiscal_periods','accounting_counters','journal_entries','journal_lines')")\" = 6 ]" ""
 check "erp_app grants: DELETE only on the three lines tables that are replaced wholesale on edit (invoice/quote/journal lines), nothing else" "[ \"$(q "select string_agg(table_name,',' order by table_name) from information_schema.role_table_grants where grantee='erp_app' and privilege_type='DELETE'")\" = invoice_lines,journal_lines,quote_lines ]" "$(q "select string_agg(table_name,',') from information_schema.role_table_grants where grantee='erp_app' and privilege_type='DELETE'")"
 check "4 accounting permissions; finance_user has read/write/post but not close; read_only read only" "[ \"$(q "select count(*) from permissions where key like 'accounting.%'")\" = 4 ] && [ \"$(q "select string_agg(p.key,',' order by p.key) from role_permissions rp join roles r on r.id=rp.role_id join permissions p on p.id=rp.permission_id where r.key='finance_user' and p.key like 'accounting.%'")\" = accounting.post,accounting.read,accounting.write ] && [ \"$(q "select string_agg(p.key,',') from role_permissions rp join roles r on r.id=rp.role_id join permissions p on p.id=rp.permission_id where r.key='read_only' and p.key like 'accounting.%'")\" = accounting.read ]" ""
-R=$(A "$B/accounting/setup"); check "setup status: configured (16 accounts seeded, 5 journals, counter)" "[ $R = 200 ] && [ \"$(jget configured)\" = True ] && [ \"$(jget journals)\" = 5 ]" "$R $(cat $J)"
-R=$(A "$B/accounts?sort=code&dir=asc&limit=100"); check "chart of accounts listed (16), receivable = 411, vat_collected = 4367, sales = 706" "[ $R = 200 ] && [ \"$(jget total)\" = 16 ] && [ \"$(q "select code from accounts where system_key='receivable' and tenant_id=(select id from tenants where key='mythos')")\" = 411 ] && [ \"$(q "select code from accounts where system_key='vat_collected' and tenant_id=(select id from tenants where key='mythos')")\" = 4367 ]" "$(jget total)"
+R=$(A "$B/accounting/setup"); check "setup status: configured (18 accounts seeded incl. the two stamp accounts, 5 journals, counter)" "[ $R = 200 ] && [ \"$(jget configured)\" = True ] && [ \"$(jget journals)\" = 5 ]" "$R $(cat $J)"
+R=$(A "$B/accounts?sort=code&dir=asc&limit=100"); check "chart of accounts listed (18 — 16 + stamp_collected 4368 + stamp_expense 6354), receivable = 411, vat_collected = 4367, sales = 706" "[ $R = 200 ] && [ \"$(jget total)\" = 18 ] && [ \"$(q "select code from accounts where system_key='receivable' and tenant_id=(select id from tenants where key='mythos')")\" = 411 ] && [ \"$(q "select code from accounts where system_key='vat_collected' and tenant_id=(select id from tenants where key='mythos')")\" = 4367 ]" "$(jget total)"
 R=$(A -X POST "$B/accounts" -d '{"code":"6226","label":"Honoraires","type":"expense"}'); check "account created (201)" "[ $R = 201 ]" "$R $(cat $J)"; ACC_HON=$(jget id)
 R=$(A -X POST "$B/accounts" -d '{"code":"411","label":"Dup","type":"asset"}'); check "duplicate account code → 409" "[ $R = 409 ]" "$R"
 R=$(A -X POST "$B/accounts" -d '{"code":"999","label":"Bad","type":"weird"}'); check "unknown account type → 422" "[ $R = 422 ]" "$R"
@@ -351,7 +351,7 @@ login bob@acme.test "$OTHER_PW"
 R=$(A "$B/accounting/entries"); check "acme: accounting module not enabled for a tenant created after the migration → 404" "[ $R = 404 ]" "$R"
 q "insert into tenant_modules (tenant_id, module_key, enabled) select id,'accounting',true from tenants where key='acme'" >/dev/null
 R=$(A "$B/accounting/setup"); check "acme, module on: not configured (no chart)" "[ $R = 200 ] && [ \"$(jget configured)\" = False ]" "$(cat $J)"
-R=$(A -X POST "$B/accounting/setup" -d '{}'); check "acme admin runs setup → 16 accounts seeded (accounting.close)" "[ $R = 200 ] && [ \"$(jget seeded_accounts)\" = 16 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/accounting/setup" -d '{}'); check "acme admin runs setup → 18 accounts seeded incl. stamp accounts (accounting.close)" "[ $R = 200 ] && [ \"$(jget seeded_accounts)\" = 18 ]" "$R $(cat $J)"
 R=$(A "$B/accounting/entries/$E1"); check "acme GET mythos entry → 404" "[ $R = 404 ]" "$R"
 R=$(A -X POST "$B/accounting/entries/$E1R/reverse" -d '{}'); check "acme reverse mythos entry → 404" "[ $R = 404 ]" "$R"
 R=$(A "$B/accounting/trial-balance"); check "acme trial balance: all zero (no mythos leakage)" "[ $R = 200 ] && [ \"$(jget totals.debit)\" = 0.000 ]" "$(cat $J | head -c 200)"
@@ -821,7 +821,88 @@ check "mission order creation is audited" "[ $AUDIT_MO_CREATE -ge 1 ]" "$AUDIT_M
 AUDIT_MO_UPDATE=$(q "select count(*) from audit_log where action='record.updated' and entity_table='mission_orders'")
 check "mission order update is audited" "[ $AUDIT_MO_UPDATE -ge 1 ]" "$AUDIT_MO_UPDATE"
 
-echo "§16 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
+echo "§16 fiscal stamp (droit de timbre): tenant policy → invoice/quote/purchase totals, ledger legs, exemption override, reports, tenancy"
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+R=$(A -X POST "$B/invoices" --data "{\"client_id\":\"$CLIENT\",\"issued_on\":\"2026-09-06\",\"lines\":[{\"description\":\"Sans timbre\",\"quantity\":1,\"unit_price\":1000,\"vat_rate\":19}]}")
+check "policy absent: invoice totals carry no stamp (TTC 1190.000, stamp 0.000)" "[ $R = 201 ] && [ \"$(jget totals.total_ttc)\" = 1190.000 ] && [ \"$(jget totals.stamp_amount)\" = 0.000 ]" "$R $(cat $J)"
+
+login "rita@mythos.test" "$OTHER_PW"
+R=$(A -X PATCH "$B/settings" --data '{"settings":{"fiscal_stamp":{"enabled":true,"amount":1}}}')
+check "read_only cannot change the fiscal stamp policy (403)" "[ $R = 403 ]" "$R $(cat $J)"
+login "$ADMIN_EMAIL" "$ADMIN_PW"
+R=$(A -X PATCH "$B/settings" --data '{"settings":{"fiscal_stamp":{"enabled":"yes"}}}')
+check "malformed policy refused (422)" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X PATCH "$B/settings" --data '{"settings":{"fiscal_stamp":{"enabled":true,"amount":"1e400"}}}')
+check "non-finite / out-of-range stamp amount refused (422) — cannot poison every later document" "[ $R = 422 ]" "$R $(cat $J)"
+R=$(A -X POST "$B/invoices" --data "{\"client_id\":\"$CLIENT\",\"stamp_amount\":\"abc\",\"lines\":[{\"description\":\"x\",\"quantity\":1,\"unit_price\":1,\"vat_rate\":0}]}")
+check "non-numeric stamp_amount on a document refused with a clean 422 (not a PG error)" "[ $R = 422 ] && grep -q 'stamp_amount must be' $J" "$R $(cat $J)"
+R=$(A -X POST "$B/invoices" --data "{\"client_id\":\"$CLIENT\",\"stamp_amount\":\"  \",\"lines\":[{\"description\":\"x\",\"quantity\":1,\"unit_price\":1,\"vat_rate\":0}]}")
+check "blank stamp_amount means absent → the tenant default applies (policy still off here → 0.000)" "[ $R = 201 ] && [ \"$(jget totals.stamp_amount)\" = 0.000 ]" "$R $(cat $J)"
+R=$(A -X PATCH "$B/settings" --data '{"settings":{"fiscal_stamp":{"enabled":true,"amount":1}}}')
+check "enable the fiscal stamp policy (200)" "[ $R = 200 ]" "$R $(cat $J)"
+R=$(A "$B/settings")
+check "policy reads back: enabled, 1" "[ \"$(jget tenant.settings.fiscal_stamp.enabled)\" = True ] && [ \"$(jget tenant.settings.fiscal_stamp.amount)\" = 1 ]" "$(cat $J)"
+R=$(A -X POST "$B/invoices" --data "{\"client_id\":\"$CLIENT\",\"stamp_amount\":\"  \",\"lines\":[{\"description\":\"x\",\"quantity\":1,\"unit_price\":1,\"vat_rate\":0}]}")
+check "policy on: a blank stamp_amount is absent → the tenant default 1.000 applies (not 0)" "[ $R = 201 ] && [ \"$(jget totals.stamp_amount)\" = 1.000 ]" "$R $(cat $J)"
+
+R=$(A -X POST "$B/invoices" --data "{\"client_id\":\"$CLIENT\",\"issued_on\":\"2026-09-06\",\"lines\":[{\"description\":\"Avec timbre\",\"quantity\":1,\"unit_price\":1000,\"vat_rate\":19}]}")
+check "invoice gets the default stamp: HT 1000 / TVA 190 / timbre 1.000 / TTC 1191.000" "[ $R = 201 ] && [ \"$(jget totals.total_ht)\" = 1000.000 ] && [ \"$(jget totals.total_vat)\" = 190.000 ] && [ \"$(jget totals.stamp_amount)\" = 1.000 ] && [ \"$(jget totals.total_ttc)\" = 1191.000 ]" "$R $(cat $J)"
+STAMP_INV=$(jget id)
+R=$(A -X PATCH "$B/invoices/$STAMP_INV" --data '{"status":"sent"}')
+check "issue it (200) → sales entry posted" "[ $R = 200 ] && [ -n \"$(jget accounting.entry_no)\" ] && [ \"$(jget accounting.entry_no)\" != None ]" "$R $(cat $J)"
+SENTRY=$(q "select id from journal_entries where source_table='invoices' and source_id='$STAMP_INV'")
+STAMP_CREDIT=$(q "select coalesce(sum(l.credit),0) from journal_lines l join accounts a on a.id=l.account_id where a.system_key='stamp_collected' and l.entry_id='$SENTRY'")
+SALES_CREDIT=$(q "select coalesce(sum(l.credit),0) from journal_lines l join accounts a on a.id=l.account_id where a.system_key='sales' and l.entry_id='$SENTRY'")
+RECV_DEBIT=$(q "select coalesce(sum(l.debit),0) from journal_lines l join accounts a on a.id=l.account_id where a.system_key='receivable' and l.entry_id='$SENTRY'")
+check "stamp is posted as a LIABILITY leg (4368 credit 1.000), not revenue (706 credit stays 1000.000)" "[ \"$STAMP_CREDIT\" = \"1.000\" ] && [ \"$SALES_CREDIT\" = \"1000.000\" ]" "$STAMP_CREDIT $SALES_CREDIT"
+check "receivable debit = HT + TVA + timbre = 1191.000" "[ \"$RECV_DEBIT\" = \"1191.000\" ]" "$RECV_DEBIT"
+SBAL=$(q "select case when sum(debit)=sum(credit) then 'yes' else 'no' end from journal_lines where entry_id='$SENTRY'")
+check "stamped entry is balanced (debit = credit)" "[ $SBAL = yes ]" "$SBAL"
+R=$(A "$B/reports/receivables")
+check "receivables report carries the stamp in TTC (1191.000)" "grep -q '1191.000' $J" "$(cat $J | head -c 400)"
+R=$(A "$B/reports/revenue")
+check "revenue report exposes a stamp column" "grep -q '\"stamp\"' $J" "$(cat $J | head -c 300)"
+R=$(A -X POST "$B/invoices/$STAMP_INV/payments" --data '{"paid_on":"2026-09-06","amount":1191,"method":"virement"}')
+check "paying exactly HT+TVA+timbre (1191) settles it → paid" "[ $R = 201 ] && [ \"$(jget invoice_status)\" = paid ]" "$R $(cat $J)"
+
+R=$(A -X POST "$B/invoices" --data "{\"client_id\":\"$CLIENT\",\"issued_on\":\"2026-09-06\",\"status\":\"sent\",\"stamp_amount\":0,\"lines\":[{\"description\":\"Export (exonéré)\",\"quantity\":1,\"unit_price\":1000,\"vat_rate\":0}]}")
+check "explicit stamp_amount 0 (export exemption, CDET art. 118) → TTC 1000.000" "[ $R = 201 ] && [ \"$(jget totals.total_ttc)\" = 1000.000 ] && [ \"$(jget totals.stamp_amount)\" = 0.000 ]" "$R $(cat $J)"
+EXPORT_INV=$(jget id)
+EXPORT_STAMP_LEGS=$(q "select count(*) from journal_lines l join accounts a on a.id=l.account_id where a.system_key='stamp_collected' and l.entry_id=(select id from journal_entries where source_table='invoices' and source_id='$EXPORT_INV')")
+check "exempt invoice posts NO stamp leg" "[ $EXPORT_STAMP_LEGS = 0 ]" "$EXPORT_STAMP_LEGS"
+R=$(A -X POST "$B/invoices" --data "{\"client_id\":\"$CLIENT\",\"stamp_amount\":-1,\"lines\":[{\"description\":\"x\",\"quantity\":1,\"unit_price\":1,\"vat_rate\":0}]}")
+check "negative stamp refused (422)" "[ $R = 422 ]" "$R $(cat $J)"
+
+R=$(A -X POST "$B/quotes" --data "{\"client_id\":\"$CLIENT\",\"lines\":[{\"description\":\"Devis timbré\",\"quantity\":1,\"unit_price\":100,\"vat_rate\":19}]}")
+check "quote gets the default stamp: TTC 120.000 (100 + 19 + 1)" "[ $R = 201 ] && [ \"$(jget totals.total_ttc)\" = 120.000 ]" "$R $(cat $J)"
+SQ=$(jget id)
+R=$(A -X PATCH "$B/quotes/$SQ" --data '{"status":"sent"}'); [ "$R" = 200 ] || bad "stamped quote sent" "$R"
+R=$(A -X PATCH "$B/quotes/$SQ" --data '{"status":"accepted"}'); [ "$R" = 200 ] || bad "stamped quote accepted" "$R"
+R=$(A -X POST "$B/quotes/$SQ/convert" --data '{}')
+check "converted invoice carries the quote's stamp (TTC 120.000)" "[ $R = 201 ] && [ \"$(jget totals.total_ttc)\" = 120.000 ]" "$R $(cat $J)"
+
+R=$(A -X POST "$B/purchases" --data "{\"supplier_id\":\"$SUPPLIER_ID\",\"reference\":\"F-TIMBRE\",\"amount_ht\":\"100.000\",\"vat_rate\":19,\"status\":\"confirmed\"}")
+check "purchase gets the supplier's stamp: TTC 120.000" "[ $R = 201 ] && [ \"$(jget totals.stamp_amount)\" = 1.000 ] && [ \"$(jget totals.total_ttc)\" = 120.000 ]" "$R $(cat $J)"
+SP=$(jget id)
+PENTRY=$(q "select id from journal_entries where source_table='purchases' and source_id='$SP'")
+STAMP_EXP=$(q "select coalesce(sum(l.debit),0) from journal_lines l join accounts a on a.id=l.account_id where a.system_key='stamp_expense' and l.entry_id='$PENTRY'")
+PAYABLE_CR=$(q "select coalesce(sum(l.credit),0) from journal_lines l join accounts a on a.id=l.account_id where a.system_key='payable' and l.entry_id='$PENTRY'")
+check "supplier stamp posted as an EXPENSE leg (6354 debit 1.000), payable credit 120.000" "[ \"$STAMP_EXP\" = \"1.000\" ] && [ \"$PAYABLE_CR\" = \"120.000\" ]" "$STAMP_EXP $PAYABLE_CR"
+PBAL=$(q "select case when sum(debit)=sum(credit) then 'yes' else 'no' end from journal_lines where entry_id='$PENTRY'")
+check "purchase entry with stamp is balanced" "[ $PBAL = yes ]" "$PBAL"
+R=$(A -X POST "$B/purchases/$SP/payments" --data '{"amount":"120.000","method":"virement"}')
+check "paying exactly TTC incl. stamp → paid (no phantom 1 TND balance)" "[ $R = 201 ] && [ \"$(jget purchase_status)\" = paid ]" "$R $(cat $J)"
+TB_ROW=$(q "select debit_total, credit_total from (select sum(l.debit) as debit_total, sum(l.credit) as credit_total from journal_lines l join journal_entries e on e.id=l.entry_id where e.status='posted') t" | tr -d ' ')
+check "trial balance still balanced with stamp legs on both sides" "[ \"$(echo $TB_ROW | cut -d'|' -f1)\" = \"$(echo $TB_ROW | cut -d'|' -f2)\" ]" "$TB_ROW"
+
+login "bob@acme.test" "$OTHER_PW"
+R=$(A -X POST "$B/clients" --data '{"name":"Acme Stamp Client"}'); ACME_SC=$(jget id)
+R=$(A -X POST "$B/invoices" --data "{\"client_id\":\"$ACME_SC\",\"issued_on\":\"2026-09-06\",\"lines\":[{\"description\":\"x\",\"quantity\":1,\"unit_price\":100,\"vat_rate\":19}]}")
+check "the policy is per tenant: acme (policy absent) still totals 119.000 with stamp 0" "[ $R = 201 ] && [ \"$(jget totals.total_ttc)\" = 119.000 ] && [ \"$(jget totals.stamp_amount)\" = 0.000 ]" "$R $(cat $J)"
+AUDIT_TENANT=$(q "select count(*) from audit_log where action='tenant.updated'")
+check "policy change is audited (tenant.updated)" "[ $AUDIT_TENANT -ge 1 ]" "$AUDIT_TENANT"
+
+echo "§17 rate limiting: the authoritative check runs before routing, so it cannot be bypassed by an unmatched route or an oversize-declared body"
 # A dedicated restart of the same already-migrated database, at a tiny
 # threshold, so this section is fast and deterministic instead of needing
 # hundreds of requests against the default (400/10s) limit used everywhere

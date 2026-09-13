@@ -75,6 +75,7 @@ async function detail(root, id) {
       h('dl', { class: 'kv' },
         h('dt', { text: 'Total HT' }), h('dd', { text: fmtMoney(t.total_ht, q.currency) }),
         h('dt', { text: 'TVA' }), h('dd', { text: fmtMoney(t.total_vat, q.currency) }),
+        h('dt', { text: 'Timbre fiscal' }), h('dd', { text: fmtMoney(t.stamp_amount ?? q.stamp_amount ?? 0, q.currency) }),
         h('dt', { text: 'Total TTC' }), h('dd', { text: fmtMoney(t.total_ttc, q.currency) })))));
   root.appendChild(h('div', { class: 'section' }, h('h3', { text: 'Lignes' }),
     q.lines && q.lines.length ? table([
@@ -115,7 +116,9 @@ async function quoteForm(q, done) {
     field('Client', select([{ value: '', label: '—' }].concat(clients.map((c) => ({ value: c.id, label: c.name, selected: q && q.client_id === c.id }))), { name: 'client_id' })),
     field('Émis le', input({ name: 'issued_on', type: 'date', value: q && q.issued_on ? String(q.issued_on).slice(0, 10) : new Date().toISOString().slice(0, 10), required: true })),
     field('Valide jusqu\'au', input({ name: 'valid_until', type: 'date', value: q && q.valid_until ? String(q.valid_until).slice(0, 10) : '' })),
-    field('Devise', input({ name: 'currency', value: (q && q.currency) || 'TND', maxlength: 3 })));
+    field('Devise', input({ name: 'currency', value: (q && q.currency) || 'TND', maxlength: 3 })),
+    field('Timbre fiscal', input({ name: 'stamp_amount', type: 'number', step: '0.001', min: '0', value: q && q.stamp_amount !== undefined && q.stamp_amount !== null ? q.stamp_amount : '', placeholder: 'selon Paramètres' }),
+      { hint: isEdit ? 'Vide = inchangé. 0 = exonéré (export).' : 'Vide = valeur par défaut de l\'entité. 0 = exonéré (export).' }));
   const notes = field('Notes', textarea({ name: 'notes', text: (q && q.notes) || '' }));
   const tbody = h('tbody', {}, ((q && q.lines && q.lines.length) ? q.lines : [{}]).map(lineRow));
   const linesTable = h('div', { class: 'table-wrap' }, h('table', { class: 'data lines' },

@@ -16,7 +16,7 @@ var fs = require('fs');
 var path = require('path');
 var crypto = require('crypto');
 
-var FILES = ['schema.sql', 'schema-auth.sql', 'schema-tenant.sql', '0004-prospects.sql', '0005-accounting.sql', '0006-agenda.sql', '0007-quote-lines-grant.sql', '0008-purchases-lifecycle.sql', '0009-bank-reconciliation.sql', '0010-mission-orders.sql'];
+var FILES = ['schema.sql', 'schema-auth.sql', 'schema-tenant.sql', '0004-prospects.sql', '0005-accounting.sql', '0006-agenda.sql', '0007-quote-lines-grant.sql', '0008-purchases-lifecycle.sql', '0009-bank-reconciliation.sql', '0010-mission-orders.sql', '0011-fiscal-stamp.sql'];
 var DB_DIR = path.resolve(__dirname, '..', '..', 'db');
 
 function checksum(text) {

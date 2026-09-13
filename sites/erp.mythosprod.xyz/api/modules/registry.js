@@ -44,7 +44,8 @@ var STATUS_INVOICE = ['draft', 'sent', 'part_paid', 'paid', 'cancelled'];
 var STATUS_QUOTE   = ['draft', 'sent', 'accepted', 'refused', 'expired'];
 var STATUS_PROSPECT = ['new', 'contacted', 'qualified', 'proposal', 'won', 'lost'];
 var ACCOUNT_TYPES = ['asset', 'liability', 'equity', 'revenue', 'expense'];
-var ACCOUNT_SYSTEM_KEYS = ['receivable', 'payable', 'bank', 'cash', 'vat_collected', 'vat_deductible', 'sales', 'purchases'];
+var ACCOUNT_SYSTEM_KEYS = ['receivable', 'payable', 'bank', 'cash', 'vat_collected', 'vat_deductible', 'sales', 'purchases',
+  'stamp_collected', 'stamp_expense'];
 var JOURNAL_KINDS = ['sales', 'purchases', 'bank', 'cash', 'general'];
 var ENTRY_STATUSES = ['draft', 'posted', 'reversed', 'void'];
 var AGENDA_KINDS = ['event', 'task', 'reminder'];

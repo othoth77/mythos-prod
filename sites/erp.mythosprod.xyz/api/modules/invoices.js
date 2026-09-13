@@ -28,19 +28,29 @@ var STATUS = ['draft', 'sent', 'part_paid', 'paid', 'cancelled'];
 var USER_SETTABLE = ['draft', 'sent', 'cancelled'];
 
 var COLUMNS = ['id', 'number', 'client_id', 'project_id', 'quote_id', 'issued_on',
-  'due_on', 'status', 'currency', 'payment_mode', 'notes', 'legacy_id',
+  'due_on', 'status', 'currency', 'payment_mode', 'notes', 'stamp_amount', 'legacy_id',
   'created_at', 'updated_at'];
 
 function validateHeader(body, partial) {
   var b = body || {};
   var out = {};
   ['client_id', 'project_id', 'quote_id', 'issued_on', 'due_on', 'currency',
-   'payment_mode', 'notes', 'legacy_id', 'status'].forEach(function (f) {
+   'payment_mode', 'notes', 'legacy_id', 'status', 'stamp_amount'].forEach(function (f) {
     if (Object.prototype.hasOwnProperty.call(b, f)) out[f] = b[f];
   });
   if (out.status !== undefined && USER_SETTABLE.indexOf(String(out.status)) < 0) {
     return { ok: false, error: 'status may only be set to ' + USER_SETTABLE.join('|') +
                               ' — paid and part_paid follow from payments' };
+  }
+  // Phase 5: the fiscal stamp is a per-document snapshot (0 = exempt, e.g. an
+  // export invoice). Absent on create → the tenant's default applies.
+  if (out.stamp_amount === null || (typeof out.stamp_amount === 'string' && out.stamp_amount.trim() === '')) delete out.stamp_amount;
+  if (out.stamp_amount !== undefined) {
+    var stampN = (typeof out.stamp_amount === 'number' || typeof out.stamp_amount === 'string') ? Number(String(out.stamp_amount).trim()) : NaN;
+    if (!Number.isFinite(stampN) || stampN < 0 || stampN > 1000) {
+      return { ok: false, error: 'stamp_amount must be a number between 0 and 1000' };
+    }
+    out.stamp_amount = Number(stampN.toFixed(3));
   }
   ['issued_on', 'due_on'].forEach(function (f) {
     if (out[f] && !/^\d{4}-\d{2}-\d{2}$/.test(String(out[f]))) out.__bad = f;
@@ -90,12 +100,16 @@ function replaceLines(client, invoiceId, tenantId, lines) {
 /* One query, one source of truth. line_ht is a STORED generated column, so the
    database computes the line and this computes the document. */
 function totals(client, invoiceId) {
+  // Phase 5: TTC = HT + VAT + the document's fiscal stamp (outside the VAT
+  // base, added after it — CDET art. 117 n°6). One query, still one truth.
   return client.query(
-    'SELECT coalesce(sum(line_ht),0)::numeric(14,3) AS total_ht,' +
-    ' coalesce(sum(line_ht * vat_rate / 100),0)::numeric(14,3) AS total_vat,' +
-    ' coalesce(sum(line_ht * (1 + vat_rate / 100)),0)::numeric(14,3) AS total_ttc' +
-    ' FROM invoice_lines WHERE invoice_id = $1', [invoiceId]
-  ).then(function (r) { return r.rows[0]; });
+    'SELECT coalesce(sum(l.line_ht),0)::numeric(14,3) AS total_ht,' +
+    ' coalesce(sum(l.line_ht * l.vat_rate / 100),0)::numeric(14,3) AS total_vat,' +
+    ' i.stamp_amount::numeric(14,3) AS stamp_amount,' +
+    ' (coalesce(sum(l.line_ht * (1 + l.vat_rate / 100)),0) + i.stamp_amount)::numeric(14,3) AS total_ttc' +
+    ' FROM invoices i LEFT JOIN invoice_lines l ON l.invoice_id = i.id' +
+    ' WHERE i.id = $1 GROUP BY i.stamp_amount', [invoiceId]
+  ).then(function (r) { return r.rows[0] || { total_ht: '0.000', total_vat: '0.000', stamp_amount: '0.000', total_ttc: '0.000' }; });
 }
 
 function paidSoFar(client, invoiceId) {
@@ -187,7 +201,11 @@ var handlers = {
   create: function (ctx, client) {
     var tenancy = require('../lib/tenancy');
     var h = ctx.input.header;
-    return tenancy.claimInvoiceNumber(client).then(function (number) {
+    return tenancy.fiscalStamp(client).then(function (fs) {
+      // No explicit stamp on the request → the tenant's policy decides.
+      if (h.stamp_amount === undefined) h.stamp_amount = fs.enabled ? fs.amount : 0;
+      return tenancy.claimInvoiceNumber(client);
+    }).then(function (number) {
       var cols = ['tenant_id', 'number'];
       var params = [ctx.tenantId, number];
       Object.keys(h).forEach(function (k) { cols.push(k); params.push(h[k]); });
