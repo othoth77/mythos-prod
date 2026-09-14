@@ -836,6 +836,20 @@
       "reference": "othkm projects/mythos-auto/evidence/2026-09-13/CASSE_AUDIT_AND_INVENTORY_READINESS.md §3 and CASSE_OPERATOR_PATH_AND_INVENTORY_TEMPLATE.md",
       "date": "2026-09-13",
       "note": "No real inventory source exists anywhere (repository, /home/deploy, /root, MariaDB, Kitchen). The fixture is refused in production; the placeholder example cannot be imported in place. Launch requires photographed, graded, provenance-stamped real parts (C-O5)."
+    },
+    {
+      "id": "EV-CASSE-UPS-RESEARCH",
+      "type": "document",
+      "reference": "othkm projects/mythos-auto/CASSE_UNIVERSAL_PARTS_SEARCH_2026-09-14.md + evidence/2026-09-14/UPS_*.md (branch othkm/casse-universal-search-20260914)",
+      "date": "2026-09-14",
+      "note": "Four research workers: TecDoc = only authoritative fitment/cross-ref source, GTC 3.2 §2.1.2.3 (no used-parts trade) and §1.6.6 (no AI use) unless agreed; grey-market TecDoc APIs class D; RDW + vehiclesdb + EEA CO2 + WMI compose vehicle identification (NHTSA vPIC has no SsangYong/Chery/Dacia models); 22 Tunisian sources probed, none with an API; car park >2.3 M, 2024 sales 58 % Asian."
+    },
+    {
+      "id": "EV-CASSE-UPS-PROTOTYPE",
+      "type": "pr",
+      "reference": "othoth77/casse.autos PR #8 proto/universal-search-20260914 @ 1ccad89 (draft, CI verify/postgres/secret-scan pass)",
+      "date": "2026-09-14",
+      "note": "Search orchestrator, canonical result, three providers (kitchen, casse-stock, sourced-before), flagged POST /api/search off by default; 374 tests; live read-only Kitchen smoke 4/4 shapes; no real data."
     }
   ],
   "repositories": [
@@ -2054,14 +2068,14 @@
       "id": "PROJECT-CASSE-AUTOS",
       "name": "Casse.Autos (MYTHOS AUTO salvage channel)",
       "executive": false,
-      "purpose": "casse.autos: used parts from donor vehicles with provenance and graded condition reports, WhatsApp inquiry only, own append-only inventory; Kitchen used for the vehicle taxonomy only.",
+      "purpose": "casse.autos: universal parts search + WhatsApp sourcing (business model corrected 2026-09-14): identify vehicle + part, search composed catalogue/supplier sources, verify fitment/OEM, hand off to WhatsApp; own salvage inventory becomes an optional provider.",
       "status": "OWNER_ACTION",
       "maturity": "TESTED",
       "repository": "othoth77/casse.autos",
-      "last_change": "2026-09-14 (four preparation PRs merged, main ad9d340)",
-      "blocker": "No real inventory exists (C-O5). DNS on OVH parking (C-O2). WhatsApp number absent (C-O3). Memory-cap and store decisions open (C-O4/C-O6). Identity values proposed, not ratified (C-O1).",
-      "next_action": "Owner produces the first real inventory per docs/inventory/FIRST_REAL_INVENTORY_TEMPLATE.md (dry-run, then import); then DNS, number, deployment authorisation.",
-      "headline": "Engineering complete to the inventory boundary: storefront, inquiry path, SEO, security, standalone deployment templates, two-phase nginx, backup timer, operator availability transitions and the inventory import pipeline are on main with green CI (311 tests, smoke 54, Playwright 34). NOT launch-ready: the site is honest when empty and useless when empty.",
+      "last_change": "2026-09-14 (business-model correction; prototype PR #8)",
+      "blocker": "Owner decision on the business model (new/used) — TecDoc GTC forbid used-parts trade and AI use unless agreed; no consented supplier network yet; DNS on OVH parking (C-O2); WhatsApp number absent (C-O3); C-O4/C-O6/C-O1 open. C-O5 'first real inventory' superseded by C-O5' 'first live provider answers'.",
+      "next_action": "Owner decides the business model; then adapt the inquiry path + WhatsApp wording on top of the prototype, draft the AutoPart partnership letter and the TecAlliance negotiation brief.",
+      "headline": "Engineering complete for the honest empty storefront (main 4a65955; 311 tests, smoke 60, Playwright 37). Product redefined 2026-09-14 as universal parts search: research found no open OEM/fitment data (TecDoc only, licence-gated), vehicle identification composable from open data, no Tunisian supplier API; prototype search core on PR #8 (374 tests, feature off). NOT launch-ready until the model decision and a first consented supplier.",
       "dimensions": {
         "implementation": {
           "status": "DONE",
@@ -2082,7 +2096,9 @@
       },
       "evidence": [
         "EV-CASSE-MAIN",
-        "EV-CASSE-NO-INVENTORY"
+        "EV-CASSE-NO-INVENTORY",
+        "EV-CASSE-UPS-RESEARCH",
+        "EV-CASSE-UPS-PROTOTYPE"
       ]
     }
   ],
@@ -3490,15 +3506,16 @@
     },
     {
       "id": "BLOCKER-CASSE-INVENTORY",
-      "title": "Casse.Autos has no real inventory",
+      "title": "Casse.Autos launch gate: business-model decision + first consented supplier (was: no real inventory)",
       "type": "business",
       "project": "PROJECT-CASSE-AUTOS",
       "priority": "P0",
       "status": "OWNER_ACTION",
       "owner": "Owner/operator",
-      "impact": "The storefront is honest when empty and useless when empty; nothing can be sold.",
-      "unblock": "Photograph, grade and provenance-stamp real parts with their donor vehicles in the docs/inventory/FIRST_REAL_INVENTORY_TEMPLATE.md format; run scripts/import-inventory.ts --dry-run, then import. Never promote the fixture.",
+      "impact": "Superseded 2026-09-14: owned inventory is no longer the product. Until the owner confirms the model (new/used) and a first consented supplier answers on WhatsApp, the storefront can only identify parts, not source them.",
+      "unblock": "Owner decision on the model; consented supplier list + sourcing inbox operator (C-O3); then enable the search providers per the prototype procedure. TecDoc negotiation (§2.1.2.3, §1.6.6) and partnership letters (AutoPart first) are separate owner authorisations.",
       "evidence": [
+        "EV-CASSE-UPS-RESEARCH",
         "EV-CASSE-NO-INVENTORY"
       ]
     },
@@ -3631,6 +3648,14 @@
       "why": "Every remaining Casse step is an owner decision; engineering is complete to the inventory boundary.",
       "impact": "Casse can go live within hours of the last decision.",
       "required_input": "Zone change; number; two decisions; written authorisation naming the Casse execution pack."
+    },
+    {
+      "id": "ACTION-CASSE-MODEL-DECISION",
+      "status": "OWNER_ACTION",
+      "what": "Confirm the Casse.Autos business model (universal parts search + sourcing; new and/or used parts) and authorise the TecAlliance negotiation brief and the AutoPart partnership letter",
+      "why": "TecDoc's standard terms forbid used-parts trade and AI use unless agreed; no authoritative fitment data exists otherwise; AutoPart's authorisation also closes O8 for Piece.Autos' images.",
+      "impact": "Unblocks the V1 data path; decides whether the 'Casse' name and salvage features stay public.",
+      "required_input": "One written decision; permission to contact TecAlliance/WDATABASE and AutoPart; the consented supplier list."
     }
   ],
   "next_actions": [
@@ -3662,8 +3687,8 @@
       "id": "NEXT-CASSE-INVENTORY",
       "priority": "P0",
       "order": 0,
-      "title": "First real Casse inventory (owner/operator)",
-      "detail": "Then dry-run, import, DNS, number, deployment authorisation, deploy per the Casse execution pack.",
+      "title": "Casse.Autos: owner business-model decision, then inquiry/WhatsApp adaptation on the prototype",
+      "detail": "C-O5 superseded by C-O5' (first live provider answers). After the decision: adapt OrderItem.sourced + state-driven WhatsApp wording on top of casse.autos PR #8; draft the AutoPart letter and TecAlliance brief; deployment pack stays valid for the honest empty storefront.",
       "depends_on": null
     }
   ],
