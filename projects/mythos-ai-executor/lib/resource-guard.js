@@ -369,6 +369,71 @@ function appendAlert(cfg, alert) {
   } catch (e) { return false; }
 }
 
+// --- Pressure publication (the session guard's channel) ----------------------
+//
+// The ONLY thing the Resource Guard shares outside the executor's private
+// home: { level, updated_at }. No samples, counters, history, alert times,
+// paths or configuration. The root session guard runs with CAP_KILL alone
+// and must never be able to read the executor home (it holds secrets/), so
+// the level is published into a dedicated directory an operator provisions
+// (ops/session-guard/install-session-guard.sh: /var/lib/mythos/pressure,
+// deploy-owned 0755 under root:deploy 0750 /var/lib/mythos).
+//
+// Written atomically: an O_EXCL temp file in the destination directory,
+// fchmod 0644 (independent of umask), fsync, rename — a reader sees either
+// the previous complete file or the new complete file, never a partial one.
+// The directory is never created here; a missing, symlinked or non-directory
+// destination is reported and nothing is written. Never throws: publication
+// failure must not affect admission (fail-open, like writeState).
+var PUBLISH_LEVELS = ['NORMAL', 'WARNING', 'HIGH', 'CRITICAL', 'EMERGENCY'];
+
+function pressureSummary(st) {
+  if (!st || PUBLISH_LEVELS.indexOf(st.level) < 0) return null;
+  if (typeof st.updated_at !== 'string' || isNaN(Date.parse(st.updated_at))) return null;
+  return { level: st.level, updated_at: st.updated_at };
+}
+
+function publishPressure(publishPath, st) {
+  if (!publishPath) return null;
+  var summary = pressureSummary(st);
+  if (!summary) return { ok: false, path: publishPath, error: 'invalid_summary' };
+  var dir = path.dirname(publishPath);
+  try {
+    var ds = fs.lstatSync(dir);
+    if (ds.isSymbolicLink() || !ds.isDirectory()) return { ok: false, path: publishPath, error: 'destination_not_a_directory' };
+  } catch (e) {
+    return { ok: false, path: publishPath, error: e && e.code === 'ENOENT' ? 'destination_missing' : 'destination_unreadable' };
+  }
+  var tmp = path.join(dir, '.' + path.basename(publishPath) + '.tmp-' + process.pid);
+  var body = JSON.stringify(summary) + '\n';
+  for (var attempt = 0; attempt < 2; attempt++) {
+    var fd = null;
+    try {
+      fd = fs.openSync(tmp, 'wx', 0o644);   // O_CREAT|O_EXCL: never follows or reuses an existing name
+      fs.writeSync(fd, body);
+      fs.fchmodSync(fd, 0o644);
+      fs.fsyncSync(fd);
+      fs.closeSync(fd);
+      fd = null;
+      fs.renameSync(tmp, publishPath);
+      return { ok: true, path: publishPath };
+    } catch (e) {
+      if (fd !== null) { try { fs.closeSync(fd); } catch (e2) { /* already closed */ } }
+      var code = e && e.code;
+      if (code === 'EEXIST' && attempt === 0) {
+        // A temp name left by an earlier process with the same pid (crash,
+        // pid reuse). It lives in the publisher's own directory: remove the
+        // name (unlink never follows a symlink) and retry once.
+        try { fs.unlinkSync(tmp); continue; } catch (e3) { /* report below */ }
+      } else {
+        try { fs.unlinkSync(tmp); } catch (e4) { /* nothing was created */ }
+      }
+      return { ok: false, path: publishPath, error: String(code || 'write_failed') };
+    }
+  }
+  return { ok: false, path: publishPath, error: 'write_failed' };
+}
+
 // One live sample: read → evaluate → persist → hand back the decision.
 // Never throws.
 function sample(opts) {
@@ -386,6 +451,8 @@ function sample(opts) {
   }
   writeState(cfg, result.state);
   if (result.alert) appendAlert(cfg, result.alert);
+  var publication = null;
+  try { publication = publishPressure(cfg.publish_path, result.state); } catch (e) { publication = { ok: false, error: 'publish_threw' }; }
 
   return {
     level: result.state.level,
@@ -393,7 +460,8 @@ function sample(opts) {
     transition: result.transition,
     alert: result.alert,
     signals: result.state.last_sample,
-    state: result.state
+    state: result.state,
+    publication: publication
   };
 }
 
@@ -502,5 +570,8 @@ module.exports = {
   replay: replay,
   parseMemwatchLine: parseMemwatchLine,
   parseMemwatchLog: parseMemwatchLog,
-  readState: readState
+  readState: readState,
+  PUBLISH_LEVELS: PUBLISH_LEVELS,
+  pressureSummary: pressureSummary,
+  publishPressure: publishPressure
 };

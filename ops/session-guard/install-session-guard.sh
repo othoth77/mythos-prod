@@ -65,6 +65,18 @@ echo "==> lifecycle snapshot directory (root writes, deploy reads)"
 DEPLOY_GID="$(getent group deploy | cut -d: -f3 || true)"
 install -d -m 0750 -o root -g "${DEPLOY_GID:-0}" /var/lib/mythos/lifecycle
 
+echo "==> resource pressure publication directory (executor writes, guard reads)"
+# The executor (deploy) publishes ONLY { level, updated_at } here, and the
+# guard reads it holding CAP_KILL alone — it never needs the executor's
+# private home. Deploy-owned 0755 inside root:deploy 0750 /var/lib/mythos:
+# only root and the deploy group can reach it.
+DEPLOY_UID="$(id -u deploy 2>/dev/null || true)"
+if [ -n "$DEPLOY_UID" ] && [ -n "${DEPLOY_GID:-}" ]; then
+  install -d -m 0755 -o "$DEPLOY_UID" -g "$DEPLOY_GID" /var/lib/mythos/pressure
+else
+  echo "   deploy user/group not found: /var/lib/mythos/pressure not created (guard will report pressure_source missing)" >&2
+fi
+
 echo "==> state directory (enforcement stays OFF: no enable marker is created)"
 install -d -m 0700 -o root -g root "$STATE"
 

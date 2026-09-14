@@ -947,10 +947,25 @@ function guardEnabled() {
   return String(process.env.MYTHOS_RESOURCE_GUARD || 'on').toLowerCase() !== 'off';
 }
 
+// Where this process publishes { level, updated_at } for the root session
+// guard (lib/resource-guard.js publishPressure). The production executor runs
+// with its default home and publishes to the operator-provisioned
+// /var/lib/mythos/pressure. Any process with MYTHOS_EXECUTOR_HOME set — every
+// fixture-based test — publishes NOTHING unless MYTHOS_RESOURCE_PRESSURE_FILE
+// names a path explicitly, so a test run can never overwrite the host's real
+// pressure file. MYTHOS_RESOURCE_PRESSURE_FILE='' disables publication.
+var DEFAULT_PRESSURE_FILE = '/var/lib/mythos/pressure/resource-pressure.json';
+
+function pressurePublishPath() {
+  if (process.env.MYTHOS_RESOURCE_PRESSURE_FILE !== undefined) return process.env.MYTHOS_RESOURCE_PRESSURE_FILE || null;
+  return process.env.MYTHOS_EXECUTOR_HOME ? null : DEFAULT_PRESSURE_FILE;
+}
+
 function guardOptions() {
   return {
     state_path: path.join(state.root(), 'resource-guard.json'),
-    alerts_path: path.join(state.root(), 'resource-guard-alerts.jsonl')
+    alerts_path: path.join(state.root(), 'resource-guard-alerts.jsonl'),
+    publish_path: pressurePublishPath()
   };
 }
 
@@ -1499,6 +1514,7 @@ module.exports = {
   // that view's exact key set, and host health is a separate concern from
   // dispatch capacity.
   resourceGuardStatus: resourceGuardStatus,
+  pressurePublishPath: pressurePublishPath,
   sessionGuardStatus: sessionGuardStatus,
   lifecycleStatus: function (opts) { return lifecycle.status(opts); },
   lifecycle: lifecycle,
