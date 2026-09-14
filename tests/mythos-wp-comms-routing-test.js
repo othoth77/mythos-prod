@@ -95,6 +95,19 @@ migrate.up(pool).then(wipe)
   .then(function (r) { ids.ded = r.rows[0].id; return expectDbError(q("INSERT INTO wp_inboxes (project_id, provider, instance, display_name, account_ref, account_mode, settings) VALUES ('svc-a','evolution','ded-inst','x','21600000009','shared','{\"allow_personal_account\":true}')"), /dedicated_uidx/, 'guard: a shared inbox cannot join a dedicated instance'); })
   .then(function () { return q("INSERT INTO wp_inboxes (project_id, provider, instance, display_name, account_ref, account_mode, settings) VALUES ('svc-a','evolution','mythos-bridge','Bridge shared',$1,'shared','{\"allow_personal_account\":true}') RETURNING id", [OWNER]); })
   .then(function (r) { ok(!!r.rows[0].id, 'mythos-bridge accepted ONLY as an explicit shared inbox (architecture change, tested)'); return q('DELETE FROM wp_inboxes WHERE id = $1', [r.rows[0].id]); })
+  // ---------- createSharedInbox: the personal-account permission is an explicit caller opt-in, never implied
+  .then(function () { return q('SELECT count(*)::int AS n FROM wp_inboxes'); })
+  .then(function (r) {
+    ids.nInboxes = r.rows[0].n;
+    function refused(o, name) { return Promise.resolve().then(function () { return routing.createSharedInbox(pool, 'svc-a', o, 'own'); }).then(function () { ok(false, name + ' (no error)'); }, function (e) { ok(e.status === 412 && /allow_personal_account/.test(e.message), name + ' (' + e.status + ')'); }); }
+    return refused({ instance: 'shared-inst-x', account_ref: OWNER, display_name: 'x' }, 'createSharedInbox: reserved account WITHOUT explicit opt-in refused')
+      .then(function () { return refused({ instance: 'shared-inst-x', account_ref: '21600000077', display_name: 'x' }, 'createSharedInbox: non-reserved account WITHOUT explicit opt-in refused'); })
+      .then(function () { return refused({ instance: 'shared-inst-x', account_ref: OWNER, display_name: 'x', settings: { allow_personal_account: true } }, 'createSharedInbox: opt-in smuggled through settings refused'); })
+      .then(function () { return refused({ instance: 'shared-inst-x', account_ref: OWNER, display_name: 'x', allow_personal_account: 'true' }, 'createSharedInbox: non-boolean opt-in refused'); });
+  })
+  .then(function () { return q('SELECT count(*)::int AS n FROM wp_inboxes'); })
+  .then(function (r) { ok(r.rows[0].n === ids.nInboxes, 'createSharedInbox: a refused call writes no inbox'); return routing.createSharedInbox(pool, 'svc-a', { instance: 'shared-inst-x', account_ref: OWNER, display_name: 'explicit', allow_personal_account: true }, 'own'); })
+  .then(function (row) { ok(row && row.account_mode === 'shared' && row.status === 'inactive' && row.inbound_enabled === false, 'createSharedInbox: explicit opt-in creates an inactive shared inbox'); return q("SELECT i.settings, (SELECT next FROM wp_audit_events WHERE actor = 'own' AND resource = 'inboxes' AND record_id = i.id::text ORDER BY id DESC LIMIT 1) AS audit FROM wp_inboxes i WHERE i.id = $1", [row.id]).then(function (x) { ok(x.rows[0].settings.allow_personal_account === true && x.rows[0].audit && x.rows[0].audit.allow_personal_account === true, 'createSharedInbox: explicit opt-in is stored and audited'); return q('DELETE FROM wp_inboxes WHERE id = $1', [row.id]); }); })
   // ---------- PRIVACY: unrouted personal message → drop before ledger
   .then(function () { return counts(); }).then(function (c) { base = c; return hook(msg('P1', '21655000111', 'PERSONAL-SECRET-TEXT-1 rendezvous ce soir')); })
   .then(function (x) { ok(x.status === 200 && x.body.dropped === true && x.body.reason === 'UNROUTED', 'privacy: unrouted personal message dropped (UNROUTED)'); return counts(); })

@@ -153,14 +153,18 @@ function listDrops(pool, o) {
 
 // createSharedInbox(pool, projectId, o, actor) — the explicit, audited way to declare a logical inbox on a shared
 // account (the DB trigger enforces: account_ref present, reserved account only with opt-in, no dedicated neighbour).
+// The personal-account permission is NEVER implied: the caller must pass o.allow_personal_account === true (CLI
+// --allow-personal-account). Without it — including a value smuggled in through o.settings — nothing is written.
 function createSharedInbox(pool, projectId, o, actor) {
   o = o || {};
   if (!/^[a-z0-9][a-z0-9_-]{1,62}$/.test(String(o.instance || ''))) throw fail('validation', 400, 'instance shape');
   if (!/^[0-9]{6,32}$/.test(String(o.account_ref || ''))) throw fail('validation', 400, 'account_ref (digits) required for a shared inbox');
   if (!o.display_name) throw fail('validation', 400, 'display_name required');
+  if (o.allow_personal_account !== true) throw fail('precondition', 412, 'a shared-account inbox requires the explicit allow_personal_account opt-in (--allow-personal-account)');
+  var settings = Object.assign({}, o.settings || {}, { allow_personal_account: true });
   return pool.query("INSERT INTO wp_inboxes (project_id, provider, instance, display_name, phone_masked, account_ref, account_mode, settings, status) VALUES ($1,$2,$3,$4,$5,$6,'shared',$7,'inactive') RETURNING id, project_id, provider, instance, account_mode, inbound_enabled, outbound_enabled, status",
-    [projectId, o.provider || 'evolution', o.instance, String(o.display_name).slice(0, 120), '***' + String(o.account_ref).slice(-4), String(o.account_ref), JSON.stringify(Object.assign({}, o.settings || {}, { allow_personal_account: true }))])
-    .then(function (r) { return pool.query("INSERT INTO wp_audit_events (actor, action, resource, record_id, project_id, next) VALUES ($1, 'create', 'inboxes', $2, $3, $4)", [actor || 'system', String(r.rows[0].id), projectId, JSON.stringify({ account_mode: 'shared', instance: o.instance, account_ref_masked: '…' + String(o.account_ref).slice(-4) })]).then(function () { return r.rows[0]; }); },
+    [projectId, o.provider || 'evolution', o.instance, String(o.display_name).slice(0, 120), '***' + String(o.account_ref).slice(-4), String(o.account_ref), JSON.stringify(settings)])
+    .then(function (r) { return pool.query("INSERT INTO wp_audit_events (actor, action, resource, record_id, project_id, next) VALUES ($1, 'create', 'inboxes', $2, $3, $4)", [actor || 'system', String(r.rows[0].id), projectId, JSON.stringify({ account_mode: 'shared', instance: o.instance, account_ref_masked: '…' + String(o.account_ref).slice(-4), allow_personal_account: true })]).then(function () { return r.rows[0]; }); },
       function (e) { if (/wp_inboxes_(account_reserved|dedicated_uidx|shared_needs_account|not_bridge)/.test(e.message + (e.constraint || ''))) throw fail('precondition', 412, e.message); throw e; });
 }
 

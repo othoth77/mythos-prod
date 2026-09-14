@@ -66,7 +66,7 @@ Scheduling (owner): the two probes are safe every 5–10 minutes from the deploy
 
 Order of operations for a shared instance (never enable the instance webhook first):
 
-1. `bin/mythos-wp comms route shared-inbox <project> --instance <instance> --account-ref <digits> --display-name "<name>"` — explicit, audited opt-in (refused unless the reserved-account rules are met).
+1. `bin/mythos-wp comms route shared-inbox <project> --instance <instance> --account-ref <digits> --display-name "<name>" --allow-personal-account` — explicit, audited opt-in: without `--allow-personal-account` the command is refused and writes nothing (the permission is never implied); the database still refuses a reserved account outside shared mode.
 2. `bin/mythos-wp comms route add <project> --inbox <id> --kind allowlist --identity phone:<digits>` for known customers, or `--kind opt_in --identity phone:<digits> [--code <CODE>] [--ttl-hours N]` for a customer who will write in (identity first; the code is a second factor only).
 3. `bin/mythos-wp comms route list <project>`, `enable|disable <project> <rule_id>`, `drops [--limit N]` (hash-only records of what was dropped, with reason).
 4. Only then may the owner enable the instance webhook (owner step) and, later, `inbound_enabled` on the logical inbox (dry-run until then).

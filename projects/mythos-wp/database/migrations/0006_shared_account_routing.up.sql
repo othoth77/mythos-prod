@@ -97,7 +97,9 @@ END $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS wp_inbox_routes_guard_trg ON wp_inbox_routes;
 CREATE TRIGGER wp_inbox_routes_guard_trg BEFORE INSERT OR UPDATE ON wp_inbox_routes FOR EACH ROW EXECUTE FUNCTION wp_inbox_routes_guard();
 
--- 4. privacy-guard audit: NO content, NO identifiers. Hashes only (payload + salted identity), the decision and its reason.
+-- 4. privacy-guard audit: NO content, NO identifiers. Hashes only (payload + instance-namespaced identity), the decision and its reason.
+--    identity_sha256 is an UNSALTED SHA-256 namespaced by instance: pseudonymous, not anonymous — a phone number space is
+--    small enough to enumerate, so this table is personal data (owner-only API, which never returns the hash itself).
 CREATE TABLE IF NOT EXISTS wp_routing_drops (
     id              BIGSERIAL    PRIMARY KEY,
     at              TIMESTAMPTZ  NOT NULL DEFAULT now(),
