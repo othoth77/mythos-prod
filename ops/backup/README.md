@@ -140,8 +140,21 @@ Rollback: `sudo systemctl disable --now mythos-backup.timer mythos-backup-verify
 
 Every run writes `backup-health.json` (0600, atomic tmp+rename):
 `status` (ok|fail), `mode`, `exit_code`, `started_at`/`finished_at`,
-`duration_s`, `last_success_at` (carried forward across failures),
-`consecutive_failures`, redacted `error` tail. The Status Center monitor
+`duration_s`, `last_success_at`, `consecutive_failures`, redacted `error`
+tail, plus per-mode outcomes `last_backup_status`/`last_backup_finished_at`,
+`last_verify_status`/`last_verify_finished_at`,
+`last_restore_test_status`/`last_restore_test_finished_at`.
+
+**Freshness semantics (2026-09-14).** `last_success_at` is the finish time of
+the last successful **backup** run only; `consecutive_failures` resets only
+on a successful backup. A successful `verify` or `restore-test` proves the
+newest remote set is intact and restorable — verify-remote checks manifest
+and checksums, not age — so it records its own `last_*` fields but never
+advances `last_success_at`, never resets the counter, and never clears the
+`status`/`error` of a failed backup. Before this change any exit 0 did all
+three, so a 15:30 verify after a failed 04:00 backup reported a stale backup
+as fresh. A record written by the previous version carries no
+`last_backup_status`; it self-corrects at the next backup run. The Status Center monitor
 (`projects/status-center/monitor/`) reads this file through its `file`
 probe and surfaces the backup system as LIVE / DEGRADED / DOWN:
 
