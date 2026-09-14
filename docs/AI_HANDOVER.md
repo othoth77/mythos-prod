@@ -2,6 +2,20 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-14 — MYTHOS-COMMS-11 continuation (PR #229): **FIXED + REVIEWED LOCALLY — NOT DELIVERED (relay push blocked), not merged, not deployed** (Opus 5)
+
+| Item | State |
+|---|---|
+| Blocker fixed | `routing.createSharedInbox` no longer injects `allow_personal_account=true`. The caller must pass `allow_personal_account === true` (CLI `--allow-personal-account`); otherwise 412 before any write — also for a value smuggled via `settings` or a non-boolean. The accepted opt-in is in the creation audit row. |
+| Review finding fixed (P0 privacy) | The adapter-rejection branch of `receiver.js` runs before the routing guard and stored `redactDeep(body)` for non-ignorable reasons (`MESSAGE_ID`, `KEY_MISSING`, `SENDER_UNRESOLVED`, `REMOTE_JID_*`). `redactDeep` strips secrets and media only — text, `remoteJid`/`senderPn`, `pushName` survive — so a malformed or LID-only personal message on `mythos-bridge` would have kept content + number. On an instance hosting a shared inbox the rejected event is now hash + reason only; dedicated instances keep the COMMS-2 redacted dead-letter. |
+| Hash wording | `identity_sha256` = **unsalted** `sha256(kind:value:instance)`: pseudonymous (a phone-number space is enumerable), not anonymous. Migration 0006 comments and research §15 corrected; the table is personal data (owner-only API, which returns no hash). HMAC = upgrade path if drops ever leave the DB. |
+| Commits (branch, local) | `77a07f8` opt-in fix · `b919756` merge of origin/main `3e427b5` (conflict only in this file) · `6a1cbe2` rejection-path privacy fix · this handover commit. |
+| Tests | routing **94/0** (+13; both fixes mutation-proven: the new checks fail 6 resp. 3 against the previous code) · schema 68/0 · contract 51/0 · hardening 48/0 · receiver 61/0 · inboxes 12/0 · inbox 38/0 · outbound 34/0 · assistant 28/0 · multiservice 37/0 · panel 317/0 · `tools/check.sh` GREEN · gateway-verify 24/0 · whatsapp-notify 131/0 (fake gateway) · redaction PASS (199) · governance invariant 111/0 · auto-comms 113/0 · `mpi-0-finalization-governance` 33/3 = **identical on unmodified origin/main** (skills registry drift). |
+| Review verdict | Privacy, default deny, owner/reserved exclusion, unrouted ⇒ no contact/conversation/message/payload, routed ingest, idempotency, replay through the guard, migration additivity + guarded down: verified. **Ready for merge once the branch is on GitHub.** |
+| Delivery blocker | `mythos-git-push` fails: `fatal: could not read Username for 'https://github.com'`. The shared checkout `.git/config` has `remote.origin.url` **and** `pushurl` = HTTPS since 2026-09-14 01:10 UTC; the relay pushes with deploy's pinned SSH key (still valid: read-only `ls-remote` OK). Same failure as 2026-09-03. Owner decision: restore an SSH `pushurl` (note: last time a repo-level pushurl broke the bridge push guard) or give the relay an HTTPS credential. Until then origin/PR #229 head stays `ea78c56` (still carries the forced opt-in). |
+| Production (read-only audit) | unchanged and healthy: `mythos-wp.service` active since 2026-09-13 23:08, 0 errors 24 h, `/healthz` 200, TLS to 2026-12-04; deployed `b028aff` = main for `projects/mythos-wp`; ledger 0001–0005; 1 inbox (`ssangyong-autos`, closed, in/out off), 0 contacts/conversations/messages; Evolution `mythos-bridge` open, webhook **null**; `ssangyong-autos` close. **No scheduled backup of `mythos_wp`** (last dump 2026-09-05 pre-0005). |
+| Next action | Owner: fix relay transport → relay delivers the branch → review/merge PR #229 → backup `mythos_wp` → deploy + `migrate up` 0006 → shared inbox with `--allow-personal-account` + rules → only then the `mythos-bridge` webhook (dry-run). |
+
 ## 2026-09-05 — MYTHOS-COMMS-11 — Shared WhatsApp Account Routing & Privacy Guard (#228): **IMPLEMENTED, PR OPEN (not merged, not deployed)**
 
 | Item | State |
