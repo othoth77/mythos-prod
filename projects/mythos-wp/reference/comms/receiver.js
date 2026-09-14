@@ -97,7 +97,10 @@ function handle(req, res, deps) {
     var pool = deps.pool;
     if (!parsed.ok) {
       var ignorable = /^(EVENT_IGNORED|OWN_MESSAGE|GROUP_IGNORED|STATUS_IGNORED|SELF_CHAT_IGNORED)/.test(parsed.reason);
-      return core.recordInbound(pool, { provider: provider.id, instance: instance, event: eventName, provider_message_id: pmid, status: ignorable ? 'ignored' : 'rejected', reason: parsed.reason, event_name: 'event.rejected', payload_sha256: sha, payload: ignorable ? null : provider.redactDeep(body) })
+      // PRIVACY GUARD (COMMS-11): redactDeep strips secrets/media, not text or numbers. A rejected event on an instance
+      // hosting a shared inbox (personal account) keeps NO payload — hash + reason only — like a routing drop.
+      var keepPayload = ignorable ? Promise.resolve(false) : (instance ? routing.inboxesOn(pool, provider.id, instance).then(function (ibs) { return !ibs.some(function (i) { return i.account_mode === 'shared'; }); }) : Promise.resolve(true));
+      return keepPayload.then(function (keep) { return core.recordInbound(pool, { provider: provider.id, instance: instance, event: eventName, provider_message_id: pmid, status: ignorable ? 'ignored' : 'rejected', reason: parsed.reason, event_name: 'event.rejected', payload_sha256: sha, payload: keep ? provider.redactDeep(body) : null }); })
         .then(function () { log({ level: ignorable ? 'info' : 'warn', receiver: ignorable ? 'ignored' : 'rejected', reason: parsed.reason, instance: instance, event: eventName, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: false, reason: parsed.reason }); });
     }
     // ---- PRIVACY GUARD (COMMS-11): instance → inboxes → routing decision BEFORE any ledger row.

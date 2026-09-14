@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS wp_routing_drops (
     instance        VARCHAR(64)  NOT NULL,
     decision        VARCHAR(16)  NOT NULL,                          -- drop
     reason          VARCHAR(48)  NOT NULL,                          -- UNROUTED | OWNER_EXCLUDED | ROUTING_AMBIGUOUS | RULE_MALFORMED | …
-    identity_sha256 CHAR(64),                                       -- sha256(kind ':' value ':' instance) — correlatable, not reversible
+    identity_sha256 CHAR(64),                                       -- sha256(kind ':' value ':' instance), unsalted — correlatable, pseudonymous (enumerable), not anonymous
     payload_sha256  CHAR(64),
     CONSTRAINT wp_routing_drops_decision_domain CHECK (decision IN ('drop'))
 );
