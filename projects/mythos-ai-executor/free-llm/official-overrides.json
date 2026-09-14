@@ -1,0 +1,71 @@
+{
+  "_comment": "Curated overlay of OFFICIAL provider documentation/policy links (point 6 of the free-llm-resources brief: official provider info outranks the free-llm-api-resources README wherever both exist). Every url below was live-verified (HTTP 200) at the date recorded. sync.js merges this file OVER parsed catalog fields — it never invents a fact the README already states correctly, it only supplies what the README does not carry (privacy/terms links) or corrects it when official docs disagree. Add a new provider id here at any time without touching sync.js or the parser — this file is the extension point.",
+  "verified_at": "2026-09-14",
+  "providers": {
+    "openrouter": {
+      "docs_url": "https://openrouter.ai/docs/api/reference/limits",
+      "privacy_url": "https://openrouter.ai/privacy",
+      "terms_url": "https://openrouter.ai/terms"
+    },
+    "google-ai-studio": {
+      "docs_url": "https://ai.google.dev/gemini-api/docs/rate-limits",
+      "privacy_url": "https://ai.google.dev/gemini-api/terms",
+      "terms_url": "https://ai.google.dev/gemini-api/terms"
+    },
+    "nvidia-nim": {
+      "docs_url": "https://build.nvidia.com/models",
+      "privacy_url": "https://www.nvidia.com/en-us/about-nvidia/privacy-policy/",
+      "terms_url": null
+    },
+    "mistral-la-plateforme": {
+      "docs_url": "https://docs.mistral.ai/getting-started/models/models_overview/",
+      "privacy_url": "https://mistral.ai/terms#privacy-policy",
+      "terms_url": "https://mistral.ai/terms"
+    },
+    "mistral-codestral": {
+      "docs_url": "https://docs.mistral.ai/",
+      "privacy_url": "https://mistral.ai/terms#privacy-policy",
+      "terms_url": "https://mistral.ai/terms"
+    },
+    "huggingface-inference-providers": {
+      "docs_url": "https://huggingface.co/docs/inference-providers/en/pricing",
+      "privacy_url": "https://huggingface.co/privacy",
+      "terms_url": "https://huggingface.co/terms-of-service"
+    },
+    "groq": {
+      "docs_url": "https://console.groq.com/docs/rate-limits",
+      "privacy_url": "https://groq.com/privacy-policy/",
+      "terms_url": "https://groq.com/terms-of-use/"
+    },
+    "cerebras": {
+      "docs_url": "https://inference-docs.cerebras.ai/",
+      "privacy_url": "https://www.cerebras.ai/privacy-policy",
+      "terms_url": null
+    },
+    "cohere": {
+      "docs_url": "https://docs.cohere.com/docs/rate-limits",
+      "privacy_url": "https://cohere.com/privacy",
+      "terms_url": "https://cohere.com/terms-of-use"
+    },
+    "github-models": {
+      "docs_url": "https://docs.github.com/en/github-models/prototyping-with-ai-models#rate-limits",
+      "privacy_url": "https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement",
+      "terms_url": "https://docs.github.com/en/site-policy/github-terms/github-terms-of-service"
+    },
+    "cloudflare-workers-ai": {
+      "docs_url": "https://developers.cloudflare.com/workers-ai/platform/pricing/",
+      "privacy_url": "https://www.cloudflare.com/privacypolicy/",
+      "terms_url": "https://www.cloudflare.com/website-terms/"
+    },
+    "fireworks": {
+      "docs_url": "https://fireworks.ai/models",
+      "privacy_url": "https://fireworks.ai/privacy-policy",
+      "terms_url": null
+    },
+    "sambanova-cloud": {
+      "docs_url": "https://cloud.sambanova.ai/",
+      "privacy_url": "https://sambanova.ai/privacy-policy",
+      "terms_url": null
+    }
+  }
+}

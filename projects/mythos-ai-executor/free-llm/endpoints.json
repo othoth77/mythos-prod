@@ -1,0 +1,52 @@
+{
+  "_comment": "Execution wiring for the generic OpenAI-compatible adapter (adapter.js). A provider absent from this map is catalog-only (discoverable, health-checkable-as-'unconfigured', but never selected for a live call) — that is the honest default, never an assumed shape. `wired: true` here means the base_url was LIVE-VERIFIED (an unauthenticated GET /models returned a real HTTP response — 200, or 401/403 confirming the endpoint exists and enforces auth) on the date below, NOT that the shape has been exercised with a real key. Cloudflare Workers AI, Google AI Studio's native REST, and Cohere's non-compat endpoint are deliberately absent: their request/response shape is not the generic OpenAI chat/completions contract, so they need their own adapter file (mirroring providers/gemini.js next to providers/openai-compat.js) rather than being force-fit here — that is the extensibility point, not a gap to silently paper over.",
+  "verified_at": "2026-09-14",
+  "verification_method": "unauthenticated GET against base_url + /models; 200/401/403 = endpoint exists (401/403 additionally confirms it enforces auth); 404/000 = wrong path or unreachable, excluded",
+  "providers": {
+    "openrouter": {
+      "base_url": "https://openrouter.ai/api/v1",
+      "wired": true,
+      "verified": "GET /models -> HTTP 200 (unauthenticated)"
+    },
+    "groq": {
+      "base_url": "https://api.groq.com/openai/v1",
+      "wired": true,
+      "verified": "GET /models -> HTTP 401"
+    },
+    "cerebras": {
+      "base_url": "https://api.cerebras.ai/v1",
+      "wired": true,
+      "verified": "GET /models -> HTTP 403"
+    },
+    "mistral-la-plateforme": {
+      "base_url": "https://api.mistral.ai/v1",
+      "wired": true,
+      "verified": "GET /models -> HTTP 401"
+    },
+    "nvidia-nim": {
+      "base_url": "https://integrate.api.nvidia.com/v1",
+      "wired": true,
+      "verified": "GET /models -> HTTP 200"
+    },
+    "huggingface-inference-providers": {
+      "base_url": "https://router.huggingface.co/v1",
+      "wired": true,
+      "verified": "GET /models -> HTTP 200"
+    },
+    "fireworks": {
+      "base_url": "https://api.fireworks.ai/inference/v1",
+      "wired": true,
+      "verified": "GET /models -> HTTP 401"
+    },
+    "sambanova-cloud": {
+      "base_url": "https://api.sambanova.ai/v1",
+      "wired": true,
+      "verified": "GET /models -> HTTP 200"
+    },
+    "cohere": {
+      "base_url": "https://api.cohere.ai/compatibility/v1",
+      "wired": true,
+      "verified": "GET /models -> HTTP 401 (Cohere's OpenAI-compatibility endpoint, distinct from its native v1 API)"
+    }
+  }
+}

@@ -52,7 +52,10 @@ var PROVIDERS = {
   // Runs an implementer CLI (claude/codex/opencode) chosen by the task's
   // lane, through the delegate-skills boundary. Execution authority, like
   // claude-code — a lane picks WHICH CLI, never what the task may do.
-  'delegate': require('./providers/delegate')
+  'delegate': require('./providers/delegate'),
+  // Advisory meta-agent over free-llm/ (discovery + health + fallback
+  // across many free-tier providers). Never execution authority.
+  'free-llm-pool': require('./providers/free-llm-pool')
 };
 // The mock provider is test-only and must be impossible to reach in
 // production: the systemd unit never sets this variable.

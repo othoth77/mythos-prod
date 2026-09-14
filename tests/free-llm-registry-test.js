@@ -1,0 +1,143 @@
+'use strict';
+// =====================================================
+// Free LLM Resources — registry (health state + live view) tests
+// tests/free-llm-registry-test.js
+//
+// Fixtures live under the home directory (never /tmp), same discipline
+// as tests/mythos-budget-ledger-test.js, and are removed at the end.
+// Every HTTP call is injected (opts.transport) — no network.
+//
+// Run with: node tests/free-llm-registry-test.js
+// =====================================================
+
+var fs = require('fs');
+var os = require('os');
+var path = require('path');
+
+var FIXTURES = path.join(os.homedir(), 'free-llm-registry-test-' + process.pid);
+fs.mkdirSync(FIXTURES, { recursive: true });
+
+var EXEC = path.join(__dirname, '..', 'projects', 'mythos-ai-executor');
+var registry = require(path.join(EXEC, 'free-llm', 'registry'));
+
+var passed = 0, failed = 0, failures = [];
+function ok(cond, name) {
+  if (cond) passed++;
+  else { failed++; failures.push(name); console.error('FAIL: ' + name); }
+}
+
+var CATALOG_PATH = path.join(FIXTURES, 'catalog.json');
+var ENDPOINTS_PATH = path.join(FIXTURES, 'endpoints.json');
+var HEALTH_PATH = path.join(FIXTURES, 'health.json');
+var KEY_FILE_A = path.join(FIXTURES, 'provider-a.env');
+
+var CATALOG = {
+  providers: [
+    {
+      id: 'provider-a', name: 'Provider A', homepage: 'https://a.example', category: 'free', access_type: 'free_tier',
+      requirements: ['signup'], data_policy_note: null, official: null, limits_text: '10 requests/day',
+      models: [{ name: 'model-a', api_model_id: 'model-a', api_model_id_confidence: 'literal_text', limits_text: null, modality: 'chat' }]
+    },
+    {
+      id: 'provider-b-no-confirmed-model', name: 'Provider B', homepage: 'https://b.example', category: 'free', access_type: 'free_tier',
+      requirements: ['signup'], data_policy_note: null, official: null, limits_text: null,
+      models: [{ name: 'Display Name Only', api_model_id: null, api_model_id_confidence: 'unconfirmed', limits_text: null, modality: 'chat' }]
+    },
+    {
+      id: 'provider-c-unwired', name: 'Provider C', homepage: 'https://c.example', category: 'trial', access_type: 'trial',
+      requirements: ['signup'], data_policy_note: null, official: null, limits_text: null,
+      models: [{ name: 'model-c', api_model_id: 'model-c', api_model_id_confidence: 'literal_text', limits_text: null, modality: 'chat' }]
+    }
+  ]
+};
+var ENDPOINTS = { providers: { 'provider-a': { base_url: 'https://a.example/v1', wired: true } } };
+
+fs.writeFileSync(CATALOG_PATH, JSON.stringify(CATALOG));
+fs.writeFileSync(ENDPOINTS_PATH, JSON.stringify(ENDPOINTS));
+fs.writeFileSync(KEY_FILE_A, 'MYTHOS_FREE_LLM_PROVIDER_A_API_KEY=sk-fixture\n', { mode: 0o600 });
+
+function opts(extra) {
+  return Object.assign({
+    catalogPath: CATALOG_PATH, endpointsPath: ENDPOINTS_PATH, healthPath: HEALTH_PATH,
+    secretsOpts: { keyFile: KEY_FILE_A }
+  }, extra || {});
+}
+
+// ---------------------------------------------------------------- 1. statusFromOutcome mapping
+ok(registry.statusFromOutcome({ parsed: { is_error: false, result: 'hi' } }) === 'active',
+  'a clean success maps to active');
+ok(registry.statusFromOutcome({ parsed: { is_error: true, result: 'usage limit reached' } }) === 'quota_exhausted',
+  'a quota-shaped message (lib/quota.js pattern) maps to quota_exhausted');
+ok(registry.statusFromOutcome({ parsed: { is_error: true, result: 'rate limit exceeded' } }) === 'degraded',
+  'a transient-shaped message maps to degraded, not unavailable');
+ok(registry.statusFromOutcome({ parsed: { is_error: true, result: 'HTTP 404: model not found' }, http_status: 404 }) === 'expired',
+  'an HTTP 404 maps to expired (the :free slug likely rotated out)');
+ok(registry.statusFromOutcome({ parsed: { is_error: true, result: 'invalid api key' } }) === 'unavailable',
+  'a blocked/permanent-shaped message maps to unavailable, never a crash');
+
+// ---------------------------------------------------------------- 2. checkProviderHealth: unwired / no-credential / no-confirmed-model
+var chain = registry.checkProviderHealth('provider-c-unwired', opts()).then(function (r) {
+  ok(r.status === 'unconfigured' && /NOT_WIRED/.test(r.last_failure_reason),
+    'an unwired provider reports unconfigured with a NOT_WIRED reason, never a network attempt');
+}).then(function () {
+  return registry.checkProviderHealth('provider-a', opts({ secretsOpts: { keyFile: path.join(FIXTURES, 'missing.env') } }));
+}).then(function (r) {
+  ok(r.status === 'unconfigured' && /NO_CREDENTIAL/.test(r.last_failure_reason),
+    'a wired provider with no key file reports unconfigured with a NO_CREDENTIAL reason');
+}).then(function () {
+  return registry.checkProviderHealth('provider-b-no-confirmed-model', opts());
+}).then(function (r) {
+  // provider-b is not in ENDPOINTS at all -> also unconfigured (NOT_WIRED wins before the model-confidence check is even reached)
+  ok(r.status === 'unconfigured', 'an unwired provider never reaches the confirmed-model check either');
+}).then(function () {
+  // ---------------------------------------------------------------- 3. checkProviderHealth: a real (mocked) probe
+  var calls = 0;
+  var transport = function (reqOpts, body) {
+    calls++;
+    var payload = JSON.parse(body);
+    ok(payload.model === 'model-a', 'the probe request carries the catalog-confirmed model id, never a guess');
+    return Promise.resolve({ status: 200, body: JSON.stringify({ model: 'model-a', choices: [{ message: { content: 'ok' } }] }) });
+  };
+  return registry.checkProviderHealth('provider-a', opts({ transport: transport })).then(function (r) {
+    ok(calls === 1, 'exactly one HTTP call was made for the probe');
+    ok(r.status === 'active' && r.last_success && !r.last_failure_reason,
+      'a successful probe records active + last_success, no failure reason');
+    ok(r.probed_model === 'model-a', 'the health record remembers which model was actually probed');
+  });
+}).then(function () {
+  // ---------------------------------------------------------------- 4. persisted health survives a reload + consecutive_failures accumulates
+  var failing = function () { return Promise.resolve({ status: 429, body: JSON.stringify({ error: { message: 'usage limit reached' } }) }); };
+  return registry.checkProviderHealth('provider-a', opts({ transport: failing })).then(function (r1) {
+    ok(r1.status === 'quota_exhausted' && r1.consecutive_failures === 1, 'first failure after a success resets to consecutive_failures=1');
+    return registry.checkProviderHealth('provider-a', opts({ transport: failing }));
+  }).then(function (r2) {
+    ok(r2.consecutive_failures === 2, 'a second consecutive failure increments the counter');
+    ok(r2.last_success, 'last_success from the earlier successful probe is preserved across later failures');
+    var onDisk = JSON.parse(fs.readFileSync(HEALTH_PATH, 'utf8'));
+    ok(onDisk['provider-a'].status === 'quota_exhausted', 'health.json on disk reflects the latest state');
+  });
+}).then(function () {
+  // ---------------------------------------------------------------- 5. listEntries shape
+  var rows = registry.listEntries(opts());
+  ok(rows.length === 3, 'listEntries returns one row per {provider, model} pair (' + rows.length + ')');
+  var a = rows.find(function (r) { return r.provider_id === 'provider-a'; });
+  ok(a.wired === true && a.credential_present === true, 'provider-a: wired + credential_present reflect the fixture');
+  ok(a.health.status === 'quota_exhausted', 'provider-a: listEntries surfaces the persisted health status');
+  var c = rows.find(function (r) { return r.provider_id === 'provider-c-unwired'; });
+  ok(c.wired === false && c.credential_present === null,
+    'provider-c: unwired providers report credential_present=null (not tracked), never a false negative');
+  var b = rows.find(function (r) { return r.provider_id === 'provider-b-no-confirmed-model'; });
+  ok(b.model_id === null && b.model_id_confidence === 'unconfirmed',
+    'provider-b: an unconfirmed catalog model id is surfaced honestly, never invented');
+});
+
+chain.then(function () {
+  fs.rmSync(FIXTURES, { recursive: true, force: true });
+  console.log('\n' + passed + ' passed, ' + failed + ' failed');
+  if (failures.length) { console.log('Failures:\n  ' + failures.join('\n  ')); process.exit(1); }
+  process.exit(0);
+}).catch(function (err) {
+  console.error('SUITE ERROR: ' + (err && err.stack || err));
+  fs.rmSync(FIXTURES, { recursive: true, force: true });
+  process.exit(1);
+});
