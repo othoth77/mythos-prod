@@ -1,0 +1,111 @@
+#!/usr/bin/env node
+'use strict';
+// =====================================================
+// MYTHOS Guardian — CLI
+// ops/guardian/bin/mythos-guardian
+//
+//   mythos-guardian run [--dry-run] [--json]    one tick (the timer runs this)
+//   mythos-guardian simulate <scenario|all> [--json]
+//   mythos-guardian scenarios
+//   mythos-guardian status                      print the last public status
+//   mythos-guardian validate [--config FILE]
+//
+// Options: --config FILE (override, default /etc/mythos-guardian/config.json)
+//          --state-dir DIR (tests / ad-hoc runs; never needed on the host)
+// Exit: 0 ok · 1 unexpected crash · 2 usage · 3 invalid config (validate only)
+// =====================================================
+
+var path = require('path');
+var lib = path.join(__dirname, '..', 'lib');
+var guardian = require(path.join(lib, 'guardian'));
+var configMod = require(path.join(lib, 'config'));
+var ioMod = require(path.join(lib, 'io'));
+
+var args = process.argv.slice(2);
+var cmd = args[0];
+function opt(name) { var i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; }
+function flag(name) { return args.indexOf(name) >= 0; }
+
+var io = ioMod.createIo();
+var overridePath = opt('--config') || process.env.MYTHOS_GUARDIAN_CONFIG || '/etc/mythos-guardian/config.json';
+var stateDir = opt('--state-dir') || process.env.MYTHOS_GUARDIAN_STATE_DIR || null;
+
+function usage() {
+  console.error('usage: mythos-guardian run [--dry-run] [--json] | simulate <scenario|all> [--json] | scenarios | status | validate [--config FILE]');
+  process.exit(2);
+}
+
+function mib(bytes) { return Math.round((bytes || 0) / 1048576 * 10) / 10; }
+
+function human(r, title) {
+  var s = r.status;
+  var lines = [];
+  lines.push('== ' + title + ' — overall ' + s.level + ' (mode: ' + s.mode + ')');
+  if (r.scenario) lines.push('   scenario: ' + r.scenario.name + ' — ' + r.scenario.note + ' (' + r.scenario.ticks + ' ticks)');
+  lines.push('DETECTED');
+  Object.keys(s.domains).forEach(function (d) {
+    var dom = s.domains[d];
+    lines.push('  ' + d.padEnd(9) + dom.level.padEnd(10) + (dom.findings.length ? dom.findings.map(function (f) { return '[' + f.severity + (f.degraded ? ' DEGRADED' : '') + '] ' + f.trigger; }).join(' | ') : 'no findings'));
+  });
+  if (r.scenario && r.scenario.transitions.length) lines.push('  transitions: ' + r.scenario.transitions.map(function (t) { return t.domain + ' ' + t.from + '→' + t.to + ' (' + t.reason + ')'; }).join(', '));
+  lines.push('WOULD DO / DID');
+  if (!r.actions.length) lines.push('  nothing — no confirmed level plans an action');
+  r.actions.forEach(function (a) {
+    var it = a.item;
+    var what = it.kind === 'command' ? it.argv.join(' ') : (it.kind === 'restart-unit' ? 'systemctl ' + (it.manager === 'deploy' ? '--user -M deploy@ ' : '') + 'start ' + it.unit + ' (attempt ' + it.attempt + '/' + it.max_attempts + ')' : 'remove verified paths');
+    lines.push('  ' + it.id + ' → ' + a.decision + ' :: ' + what + ' — ' + it.reason);
+    if (it.paths) {
+      var ok = it.paths.filter(function (p) { return p.ok; });
+      var shown = it.paths.slice(0, 10);
+      shown.forEach(function (p) { lines.push('      ' + (p.ok ? 'REMOVABLE ' : 'PROTECTED ') + p.path + ' (' + mib(p.size_bytes) + ' MiB)' + (p.failed_checks.length ? ' — ' + p.failed_checks.join('; ') : '')); });
+      if (it.paths.length > shown.length) lines.push('      … ' + (it.paths.length - shown.length) + ' more (' + ok.length + ' removable in total, ≈ ' + mib(ok.reduce(function (x, p) { return x + p.size_bytes; }, 0)) + ' MiB; --json for the full list)');
+    }
+    if (a.result) lines.push('      result: ' + JSON.stringify(a.result).slice(0, 300));
+  });
+  lines.push('PROTECTED (never acted on)');
+  lines.push('  ERP, databases, Docker containers/volumes, repositories/worktrees, backups, credentials — by code; see docs/guardian/CLEANUP_POLICY.md');
+  lines.push('SKIPPED');
+  var skipped = r.actions.filter(function (a) { return a.decision !== 'execute'; });
+  lines.push(skipped.length ? '  ' + skipped.map(function (a) { return a.item.id + ' (' + a.decision + ')'; }).join(', ') : '  none');
+  lines.push('EXPECTED');
+  var reclaim = r.actions.reduce(function (acc, a) { return acc + (a.item.paths ? a.item.paths.filter(function (p) { return p.ok; }).reduce(function (x, p) { return x + p.size_bytes; }, 0) : 0); }, 0);
+  lines.push('  admission: max ' + s.admission.max_heavy_sessions + ' heavy sessions (now ' + s.admission.sessions + ')' + (reclaim ? '; path cleanup would reclaim ≈ ' + mib(reclaim) + ' MiB' : ''));
+  if (s.report_errors && s.report_errors.length) lines.push('  report errors (protection unaffected): ' + s.report_errors.join('; '));
+  return lines.join('\n');
+}
+
+try {
+  if (cmd === 'run') {
+    var r = guardian.tick({ io: io, overridePath: overridePath, dryRun: flag('--dry-run'), stateDir: stateDir, env: process.env });
+    if (flag('--json')) console.log(JSON.stringify(r.status, null, 2));
+    else if (flag('--dry-run')) console.log(human(r, 'DRY RUN'));
+    else console.log(JSON.stringify({ at: r.status.generated_at, level: r.status.level, mode: r.status.mode, domains: Object.keys(r.status.domains).reduce(function (o, d) { o[d] = r.status.domains[d].level; return o; }, {}), actions: r.status.actions, incidents: r.incidents.map(function (i) { return i.id + ':' + i.severity; }), report_errors: r.status.report_errors, tick_ms: r.status.tick_ms }));
+    process.exit(0);
+  } else if (cmd === 'simulate') {
+    var names = args[1] === 'all' ? Object.keys(guardian.SCENARIOS) : [args[1]];
+    if (!args[1] || names.some(function (n) { return !guardian.SCENARIOS[n]; })) usage();
+    var out = names.map(function (n) { return guardian.simulate({ io: io, overridePath: overridePath, stateDir: stateDir, env: process.env }, n); });
+    if (flag('--json')) console.log(JSON.stringify(out.map(function (x) { return { scenario: x.scenario, status: x.status, actions: x.actions.map(function (a) { return { id: a.item.id, decision: a.decision }; }) }; }), null, 2));
+    else console.log(out.map(function (x) { return human(x, 'SIMULATION'); }).join('\n\n'));
+    process.exit(0);
+  } else if (cmd === 'scenarios') {
+    Object.keys(guardian.SCENARIOS).forEach(function (n) { console.log(n.padEnd(22) + guardian.SCENARIOS[n].note); });
+    process.exit(0);
+  } else if (cmd === 'status') {
+    var loaded = configMod.load(io, overridePath);
+    var p = path.join(stateDir ? path.join(stateDir, 'public') : loaded.config.public_dir, 'status.json');
+    var st = io.readFile(p);
+    if (st === null) { console.error('no status at ' + p); process.exit(1); }
+    process.stdout.write(st);
+    process.exit(0);
+  } else if (cmd === 'validate') {
+    var l = configMod.load(io, overridePath);
+    if (l.errors.length) { console.error('INVALID:\n  ' + l.errors.join('\n  ')); process.exit(3); }
+    console.log('config valid (source: ' + l.source + ')');
+    process.exit(0);
+  }
+  usage();
+} catch (e) {
+  console.error('mythos-guardian: unexpected error: ' + (e && e.stack || e));
+  process.exit(1);
+}

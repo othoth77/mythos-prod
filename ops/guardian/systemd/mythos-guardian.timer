@@ -1,0 +1,17 @@
+# /etc/systemd/system/mythos-guardian.timer
+[Unit]
+# Two minutes = the memwatch / resource-guard sampling cadence. Escalation
+# needs 2 confirming ticks (≈ 4 min); an oom_kill delta or a down critical
+# unit acts on the first tick. The session guard reads the pressure file
+# this writes and treats anything older than 5 minutes as NORMAL.
+Description=Run MYTHOS Guardian every 2 minutes
+
+[Timer]
+OnBootSec=4min
+OnUnitActiveSec=2min
+AccuracySec=15s
+Persistent=false
+Unit=mythos-guardian.service
+
+[Install]
+WantedBy=timers.target
