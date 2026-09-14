@@ -32,11 +32,16 @@ EXIT_CODE=0
 
 fail_usage() { echo "ERROR: $1" >&2; write_health 1 "$1"; exit 1; }
 
+# health_field <key> <file> — the string value of one key in a health record.
+health_field() { sed -n "s/.*\"$1\": *\"\\([^\"]*\\)\".*/\\1/p" "$2" | head -1; }
+
 write_health() {
   # write_health <exit_code> <error_or_empty>
   local code="$1" err="${2:-}"
   local health="${MYTHOS_BACKUP_HEALTH_FILE:-$HOME/mythos-backups/health/backup-health.json}"
   local finished epoch_now duration status last_success prev_fails fails
+  local prev_status prev_error rec_status rec_error
+  local last_backup_status last_backup_at last_verify_status last_verify_at last_restore_status last_restore_at
   finished="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   epoch_now=$(date +%s)
   duration=$((epoch_now - START_EPOCH))
@@ -45,12 +50,49 @@ write_health() {
   err="$(printf '%s' "$err" | sed -E 's/(access[_ -]?key|secret|token|signature|credential|password)([=:][^ ]*)/\1=[REDACTED]/Ig' | tail -c 400)"
   last_success=""
   prev_fails=0
+  prev_status=""; prev_error=""
+  last_backup_status=""; last_backup_at=""
+  last_verify_status=""; last_verify_at=""
+  last_restore_status=""; last_restore_at=""
   if [ -f "$health" ]; then
-    last_success="$(sed -n 's/.*"last_success_at": *"\([^"]*\)".*/\1/p' "$health" | head -1)"
+    last_success="$(health_field last_success_at "$health")"
     prev_fails="$(sed -n 's/.*"consecutive_failures": *\([0-9]*\).*/\1/p' "$health" | head -1)"
     prev_fails="${prev_fails:-0}"
+    prev_status="$(health_field status "$health")"
+    prev_error="$(health_field error "$health")"
+    last_backup_status="$(health_field last_backup_status "$health")"
+    last_backup_at="$(health_field last_backup_finished_at "$health")"
+    last_verify_status="$(health_field last_verify_status "$health")"
+    last_verify_at="$(health_field last_verify_finished_at "$health")"
+    last_restore_status="$(health_field last_restore_test_status "$health")"
+    last_restore_at="$(health_field last_restore_test_finished_at "$health")"
   fi
-  if [ "$status" = "ok" ]; then last_success="$finished"; fails=0; else fails=$((prev_fails + 1)); fi
+  # Only a successful BACKUP run is backup success. `verify` and
+  # `restore-test` prove the newest REMOTE set is intact and restorable —
+  # verify-remote checks the manifest and checksums, not the set's age — so
+  # a clean verify after a failed nightly backup must not report a stale
+  # backup as fresh. Non-backup modes record their own outcome, never
+  # advance last_success_at, never reset consecutive_failures, and never
+  # clear a failed backup's status or error. (Before 2026-09-14 any exit 0
+  # did all three.)
+  if [ "${MODE:-}" = "backup" ]; then
+    last_backup_status="$status"; last_backup_at="$finished"
+    if [ "$status" = "ok" ]; then last_success="$finished"; fails=0; else fails=$((prev_fails + 1)); fi
+    rec_status="$status"; rec_error="$err"
+  else
+    [ "${MODE:-}" = "verify" ] && { last_verify_status="$status"; last_verify_at="$finished"; }
+    [ "${MODE:-}" = "restore-test" ] && { last_restore_status="$status"; last_restore_at="$finished"; }
+    if [ "$status" = "ok" ]; then
+      fails="$prev_fails"
+      if [ "$last_backup_status" = "fail" ] || { [ -z "$last_backup_status" ] && [ "$prev_status" = "fail" ]; }; then
+        rec_status="fail"; rec_error="$prev_error"
+      else
+        rec_status="ok"; rec_error=""
+      fi
+    else
+      fails=$((prev_fails + 1)); rec_status="fail"; rec_error="$err"
+    fi
+  fi
   mkdir -p "$(dirname "$health")"
   local tmp="$health.tmp.$$"
   {
@@ -58,7 +100,7 @@ write_health() {
     printf '  "schema_version": "1.0.0",\n'
     printf '  "source": "ops/backup/mythos-backup-run.sh",\n'
     printf '  "mode": "%s",\n' "${MODE:-unknown}"
-    printf '  "status": "%s",\n' "$status"
+    printf '  "status": "%s",\n' "$rec_status"
     printf '  "exit_code": %s,\n' "$code"
     printf '  "started_at": "%s",\n' "$STARTED_AT"
     printf '  "finished_at": "%s",\n' "$finished"
@@ -66,7 +108,13 @@ write_health() {
     printf '  "backup_prefix": "%s",\n' "${MYTHOS_BACKUP_PREFIX:-}"
     printf '  "last_success_at": "%s",\n' "$last_success"
     printf '  "consecutive_failures": %s,\n' "$fails"
-    printf '  "error": "%s"\n' "$(printf '%s' "$err" | tr '"\n' "' ")"
+    printf '  "last_backup_status": "%s",\n' "$last_backup_status"
+    printf '  "last_backup_finished_at": "%s",\n' "$last_backup_at"
+    printf '  "last_verify_status": "%s",\n' "$last_verify_status"
+    printf '  "last_verify_finished_at": "%s",\n' "$last_verify_at"
+    printf '  "last_restore_test_status": "%s",\n' "$last_restore_status"
+    printf '  "last_restore_test_finished_at": "%s",\n' "$last_restore_at"
+    printf '  "error": "%s"\n' "$(printf '%s' "$rec_error" | tr '"\n' "' ")"
     printf '}\n'
   } > "$tmp"
   chmod 600 "$tmp"

@@ -61,6 +61,34 @@ active/idle/orphaned counts, `resident_mib`, the Resource Guard level,
 whether the ceiling is breached, what it planned, what it applied, and how
 many vetoes fired.
 
+## Memory-pressure input
+
+The runner reads ONLY the pressure summary the executor publishes:
+`/var/lib/mythos/pressure/resource-pressure.json` (override:
+`MYTHOS_SESSION_GUARD_PRESSURE_FILE`), containing exactly
+`{ "level", "updated_at" }`. It never reads the executor's private home
+(`/home/deploy/mythos-ai-executor`, `0700`, holds `secrets/`), and the unit
+keeps `CapabilityBoundingSet=CAP_KILL` — no DAC capability, no ACL.
+
+The installer provisions `/var/lib/mythos/pressure` deploy-owned `0755`
+inside `root:deploy 0750 /var/lib/mythos`: root traverses the parent as its
+owner and reads the `0644` file as "other"; nobody outside root and the
+deploy group can reach it. The executor writes it atomically on every sample
+(O_EXCL temp + fsync + rename) and never creates the directory.
+
+The runner opens the file with `O_NOFOLLOW|O_NONBLOCK` (the directory is
+deploy-writable), requires a regular file of at most 4 KiB, and maps the
+published level onto what the guard acts on (`HIGH`→`WARNING`,
+`EMERGENCY`→`CRITICAL`). Every journal line carries `pressure_source`
+(`{ path, status, published_level?, error? }`) with `status` one of `ok`,
+`missing`, `unreadable`, `invalid`, `stale`; anything but `ok` reads as
+`NORMAL` (fail-soft), older than 5 minutes is `stale`.
+
+Activation needs, in order: the executor running this code (it publishes
+only once the directory exists), and this runner re-installed with
+`install-session-guard.sh` (which also creates the directory). Until then the
+journal says `missing`.
+
 ## Files
 
 | file | role |

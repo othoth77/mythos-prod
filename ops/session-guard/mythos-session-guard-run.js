@@ -35,7 +35,7 @@
 // fixture tree without touching the real host):
 //   MYTHOS_SESSION_GUARD_HOME      state + ledger + marker directory
 //   MYTHOS_SESSION_GUARD_PROC      /proc root (read by session-guard.js)
-//   MYTHOS_SESSION_GUARD_RG_STATE  the Resource Guard's state file
+//   MYTHOS_SESSION_GUARD_PRESSURE_FILE  the published pressure summary
 //   MYTHOS_SESSION_GUARD_MAX       concurrent-session ceiling
 //   MYTHOS_SESSION_GUARD_IDLE      idle timeout in seconds
 //   MYTHOS_SESSION_GUARD=off       kill switch, overrides the marker
@@ -55,26 +55,72 @@ var LIFECYCLE = process.env.MYTHOS_SESSION_GUARD_LIFECYCLE || '/home/deploy/myth
 var SNAPSHOT = process.env.MYTHOS_LIFECYCLE_SNAPSHOT || '/var/lib/mythos/lifecycle/host-sessions.json';
 var vpsRuntime = null;
 try { vpsRuntime = require('./runtime-vps'); } catch (e) { vpsRuntime = null; }
-var RG_STATE = process.env.MYTHOS_SESSION_GUARD_RG_STATE ||
-  '/home/deploy/.mythos-ai-executor/resource-guard.json';
-// How stale the Resource Guard's state may be and still be believed. The
-// executor samples every 15s; beyond this the file is ignored and the
-// level read as NORMAL, which only ever makes this guard LESS eager.
-var RG_MAX_AGE_MS = 5 * 60 * 1000;
+// Memory pressure arrives through a dedicated publication channel, never
+// from the executor's private home. The executor (deploy) atomically writes
+// ONLY { level, updated_at } into /var/lib/mythos/pressure/ — a directory
+// install-session-guard.sh provisions deploy-owned 0755 inside root:deploy
+// 0750 /var/lib/mythos (the same exchange area as the lifecycle snapshot,
+// in the opposite direction). This unit keeps CapabilityBoundingSet=CAP_KILL:
+// root can traverse /var/lib/mythos as its owner and read the 0644 file as
+// "other", and still cannot read anything in the 0700 executor home.
+var PRESSURE_FILE = process.env.MYTHOS_SESSION_GUARD_PRESSURE_FILE ||
+  '/var/lib/mythos/pressure/resource-pressure.json';
+// How stale the publication may be and still be believed. The executor
+// samples every 15s; beyond this the file is ignored and the level read as
+// NORMAL, which only ever makes this guard LESS eager.
+var PRESSURE_MAX_AGE_MS = 5 * 60 * 1000;
+// The summary is a few dozen bytes; anything larger is not a publication.
+var PRESSURE_MAX_BYTES = 4096;
+// Published levels → the three levels session-guard.js acts on.
+var LEVEL_MAP = { NORMAL: 'NORMAL', WARNING: 'WARNING', HIGH: 'WARNING', CRITICAL: 'CRITICAL', EMERGENCY: 'CRITICAL' };
 
-// The memory signal is READ from the Resource Guard, never recomputed
-// here: gh-issue-101 owns the thresholds, the hysteresis and the rule that
-// swap is reported and never a trigger. A second memory reader would be a
-// second opinion, and the two would eventually disagree.
-function pressureLevel() {
-  try {
-    var raw = JSON.parse(fs.readFileSync(RG_STATE, 'utf8'));
-    var age = Date.now() - Date.parse(raw.updated_at);
-    if (isNaN(age) || age < 0 || age > RG_MAX_AGE_MS) return 'NORMAL';
-    return ['NORMAL', 'WARNING', 'CRITICAL'].indexOf(raw.level) >= 0 ? raw.level : 'NORMAL';
-  } catch (e) {
-    return 'NORMAL';
+// The memory signal is READ from the Resource Guard's publication, never
+// recomputed here: gh-issue-101 owns the thresholds, the hysteresis and the
+// rule that swap is reported and never a trigger.
+//
+// Fail-soft: anything but a fresh, valid publication reads as NORMAL — and
+// the reason is always reported (`source.status`: ok, missing, unreadable,
+// invalid, stale), because a guard that silently reads NORMAL is
+// indistinguishable from a healthy host.
+function pressure() {
+  var source = { path: PRESSURE_FILE, status: 'ok' };
+  function fail(status, error) {
+    source.status = status;
+    if (error) source.error = error;
+    return { level: 'NORMAL', source: source };
   }
+  var fd;
+  try {
+    // The directory is deploy-writable. O_NOFOLLOW: a planted symlink must
+    // not make root read another file. O_NONBLOCK: a planted FIFO must not
+    // hang the guard.
+    fd = fs.openSync(PRESSURE_FILE, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+  } catch (e) {
+    var code = e && e.code;
+    return fail(code === 'ENOENT' || code === 'ENOTDIR' ? 'missing' : 'unreadable', code || 'open_failed');
+  }
+  var text;
+  try {
+    var st = fs.fstatSync(fd);
+    if (!st.isFile()) return fail('unreadable', 'not_a_regular_file');
+    if (st.size > PRESSURE_MAX_BYTES) return fail('invalid', 'too_large');
+    var buf = Buffer.alloc(st.size);
+    var n = st.size ? fs.readSync(fd, buf, 0, st.size, 0) : 0;
+    text = buf.toString('utf8', 0, n);
+  } catch (e) {
+    return fail('unreadable', (e && e.code) || 'read_failed');
+  } finally {
+    try { fs.closeSync(fd); } catch (e) { /* already closed */ }
+  }
+  var raw;
+  try { raw = JSON.parse(text); } catch (e) { return fail('invalid', 'not_json'); }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return fail('invalid', 'not_an_object');
+  if (!Object.prototype.hasOwnProperty.call(LEVEL_MAP, raw.level)) return fail('invalid', 'unknown_level');
+  var age = Date.now() - Date.parse(raw.updated_at);
+  if (isNaN(age)) return fail('invalid', 'bad_timestamp');
+  if (age < 0 || age > PRESSURE_MAX_AGE_MS) return fail('stale', null);
+  source.published_level = raw.level;
+  return { level: LEVEL_MAP[raw.level], source: source };
 }
 
 function intEnv(name) {
@@ -83,11 +129,12 @@ function intEnv(name) {
 }
 
 function main() {
+  var pr = pressure();
   var cfg = {
     state_path: path.join(HOME, 'session-guard.json'),
     ledger_path: path.join(HOME, 'session-guard.jsonl'),
     enable_marker_path: path.join(HOME, 'session-guard.enabled'),
-    pressure_level: pressureLevel(),
+    pressure_level: pr.level,
     lifecycle_registry: fs.existsSync(LIFECYCLE) ? LIFECYCLE : null
   };
   var max = intEnv('MYTHOS_SESSION_GUARD_MAX');
@@ -133,6 +180,7 @@ function main() {
     counts: rep.counts,
     resident_mib: rep.resident_mib,
     pressure_level: rep.pressure_level,
+    pressure_source: pr.source,
     over_limit: rep.concurrency ? rep.concurrency.over_limit : null,
     lifecycle: rep.lifecycle || null,
     snapshot: snapshot,
