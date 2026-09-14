@@ -1,6 +1,6 @@
 {
-  "review_id": "REVIEW-2026-09-14-007",
-  "timestamp": "2026-09-14T13:23:06.442Z",
+  "review_id": "REVIEW-2026-09-14-004",
+  "timestamp": "2026-09-14T01:40:30.188Z",
   "engine_version": "1.0.0",
   "audited_sources": {
     "repository": "https://github.com/othoth77/mythos-prod.git",
@@ -8,41 +8,21 @@
     "pr_ledger_captured_at": "2026-08-26T13:58:00Z",
     "repo_snapshot_captured_at": "2026-09-02T19:32:00Z",
     "documents_checked": 24,
-    "evidence_checked": 116
+    "evidence_checked": 113
   },
   "git": {
     "collected": true,
     "head": "3e427b551abd8ddaec5b4d0832e70ab0f8a23238",
     "branch": "main",
-    "origin_main": "e9767df38495a06c30aa44ba7a5c145eec6619df",
+    "origin_main": "3e427b551abd8ddaec5b4d0832e70ab0f8a23238",
     "remote_url": "https://github.com/othoth77/mythos-prod.git",
     "worktree_clean": false,
     "last_commit": {
-      "hash": "e9767df38495a06c30aa44ba7a5c145eec6619df",
-      "date": "2026-09-14T12:49:31Z",
-      "subject": "feat(resource-guard): publish { level, updated_at } for the CAP_KILL-only session guard (Option C) (#286)"
+      "hash": "3e427b551abd8ddaec5b4d0832e70ab0f8a23238",
+      "date": "2026-09-14T00:09:30Z",
+      "subject": "docs(status): record DarHijama rollback 2026-09-14"
     },
     "recent_commits": [
-      {
-        "hash": "e9767df",
-        "date": "2026-09-14",
-        "subject": "feat(resource-guard): publish { level, updated_at } for the CAP_KILL-only session guard (Option C) (#286)"
-      },
-      {
-        "hash": "190aed2",
-        "date": "2026-09-14",
-        "subject": "fix(backup): a clean verify/restore-test can no longer report a stale or failed backup as fresh (#285)"
-      },
-      {
-        "hash": "524c7f3",
-        "date": "2026-09-14",
-        "subject": "fix(session-guard): read the Resource Guard state from its real path and report why a read fails (#284)"
-      },
-      {
-        "hash": "1d5494b",
-        "date": "2026-09-14",
-        "subject": "status-center: curate MYTHOS AUTO storefronts — Piece.Autos LIVE, Casse.Autos owner-gated, Kitchen 1.3.0 milestone (#282)"
-      },
       {
         "hash": "3e427b5",
         "date": "2026-09-14",
@@ -1022,6 +1002,26 @@
         "hash": "1a95f5b",
         "date": "2026-09-04",
         "subject": "merge: origin/main b6d4c6b (PR #159 merged) into mythos/backlog-reconcile-20260904 (PR #168)"
+      },
+      {
+        "hash": "b6d4c6b",
+        "date": "2026-09-04",
+        "subject": "Merge pull request #159 from othoth77/mythos/execution-architecture-20260904"
+      },
+      {
+        "hash": "bbc0501",
+        "date": "2026-09-04",
+        "subject": "docs(backlog): BACKLOG-RECONCILE-0 — master reconciliation of Issues #95–#167, delivered handover entries merged, Autopilot explained"
+      },
+      {
+        "hash": "11ce011",
+        "date": "2026-09-04",
+        "subject": "merge: origin/mythos/gh/gh-issue-146 (delivered handover entry, never PR'd) into mythos/backlog-reconcile-20260904"
+      },
+      {
+        "hash": "bb912c3",
+        "date": "2026-09-04",
+        "subject": "merge: origin/mythos/gh/gh-issue-141-r3 (delivered handover entry, never PR'd) into mythos/backlog-reconcile-20260904"
       }
     ],
     "commit_count": null,
@@ -3146,42 +3146,6 @@
       "evidence": [
         "EV-DARHIJAMA-PISTE1-PRODUCTION-0914"
       ]
-    },
-    {
-      "id": "MS-2026-09-14-DARHIJAMA-SEO-ARTICLES-PRODUCTION",
-      "date": "2026-09-14",
-      "project": "PROJECT-PORTFOLIO",
-      "title": "darhijama.tn: SEO-first homepage + Articles CMS live in production",
-      "what": "Deployed the SEO-first homepage revision and the native Articles CMS (design, build, 171-test suite, isolated staging, full production backup including a full DB dump, additive-only migration, minimal-intervention container cutover) to darhijama.tn.",
-      "result": "https://darhijama.tn/ live on mythos-darhijama-production-{app,web}:seo-articles-20260914, all 8 containers healthy with 0 restarts, migration applied cleanly (44 tables, all pre-existing data untouched), full HTTP/SEO verification passed on live production, test suite re-confirmed 171/1315 green against the deployed commit. PR #2 open for owner review/merge; CI failures on main are pre-existing and unrelated (root-caused, flagged separately).",
-      "status": "DONE",
-      "evidence": [
-        "EV-DARHIJAMA-SEO-ARTICLES-PRODUCTION-0914"
-      ]
-    },
-    {
-      "id": "MS-2026-09-14-DARHIJAMA-FIRST-ARTICLE",
-      "date": "2026-09-14",
-      "project": "PROJECT-PORTFOLIO",
-      "title": "darhijama.tn: first real article published, PR #2 merged",
-      "what": "PR #2 merged by owner. Published the Articles CMS's first real, non-medical, logistics-only article through the same model layer /admin/articles uses, then fully live-verified every SEO surface (canonical, meta, OG, JSON-LD, breadcrumb, sitemap, category, internal links, 404) against production.",
-      "result": "https://darhijama.tn/articles/kyf-thjz-jlst-hjam-mnzly-fy-tons-alkbr is live, 200, fully SEO-correct. Sitemap/robots/homepage internal links all updated correctly and automatically. 171/1315 tests green against the deployed commit. No redeploy, no migration re-run, no pre-existing data touched.",
-      "status": "DONE",
-      "evidence": [
-        "EV-DARHIJAMA-FIRST-ARTICLE-PUBLISHED-0914"
-      ]
-    },
-    {
-      "id": "MS-2026-09-14-DARHIJAMA-ADMIN-ARTICLES-403-FIX",
-      "date": "2026-09-14",
-      "project": "PROJECT-PORTFOLIO",
-      "title": "darhijama.tn: live 403 on /admin/articles diagnosed and fixed (no code change)",
-      "what": "Owner reported an urgent live 403 Forbidden on /admin/articles for the real admin. Investigated in strict evidence order (HTTP -> nginx config/logs -> Laravel logs -> direct DB/Gate inspection) rather than assuming a cause, isolating it to the authorization layer: the `dar-hijama.articles.manage` Permission row was never created in production because `dar-hijama:install` was run in staging during PR #2 testing but never re-run against the production container after the real cutover.",
-      "result": "Ran `dar-hijama:install` on dar-hijama-production-app-1 (idempotent, additive). `$admin->can('dar-hijama.articles.manage')` and Filament's exact Gate::allows('viewAny'/'create', Article::class) calls now YES; role permission count 23 -> 24. No application code changed (worktree clean throughout) so no branch/PR was needed. Full suite re-verified: 171 tests, 1315 assertions, 0 failures. Live re-verified: /, /articles, /sitemap.xml, /robots.txt, /admin/login all 200; unauthenticated /admin/articles still 302 (unchanged).",
-      "status": "DONE",
-      "evidence": [
-        "EV-DARHIJAMA-ADMIN-ARTICLES-403-FIX-0914"
-      ]
     }
   ],
   "blockers": [
@@ -3959,7 +3923,7 @@
       "full_name": "othoth77/darhijama",
       "classification": "FOUNDATION",
       "visibility": "public",
-      "note": "Dar Hijama (darhijama.tn) — as of 2026-09-14, production serves the Piste 1 design PLUS the SEO-first homepage revision and native Articles CMS (mythos-darhijama-production-{app,web}:seo-articles-20260914, PR #2, EV-DARHIJAMA-SEO-ARTICLES-PRODUCTION-0914). First real article published and live (EV-DARHIJAMA-FIRST-ARTICLE-PUBLISHED-0914). A post-merge deployment gap (dar-hijama:install never re-run on production) caused /admin/articles to 403 for the real admin; root-caused via full evidence chain and fixed by running the seed command — no code change, PR #1 and PR #2 both merged to main by the owner (EV-DARHIJAMA-ADMIN-ARTICLES-403-FIX-0914). CI on main fails for two pre-existing, unrelated causes (stale phpstan path, missing npm build in one CI job) — flagged, not yet fixed."
+      "note": "Dar Hijama (darhijama.tn) — as of 2026-09-14, production serves the ratified Piste 1 design (mythos-darhijama-production-{app,web}:piste1-20260914, PR othoth77/darhijama#1, EV-DARHIJAMA-PISTE1-PRODUCTION-0914). CTR-1 is fully closed: charter, reference implementation, and live deployment now agree. Prior states (static pre-Laravel, Laravel v1.0.0-fixed/v1.0.1) all preserved for one-command rollback."
     },
     {
       "id": "REPO-DARHIJAMA-SITE",
@@ -4950,31 +4914,6 @@
       "note": "Full design-to-production cycle for the Piste 1 identity (EV-DARHIJAMA-DESIGN-DIRECTION-0914): built in an isolated git worktree from the trusted darhijama-v1.0.1 tag (09ffdb0), reused the existing PublicHomeController/route/WhatsAppLinkBuilder/Filament-admin/AppointmentType domain concepts rather than rebuilding backend, added services/how-it-works/FAQ/contact sections and full SEO metadata with zero Notre-Jour references (automated test asserts this). Found and fixed two real bugs while testing: (1) /sitemap.xml 500 — a literal XML processing instruction inside a Blade raw echo defeated Blade's compiler; moved it into a PHP variable in the controller. (2) scheduler Cache::lock() 'Connection refused' — REDIS_CACHE_LOCK_CONNECTION was never wired in this commit's docker-compose.staging.yml (fixed upstream in tag darhijama-v1.0.2/commit 3a0c855 but that image was never deployed); cherry-picked the exact 2-line fix. Verified with the full automated suite (149 tests, 1150 assertions, 0 failures) and in a fully isolated Docker Compose staging stack (separate project/ephemeral MySQL+Redis/port 18082) before touching production: 20/20 migrations, all 8 containers healthy, /, /up, /admin/login, /robots.txt, /sitemap.xml all 200. PR #1 opened against main; repository's own CI workflow exists but has zero historical runs (pre-existing, unrelated to this change) so it could not gate the merge — compensated with the manual test run recorded above. Production backup taken first (/root/nginx-backups/darhijama-piste1-cutover-20260914-012940/: nginx configs, compose files, docker ps/images/volumes, docker inspect, migrate status, pre-cutover HTTP headers, static file listing+checksum). Cutover: built mythos-darhijama-production-{app,web}:piste1-20260914 images, verified all endpoints directly on the internal port (18081) before touching nginx, merged (not replaced) the live docker-compose.staging.yml with only the two new env blocks — preserving undocumented production-only settings (REDIS_HOST/PORT/PASSWORD fallback, 64MB redis mem_limit/mem_reservation) that exist on the VPS but were never committed to git, recreated app/web/queue/scheduler via --no-deps (mysql/redis/volumes untouched, zero migrations run — schema already matched), then swapped the nginx symlink from the static pre-Laravel site to dar-hijama-app, nginx -t clean, reload only. Post-cutover: darhijama.tn live, 200, correct branding, zero Notre Jour references, correct WhatsApp number (21621821921), sitemap/robots/admin/session/CSRF all verified, no new 5xx. All three prior states remain intact and reachable: static pre-Laravel files untouched on disk, v1.0.0-fixed and v1.0.1 images still present locally, single-command rollback to any of the three documented.",
       "evidence_status": "NOT_VERIFIED",
       "evidence_note": "commit not in local object database"
-    },
-    {
-      "id": "EV-DARHIJAMA-SEO-ARTICLES-PRODUCTION-0914",
-      "type": "commit",
-      "reference": "othoth77/darhijama@04e479cbd20aeeef67d285cf7ed494d18eb48361 (PR #2, branch feature/darhijama-seo-articles-20260914)",
-      "date": "2026-09-14",
-      "note": "SEO-first homepage revision + native Articles CMS taken from design/build through to production. Homepage: new H1 'الحجامة المنزلية في تونس الكبرى', copy shortened, MedicalBusiness JSON-LD refined (areaServed = Grand Tunis's 4 real governorates, real logo/telephone, no invented facts). Articles CMS: fully native (zero new SEO/CMS package) after a real compatibility-matrix check against Packagist/GitHub — RalphJSmit, Rankbeam and Lara Zeus's Filament integrations all currently require Filament ^4/^5, spatie/laravel-sitemap's only Laravel-12-compatible release requires PHP ^8.4 — none fit this PHP 8.3/Filament 3.3 stack, documented in Applications/DarHijama's docs/SEO_CONTENT_STRATEGY.md. Only new dependency: mews/purifier, for sanitizing RichEditor output (verified against a real <script>/onerror injection in a test). Draft/Scheduled/Published/Archived workflow, ArticleSeoResolver as single source of truth for every SEO fallback (used identically by the Filament preview and public views), domain-scoped /sitemap.xml + /robots.txt (isolated from Modules/Landing's shared routes used by other apps on this codebase e.g. Notre Jour), BlogPosting+BreadcrumbList JSON-LD, automatic 301 redirects on slug change, transliterated slugs (tested directly, not assumed). 171 tests / 1315 assertions, 0 failures — re-verified a second time against the exact commit now running in production, not just in staging. Full production backup taken first (/root/nginx-backups/darhijama-seo-articles-cutover-20260914-122258/, including a full darhijama_prod mysqldump, 39 tables). Cutover: mythos-darhijama-production-{app,web}:seo-articles-20260914, app/web/queue/scheduler recreated via --no-deps (mysql/redis untouched, 0 restarts recorded on any of the 5 checked containers), one additive migration run (create_dar_hijama_articles_tables — confirmed Pending before running, confirmed it only creates 5 new dar_hijama_article* tables, 39->44 tables, all pre-existing tables' row counts unchanged). Live verification on production: /, /robots.txt, /sitemap.xml, /admin/login, /articles, /up all 200; sitemap correctly XML-valid with 0 article entries (none published yet) plus homepage+index; robots correct (Disallow /admin only); homepage title/canonical/meta/OG/JSON-LD (valid JSON, MedicalBusiness) all correct on the live site; WhatsApp CTA correct number; no 5xx in nginx access/error logs; static/Vite assets 200. Article-page-specific checks (single article render, its own BlogPosting+BreadcrumbList JSON-LD, category page, 301 redirect) were fully verified end-to-end in the isolated staging database in the prior session (same image now running in production) but NOT re-created in the live production database in this session — writing a test content row to the shared production DB was correctly blocked by this session's own safety classifier as a shared-resource modification, and was not bypassed; the admin publishing their first real article via /admin/articles will exercise the identical, already-tested code path live. GitHub: PR #2 open, not merged (owner action). CI on main (first real trigger in this repo's history, following the separately-already-merged PR #1) fails for two confirmed pre-existing causes unrelated to this work: phpstan.neon references a deleted test file path, and the mysql-production CI job never runs npm run build so any @vite() view fails — both root-caused, neither touches Dar Hijama or Notre Jour app code (Pint passed cleanly on 373 files); flagged as a separate follow-up, not fixed in this PR.",
-      "evidence_status": "NOT_VERIFIED",
-      "evidence_note": "commit not in local object database"
-    },
-    {
-      "id": "EV-DARHIJAMA-FIRST-ARTICLE-PUBLISHED-0914",
-      "type": "vps",
-      "reference": "deploy@vps-4722f0a9, darhijama_prod.dar_hijama_articles id=1, PR #2 merged",
-      "date": "2026-09-14",
-      "note": "PR #2 (SEO-first homepage + Articles CMS) merged by the owner. Published the CMS's first real article — 'كيف تحجز جلسة حجامة منزلية في تونس الكبرى؟' (id=1, slug kyf-thjz-jlst-hjam-mnzly-fy-tons-alkbr, category 'الحجامة المنزلية' id=1) — deliberately pure logistics (WhatsApp contact -> scheduling -> confirmation -> home visit), zero medical claims, per the YMYL rule in docs/SEO_CONTENT_STRATEGY.md §9. Author is the real admin user (othmanhaddad@gmail.com / 'Othman Haddad'), not a placeholder. No redeploy, no migration re-run, no existing data touched — only this one new category row and one new article row were added, via the same Article/ArticleCategory Eloquent models Filament's /admin/articles uses. Live-verified on production: /articles 200 and lists it; the article URL 200 with correct title/canonical/meta description/OG (title/description/url/type/locale) all matching the explicit SEO fields entered (not just fallbacks); BlogPosting+BreadcrumbList JSON-LD both present and valid JSON (4-level breadcrumb: Home > Articles > Category > Article); category page 200 and scoped correctly; sitemap.xml regenerated live to include the homepage, /articles, the category, and the article (with lastmod), still 0 unpublished/admin/query-string URLs; homepage now links to /articles from 3 places (header, footer, 'كل المقالات') and its 'أحدث المقالات' teaser shows the new article by title, confirmed by grep on the live response; 404 confirmed for an unknown slug. 301-redirect-on-slug-change was verified via the dedicated automated test (already covering this exact mechanism end-to-end) rather than by renaming the real published article's slug in production, to avoid an unnecessary extra production data mutation beyond what was asked. Full test suite re-run against the exact deployed commit (04e479c): 171 tests, 1315 assertions, 0 failures.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-DARHIJAMA-ADMIN-ARTICLES-403-FIX-0914",
-      "type": "vps",
-      "reference": "deploy@vps-4722f0a9, dar-hijama-production-app-1, no code change (data-seeding gap only)",
-      "date": "2026-09-14",
-      "note": "Diagnosed and fixed a live 403 Forbidden on https://darhijama.tn/admin/articles for the real admin (othmanhaddad@gmail.com), reported urgent by the owner right after publishing the first article. Evidence chain, layer by layer, before any fix: (1) HTTP — unauthenticated GET /admin/articles returned 302 to /admin/login, not 403, so the 403 only occurs once authenticated; /admin/login itself 200. (2) nginx — active vhost /etc/nginx/sites-available/dar-hijama-app has a single catch-all `location /` proxy with zero /admin-specific rules, ruling out nginx-level blocking; nginx access log showed the real admin's browser (IP 197.14.162.157, Chrome/Windows) receiving a consistent 403 (2333-byte body) on GET /admin/articles, with no matching nginx error-log entry — proof nginx only relayed a 403 the app itself generated. (3) Laravel/Filament — storage/logs/laravel.log had no matching entry (expected: AuthorizationException isn't logged by default); direct tinker inspection of the real admin row in production showed roles `dar-hijama-admin, admin` with 26 permissions via role, NOT including `dar-hijama.articles.manage`, and `Spatie\\Permission\\Models\\Permission::where('name','dar-hijama.articles.manage')->exists()` was FALSE. Root cause: `ArticlePolicy::viewAny()` and `ArticleResource` (Filament's default authorization, no can*() overrides — confirmed by grep) correctly gate on `dar-hijama.articles.manage`, and `Applications/DarHijama/mythos.json` correctly declares it, but the seeding command `php artisan dar-hijama:install` (which creates the Permission row and syncs it into `dar-hijama-admin` via `Role::findOrCreate(...)->syncPermissions(...)`) was run only in isolated staging during PR #2's own testing and was never re-run against the actual production container after the real PR #2 cutover — a deployment-step gap in EV-DARHIJAMA-SEO-ARTICLES-PRODUCTION-0914, not a code defect (ArticleCategoryResource/ArticleTagResource have no dedicated policy, which is why only /admin/articles 403'd). Fix: ran `php artisan dar-hijama:install` on dar-hijama-production-app-1 — idempotent, additive, zero data changed beyond the missing Permission row + role-permission sync (same mechanism already used, and already authorized, for this feature's own setup). Verified: permission row now EXISTS, `dar-hijama-admin` role now has 24 permissions (was 23), `$admin->can('dar-hijama.articles.manage')` now YES, `Gate::forUser($admin)->allows('viewAny'|'create', Article::class)` both YES (the exact calls Filament's default resource authorization makes — ArticleResource has no can*() overrides), panel access via the generic `admin` role unaffected. No branch, no commit, no PR — zero application code was touched (git status on the production worktree clean throughout, confirmed before and after). Regression check: full automated suite re-run against the exact deployed commit (04e479c) — 171 tests, 1315 assertions, 0 failures, including ArticleSeoTest's own permission-gated admin-access tests. Live HTTP re-verification: /, /articles, /sitemap.xml, /robots.txt, /admin/login all 200; unauthenticated /admin/articles still 302 (unchanged, correct). `vendor/bin/pint --test` flagged pre-existing style issues in 6 files already merged as part of PR #2 (04e479c) — unrelated to this incident, not modified during a live-incident fix, flagged as a separate follow-up rather than bundled into an unrelated change.",
-      "evidence_status": "RECORDED"
     }
   ],
   "prs": [
@@ -5804,7 +5743,7 @@
       "authority": "historical evidence only — reconcile before trusting"
     }
   ],
-  "previous_review": "REVIEW-2026-09-14-006",
+  "previous_review": "REVIEW-2026-09-14-003",
   "changes": {
     "added": [],
     "completed": [],
