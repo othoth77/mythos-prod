@@ -787,6 +787,13 @@
       "reference": "cc41fd7",
       "date": "2026-09-03",
       "note": "fix(github-bridge): timer re-arms after every oneshot tick (gh-issue-134). Merged to main."
+    },
+    {
+      "id": "EV-DARHIJAMA-ROLLBACK-0914",
+      "type": "vps",
+      "reference": "deploy@vps-4722f0a9, /home/deploy/deployments/darhijama-v1.0.1, 2026-09-14T00:5{8-9}Z",
+      "date": "2026-09-14",
+      "note": "Operator-directed rollback of darhijama.tn production from image tag v1.0.1 (commit 09ffdb0) to a rebuilt image from commit 704b3a3147c6b951d6ffa3523cb6607918cecd98 (git tag darhijama-v1.0.0) plus a single-file build-order fix (ops/staging/Dockerfile, checked out verbatim from darhijama-v1.0.1: mkdir+chown+chmod before `composer dump-autoload`/`artisan package:discover`, no other file touched). Root cause found first: 704b3a3's own Dockerfile never builds as committed (`Please provide a valid cache path` from `artisan package:discover` — `bootstrap/cache` is created after `composer dump-autoload` runs) — reproduced live and confirmed against the original 2026-07-28 deployment.log/deployment-retry.log, which show the exact same failure on both original deploy attempts. v1.0.0 as tagged therefore never ran as a working Docker deployment; v1.0.1 (09ffdb0, same day) was the first Laravel build that actually succeeded. Application code, routes, controllers, views, migrations are byte-identical between v1.0.0 and v1.0.1 (git diff darhijama-v1.0.0..darhijama-v1.0.1 touches only that one Dockerfile RUN step). Built and tagged separately: mythos-darhijama-production-app:v1.0.0-fixed, mythos-darhijama-production-web:v1.0.0-fixed (v1.0.1 images untouched, left on host). Cutover via `docker compose ... up -d --no-deps app web queue scheduler` from the live deployment dir using the existing .env.production; mysql + 3 redis containers and all named volumes untouched, no migrations run (none needed). Post-cutover verification: HTTP/HTTPS 200, /up 200, /admin/login 200, container RELEASE_SHA=v1.0.0-fixed, `artisan migrate:status` all Ran, queue heartbeat and scheduler both healthy, nginx access log shows zero new 5xx (the only 5xx observed, on /sitemap.xml, is a pre-existing Blade template bug present identically before and after the cutover — same stack trace recurs post-cutover, confirming no regression). Rollback-of-rollback to v1.0.1 remains a single command away (same compose invocation with SOURCE_COMMIT=v1.0.1; that image tag was never removed)."
     }
   ],
   "repositories": [
@@ -921,7 +928,7 @@
       "full_name": "othoth77/darhijama",
       "classification": "FOUNDATION",
       "visibility": "public",
-      "note": "Dar Hijama (darhijama.tn) — the one authorised Coolify staging track (never deployed)."
+      "note": "Dar Hijama (darhijama.tn) — Laravel app in production on the VPS since 2026-07-29 (first working build was 09ffdb0/v1.0.1; the earlier v1.0.0 tag never built). Rolled back 2026-09-14 to 704b3a3 + build-order fix, tagged v1.0.0-fixed (EV-DARHIJAMA-ROLLBACK-0914). Correction: prior note calling this \"never deployed\" was stale."
     },
     {
       "id": "REPO-DARHIJAMA-SITE",
@@ -2917,6 +2924,18 @@
       "evidence": [
         "EV-VPS-GATE-ONHOST",
         "EV-DOCKER-FIXED"
+      ]
+    },
+    {
+      "id": "MS-2026-09-14-DARHIJAMA-ROLLBACK",
+      "date": "2026-09-14",
+      "project": "PROJECT-PORTFOLIO",
+      "title": "darhijama.tn production rolled back to 704b3a3 (v1.0.0) + build-order fix",
+      "what": "Audited GitHub + host + Docker history for darhijama.tn, found the running production was v1.0.1 (09ffdb0), and that its immediate predecessor tag v1.0.0 (704b3a3) had never successfully built as a Docker image (own deployment.log/deployment-retry.log from 2026-07-28 show the same `bootstrap/cache` ordering failure reproduced live today). Rebuilt 704b3a3 with only the single build-order fix already present in 09ffdb0 applied, tagged v1.0.0-fixed separately from v1.0.1, and cut production over to it with volumes, database and .env.production untouched.",
+      "result": "darhijama.tn serves the v1.0.0-fixed build; app/queue/scheduler/web containers healthy; DB connectivity, migrations status, queue heartbeat and scheduler all verified; no new 5xx; v1.0.1 images and an immediate rollback path preserved.",
+      "status": "DONE",
+      "evidence": [
+        "EV-DARHIJAMA-ROLLBACK-0914"
       ]
     }
   ],
