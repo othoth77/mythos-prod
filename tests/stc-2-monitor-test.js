@@ -109,6 +109,37 @@ async function run() {
   r = await mod.probeBackupHealth({ file: path.join(work, 'nope.json'), fresh_hours: 26, degraded_hours: 50 });
   check('missing record → DOWN, never unknown-green', r.state === 'DOWN' && /no backup health record/.test(r.error));
 
+  console.log('§5b guardian-health translation (MYTHOS Guardian)');
+  var gh = path.join(work, 'guardian-status.json');
+  function writeGh(level, ageMin, extra) {
+    fs.writeFileSync(gh, JSON.stringify(Object.assign({
+      schema: 'mythos-guardian/status@1', generated_at: new Date(Date.now() - ageMin * 60000).toISOString(), mode: 'observe', level: level,
+      domains: { memory: { level: 'NORMAL', findings: [] }, disk: { level: level, findings: level === 'NORMAL' ? [] : [{ severity: level, trigger: 'filesystem / 91 % used' }] } },
+      admission: { max_heavy_sessions: 6 }, config_errors: [], last_incident: { id: 'GI-1', severity: level }
+    }, extra || {})));
+  }
+  writeGh('NORMAL', 1);
+  r = await mod.runProbe({ id: 'g', type: 'guardian-health', file: gh, stale_minutes: 10 }, DEFAULTS);
+  check('guardian NORMAL → LIVE', r.state === 'LIVE', JSON.stringify(r));
+  check('guardian detail carries per-domain levels', r.detail && r.detail.memory === 'NORMAL' && r.detail.max_heavy_sessions === 6);
+  writeGh('RECOVERY', 1);
+  r = await mod.probeGuardianHealth({ file: gh, stale_minutes: 10 });
+  check('guardian RECOVERY → LIVE', r.state === 'LIVE');
+  writeGh('HIGH', 1);
+  r = await mod.probeGuardianHealth({ file: gh, stale_minutes: 10 });
+  check('guardian HIGH → DEGRADED with the finding', r.state === 'DEGRADED' && /91 %/.test(r.error));
+  writeGh('CRITICAL', 1);
+  r = await mod.probeGuardianHealth({ file: gh, stale_minutes: 10 });
+  check('guardian CRITICAL → DOWN', r.state === 'DOWN');
+  writeGh('NORMAL', 30);
+  r = await mod.probeGuardianHealth({ file: gh, stale_minutes: 10 });
+  check('silent guardian (stale status) → DOWN, never assumed green', r.state === 'DOWN' && /not reporting/.test(r.error));
+  writeGh('NORMAL', 1, { config_errors: ['override rejected'] });
+  r = await mod.probeGuardianHealth({ file: gh, stale_minutes: 10 });
+  check('guardian config error → DEGRADED', r.state === 'DEGRADED');
+  r = await mod.probeGuardianHealth({ file: path.join(work, 'no-guardian.json'), stale_minutes: 10 });
+  check('missing guardian status → DOWN', r.state === 'DOWN' && /no Guardian status/.test(r.error));
+
   console.log('§6 resources probe shape');
   r = await mod.probeResources({ disk_path: os.tmpdir(), disk_warn_pct: 101, disk_down_pct: 101, mem_warn_pct: 101 });
   check('resources report LIVE under permissive thresholds', r.state === 'LIVE', JSON.stringify(r));
