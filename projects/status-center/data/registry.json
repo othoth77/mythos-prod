@@ -850,6 +850,13 @@
       "reference": "othoth77/casse.autos PR #8 proto/universal-search-20260914 @ 1ccad89 (draft, CI verify/postgres/secret-scan pass)",
       "date": "2026-09-14",
       "note": "Search orchestrator, canonical result, three providers (kitchen, casse-stock, sourced-before), flagged POST /api/search off by default; 374 tests; live read-only Kitchen smoke 4/4 shapes; no real data."
+    },
+    {
+      "id": "EV-CASSE-MODEL-DECISION",
+      "type": "document",
+      "reference": "othkm projects/mythos-auto/CASSE_UNIVERSAL_PARTS_SEARCH_2026-09-14.md decision block + FINAL_OWNER_CUTOVER_CHECKLIST_2026-09-11.md gate 14 (branch othkm/casse-model-decision-20260914)",
+      "date": "2026-09-14",
+      "note": "Owner decision recorded: NEW + USED, no internal inventory sold; C-O5 -> C-O5'; AutoPart and TecDoc briefs prepared, not sent."
     }
   ],
   "repositories": [
@@ -2072,9 +2079,9 @@
       "status": "OWNER_ACTION",
       "maturity": "TESTED",
       "repository": "othoth77/casse.autos",
-      "last_change": "2026-09-14 (business-model correction; prototype PR #8)",
-      "blocker": "Owner decision on the business model (new/used) — TecDoc GTC forbid used-parts trade and AI use unless agreed; no consented supplier network yet; DNS on OVH parking (C-O2); WhatsApp number absent (C-O3); C-O4/C-O6/C-O1 open. C-O5 'first real inventory' superseded by C-O5' 'first live provider answers'.",
-      "next_action": "Owner decides the business model; then adapt the inquiry path + WhatsApp wording on top of the prototype, draft the AutoPart partnership letter and the TecAlliance negotiation brief.",
+      "last_change": "2026-09-14 (owner decision: NEW + USED parts, universal search + sourcing; C-O5' adopted)",
+      "blocker": "C-O5': no consented supplier answers yet (launch = a real answering provider, not code); DNS on OVH parking (C-O2); WhatsApp number/inbox operator absent (C-O3); C-O4/C-O6/C-O1 open; O8 and TecDoc contact awaiting the owner sending the prepared briefs.",
+      "next_action": "Owner sends the AutoPart brief and authorises the TecAlliance contact; names consented suppliers and the sourcing-inbox operator; moves DNS. Engineering: review/merge casse.autos #8 and the stacked NEW+USED branch; enable CASSE_SEARCH_PROVIDERS only when a supplier exists.",
       "headline": "Engineering complete for the honest empty storefront (main 4a65955; 311 tests, smoke 60, Playwright 37). Product redefined 2026-09-14 as universal parts search: research found no open OEM/fitment data (TecDoc only, licence-gated), vehicle identification composable from open data, no Tunisian supplier API; prototype search core on PR #8 (374 tests, feature off). NOT launch-ready until the model decision and a first consented supplier.",
       "dimensions": {
         "implementation": {
@@ -2098,7 +2105,8 @@
         "EV-CASSE-MAIN",
         "EV-CASSE-NO-INVENTORY",
         "EV-CASSE-UPS-RESEARCH",
-        "EV-CASSE-UPS-PROTOTYPE"
+        "EV-CASSE-UPS-PROTOTYPE",
+        "EV-CASSE-MODEL-DECISION"
       ]
     }
   ],
@@ -3651,11 +3659,19 @@
     },
     {
       "id": "ACTION-CASSE-MODEL-DECISION",
-      "status": "OWNER_ACTION",
-      "what": "Confirm the Casse.Autos business model (universal parts search + sourcing; new and/or used parts) and authorise the TecAlliance negotiation brief and the AutoPart partnership letter",
+      "status": "DONE",
+      "what": "DONE 2026-09-14: business model confirmed — NEW + USED parts, universal search + WhatsApp sourcing, no internal inventory sold. Remaining: send the AutoPart brief, authorise the TecAlliance contact, provide the consented supplier list.",
       "why": "TecDoc's standard terms forbid used-parts trade and AI use unless agreed; no authoritative fitment data exists otherwise; AutoPart's authorisation also closes O8 for Piece.Autos' images.",
       "impact": "Unblocks the V1 data path; decides whether the 'Casse' name and salvage features stay public.",
       "required_input": "One written decision; permission to contact TecAlliance/WDATABASE and AutoPart; the consented supplier list."
+    },
+    {
+      "id": "ACTION-CASSE-SUPPLIERS-AND-BRIEFS",
+      "status": "OWNER_ACTION",
+      "what": "Send the AutoPart partnership brief, authorise the TecAlliance/TecDoc negotiation (used parts + AI clauses), and provide the consented supplier list + sourcing-inbox operator",
+      "why": "C-O5' requires a real provider that answers customer requests; TecDoc and AutoPart are owner-only contacts.",
+      "impact": "Turns the identification-capable storefront into a sourcing product.",
+      "required_input": "Signed/sent AutoPart letter; permission to contact TecAlliance (or the reseller); supplier ids and channels (no numbers in repositories); the inbox operator's name."
     }
   ],
   "next_actions": [
