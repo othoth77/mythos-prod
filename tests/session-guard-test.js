@@ -985,8 +985,54 @@ function planAfterIdle(root, idleForMs, cfgExtra, t0) {
     'a stale Resource Guard state is ignored rather than acted on');
   fs.writeFileSync(rgState, JSON.stringify({ level: 'CRITICAL', updated_at: new Date().toISOString() }));
   var r5 = runRunner({ MYTHOS_SESSION_GUARD_RG_STATE: rgState });
-  eq(JSON.parse((r5.stdout || '').trim().split('\n').pop()).pressure_level, 'CRITICAL',
+  var line5 = JSON.parse((r5.stdout || '').trim().split('\n').pop());
+  eq(line5.pressure_level, 'CRITICAL',
     'a fresh CRITICAL from the Resource Guard is carried into the session guard');
+
+  // --- Regression 2026-09-14: the default Resource Guard path ------------
+  // The default pointed at a dot-prefixed directory that never existed, so
+  // the root guard read NORMAL on every tick. Pin the default to the file
+  // the executor actually writes, and make every non-ok read explain itself.
+  var defMatch = /MYTHOS_SESSION_GUARD_RG_STATE \|\|\s*'([^']+)'/.exec(runnerSrc);
+  eq(defMatch && defMatch[1], '/home/deploy/mythos-ai-executor/resource-guard.json',
+    'the runner defaults to the Resource Guard state the executor really writes');
+  ok(!/\.mythos-ai-executor/.test(runnerSrc), 'no dot-prefixed executor home remains anywhere in the runner');
+  var stateSrc = fs.readFileSync(path.join(EXEC, 'lib', 'state.js'), 'utf8');
+  ok(/DEFAULT_ROOT = path\.join\(os\.homedir\(\), 'mythos-ai-executor'\)/.test(stateSrc) &&
+    path.basename(path.dirname(defMatch[1])) === 'mythos-ai-executor',
+    'that default matches the executor home default in lib/state.js');
+  var hostopsSrc = fs.readFileSync(path.join(BASE, 'ops', 'hostops', 'mythos-hostops.js'), 'utf8');
+  var hostopsMatch = /GUARD_STATE = '([^']+)'/.exec(hostopsSrc);
+  eq(hostopsMatch && hostopsMatch[1], defMatch[1], 'and the path hostops reads for the same state');
+
+  eq(line1.pressure_source && line1.pressure_source.status, 'missing',
+    'a missing Resource Guard state is reported as missing, not hidden');
+  eq(line1.pressure_source.path, path.join(TMP, 'no-resource-guard-state.json'), 'with the path it looked at');
+  eq(JSON.parse((r4.stdout || '').trim().split('\n').pop()).pressure_source.status, 'stale',
+    'a stale state is reported as stale');
+  eq(line5.pressure_source.status, 'ok', 'a fresh state is reported as ok');
+
+  var badJson = path.join(TMP, 'invalid-rg.json');
+  fs.writeFileSync(badJson, '{ not json');
+  var r6 = runRunner({ MYTHOS_SESSION_GUARD_RG_STATE: badJson });
+  var line6 = JSON.parse((r6.stdout || '').trim().split('\n').pop());
+  eq(r6.status, 0, 'an invalid Resource Guard state does not fail the runner');
+  eq(line6.pressure_level, 'NORMAL', 'an invalid state reads as NORMAL');
+  eq(line6.pressure_source.status, 'invalid', 'and is reported as invalid');
+
+  var badLevel = path.join(TMP, 'bad-level-rg.json');
+  fs.writeFileSync(badLevel, JSON.stringify({ level: 'PANIC', updated_at: new Date().toISOString() }));
+  eq(JSON.parse((runRunner({ MYTHOS_SESSION_GUARD_RG_STATE: badLevel }).stdout || '').trim().split('\n').pop()).pressure_source.status,
+    'invalid', 'an unknown level is reported as invalid and read as NORMAL');
+
+  // A path that cannot be read as a file (here: a directory) must be
+  // reported as unreadable — the shape the live host's EACCES takes.
+  var r7 = runRunner({ MYTHOS_SESSION_GUARD_RG_STATE: TMP });
+  var line7 = JSON.parse((r7.stdout || '').trim().split('\n').pop());
+  eq(r7.status, 0, 'an unreadable Resource Guard state does not fail the runner');
+  eq(line7.pressure_level, 'NORMAL', 'an unreadable state reads as NORMAL');
+  eq(line7.pressure_source.status, 'unreadable', 'and is reported as unreadable');
+  eq(line7.pressure_source.error, 'EISDIR', 'with the underlying error code');
 })();
 
 // =====================================================
