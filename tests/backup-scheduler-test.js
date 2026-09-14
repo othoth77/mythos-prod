@@ -147,6 +147,83 @@ check('restore-test used an isolated throwaway destination', restored.length >= 
 check('live media fixture untouched by restore-test',
   fs.readFileSync(path.join(work, 'media/media/photo.bin'), 'utf8') === 'binary-media-fixture');
 
+console.log('§4b freshness: verify / restore-test never make a failed or stale backup look fresh (2026-09-14 regression)');
+// verify-remote proves the newest REMOTE set is intact, not that it is
+// recent. Before 2026-09-14 any exit 0 rewrote last_success_at, status and
+// the failure counter, so a clean 15:30 verify after a failed 04:00 backup
+// reported a stale backup as fresh to the Status Center.
+var pending = [];
+var monitor = require(path.join(ROOT, 'projects', 'status-center', 'monitor', 'bin', 'monitor.js'));
+function probe(name, expect) {
+  pending.push(monitor.probeBackupHealth({ file: health1, fresh_hours: 26, degraded_hours: 50 }).then(function (r) {
+    check(name, expect(r.state), JSON.stringify(r));
+  }));
+}
+function ageHealth(hoursAgo) {
+  var h = readHealth(health1);
+  h.last_success_at = new Date(Date.now() - hoursAgo * 3600000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  fs.writeFileSync(health1, JSON.stringify(h, null, 2) + '\n');
+  return h.last_success_at;
+}
+var afterGood = readHealth(health1);
+check('per-mode outcomes recorded after backup, verify and restore-test',
+  afterGood.last_backup_status === 'ok' && afterGood.last_verify_status === 'ok' && afterGood.last_restore_test_status === 'ok');
+check('clean verify/restore-test after a good backup stay ok with a zero counter',
+  afterGood.status === 'ok' && afterGood.consecutive_failures === 0);
+
+var cfgBroken = w('cfg-broken.env',
+  'MYTHOS_BACKUP_DB_DIR=' + path.join(work, 'no-such-db') + '\n' +
+  'MYTHOS_BACKUP_MEDIA_DIR=' + path.join(work, 'media') + '\n' +
+  'MYTHOS_BACKUP_STAGE_ROOT=' + path.join(work, 'staging') + '\n' +
+  'MYTHOS_BACKUP_PREFIX=test/daily\n' +
+  'MYTHOS_BACKUP_HOST=test-host\n');
+var staleAt = ageHealth(60);
+var failedBackup = run(['backup'], Object.assign({}, env, { MYTHOS_BACKUP_CONFIG: cfgBroken }));
+check('a broken nightly backup fails', failedBackup.status !== 0, String(failedBackup.status));
+var hf = readHealth(health1);
+check('failed backup: status=fail, last_backup_status=fail, counter=1',
+  hf.status === 'fail' && hf.last_backup_status === 'fail' && hf.consecutive_failures === 1, JSON.stringify(hf));
+check('failed backup carries last_success_at forward', hf.last_success_at === staleAt);
+
+var verifyAfterFail = run(['verify'], env);
+check('verify of the older remote set still passes (integrity only)', verifyAfterFail.status === 0, (verifyAfterFail.stderr || '').slice(-300));
+var hv = readHealth(health1);
+check('REGRESSION: a clean verify does not advance last_success_at', hv.last_success_at === staleAt, hv.last_success_at + ' != ' + staleAt);
+check('REGRESSION: a clean verify does not clear the failed backup status', hv.status === 'fail');
+check('REGRESSION: a clean verify does not reset consecutive_failures', hv.consecutive_failures === 1);
+check('verify still records its own mode and outcome',
+  hv.mode === 'verify' && hv.last_verify_status === 'ok' && hv.last_backup_status === 'fail');
+check('the failed backup error is preserved through the clean verify', typeof hv.error === 'string' && hv.error.length > 0);
+probe('Status Center monitor reports the stale, failed backup DOWN (never LIVE)', function (s) { return s === 'DOWN'; });
+
+var restoreAfterFail = run(['restore-test'], env);
+check('restore-test after the failed backup passes', restoreAfterFail.status === 0, (restoreAfterFail.stderr || '').slice(-300));
+var hr = readHealth(health1);
+check('REGRESSION: a clean restore-test does not refresh a failed, stale backup either',
+  hr.last_success_at === staleAt && hr.status === 'fail' && hr.consecutive_failures === 1 && hr.last_restore_test_status === 'ok');
+
+ageHealth(10);
+var verifyInWindow = run(['verify'], env);
+check('verify inside the fresh window passes', verifyInWindow.status === 0);
+probe('inside the 26 h window a failed backup is still not LIVE after a clean verify', function (s) { return s !== 'LIVE'; });
+
+// A record written by the previous version has no last_backup_status.
+fs.writeFileSync(health1, JSON.stringify({
+  schema_version: '1.0.0', source: 'ops/backup/mythos-backup-run.sh', mode: 'backup', status: 'fail', exit_code: 2,
+  last_success_at: staleAt, consecutive_failures: 2, error: 'legacy failure'
+}, null, 2) + '\n');
+check('legacy record: verify passes', run(['verify'], env).status === 0);
+var hl = readHealth(health1);
+check('legacy failed record stays failed after a clean verify (status, error, counter, last_success_at)',
+  hl.status === 'fail' && hl.error === 'legacy failure' && hl.consecutive_failures === 2 && hl.last_success_at === staleAt, JSON.stringify(hl));
+
+var recovered = run(['backup'], env);
+check('a good backup after the failure succeeds', recovered.status === 0, (recovered.stderr || '').slice(-300));
+var hok = readHealth(health1);
+check('recovery: status ok, counter reset, last_success_at advanced, last_backup_status ok',
+  hok.status === 'ok' && hok.consecutive_failures === 0 && hok.last_success_at !== staleAt && hok.last_backup_status === 'ok', JSON.stringify(hok));
+probe('Status Center monitor reports the recovered backup LIVE', function (s) { return s === 'LIVE'; });
+
 console.log('§5 corruption is detected (verification really verifies)');
 fs.writeFileSync(path.join(store, 'test/daily/media-backup/media/photo.bin'), 'tampered');
 var bad = run(['verify'], env);
@@ -181,6 +258,12 @@ var allUnitText = units.map(function (u) {
 }).join('\n');
 check('no unit carries credentials', !/KEY|SECRET|TOKEN|PASSWORD/i.test(allUnitText.replace(/NoNewPrivileges/g, '')));
 
-fs.rmSync(work, { recursive: true, force: true });
-console.log('\nbackup-scheduler: ' + passed + ' passed, ' + failed + ' failed');
-process.exitCode = failed ? 1 : 0;
+// The monitor probe checks (§4b) resolve asynchronously; count them before
+// the summary so a failing one can never be missed.
+Promise.all(pending).catch(function (e) {
+  check('monitor probe checks completed', false, e && e.message);
+}).then(function () {
+  fs.rmSync(work, { recursive: true, force: true });
+  console.log('\nbackup-scheduler: ' + passed + ' passed, ' + failed + ' failed');
+  process.exitCode = failed ? 1 : 0;
+});
