@@ -31,7 +31,35 @@ class Store {
     this._seq = 0;
   }
 
+  // fs.existsSync() is accessSync(F_OK) with every error swallowed: it
+  // returns false for EACCES/EPERM exactly as it does for ENOENT. Treating
+  // those alike would take the "absent store" branch on a permission error
+  // and hand back an EMPTY store that verify() then reports as healthy —
+  // a silent zero indistinguishable from a genuinely empty store. That is
+  // how an unreadable run store once dry-ran as `would_add: 0` instead of
+  // failing. Absence is legitimate (a fresh root initialises empty);
+  // inaccessibility never is, so it fails closed with a typed error.
+  //
+  // Probing the log path alone is sufficient and is deliberately narrow: an
+  // unreadable root, an unreadable parent, and an unreadable records.jsonl
+  // all surface here as EACCES, while both real absences (no root, or a
+  // provisioned root with no log yet) surface as ENOENT and are allowed
+  // through unchanged. A root that is traversable but not listable (0711)
+  // is therefore never falsely refused.
+  _assertLogReadable() {
+    try {
+      fs.accessSync(this.logPath, fs.constants.R_OK);
+    } catch (e) {
+      if (e.code !== 'ENOENT') {
+        throw fail('OTHK_STORE_UNREADABLE',
+          this.logPath + ' exists but is not readable (' + e.code + '); '
+          + 'refusing to present an unreadable store as an empty one');
+      }
+    }
+  }
+
   _load() {
+    this._assertLogReadable();
     if (!fs.existsSync(this.logPath)) return;
     const lines = fs.readFileSync(this.logPath, 'utf8').split('\n');
     for (let i = 0; i < lines.length; i++) {

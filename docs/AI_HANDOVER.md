@@ -14,6 +14,1106 @@
 | Documented limitation | Owner replies typed on the phone are own messages → dropped, not mirrored (future product decision). Unknown-instance dead-letters keep a redacted payload, so the shared inbox + rules must exist BEFORE the instance webhook is enabled. |
 | Next gate (owner) | Review/merge the COMMS-11 PR → deploy + `migrate up` (0006) → create the shared inbox + allowlist for the first customer(s) via CLI → enable the `mythos-bridge` instance webhook (owner step, receiver in dry-run) → observe `comms route drops` → `inbound_enabled`. Not started here. |
 
+## 2026-09-13 — GO STAMP: fiscal-stamp policy ENABLED on the production tenant (owner-authorised, Fable 5.1)
+
+Owner order "GO STAMP" (2026-09-13, ~16:56 UTC). Configuration change only —
+no code, no migration, no other setting touched.
+
+**Verified before the change.** Deployed implementation = Phase 5 as
+merged: `tenancy.fiscalStamp()` reads `tenants.settings.fiscal_stamp`
+(`enabled === true`, amount 0..1000, default 1.000); invoices, quotes and
+purchases default `stamp_amount` from it at creation; `settings.update`
+validates the key; issue posts a credit leg on `stamp_collected` (4368) and
+a purchase invoice a debit leg on `stamp_expense` (6354), receivable/payable
+= HT + VAT + stamp, 409 if an account is missing. Production tenant: both
+accounts present and active (`4368 État, droits de timbre collectés`,
+`6354 Droits d'enregistrement et de timbre`), `settings = {}` (policy OFF),
+0 invoices / quotes / purchases / journal entries / payments. Legal basis
+as documented in `db/0011-fiscal-stamp.sql`: CDET art. 117 §I n°6, 1,000
+TND per invoice since 1 Jan 2023 (décret-loi 2022-79 art. 69, DGI NC
+02/2023), also on partial invoices / credit notes (NC 06/2004); not due on
+exports / totally exporting enterprises / State-borne (art. 118) — recorded
+per document as `stamp_amount = 0`. Accounting codes 4368/6354 remain an
+IMPLEMENTATION ASSUMPTION for the accountant to confirm.
+
+**Change.** As the owner, through the real API: `PATCH /api/v1/settings
+{"settings":{"fiscal_stamp":{"enabled":true,"amount":1}}}` → 200. Audited
+`tenant.updated` on `tenants` (detail: `fields`).
+
+**Verified after.** `GET /settings` → `settings.fiscal_stamp = {enabled:
+true, amount: 1}`; `tenants.settings` in the database identical; the
+deployed `fiscalStamp()` evaluated read-only as `erp_app` under the tenant
+context → `{"enabled":true,"amount":1}` (rolled back, nothing written).
+Business rows unchanged: invoices / quotes / purchases / journal entries /
+journal lines / payments = 0/0/0/0/0/0 before and after; audit rows 101 →
+104 (login, tenant.updated, logout). No document was created in production
+to "test" the stamp — the behaviour is proven by core E2E §16 on the
+deployed revision (default 1.000 on a new invoice / quote / purchase,
+4368 credit 1.000, receivable 1191.000 on a 1000 HT + 19 % invoice, export
+at 0, quote → invoice carries the stamp).
+
+**Effect from now on.** Every new invoice, quote and purchase of the Mythos
+tenant defaults to `stamp_amount = 1.000` (editable per document; 0 for an
+exempt export); issued invoices post the 4368 leg; the receivables and
+revenue reports include it. Existing documents: none.
+
+**Observation (unchanged, pre-existing).** `tenants` has no
+`set_updated_at` trigger, so `tenants.updated_at` still shows 2026-08-30;
+the audit row is the timestamp of record. Rollback if ever needed: the same
+PATCH with `enabled: false` (documents already created keep their own
+`stamp_amount`).
+
+## 2026-09-13 — MYTHOS ERP FINAL INTEGRATION PHASE — **ERP_PRODUCTION_READY_WITH_MINOR_GAPS** (Fable 5.1)
+
+The master completion order (Phase 5 → final) is executed: Phases 3–11
+delivered and deployed (bank reconciliation, mission orders, fiscal stamp,
+RBAC hardening, expenses → ledger, cash register, reminders / due items,
+backup status UI, contact import / dedup). This entry records the final
+audits, the one production fix they produced, the classification of the
+remaining backlog, and the state a successor session starts from.
+
+**Final production revision.** Code `6a2e965931e890ac2febd320483afe784a998f71`
+(PR #277; `code_identity.head` verified by `/api/v1/health`), checkout
+`635a603` (= `origin/main`; the later commits are docs + the nginx vhost, no
+backend change, so `erp-api` was not restarted — its identity still names
+`6a2e965`, which is the code it runs). 15 migrations; `migrate.js --dry-run`:
+nothing pending, every checksum matches its file.
+
+**Audits (read-only unless stated).**
+- *Data integrity / tenancy*: 47 public tables; 39 with RLS = every table
+  that carries `tenant_id` (0 without), each with `tenant_isolation`
+  except `audit_log` (`audit_tenant_read` / `audit_tenant_insert`) and
+  `tenants` (`tenant_self`) which carry their own tenant-scoped policies; the
+  8 non-RLS tables are global catalogs / auth (`schema_migrations, roles,
+  role_permissions, permissions, login_attempts, password_reset_tokens,
+  users, sessions`). `erp_app`: not superuser, no BYPASSRLS, no CREATEROLE,
+  DELETE only on `invoice_lines / quote_lines / journal_lines` (line
+  replacement by design). All business tables empty (15 counted: clients,
+  contacts, quotes, invoices, payments, purchases, expenses, cash_entries,
+  bank_entries, mission_orders, journal_entries, agenda_events, documents,
+  prospects, contact_imports). Accounting seed intact: 18 accounts (11 system
+  keys), 5 journals, 0 periods (auto-created on first posting), fiscal-stamp
+  policy absent (= OFF, awaiting owner GO). 1 tenant, 1 user, 6 roles, 44
+  permissions, 16 modules enabled. Audit log: 97 rows, auth/admin actions
+  only — no test residue.
+- *Security (live)*: 401 on every API surface without a session (meta,
+  settings, users, audit, ledger, documents, clients, all Phase 11 routes);
+  CSRF-less and wrong-token PATCH → 403; session cookie `__Host-erp_session;
+  Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=28800`; logout revokes
+  (401 after); traversal 404, dotfiles 403, PHP 404; TLS Let's Encrypt valid
+  to 2026-11-20; HTTP → 301 HTTPS. **Finding, FIXED**: nginx served the
+  app statically without the API's `APP_CSP` and without HSTS — PR #279
+  (`635a603`) tracks the vhost under `deploy/nginx-erp.mythosprod.xyz.conf`
+  with CSP on `location /` (byte-for-byte `APP_CSP`) and HSTS
+  `max-age=31536000` (no preload / includeSubDomains); tested through a
+  throwaway `nginx -t` wrapper, installed as root, `nginx -t` + reload,
+  verified: `/` and assets carry the CSP + HSTS + the five existing headers,
+  `/api/` keeps the API's own single stricter CSP, headless Chromium renders
+  the app with 0 CSP violations. Rollback: previous vhost kept at
+  `deploy/README.md` instructions (reinstall / `max-age=0`). Rate limiting
+  is exercised by the drill (§23), not against production.
+- *UX*: frontend-drill (51 checks, headless Chromium, the deployed revision)
+  + production entry page rendered under the new CSP (login form, app shell,
+  0 inline scripts / handlers). Every business flow of the order — client →
+  quote → invoice → payment (§2), purchases (§13), bank reconciliation (§14),
+  mission orders (§15), fiscal stamp (§16), expenses (§18), cash (§19),
+  reminders (§20), contacts (§22), accounting invariants (§8) — runs in the
+  core E2E on the deployed checkout.
+- *Host*: erp-api + the other units active; `nginx`, `docker` active;
+  `idauto-postgres` healthy (3 weeks); backup timers scheduled (DB daily
+  04:07 UTC, verify 15:33 UTC); both health records `ok`, 0 consecutive
+  failures; 0 erp-api errors in 24 h; no OOM; memory PSI ≈ 0, ~2.9–3.4 GB
+  available. **Flag (owner)**: disk 92 % (66/72 GB, 5.8 GB free) — Docker
+  images 20.6 GB (omniroute, n8n, jellyfin, evolution ×2, mysql… none of
+  them the ERP), 2 GB reclaimable volumes, `/root/workspaces` 2 GB; no
+  cleanup was run (global Docker cleanup is forbidden by standing order) —
+  an owner decision on which images/volumes to drop.
+
+**Backlog classification (with evidence).** Production costing:
+NOT_REQUIRED — no costing anywhere in the legacy ERP. Stock: NOT_REQUIRED —
+no stock module in the legacy ERP; the current `inventory_items /
+inventory_movements` already exceed it. Document generation: NOT_REQUIRED
+— the legacy `docx` references are attachment-type icons and printing is
+`window.print`, both already covered (documents module, print views for
+invoices / quotes / mission orders). Reminder categories: **MINOR GAP** —
+the legacy had a settings-managed type list (`Fiscal, Administratif,
+Contrat, Relance client, Paie, Juridique, Autre`) and a `periode`
+(recurrence) on reminders; `agenda_events` has kind/priority only. Not
+blocking daily use (title/description carry the category), recorded rather
+than dropped. Production fiscal-stamp policy: implemented (Phase 5), OFF on
+the production tenant until the owner says GO.
+
+| Item | Detail |
+|---|---|
+| Regression (deployed checkout `6a2e965`) | **946/946** — core E2E 540, auth 125, frontend-check 46, acceptance 80, security 59, bootstrap 45, frontend-drill 51 |
+| Backups today | 4 clean runs (`…T094112Z`, `…T101152Z`, `…T110942Z` + verify), each stage/verify-local/push/verify-remote |
+| PRs this order | Verified in this session: #261 (Phase 3), #263 (Phase 4), #271/#272 (Phase 8), #273/#274 (Phase 9), #275/#276 (Phase 10), #277/#278 (Phase 11), #279 (final audit fix); Phases 5–7 PRs are recorded in their own entries below. All squash merges; `origin/main` = production checkout at every step. |
+| Owner-gated items | GO STAMP (enable `settings.fiscal_stamp` on the production tenant); disk headroom (which Docker images/volumes to remove); optional `Environment=ERP_BACKUP_HEALTH_FILE` in the erp-api unit |
+| Next | V2 candidates: reminder categories + recurrence, per-mode backup `last_success`, contact merge undo, printable daily cash sheet, manual-movement UI filters, tenant-timezone day boundaries in reports |
+
+## 2026-09-13 — MYTHOS ERP PHASE 11: P2 CONTACT IMPORT / DEDUP — **PHASE_11_COMPLETE** (Fable 5.1)
+
+Discovery evidence (legacy `js/shared/contacts.js`, 1,264 lines, plus
+`plugins/contacts.*`): the legacy "Répertoire de contacts" imported from the
+phone (Contact Picker API), from a vCard file, or from Google (server-side
+OAuth via PHP); kept an import history (`mp_repertoire_imports`: date, count,
+label, source) filterable and deletable as a whole; detected duplicates on
+identical tel1 or email; merged a group into its first member (empty fields
+filled from the others); exported a CSV (`Nom, Prénom, Téléphone 1/2, Email,
+Ville, Métier, Domaine, Responsable, Tags, Dernier contact, Statut, Note`).
+The current ERP already had `contacts` (schema.sql maps it to
+`mp_repertoire_contacts`) but only name/email/phone/role/source — no
+import, no batches, no duplicate detection. **REQUIRED** on that evidence.
+
+**Reproduced.** File import (vCard: RFC 6350 folding, quoted-printable with
+soft breaks, `item1.TEL`, `tel:` URIs; CSV: RFC-4180 quoting, `,`/`;`/tab
+auto-detect, BOM, the legacy French export header, plain FR/EN headers,
+Google Contacts' export header), server-side preview that classifies every
+row (new / duplicate of an existing contact / duplicate inside the file /
+invalid) before anything is written, import batches with label/counts and
+whole-batch retirement, duplicate groups on phone-or-email (overlapping
+groups united), merge into the first (oldest) contact.
+**NOT_REQUIRED, with reasons.** Phone Contact Picker (browser API only on
+Chrome/Android; the phone's own "export vCard" feeds the file path);
+Google OAuth (the master order forbids reviving legacy PHP endpoints; a
+Google CSV export imports through the CSV path — tested); CRM call history
+/ outcomes / tags / follow-ups (reminders and tasks linked to a client live
+in `agenda_events`, Phase 9; a per-contact call log was not asked for and
+is not a completion gap).
+
+**Model (0015, additive).** `contact_imports` (tenant_id, source vcard|csv,
+label, file_name, row/imported/skipped counts, created_by; RLS
+`tenant_isolation`, `set_updated_at`, guarded grant SELECT/INSERT/UPDATE).
+`contacts` + `phone2, address, city, country, job_title (métier), domain
+(domaine/organisation), notes, import_id → contact_imports`, and
+`phone_norm text GENERATED ALWAYS AS (digits and a leading '+') STORED` —
+the legacy `_rcCleanPhone` key computed by the database so every writer
+yields the same key; partial indexes on `(tenant_id, phone_norm)`,
+`(tenant_id, email)` (citext), `import_id`. `audit_action_known` redefined
+(the explicit list + `contacts.import_previewed`, `contacts.merged`;
+`lib/audit.js ACTIONS` mirrors it). No country-code rewriting (`00216…` and
+`+216…` are two keys — the legacy never guessed either).
+
+**API (module `clients`).** `POST /contacts/import/preview` and
+`POST /contacts/import` (clients.write; body `{source, text, file_name,
+label, skip_duplicates=true}`; 4 MiB of text, 5,000 rows checked before
+parsing, byte-aware route cap; duplicates looked up by the file's own keys
+only; 422 `nothing_to_import` when every row is a duplicate/invalid — no
+empty batch); `GET /contacts/imports` (live counts), `PATCH …/:id` (label),
+`DELETE …/:id` (clients.delete; retires the batch and its still-live
+contacts, soft); `GET /contacts/duplicates`; `POST /contacts/merge` —
+requires **clients.delete** (it retires contacts, whatever verb carries it),
+accepts only real duplicates of the kept contact (shared phone key or
+e-mail → otherwise 422 `not_duplicates`), fills empty fields — **never
+client_id / role_label** (relationship fields) — replaces a placeholder name,
+re-points `inscriptions.contact_id`, detaches the survivor from its batch
+(`import_id = NULL`, so retiring the batch later cannot take it), retires
+the others; audited `contacts.merged`.
+
+**UI.** Clients › Contacts: Liste (generic registry view, new columns) /
+Importer (file picker with 4 Mo and non-UTF-8 guards → preview table with
+states and match details → "Importer N contact(s)") / Doublons (one card
+per group with names, domain/métier; per-group merge with an explicit
+confirmation; **no "merge all"** — a shared switchboard number forms a
+group too) / Imports (history, rename via modal, retire batch).
+
+**Independent review**: 0 blockers; majors fixed — merge was a
+clients.delete bypass with arbitrary ids, quadratic TEL de-dup on hostile
+cards, one-click merge-all; minors fixed — QP soft breaks, batch
+retirement vs merge survivors, row cap before parsing, keyed duplicate
+lookup, citext grouping, registry e-mail length guard (clients and
+contacts), dangling detail links, prompt → modal, client-side size/encoding
+guard, drill diagnostics (api.log tail printed from the EXIT trap when a
+run fails or aborts).
+
+| Item | Detail |
+|---|---|
+| Implementation commit | `75a5820` on `mythos/erp-p2-contact-import-20260913` |
+| PR / merge | [#277](https://github.com/othoth77/mythos-prod/pull/277), squash-merged → `6a2e965931e890ac2febd320483afe784a998f71` (13 files: 0015, `contacts.js` module + view, `audit.js`, `migrate.js`, `registry.js`, `server.js`, `app.js`, five test files) |
+| Migration | `0015-contact-import.sql` — additive; no default rewrites a row; the audit CHECK list is a superset of the previous one. Production = **15** migrations. |
+| Backup | `mythos_erp-20260913T110942Z.dump`, 227,660 B, sha256 `902d9af3…`, 46 TABLE DATA TOC entries (`contacts`, `audit_log`, `schema_migrations` present), stage/manifest/verify-local/push/verify-remote, "backup completed clean", health `ok`. |
+| Rehearsal | Disposable `postgres:15-alpine` restore of that dump (14 migrations, 1 user, 1 tenant, 0 contacts): run 1 `APPLIED: 0015` only; run 2 `APPLIED: nothing`, 15 already applied; verified the 9 new columns (`phone_norm` generated ALWAYS), `contact_imports` RLS + 1 policy + `INSERT,SELECT,UPDATE` for erp_app, 3 partial indexes, audit CHECK carries both new actions; users/tenants/audit_log/accounts counts unchanged. Container destroyed. |
+| Production | Checkout ff to `6a2e965`; real runner `APPLIED: 0015-contact-import.sql`, 14 skipped; post-checks identical to the rehearsal (15 migrations, 0 contacts, 0 batches); `erp-api` restarted `Result=success`, `NRestarts=0`, `active`; `code_identity.head` `6a2e9659…`, `verified: true`. |
+| Smoke | Unauthenticated preview/import/imports/duplicates/merge → 401 ×5; owner: imports 200 `total 0`, duplicates 200 `total 0`, preview with an invalid source → 422 (validation, no audit row), merge with one id → 422, `/meta` publishes `phone2`/`job_title`, `/contacts` 200 `total 0`, `views/contacts.js` served. Afterwards: `contacts` 0, `contact_imports` 0, `contacts.*` audit rows 0 — no residue. |
+| Tests | Core E2E **540/0** (§22, 53 assertions: RLS/grants/generated column/indexes/audit CHECK; 401 / read_only 403 / finance_user 403; vCard preview 5 cards → 3 new, 1 in-file duplicate, 1 invalid, nothing written; parsed fields incl. ADR/ORG/TITLE, `N` → "Sonia Trabelsi", two TEL forms; preview trace without contents; import 201 +3 with batch/source/key; second preview → 4 duplicate_existing; re-import → 422 no batch; forced import 201 ×4; 3 united groups; merge fills notes, retires 2, detaches the survivor; non-duplicates 422; manager 403 (role lent for one call); single/unknown/repeated ids 422; legacy CSV with BOM/`;`/quoted quotes → 1 new + 1 e-mail duplicate, CRM columns ignored; Google CSV mapped; no recognised column / no card / unknown source / 5,001 cards / > 4 MiB → 422; batches list with live counts, relabel trimmed, relabel without label 422; read_only 403; acme 0 batches / 0 groups / 404 / 422; retire batch → 2 contacts retired, again 404, history 2, no groups left; net +4; generic list exposes `city`; audit ×3 created / 1 updated / 1 deleted). Auth **125/0** (15 migrations), frontend-check **46/0**, frontend-drill **51/0** (import tab + empty history), acceptance **80/0**, security **59/0**, bootstrap **45/0**. **Total 946/946**, re-run from the deployed checkout. |
+| Remaining gaps | `contacts.source` comment in schema.sql (`manual | google_import`) is stale — an applied file is never edited; values are `vcard_import` / `csv_import`. No per-contact merge undo (soft-deleted rows keep their data; an owner-level SQL restore is possible). Excel cp1252 CSVs are warned about, not transcoded. |
+| Next phase | Final integration phase: ERP-wide integration audit, business flows 1–6, security audit, host audit, UX audit (browser), data-integrity audit, then the FINAL COMPLETION REPORT. Production fiscal-stamp policy still awaiting owner GO. |
+
+## 2026-09-13 — MYTHOS ERP PHASE 10: P2 BACKUP STATUS UI — **PHASE_10_COMPLETE** (Fable 5.1)
+
+Discovery: the scheduled off-host backup (`ops/backup/mythos-backup-run-db.sh`,
+`mythos-backup-db.timer` daily, `…-verify.timer` daily, restore-test monthly;
+all run as `deploy`) writes one redacted health record after every run —
+`~deploy/mythos-backups/health/backup-health-db.json` (0600 deploy; the API
+runs as deploy). Nothing in the ERP showed it. **No migration.** The UI
+reads; it never triggers a backup (host operation, not an ERP action).
+
+**API.** `GET /settings/backup` — module `settings`, `settings.read` **and**
+the platform role `super_admin` (rank via `users.callerMaxRank`): the record
+is host-level, one database for every tenant, so a tenant admin of another
+company gets 403 (review finding — decided policy, documented in the route
+comment). Read at request time (`ERP_BACKUP_HEALTH_FILE` override for the
+drills; default = the writer's default path for `deploy`), guarded: regular
+file, ≤ 64 KiB, JSON object — anything else is a 200 `available:false` with
+`reason` (`no_health_record` / `unreadable` / `invalid_record`), never a 500,
+and the promise always settles. `state` = `failed` (status ≠ ok or non-zero
+exit; a missing exit_code is "not reported") / `stale` (> 36 h since
+`last_success_at`) / `ok`. Fields normalised (ISO dates or null, ints or
+null, mode whitelist). `source` and `backup_prefix` are never returned; the
+error tail is redacted — `scheme://`, `remote:bucket/…` specs, `key=value`
+secrets incl. `PGPASSWORD=`, `host=`/`port`, `user@host`, IPv4/IPv6
+host:port, absolute, `~/`, `./` and relative paths (which is how the prefix
+would appear) — then cut at 200 chars without ending on a partial marker.
+
+**UI.** Paramètres › Sauvegardes: badge `OK / ÉCHEC / OBSOLÈTE / INCONNU`
+suffixed with the run mode (the record covers the latest run of ANY mode —
+"OK — vérification" is not "the backup succeeded"; the writer keeps a single
+`last_success_at` across modes, a known limitation outside this diff), last
+run, last success + hours, consecutive failures, threshold, redacted error;
+a RÉSERVÉ sentence on 403 instead of an error box.
+
+**Independent review**: 0 blockers; majors fixed — redaction bypasses (each
+shape now has a drill fixture), tenant exposure (super_admin gate); minors
+fixed — stat/size cap/try-catch, marker-safe truncation,
+`hours_since_success` from the validated date, audit count before/after.
+
+| Item | Detail |
+|---|---|
+| Implementation commit | `c909cda` on `mythos/erp-p2-backup-status-20260913` |
+| PR / merge | [#275](https://github.com/othoth77/mythos-prod/pull/275), squash-merged → `d6fc14f411a1b0b5c2eb7030f459d8bef1666190` (5 files: `views.js`, `server.js`, `admin.js`, two drills) |
+| Migration | None. `migrate.js --dry-run` on production after the sync: `WOULD APPLY: nothing`, 14 applied. Rehearsal NOT_REQUIRED. |
+| Backup | `mythos_erp-20260913T101152Z.dump`, 227,434 B, sha256 `8627ccbe…`, 46 TABLE DATA TOC entries, stage/manifest/verify-local/push/verify-remote, "backup completed clean", health `ok`, 0 consecutive failures. |
+| Production | Checkout ff to `d6fc14f`; `erp-api` restarted `Result=success`, `NRestarts=0`, `active`; `code_identity.head` `d6fc14f4…`, `verified: true`. |
+| Smoke | Unauthenticated `/settings/backup` → 401; owner super_admin → 200 `{available true, state ok, mode backup, exit_code 0, duration 3 s, 0 failures, error ''}`; no `source`/`backup_prefix` key and not a single `/` in the body; `/settings` 200; `views/admin.js` served. Zero rows in `agenda_events` / `invoices` / `journal_entries`; no audit rows from the reads. |
+| Tests | Core E2E **487/0** (§21, 17 assertions: 401; read_only 403; finance_user 403; no record → unknown/no_health_record; fresh ok record → ok/backup/0 failures/hours < 1; source+prefix absent; failed verify → failed/verify/exit 3/2 failures/≥ 72 h; redaction of path/URL/secret/user@host with markers; bypass shapes — remote spec, relative path & prefix, key=value incl. PGPASSWORD, host/port, IPv4/IPv6, ~/ ./ comma-delimited — none leak; marker-safe cut + missing exit_code not a failure; stale after 3 days; odd values normalised; malformed → invalid_record; non-object → invalid_record; tenant admin 403; super_admin 200; three GETs leave the audit count unchanged). Auth **125/0**, frontend-check **45/0**, frontend-drill **49/0** (card renders INCONNU + no-record sentence), acceptance **80/0**, security **59/0**, bootstrap **45/0**. **Total 890/890**, re-run from the deployed checkout. |
+| Remaining gaps | The writer's single `last_success_at` across backup/verify/restore-test modes (a successful verify after a failed backup reads as "OK — vérification"); the erp-api unit does not pin `ERP_BACKUP_HEALTH_FILE` (default = writer default for `deploy`; a unit `Environment=` line would remove the drift risk — owner/ops step, unit file untouched here); writer escapes `"`/newline but not `\` in the error tail (invalid JSON → card says "invalid record"). All outside the ERP diff. |
+| Next phase | Contact import / dedup discovery (P2 — decide REQUIRED vs NOT_REQUIRED on legacy evidence), then the final integration/security/UX/data-integrity audits; production fiscal-stamp policy still awaiting owner GO. |
+
+## 2026-09-13 — MYTHOS ERP PHASE 9: P2 REMINDERS / DUE ITEMS — **PHASE_9_COMPLETE** (Fable 5.1)
+
+Discovery found the data model already complete: `agenda_events` (0006)
+carries `kind` reminder/task, `remind_at`, `status`, links to
+client/project/invoice/quote, RLS and audit. What was missing was the
+legacy ERP's "DU" badge — a place where a person sees what is due — and the
+dashboard had no due counters. No notification framework, no e-mail, no
+cron: the legacy had none, and a list a person opens is the functional
+requirement. **No migration.**
+
+**API.** `GET /agenda_events/due?days=&limit=` (module `agenda`,
+`agenda.read`, RLS-scoped): scheduled reminders/tasks whose
+`coalesce(remind_at, starts_at)` falls through the END of the Nth day ahead
+(default 7, clamped 0..365; unparseable → 0, never a 500), each row flagged
+`overdue` when the instant has passed; full rows (`ends_at`, `location`,
+`all_day` included) so the edit form opened from the list cannot blank
+fields it never saw. `/dashboard` + `reminders_due` (due through end of
+today — same bound as the tab's horizon 0) and `invoices_overdue`
+(sent/part_paid with `due_on < current_date`); `/reports/receivables` +
+per-row `overdue`, `overdue_count`, `overdue_total`. All additive; day
+boundaries follow the database session timezone like every `current_date`
+report (IMPLEMENTATION ASSUMPTION, consistent with the existing YTD
+figures).
+
+**UI.** Agenda › À traiter (horizon today/7/30, DU badge, "Marquer fait"
+through the audited generic PATCH, edit), `Rappel le` (`remind_at`) in the
+agenda form, dashboard tiles "Rappels dus (aujourd'hui)" / "Factures en
+retard", overdue column + "dont en retard" total on the receivables report.
+`#/agenda` still lands on Liste (frontend drill contract preserved).
+
+**Independent review**: 0 blockers; fixed — edit-from-list blanked
+`ends_at`/`location` (due SELECT now returns the full row), a 2027 date
+bomb in the drill (`due_on` now `+60 days`), "aujourd'hui" semantics (the
+horizon is bounded at end of day, tile and tab agree), tab order.
+
+| Item | Detail |
+|---|---|
+| Implementation commit | `58679f8` on `mythos/erp-p2-reminders-20260913` |
+| PR / merge | [#273](https://github.com/othoth77/mythos-prod/pull/273), squash-merged → `037da059e9b2cb31218aa02b97344987ce627722` (7 files: `views.js`, `server.js`, `agenda.js`, `dashboard.js`, `reports.js`, two drills) |
+| Migration | None. `migrate.js --dry-run` on production: `WOULD APPLY: nothing`, 14 already applied. Rehearsal NOT_REQUIRED (no schema change). |
+| Backup | `mythos_erp-20260913T094112Z.dump`, 227,230 B, sha256 `fcae8609…`, 46 TABLE DATA entries in the TOC, local + remote verified by the service, "backup completed clean", health `status: ok`, `consecutive_failures: 0`. |
+| Production | Checkout ff to `037da05` (clean apart from the pre-existing untracked OTHKM seed files); `erp-api` restarted, `active`; `code_identity.head` `037da059…`, `verified: true`. |
+| Smoke | Unauthenticated `/agenda_events/due`, `/dashboard` → 401; authenticated `/due` → 200 `{total 0, overdue 0, days 7}`, `?days=abc` → 200 `days 0`; `/dashboard` → the nine keys; `/reports/receivables` → `overdue_count 0`; `/meta`, `/`, `views/agenda.js` → 200. Zero rows in `agenda_events` / `invoices` / `cash_entries` / `expenses` / `journal_entries` after the test. |
+| Tests | Core E2E **470/0** (§20, 25 assertions: 401; past `remind_at` beats future `starts_at`; task 40 days out excluded at 7/0, included at 60; clamp 365 + limit; non-numeric days; dashboard `reminders_due` −1 after mark done; overdue invoice → receivables `overdue=true`, control invoice `false`, `overdue_total` = Σ overdue balances, `invoices_overdue` +1; read_only 200 / 403; acme 0 rows and no leaked invoice; audit; full-row contract). Auth **125/0**, frontend-check **45/0**, frontend-drill **48/0**, acceptance **80/0**, security **59/0**, bootstrap **45/0** (dashboard shape = nine counters, exact set). **Total 872/872**, re-run from the deployed checkout. |
+| Remaining gaps | No push/e-mail notification (NOT_REQUIRED — no legacy evidence); `days=0` "today" is the DB session day, not the tenant's timezone (minor, same as every `current_date` report). |
+| Next phase | Backup status UI (P2, read-only card from `backup-health-db.json`), then contact import discovery; production fiscal-stamp policy still awaiting owner GO. |
+
+## 2026-09-13 — MYTHOS ERP PHASE 8: P1 CASH REGISTER — **PHASE_8_COMPLETE** (Fable 5.1)
+
+Discovery re-verified what the till already had: the `cash` system
+account (`54`) and `CA` journal (0005), every customer receipt, supplier
+payment and cash-paid expense posting there, and `GET /accounting/ledger`
+as a cash book with opening/running/closing balances. What was missing —
+per the legacy cash module's own evidence ("Retraits en espèces du compte
+BIAT", bank ⇄ till links) — were the movements that are NOT documents, and
+an operational view. `cash_entries` (legacy `mp_cash_entries`, unwired since
+Stage 3) became the manual movement. No closing / count / variance workflow:
+the legacy ERP had none → NOT_REQUIRED, not deferred by accident.
+
+**Model.** `kind` withdrawal (bank → till: debit 54 / credit 532), deposit
+(till → bank), other_in / other_out against an explicit
+`counterpart_account_id` — any active account of the tenant, the
+accountant's judgement, never a hidden default. One balanced `CA` entry per
+movement at creation, idempotent on the row id, reversed on retire
+(`cash_cancel`); amount/date/kind/counterpart immutable once posted, label/
+reference editable (the Phase 7 rule). A configured tenant missing the
+cash/bank account or the CA journal gets a 409 and a rollback — never a row
+without an entry (review finding).
+
+**API/UI.** `/cash_entries` CRUD, `/summary` (ledger balance of the cash
+account, today's in/out in the tenant's timezone), `/book` (the cash
+account's ledger with the account forced server-side), `/counterparts`.
+Finance › Caisse: balance card, cash book with running balance, manual
+movements, new-movement form.
+
+**Independent review**: five items fixed — migration defaults safe for
+legacy rows (`kind` defaults to `withdrawal` then the default is dropped;
+`amount > 0` added `NOT VALID`), loud 409 on missing system accounts,
+kind/counterpart coherence on PATCH, tenant-timezone "today", pagination
+offset. One reviewer claim was wrong and is recorded as such: `finance_user`
+DOES hold `accounting.read` (0005), so `/book` is a convenience with the
+account forced server-side, not a permission workaround.
+
+| Item | Detail |
+|---|---|
+| Implementation commit | `c600b59` on `mythos/erp-p1-cash-register-20260913` |
+| PR / merge | [#271](https://github.com/othoth77/mythos-prod/pull/271), squash-merged → `1371c05271da7ef96a9822f7939eaf695b527814` (13 files, ERP paths only) |
+| Migration | `0014-cash-register.sql` — additive: `cash_entries.kind / counterpart_account_id / reference`, CHECKs (`kind_known`, `counterpart_when_other`, `amount_positive NOT VALID`), index. No new grants. |
+| Backup | `mythos_erp-20260913T090832Z.dump`, 225,357 B, sha256 `246e42e2…4136`, 558 TOC entries, local + remote verified, "completed clean". |
+| Rehearsal | Restore of that backup: run 1 applied only `0014`, run 2 skipped all 14; columns, CHECKs (`amount_positive` `convalidated=f` as intended), RLS, grants verified; users unchanged. Container destroyed. |
+| Production | Checkout ff to `1371c05`; migration applied via the real runner (`applied=["0014…"]`, 13 skipped); post-checks identical; `erp-api` restarted `Result=success`, `NRestarts=0`; `code_identity.head` `1371c052…`, `verified:true`. |
+| Smoke | Unauthenticated `/cash_entries`, `/summary`, `/book`, `/counterparts`, `POST` → 401; `views/cash.js` served; authenticated GETs → 200; summary names `54 — Caisse`, balance `0.000`. Zero rows in `cash_entries` / `journal_entries` / `expenses` after the test. |
+| Tests | Core E2E **445/0** (§19, 27 assertions: summary = ledger balance; other_out without counterpart / unknown kind / amount 0 / unknown counterpart refused; withdrawal 54 D 300 · 532 C 300 in the CA journal; deposit; other_in against 75; balance deltas +250 then +350 after reversing the deposit; immutability 409; reference edit without a second entry; retire → reversal; cash book rows with running balance; trial balance balanced; finance_user ledger/book/counterparts/other_out; read_only 403 / summary 200; acme 404 ×2; audit). Auth **125/0** (14 migrations), frontend-check **45/0**, frontend-drill **48/0**, acceptance **80/0**, security **59/0**, bootstrap **45/0**. **Total 847/847**, re-run against the deployed revision. |
+| Remaining gaps | Manual movements list has no date/kind filter in the UI (API supports both); the cash book is the ledger view, not a printable daily sheet (no legacy evidence for one). |
+| Next phase | Reminders (P2) / contact import (P2) / backup status (P2) — discovery decides; production fiscal-stamp policy still awaiting owner GO. |
+
+## 2026-09-13 — MYTHOS ERP PHASE 7: P1 EXPENSES → LEDGER — **PHASE_7_COMPLETE** (Fable 5.1)
+
+Expenses (legacy `mp_expenses`: date, label, category, payment mode,
+amount — the most-used money record after invoices) were the one flow
+that never reached the general ledger: `reports/expenses` and the trial
+balance were two truths that could not agree. Discovery re-verified the
+current code (generic registry CRUD, no `postExpense`, no VAT, no payment
+method) and the legacy form (8 seeded categories, modes BIAT / Virement /
+Espèces / Chèque / Carte, no VAT, no approval, no attachment).
+
+**Model — legacy parity, nothing invented.** `expenses` gains
+`payment_method` (free text, same convention and cash/bank rule as
+`payments.method`), `vat_rate` (default 0: the amount is what was PAID;
+a rate splits it into HT + deductible VAT exactly like the legacy purchase
+calculator reversed a TTC), and an optional `supplier_id` (reuse of the
+existing entity). `expense_categories.account_id` lets a category name the
+expense account its lines debit; otherwise the tenant's new `expenses`
+system account is used — **IMPLEMENTATION ASSUMPTION, flagged**: placed on
+the already-seeded `62 — Autres services extérieurs`; the tenant may move
+it in the Plan comptable, only the system_key is looked up.
+
+**Posting.** One entry per expense at creation (the cash has already left):
+category/default expense account debit HT, `vat_deductible` debit when
+VAT > 0, treasury credit for the amount — cash journal when the method says
+espèces/caisse/cash/liquide, bank otherwise. Idempotent on
+`(source_table 'expenses', source_id)`; reversed on retire
+(`expense_cancel`). **Amount, date, VAT, method and category are immutable
+once posted** — retire and record a new one — the same rule invoices apply
+to a paid document; description and links stay editable. A category that
+points at a missing, inactive, cross-tenant (RLS-hidden) or non-expense
+account refuses the posting with a 409 and the transaction rolls back —
+never a silent fallback (review finding). Rows that existed before the
+migration are not retro-posted (production had none).
+
+**UI.** `expenses` left `registry.js` for a dedicated module (as purchases
+did in Phase 2) and a dedicated Finance › Dépenses view: list with
+category/search filters, detail with the HT/VAT split and the ledger entry
+number, create, edit (locked fields disabled once posted), retire with a
+confirm that says the entry is reversed.
+
+**Independent review** found three defects, all fixed and pinned by
+assertions: the edit form could not clear a supplier/project link; the
+category account fell back silently to the default and was not checked
+for type `expense`; a boolean `amount` coerced to 1.
+
+| Item | Detail |
+|---|---|
+| Implementation commit | `07f87f1` on `mythos/erp-p1-expenses-ledger-20260913` |
+| PR / merge | [#269](https://github.com/othoth77/mythos-prod/pull/269), squash-merged → `f00ba311791f80458725bd4191e9ca6b9f383b2b` (14 files, ERP paths only) |
+| Migration | `0013-expenses-ledger.sql` — additive: `expenses.payment_method / vat_rate / supplier_id` + CHECKs + indexes, `expense_categories.account_id`, `account_system_key_known` extended with `expenses`, `accounting_seed_tenant` replaced (`'62'` carries the key), `'62'` rows of configured tenants keyed on the absence of `expenses`. No new grants. |
+| Backup | `mythos_erp-20260913T084258Z.dump`, 223,195 B, sha256 `db9b4aa8…ee21d`, 554 TOC entries, local + remote verified, "completed clean". |
+| Rehearsal | Restore of that backup: run 1 applied only `0013`, run 2 skipped all 13; columns/CHECKs/system-key CHECK/RLS/grants verified; `62` → `expenses`; `mythos` chart still 18 accounts; users unchanged. Container destroyed. |
+| Production | Checkout ff to `f00ba31`; migration applied via the real runner (`applied=["0013…"]`, 12 skipped); post-checks identical to rehearsal; `erp-api` restarted `Result=success`, `NRestarts=0`; `code_identity.head` `f00ba311…`, `verified:true`. |
+| Smoke | Unauthenticated `/expenses` (GET/POST/GET:id), `/expense_categories` → 401; `views/expenses.js` served; authenticated GETs → 200; `accounting/setup` lists `expenses` among 11 system keys. Zero rows in `expenses` / `journal_entries` / `invoices` after the test. |
+| Tests | Core E2E **418/0** (§18, 32 assertions: amount 0 / VAT 150 / unknown category / boolean amount refused; cash expense 119 @19 → 62 debit 100.000, 4366 debit 19.000, 54 credit 119.000, balanced; bank expense → 532 credit; category account routing to 61; non-expense account → 409 + rollback; amount immutable 409; description edit without a second entry; retire → reversal (`expense_cancel`), original `reversed`; trial balance balanced; VAT report counts the deductible VAT; expenses report excludes the retired one; read_only 403/200; acme 404/404; audit created/updated/deleted). Auth **125/0** (13 migrations), frontend-check **44/0**, frontend-drill **48/0**, acceptance **80/0**, security **59/0**, bootstrap **45/0**. **Total 819/819**, re-run against the deployed revision. |
+| Remaining gaps | No approval workflow or attachments (no legacy evidence — deferred, not refused); the `reports/expenses` report still groups by category only (the legacy also grouped by payment mode — small, deferred). |
+| Next phase | Cash register (P1): with expenses and payments now posting to `54`/`CA`, what remains is a cash book over the ledger plus manual cash movements (bank ↔ till, adjustments) — see the next entry. |
+
+## 2026-09-13 — MYTHOS ERP PHASE 6: P0 RBAC HARDENING — **PHASE_6_COMPLETE** (Fable 5.1)
+
+A small security phase pulled forward by the Phase 5 audit, which found a
+real privilege escalation: **`POST /api/v1/users/roles` had no rank cap
+and was gated only by `users.manage`**, which `admin` holds — so an admin
+could `POST {user_id: <self>, role_key: 'super_admin'}` and become a
+super_admin, precisely the escalation `schema-auth.sql`'s tier separation
+(admin lacks `roles.manage`) exists to prevent. Phase 1's `POST /users`
+had the cap since day one; this older handler never got it. Verified in
+code (`views.js assignRole`) before acting.
+
+**Fix.** `assignRole` now shares `users.js`'s `callerMaxRank` (per user,
+per ACTIVE tenant — `ctx.tenantId` is set by the pipeline only after
+membership is verified, body tenant ids are never read): a caller cannot
+grant a role ranked above their own highest role in that tenant; the
+target must be an active member of that tenant (explicit `tenant_id`
+predicate, not RLS alone); `user_id` is validated with `db.UUID`; refusals
+are audited (`permission.denied`, `role_exceeds_own_rank`). No permission
+rows changed for this: admin keeps `users.manage` and still lacks
+`roles.manage`.
+
+**Dead DELETE zones closed.** The `production` and `inventory` modules had
+no `*.delete` permission in the catalogue at all, so the generic `DELETE`
+routes of `collaborators`, `representations`, `inventory_items` and
+`suppliers` denied everyone — `super_admin` included — with
+`no_permission_mapping` and an audit row each time, and Phase 4 shipped
+mission orders without a retire route for the same reason. Migration
+`0012` seeds `production.delete` / `inventory.delete` for `super_admin`
+and `admin` (the same grant pattern as every other delete key);
+`authz.js` maps them; `mission_orders` gains a soft-delete retire route
+and a "Retirer" button. Still without a DELETE key, deliberately:
+`accounting` (accounts/journals must never be deletable) — and, noted for
+a future small task, `planning`/`settings` (appointments, natures,
+expense_categories: same dead-route noise, not touched here).
+
+| Item | Detail |
+|---|---|
+| Implementation commit | `565395f` on `mythos/erp-p0-rbac-hardening-20260913` |
+| PR / merge | [#267](https://github.com/othoth77/mythos-prod/pull/267), squash-merged → `8d8ffb32e8030abb871f8d99f63e2969e9d3620e` (13 files, ERP paths only) |
+| Migration | `0012-rbac-delete-permissions.sql` — additive: two permissions + four `role_permissions` rows, `ON CONFLICT` both. |
+| Backup | `mythos_erp-20260913T082044Z.dump`, 222,784 B, sha256 `55a6e6ae…0e05`, 554 TOC entries, local + remote verified, "completed clean". |
+| Rehearsal | Restore of that backup: run 1 applied only `0012`, run 2 skipped all 12; permissions 42→44, `role_permissions` 142→146, `mythos` super_admin effective permissions 44; users unchanged. Container destroyed. |
+| Production | Checkout ff to `8d8ffb3`; migration applied via the real runner (`applied=["0012…"]`, 11 skipped); post-checks identical to rehearsal; `erp-api` restarted `Result=success`, `NRestarts=0`; `code_identity.head` `8d8ffb32…`, `verified:true`. |
+| Smoke | Unauthenticated `GET /users`, `POST /users/roles`, `DELETE /mission_orders/:id`, `DELETE /collaborators/:id` → 401. Authenticated GETs → 200; `DELETE` of a nonexistent mission order as super_admin → **404** (route reachable and authorized — before 0012 it was 404 for lack of a route, and would have been 403 if routed). Zero business rows, `user_roles` = 1. |
+| Independent review | Two hardening nits applied (explicit tenant predicate on the membership check; strict `db.UUID`). Rank cap, RLS scoping, migration targets, soft-delete semantics, frontend all found clean. |
+| Tests | Core E2E **389/0** (§17 RBAC: admin self-elevation 403 + audited, within-rank 200, non-member 422 with no row, malformed uuid 422, delete keys granted to admin/super_admin only, collaborator/inventory retire now 200, read_only 403; §15 mission retire: read_only 403, foreign tenant 404, super_admin 200, row kept). Auth **125/0** (12 migrations), frontend-check **43/0**, frontend-drill **48/0**, acceptance **80/0**, security **59/0**, bootstrap **45/0** (effective permissions 42→44, intended). **Total 789/789**, re-run against the deployed revision. |
+| Remaining gaps | `roles.manage`, `reports.export`, `backup.manage` remain seeded-but-unreferenced (documented, harmless); `planning`/`settings` DELETE dead-routes (see above). |
+| Next phase | Expenses into the ledger (P1 accounting truth) — see the next entry. |
+
+## 2026-09-13 — MYTHOS ERP PHASE 5: P0 FISCAL STAMP (DROIT DE TIMBRE) + ACHATS UI — **PHASE_5_COMPLETE_WITH_MINOR_GAPS** (Fable 5.1)
+
+Selected by a fresh read-only gap audit of the legacy ERP and the current
+ERP (nine remaining candidates scored on business need, legal weight,
+accounting and migration risk). Two P0 items, tightly coupled, one phase:
+
+**1. The Tunisian droit de timbre was missing from every invoice the new ERP
+issues.** Legal basis verified against the DGI's own texts, not assumed:
+CDET art. 117 §I n°6 — **1,000 TND per invoice**, raised from 0,600 by
+décret-loi 2022-79 (LF2023) art. 69, applicable to invoices issued from
+1 Jan 2023 (DGI Note commune 02/2023 §II, §IV); due on every invoice
+including partial invoices and credit notes (NC 06/2004 §II.1); exempt for
+export invoices, totally-exporting enterprises, and where the duty is
+legally borne by the State (art. 118; NC 06/2004 §3). Flat per document,
+outside the VAT base, shown after the VAT total. The LF2026 tiered tariff
+(1,5/2 TND) applies only to *grandes surfaces* — not Mythos. The legacy
+ERP carried exactly this (`js/shared/invoices.js:172-216`: `timbre`
+after VAT on invoices and quotes, forced to 0 for VAT-exempt documents).
+
+**2. Finance › Achats was a dead tab in production.** When purchases became
+a dedicated module in Phase 2 it left `registry.js`, so `/meta` stopped
+publishing it and `resourceView('purchases')` rendered "Ressource
+inconnue" — a complete backend (lifecycle, supplier payments, accounting)
+unreachable from the UI. Found by this phase's discovery, verified in
+code, fixed with `views/purchases.js` (list, detail, create/edit,
+confirm, supplier payment, cancel) mirroring `views/invoices.js`.
+
+**Model.** `stamp_amount numeric(14,3)` snapshot on `invoices`, `quotes`
+and `purchases` (0 = exempt, per-document override; a later rate change
+never rewrites history). Tenant default in `tenants.settings.fiscal_stamp`
+`{enabled, amount}` — the jsonb column that was plumbed since tenancy and
+read by nothing until now. **Absent = disabled**: nothing changed for any
+existing total; enabling it is done in Paramètres › Timbre fiscal (or
+`PATCH /settings`, `settings.manage`) and is audited (`tenant.updated`).
+TTC = HT + VAT + stamp in `totals()` (invoices, quotes, purchases), so
+balance/overpayment/status derivation, receivables, revenue (new `stamp`
+column) and the dashboard all agree. Quote→invoice conversion carries it.
+
+**Accounting (no duplicate effects, verified).** A stamped sales invoice
+posts one extra credit leg on a new `stamp_collected` system account —
+money collected for the State, a liability, never revenue; the receivable
+debit becomes HT+TVA+timbre. A stamped supplier invoice posts one extra
+debit leg on `stamp_expense`. Both are seeded by `0011` for every tenant
+whose chart exists (keyed on the system_key's absence, `ON CONFLICT
+(tenant_id, code) DO NOTHING`) and by `accounting_seed_tenant` for new
+ones. **IMPLEMENTATION ASSUMPTION, flagged**: the seeded codes `4368`
+("État, droits de timbre collectés") and `6354` ("Droits d'enregistrement
+et de timbre") follow the chart 0005 already seeds; codes/labels are the
+tenant's to rename — only the system_key is looked up. A configured tenant
+that stamps a document but has no such account gets a 409 naming the fix,
+never a silently dropped sales entry (review finding).
+
+**Independent code review** (second agent, read-only) found six issues,
+all fixed and pinned by assertions before commit: a non-finite/oversized
+policy amount could have blocked every later document creation (now
+finite, 0..1000, stored normalised); a missing stamp account silently
+skipped the whole posting (now a loud 409); non-numeric `stamp_amount`
+reached PostgreSQL (now coerced, blank = absent); revenue's inner join
+diverged from receivables on line-less invoices (LEFT JOIN); the
+`zero_amount` guard ignored the stamp; and an edit-form hint was wrong.
+
+**One stale test harness fixed on the way**: `tests/erp-frontend-drill.sh`
+still applied migrations only through `0006` — invisible to Phases 2–4,
+which never touched the invoice code path it exercises — and failed with a
+500 (missing `stamp_amount`) until its list was brought in line with the
+other drills.
+
+| Item | Detail |
+|---|---|
+| Implementation commit | `25f7571` on `mythos/erp-p0-fiscal-stamp-20260913` |
+| PR / merge | [#265](https://github.com/othoth77/mythos-prod/pull/265), squash-merged → `0fd6c3d8a7f5e3f2fe03fc19910590ce6c4e61b3` on `origin/main` (19 files, all under `sites/erp.mythosprod.xyz/` and `tests/erp-*`) |
+| Migration | `0011-fiscal-stamp.sql` — additive: three `stamp_amount` columns + non-negative CHECKs, `account_system_key_known` extended with `stamp_collected`/`stamp_expense`, `accounting_seed_tenant` replaced (18 accounts), backfill for configured tenants. No new grants needed. |
+| Backup | `mythos-backup-db.service` before migration: stage → verify-local → push → verify-remote, "backup completed clean". `mythos_erp-20260913T080151Z.dump`, 221,698 B, sha256 `d6e8f022…4adb0`, 554 TOC entries. |
+| Rehearsal | Disposable PG15 restored from that backup: run 1 applied only `0011`, run 2 skipped all 11; columns/CHECKs/system-key CHECK/RLS/grants/function verified; `mythos` chart 16→18; users/invoices counts unchanged. Container destroyed. |
+| Production migration | Applied via the production checkout's runner: `applied=["0011-fiscal-stamp.sql"]`, `schema_migrations` = 11; post-checks identical to rehearsal; `tenants.settings` = `{}` (policy **off**). |
+| Production revision | `0fd6c3d8a7f5e3f2fe03fc19910590ce6c4e61b3`, `code_identity.verified: true`, `erp-api` `Result=success`, `NRestarts=0`. |
+| Smoke test | Unauthenticated `/invoices`, `/quotes`, `/purchases`, `/settings`, `/reports/*`, `/accounts`, `PATCH /settings` → 401. Authenticated: all 200; `accounting/setup` lists the two new system keys among 18 accounts; `views/purchases.js` served. Zero business rows in every table after the test. |
+| Tests | Core E2E **374/0** (new §16, 29 assertions: policy off→on, read_only 403 on the policy, malformed/non-finite/negative/non-numeric/blank handling, 4368 credit 1.000 vs 706 credit 1000.000, receivable 1191.000, balanced entry, receivables/revenue carry the stamp, exemption override posts no stamp leg, quote conversion, purchase 6354 debit 1.000 / 401 credit 120.000, purchase paid to the exact TTC, trial balance balanced, per-tenant isolation, audit). Auth **125/0** (11 migrations). Frontend-check **43/0**, frontend-drill **48/0**, acceptance **80/0**, security **59/0**, bootstrap **45/0**. **Total 774/774**, all re-run against the deployed revision. Two §8 chart-size expectations updated 16→18 (the two new system accounts — an intended change, not a weakened test). |
+| Remaining gaps (non-blocking) | **The production tenant's policy is still OFF** — enabling it changes every new invoice's total by +1,000 TND and is a business decision: owner GO required, then `Paramètres › Timbre fiscal` (or one `PATCH /settings`). Printed invoice shows the stamp as a line in the totals card (browser print, as before); no dedicated print layout. The stamp on credit notes is covered only insofar as a credit note is an invoice with negative/zero lines (the ERP has no credit-note document type). |
+| Next phase | Continuing the roadmap by priority from the same audit: RBAC hardening (`production`/`inventory` DELETE dead-zones, `roles.manage` not enforced on `POST /users/roles`) as a small P1, then cash register / expenses-in-ledger (P1). |
+
+## 2026-09-12 — MYTHOS ERP PHASE 4: P1 MISSION ORDERS — **PHASE_4_COMPLETE_WITH_MINOR_GAPS** (Sonnet 5)
+
+"Ordres de mission" — a vehicle/driver dispatch sheet — following Phase 3
+(bank reconciliation, PR #261/#262). Discovery, requirement determination,
+implementation, verification, and production deployment all in this
+engagement; no Phase 5 work started.
+
+**Objective, and why it stayed narrow.** Discovery (read-only pass over the
+legacy repository root, `js/shared/mission-orders.js` + `index.html`'s
+`#view-om-list`/`#view-om-new`) found a real, complete legacy feature: full
+CRUD + print, a nav entry, side-effect auto-creation of collaborator/vehicle
+records. But its actual shape is narrow — a vehicle/driver dispatch sheet,
+**not** a document tied to a client, project, event, quote, invoice, or
+amount. No numbering scheme either (legacy's only identifier was
+`'om_' + Date.now()`). None of those absent fields were invented for Phase
+4: the functional gap matrix was built strictly from legacy evidence, and
+everything legacy does NOT prove (client/project/event link, amount,
+approval workflow, accounting/invoice/payment effect) was marked
+`NOT_REQUIRED`, not silently added "for completeness."
+
+**Architecture — reuse, not a new module.** Mission orders live under the
+**existing** `production` module (`api/lib/authz.js`'s
+`production.read`/`production.write`, already seeded for the
+`production_user` role in `schema-auth.sql`) — the exact gate
+`collaborators`/`representations` already share. No new `tenant_modules`
+key, no new permission, no new role. `driver_id` optionally links to the
+existing `collaborators` table (reuse of the current personnel entity)
+while `driver_name`/`driver_cin`/`driver_license` stay as plain snapshot
+fields on the row — a mission's driver credentials are a fact about that
+trip, not something that should force a hard dependency on collaborator
+record hygiene, and legacy stored them the same way. `passengers` is a
+small JSONB roster (name only) rather than a child table: nothing is
+computed or queried per passenger, only a list to print — the same
+reasoning `0008-purchases-lifecycle.sql`'s own header used for not giving
+purchases a lines table.
+
+**No accounting effect, verified, not assumed.** Mission orders carry no
+amount field at all and `api/modules/mission-orders.js` never imports
+`accounting.js`. Production smoke test confirmed `journal_entries` stayed
+at 0 rows throughout.
+
+**Printing** reuses the legacy's own approach — a generated HTML document
+opened in a new window and sent to `window.print()` — rather than
+introducing a server-side PDF engine the current ERP has never needed for
+anything else (`documents.js` only stores/serves uploaded blobs). All
+interpolated fields are HTML-escaped before being written into the new
+window's document.
+
+**One genuine pre-existing gap found and documented, not silently worked
+around**: the `production` module has **no delete permission at all** in
+the permissions catalogue (`schema-auth.sql` seeds only
+`production.read`/`production.write`) — meaning `collaborators` and
+`representations` already had an unreachable `DELETE` route registered by
+`registry.js`'s generic loop (`api/lib/authz.js`'s `authorize()` denies any
+method with no permission key mapped, unconditionally). This is why
+mission orders has **no retire/archive capability**: exposing one would
+either be equally unreachable (same gap) or require adding a new
+`production.delete` permission across the whole module — shared
+infrastructure beyond this phase's scope, per the task's own stop
+condition ("if an unrelated security defect is discovered, document it and
+stop before expanding scope"). Fixing this is a candidate for a future,
+explicitly-scoped small task, not something to bundle into an unrelated
+feature phase.
+
+| Item | Detail |
+|---|---|
+| Discovery | Legacy `js/shared/mission-orders.js` (329 lines): full field list (driver name/CIN/permit, vehicle plate, mission type aller_retour/aller_simple, mission text, departure/arrival location and time, passenger roster with signature lines, optional company stamp), `localStorage`-persisted (`mp_oms`), unauthenticated — architecture not reused, only the business fields. Current ERP had no equivalent under any name; the `-- legacy mp_oms (ordres de mission)` comment on `projects` in `schema.sql` is stale (current `projects` schema has none of the OM fields). |
+| Implementation commit | `f00ad5b` on `mythos/erp-p1-mission-orders-20260912` |
+| PR | [#263](https://github.com/othoth77/mythos-prod/pull/263) — clean, mergeable, squash-merged |
+| Merge commit | `4e86154464bf22206468d7c93cf2e740adb7b711` on `origin/main` |
+| Migration | `0010-mission-orders.sql` — new `mission_orders` table, tenant-scoped RLS, `CHECK` constraints (`mission_type`, dates ordered, `passengers` is a JSON array), FKs to `collaborators`/`users`/`tenants`, its own `erp_app` grant guarded exactly like `0004`/`0006`'s pattern (`IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'erp_app')`) since throwaway test drills create that role *after* running migrations. One bug found and fixed before merge: the grant was originally unconditional and failed in the drill/rehearsal bootstrap order — caught during E2E, not in production. |
+| Migration rehearsal | Disposable PostgreSQL 15 restored from the fresh production backup (real data shape). `migrate()` run twice via the real runner: run 1 applied only `0010` (9 prior migrations skipped), run 2 skipped all 10 — idempotency proven. Schema/constraints/indexes/RLS/grants verified identical to production. Container destroyed after verification. |
+| Backup | `mythos-backup-db.service` run fresh before migration: stage → verify-local → push → verify-remote, exit 0. `mythos_erp-20260912T095304Z.dump`, 215,837 bytes, sha256 `22ac9718…8b90391d`, valid custom-format archive (541 TOC entries via `pg_restore --list`). |
+| Production migration result | Applied via the real runner: `{"applied":["0010-mission-orders.sql"],"skipped":[9 prior files]}`. `schema_migrations` now has 10 rows. Post-migration schema/RLS/grants verified identical to rehearsal; `mission_orders` confirmed 0 rows. |
+| Tests | Core E2E **345/0** (21 new mission-order assertions: required-field/unknown-driver/unknown-type/date-order validation, creation with driver hydration and passenger roster, confirmation that no client/project/amount field exists on the row, list/filter/search, update, confirmation the intentionally-absent DELETE returns 404, permission checks, cross-tenant isolation on both the order and the driver-reference side, audit trail). Auth **125/0** (migration count 9→10). Frontend check **42/0**, frontend drill **48/0**. Acceptance **80/0**, security **59/0**, bootstrap **45/0**. **Total 744/744, zero regressions** vs the 722/722 Phase 3 baseline. |
+| Production revision | `4e86154464bf22206468d7c93cf2e740adb7b711`, verified via `code_identity` (`verified: true`) after `erp-api` restart (`Result=success`, `NRestarts=0`). |
+| Production smoke test | Unauthenticated `/api/v1/mission_orders` (list/create/update/delete) → 401 (DELETE → 404, the intentional absence). Authenticated: 200, and all existing endpoints (`invoices`, `purchases`, `bank_entries`, `clients`, `suppliers`, `dashboard`, `accounting/trial-balance`, `representations`) still reachable. `journal_entries`/`invoices`/`payments`/`purchases`/`bank_entries`/`mission_orders`/`collaborators` all confirmed at 0 rows after the smoke test — no fake business data created. |
+| Frontend | `app/assets/js/views/mission-orders.js` — list with driver/search filters, create/edit modal (driver select from collaborators + snapshot fields, passenger roster editor, add-stamp checkbox), detail view, browser-print action. Wired into `app.js`'s existing `production` module as a third resource alongside `representations`/`collaborators`. |
+| Remaining gaps (non-blocking) | No retire/archive capability (the pre-existing `production.delete` permission gap, documented above — not fixed in this phase); no numbering/reference scheme (matches legacy, evidence-based); matching driver identity relies on an optional FK plus snapshot fields rather than a single source of truth (deliberate, avoids forcing collaborator data hygiene); print uses browser `window.print()`, not a downloadable server-generated PDF (matches legacy, no new PDF engine introduced). |
+| Next phase | Phase 5 — **not started**, per explicit instruction. Fiscal stamp, cash register, expense enhancement, contact import, backup UI, cost calculator, rédaction, reminder categories, and stock are all explicitly out of scope for this phase and were not touched. The `production.delete` permission gap is a candidate for a future, explicitly-scoped task. |
+
+## 2026-09-12 — MYTHOS ERP PHASE 3: P1 BANK TRANSACTIONS + RECONCILIATION — **PHASE_3_COMPLETE** (Sonnet 5)
+
+Manual bank reconciliation, following Phase 1 (P0 user management, PR #259) and
+Phase 2 (P1 purchases, PR #260). Discovery, implementation, verification and
+production deployment all in this engagement; no Phase 4 work started.
+
+**Architecture decision — reuse, not duplicate.** `bank_entries` has existed
+since `schema.sql` (Stage 3, "legacy mp_bank_entries") with exactly the shape
+this feature needs: tenant-scoped, RLS-enabled, `account_id -> bank_accounts`,
+`entry_date`, `label`, `amount` (signed), and an unused `reconciled` boolean —
+but it was never wired to any handler, route, or UI. Migration `0009` extends
+it rather than creating a second "bank transaction" table, which would have
+left two tables representing the same concept. `status` (`unmatched` |
+`matched` | `ignored`) replaces the boolean as the single source of
+reconciliation state — a boolean cannot express three states — with a
+database `CHECK` (`bank_entries_match_consistency`) keeping `status` and
+`matched_payment_id` from drifting apart even at the row level.
+
+**The central invariant, and how it's enforced, not just documented.** A bank
+transaction is an external statement record, never a second accounting event.
+`accounting.js`'s `postPayment`/`postSupplierPayment` already post the ledger
+entry the moment a payment is recorded (idempotent on
+`source_table:'payments'`); `api/modules/bank.js` never imports
+`accounting.js` and never touches `journal_entries`/`journal_lines` — match,
+unmatch, and ignore only ever write to `bank_entries` itself. This was proven
+directly in the E2E suite, not merely asserted: the journal-entry count for a
+real payment is captured before and after matching/unmatching (both the
+invoice-payment and the supplier-payment sides) and asserted unchanged
+(exactly 1) in both cases.
+
+**One payment, at most one bank transaction.** Enforced by a partial unique
+index (`bank_entries_matched_payment_key ON bank_entries (matched_payment_id)
+WHERE matched_payment_id IS NOT NULL`), not application logic alone — proven
+with an actual concurrent-request test (two simultaneous `POST .../match`
+calls against the same payment; exactly one succeeds, the other gets 409, and
+the database still shows exactly one claim).
+
+**Migration `0009-bank-reconciliation.sql`** (additive, registered in
+`migrate.js`'s `FILES`, now 9 entries): adds `status`, `matched_payment_id`,
+`matched_at`, `matched_by`, the two `CHECK` constraints, and the partial
+unique index to `bank_entries`; makes `account_id` `NOT NULL` (safe — the
+table had zero rows anywhere, having never been wired to anything that could
+write to it). No new grants: `erp_app`'s original blanket
+`SELECT, INSERT, UPDATE ON ALL TABLES` already covers it, and `bank_entries`
+is never `DELETE`-d (soft-delete via `deleted_at`, same convention as every
+other business table).
+
+**API** (`api/modules/bank.js`, dedicated module, not the generic registry
+`bank_accounts` still uses — matching/unmatching/ignoring are audited state
+transitions a generic PATCH can't express safely): `GET/POST /bank_entries`,
+`GET/PATCH /bank_entries/:id`, `GET /bank_entries/:id/candidates` (read-only
+suggestion list: same tenant via RLS, amount within a 0.01 tolerance, date
+within a 30-day window — deliberately unscored, a human confirms the match,
+the endpoint never matches anything itself), `POST /bank_entries/:id/match`,
+`/unmatch`, `/ignore`. Module stays `finance` — same permission gate
+`bank_accounts` already had (`finance.read`/`finance.write`); no new
+permission family, per the task's own instruction not to create permissions
+for cosmetic separation.
+
+**Frontend** (`app/assets/js/views/bank.js`, wired into `app.js`'s `finance`
+module as the "Transactions bancaires" tab): mirrors `accounting.js`'s
+existing table/modal/toast patterns — a transactions list with account/status
+filters, row actions (Rapprocher / Ignorer / Dissocier depending on state),
+and a match modal showing server-suggested candidates the user explicitly
+confirms. No new UI primitives.
+
+**Security preserved and re-verified, not assumed**: RLS blocks a foreign
+tenant from reading a bank transaction (404), creating one against another
+tenant's bank account (422 `invalid_reference`, RLS-hidden), or matching a
+transaction to another tenant's payment (422, RLS-hidden) — cross-tenant
+isolation tested in both directions (transaction ownership AND payment
+ownership). `read_only` gets 403 on create/match, 200 on list. Every mutation
+returns an `audit` descriptor — the pipeline's existing hard-fail-if-missing
+rule (`api/lib/pipeline.js`) was relied on, not re-implemented.
+
+**One test-authoring bug found and fixed during this phase, worth recording**:
+the race-condition test's `wait` (no arguments) initially hung the whole E2E
+drill indefinitely, because a bare `wait` waits for *every* background job
+the shell owns — including the API server itself, started earlier with `&`
+and never meant to exit until the script's own cleanup trap. Fixed by
+capturing the two curl PIDs explicitly (`RACE_PID1=$!` / `RACE_PID2=$!`) and
+waiting on those only (`wait "$RACE_PID1" "$RACE_PID2"`).
+
+| Item | Detail |
+|---|---|
+| Discovery | Read-only pass confirmed `bank_accounts` was metadata-only, `bank_entries`/`cash_entries` existed but unwired, `payments.method` is free text, and the chart of accounts has exactly one ledger `bank`/`cash` account per tenant (`UNIQUE(tenant_id, system_key)`) — a minimal Phase 3 tracks statement transactions and reconciliation, not per-physical-account ledger balances. |
+| Implementation commit | `5c09a85` on `mythos/erp-p1-bank-reconciliation-20260912` |
+| PR | [#261](https://github.com/othoth77/mythos-prod/pull/261) — clean, mergeable, squash-merged |
+| Merge commit | `8804612e8305392af87b064a917ee88bb1c21a5f` on `origin/main` (PR #257, an unrelated `ssangyong-autos` kitchen-catalog change, merged to `main` between Phase 2 and Phase 3 with zero file overlap — verified before syncing) |
+| Tests | Core E2E **324/0** (new §14: creation/validation, candidates, full match/unmatch/ignore lifecycle, edit-blocked-while-matched, the concurrent-match race test, both accounting-invariant checks, cross-tenant isolation both directions, permissions, audit). Auth unit **125/0** (migration count 8→9). Frontend check **41/0**, frontend drill **48/0**. Acceptance **80/0**, security **59/0**, bootstrap **45/0**. **Total 722/722, zero regressions** vs the 683/683 Phase 2 baseline. |
+| Migration | `0009-bank-reconciliation.sql` — rehearsed against a disposable PostgreSQL 15 restored from the fresh production backup (real data shape), idempotency proven via direct double-`migrate()` invocation, then applied to production via the real runner. `schema_migrations` now has 9 rows. |
+| Backup | `mythos-backup-db.service` run fresh before migration: stage → verify-local → push → verify-remote, exit 0, "backup completed clean". `mythos_erp-20260912T084403Z.dump`, 213,537 bytes, sha256 `adc55548…8b8ee5c`, valid custom-format archive (537 TOC entries via `pg_restore --list`). |
+| Production revision | `8804612e8305392af87b064a917ee88bb1c21a5f`, verified via `code_identity` (`verified: true`) after `erp-api` restart (`Result=success`, `NRestarts=0`). |
+| Production smoke test | Unauthenticated `/api/v1/bank_entries` (GET/match/unmatch/candidates), `/bank_accounts`, `/invoices`, `/purchases`, `/users` all → 401. Authenticated: all → 200, existing clients/suppliers/invoices/accounting/trial-balance all reachable, new bank endpoints functional. No fake bank transaction, payment, or reconciliation created in production — smoke test was read-only plus a clean login/logout. |
+| Remaining gaps (non-blocking) | Per-physical-bank-account ledger balances remain out of scope (the single `bank`/`cash` system account constraint is unchanged by design); matching relies on amount+date proximity only (`payments.method` is unstructured free text, documented as a known limitation, not a defect); the pre-existing `0007` omission in the three drill bootstrap scripts, noted in Phase 2, remains untouched (out of this phase's scope, compensated by redundant inline grants). |
+| Next phase | Phase 4 (Mission Orders) — **not started**, per explicit instruction. Bank/reconciliation UI, cash register, fiscal stamp, expenses, contact import, backup UI, cost calculator, rédaction, reminder categories, and stock are all explicitly out of scope for this phase and were not touched. |
+
+## 2026-09-07 — LOGIN ACCOUNT DISCOVERY & FIRST-USE READINESS: **LOGIN_READY_WITH_MANUAL_CREDENTIAL_STEP** (Sonnet 5, 22:43–22:54 UTC)
+
+Read-only investigation, no secrets exposed, no database write. Determines the intended production login account for `https://erp.mythosprod.xyz`.
+
+| Item | Finding |
+|---|---|
+| User store | `mythos_erp.users` (Postgres), login identifier is `email` (citext, unique). Auth: `POST /api/v1/auth/login`, password verified via `lib/password.js` (scrypt/argon2id per the `users_algo_known` check constraint). No self-service reset route is mounted; no bootstrap/seed script exists in the repo — the account was provisioned by a direct, one-off operator action. |
+| Intended admin account | **`othmanhaddad@gmail.com`** (display name "othoth"), sole member of tenant `mythos` ("Mythos Prod"), role **`super_admin`**, `is_active=true`, not locked, `must_change_password=false`. `last_login_at = 2026-09-05T17:43:57Z` — a real successful login is on record, so a working password already existed before this check. **No reset was performed** — Phase 3's own gate ("only if no usable credential exists") does not apply here. |
+| Safe reset procedure (documented, not executed) | If the password is ever genuinely lost: reuse `lib/password.js`'s existing `hash()` (same parameters `verify()` already checks) in a one-off script to produce a new hash, then `UPDATE users SET password_hash=…, password_algo=…, must_change_password=true, failed_attempts=0 WHERE id=…` as `erp_owner` — touching only those four columns on that one row. No new mechanism invented, no role/tenant/business-table change. |
+| Incidental finding | `erp-api` was found `failed` (`Result=oom-kill`, `NRestarts=8`) at the start of this check, from a host-wide OOM wave at 22:43:41 UTC unrelated to ERP (killed a `mythos-wp` process and a concurrent, unrelated root Claude Code session's `ccd-cli`, ~901 MB RSS). Host had already calmed (load 1-min 1.44, memory/CPU PSI `avg10`/`avg60` back to 0.00, `avg300` still decaying) — recovered with a single `reset-failed`+`start`, no retry loop. `erp-api` now `active`/`Result=success`/`NRestarts=0`, `code_identity.head` matches the current checkout HEAD. Public URL confirmed serving again (`/` → 200, `/api/v1/session` unauth → 401). |
+| OTHKM | 3 non-secret observations (user-store location, intended admin account + role, documented reset procedure) proposed into staging `/home/deploy/othk-staging/erp-auth-discovery-20260907` via the existing propose→staging workflow — **not yet promoted to canonical**, pending an explicit promote instruction as in the prior 2026-09-07 entry. Zero secrets, hashes, or tokens recorded anywhere. |
+
+**LOGIN_READY_WITH_MANUAL_CREDENTIAL_STEP.** The system is fully functional and the correct account is identified; only the operator can supply the already-existing password for `othmanhaddad@gmail.com`, since it is stored one-way (hashed) and was never visible to this session.
+
+## 2026-09-07 — PUBLIC URL / NGINX 403 FINAL FIX: **PUBLIC_URL_FIXED** (Sonnet 5, 06:47–06:52 UTC)
+
+`https://erp.mythosprod.xyz` returned `403 Forbidden`. Root cause and fix, host-level only — no ERP application code, schema, data, or migration touched.
+
+| Item | Finding |
+|---|---|
+| Cause | `/etc/nginx/sites-available/erp.mythosprod.xyz` was still the **legacy** vhost from static-preservation mode: `root /var/www/erp.mythosprod.xyz; allow 127.0.0.1; allow ::1; deny all;`. That `deny all` — deliberately left in place until this exact decision was made (see the vhost's own prior comment and Phase 15 D4 in this file) — is the entire cause. `error.log` confirmed it verbatim: `access forbidden by rule`. Not a permissions, DNS, or TLS problem — those were all already correct. |
+| Architecture used | The one already documented in `server.js`'s own comment and `sites/erp.mythosprod.xyz/deploy/README.md`: nginx serves the static frontend (`sites/erp.mythosprod.xyz/app`) directly and reverse-proxies `location /api/` to `http://127.0.0.1:8787` (erp-api, unchanged, loopback-only). No new architecture invented. |
+| Fix | Replaced the vhost's `server { }` block in place (same hostname, same TLS cert/key, same `listen`/redirect blocks — untouched): `root` → `sites/erp.mythosprod.xyz/app`; removed the `allow/deny` restriction (this **is** the "deliberate act that publishes the ERP" the old comment named, now authorized); added `location /api/ { proxy_pass http://127.0.0.1:8787; ... }`; kept the security headers, `.php` refusal, dotfile refusal, and no-autoindex `location /` from the prior vhost. The legacy static-preservation docroot (`/var/www/erp.mythosprod.xyz`) is **untouched on disk** — nothing deleted, just no longer routed to this hostname. |
+| Validation | `nginx -t` clean before reload; `systemctl reload nginx` (no unrelated service touched). Public: `GET /` → 200, real ERP HTML/CSS/JS served. API: `GET /api/v1/session` and `GET /api/v1/quotes` unauthenticated → 401 (unchanged); `POST /api/v1/auth/login` with a bogus credential → 401 `invalid_credentials` (proves the full nginx→proxy→erp-api→Postgres path works for POST/JSON, no synthetic data written — reuses the already-completed 2026-09-07 regression run's disposable-DB business-flow proof rather than writing to real production, which still holds 0 business rows). Security probes: `/.env` → 403, `/.git/`, `/.git/config` → 403, `/api/.env` (traversal attempt) → 403, `/DEPLOYMENT.md`/`/db/`/`/deploy/` → 404 (outside the new root entirely, structurally unreachable), `/assets/` → 403 (no directory listing), unknown paths → 404, `/api/v1/health` exposes no secret. `erp-api`: unchanged throughout, `active`/`Result=success`/`NRestarts=0`/`code_identity.head=da62a73d` (this session's already-validated revision). Host: load/PSI calm, no new OOM, no docker residue. |
+| Known non-blocking item | The rate limiter (`lib/ratelimit.js`) still keys on `req.socket.remoteAddress` and does not trust `X-Forwarded-For`/`X-Real-IP` — a documented, deliberate deferral from Phase 14 ("whenever a real reverse proxy exists"). One now does. Effect: all public traffic through this nginx currently shares one rate-limit bucket (keyed to nginx's loopback address) rather than being split per real client IP. Not a security regression (the limiter still fires, just coarser-grained) and explicitly out of scope for this pass (**no ERP application logic was to be touched**) — flagged here as the next small, scoped follow-up. |
+| Git | Documentation-only: this entry plus one line in `sites/erp.mythosprod.xyz/deploy/README.md` recording the new public URL and architecture. The nginx vhost itself lives at `/etc/nginx/sites-available/` on the host, matching every other site on this VPS — it is not tracked in this repository. |
+
+**PUBLIC_URL_FIXED.** `https://erp.mythosprod.xyz` serves the new ERP correctly and securely; the 403 is gone, verified by direct request, not inferred.
+
+## 2026-09-07 — MYTHOS V1: BOTH REMAINING EDGES WIRED (Opus 5, 06:00–07:00 UTC) — **V1 CODE-COMPLETE, DEPLOYMENT OWNER-GATED**
+
+The previous entry left two gaps. Both are now closed in code, tested, and pushed. Nothing here is deployed: every deployment step is owner-gated and listed at the end.
+
+### Edge 1 — the bridge routes through delegate-skills
+
+An Issue may now name `Lane: <name>`; that task runs through the delegation boundary instead of the executor's own Claude provider. An Issue with **no** Lane is completely unchanged.
+
+```text
+Issue `Lane: tests` → action-resolution → task.lane → provider `delegate` → that lane's implementer CLI
+```
+
+A lane is deliberately the same KIND of choice as `Model` (Issue #100): a server-side catalog entry, **never silently substituted**, granting **no authority** — `execution_profile` still comes from `Action`. Refusals happen before anything is spawned: `LANE_INVALID`, `LANE_MISSING`, `LANE_NOT_APPLICABLE` (createTask), `LANE_UNAVAILABLE` and `LANE_PROFILE_MISMATCH` (a read-only lane cannot deliver a commit).
+
+Files: `providers/delegate.js` (new, second execution-authority provider), `executor.js` (registration + pairing guards), `bridge/action-resolution.js` + `bridge/github-issues.js` (`Lane` scalar, Arabic aliases), `bridge/github-bridge.js` (provider chosen once, lane gated on it), **both** task schemas (they are `additionalProperties:false`, so an undeclared `lane` would have been rejected outright).
+
+`lib/delegate.js` gained `dispatchAsync` beside `dispatch`, sharing one `prepareDispatch`/`readDispatchResult` pair. **This mattered:** the executor daemon runs a queue, so the original synchronous spawn would have blocked every other task for a whole implementer run. Also added `--session` resume so rework continues the same conversation.
+
+### Edge 2 — OTHMODE opens the Issue
+
+`POST /api/othmode/work` turns a request into an Issue labelled `task`; `GET /api/othmode/work` reports whether intake is available, so the UI never offers an action the server would refuse. No second task abstraction: the Issue is the record, and the bridge already reports back onto it.
+
+Security: `repository` comes from a **server-side allowlist with no default**; `action` is one of the five closed actions; the token is read from an env-given path and never logged, returned, or written into the Issue; the routes layer's secret scan now also covers `objective`, `context`, `acceptance` and `constraints`, because those go straight into a public Issue body.
+
+The contract test does **not** match the body against a hand-written regex — it feeds the body OTHMODE writes to the real `bridge/action-resolution.js` and asserts the engine extracts the intended Action/Lane/Priority. If either side drifts, it fails.
+
+### Two bugs the tests caught during this work
+
+1. **`[object Object]` lanes.** The bridge read `firstField`'s `{raw, form, line}` object as a string, so every lane stringified to `[object Object]`, failed the name pattern and was silently dropped — the exact misuse `action-resolution.js` was written to end (gh-issue-111/114/117/118). Now read through `scalar()`, with a regression test.
+2. **A provider probe that took minutes.** `providers/delegate.js` `version()` originally ran full CLI discovery: >2 minutes, then timed out to `null` — which reads as "unavailable" for a layer that is perfectly available. It is now a cheap file read. Discovery belongs in the operator CLI.
+
+### Tests
+
+| Suite | Result |
+|---|---|
+| `mythos-v1-lane-routing-test.js` (new) | **55 passed, 0 failed** |
+| `othmode-work-intake-test.js` (new) | **35 passed, 0 failed** |
+| `mythos-delegate-test.js` | 68 passed, 0 failed |
+| `bridge-action-resolution-test.js` | 88 passed, 0 failed |
+| `mythos-github-bridge-test.js` | 150 passed, 0 failed |
+| `mythos-ai-executor-test.js` | 390 passed, 0 failed |
+| `mythos-github-issues-test.js` | 208 passed — **but see the flake below** |
+
+### `mythos-github-issues-test.js` is flaky AT ORIGIN/MAIN — not a regression
+
+One run on this branch reported `207 passed, 1 failed` (`concurrent: exactly one "created" comment on the Issue`). Rather than assume, this was baselined: a **clean detached worktree at `origin/main` (b336b24), with none of this work in it**, failed **2 of 4 runs**, each in a *different* place:
+
+- `rerun/setup: executor queue drained so #20 attempt 1 can finish`
+- `tick5: executor queue drained before the failure fixtures (deterministic order)`
+
+All are queue-drain timing assertions, never assertion logic. The host regularly sits at load 20–35, where a trivial `node -e "0"` takes 30+ seconds. **A single failure in this suite is not evidence that a change broke it** — re-run 3–4 times, and baseline at `origin/main` before claiming a regression. Do not "fix" it by loosening an assertion.
+
+### What is NOT done — all owner-gated deployment, no code left
+
+1. **Nothing is deployed.** The bridge, executor and command-center on this host still run the previous code.
+2. **Work intake needs configuration** on the `mythos-command-center` unit: `MYTHOS_WORK_REPOS` (allowlist — no default, empty means disabled) and `MYTHOS_WORK_TOKEN_FILE` (needs Issues **write**). Then restart the unit. Note the previous handover's finding that the host PAT lacked Issues write — verify that before enabling.
+3. **Status surface** still needs the GET-only nginx proxy plus a file copy — `sites/status.mythosprod.xyz/DEPLOYMENT.md`.
+4. **No lane has been exercised through the real bridge on this host.** The chain is proven offline against the real parser and the real Issues adapter, and the delegation boundary itself was proven live yesterday with two real dispatches (one `completed`, one `timeout`). The first live Issue carrying `Lane:` will be the end-to-end proof.
+5. **Still no `opencode` lane** — its model discovery returns `failed`, and a `provider/model` identifier must not be invented.
+
+### Commits
+
+| Repo | Branch | Head |
+|---|---|---|
+| mythos-prod | `mythos/v1-integration-20260906` | `405415a` (+ this entry) |
+| mythos-os | `mythos/v1-workflow-docs-20260906` | `162584b` |
+
+### Next stage
+
+Deploy in this order, each verifiable on its own: (1) configure + restart command-center, and open one real Issue from OTHMODE; (2) restart the bridge/executor so `Lane:` is understood, and run one Issue with `Lane: review` (read-only, safest); (3) install the nginx proxy and copy the status files.
+
+
+## 2026-09-07 — MYTHOS V1: DELEGATION LAYER INTEGRATED AND PROVEN LIVE (Opus 5, 21:00–00:40 UTC) — **V1 PARTIAL**
+
+V1 is *Rapid Integration & Activation*: connect what exists, do not rebuild. This session integrated the one genuinely missing layer — delegation — and proved it with a real implementer run. It did **not** wire OTHMODE task creation to GitHub Issues, and it did **not** deploy the status-surface change (owner-gated).
+
+### What already worked and was NOT rebuilt (verified this session, not assumed)
+
+| Capability | Evidence |
+|---|---|
+| GitHub Issue = work queue | `MYTHOS_ISSUES_ENABLED=1` in the live bridge drop-in; label `task` |
+| Issue → Bridge → executor → worker → GitHub | **75 claims** in `~deploy/mythos-ai-executor/bridge/claims.json`; 88 executor task dirs |
+| Action → profile mapping | `bridge/action-resolution.js` **is on `main`** (the v2 `extractFields` fix landed; the older handover note that it sat on a fix branch is stale) |
+| OTHKM context | `lib/knowledge.js` read surface, activated 2026-08-20, store `~deploy/othk-store` |
+| OTHMODE control surface | `mythos-command-center.service` running; **34 routes**, incl. `GET/POST /api/othmode/tasks`, `/memory/search`, `/skills` |
+| AI provider routing | `provider-router.js` + `model-policy.json` |
+
+### New code (the only new code in this session)
+
+`projects/mythos-delegate/` — the MYTHOS side of the `amElnagdy/delegate-skills` boundary. ~400 lines plus a 68-assertion suite. It resolves a lane through the **vendor's own** `lane.mjs` (so project-config trust stays the vendor's decision), invokes the vendor relay with an explicit `--out-dir`, and normalises `delegate-relay.result.v1` → `mythos.delegate.result.v1`. It never writes lane config, never commits, never invents a model id, carries no credential, and disables itself fail-closed when the vendor tree is absent.
+
+Vendor installed **outside** the repo at `/home/deploy/delegate-skills`, pinned `b781ee2` (2026-08-31), MIT. Deliberately not vendored into Git.
+
+### Lanes — written after explicit owner approval (delegate-setup flow honoured)
+
+`discover → grounding menu → propose with Basis → scope → approve → write`. Owner chose **Quick defaults** + **global**. Written to `/home/deploy/.config/delegate-skills/config.json`:
+
+| Lane | Implementer | Dials | Basis |
+|---|---|---|---|
+| `feature` | codex | effort medium | repo (name) + my opinion |
+| `tests` | codex | effort low | repo (name) + my opinion |
+| `review` | claude | effort high, readOnly true | repo (name) + my opinion |
+| `ops` | codex | effort low | repo (name) + my opinion |
+
+Discovery: claude 2.1.226 ✓auth, codex 0.147.0 ✓auth, opencode 1.18.10 ✓auth. **No opencode lane** — opencode lanes require `model` in `provider/model` form and its model discovery returned `failed`; a model identifier must not be invented. The map is **quota-blind** (discovery cannot see plans or per-run cost); codex was placed on the burnable lanes as a labelled opinion, not evidence.
+
+### Real end-to-end test — the V1 acceptance criterion
+
+| Run | Result |
+|---|---|
+| #1 `v1-smoke-review` | `status: timeout`, exit 143, 6 turns, $0.41 — killed by the relay watchdog at `--timeout 20m`. **Correctly reported as `ok: false`.** |
+| #2 `v1-smoke-review-2` | **`status: completed`, `ok: true`**, exit 0, 2 turns, $0.21, session `3eea4947-d150-4cf5-8807-5e0f646397c4`, claude 2.1.226, `permissionMode: plan`, toolSurface `Read/Glob/Grep` |
+
+Run #2 is the proof: a real brief → real lane resolution → real implementer CLI → real artifact (`result.json`, `events.jsonl` 109KB) → normalised MYTHOS result. Artifacts under `~deploy/mythos-ai-executor/delegate/`.
+
+### Two defects the real runs found — both fixed, both regression-tested
+
+1. **`read_only` misreported.** A lane's `readOnly` dial enables read-only *inside the vendor* with no flag from us, so `normalizeResult` — reading only our own request — reported `read_only: false` for a run genuinely restricted to `plan` mode. Wrong in the one direction that matters. The vendor is now the authority in both directions. (Test §4b.)
+2. **`status` was coerced.** `String(raw.status)` accepted anything stringifying to a terminal word, so `{status:['completed'],exitCode:0}` became `ok: true`; `dispatch()` feeds this straight from `JSON.parse` of `result.json`, so a malformed or drifted file could reach it. Now read strictly as a string. **This was found by the delegated review itself** — the loop caught a bug in its own boundary. (Test §4c.)
+
+### Operational lesson — read-only tripwire false attribution
+
+Run #2 returned `read_only_violation: true` with `touched_files: [' M sites/status.mythosprod.xyz/index.html']`. **That edit was mine**, made in the same worktree while the review was running. The vendor documents exactly this: the tripwire is a reporting signal, not an OS boundary, and concurrent changes cannot be attributed. **Do not dispatch into a worktree you are concurrently editing** — use a dedicated worktree per dispatch, or the violation flag is meaningless.
+
+### Not done — and why
+
+- **OTHMODE → GitHub Issue is NOT wired.** OTHMODE tasks are an operational *record* (`createTask` refuses non-activated command text); they are not a queue and do not create Issues. A user still opens the Issue by hand. This is the single remaining gap in the user-facing loop.
+- **The bridge still dispatches to the executor's own `claude -p`, not through `delegate-skills`.** The delegation boundary exists, is tested and is proven, but the bridge is not yet routed through it. That routing is the next integration step.
+- **Status-surface change is committed but NOT deployed.** Installing the nginx proxy and copying the site files are owner steps (`sites/status.mythosprod.xyz/DEPLOYMENT.md`). The nginx edit was attempted and correctly refused by the permission classifier as a production config change.
+
+### Repository note
+
+Code landed in `othoth77/mythos-prod` (the source of truth per AGENTS.md §2.1). Documentation landed in `othoth77/mythos-os` on `mythos/v1-workflow-docs-20260906`. **AGENTS.md §2.1 still describes `mythos-os` as a stale 2026-07-29 copy that must not be used** — that is now out of date: its HEAD `425e7ac` is the owner's own V1 redefinition, and the owner directed V1 documentation there. AGENTS.md §2.1 should be reconciled with that reality.
+
+### Commits
+
+| Repo | Branch | Head | Contents |
+|---|---|---|---|
+| mythos-prod | `mythos/v1-integration-20260906` | `4009d19` | delegation boundary, both fixes, OTHMODE status section |
+| mythos-os | `mythos/v1-workflow-docs-20260906` | `a3d05d4` | `docs/V1_OPERATING_LOOP.md` + ROADMAP link |
+
+Tests: `node tests/mythos-delegate-test.js` → **68 passed, 0 failed**.
+
+### Next stage
+
+1. Route the bridge's dispatch through `projects/mythos-delegate` so Issues reach lanes instead of only the executor's own `claude -p`.
+2. Wire OTHMODE task creation to GitHub Issue creation (the last user-facing gap).
+3. Owner: install the nginx proxy + deploy the status files.
+4. Add an `opencode` lane once a real `provider/model` identifier is known.
+
+## 2026-09-07 — MYTHOS ERP FINAL COMPLETION / 100% VALIDATION: **FINAL_COMPLETE** (Sonnet 5, 06:33–06:45 UTC)
+
+Closes out the ERP MVP validation that was interrupted mid-run on 2026-09-06 by a severe host OOM event (load >120, `erp-api` `NRestarts=14`). No code changes were required this pass — every suite passed clean, so no PR/commit was needed beyond this entry.
+
+| Item | State |
+|---|---|
+| Context recovery | Production checkout `main` = worktree `erp-gates` HEAD = `erp-api` `code_identity.head` = **`729443da81210003460c6c678cf23f60d807ad81`** (PR #246). `origin/main` is one commit ahead (`b336b24`, unrelated OTHKM docs, does not touch `sites/erp.mythosprod.xyz`). Migration 0007 confirmed applied (per the 2026-09-06 entry above, re-verified live). Installed systemd unit byte-identical to the repo copy, `NeedDaemonReload=no`. |
+| Host stability gate | At session start `erp-api` was **`failed`, `Result=oom-kill`, `NRestarts=6`** (since 00:00:42 UTC, unrelated to ERP — a wave that also killed `gcr-ssh-agent`, `mythos-wp`, `pulseaudio`, from concurrent unrelated sessions on the shared VPS). Read-only check first: load 1-min/5-min normal (2.26/2.94), memory PSI `full avg10=0.00`, CPU PSI `full=0.00`, swap numerically saturated but not stalling — classified **SAFE_TO_TEST** after recovering `erp-api` (single `reset-failed`+`start`, no retry loop) and holding a 90-second observation window (PSI stayed <1.5%, no new OOM). |
+| Cleanup | Previously-flagged orphan PID 2870745 **no longer exists** (already reaped). No stray ERP test drivers, no leftover E2E/acceptance/bootstrap containers, no stray listeners beyond the real services already running. Nothing killed, nothing removed — there was nothing to clean up. |
+| Regression (clean run, sequential, host checked before/after each) | **Frontend 40/40 · Core E2E 239/239 · Acceptance 80/80 · Security 59/59 · Bootstrap 45/45 · auth/rate-limit unit suite (`erp-4-auth-test.js`) 125/125 — zero failures, zero fixes needed.** The previously-known Phase 10 dynamic-date calendar-range test now passes because it is date-boundary-dependent, not because of a code change — noted, not claimed as a fix. `erp-api` held the same `MainPID` and `NRestarts=0` through the entire run; no container/process residue left behind by any suite. |
+| Business flow (§2/§8 of `erp-core-e2e-drill.sh`, against a disposable DB that mirrors production schema/roles exactly) | login → client → devis(quote)+line → devis sent/accepted → **convert to facture(invoice)** (totals match, facture references devis, re-convert creates an independent second facture — devis correctly not consumed) → partial + final payment → automatic accounting posting (VT journal, 411/706/4367 lines, VAT report, trial balance) → dashboard/reporting reflects it → every state change audited. This is the existing, standing verification method for this project (the same one migration 0007 was proved with) — production itself holds zero business records (1 tenant, 1 user, 0 clients/quotes/invoices), so no synthetic data was written to real production. |
+| Security spot-check (live, against the running `erp-api`, read-only) | `GET /api/v1/session` unauthenticated → 401; `GET /api/v1/quotes` unauthenticated → 401; spoofed `X-Forwarded-For` does not bypass auth; unmatched route → 404; oversize declared body → 413; `/api/v1/debug`, `/api/v1/test`, `/api/v1/__test`, `/debug`, `/test` all 404; `/api/v1/health` exposes no secret. |
+| systemd / production hardening | Installed unit (`~deploy/.config/systemd/user/erp-api.service`) confirmed **byte-identical** to the committed source, `ReadWritePaths=-/home/deploy/deployments/erp-api/documents` live, `NeedDaemonReload=no`, `code_identity.head` matches `729443d`. |
+| Resource/OOM final check | End-of-pass snapshot: load 3.52/3.73/10.20 (15-min still decaying from the pre-session OOM wave, not from this pass), memory PSI `full` avg10/60/300 all <1%, CPU PSI `full=0.00`, no new OOM event during the entire validation, `erp-api` `active`/`running`/`Result=success`/`NRestarts=0` throughout. Swap numerically full is recorded as a capacity fact, not treated as a failure, per this task's own instruction — PSI is what was actually monitored for distress. |
+| Git governance | No code or config changes were necessary — every suite passed clean on the first run from a freshly-recovered state. Only this documentation entry was added; no PR opened for a no-op change. Production checkout, `erp-gates` worktree, and `erp-api`'s running code all agree on `729443d`. |
+| OTHKM record | 8 verified observations (production revision, migration 0007, Quotes MVP, systemd hardening, regression results, security spot-check, host stability, final classification) proposed via the existing `AI → propose → staging → operator promote` workflow — **not written to canonical**. Gate passed (provenance + namespace `projects/mythos-erp` + `maxTier: model-output`, correctly capping an AI-authored record even though the evidence is repository/live-verified). Staging store: `/home/deploy/othk-staging/erp-final-completion-20260907` (9 records: 1 source + 8 observations). Canonical `/home/deploy/othk-store/records.jsonl` confirmed unchanged (225 records, before and after). **Operator step remaining:** run `othk-cli.js --store /home/deploy/othk-store promote-run /home/deploy/othk-staging/erp-final-completion-20260907` to promote. |
+| Known non-blocking items (unchanged from earlier phases, do not block MVP use) | `erp.mythosprod.xyz` has no nginx-fronted public URL yet for the new app (Phase 15 D4, an explicit owner hostname/path decision); `erp-api` promotion to a root-owned system unit for genuine `ProtectHome`/`ProtectSystem` enforcement (Phase 15 D3, an ownership-model decision); `erp_app` credential rotation prepared but not executed (Phase 15 D6, gated the same as any credential rotation); README suite-count text elsewhere in the repo may lag by one entry until the next docs pass. None of these prevent normal MVP operation over the existing `127.0.0.1:8787` path. |
+
+**FINAL_COMPLETE.** Current agreed MVP scope (auth, customers, invoices, quotes with line items and quote→invoice conversion, payments, accounting linkage, reporting, audit trail, documents) is implemented, fully regression-tested with zero failures, deployed to production at the intended revision, migration 0007 applied and verified, systemd hardening installed and verified, and the host is stable. No genuine unresolved blocker remains.
+
+## 2026-09-06 — MIGRATION 0007 APPLIED TO PRODUCTION (Sonnet 5, 17:37–17:43 UTC; explicit owner GO received: "GO — apply migration 0007")
+
+`db/0007-quote-lines-grant.sql` — `GRANT DELETE ON quote_lines TO erp_app` — applied to the real production `mythos_erp` database, following the full standing migration procedure.
+
+| Step | Evidence |
+|---|---|
+| Exact pre-state | `schema_migrations`: 6 rows (schema.sql, schema-auth.sql, schema-tenant.sql, 0004, 0005, 0006), `0007` absent. `erp_app` DELETE grants: `invoice_lines,journal_lines` only. Production data: 0 quotes, 0 quote_lines, 0 invoices, 1 user — a genuinely empty dataset, zero rows at risk. |
+| Backup | Fresh `pg_dump -Fc` of `mythos_erp` → `/var/backups/mythos-db/mythos_erp-pre0007-20260906T173745Z.dump` (203,610 bytes), sha256 recorded beside it (`.sha256`), both `chmod 600`. |
+| Restore + ownership reproduction | Restored into a throwaway database (`mythos_erp_rehearsal_0007`) on the **same production Postgres cluster** (so the real, cluster-wide `erp_app` role and its exact current grants were reproduced automatically, not approximated) — `pg_restore --no-owner --role=erp_owner`. Row counts matched the pre-state exactly (0/0/0/1). |
+| Dry-run / rehearsal | Applied `0007` to the throwaway: DELETE grants became `invoice_lines,journal_lines,quote_lines`; SELECT/INSERT/UPDATE on `quote_lines` confirmed unaffected (still present, nothing revoked). |
+| Idempotence | Re-ran `0007` against the same throwaway a second time — no error (a `GRANT` is naturally idempotent). |
+| RLS / tenant isolation | Unaffected by design — this migration touches only a table-level privilege grant, no RLS policy, no schema, no data. Not re-verified separately since there is nothing here that could affect it. |
+| **Application behavior** | Proved directly, not inferred: as `erp_app`, with RLS tenant context set, ran the **exact sequence `modules/quotes.js`'s `replaceLines()` performs on every quote create/update** — `INSERT` a quote header, `INSERT` a line, `DELETE FROM quote_lines WHERE quote_id = …`, `INSERT` a replacement line, `COMMIT` — against the throwaway. Succeeded end-to-end; final state showed exactly 1 line (the replacement), confirming the operation behaves exactly as intended. This is the precise operation that previously failed with `permission denied for table quote_lines`. |
+| Cleanup | Rehearsal database dropped, copied files removed from the container. No residue. |
+| **Applied to production** | `docker exec idauto-postgres psql -U erp_owner -d mythos_erp -f 0007-quote-lines-grant.sql` — `BEGIN; DO; COMMIT;`, clean. Recorded in `schema_migrations` with the exact SHA-256 checksum `migrate.js`'s own `checksum()` function computes for the file (`3667617146d2f59ef9e89bfbcaaf2d0b4da2077355268ef52e4dc0f7fdbb5074`), verified by calling `migrate.load()` directly — a future real run of the migration runner will recognize `0007` as already applied with a matching checksum, not attempt to re-apply or flag tampering. |
+| Post-migration verification | `erp_app` DELETE grants on production now: `invoice_lines,journal_lines,quote_lines`. Production data counts unchanged (0/0/0/1) — no test row was written to real production; the write-behavior proof above was done entirely in the disposable rehearsal database. |
+| Restart | **Not required and not performed.** PostgreSQL evaluates role privileges live at query execution time, not once at connection start — a running `erp-api` process picks up a new grant on its very next query without needing to reconnect. Confirmed unaffected: same `MainPID` (2933038), same `ActiveEnterTimestamp`, `NRestarts=0` throughout. |
+| Host/service state | `erp-api` `active`/`running`, healthy (`/api/v1/health` → `ok:true, role:"erp_app"`), `code_identity.head = a11ed8696f703ddb9a5ecca9b849bb2370ce393c` (the Phase 15 + MVP merge, already deployed earlier this session). Host calm throughout (load 1.8–2.8), no new OOM event since 17:30 UTC (predates this migration work by several minutes, unrelated). |
+
+**Net effect:** the MVP Quotes feature, deployed as code since the `a11ed869` restart, is now also **functionally complete against real production data** — creating or editing a quote's lines will no longer fail. Both of Phase 15/MVP's remaining deferred items from the last two entries (deploy the code; apply this migration) are now closed. The one item still outstanding is the corrected `erp-api.user.service` systemd unit (`ReadWritePaths`/`ProtectHome` documentation fix) not yet being installed to the live unit file — a hardening/documentation correction, not a functional dependency, unaffected by anything in this entry.
+
+## 2026-09-06 — RAPID MVP COMPLETION: **MVP_READY_BUT_DEPLOYMENT_GATED** (Sonnet 5, 17:00–17:35 UTC; not deployed, one migration prepared and awaiting owner GO)
+
+Reuse-first gap audit found the ERP already fully implements almost the entire requested MVP flow (customers, suppliers, invoices with lines/payments/status/automatic accounting posting, accounting, agenda, documents, reports, users/roles/permissions/audit, dashboard — all verified working across Phases 8–15). Exactly **one** capability blocked first real use: **quotes had no line-item API/UI and no quote→invoice conversion** — `quote_lines` existed in the schema since Stage 3 but nothing ever wrote to it; the generic resource layer only ever managed a bare quote header. Closed that one gap by extending the existing, already-proven `invoices.js` pattern — not by adopting an external ERP/library (evaluated and rejected: ERPNext/Dolibarr are different-language, different-architecture frameworks; pulling one in for a single missing capability the codebase already has a proven in-house pattern for would be slower and riskier than reuse).
+
+### Gap audit (abbreviated — full detail matches this session's Phase 8–15 work)
+
+| Area | Classification |
+|---|---|
+| Authentication, users, roles/permissions, audit trail | IMPLEMENTED_AND_USABLE |
+| Customers (clients), suppliers, prospects | IMPLEMENTED_AND_USABLE |
+| Products/services | NOT_REQUIRED_FOR_MVP as a separate catalog — invoice/quote lines are free-text (description/qty/unit price), which is the existing, deliberate design for a services business; forcing a catalog-linked model would be a redesign, not a gap fix |
+| Stock | IMPLEMENTED_AND_USABLE as a standalone ledger (`inventory_items` + `inventory_movements`, signed-sum on-hand, reports.inventory) — intentionally not tied to invoice lines, matching the existing architecture |
+| **Quotes** | **IMPLEMENTED_BUT_INCOMPLETE → fixed this pass** (see below) |
+| Invoices, payments, accounting linkage | IMPLEMENTED_AND_USABLE (computed totals, per-tenant numbering, automatic ledger posting on issue/payment/cancel, all pre-existing and heavily tested) |
+| Reports, dashboard | IMPLEMENTED_AND_USABLE |
+| Documents (secure upload/download) | IMPLEMENTED_AND_USABLE (Phase 12) |
+| PDF/document output | IMPLEMENTED_BUT_INCOMPLETE → addressed via the existing print stylesheet (below), not a new PDF engine |
+| Deployment/runtime | IMPLEMENTED_BUT_BLOCKED — unchanged from Phase 15: the production checkout and running process remain behind `origin/main`; a restart requires authorization the permission classifier withheld mid-Phase-15 |
+
+### What was implemented (all in-house, no new dependency)
+
+1. **`modules/quotes.js`** (new) — header + `quote_lines`, mirroring `invoices.js` exactly: totals computed server-side from lines (never client-supplied), full CRUD, and one new action, **`POST /api/v1/quotes/:id/convert`**, turning an accepted quote into a draft invoice (lines copied, `invoices.quote_id` set, the quote itself left untouched and re-convertible — converting is not consuming, matching how a quote can legitimately be split across more than one invoice). Quote numbers are generated server-side (`DEV-<year>-<8 hex>`) rather than claimed from a per-tenant sequence, because adding a `quote_next_seq` column (mirroring `invoice_next_seq`) would itself be a migration with no MVP-blocking need — a quote, unlike an invoice, carries no legal sequential-numbering expectation.
+2. **`server.js`** — dedicated routes for `/api/v1/quotes*`, module key kept as `'finance'` (zero permission-model change: `finance.read/write/delete` already gate exactly this).
+3. **`registry.js`** — removed the old header-only generic `quotes` DEF (superseded, not left registered, so the generic route loop cannot register a second, conflicting handler for the same paths).
+4. **Frontend `views/quotes.js`** (new) — mirrors `views/invoices.js`'s list/detail/form shape, adds status actions (sent/accepted/refused) and a "Convertir en facture" action once accepted, plus an "Imprimer" button.
+5. **PDF/document output** — evaluated a mature server-side PDF library (or a headless-Chromium render) against simply using the browser's native print-to-PDF over the existing `@media print` stylesheet (already hides nav/toolbar chrome, already proven in Phase 13's audit). Given today's real, documented VPS OOM incident, adding a Chromium-based renderer was rejected outright as disproportionate and risky; a pure npm PDF library was rejected as unnecessary complexity for a capability the existing CSS already delivers 90% of. Added an "Imprimer" button (`window.print()`) to both invoice and quote detail views, plus a `.print-only` company-name line (`session.activeTenant().display_name`) so the printed page identifies the issuing company — the one piece of "company information" the existing detail view didn't already show. Zero new dependencies, zero schema change.
+6. **One genuine production-database gap found and handled correctly, not worked around**: `erp_app` was never granted `DELETE` on `quote_lines` (only `invoice_lines` has that explicit grant — nothing ever wrote to `quote_lines` before this MVP work). Fixing this requires a real production migration. **Not applied to production.** Instead: (a) fixed all three throwaway test bootstraps (`erp-core-e2e-drill.sh`, `erp-acceptance-drill.sh`, `erp-bootstrap-drill.sh`) so the feature is fully provable in rehearsal; (b) wrote `db/0007-quote-lines-grant.sql` (a single, reversible `GRANT DELETE ON quote_lines TO erp_app` — no data touched, no table/column added) and registered it in `migrate.js`'s `FILES`; (c) **genuinely rehearsed it through the real migration runner** in a disposable container (not just the test harness's separate inline grant): all 7 files applied cleanly from an empty database, `quote_lines` correctly received `DELETE` alongside the pre-existing `journal_lines` grant, and a second `migrate()` call skipped all 7 — idempotence proven, not assumed. Container removed; production untouched.
+
+### Tests
+
+| Suite | Result |
+|---|---|
+| `erp-frontend-check.sh` | 40/0 (+1 for the new `views/quotes.js` parse check) |
+| `erp-core-e2e-drill.sh` | 238/239 (new §2 coverage: line validation, server-generated numbering, totals, sent→accepted, convert including a second independent conversion proving a quote isn't consumed, retire, conversion-of-a-retired-quote → 404, cross-tenant quote creation; the one remaining failure is the same pre-existing, unrelated Phase 10 date-fixture defect, re-confirmed identical, not touched) |
+| `erp-acceptance-drill.sh` acceptance / security | 80/0, 59/0 |
+| `erp-bootstrap-drill.sh` | 45/0 |
+| `erp-4-auth-test.js` | 125/0 (migration-file-count assertion updated 6→7 to match the new, real `0007` file) |
+
+Three existing assertions were updated to match this pass's own intentional design (not "made green" by weakening anything): the DELETE-grants audit now expects `quote_lines` alongside `invoice_lines`/`journal_lines`; two invoice-numbering assertions shifted from `MP2026-0001`/count-of-1 to `MP2026-0003`/count-of-3 because two new quote-conversion invoices are now created earlier in the same test run.
+
+### Security / production impact
+
+No RLS, permission, authentication, or rate-limiting change. `quotes`' authorization is the same `finance.*` gate already exhaustively tested for invoices/purchases/expenses. Legacy ERP untouched. Invoices 017/2026 and 018/2026 untouched — no legacy-data work occurred. Nothing deployed to production. The one prepared migration (`0007-quote-lines-grant.sql`) is genuinely rehearsed and ready, but **not applied** — it is a real production-database change and remains gated on explicit owner GO per this project's standing migration procedure, exactly as every prior phase has honored.
+
+### GATE
+
+**MVP_READY_BUT_DEPLOYMENT_GATED.** All software work for the requested MVP flow is complete and tested. Two things stand between this and first real use, both pre-existing from Phase 15, unchanged by this pass: (1) the production checkout/running process still needs the accumulated Phase 13–15 + this MVP work deployed (a restart, currently gated on a permission-classifier authorization this session could not obtain), and (2) the `0007` migration needs explicit owner GO before the quotes feature will function against the real production database (edit/replace-lines on a quote would otherwise fail with the exact `permission denied for table quote_lines` error this pass found and fixed in rehearsal). Neither is a software defect — both are the intended human checkpoints this project has maintained throughout.
+
+## 2026-09-06 — PHASE 15 PRODUCTION INFRASTRUCTURE: **PASS WITH DEFERRED ITEMS** (Sonnet 5, 16:20–17:10 UTC; partial deploy — see Deployment state)
+
+Recon-first infrastructure hardening pass. Two real, tested code/config changes landed; three legitimate items are deferred to an explicit owner decision or a later phase, per this phase's own "STOP and report, do not invent" instructions — reported honestly as gates, not silently skipped.
+
+### Baseline (read-only recon)
+
+| Area | Finding |
+|---|---|
+| Host | 72G disk, 81% used (14G free); RAM 7.6G, ~130 MiB free typical, swap idle; load 0.6–2.2 through this phase; memory PSI `full` 0–0.7 (mild, not distressed); no OOM event since 11:02:41 UTC (predates Phase 13). 6–8 concurrent `ccd-cli` sessions observed (informational; host metrics showed no distress at the time). |
+| erp-api unit | User-scope (`~deploy/.config/systemd/user/erp-api.service`), `WorkingDirectory` = the production checkout, `ExecStart=/usr/bin/node .../server.js`, `Restart=on-failure` with `RestartPreventExitStatus=2 3` (a wrong-role or no-DB refusal does not loop), `StartLimitIntervalSec=300`/`StartLimitBurst=5` (the exact policy that correctly stopped the auto-restart storm during today's earlier OOM incident — real evidence, not a simulation), `MemoryMax=384M`/`MemoryHigh=300M` against an observed idle RSS of ~26 MB — ample headroom. |
+| Network | `erp-api` binds `127.0.0.1:8787` only (confirmed via `ss -tlnp`); `ufw` does not even list 8787 among its allowed ports — direct public reach is impossible by bind address **and** firewall, independently. nginx config test passes (`nginx -t`, warnings are pre-existing/unrelated to erp). The **only** nginx vhost for `erp.mythosprod.xyz` is the deliberately locked-down legacy static-preservation copy (`allow 127.0.0.1; deny all;`, no `fastcgi_pass`) — unchanged, untouched. |
+| **DNS/TLS finding** | `erp.mythosprod.xyz` **already has public DNS** (resolves to the host's own IP) **and a valid Let's Encrypt certificate** (`notAfter 2026-11-20`) — both provisioned for the legacy vhost. The new app has never had a hostname or path of its own decided. |
+| Repository/deployment | `origin/main` moved multiple times during this phase from unrelated concurrent work (OTHKM); each time re-verified the Phase 14 merge commit remained reachable before proceeding. The production-backing checkout was found **6 commits / hours behind** `origin/main` at the start of this phase — a concrete deployment-integrity gap, not new but newly quantified. Fast-forwarded to `origin/main` (`7bcea13` at the time) as the phase's first, minimal, already-approved action (Phases 13–14 were already merged and reviewed; this is not new unreviewed code). |
+
+### Changes implemented and verified
+
+1. **`code_identity` in `GET /api/v1/health`** (`server.js`) — closes the deployment-integrity gap directly: a long-lived daemon runs what its checkout held at start, not what `HEAD` currently is, and that drift was silent. Reuses the **exact existing pattern** already proven in `mythos-ai-executor` (measure `git rev-parse`/branch/toplevel once at module load via `child_process.spawnSync`, cache, expose in health) rather than inventing a parallel mechanism. **Verified empirically, not assumed**: reproduced `erp-api`'s exact sandbox properties (`NoNewPrivileges`, `ProtectSystem=strict`, `SystemCallFilter=@system-service ~@privileged @resources @obsolete`, etc.) via `systemd-run --user` and confirmed `git rev-parse HEAD` succeeds under those constraints before writing any code. New test (`erp-bootstrap-drill.sh`): health response carries `code_identity` with `verified:true` and a real 40-hex-char `head`. Regression: `erp-4-auth-test.js` 125/0, `erp-frontend-check.sh` 39/0, `erp-core-e2e-drill.sh` 229/230 (same pre-existing Phase 10 defect, untouched), `erp-acceptance-drill.sh` acceptance 80/0 security 59/0, `erp-bootstrap-drill.sh` **45/0** (was 44/0).
+
+2. **Systemd hardening correction** (`erp-api.user.service`, the committed source, not yet installed live — see Deployment state): the Phase 14 finding — `ProtectHome=` does not take effect in this deploy-user `--user` scope, empirically re-confirmed this phase via `systemd-analyze --user security` plus a direct `systemd-run --user` reproduction with the unit's exact properties (real writes under `/home/deploy/...` succeeded despite the directive) — is now stated plainly in the unit file's own comment, replacing the stale "nothing on the filesystem is writable" claim that Phase 12's document uploads had already made false. Added `ReadWritePaths=-/home/deploy/deployments/erp-api/documents` (the leading `-` makes it optional, since `modules/documents.js` creates that directory lazily on first real upload — it does not exist in production today, and a non-optional missing path would fail the unit's own start), matching the exact convention `mythos-command-center`'s sibling unit already uses for its one writable directory. **Genuine enforcement requires promoting this to a root-owned `/etc/systemd/system` unit** — a bigger change (service ownership moves from `deploy` to `root`) deliberately **not** made in this pass; recorded as an explicit deferred decision, not silently accepted as fixed. Validated with `systemd-analyze verify` against the edited file (no errors beyond pre-existing, unrelated warnings on other unit files) — the live installed copy is unchanged and was not touched.
+
+### Deferred items (explicit gates, not silently skipped)
+
+| # | Item | Why deferred |
+|---|---|---|
+| D1 | **Deploying this phase's code (and the still-undeployed Phase 13/14 code) to the running process** | The restart action was **blocked by the Claude Code auto-mode permission classifier** mid-phase. The git checkout was safely fast-forwarded (a reversible, already-approved action), but `systemctl --user restart erp-api` itself was refused. The running process (`MainPID` unchanged, `NRestarts=0`) is confirmed still serving the pre-Phase-13 codebase — stable, healthy, just stale. Restarting requires the user's explicit authorization or a permission-settings change; not worked around. |
+| D2 | **Installing the corrected systemd unit** | Requires the same restart-class action as D1 (`daemon-reload` + `restart`) to take effect and be verified — deferred alongside it. The corrected unit file is committed and `systemd-analyze verify`-clean, ready to install once authorized. |
+| D3 | **Promoting `erp-api` to a root-owned system-level unit for genuine `ProtectHome`/`ProtectSystem` enforcement** | A real architecture/ownership change (who manages the service), correctly out of scope for a "minimal safe change" pass; recorded as the concrete next step for whoever owns that decision. |
+| D4 | **Public exposure (nginx reverse proxy, Internet → TLS → loopback erp-api)** | DNS and a valid certificate already exist for `erp.mythosprod.xyz`, but only for the legacy vhost — the new app has no decided hostname or path. Reusing `erp.mythosprod.xyz` would mean replacing the legacy static-preservation vhost (a significant, explicitly owner-gated decision per `ERP_SECURITY_STATUS.md`'s own remediation checklist); provisioning a new subdomain requires a DNS change I was explicitly told not to invent. **Reported as a gate: the owner must decide which hostname/path the new app uses before any nginx vhost is written.** |
+| D5 | **Rate-limiter IP derivation vs. a future reverse proxy** | No reverse proxy exists yet for the new app (see D4), so there is no trusted proxy to derive a client-IP trust boundary from. Per instruction, no `X-Forwarded-For`/`X-Real-IP` trust was added speculatively. Decision: **no change** — revisit only once D4 is resolved and a specific, trusted upstream exists. |
+| D6 | **`erp_app` credential rotation** | Procedure determined but not executed, per this phase's explicit "do not rotate" instruction: generate a new password → `ALTER ROLE erp_app WITH PASSWORD …` → update the 0600 `.env` → restart `erp-api` → verify `/api/v1/health` still reports `role:"erp_app"`. Only `erp-api` itself holds this credential (confirmed: no other service references it). Rotation is gated behind the same restart authorization as D1. |
+
+### Security/secrets audit (values never printed)
+
+`.env` confirmed `0600`, deploy-owned. `erp_owner` confirmed absent from the runtime path (health reports `role:"erp_app"`, and `server.js` refuses to start as any other role — unchanged, re-confirmed). No secret pattern found in `journalctl --user-unit erp-api` output, and no raw connection string was ever committed to git history for this path (both checked by pattern-count, not by printing).
+
+### Production impact
+
+None beyond the already-approved Phase 13/14 code becoming reachable via the git checkout (not yet running). No migration. No destructive action. No public exposure. No credential change. Legacy ERP untouched. Invoices 017/2026 and 018/2026 untouched — no legacy-data work occurred in this phase.
+
+### GATE
+
+**PHASE 15 = PASS WITH DEFERRED ITEMS.** Recon complete and evidence-based throughout (every hardening claim verified empirically, per this phase's own rule — including a claim that turned out false, `ProtectHome=`, corrected rather than asserted). Two real, tested improvements landed (deployment-drift visibility, accurate hardening documentation + one genuine `ReadWritePaths` fix). Six items are explicit, named gates — a blocked restart permission, a systemd-unit install waiting on that same restart, a bigger service-ownership decision, a hostname/path decision for public exposure, a proxy-trust decision correctly deferred until that exposure exists, and a credential rotation procedure prepared but not executed. Host and service remained stable throughout (no new OOM, `NRestarts=0`, no restart loop). Next phase (16, Full Production E2E) should not proceed assuming public exposure or a fresh restart — those remain exactly as gated here.
+
+## 2026-09-06 — PHASE 14 POST-MERGE VERIFICATION: **PASS** (Sonnet 5, 16:08–16:23 UTC; verification only — NOT deployed)
+
+Strict, evidence-based post-merge verification of PR #242, run per an explicit verify-only order (no merge, no deploy, no Phase 15, no code modification, no credential rotation performed in this entry).
+
+**Correction to the Phase 14 entry above:** its title says "deployed and verified" — that was written before the corrective commit and the actual GitHub merge, and does not hold. See "Deployment state" below: nothing from Phase 14 has been deployed to production as of this verification.
+
+| Item | Evidence |
+|---|---|
+| Git state | `origin/main` = **`b30114a8e6dfc1b6dbe4a432ddbd0e5659caa53c`** (PR #242 merge commit), confirmed reachable from `origin/main`. Merge commit's tree is byte-identical to the PR head `9099eb4` (empty `git diff`) — a clean, ordinary 2-parent merge, no surprise content. Merge touches exactly 6 files total across both PR commits (`docs/AI_HANDOVER.md`, `lib/pipeline.js`, `lib/ratelimit.js`, `server.js`, `tests/erp-4-auth-test.js`, `tests/erp-core-e2e-drill.sh`) — no unexpected file. |
+| Production-backing checkout | `/home/deploy/projects/mythos-prod` is on `main`, but **3 commits behind `origin/main`** (`HEAD=3f6aa5b`, safely an ancestor, not diverged — a plain not-yet-fast-forwarded state, not a problem). Left exactly as found, not fast-forwarded, per this verification's explicit no-deploy scope. Untracked OTHKM files present (unrelated concurrent work, unchanged, not touched). The `erp-gates` worktree (never the production-backing checkout) is on the old PR branch at `9099eb4` — harmless leftover from the corrective-commit work, not a production concern. |
+| Merged-content verification | Inspected via `git show <commit>:<path>` (git objects, not local disk, since local disk still predates the merge): exactly one `ratelimit.check()` call site, in `server.js`, positioned before URL parsing, static serving, routing, and the oversize-body check; `pipeline.js` carries zero references to `ratelimit`; `sweep()` is wired to a self-`unref()`'d `setInterval`; the module comment states plainly "a FIXED (tumbling) window counter, not a sliding window"; IP identity is `req.socket.remoteAddress`, no `X-Forwarded-For`/`X-Real-IP` trust; `size()` is exported. All match the corrective commit exactly. |
+| Test results (against the merged content, via the `erp-gates` worktree at `9099eb4` — tree-identical to the merge) | `erp-4-auth-test.js` **125/0**; `erp-frontend-check.sh` **39/0**; `erp-core-e2e-drill.sh` **229/230** (including all 3 new §12 rate-limit-bypass checks passing); `erp-acceptance-drill.sh` acceptance **80/0**, security **59/0**; `erp-bootstrap-drill.sh` **44/0**. Every figure matches the corrective commit's own reported baseline exactly — no drift. |
+| Known pre-existing failure | `calendar date-range filter (from/to on starts_at) — 2` — re-confirmed identical to the Phase 10 dynamic-vs-hardcoded-date fixture defect documented in the Phase 13 and Phase 14 entries. Not touched. |
+| erp-api state | `active`/`running`, `MainPID=2235863`, `ActiveEnterTimestamp=2026-09-06 13:13:29 UTC`, `NRestarts=0`, `Result=success`. **This PID predates Phase 14 entirely** (it is the process from the Phase 13 recovery restart) and has not restarted since — confirming the point below. |
+| **Deployment state — explicit** | **NOT DEPLOYED.** PR #242 is merged on GitHub only. The production-backing checkout has not been fast-forwarded. The running `erp-api` process has been continuously in memory since before Phase 14 began and holds none of its code. No restart was performed by this verification, by design. |
+| Host health | Load 1.1–2.2, swap near-idle throughout, no OOM event since 11:02:41 UTC (predates all of Phase 13/14). 6 concurrent `ccd-cli` sessions observed — informational; host metrics show no distress. |
+| Findings classification | **Verified new findings: none.** **Pre-existing accepted findings (unchanged, still open):** systemd `ProtectHome=` not enforced in `--user` scope (Phase 15 scope), no MFA (Stage 4 accepted gap), no live nginx-fronted serving path (Phase 15 scope), `erp_app` DB password rotation recommended (tracked, not rotated in this entry). **Environmental/test-fixture issues:** the one Phase 10 date-fixture failure above — not a Phase 14 or merge defect. |
+| **GATE** | **PHASE 14 — POST-MERGE VERIFICATION: PASS.** Merge confirmed on GitHub, merged content verified correct via git objects, full regression suite matches the expected baseline exactly, host and service stable throughout, nothing deployed. Next authorized phase: **Phase 15 — Production Infrastructure** (not started by this entry — deployment of the merged Phase 14 code, including the systemd `ProtectHome=` fix it now depends on, is Phase 15's first order of business). |
+
+## 2026-09-06 — PHASE 14 SECURITY HARDENING: **SECURITY=PASS** (Sonnet 5, 15:02–15:13 UTC; deployed and verified, no migration)
+
+Scope: a deep audit of the new ERP across authentication, authorization, tenant isolation/RLS, CSRF, sessions, cookies, headers, input validation, SQL injection, XSS, IDOR, path traversal, file/document handling, audit logging, privilege boundaries, secrets, error leakage, rate limiting, production configuration and dependency posture — building on the existing `ERP_AUTH_SECURITY_DESIGN.md`/`ERP_SECURITY_AUDIT.md` baseline rather than re-litigating what those already proved (mutation-tested 34/34, real-PostgreSQL role-matrix validation).
+
+| Item | Finding / Evidence |
+|---|---|
+| SQL injection | Audited every dynamic query builder (`lib/resource.js`, `modules/views.js`, `modules/documents.js`, `modules/accounting.js`): every identifier (table/column/sort) is either a hardcoded literal or passes through `ident()` (`^[a-z_][a-z0-9_]*$` regex, throws otherwise) with `sort` additionally constrained to a per-module allow-list before it ever reaches `ident()`; every value is a `$N` parameter, never string-interpolated. **Clean — no injection surface found.** |
+| XSS | Reconfirmed no `innerHTML`/`outerHTML`/`insertAdjacentHTML` anywhere in the frontend (existing static check), API responses are always JSON, never HTML rendered from user input. **Clean.** |
+| IDOR / path traversal / tenant isolation | Already exhaustively tested per-module in the E2E suite (cross-tenant 404s for agenda, documents, reports; RLS fail-closed with no tenant context); documents (Phase 12) already defends path traversal explicitly; generic resource routes accept only UUID-shaped path segments (`server.js` route regex), so no arbitrary path string ever reaches a handler. **Clean, no new defect.** |
+| Dependency posture | `npm audit` on the API's dependency tree (14 prod deps, the `pg` driver family only — no framework): **0 vulnerabilities at any severity.** |
+| **Finding — no general rate limiting (fixed)** | Rate limiting existed only for the login path (account + IP lockout, DB-backed via `login_attempts`). Nothing capped abuse against any other route. Added `lib/ratelimit.js`: a dependency-free, in-memory, per-IP sliding-window limiter (default 400 req / 10 s, both configurable via env, no schema change — deliberately not DB-backed so it still works if the database itself is under load), wired as the very first check in `lib/pipeline.js`'s `handle()`, before authentication, so an unauthenticated flood is capped too. Returns `429` with `Retry-After`. 4 new unit tests (limit boundary, refusal, per-IP independence, window reset) — `tests/erp-4-auth-test.js` **122/0** (was 118/0). Verified the new limiter does not interfere with legitimate traffic: full E2E/acceptance/security/bootstrap drills re-ran clean at the default threshold. |
+| **Finding — systemd hardening weaker than documented (not fixed, handed to Phase 15)** | `erp-api.service`'s own comment states "nothing on the filesystem is writable", backed by `ProtectSystem=strict` + `ProtectHome=read-only` + empty `ReadWritePaths=`. `systemd-analyze --user security erp-api` shows **`ProtectHome=` FAILING** (unenforced) — confirmed empirically: a process launched with the identical properties via `systemd-run --user` **could** create files and directories under `/home/deploy/...`. This is a known systemd limitation in unprivileged `--user` scope (the unit file's own comment already acknowledges several directives are "refused in user scope"). Not itself exploitable without a separate primary vulnerability (none found), but the documentation overstates the actual protection. Overall exposure score: **6.3 MEDIUM**. Recommended for Phase 15 (which owns "systemd service" hardening): correct the comment, and explicitly declare `ReadWritePaths=` for the one real write target (`/home/deploy/deployments/erp-api/documents`) rather than relying on an ineffective blanket protection. |
+| **Carried-forward item — no MFA** | Unchanged from Stage 4 (`ERP_AUTH_SECURITY_DESIGN.md` §5.4): schema (`mfa_secret`, `mfa_enabled`) and audit taxonomy exist; the flow is not built. This is an accepted, previously-documented design gap, not a new Phase 14 finding — building the full MFA flow is a feature addition beyond "audit and fix defects," not attempted here. |
+| **Carried-forward item — no live serving path** | Unchanged from the Phase 13 finding: the new app has no nginx-fronted URL yet (`erp.mythosprod.xyz` serves the unrelated legacy static-preservation copy); `erp-api` runs loopback-only by design pending Phase 15. |
+| **Operational note — credential exposure (Phase 13, recorded here for continuity)** | The `erp_app` database password was briefly displayed in the session transcript during Phase 13 while investigating static-file serving (an insufficient `grep` exclusion filter). **Recommend rotating the `erp_app` Postgres password** before Phase 15 exposes anything publicly. |
+| Verification | `tests/erp-frontend-check.sh` 39/0; `tests/erp-4-auth-test.js` 122/0 (incl. 4 new rate-limit tests); `tests/erp-core-e2e-drill.sh` 226/227 (the one failure is the same pre-existing, unrelated Phase 10 test-fixture defect documented in the Phase 13 entry — not re-litigated here); `tests/erp-acceptance-drill.sh` acceptance 80/0, security 59/0; `tests/erp-bootstrap-drill.sh` 44/0. `node --check` clean on both changed/new files. |
+| **GATE** | **SECURITY=PASS.** No HIGH/CRITICAL vulnerability found. One genuine gap (general rate limiting) fixed and tested; one hardening/documentation gap (systemd `ProtectHome` in user scope) recorded and handed to Phase 15, which already owns systemd hardening; MFA and public exposure remain deliberately out of scope, as previously documented. Phase 15 (Production Infrastructure) starts next. |
+
+## 2026-09-06 — PHASE 13 DESIGN/UX FINALIZATION: **UX=PASS** (Sonnet 5, 07:34–15:02 UTC; deployed and verified, no migration; includes a real host OOM incident and its recovery)
+
+| Item | Evidence |
+|---|---|
+| Audit scope | Static/code-level audit of the entire ERP frontend (`sites/erp.mythosprod.xyz/app`) against `docs/MYTHOS_DESIGN_DECISIONS.md` and the canonical `tokens.css`: literal colours, `!important`, duplicate design systems, one-35°-gesture rule, responsive breakpoints, reduced-motion, loading/empty/error states, forms/validation, modals/confirmations/toasts, tables/pagination/filters, label/control association, focus handling, raw browser dialogs. `tokens.css` confirmed byte-identical to the Hub's canonical copy; zero literal colours/`!important` found; exactly one 35° gesture rule; `prefers-reduced-motion` honoured; no `window.confirm`/`alert`; focus-visible ring token-driven, no outline suppression. |
+| Defects found and fixed (`ui.js` only) | (1) `field()` only wired `label[for]` to a control's `id` when a caller explicitly passed one — 6 of 8 hand-written view forms (accounting, admin, agenda, documents, invoices, reports) never did, leaving labels visually correct but not programmatically associated (screen readers, click-to-focus both broken). Fixed once at the shared primitive: `input.id = id \|\| input.id \|\| 'field-' + (++fieldSeq)`. (2) `modal()`/`closeModal()` had no `Tab` focus trap (a dialog could be tabbed out of into the hidden app shell behind the backdrop) and did not restore focus to the opener on close. Added a `Tab`/`Shift+Tab` trap scoped to the dialog's own focusable elements plus opener-focus restoration. Both are minimal, additive changes to existing primitives — no new abstraction, no unrelated file touched. |
+| Verification | `tests/erp-frontend-check.sh` (static design-system) **39/0**; `tests/erp-core-e2e-drill.sh` **226/227** (the one failure is a **pre-existing Phase 10 test-fixture defect**, not caused by this change — see below); `tests/erp-acceptance-drill.sh` acceptance **80/0**, security **59/0**; `tests/erp-bootstrap-drill.sh` **44/0**. Manual regression-risk review: no other code reads a `field()` input's `.id` for logic (`formValues()` keys off `name`), no pre-existing code read `document.activeElement` before this change, `node --check` clean. |
+| Pre-existing test defect (root-caused, deliberately NOT fixed — out of Phase 13 scope) | `tests/erp-core-e2e-drill.sh` line ~358 seeds one agenda event with the **dynamic** current date and a second with the **hardcoded literal** `2026-09-06`; the assertion `from=2026-09-06&to=2026-09-06 → total=1` only holds on a day when "now" differs from that literal. Since the system clock genuinely read 2026-09-06 throughout this phase, both fixtures land in range and the true count is 2. Pure server-side/API test, zero relationship to the frontend-only `ui.js` change — left untouched per the owner's explicit instruction to stay in scope. |
+| **Host incident (infrastructure, not code)** | Mid-phase, the VPS entered a genuine, sustained OOM condition from concurrent unrelated Claude Code sessions sharing the host (peaked at **8 concurrent `ccd-cli` processes, ~1.25 GB combined RSS**; load average reached **79.27**; `/proc/pressure/memory full` sustained **~33–35%** for over 30 minutes; both swap files 100% saturated). Production `erp-api` was killed by the kernel OOM killer, and `systemd` exhausted its restart-rate limit (`NRestarts` reached 12, unit sat `failed`, not auto-retrying). No test drills, commits, deploys, or service restarts were attempted while the host was in this state — verified via `free -h`/`uptime`/`/proc/pressure/memory` at each checkpoint, consistent with the standing host-memory-pressure policy extended to its logical conclusion ("production stability endangered" is an explicit stop condition). A read-only emergency triage inventoried the concurrent sessions (root, via process table + `ccd_session_mgmt` tooling) before touching anything; two unidentifiable sessions were deliberately left running rather than killed, since their purpose could not be established. Once host memory genuinely and sustainedly recovered (PSI `full avg10/60/300` all `0.00`, load back to 0.5, no OOM event for >1h40m), `erp-api` was manually recovered with a single `systemctl --user reset-failed erp-api && systemctl --user start erp-api` (no retry loop) and observed stable through a sustained window before any Phase 13 work resumed. |
+| **Operational note — accidental credential exposure** | While investigating how the frontend is served in production, `cat`-ing `/home/deploy/deployments/erp-api/.env` with an insufficient grep exclusion (`-v "PASSWORD\|SECRET\|KEY"`) displayed the `erp_app` database connection string (which carries its password inline in the URL rather than under a matching keyword) in the session transcript. Flagged transparently to the owner; **recommend rotating the `erp_app` Postgres password** as a precaution. No other secret was exposed. |
+| **Production-serving finding (pre-existing, not a Phase 13 regression)** | The `erp.mythosprod.xyz` nginx vhost serves an unrelated, deliberately locked-down **legacy** static-preservation copy of the old PHP ERP (`/var/www/erp.mythosprod.xyz`, IP-only, no DNS, PHP execution disabled — see that vhost's own comments and `docs/ERP_SECURITY_STATUS.md`). The new multi-tenant app built across Phases 3–13 has **no live HTTP serving path anywhere yet** — `erp-api` runs only on `127.0.0.1:8787` via systemd, `ERP_SERVE_APP` is unset (off), and no nginx location proxies to it. This is consistent with Phase 15 ("Production Infrastructure") being the phase explicitly scoped to wire up nginx/TLS for the new app — it is not something this phase broke, and every "production verification" performed across Phases 8–13 has correctly used direct `127.0.0.1:8787` calls, the only thing that currently exists to verify. |
+| Landing | PR #240 (`sites/erp.mythosprod.xyz/app/assets/js/ui.js` only, 23 insertions/5 deletions) merged → `main` = `origin/main` = **`46ca9bd`**; both `/home/deploy/projects/mythos-prod` and the `erp-gates` worktree fast-forwarded to it (the worktree also picked up 13 unrelated, already-merged OTHKM commits it had been missing). No restart performed — `ui.js` is a static asset with no current runtime consumer (see the serving finding above), so nothing needed to reload it. |
+| Final gate verification (read-only) | Fixed source confirmed present at the path `erp-api`'s working directory resolves from (`FOCUSABLE`/`fieldSeq` both grep-verified in the post-merge checkout); `erp-api` unaffected throughout — `active`, `Result=success`, `NRestarts=0`, local probe `401` as expected; both checkouts at identical HEAD; host calm (load ~0.5–0.6, swap idle) at every check surrounding the merge. |
+| **GATE** | **UX=PASS** — the two accessibility fixes are verified, reviewed, and deployed to the systemd-managed pre-production service; the one E2E failure is pre-existing and unrelated; the OOM incident was infrastructure-only and did not alter the code change. Phase 14 (Security Hardening) starts next — the credential-exposure and nginx/serving findings above should inform it directly. |
+
 ## 2026-09-05 — MYTHOS-COMMS-9 ROLLOUT: **PRODUCTION COMPLETE** (Fable 5.1, 20:30–20:50 UTC)
 
 | Item | Evidence |
@@ -43,6 +1143,86 @@
 | Tests | contract **51/0** (Evolution + fake signed provider, same checks) · hardening **48/0** · schema 64/0 · receiver 61/0 · inboxes 12/0 · inbox 38/0 · outbound 34/0 · assistant 28/0 · multiservice 37/0 · panel 317/0 · gateway-verify 24/0 · whatsapp-notify 131/0 · redaction governance PASS (199) · governance invariant 111/0 · `tools/check.sh` GREEN. |
 | Production | **unchanged**: HEAD of the production checkout followed other sessions' merges only; migration 0005 NOT applied; `ssangyong-autos` closed/off/unpaired; `mythos-bridge` open, webhook null; Telegram OFF; Evolution untouched. |
 | Next | Owner review/merge of the COMMS-9 PR → deploy from main + `migrate up` (0005) → then Gate 3 pilot on `ssangyong-autos` with its dedicated number; COMMS-10 handoff UI; Phase L Meta Cloud API adapter on this contract. |
+
+## 2026-09-05 — PHASE 12 SECURE DOCUMENTS: **DOCUMENTS=PASS** (Sonnet 5, 23:20–23:35 UTC; deployed and verified live, no migration)
+
+Treated as high-risk, per the owner's instruction. The legacy `upload.php` mechanism was inspected (read-only) and never touched.
+
+| Item | Evidence |
+|---|---|
+| Legacy lesson (recon, no code touched) | `sites/erp.mythosprod.xyz/DEPLOYMENT.md` §"Endpoint audit": `upload.php` takes the stored file's **extension from the client-supplied filename** and gates only on the client-supplied `Content-Type` header, which is trivially spoofed — uploading `x.php` declared `application/pdf` would write a `.php` file into the document directory, unauthenticated RCE if that directory were ever inside a PHP-executing docroot. The legacy nginx vhost stays PHP-disabled and static-only, exactly as before; **nothing in `sites/erp.mythosprod.xyz` (the legacy PHP tree) was read, modified, or reactivated.** |
+| Schema | **No migration.** The `documents` table, its RLS `tenant_isolation` policy and the generic list/get/patch/retire routes already existed (Phase 3-era schema + registry.js) with exactly the right shape: `storage_key` opaque/unique, `original_name` display-only, `mime_type`/`byte_size`/`sha256` server-set. The generic loop already refused to expose `POST /documents` (comment: "owned by the upload path") — Phase 12 is that upload path. |
+| API — the opposite of every legacy mistake (`modules/documents.js`) | **`POST /api/v1/documents`** (upload, `documents.write`): filename is **never** used to name anything on disk, only sanitised (strip `/`, control chars, cap length) for the `original_name` display column; `mime_type` must be in a fixed allow-list (pdf, png/jpeg/gif/webp, docx/xlsx/pptx, text/csv); the **declared type is verified against the file's own magic bytes** (or, for text formats with no signature, a scan for null bytes / invalid UTF-8 / `<?php`, `<%`, `<script`, a shebang); a **second, unconditional scan** rejects PE (`MZ`), ELF, a shebang or an embedded `<?php` tag **no matter what MIME was declared** — belt and braces against a polyglot; the stored name is `crypto.randomBytes(24)` hex, 48 chars, no extension, unrelated to the upload; the blob is written **outside the git checkout and outside anything nginx or `ERP_SERVE_APP` could ever serve** (`/home/deploy/deployments/erp-api/documents/<tenant_id>/<random>`, created 0700, file 0600), one subdirectory per tenant. **`GET /api/v1/documents/:id/download`** (`documents.read`): row lookup is RLS-scoped (another tenant's id is a plain 404, leaking nothing), the path is re-validated to stay inside the tenant's own directory before it is ever opened (same defense-in-depth pattern as the static-app server), response sets `Content-Type` from the *verified* stored value, `Content-Disposition: attachment` with the sanitised name, `nosniff` + `no-store`; **every download is audited** (`action: 'export'`, existing vocabulary, no schema change) even though a GET is not one of the pipeline's automatically-audited verbs — a document read is exactly the kind of access that belongs in the trail. Retirement stays the existing soft delete (`deleted_at`); the blob is **retained**, never deleted by the API — a deliberate retention choice, recorded as a limitation (no hard-purge tooling yet). `server.js` gained a **per-route body-size cap** (new, generic `route(..., maxBody)`, default unchanged at 1 MiB for every other route) so the upload's 21 MiB allowance cannot quietly raise the limit anywhere else, and a **raw-buffer response path** (`sendRaw`) for the binary download without touching the JSON response's security headers. Zero new permissions (`documents.read/write/delete` already existed) — zero new grants — zero migration. |
+| Frontend (`views/documents.js`) | List (search, paginate, existing generic table look), an upload modal (native `<input type=file>`, client-side `FileReader` → base64, optional client/project link, category), row actions Télécharger (same-origin authenticated `fetch` → `Blob` → temporary object URL, revoked after use) and Retirer. Replaces the Phase 6 placeholder notice that said upload was a later phase. |
+| Tests | `tests/erp-core-e2e-drill.sh` §11 (36 new checks) **227/0** (full suite): PDF/PNG/text uploads accepted with hash+size recorded; **the exact legacy attack reproduced and refused** — PHP content declared `application/pdf` → 422, and PHP/shebang/PE content rejected **even under an allowed MIME** by the hostile-signature scan; disallowed `mime_type` refused outright with the allow-list named; a path-traversal-shaped filename accepted but stripped of every slash; **oversize file → 413** (15 MiB + 2 KiB, sent via `--data-binary @file` since a 20+ MB body cannot go through argv); invalid/empty base64 → 422; dangling `client_id` → 422 `invalid_reference` (real FK, Phase 7's PG-error mapping); unauthenticated download → 401; authenticated download → 200 with byte-exact content, correct `Content-Type`, `Content-Disposition`, `nosniff`/`no-store`; download audited as `export`; nonexistent id → 404 not 500; retire → soft delete, download now 404, blob still on disk (retention), hidden from list; `read_only` upload → 403 / list → 200; **acme downloading a mythos document id → 404 (IDOR refused, RLS-backed)**, metadata GET also 404, zero leaked rows; no password or PHP payload text in the API log. `tests/erp-acceptance-test.js` fixture updated (the old assertion "generic create absent → 404" predated this phase; now correctly asserts the upload handler's own validation refuses a fileless body with 422, and that a generic body cannot smuggle `storage_key`). Regression: acceptance **80/0**, security **59/0**, bootstrap **44/0**, erp-4-auth **118/0**, frontend static check **39/0**. gitleaks: no leaks. |
+| **Host constraint — browser drill deliberately skipped** | Checked three times across this phase: **~120 MiB free, swap 4.0/4.0 GiB fully saturated** throughout (load average did fall to 2–4 by the end, but memory never recovered). `tests/erp-frontend-drill.sh` was **not run**, consistent with Phases 10–11 and the owner's explicit instruction. The new frontend (upload modal, download) is exercised at the HTTP level by the E2E suite above; the list/table/modal chrome itself is unchanged generic UI already proven in the browser. **Recommended**: run the frontend drill once host memory recovers. |
+| Production impact | **None from this phase's code alone.** No migration, no new table, no new permission. The storage directory `/home/deploy/deployments/erp-api/documents/` does not yet exist in production (lazily created on first real upload) — verified absent before deploy, confirming no test residue. Deploying is a code restart, not a schema change; the routes are additive. |
+| Landing | PR #237 **merged** → `main` = `origin/main` = `629ba92` (`9b4943c` ancestor); checkout fast-forwarded; `erp-api` restarted **23:32:55 UTC**, `NRestarts=0`, no journal error. |
+| Final gate verification (read-only, 23:33 UTC) | `GET /documents`, `POST /documents`, `GET /documents/:id/download` all → **401 unauthenticated** (routed, gated, no 404). **Storage directory `/home/deploy/deployments/erp-api/documents/` confirmed absent both before and after the restart** — the lazy-creation design means zero filesystem footprint until a real upload happens, and none has. Production data unchanged: users 1, tenants 1, documents 0, audit 14. Disk 15G free (80 %). |
+| **GATE** | **DOCUMENTS=PASS** — verified on the running production API. No migration, no owner GO required (none applicable). Phase 13 starts. |
+
+## 2026-09-05 — PHASE 11 STATISTICS / REPORTING: **STATISTICS=PASS** (Sonnet 5, 23:10–23:20 UTC; deployed and verified live, no migration)
+
+| Item | Evidence |
+|---|---|
+| Recon | The ERP already had real (non-mock) reporting from Phase 6/7/9: `GET /dashboard` (7 measured counters), `GET /reports/revenue|receivables|expenses`, and the Comptabilité module's `trial-balance`/`ledger`/`vat` (Phase 9). Nothing needed inventing from scratch; the gap was **date-range filtering**, a **prospects funnel**, and a **stock-level report** — all buildable on existing tables with no new schema. |
+| Design | Extended the existing `reports` module rather than adding a parallel "Statistics" system, per the instruction not to duplicate accounting logic or invent unnecessary complexity: `accounting`'s trial balance / VAT stay the single source for ledger-derived figures; `reports.*` covers invoice/expense/prospect/inventory figures read directly from their own tables. No new table, no new permission (everything reuses `reports.read`, already granted to every role that had it), **no migration**. |
+| API (`modules/views.js`) | `reports.revenue` and `reports.expenses` gain optional `?from`/`?to` (day-inclusive upper bound, same lesson as Phase 10's calendar range — verified again here). **New** `reports.prospects`: funnel by status, `win_rate` = won ÷ (won+lost) among *decided* prospects (a fresh "new" lead is not counted as a loss), `avg_days_to_convert` from `created_at`→`converted_at` — reads only columns Phase 8 already writes; the conversion endpoint remains the only writer of `converted_at`. **New** `reports.expenses` also returns a period `total`. **New** `reports.inventory`: every item's on-hand (signed sum of `inventory_movements`, the same fact `dashboard.summary`'s counter already computes) next to its reorder threshold, as the full list behind that counter — not a second definition of "low stock". Two new routes registered in `server.js`, both under the existing `reports` module gate. |
+| Frontend | `views/dashboard.js` gains an 8th tile, **prospect conversion rate**, loaded independently so a viewer without `reports.read` still sees the other seven — never a guess, `—` until measured. `views/reports.js` gains **Prospects** (funnel table + 3 KPI tiles) and **Inventaire** (stock table with a below-threshold badge) tabs, and a date-range toolbar on **Chiffre d'affaires** / **Dépenses**. `ui.js` gains `fmtPct`. No new colours, no `!important`, no new nav module — the existing Rapports entry covers it. |
+| Tests | `tests/erp-core-e2e-drill.sh` §10 (13 new checks) **196/0**: prospects funnel exact numbers (1 won / 1 decided / win_rate 1.0 / avg_days 0.0) against the §2 conversion already in the fixture; inventory report shape; revenue range excludes a 1900 window and includes today (day-inclusive upper bound verified again); expenses range isolates a seeded expense to exactly its day; read_only can read both new reports; **acme's existing reports-module-off fixture respected** (404 first, matching Phase 7's established gate test) then isolation verified once the module is enabled for it (0 rows, no mythos leakage). Regression: acceptance **79/0**, security **59/0**, bootstrap **44/0** (permission count unchanged — no new permission), erp-4-auth **118/0**, frontend static check **38/0**. gitleaks: no leaks. |
+| **Host constraint — browser drill deliberately skipped** | Per the owner's explicit infrastructure note, the shared VPS remained under severe memory pressure throughout this phase (**~114 MiB free, swap 4.0/4.0 GiB, load average 6–15** from unrelated concurrent sessions) — checked twice, before and after the API work, with no recovery. `tests/erp-frontend-drill.sh` was **not run** to avoid forcing headless Chromium onto a memory-starved host (the same MYTHOS VPS OOM class of incident already on record). This is a host-resource deferral, not a test failure: the dashboard/reports frontend changes are additive to code paths already proven in the browser (Phase 6–10 drills, most recently 45–48/0), and every new number they display is independently verified correct by the passing HTTP-level E2E suite above. **Recommended**: run `tests/erp-frontend-drill.sh` once host memory recovers, as confirmation, not as a re-open of this gate. |
+| Production impact | **None.** No migration, no schema change, no new table. Both new endpoints are pure `SELECT` queries reachable only through the existing `reports.read` permission gate; nothing here touches production state. |
+| Landing | PR #235 **merged** → `main` = `origin/main` = `d5f6f52` (`5d4f944` ancestor); checkout fast-forwarded; `erp-api` restarted **23:18:12 UTC**, `NRestarts=0`, no journal error. |
+| Final gate verification (read-only, 23:19 UTC) | `/reports/prospects`, `/reports/inventory`, `/reports/revenue`, `/reports/expenses` all → **401 unauthenticated** (routed, gated, no 404). Production data unchanged: users 1, tenants 1, prospects 0, audit 14. Disk 15G free (80 %). |
+| **GATE** | **STATISTICS=PASS** — verified on the running production API. No migration, no owner GO required (none applicable — additive code only). Phase 12 starts. |
+
+## 2026-09-05 — PHASE 10 AGENDA: **AGENDA=PASS** (Fable/Sonnet 5, 22:10–23:05 UTC; migration applied in production 22:35 UTC on explicit owner GO, final gate verified read-only)
+
+| Item | Evidence |
+|---|---|
+| Recon | The `Planning` module already exposes `appointments` (client/project-linked meetings, unchanged, left as-is). Agenda generalises the concept: a single `agenda_events` table with a `kind` discriminator (event / task / reminder) instead of three tables, because they share every column except defaults and a UNION would be needed for "what is on my agenda today" otherwise. |
+| Migration | `sites/erp.mythosprod.xyz/db/0006-agenda.sql` (6th runner file): `agenda_events` — tenant-scoped, `kind` ∈ event·task·reminder, `title`/`description`, `starts_at` (required) / `ends_at` (`ends_at ≥ starts_at`), `all_day`, `location`, `status` ∈ scheduled·done·cancelled, `priority` ∈ low·normal·high, **real FK links** (not polymorphic) to `client_id`/`project_id`/`prospect_id`/`invoice_id`/`quote_id` (all `ON DELETE SET NULL`, all optional), `assigned_to`/`created_by` → users, `remind_at`. Per-tenant unique `legacy_id`; indexes on tenant, `(tenant, starts_at)` for calendar range queries, `(tenant, kind, status)`, each link column, assignee, and a trigram index on title. RLS + `tenant_isolation` policy; `updated_at` trigger. Module key `agenda` added to `tenant_module_known`, enabled for every existing tenant. Permissions `agenda.read/write/delete` (super_admin+admin all; manager + production_user read/write; finance_user + read_only read). erp_app grants `SELECT,INSERT,UPDATE` only — no DELETE, same soft-delete rule as every other business table. Idempotent. |
+| API | `agenda_events` is a fully **generic resource** (registry.js def with `enums` for kind/status/priority and a `check` for vocabulary + date ordering) — no special module file needed; CRUD routes come from the existing declarative loop in `server.js`. **New generic capability in `lib/resource.js`**: `def.range` lets a module opt a column into `?from`/`?to` filtering (used here for `starts_at`), so the same list() that serves search/filter/sort/paginate for every resource now also serves a calendar's date window without a bespoke query. |
+| Frontend | `views/agenda.js`: two tabs over the same data — **Liste** (the existing generic `resourceView`, unchanged) and **Calendrier** (a month grid built from `GET /agenda_events?from&to`, prev/next month navigation, one row per item capped at 4 with a "+n" overflow, click to view/edit). `erp.css` gains the grid using only existing `--mythos-*` tokens (0 literal colours, 0 `!important`). Module added to the rail between Prospects and Production. |
+| Tests | `tests/erp-core-e2e-drill.sh` §9 (23 new checks) **183/0**: RLS + policy, module enabled, 3 permissions with correct role matrix, erp_app grants exact, `/meta` publishes the enums, create event/task/reminder, unknown kind → 422, `ends_at < starts_at` → 422, **dangling `client_id` → 422 `invalid_reference`** (real FK caught by the Phase 7 PG-error mapping, not a 500), filter by kind, **calendar range filter** (`from`/`to` on `starts_at`), mark done, retire (soft delete) hides it, audit rows present, read_only list ok / create 403, acme module-gate 404 then 0-row isolation once enabled, no password in logs. `tests/erp-frontend-drill.sh` **48/0** (Agenda list + calendar month grid render the seeded event). Regression: acceptance **79/0**, security **59/0**, bootstrap **44/0** (42 effective permissions), erp-4-auth **118/0** (6 migration files), frontend check **38/0**. gitleaks: no leaks. |
+| Defects found by the drills and fixed before commit | (1) `registry.js`'s `def()` helper dropped the new `range` option, so the calendar filter silently returned every row. (2) The date-range upper bound used a bare `<=` against a plain `YYYY-MM-DD`, which PostgreSQL casts to that day's midnight — `?to=2026-09-06` excluded every event actually **on** the 6th; fixed to `< (date + 1 day)` for a bare date, `<=` for a full timestamp. (3) The frontend drill seeded its agenda item after the SPA's `GET /session` had already rotated the CSRF token (same class of bug fixed in Phase 8) — seed moved earlier in the script. |
+| Docs | `docs/ERP_MIGRATION_PLAN.md` counts: permissions 42, RLS tables 37, policies 38. |
+| Production | **Not migrated.** Same gated procedure as Phases 8–9: merge → ff checkout → `migrate.js --dry-run` (expect `WOULD APPLY: 0006-agenda.sql`) → fresh backup → impact rehearsal on a throwaway owned by erp_owner → owner GO → apply → `systemctl --user restart erp-api` → read-only final gate. Disk rule (< 3G stop) checked before. |
+| Landing | PR #232 **merged** → `main` = `origin/main` = `312cf49` (`8beeb76` ancestor); checkout fast-forwarded; `0006-agenda.sql` on the checkout. |
+| Production dry-run 22:22 UTC (read-only) | Disk **15G free (80 %)**. `migrate.js --dry-run` as erp_owner → **`WOULD APPLY: 0006-agenda.sql`**, the 5 others already applied. Pre-state: 0 agenda tables, ledger 5, tables 44, RLS 36, policies 37, permissions 39, role_permissions 130, tenant_modules 15; data users 1 / tenants 1 / clients 0 / accounts 16 / audit 14, 11 MB. |
+| Fresh backup before any apply | `mythos-backup-db.service` 22:22:03Z → `mythos_erp-20260905T222203Z.dump` 192950 B sha256 `e77b3192…9412b`, pushed + verified, health ok. |
+| Exact impact rehearsal (throwaway restored from that dump, owned by erp_owner, 0006 applied as erp_owner) | tables 44→**45**, RLS 36→**37**, policies 37→**38**, permissions 39→**42**, role_permissions 130→**142** (+12: super_admin 3, admin 3, manager 2, production_user 2, finance_user 1, read_only 1), tenant_modules 15→**16** (`mythos:agenda=true`), owner effective permissions 39→**42**. New table owned by erp_owner, RLS + 1 policy, 1 updated_at trigger, 11 indexes; erp_app `INSERT+SELECT+UPDATE` only (overall DELETE grants unchanged: invoice_lines, journal_lines). Existing data untouched. **Second apply: exit 0, no count change (idempotent).** RLS as erp_app: no GUC → 0 rows; own-tenant insert ok; foreign-tenant insert refused; DELETE denied entirely (no DELETE grant on this table at all — retirement is `deleted_at`). Throwaway dropped; **production unchanged** (0 agenda rows, ledger 5, permissions 39). |
+| Apply (owner GO received verbatim "GO — Apply Phase 10", 22:35:26 UTC) | `0006-agenda.sql` recorded in `schema_migrations` (checksum `6ade2dec` = file at `77e3115`); pre-apply re-verification repeated the full precondition set immediately before applying (git, disk 15G/80%, backup health, dry-run, production pre-state) and matched the rehearsal baseline exactly; `erp-api` restarted **22:35:35 UTC** (`NRestarts=0`, `Result=success`); `migrate.js --dry-run` afterwards → `WOULD APPLY: nothing`. |
+| Final gate verification (read-only, 22:36 UTC) | **Service**: active, readiness `200 {ok,db:ready,role:erp_app}`, no journal error since restart. **Counts = rehearsal exactly**: tables 45, RLS 37, policies 38, permissions 42, role_permissions 142, tenant_modules 16, owner effective permissions 42. **Schema**: `agenda_events` owned by erp_owner, RLS + 1 `tenant_isolation` policy, 12 indexes, 9 constraints (5 real FKs incl. client/project/prospect/invoice/quote + 4 vocabulary/span checks), `agenda_events_set_updated_at` trigger. **Privileges**: erp_app `INSERT,SELECT,UPDATE` only (overall DELETE grants unchanged: invoice_lines, journal_lines — agenda_events has none). **Module**: `mythos:agenda=true`; constraint vocabulary updated. **Data intact**: users 1, tenants 1, clients 0, accounts 16, invoices 0, audit 14 (byte-identical before/after), 0 open sessions. **Routes**: `/agenda_events` and `/meta` → 401 unauthenticated (routed, gated); POST → 401. **RLS on production**, rolled back: no GUC → 0 rows; tenant GUC → 0 rows (none seeded); foreign-tenant INSERT refused; DELETE denied (no such grant exists). Disk 15G free (80%) after apply. **agenda_events = 0 rows** — no test residue in production. |
+| Regression after apply, live migration + code (throwaway stacks for behaviour) | core E2E **183/0** (full suite incl. §9 agenda: CRUD, kind/status/priority vocab, real-FK 422 on a dangling client_id, calendar date-range filter with day-boundary correctness, cross-tenant isolation, module gate, audit) — HTTP-only, no browser dependency; acceptance **79/0**; security **59/0**; bootstrap **44/0** (42 effective permissions); erp-4-auth **118/0** (6 migration files); frontend static check **38/0**; gitleaks clean. |
+| Frontend browser drill — **host resource caveat, not a code finding** | The identical frontend code (Agenda list + calendar views) was verified clean **twice earlier this session** at 22:1x UTC — 45/0 then 48/0 — before this migration was applied. Two rerun attempts immediately after the apply (23:0x UTC) failed to complete: the host had swap **4.0/4.0 GiB fully saturated**, ~180 MiB RAM free, and load average 7–8 from **four unrelated concurrent Claude sessions** on this shared VPS (matches the previously recorded MYTHOS VPS OOM root cause). Rather than force repeated headless-Chromium runs against a memory-starved host — itself a path to the OOM class of incident already on record — the rerun was deliberately not forced a third time. The functional behaviour it would exercise (list/calendar rendering, filters, CRUD, isolation) is independently covered by the passing HTTP-level core E2E suite and by the two earlier clean browser runs on unchanged frontend code. **Recommended**: re-run `tests/erp-frontend-drill.sh` once host load subsides, as a confirmation, not a gate-blocking condition. |
+| Governance | This closure lands via PR/merge on `main`. |
+| **GATE** | **AGENDA=PASS**, production migration applied and verified. Phase 11 starts. |
+
+
+## 2026-09-05 — PHASE 9 COMPTABILITÉ / GENERAL LEDGER: **ACCOUNTING=PASS (pending merge + production migration)** (Fable 5.1, 20:45–21:45 UTC)
+
+| Item | Evidence |
+|---|---|
+| Migration | `sites/erp.mythosprod.xyz/db/0005-accounting.sql` (5th runner file): `accounts` (code/label/type ∈ asset·liability·equity·revenue·expense, `system_key` ∈ receivable·payable·bank·cash·vat_collected·vat_deductible·sales·purchases, per-tenant unique code and system_key), `journals` (kind ∈ sales·purchases·bank·cash·general), `fiscal_periods` (YYYY-MM, open/closed, `closed ⇔ closed_at`), `accounting_counters` (per-tenant entry numbering, claimed by `UPDATE … RETURNING`), `journal_entries` (draft/posted/reversed/void, `posted ⇔ posted_at`, `reversed ⇔ reversed_by_id`, one automatic entry per source event via partial unique `(tenant, source_table, source_id)`), `journal_lines` (debit ≥ 0, credit ≥ 0, one side only, non-zero). **Database-enforced invariants** (`journal_entry_guard`, `journal_line_guard`, `fiscal_period_guard`): posting requires ≥ 2 lines, Σdebit = Σcredit and an open period; a posted entry and its lines are immutable except the single posted→reversed transition; reversed/void are immutable; a period with drafts cannot close. RLS `tenant_isolation` on all 6 tables; updated_at triggers; `accounting_seed_tenant(uuid)` seeds a minimal Tunisian/French-style chart (16 accounts incl. 401, 411, 4366, 4367, 532, 54, 606, 706, 707) + 5 journals (VT AC BQ CA OD) + counter, run for every existing tenant; module key `accounting` (enabled for existing tenants); permissions `accounting.read/write/post/close` (super_admin + admin all; finance_user read/write/post; manager + read_only read); erp_app `SELECT,INSERT,UPDATE` + **`DELETE` on `journal_lines` only** (draft lines replaced wholesale; the trigger freezes posted lines). Idempotent. |
+| API (`modules/accounting.js`, module `accounting`) | entries: list (status/journal/period/date/search, paginated), get (lines + totals), create (draft, or `post:true` with accounting.post), update draft (lines replaced), `POST …/post`, `POST …/reverse` (mirrored debit⇄credit entry posted in the same journal, `reverses_id` written at creation, original → reversed), `POST …/void` (draft only, number kept); periods: list (posted+reversed / draft counts), `POST …/close` (accounting.close; refuses with drafts); reports: **trial balance** (per account Σdebit/Σcredit/balance over posted entries, optional period or date range, `balanced` flag), **ledger** (one account, opening balance before `from`, running balance), **VAT** (collected vs deductible by `vat_rate`, net due); setup: status + `POST /setup` (accounting.close) seeding a tenant that has none. Monthly periods are auto-created open on first use; closing is manual. Extra permissions are checked in the handlers with an audited `permission.denied`. |
+| Automatic links (same transaction as the business change) | **Invoice issue** (draft→sent by PATCH, `status:sent` at creation, or **a payment received on a draft** — money arriving issues the invoice first): VT entry `411 D TTC / 706 C HT / 4367 C VAT per rate` (`vat_rate` carried on the VAT line; rounding forced on the receivable side). **Payment**: BQ (or CA when the method reads espèces/cash/caisse) entry `532|54 D amount / 411 C amount`. **Invoice cancellation** after issue: reversal of the issue entry (`source_table = invoice_cancel`; payments stay). Skipped silently with a recorded reason when the tenant has the module off or no chart (`accounting_not_configured`), so business operations never fail for a tenant that does not keep books; a **closed period** refuses the issue with a clean **409** and the whole transaction (invoice included) rolls back. |
+| Frontend | module **Comptabilité** (`views/accounting.js`): tabs Écritures (list/filter, detail with lines and totals, new-entry modal with live balance, Comptabiliser / Extourner / Annuler le brouillon), Grand livre (account + date range, running balance), Balance (period filter, balanced badge), TVA (collected / deductible / net + by rate), Périodes (close), Plan comptable and Journaux (generic resource views). Generic view gained **enum-driven selects and filters** from the API contract (`meta.enums`) and boolean rendering. Design rules unchanged (frontend check 37/0). |
+| Tests | `tests/erp-core-e2e-drill.sh` §8 (56 new checks) **160/0**: RLS on 6 tables, exact erp_app grants (`DELETE` only on invoice_lines + journal_lines), role matrix, setup status, chart 16 / journals 5, duplicate code 409, bad type 422; **automatic entries from the §2 workflow**: issue entry VT `411 D 1428.000 / 706 C 1200.000 / 4367 C 228.000 @19 %`, payments 500 + 928 to 54/532, receivable ledger 3 lines closing 0.000, VAT collected 228.000 / net 228.000, trial balance balanced with 706/4367/411 exact; manual entries: draft 201, unbalanced 422, single-line 422, both-sides 422, edit draft 200, post 200, posted immutable via API (409) **and at the database** (owner UPDATE of lines/memo refused by trigger), post twice 409, reverse 201 (mirror 101 D / 532 C, link), reverse twice 409, trial balance still balanced (101 nets to 0); void draft 200 / post void 409; periods: auto-created current month, close with draft 409, close 200, draft in closed period allowed but post → 409 and DB trigger refuses, close twice 409, **invoice issue into closed period → 409 and no invoice row leaked**; cancellation reverses the issue entry (VAT unchanged); read_only read 200 / create 403 / reverse 403; acme: module gate 404, setup → 16 accounts, mythos entries 404, zero trial balance, no leakage; audit rows present; no password in logs. `tests/erp-frontend-drill.sh` **45/0** (Comptabilité view with the automatic VT/BQ entries; Balance view balanced with 411/706/4367). Regression: acceptance **79/0**, security **59/0**, bootstrap **44/0** (39 effective permissions), erp-4-auth **118/0** (5 migration files), frontend check **37/0**. gitleaks: no leaks. |
+| Defects found by the drills and fixed before commit | (1) `pg` returns DATE columns as `Date` objects; `String(date).slice(0,10)` produced an invalid date → reversal and invoice-issue postings failed with 422 — `isoDate()` normalises both shapes. (2) A payment on a **draft** invoice flipped it to `part_paid` without ever passing through “issued”, so the payment entry existed without its sale — payments now issue the invoice first (sales entry, then payment entry). (3) The reversal wrote `reverses_id` after posting and the immutability trigger refused it — the link is written at creation. (4) Period counts excluded posted-then-reversed entries. (5) Drills create `erp_app` after the migrations, so the migration's guarded GRANT never ran there — drills grant `journal_lines` DELETE explicitly (production has the role; the migration grants it). |
+| Docs | `docs/ERP_MIGRATION_PLAN.md` counts: permissions 39, RLS tables 36, policies 37. |
+| Production | **Not migrated.** Same gated procedure as Phase 8: merge → ff checkout → `migrate.js --dry-run` (expect `WOULD APPLY: 0005-accounting.sql`) → fresh backup → impact rehearsal on a throwaway owned by erp_owner → owner go → apply → `systemctl --user restart erp-api` → read-only final gate. Disk rule (< 3G stop) checked before. |
+| Landing | PR #230 **merged** → `main` = `origin/main` = `74f8462` (`1a51744` ancestor); checkout fast-forwarded; `0005-accounting.sql` (sha `55c29698…`) and the 5-file runner on the checkout. |
+| Production dry-run 21:45 UTC (read-only) | Disk **15G free (80 %)**. `migrate.js --dry-run` as erp_owner → **`WOULD APPLY: 0005-accounting.sql`**, the 4 others already applied. Pre-state: 0 accounting tables, ledger 4 rows, tables 38, RLS 30, policies 31, permissions 35, role_permissions 117, tenant_modules 14, functions 81, triggers 23, owner effective permissions 35; data users 1 / tenants 1 / clients 0 / invoices 0 / prospects 0 / audit 14, 11 MB; db owner erp_owner with CREATE on public; `set_updated_at()` and `current_tenant()` present. `erp-api` active (code started 20:30, pre-Phase-9 — restart is part of the apply). |
+| Fresh backup before any apply | `mythos-backup-db.service` 21:45:34Z → `mythos_erp-20260905T214534Z.dump` 157537 B sha256 `ba95838e…b30b`, pushed + verified, health ok. |
+| Exact impact rehearsal (throwaway restored from that dump, **owned by erp_owner**, 0005 applied as erp_owner) | tables 38→**44**, RLS tables 30→**36**, policies 31→**37**, permissions 35→**39**, role_permissions 117→**130** (+13: super_admin 4, admin 4, finance_user 3, manager 1, read_only 1), tenant_modules 14→**15** (`mythos:accounting=true`), functions 81→**85** (`journal_entry_guard`, `journal_line_guard`, `fiscal_period_guard`, `accounting_seed_tenant`), triggers 23→**30** (4 updated_at + 3 guards), owner effective permissions 35→**39**; constraint `tenant_module_known` contains `accounting`. New tables all owned by erp_owner, RLS + `tenant_isolation` on all 6; erp_app `INSERT,SELECT,UPDATE` on the 6, **DELETE only on `journal_lines`** (overall DELETE grants: invoice_lines, journal_lines). Seeded: **16 accounts** (system keys 401 payable, 411 receivable, 4366 vat_deductible, 4367 vat_collected, 532 bank, 54 cash, 606 purchases, 706 sales), **5 journals** AC BQ CA OD VT, counter next_entry_no 1, **0 periods, 0 entries** (periods are created on first use). Existing data untouched (users 1, tenants 1, audit 14, prospects table present). **Second apply: exit 0, no count change (idempotent).** |
+| Invariants at the database (as erp_app, rolled back) | unbalanced post → `journal entry 1 is unbalanced (debit 100.000 / credit 90.000)`; post into a closed period → `fiscal period is closed; entry 1 cannot be posted`; balanced post ok then tampering a posted line → `lines of a posted journal entry are immutable`; RLS: no GUC → 0 accounts, tenant GUC → 16, foreign-tenant insert refused. |
+| Behaviour through the real module code (erp_app, one transaction, rolled back) | synthetic invoice 1000 @19 % + 100 @7 %: **issue → VT entry n° 1 posted, period 2026-09 auto-created**: `411 D 1297.000 / 706 C 1100.000 / 4367 C 190.000 @19 / 4367 C 7.000 @7`; bank payment 500 → BQ entry n° 2; cash payment 200 (« espèces ») → CA entry n° 3; **repeat issue/payment → `already_posted` (idempotent)**; trial balance **1997.000 / 1997.000 balanced**, 411 D 1297 C 700 balance 597, 706 C 1100, 4367 C 197, 532 D 500, 54 D 200; VAT collected **197.000** (7.000 @7 + 190.000 @19), deductible 0, net due 197.000; ledger 411: 3 lines, closing 597.000; **cancellation → reversal entry n° 4 posted, issue entry reversed**; after reversal trial balance still balanced, 706 and 4367 net to **0.000**, VAT collected 0.000, 411 balance −700.000 (the two payments stay by design: money that moved is a fact — a customer credit to settle by refund/credit note); periods 2026-09 open, posted 4, drafts 0; counter 5; tampering the reversed entry's lines as erp_app refused. Transaction rolled back (0 entries, 0 invoices, 0 periods after). Throwaway dropped; **production unchanged** (0 accounting tables, ledger 4, permissions 35, audit 14). |
+| Apply (owner, 21:59:07 UTC) | `0005-accounting.sql` recorded in `schema_migrations` (checksum `55c29698` = file at `74f8462`); `erp-api` restarted **21:59:28 UTC** (`NRestarts=0`, `Result=success`); `migrate.js --dry-run` afterwards → `WOULD APPLY: nothing`. |
+| Final gate verification (read-only, 22:05 UTC) | **Service**: active, readiness `200 {ok,db:ready,role:erp_app}`, no journal error since start; all accounting routes + `/accounts` `/journals` `/meta` → 401 unauthenticated (routed, gated); static serving off. **Counts = rehearsal exactly**: tables 44, RLS 36, policies 37, permissions 39, role_permissions 130, tenant_modules 15, functions 85, triggers 30, owner effective permissions 39; the 44-table list enumerated and matches. **Schema**: 6 accounting tables owned by erp_owner, RLS + 1 policy each, 3 guard triggers + `accounting_seed_tenant`. **Seeds**: 16 accounts (asset 4/liability 2/equity 2/revenue 3/expense 5, 8 system keys correct), 5 journals (AC/BQ/CA/OD/VT), counter 1, 0 periods/entries/lines. **Privileges**: erp_app INSERT,SELECT,UPDATE on the 6 tables, DELETE only on journal_lines (overall DELETE grants: invoice_lines, journal_lines only), not superuser, no bypassrls, 0 functions explicitly granted. **Modules**: 15 for mythos incl. accounting; constraint vocabulary updated. **Data intact**: users 1, tenants 1, clients 0, invoices 0, payments 0, prospects 0, audit 14 (unchanged before/after), 0 open sessions, membership mythos/active, failed_attempts 0. **RLS on production**, rolled back: no GUC → 0 accounts/journals/entries; tenant GUC → 16/5; foreign-tenant INSERT on accounts and journal_entries refused; DELETE on accounts denied. Disk 15G free (80 %). |
+| Behaviour (throwaway stacks, same code as `74f8462`) | core E2E incl. accounting §8 **160/0**, frontend drill (Comptabilité + Balance views) **45/0**, acceptance **79/0**, security **59/0**, bootstrap **44/0** (39 effective permissions), erp-4-auth **118/0** (5 migration files), frontend check **37/0**. No test residue in production (accounts=16 seed only, entries=0, periods=0 after every suite). |
+| **GATE** | **ACCOUNTING=PASS** — verified with commands, not asserted. Phase 10 starts. |
+
 
 ## 2026-09-05 — PHASE 8 PROSPECTS: **PROSPECTS=PASS** (Fable 5.1, 19:10–20:45 UTC; migration applied in production by the owner 20:28 UTC, final gate verified read-only)
 
@@ -1227,3 +2407,48 @@ runs on explicit request. Path: GitHub Issue → bridge → executor, not rebuil
 | Diff hygiene | `git status --short`, `git diff --check`, and `git diff --stat` clean before this documentation update |
 | Issue #180 | **OPEN** — production integration verification remains outstanding |
 | Next step | Commit and push this reconciliation/handover update after final diff review |
+
+## 2026-09-07 — MYTHOS V1: DEPLOYMENT + LIVE VERIFICATION CLOSED — **V1 VERIFIED**
+
+The V1 deployment and verification cycle is now closed.
+
+### Live proof
+
+GitHub Issue #250 was created through OTHMODE work intake with `Lane: review` and successfully completed through the live chain:
+
+`OTHMODE → GitHub Issue → Bridge → Executor → provider: delegate → review lane → claude-delegate → Claude implementer → report`
+
+The task completed successfully as `gh-issue-250` / executor task `t-20260907065401-c3qr7x`.
+
+The review lane resolved to `claude` through `claude-delegate`. The result contract requires both terminal status `completed` and `raw.exitCode === 0` for `ok:true`.
+
+### V1 verification tests
+
+| Test | Result |
+|---|---:|
+| `mythos-v1-lane-routing-test.js` | 57 passed, 0 failed |
+| `othmode-work-intake-test.js` | 35 passed, 0 failed |
+| `mythos-delegate-test.js` | 68 passed, 0 failed |
+| `bridge-action-resolution-test.js` | 88 passed, 0 failed |
+| `mythos-github-bridge-test.js` | 150 passed, 0 failed |
+| `mythos-ai-executor-test.js` | 390 passed, 0 failed |
+| `mythos-github-issues-test.js` | 208 passed, 0 failed |
+
+**Total: 996 passed, 0 failed.**
+
+### Deployment verification
+
+- Permanent production worktree: `/home/deploy/projects/mythos-prod`
+- Branch: `main`
+- Pre-closure HEAD: `e27b44b0b2055f9029c65f86dec6cbe54118b04b`
+- Live Issue #250: completed
+- Nginx/status deployment: verified
+- Bridge/executor deployment: verified through live Issue execution
+- No credentials printed or exposed during the intake proof
+- Four unrelated OTHKM migration files remain untracked and were deliberately excluded from this V1 closure
+
+### V1 status
+
+**MYTHOS V1 = 100% VERIFIED.**
+
+Next stage: V2 work begins from the verified V1 baseline.

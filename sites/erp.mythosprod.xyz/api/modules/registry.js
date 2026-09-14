@@ -26,7 +26,9 @@ function def(o) {
     sortable: (o.sortable || []).concat(['created_at', 'updated_at']),
     defaultSort: o.defaultSort || 'created_at',
     filters: o.filters || [],
-    check: o.check || null
+    check: o.check || null,
+    enums: o.enums || {},
+    range: o.range || null
   };
 }
 
@@ -41,6 +43,14 @@ function oneOf(list) {
 var STATUS_INVOICE = ['draft', 'sent', 'part_paid', 'paid', 'cancelled'];
 var STATUS_QUOTE   = ['draft', 'sent', 'accepted', 'refused', 'expired'];
 var STATUS_PROSPECT = ['new', 'contacted', 'qualified', 'proposal', 'won', 'lost'];
+var ACCOUNT_TYPES = ['asset', 'liability', 'equity', 'revenue', 'expense'];
+var ACCOUNT_SYSTEM_KEYS = ['receivable', 'payable', 'bank', 'cash', 'vat_collected', 'vat_deductible', 'sales', 'purchases',
+  'stamp_collected', 'stamp_expense', 'expenses'];
+var JOURNAL_KINDS = ['sales', 'purchases', 'bank', 'cash', 'general'];
+var ENTRY_STATUSES = ['draft', 'posted', 'reversed', 'void'];
+var AGENDA_KINDS = ['event', 'task', 'reminder'];
+var AGENDA_STATUSES = ['scheduled', 'done', 'cancelled'];
+var AGENDA_PRIORITIES = ['low', 'normal', 'high'];
 
 var DEFS = {
   clients: def({
@@ -51,17 +61,25 @@ var DEFS = {
     searchable: ['name', 'email', 'phone', 'tax_id'],
     sortable: ['name'], defaultSort: 'name',
     check: function (v) {
-      if (v.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v.email))) return 'email is not a valid address';
+      if (v.email && (String(v.email).length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v.email)))) return 'email is not a valid address';
       return null;
     }
   }),
 
   contacts: def({
     module: 'clients', table: 'contacts',
-    columns: ['legacy_id', 'client_id', 'full_name', 'email', 'phone', 'role_label', 'source', 'deleted_at'],
-    fields: ['client_id', 'full_name', 'email', 'phone', 'role_label', 'source', 'legacy_id'],
-    required: ['full_name'], searchable: ['full_name', 'email', 'phone'],
-    sortable: ['full_name'], defaultSort: 'full_name', filters: ['client_id'], label: 'full_name'
+    // Phase 11 (0015): the legacy répertoire fields; phone_norm is generated
+    // by the database and import_id is set by the importer only.
+    columns: ['legacy_id', 'client_id', 'full_name', 'email', 'phone', 'phone2', 'address', 'city', 'country',
+      'job_title', 'domain', 'notes', 'role_label', 'source', 'import_id', 'deleted_at'],
+    fields: ['client_id', 'full_name', 'email', 'phone', 'phone2', 'address', 'city', 'country',
+      'job_title', 'domain', 'notes', 'role_label', 'source', 'legacy_id'],
+    required: ['full_name'], searchable: ['full_name', 'email', 'phone', 'phone2', 'domain', 'city'],
+    sortable: ['full_name', 'city', 'domain'], defaultSort: 'full_name', filters: ['client_id', 'import_id'], label: 'full_name',
+    check: function (v) {
+      if (v.email && (String(v.email).length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v.email)))) return 'email is not a valid address';
+      return null;
+    }
   }),
 
   suppliers: def({
@@ -118,35 +136,28 @@ var DEFS = {
     check: function (v) { return isNum(v.amount_ttc) ? null : 'amount_ttc must be numeric'; }
   }),
 
-  quotes: def({
-    module: 'finance', table: 'quotes',
-    columns: ['legacy_id', 'number', 'client_id', 'project_id', 'issued_on', 'valid_until', 'status', 'currency', 'notes', 'deleted_at'],
-    fields: ['number', 'client_id', 'project_id', 'issued_on', 'valid_until', 'status', 'currency', 'notes', 'legacy_id'],
-    required: [], searchable: ['number', 'notes'], sortable: ['issued_on', 'number'],
-    defaultSort: 'issued_on', filters: ['client_id', 'project_id', 'status'], label: 'number',
-    check: function (v) {
-      if (!oneOf(STATUS_QUOTE)(v.status)) return 'status must be one of ' + STATUS_QUOTE.join('|');
-      return isDate(v.issued_on) ? null : 'issued_on must be YYYY-MM-DD';
-    }
-  }),
+  // quotes: MVP gap closed — moved to a dedicated module (modules/quotes.js,
+  // routed directly in server.js) with real quote_lines support and
+  // server-computed totals, the same shape as invoices. The generic CRUD
+  // this DEF used to drive was header-only: it could create a quote number
+  // but had no way to say what was being quoted. Removed from DEFS rather
+  // than left registered, so the generic loop in server.js cannot also
+  // register a second, conflicting set of routes for the same paths.
 
-  purchases: def({
-    module: 'finance', table: 'purchases',
-    columns: ['legacy_id', 'supplier_id', 'reference', 'purchased_on', 'amount_ht', 'vat_rate', 'notes', 'deleted_at'],
-    fields: ['supplier_id', 'reference', 'purchased_on', 'amount_ht', 'vat_rate', 'notes', 'legacy_id'],
-    required: [], searchable: ['reference', 'notes'], sortable: ['purchased_on'],
-    defaultSort: 'purchased_on', filters: ['supplier_id'], label: 'reference',
-    check: function (v) { return isNum(v.amount_ht) ? null : 'amount_ht must be numeric'; }
-  }),
+  // purchases: Phase 2 (P1) gap closed — moved to a dedicated module
+  // (modules/purchases.js, routed directly in server.js) with a real
+  // status lifecycle, supplier payments, and automatic accounting posting,
+  // the same shape invoices already has. The generic CRUD this DEF used to
+  // drive had no status, no payable, no accounting link. Removed from DEFS
+  // rather than left registered, for the same reason quotes was: the
+  // generic loop in server.js must not also register a second, conflicting
+  // set of routes for the same paths.
 
-  expenses: def({
-    module: 'finance', table: 'expenses',
-    columns: ['legacy_id', 'category_id', 'project_id', 'spent_on', 'amount', 'description', 'deleted_at'],
-    fields: ['category_id', 'project_id', 'spent_on', 'amount', 'description', 'legacy_id'],
-    required: ['description'], searchable: ['description'], sortable: ['spent_on'],
-    defaultSort: 'spent_on', filters: ['category_id', 'project_id'], label: 'description',
-    check: function (v) { return isNum(v.amount) ? null : 'amount must be numeric'; }
-  }),
+  // expenses: Phase 7 — moved to a dedicated module (modules/expenses.js,
+  // routed directly in server.js) that posts each expense to the ledger and
+  // keeps posted amounts immutable, the same shape purchases took in
+  // Phase 2. Removed from DEFS for the same reason: the generic loop must
+  // not register a second, conflicting set of routes for the same paths.
 
   documents: def({
     module: 'documents', table: 'documents',
@@ -176,9 +187,34 @@ var DEFS = {
 
   expense_categories: def({
     module: 'settings', table: 'expense_categories',
-    columns: ['legacy_id', 'label', 'deleted_at'],
-    fields: ['label', 'legacy_id'], required: ['label'], searchable: ['label'],
+    // account_id (0013): the expense account this category's lines debit;
+    // NULL falls back to the tenant's 'expenses' system account.
+    columns: ['legacy_id', 'label', 'account_id', 'deleted_at'],
+    fields: ['label', 'account_id', 'legacy_id'], required: ['label'], searchable: ['label'],
     sortable: ['label'], defaultSort: 'label', label: 'label'
+  }),
+
+  /* Agenda (0006-agenda.sql): events, tasks and reminders, one kind field.
+     Calendar range queries use def.range (lib/resource.js): ?from&?to filter
+     on starts_at. */
+  agenda_events: def({
+    module: 'agenda', table: 'agenda_events',
+    columns: ['legacy_id', 'kind', 'title', 'description', 'starts_at', 'ends_at', 'all_day', 'location',
+              'status', 'priority', 'client_id', 'project_id', 'prospect_id', 'invoice_id', 'quote_id',
+              'assigned_to', 'remind_at', 'deleted_at'],
+    fields: ['kind', 'title', 'description', 'starts_at', 'ends_at', 'all_day', 'location', 'status', 'priority',
+             'client_id', 'project_id', 'prospect_id', 'invoice_id', 'quote_id', 'assigned_to', 'remind_at', 'legacy_id'],
+    required: ['title', 'starts_at'], searchable: ['title', 'location', 'description'],
+    sortable: ['starts_at', 'title', 'priority', 'status'], defaultSort: 'starts_at', range: 'starts_at',
+    filters: ['kind', 'status', 'priority', 'client_id', 'project_id', 'assigned_to'], label: 'title',
+    enums: { kind: AGENDA_KINDS, status: AGENDA_STATUSES, priority: AGENDA_PRIORITIES },
+    check: function (v) {
+      if (!oneOf(AGENDA_KINDS)(v.kind)) return 'kind must be one of ' + AGENDA_KINDS.join('|');
+      if (!oneOf(AGENDA_STATUSES)(v.status)) return 'status must be one of ' + AGENDA_STATUSES.join('|');
+      if (!oneOf(AGENDA_PRIORITIES)(v.priority)) return 'priority must be one of ' + AGENDA_PRIORITIES.join('|');
+      if (v.ends_at && v.starts_at && String(v.ends_at) < String(v.starts_at)) return 'ends_at precedes starts_at';
+      return null;
+    }
   }),
 
   bank_accounts: def({
@@ -211,6 +247,32 @@ var DEFS = {
       return null;
     }
   }),
+
+  /* Accounting reference data (0005-accounting.sql). Entries, periods and
+     reports are NOT generic resources: modules/accounting.js owns them. */
+  accounts: def({
+    module: 'accounting', table: 'accounts',
+    columns: ['code', 'label', 'type', 'parent_code', 'system_key', 'is_active', 'deleted_at'],
+    fields: ['code', 'label', 'type', 'parent_code', 'system_key', 'is_active'],
+    required: ['code', 'label', 'type'], searchable: ['code', 'label'], sortable: ['code', 'label', 'type'],
+    defaultSort: 'code', filters: ['type', 'system_key'], label: 'code',
+    enums: { type: ACCOUNT_TYPES, system_key: ACCOUNT_SYSTEM_KEYS },
+    check: function (v) {
+      if (v.code !== undefined && !/^[0-9]{1,10}$/.test(String(v.code))) return 'code must be 1 to 10 digits';
+      if (!oneOf(ACCOUNT_TYPES)(v.type)) return 'type must be one of ' + ACCOUNT_TYPES.join('|');
+      if (!oneOf(ACCOUNT_SYSTEM_KEYS)(v.system_key)) return 'system_key must be one of ' + ACCOUNT_SYSTEM_KEYS.join('|');
+      return null;
+    }
+  }),
+  journals: def({
+    module: 'accounting', table: 'journals',
+    columns: ['code', 'label', 'kind', 'is_active', 'deleted_at'],
+    fields: ['code', 'label', 'kind', 'is_active'],
+    required: ['code', 'label', 'kind'], searchable: ['code', 'label'], sortable: ['code', 'label'],
+    defaultSort: 'code', filters: ['kind'], label: 'code',
+    enums: { kind: JOURNAL_KINDS },
+    check: function (v) { return oneOf(JOURNAL_KINDS)(v.kind) ? null : 'kind must be one of ' + JOURNAL_KINDS.join('|'); }
+  }),
 };
 
 
@@ -225,13 +287,13 @@ function publicMeta() {
     out[name] = {
       module: d.module, label: d.label, columns: d.columns, fields: d.fields,
       required: d.required, searchable: d.searchable, sortable: d.sortable,
-      defaultSort: d.defaultSort, filters: d.filters,
+      defaultSort: d.defaultSort, filters: d.filters, enums: d.enums,
       createable: name !== 'documents'
     };
   });
   return {
     resources: out,
-    statuses: { invoice: STATUS_INVOICE, quote: STATUS_QUOTE, prospect: STATUS_PROSPECT, project: ['planned', 'active', 'closed'] },
+    statuses: { invoice: STATUS_INVOICE, quote: STATUS_QUOTE, prospect: STATUS_PROSPECT, project: ['planned', 'active', 'closed'], entry: ENTRY_STATUSES, agenda: AGENDA_STATUSES, agenda_kind: AGENDA_KINDS, agenda_priority: AGENDA_PRIORITIES },
     invoice_user_settable: ['draft', 'sent', 'cancelled']
   };
 }

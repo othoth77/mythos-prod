@@ -1,8 +1,8 @@
-/* Dashboard: the seven counters the API measures, plus revenue by month.
+/* Dashboard: the nine counters the API measures, plus revenue by month.
  * A value the server has not returned is shown as loading or as an error —
  * never as an invented number. */
 import { api, describeError } from '../api.js';
-import { h, clear, fmtMoney, fmtNum, errorBox, barChart, empty } from '../ui.js';
+import { h, clear, fmtMoney, fmtNum, fmtPct, errorBox, barChart, empty } from '../ui.js';
 
 const TILES = [
   ['clients', 'Clients actifs', (v) => fmtNum(v, 0)],
@@ -11,13 +11,19 @@ const TILES = [
   ['invoiced_ttc_ytd', 'Facturé TTC (année)', (v) => fmtMoney(v)],
   ['collected_ytd', 'Encaissé (année)', (v) => fmtMoney(v)],
   ['appointments_next_7d', 'RDV — 7 jours', (v) => fmtNum(v, 0)],
+  ['reminders_due', 'Rappels dus (aujourd\'hui)', (v) => fmtNum(v, 0)],
+  ['invoices_overdue', 'Factures en retard', (v) => fmtNum(v, 0)],
   ['items_below_reorder', 'Articles sous seuil', (v) => fmtNum(v, 0)]
 ];
+
+// A tenth tile the server measures separately (prospects.win_rate): shown
+// only once the API answers, same rule as every other tile — never a guess.
+const PROSPECT_TILE = ['prospect_win_rate', 'Conversion prospects', (v) => v === null ? '—' : fmtPct(v)];
 
 export function dashboardView(container) {
   const grid = h('div', { class: 'grid cols-4' });
   const tiles = {};
-  for (const [key, label] of TILES) {
+  for (const [key, label] of TILES.concat([PROSPECT_TILE])) {
     tiles[key] = h('span', { class: 'stat-value is-loading', text: '…' });
     grid.appendChild(h('article', { class: 'card stat', dataset: { stat: key } }, h('span', { class: 'stat-label', text: label }), tiles[key], h('span', { class: 'stat-sub', text: 'mesuré par l\'API' })));
   }
@@ -56,5 +62,17 @@ export function dashboardView(container) {
       else recvBody.appendChild(h('ul', {}, r.rows.slice(0, 8).map((x) => h('li', {}, h('a', { href: '#/finance/invoices/' + x.id, class: 'mono', text: x.number || x.id }), ' — ', fmtMoney(x.balance ?? x.outstanding ?? x.total_ttc)))));
     } catch (e) { clear(recvBody).appendChild(errorBox(describeError(e), loadReceivables)); }
   }
-  loadSummary(); loadRevenue(); loadReceivables();
+  async function loadProspectStats() {
+    try {
+      const r = await api.get('/reports/prospects');
+      tiles.prospect_win_rate.textContent = r.decided > 0 ? fmtPct(r.win_rate) : '—';
+      tiles.prospect_win_rate.classList.remove('is-loading');
+    } catch (e) {
+      // A tenant without prospects.read/reports.read simply does not see this
+      // tile filled in; the rest of the dashboard must not fail for it.
+      tiles.prospect_win_rate.textContent = '—';
+      tiles.prospect_win_rate.classList.remove('is-loading');
+    }
+  }
+  loadSummary(); loadRevenue(); loadReceivables(); loadProspectStats();
 }

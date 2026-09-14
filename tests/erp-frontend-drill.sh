@@ -62,7 +62,7 @@ echo "[frontend-drill] throwaway PostgreSQL 15: $C"
 docker run -d --name "$C" -P -e POSTGRES_USER=erp_owner -e POSTGRES_DB=mythos_erp -e POSTGRES_PASSWORD="$PW" postgres:15-alpine >/dev/null
 OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
-for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql 0008-purchases-lifecycle.sql 0009-bank-reconciliation.sql 0010-mission-orders.sql 0011-fiscal-stamp.sql 0012-rbac-delete-permissions.sql 0013-expenses-ledger.sql 0014-cash-register.sql 0015-contact-import.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
 done
@@ -71,6 +71,8 @@ CREATE ROLE erp_app LOGIN PASSWORD '$PW';
 GRANT USAGE ON SCHEMA public TO erp_app;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO erp_app;
 GRANT DELETE ON invoice_lines TO erp_app;
+GRANT SELECT, INSERT, UPDATE ON accounts, journals, fiscal_periods, accounting_counters, journal_entries, journal_lines TO erp_app;
+GRANT DELETE ON journal_lines TO erp_app;   -- draft lines are replaced wholesale; the trigger freezes posted ones
 REVOKE UPDATE, DELETE ON audit_log FROM erp_app;
 GRANT INSERT, SELECT ON audit_log TO erp_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO erp_app;
@@ -86,7 +88,7 @@ ERP_DATABASE_URL="$OWNER_URL" python3 "$WORK/drive.py" "$API/bin/create-super-ad
 rm -f "$WORK/answers.json"
 echo "[frontend-drill] super_admin bootstrapped"
 
-ERP_DATABASE_URL="$APP_URL" ERP_API_PORT="$API_PORT" ERP_SERVE_APP=1 node "$API/server.js" >"$WORK/api.log" 2>&1 &
+ERP_DATABASE_URL="$APP_URL" ERP_API_PORT="$API_PORT" ERP_SERVE_APP=1 ERP_BACKUP_HEALTH_FILE="$WORK/backup-health.json" node "$API/server.js" >"$WORK/api.log" 2>&1 &
 API_PID=$!
 for i in $(seq 1 40); do curl -s -o /dev/null "http://127.0.0.1:$API_PORT/api/v1/health" && break; sleep 0.25; done
 B="http://127.0.0.1:$API_PORT"; J="$WORK/b"; H="$WORK/h"
@@ -120,6 +122,7 @@ R=$(auth -X PATCH "$B/api/v1/invoices/$INV" -H 'content-type: application/json' 
 R=$(auth -X POST "$B/api/v1/invoices/$INV/payments" -H 'content-type: application/json' -d "{\"paid_on\":\"$(date -u +%F)\",\"amount\":100,\"method\":\"virement\"}"); check "partial payment → 201, status part_paid" "[ $R = 201 ] && grep -q part_paid $J" "$R $(cat $J)"
 # Seed everything BEFORE the browser runs: the SPA restores its session via GET /session, which rotates the CSRF token.
 R=$(auth -X POST "$B/api/v1/prospects" -H 'content-type: application/json' -d '{"name":"Prospect Drill","status":"qualified","source":"web","expected_value":1200}'); check "seed prospect → 201" "[ $R = 201 ]" "$R $(cat $J)"
+R=$(auth -X POST "$B/api/v1/agenda_events" -H 'content-type: application/json' -d '{"kind":"event","title":"Drill Event","starts_at":"2026-09-06T09:00:00Z"}'); check "seed agenda event → 201" "[ $R = 201 ]" "$R $(cat $J)"
 
 echo "§3 headless Chromium renders the authenticated app (cookie-injecting proxy)"
 ERP_PROXY_COOKIE="$COOKIE" ERP_PROXY_CSRF="$CSRF" node "$ROOT/tests/lib/erp-cookie-proxy.js" "$PROXY_PORT" "$API_PORT" >"$WORK/proxy.log" 2>&1 &
@@ -179,8 +182,13 @@ check "invoice detail: payment action offered for part_paid, edit hidden (not dr
 
 dom "$P/#/reports/revenue"
 check "reports: revenue tab with chart and month table" "has 'class=\"chart\"' && txt '$(date -u +%Y-%m)'" "$(grep -o 'Analyse.\{0,400\}' $WORK/dom.txt | head -c 400)"
+dom "$P/#/clients/contacts/import"
+check "contacts: import tab renders the file picker, label field and duplicate toggle (Phase 11)" "has 'id=\"contacts-import-file\"' && has 'type=\"file\"' && has 'id=\"imp-skip\"' && txt 'Importer des contacts' && txt 'Doublons'" "$(grep -o 'Importer des contacts.\{0,200\}' $WORK/dom.txt | head -c 200)"
+dom "$P/#/clients/contacts/imports"
+check "contacts: imports history tab renders its empty state" "txt 'Aucun import' && txt 'Nouvel import'" "$(grep -o 'Imports.\{0,200\}' $WORK/dom.txt | head -c 200)"
 dom "$P/#/settings"
 check "settings: tenant identity form + module toggles" "has 'name=\"display_name\"' && has 'id=\"mod-invoices\"' && txt 'Mythos Prod'" ""
+check "settings: backup status card renders INCONNU with the no-record explanation when no health file exists (Phase 10)" "has 'data-card=\"backup\"' && txt 'Sauvegardes' && txt 'INCONNU' && txt 'Aucun compte rendu de sauvegarde'" "$(grep -o 'Sauvegardes.\{0,200\}' $WORK/dom.txt | head -c 200)"
 dom "$P/#/users"
 check "users: the super admin is listed with role badge" "txt 'owner+frontend@mythos.test' && txt 'super_admin'" "$(head -c 300 $WORK/dom.txt)"
 dom "$P/#/audit"
@@ -189,6 +197,14 @@ dom "$P/#/audit"
 check "audit: tenant journal shows record.created and record.updated" "txt 'record.created' && txt 'record.updated'" "$(grep -o 'Journal.\{0,400\}' $WORK/dom.txt | head -c 400) | api: $(auth "$B/api/v1/audit?limit=3" >/dev/null; head -c 300 $J)"
 dom "$P/#/prospects"
 check "prospects view: rail entry, row, status badge, convert action" "has 'data-module=\"prospects\"' && txt 'Prospect Drill' && txt 'qualified' && txt 'Convertir en client'" "$(grep -o 'Prospects.\{0,300\}' $WORK/dom.txt | head -c 300)"
+dom "$P/#/accounting"
+check "comptabilité view: tabs, automatic entries from the seeded invoice + payment, VT/BQ journals, posted" "has 'data-module=\"accounting\"' && txt 'Grand livre' && txt 'Balance' && txt 'posted' && txt 'invoices' && txt 'payments'" "$(grep -o 'Comptabilit.\{0,300\}' $WORK/dom.txt | head -c 300)"
+dom "$P/#/accounting/trial-balance"
+check "balance view: totals balanced, 411 / 706 / 4367 present" "txt 'équilibrée' && txt '411' && txt '706' && txt '4367'" "$(grep -o 'Balance.\{0,300\}' $WORK/dom.txt | head -c 300)"
+dom "$P/#/agenda"
+check "agenda view: rail entry, list/calendar tabs, seeded item" "has 'data-module=\"agenda\"' && txt 'Liste' && txt 'Calendrier' && txt 'Drill Event'" "$(grep -o 'Agenda.\{0,300\}' $WORK/dom.txt | head -c 300)"
+dom "$P/#/agenda/calendar"
+check "calendar view: month grid with the seeded event" "has 'class=\"calendar-grid\"' && txt 'Drill Event'" "$(grep -o 'calendar.\{0,200\}' $WORK/dom.html | head -c 200)"
 dom "$P/#/planning"
 check "planning: honest empty state" "txt 'Aucun enregistrement'" ""
 dom "$P/#/nope/../x"

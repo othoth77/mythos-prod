@@ -26,9 +26,11 @@ function requireAsOf(asOf) {
 }
 
 // Truth time: the record's own semantics — never store write time.
+// valid_from is the lowest-priority fallback so an explicit event-time
+// validity interval participates without overriding observed_at/occurred_at.
 function truthTimeOf(rec) {
   return rec.observed_at || rec.occurred_at ||
-    (rec.provenance && rec.provenance.observed_at) || null;
+    (rec.provenance && rec.provenance.observed_at) || rec.valid_from || null;
 }
 
 // Ingest time: when the knowledge entered the system.
@@ -155,4 +157,76 @@ function latestVerified(store, opts) {
   return live;
 }
 
-module.exports = { STATEMENT_KINDS, QUARANTINE_TAGS, isQuarantined, truthTimeOf, ingestTimeOf, losingIds, classify, knownAt, whatChanged, latestVerified };
+// ---- bi-temporal helpers (Phase 4) ---------------------------------------
+//
+// Two independent time axes, both preserved, neither ever overwritten:
+//   VALID (event) time  — valid_from / valid_to on the record
+//   TRANSACTION time    — written_at on the envelope (append-only), and the
+//                         DERIVED expired_at = written_at of the version that
+//                         superseded/tombstoned this one (null = still live).
+// This is Graphiti's bi-temporal model expressed over OTHKM's append-only
+// log: nothing is deleted; "expired" is simply the existence of a later
+// version. No new storage — expired_at is computed, never stored.
+
+// Transaction-time expiry of a specific record id: when a later version
+// (or tombstone) was written. null if this id is still the live head.
+function expiredAt(store, id) {
+  const versions = store.getVersions(id);
+  if (versions.length < 2) {
+    // one version, and if it is a live head it never expired
+    return versions.length && versions[0].deleted ? versions[0].written_at : null;
+  }
+  const head = versions[versions.length - 1];
+  // the head's own write time is when the previous version expired; the
+  // head itself is live unless it is a tombstone.
+  return head.written_at || null;
+}
+
+// Event-time validity window of a record (nulls = open-ended).
+function validInterval(rec) {
+  return { from: rec.valid_from || truthTimeOf(rec) || null, to: rec.valid_to || null };
+}
+
+// Is a record valid-at-T in EVENT time (ignores transaction time)?
+// Open-ended bounds are permissive. asOf required (no wall clock).
+function validAt(rec, asOf) {
+  requireAsOf(asOf);
+  const iv = validInterval(rec);
+  const t = Date.parse(asOf);
+  if (iv.from && Date.parse(iv.from) > t) return false;   // not yet valid
+  if (iv.to && Date.parse(iv.to) <= t) return false;      // no longer valid (half-open [from,to))
+  return true;
+}
+
+// Full bi-temporal "as-of" test for a live head record: valid in event
+// time at asOf AND already known (captured) by asOf AND not superseded by
+// a resolution decided on/before asOf. This is the query the plan asks
+// for — "what was valid at a specific point in time" — combining BOTH
+// axes rather than only one.
+function validAndKnownAt(store, rec, asOf) {
+  requireAsOf(asOf);
+  if (!validAt(rec, asOf)) return false;
+  const cap = rec.provenance && rec.provenance.captured_at;
+  if (cap && Date.parse(cap) > Date.parse(asOf)) return false; // not yet known
+  if (losingIds(store, asOf).has(rec.id)) return false;        // superseded by then
+  return true;
+}
+
+// The Graphiti "invalidate, don't delete" default: when `winner`
+// supersedes `loser`, the loser stops being true when the winner starts.
+// PURE — returns the suggested valid_to for the loser (a new superseding
+// version the promotion gate would write); it never mutates the store.
+function suggestValidTo(winner, loser) {
+  const wStart = winner.valid_from || truthTimeOf(winner) || null;
+  if (!wStart) return null;
+  // never move a valid_to earlier than the loser's own start
+  const lStart = loser.valid_from || truthTimeOf(loser) || null;
+  if (lStart && Date.parse(wStart) < Date.parse(lStart)) return null;
+  return wStart;
+}
+
+module.exports = {
+  STATEMENT_KINDS, QUARANTINE_TAGS, isQuarantined, truthTimeOf, ingestTimeOf, losingIds,
+  classify, knownAt, whatChanged, latestVerified,
+  expiredAt, validInterval, validAt, validAndKnownAt, suggestValidTo,
+};

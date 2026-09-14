@@ -41,12 +41,75 @@ export function settingsView(container) {
         mods.appendChild(h('label', { class: 'toggle', for: 'mod-' + m.module_key }, cb, h('span', { text: m.module_key })));
       }
       body.appendChild(h('article', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', { text: 'Modules activés' })), mods));
+      // Phase 5 — fiscal stamp policy (droit de timbre, CDET art. 117 n°6:
+      // 1,000 TND per invoice). Stored in tenants.settings.fiscal_stamp; the
+      // rest of settings is carried over untouched.
+      const fsCur = (t.settings && t.settings.fiscal_stamp) || {};
+      const fsOn = h('input', { type: 'checkbox', name: 'fiscal_stamp_enabled', id: 'fs-enabled', checked: fsCur.enabled === true || null });
+      const fsAmt = input({ name: 'fiscal_stamp_amount', type: 'number', step: '0.001', min: '0', value: fsCur.amount !== undefined ? fsCur.amount : '1.000' });
+      const fsErr = h('p', { class: 'error', role: 'alert', hidden: true });
+      const fsSave = h('button', { type: 'button', class: 'btn btn-primary', text: 'Enregistrer le timbre' });
+      fsSave.addEventListener('click', async () => {
+        fsErr.hidden = true; fsSave.disabled = true;
+        try {
+          const settings = Object.assign({}, t.settings || {}, { fiscal_stamp: { enabled: fsOn.checked, amount: Number(fsAmt.value) } });
+          await api.patch('/settings', { settings }); toast('Timbre fiscal enregistré.', 'ok'); load();
+        } catch (e) { fsErr.textContent = describeError(e); fsErr.hidden = false; fsSave.disabled = false; }
+      });
+      body.appendChild(h('article', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', { text: 'Timbre fiscal' })),
+        h('p', { text: 'Droit de timbre appliqué par défaut à chaque nouvelle facture, devis et achat (1,000 TND par facture — art. 117 n°6 du Code des droits d\'enregistrement et de timbre). Modifiable document par document ; 0 pour une opération exonérée (export).' }),
+        h('div', { class: 'field-row' }, field('', h('label', { class: 'toggle', for: 'fs-enabled' }, fsOn, h('span', { text: 'Appliquer le timbre fiscal' }))), field('Montant (TND)', fsAmt)),
+        fsErr, h('div', {}, fsSave)));
+      // Phase 10 — backup status: the scheduled off-host backup's health
+      // record, read-only. Its own request so a missing record never hides
+      // the rest of the settings page.
+      const bkBody = h('div', { text: 'Chargement…' });
+      body.appendChild(h('article', { class: 'card', dataset: { card: 'backup' } }, h('div', { class: 'card-head' }, h('h3', { text: 'Sauvegardes' })),
+        h('p', { text: 'Sauvegarde quotidienne hors site de la base de données (planifiée sur le serveur). Cette carte lit le dernier compte rendu ; elle ne déclenche rien.' }), bkBody));
+      loadBackup(bkBody);
     } catch (e) { clear(body).appendChild(errorBox(describeError(e), load, e.body && e.body.error)); }
   }
 }
 
+const BACKUP_STATE = { ok: ['OK', 'ok'], failed: ['ÉCHEC', 'danger'], stale: ['OBSOLÈTE', 'warn'], unknown: ['INCONNU', ''] };
+const BACKUP_MODE = { backup: 'sauvegarde', verify: 'vérification', 'restore-test': 'test de restauration', unknown: '—' };
+const BACKUP_REASON = { no_health_record: 'Aucun compte rendu de sauvegarde n\'a encore été écrit sur ce serveur.', unreadable: 'Le compte rendu existe mais n\'est pas lisible par l\'API.', invalid_record: 'Le compte rendu n\'est pas un enregistrement valide.' };
+async function loadBackup(el) {
+  try {
+    const b = await api.get('/settings/backup');
+    clear(el);
+    const [label, tone] = BACKUP_STATE[b.state] || BACKUP_STATE.unknown;
+    // The badge names the run it describes: the record covers the latest run
+    // of any mode (backup / verify / restore test), so "OK — vérification"
+    // must not be read as "the backup itself succeeded".
+    const modeLabel = BACKUP_MODE[b.mode] || b.mode;
+    el.appendChild(h('p', {}, badge(b.available ? label + ' — ' + modeLabel : label, tone), ' ', b.available
+      ? 'Dernière exécution : ' + modeLabel + (b.finished_at ? ' le ' + fmtDate(b.finished_at) : '')
+      : (BACKUP_REASON[b.reason] || 'Statut indisponible.')));
+    if (!b.available) return;
+    const dl = h('dl', { class: 'kv' });
+    [['Résultat', b.status === 'ok' ? 'succès' : 'échec' + (b.exit_code !== null ? ' (code ' + b.exit_code + ')' : '')],
+      ['Durée', b.duration_s === null ? '—' : b.duration_s + ' s'],
+      ['Dernier succès', b.last_success_at ? fmtDate(b.last_success_at) + (b.hours_since_success !== null ? ' (il y a ' + b.hours_since_success + ' h)' : '') : 'jamais'],
+      ['Échecs consécutifs', String(b.consecutive_failures)],
+      ['Seuil d\'obsolescence', b.stale_after_hours + ' h sans succès'],
+      ['Erreur', b.error || '—']]
+      .forEach(([k, v]) => dl.append(h('dt', { text: k }), h('dd', { text: v })));
+    el.appendChild(dl);
+    if (b.state === 'failed') el.appendChild(h('p', { class: 'hint', text: 'La dernière exécution a échoué : vérifier le journal du service de sauvegarde sur le serveur.' }));
+    else if (b.state === 'stale') el.appendChild(h('p', { class: 'hint', text: 'Aucun succès récent : le minuteur de sauvegarde n\'a peut-être pas tourné.' }));
+  } catch (e) {
+    // Host-level record: the API shows it to the platform role only. A tenant
+    // admin gets a plain sentence, not an error box.
+    if (e && e.status === 403) { clear(el).appendChild(h('p', {}, badge('RÉSERVÉ', ''), ' Visible par le super administrateur de la plateforme uniquement.')); return; }
+    clear(el).appendChild(errorBox(describeError(e), () => loadBackup(el), e.body && e.body.error));
+  }
+}
+
 export function usersView(container) {
-  const body = h('div', { class: 'stack' }); container.appendChild(body);
+  const toolbar = h('div', { class: 'toolbar' },
+    h('button', { type: 'button', class: 'btn btn-primary', text: 'Nouvel utilisateur', onClick: () => createUser() }));
+  const body = h('div', { class: 'stack' }); container.append(toolbar, body);
   const ROLES = ['super_admin', 'admin', 'manager', 'production_user', 'finance_user', 'read_only'];
   load();
   async function load() {
@@ -63,8 +126,36 @@ export function usersView(container) {
         { key: 'is_active', label: 'Compte', render: (u) => badge(u.is_active ? 'actif' : 'inactif', u.is_active ? 'ok' : 'danger') },
         { key: 'last_login_at', label: 'Dernière connexion', render: (u) => fmtDate(u.last_login_at) }
       ], r.rows, (u) => [h('button', { type: 'button', class: 'btn btn-secondary btn-sm', text: 'Attribuer un rôle', onClick: () => assign(u) })]));
-      body.appendChild(h('p', { class: 'hint', text: 'La création de comptes passe par l\'API authentifiée (users.manage) ; aucun compte n\'est créé depuis cette page.' }));
     } catch (e) { clear(body).appendChild(errorBox(describeError(e), load, e.body && e.body.error)); }
+  }
+  function createUser() {
+    const emailEl = input({ type: 'email', name: 'email', required: true });
+    const nameEl = input({ name: 'display_name', required: true });
+    const sel = select(ROLES.map((k) => ({ value: k, label: k })), { name: 'role_key' });
+    const err = h('p', { class: 'error', role: 'alert', hidden: true });
+    const ok = h('button', { type: 'button', class: 'btn btn-primary', text: 'Créer' });
+    ok.addEventListener('click', async () => {
+      err.hidden = true; ok.disabled = true;
+      try {
+        const r = await api.post('/users', { email: emailEl.value.trim(), display_name: nameEl.value.trim(), role_key: sel.value });
+        showSetupToken(r);
+      } catch (e) { err.textContent = describeError(e); err.hidden = false; ok.disabled = false; }
+    });
+    modal({
+      title: 'Nouvel utilisateur',
+      body: h('div', {}, field('E-mail', emailEl), field('Nom affiché', nameEl), field('Rôle', sel), err),
+      actions: [h('button', { type: 'button', class: 'btn btn-ghost', text: 'Annuler', onClick: closeModal }), ok]
+    });
+  }
+  function showSetupToken(r) {
+    modal({
+      title: 'Compte créé — ' + r.display_name,
+      body: h('div', { class: 'stack' },
+        h('p', { text: 'Transmettez ce jeton à ' + r.email + ' en dehors de l\'application (ex. message direct). Il n\'est affiché qu\'une seule fois et ne sera plus jamais visible ensuite.' }),
+        h('p', { class: 'kv' }, h('code', { text: r.setup_token || '(compte existant : aucun nouveau jeton — utilisez son mot de passe existant)' })),
+        h('p', { class: 'hint', text: r.email + ' doit utiliser ce jeton sur l\'écran de connexion, lien « Mot de passe oublié », pour définir son mot de passe.' })),
+      actions: [h('button', { type: 'button', class: 'btn btn-primary', text: 'Fermer', onClick: () => { closeModal(); load(); } })]
+    });
   }
   function assign(u) {
     const sel = select(ROLES.map((k) => ({ value: k, label: k })), { name: 'role_key' });

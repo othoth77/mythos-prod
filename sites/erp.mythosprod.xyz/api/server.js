@@ -20,25 +20,67 @@ var auth = require('./lib/auth');
 var tenancy = require('./lib/tenancy');
 var tokens = require('./lib/tokens');
 var resource = require('./lib/resource');
+var ratelimit = require('./lib/ratelimit');
 var registry = require('./modules/registry');
 var prospects = require('./modules/prospects');
+var accounting = require('./modules/accounting');
 var invoices = require('./modules/invoices');
+var quotes = require('./modules/quotes');
+var documents = require('./modules/documents');
+var purchases = require('./modules/purchases');
+var bank = require('./modules/bank');
+var missionOrders = require('./modules/mission-orders');
+var expenses = require('./modules/expenses');
+var contacts = require('./modules/contacts');
+var cash = require('./modules/cash');
+var usersModule = require('./modules/users');
 var views = require('./modules/views');
 
 var MAX_BODY = 1024 * 1024;          // 1 MiB of JSON is already generous
 var UUID = db.UUID;
 
+// What this running process actually is, not what the checkout on disk holds
+// right now: a long-lived daemon runs what its checkout held when it
+// started, which silently drifts from HEAD the moment `main` moves and
+// nobody restarts it (Phase 15: production sat many commits behind origin
+// for hours with no signal). Measured once at startup, from this file's own
+// location (never from configuration, which can lie), and reported in
+// GET /health as `code_identity` — the same pattern already used by
+// mythos-ai-executor's health check for the identical problem.
+var CODE_IDENTITY = (function () {
+  var out = { head: null, branch: null, checkout: null, measured_at: new Date().toISOString(),
+    started_at: new Date(Date.now() - process.uptime() * 1000).toISOString(), pid: process.pid, verified: false, reason: null };
+  try {
+    var cp = require('child_process');
+    var run = function (args) {
+      var r = cp.spawnSync('git', ['-c', 'core.hooksPath=/var/empty'].concat(args),
+        { cwd: __dirname, encoding: 'utf8', timeout: 5000,
+          env: Object.assign({}, process.env, { GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0' }) });
+      return r.status === 0 ? String(r.stdout).trim() : null;
+    };
+    out.checkout = run(['rev-parse', '--show-toplevel']);
+    out.head = run(['rev-parse', 'HEAD']);
+    out.branch = run(['rev-parse', '--abbrev-ref', 'HEAD']);
+    out.verified = !!(out.checkout && out.head && /^[0-9a-f]{40}$/.test(out.head));
+    if (!out.verified) out.reason = 'cannot resolve the git checkout/HEAD of ' + __dirname;
+  } catch (e) { out.reason = String(e.message).slice(0, 200); }
+  return out;
+})();
+
 /* ── Route table ────────────────────────────────────────────────────────────
    [method, pattern, module, handler, validate]
    :id in a pattern must be a UUID — a non-UUID never reaches a handler. */
 var routes = [];
-function route(method, pattern, module, handler, validate) {
+function route(method, pattern, module, handler, validate, maxBody) {
   var names = [];
   var rx = new RegExp('^' + pattern.replace(/:([a-z_]+)/g, function (_, n) {
     names.push(n);
     return '([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})';
   }) + '$', 'i');
-  routes.push({ method: method, rx: rx, names: names, module: module, handler: handler, validate: validate });
+  // maxBody: almost every route is fine with the 1 MiB global cap; a document
+  // upload is base64 JSON and needs more room. Declared per route, never
+  // globally, so raising it for uploads cannot quietly raise it everywhere.
+  routes.push({ method: method, rx: rx, names: names, module: module, handler: handler, validate: validate, maxBody: maxBody || MAX_BODY });
 }
 
 // ── Public and tenant-free ────────────────────────────────────────────────
@@ -50,9 +92,9 @@ route('GET', '/api/v1/health', null, function (ctx, client) {
   return client.query('SELECT current_user AS role, 1 AS one').then(function (r) {
     var role = r.rows && r.rows[0] && r.rows[0].role;
     var ok = !!(r.rows && r.rows[0] && r.rows[0].one === 1) && role !== 'erp_owner';
-    return { status: ok ? 200 : 503, body: { ok: ok, db: ok ? 'ready' : 'not_ready', role: role || null } };
+    return { status: ok ? 200 : 503, body: { ok: ok, db: ok ? 'ready' : 'not_ready', role: role || null, code_identity: CODE_IDENTITY } };
   }).catch(function () {
-    return { status: 503, body: { ok: false, db: 'unreachable', role: null } };
+    return { status: 503, body: { ok: false, db: 'unreachable', role: null, code_identity: CODE_IDENTITY } };
   });
 });
 
@@ -80,6 +122,29 @@ route('POST', '/api/v1/auth/logout', null, function (ctx, client) {
       return { status: 200, headers: { 'Set-Cookie': tokens.clearCookieHeader() },
                body: { ok: true }, skipAudit: true };
     });
+});
+
+// Pure passthrough to lib/auth.js's already-tested requestPasswordReset /
+// completePasswordReset — both were built and unit-tested long before this,
+// just never reachable over HTTP. Paths match pipeline.js's own pre-existing
+// PUBLIC_ROUTES entries (unauthenticated, CSRF-exempt by construction — there
+// is no session yet to bind a token to). Both functions audit internally.
+route('POST', '/api/v1/auth/password-reset/request', null, function (ctx, client) {
+  return auth.requestPasswordReset({ db: client }, ctx.body && ctx.body.email, ctx.ip)
+    .then(function () {
+      // Identical response whether or not the address exists — the point of
+      // the underlying function is exactly this non-oracle behavior.
+      return { status: 200, body: { ok: true }, skipAudit: true };
+    });
+});
+
+route('POST', '/api/v1/auth/password-reset/complete', null, function (ctx, client) {
+  return auth.completePasswordReset(
+    { db: client }, ctx.body && ctx.body.token, ctx.body && ctx.body.password, ctx.ip
+  ).then(function (r) {
+    if (!r.ok) return { status: 422, body: { error: r.error }, skipAudit: true };
+    return { status: 200, body: { ok: true }, skipAudit: true };
+  });
 });
 
 // Session restore for a reloaded or newly opened tab. The CSRF token is stored
@@ -127,12 +192,32 @@ route('GET', '/api/v1/dashboard', 'dashboard', views.dashboard.summary);
 route('GET', '/api/v1/reports/revenue', 'reports', views.reports.revenue);
 route('GET', '/api/v1/reports/receivables', 'reports', views.reports.receivables);
 route('GET', '/api/v1/reports/expenses', 'reports', views.reports.expenses);
+route('GET', '/api/v1/reports/prospects', 'reports', views.reports.prospects);
+route('GET', '/api/v1/reports/inventory', 'reports', views.reports.inventory);
 
 // ── Settings, users, audit ────────────────────────────────────────────────
 route('GET', '/api/v1/settings', 'settings', views.settings.read);
 route('PATCH', '/api/v1/settings', 'settings', views.settings.update);
 route('POST', '/api/v1/settings/modules', 'settings', views.settings.setModule);
+// Phase 10: read-only backup health (settings.read); host-level, redacted.
+route('GET', '/api/v1/settings/backup', 'settings', views.settings.backup);
+
+// ── Contacts import / dedup (Phase 11) — module 'clients' ─────────────────
+// Fixed paths; the generic /contacts/:id only matches a UUID. File text is
+// carried in the JSON body (the browser reads the file), so these two routes
+// take a larger body cap than the 1 MiB default: MAX_TEXT is in characters,
+// the cap in bytes — non-ASCII text is up to 3 bytes/char in UTF-8 JSON, so
+// the cap admits the whole allowed text and validation applies the limit.
+var IMPORT_BODY_CAP = contacts.MAX_TEXT * 3 + 256 * 1024;
+route('POST',   '/api/v1/contacts/import/preview', 'clients', contacts.handlers.preview, contacts.validateImport, IMPORT_BODY_CAP);
+route('POST',   '/api/v1/contacts/import', 'clients', contacts.handlers.importFile, contacts.validateImport, IMPORT_BODY_CAP);
+route('GET',    '/api/v1/contacts/imports', 'clients', contacts.handlers.imports);
+route('PATCH',  '/api/v1/contacts/imports/:id', 'clients', contacts.handlers.relabel, contacts.validateLabel);
+route('DELETE', '/api/v1/contacts/imports/:id', 'clients', contacts.handlers.retireImport);
+route('GET',    '/api/v1/contacts/duplicates', 'clients', contacts.handlers.duplicates);
+route('POST',   '/api/v1/contacts/merge', 'clients', contacts.handlers.merge, contacts.validateMerge);
 route('GET', '/api/v1/users', 'users', views.users.list);
+route('POST', '/api/v1/users', 'users', usersModule.handlers.create);
 route('POST', '/api/v1/users/roles', 'users', views.users.assignRole);
 route('GET', '/api/v1/audit', 'audit', views.audit.list);
 
@@ -146,11 +231,130 @@ route('PATCH',  '/api/v1/invoices/:id', 'invoices', invoices.handlers.update,
 route('DELETE', '/api/v1/invoices/:id', 'invoices', invoices.handlers.retire);
 route('POST',   '/api/v1/invoices/:id/payments', 'invoices', invoices.handlers.addPayment);
 
+// ── Quotes — dedicated (MVP: real lines, not the header-only generic CRUD
+// registry.js used to drive; module stays 'finance' so no permission model
+// change is needed — finance.read/write/delete already gate exactly this) ──
+route('GET',    '/api/v1/quotes', 'finance', quotes.handlers.list);
+route('POST',   '/api/v1/quotes', 'finance', quotes.handlers.create,
+      function (b) { return quotes.validateHeader(b, false); });
+route('GET',    '/api/v1/quotes/:id', 'finance', quotes.handlers.get);
+route('PATCH',  '/api/v1/quotes/:id', 'finance', quotes.handlers.update,
+      function (b) { return quotes.validateHeader(b, true); });
+route('DELETE', '/api/v1/quotes/:id', 'finance', quotes.handlers.retire);
+route('POST',   '/api/v1/quotes/:id/convert', 'finance', quotes.handlers.convert);
+
+// ── Purchases — dedicated (Phase 2, P1: real status lifecycle, supplier
+// payments, automatic accounting posting, not the flat header-only generic
+// CRUD registry.js used to drive; module stays 'finance', same permission
+// gate as invoices/quotes/purchases have always shared) ───────────────────
+route('GET',    '/api/v1/purchases', 'finance', purchases.handlers.list);
+route('POST',   '/api/v1/purchases', 'finance', purchases.handlers.create,
+      function (b) { return purchases.validateHeader(b, false); });
+route('GET',    '/api/v1/purchases/:id', 'finance', purchases.handlers.get);
+route('PATCH',  '/api/v1/purchases/:id', 'finance', purchases.handlers.update,
+      function (b) { return purchases.validateHeader(b, true); });
+route('DELETE', '/api/v1/purchases/:id', 'finance', purchases.handlers.retire);
+route('POST',   '/api/v1/purchases/:id/payments', 'finance', purchases.handlers.addPayment);
+
+// ── Bank transactions & reconciliation (Phase 3, P1) — dedicated, reusing
+// bank_entries (schema.sql) rather than the generic engine bank_accounts
+// still uses, because matching/unmatching/ignoring are deliberate audited
+// state transitions a generic PATCH cannot express safely. Module stays
+// 'finance', same gate bank_accounts already has (finance.read/write). This
+// module never touches accounting/journal_entries — see modules/bank.js's
+// header comment for why. ─────────────────────────────────────────────────
+route('GET',    '/api/v1/bank_entries', 'finance', bank.handlers.list);
+route('POST',   '/api/v1/bank_entries', 'finance', bank.handlers.create,
+      function (b) { return bank.validateHeader(b, false); });
+route('GET',    '/api/v1/bank_entries/:id', 'finance', bank.handlers.get);
+route('PATCH',  '/api/v1/bank_entries/:id', 'finance', bank.handlers.update,
+      function (b) { return bank.validateHeader(b, true); });
+route('GET',    '/api/v1/bank_entries/:id/candidates', 'finance', bank.handlers.candidates);
+route('POST',   '/api/v1/bank_entries/:id/match', 'finance', bank.handlers.match);
+route('POST',   '/api/v1/bank_entries/:id/unmatch', 'finance', bank.handlers.unmatch);
+route('POST',   '/api/v1/bank_entries/:id/ignore', 'finance', bank.handlers.ignore);
+
+// ── Mission orders (Phase 4, P1) — vehicle/driver dispatch sheets, no
+// client/project/amount/approval link (legacy evidence proves none exist);
+// module reuses the EXISTING 'production' module and its already-seeded
+// production.read/production.write permissions, the same gate collaborators
+// and representations already share — no new module, no new permission. ──
+route('GET',    '/api/v1/mission_orders', 'production', missionOrders.handlers.list);
+route('POST',   '/api/v1/mission_orders', 'production', missionOrders.handlers.create,
+      function (b) { return missionOrders.validateHeader(b, false); });
+route('GET',    '/api/v1/mission_orders/:id', 'production', missionOrders.handlers.get);
+route('PATCH',  '/api/v1/mission_orders/:id', 'production', missionOrders.handlers.update,
+      function (b) { return missionOrders.validateHeader(b, true); });
+// Retire (soft delete). Phase 4 shipped without this route because the
+// 'production' module had no delete permission in the catalogue at all;
+// 0012 (Phase 6) seeded production.delete / inventory.delete and mapped
+// them in api/lib/authz.js, which also made the generic DELETE routes of
+// collaborators, representations, inventory_items and suppliers reachable.
+route('DELETE', '/api/v1/mission_orders/:id', 'production', missionOrders.handlers.retire);
+
+// ── Expenses — dedicated (Phase 7, P1): each expense posts to the ledger at
+// creation (cash/bank by the payment_method rule, HT + deductible VAT), is
+// reversed on retire, and keeps its posted amount/date/VAT/method/category
+// immutable. Module stays 'finance', the gate the generic DEF used. ────────
+route('GET',    '/api/v1/expenses', 'finance', expenses.handlers.list);
+route('POST',   '/api/v1/expenses', 'finance', expenses.handlers.create,
+      function (b) { return expenses.validateHeader(b, false); });
+route('GET',    '/api/v1/expenses/:id', 'finance', expenses.handlers.get);
+route('PATCH',  '/api/v1/expenses/:id', 'finance', expenses.handlers.update,
+      function (b) { return expenses.validateHeader(b, true); });
+route('DELETE', '/api/v1/expenses/:id', 'finance', expenses.handlers.retire);
+
+// ── Cash register (Phase 8, P1): manual cash movements posting to the CA
+// journal (bank ⇄ till, other in/out against a chosen account), reversed
+// on retire; the cash book itself is the ledger of the 'cash' system
+// account. /summary is a fixed path — ':id' only matches a UUID. ─────────
+route('GET',    '/api/v1/cash_entries/summary', 'finance', cash.handlers.summary);
+route('GET',    '/api/v1/cash_entries/book', 'finance', cash.handlers.book);
+route('GET',    '/api/v1/cash_entries/counterparts', 'finance', cash.handlers.counterparts);
+route('GET',    '/api/v1/cash_entries', 'finance', cash.handlers.list);
+route('POST',   '/api/v1/cash_entries', 'finance', cash.handlers.create,
+      function (b) { return cash.validateHeader(b, false); });
+route('GET',    '/api/v1/cash_entries/:id', 'finance', cash.handlers.get);
+route('PATCH',  '/api/v1/cash_entries/:id', 'finance', cash.handlers.update,
+      function (b) { return cash.validateHeader(b, true); });
+route('DELETE', '/api/v1/cash_entries/:id', 'finance', cash.handlers.retire);
+
+// ── Comptabilité / general ledger (0005-accounting.sql) ───────────────────
+// All tenant-scoped, module 'accounting': GET = accounting.read, POST/PATCH =
+// accounting.write; post/reverse add accounting.post, close/setup add
+// accounting.close inside the handlers. Declared before the generic resources
+// (accounts, journals) so the specific paths match first.
+route('GET',   '/api/v1/accounting/setup', 'accounting', accounting.setup.status);
+route('POST',  '/api/v1/accounting/setup', 'accounting', accounting.setup.run);
+route('GET',   '/api/v1/accounting/periods', 'accounting', accounting.periods.list);
+route('POST',  '/api/v1/accounting/periods/:id/close', 'accounting', accounting.periods.close);
+route('GET',   '/api/v1/accounting/trial-balance', 'accounting', accounting.reports.trialBalance);
+route('GET',   '/api/v1/accounting/ledger', 'accounting', accounting.reports.ledger);
+route('GET',   '/api/v1/accounting/vat', 'accounting', accounting.reports.vat);
+route('GET',   '/api/v1/accounting/entries', 'accounting', accounting.entries.list);
+route('POST',  '/api/v1/accounting/entries', 'accounting', accounting.entries.create);
+route('GET',   '/api/v1/accounting/entries/:id', 'accounting', accounting.entries.get);
+route('PATCH', '/api/v1/accounting/entries/:id', 'accounting', accounting.entries.update);
+route('POST',  '/api/v1/accounting/entries/:id/post', 'accounting', accounting.entries.post);
+route('POST',  '/api/v1/accounting/entries/:id/reverse', 'accounting', accounting.entries.reverse);
+route('POST',  '/api/v1/accounting/entries/:id/void', 'accounting', accounting.entries.void);
+
+// ── Secure documents: upload and download (Phase 12) ──────────────────────
+// documents.write gates the upload (module GET/POST map in lib/authz.js);
+// download reuses documents.read, same as the generic GET. 21 MiB body cap:
+// documents.MAX_BYTES (15 MiB) as base64 (~+33%) plus headroom for the other
+// JSON fields — every other route keeps the 1 MiB default.
+route('POST', '/api/v1/documents', 'documents', documents.handlers.upload, null, 21 * 1024 * 1024);
+route('GET',  '/api/v1/documents/:id/download', 'documents', documents.handlers.download);
+
 // ── Prospects: conversion into a client (0004-prospects.sql) ─────────────
 // Gated by the pipeline on prospects.write (POST on the module) and, inside
 // the handler, on prospects.convert. Declared before the generic resources so
 // the more specific path is matched first.
 route('POST', '/api/v1/prospects/:id/convert', 'prospects', prospects.convert);
+// Phase 9: due reminders/tasks (agenda.read). A fixed path — ':id' only
+// matches a UUID, so it cannot shadow the generic agenda_events/:id.
+route('GET', '/api/v1/agenda_events/due', 'agenda', views.agenda.due);
 
 // ── Declarative resources ─────────────────────────────────────────────────
 Object.keys(registry.DEFS).forEach(function (name) {
@@ -183,13 +387,14 @@ function match(method, pathname) {
   return null;
 }
 
-function readBody(req) {
+function readBody(req, limit) {
+  var cap = limit || MAX_BODY;
   return new Promise(function (resolve, reject) {
     var chunks = [], size = 0;
     req.on('data', function (c) {
       size += c.length;
       // Refuse oversize before buffering it, not after.
-      if (size > MAX_BODY) { reject(new Error('payload too large')); req.destroy(); return; }
+      if (size > cap) { reject(new Error('payload too large')); req.destroy(); return; }
       chunks.push(c);
     });
     req.on('end', function () {
@@ -215,6 +420,24 @@ function send(res, status, body, headers) {
   }, headers || {});
   res.writeHead(status, h);
   res.end(payload);
+}
+
+// A handler that answers with a file body (document download) sets
+// `raw: <Buffer>` instead of `body`; everything else about the response goes
+// through the same headers path (nosniff, no-store by default, CSP), so a
+// download cannot accidentally skip a security header the JSON path always
+// sets. The content type is never guessed from a filename — it is whatever
+// the handler explicitly put in `headers['Content-Type']`.
+function sendRaw(res, status, buf, headers) {
+  var h = Object.assign({
+    'Content-Length': buf.length,
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'no-referrer',
+    'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'; sandbox"
+  }, headers || {});
+  res.writeHead(status, h);
+  res.end(buf);
 }
 
 /* Optional same-origin serving of the browser app (sites/erp.mythosprod.xyz/app).
@@ -257,6 +480,18 @@ function serveApp(req, res, pathname) {
 function createServer(deps) {
   var serveStatic = process.env.ERP_SERVE_APP === '1';
   return http.createServer(function (req, res) {
+    // The single, authoritative rate-limit decision for this connection: made
+    // before routing, before the body-size check, before static serving —
+    // anything reachable from here at all has already been counted. A check
+    // placed inside pipeline.handle() (where it lived at first) never saw an
+    // unmatched route or an oversize-declared body, because both return
+    // before pipeline.handle() is ever called; this is the one point every
+    // request passes through regardless of what it turns out to be.
+    var ip = (req.socket && req.socket.remoteAddress) || null;
+    var rl = ratelimit.check(ip);
+    if (!rl.allowed) {
+      return send(res, 429, { error: 'rate_limited' }, { 'Retry-After': String(rl.retryAfterSeconds) });
+    }
     var parsed = url.parse(req.url, true);
     if (serveStatic && parsed.pathname.indexOf('/api/') !== 0) return serveApp(req, res, parsed.pathname);
     var found = match(req.method, parsed.pathname);
@@ -265,13 +500,14 @@ function createServer(deps) {
     // real 413 the client can see. (The streaming guard below still covers
     // chunked or lying senders, but destroying the socket mid-body means the
     // client sees a reset rather than a status — found in Phase 5 live checks.)
+    var cap = found.route.maxBody;
     var declared = Number(req.headers['content-length'] || 0);
-    if (declared > MAX_BODY) {
+    if (declared > cap) {
       res.on('finish', function () { req.destroy(); });
       return send(res, 413, { error: 'payload too large' }, { Connection: 'close' });
     }
 
-    readBody(req).then(function (body) {
+    readBody(req, cap).then(function (body) {
       var request = {
         method: req.method,
         path: parsed.pathname,
@@ -300,6 +536,7 @@ function createServer(deps) {
         });
       }, found.route.validate);
     }).then(function (r) {
+      if (r && r.raw) return sendRaw(res, r.status, r.raw, r.headers);
       send(res, r.status, r.body, r.headers);
     }).catch(function (e) {
       // Never leak an internal message to a client. The detail goes to the log.
@@ -311,6 +548,12 @@ function createServer(deps) {
                  '23514': [422, 'constraint_violation'], '22P02': [422, 'invalid_value'], '22007': [422, 'invalid_value'],
                  '22008': [422, 'invalid_value'], '22003': [422, 'out_of_range'], '22001': [422, 'value_too_long'] };
       var pg = e && e.code && PG[e.code];
+      // A module may raise a deliberate business refusal from inside another
+      // module's transaction (e.g. the ledger refusing an invoice issue into a
+      // closed period): it carries a 4xx status and a safe message.
+      if (e && e.expose === true && e.status >= 400 && e.status < 500) {
+        return send(res, e.status, { error: String(e.message).replace(/^accounting: /, '') });
+      }
       var status = pg ? pg[0]
                  : /payload too large/.test(String(e && e.message)) ? 413
                  : /not valid JSON/.test(String(e && e.message)) ? 400 : 500;

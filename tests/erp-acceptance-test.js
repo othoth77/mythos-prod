@@ -173,10 +173,14 @@ async function seed() {
   var inv0 = await A.call('POST', '/api/v1/inventory_items', { label: 'Cable XLR', sku: 'XLR-1', min_quantity: 5 });
   check('inventory: item created', inv0.status === 201, JSON.stringify(inv0.body));
   // Document ROWS are created by the upload path, which owns storage_key. The
-  // generic create route is deliberately not mounted, so this must 404 — a
-  // known gap recorded in the final report, not a silent hole.
+  // The generic create route is still not mounted for documents; POST is
+  // owned by the Phase 12 upload handler instead, which validates mime_type
+  // and content_base64 before it ever looks at storage_key/sha256 — so a
+  // body shaped like a generic create (no file, just metadata) is refused by
+  // the upload's own validation, not by a missing route.
   var doc = await A.call('POST', '/api/v1/documents', { category: 'contract', project_id: pa.body.id });
-  check('documents: generic create is not exposed (upload path owns storage_key)', doc.status === 404);
+  check('documents: POST is the upload handler, not a generic create (422, no file supplied)', doc.status === 422, JSON.stringify(doc.body));
+  check('documents: a generic create body cannot set storage_key/sha256 directly', !('storage_key' in (doc.body || {})));
   check('documents: listing works', (await A.call('GET', '/api/v1/documents')).status === 200);
   var exp = await A.call('POST', '/api/v1/expenses', { description: 'Travel', amount: '120.500', spent_on: '2026-08-01' });
   check('finance: expense created', exp.status === 201, JSON.stringify(exp.body));

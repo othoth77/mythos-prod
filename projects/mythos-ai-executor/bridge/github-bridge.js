@@ -927,6 +927,10 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
     // process. Throws ACTION_PROFILE_MISMATCH — it cannot be caught into a
     // provider start.
     engine.assertActionProfile(task.requested_action, exec.execution_profile, { task_id: id, attempt_id: attemptId });
+    var chosenProvider =
+      process.env.MYTHOS_EXECUTOR_ALLOW_MOCK === '1' && process.env.MYTHOS_BRIDGE_PROVIDER === 'mock'
+        ? 'mock'
+        : (task.lane ? 'delegate' : 'claude-code');
     var created = executor.createTask({
       project: task.project,
       stage: 'github:' + id,
@@ -936,7 +940,16 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
       mode: 'autonomous',
       // Always the execution provider. The mock is reachable ONLY when the
       // executor itself allows it (tests); production units never set that.
-      provider: process.env.MYTHOS_EXECUTOR_ALLOW_MOCK === '1' && process.env.MYTHOS_BRIDGE_PROVIDER === 'mock' ? 'mock' : 'claude-code',
+      // A task that names a lane runs through the delegation boundary
+      // (delegate-skills chooses the implementer CLI); everything else
+      // keeps the executor's own Claude provider. A lane changes WHICH
+      // CLI runs, never what the task may do: execution_profile below
+      // still comes from requested_action, server-side.
+      provider: chosenProvider,
+      // Only the delegate provider understands a lane; sending one to any
+      // other provider is refused by createTask, so it is dropped here
+      // when the mock stands in during tests.
+      lane: chosenProvider === 'delegate' ? task.lane : null,
       execution_profile: exec.execution_profile,
       // Optional (Issue #100). Absent → executor.createTask scores the task
       // and chooses haiku/sonnet/opus; present → that model or a refusal.

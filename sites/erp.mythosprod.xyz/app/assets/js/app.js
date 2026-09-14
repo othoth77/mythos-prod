@@ -11,9 +11,19 @@ import { start as startRouter, go } from './router.js';
 import { h, clear, toast, tabs, errorBox, empty } from './ui.js';
 import { resourceView, RESOURCE_TITLES } from './views/resource.js';
 import { invoicesView } from './views/invoices.js';
+import { quotesView } from './views/quotes.js';
 import { dashboardView } from './views/dashboard.js';
 import { reportsView } from './views/reports.js';
 import { settingsView, usersView, auditView } from './views/admin.js';
+import { accountingView } from './views/accounting.js';
+import { agendaView } from './views/agenda.js';
+import { documentsView } from './views/documents.js';
+import { bankTransactionsView } from './views/bank.js';
+import { missionOrdersView } from './views/mission-orders.js';
+import { purchasesView } from './views/purchases.js';
+import { expensesView } from './views/expenses.js';
+import { contactsView } from './views/contacts.js';
+import { cashView } from './views/cash.js';
 
 /* Module → what the view shows. A module with several resources gets tabs. */
 const MODULES = {
@@ -21,9 +31,11 @@ const MODULES = {
   clients:    { title: 'Clients', kicker: 'Répertoire', glyph: '●', resources: ['clients', 'contacts'] },
   prospects:  { title: 'Prospects', kicker: 'Commercial', glyph: '◎', resources: ['prospects'] },
   projects:   { title: 'Projets', kicker: 'Production', glyph: '▲', resources: ['projects', 'contracts'] },
-  planning:   { title: 'Planning', kicker: 'Agenda', glyph: '◔', resources: ['appointments'] },
-  production: { title: 'Production', kicker: 'Spectacles', glyph: '◆', resources: ['representations', 'collaborators'] },
-  finance:    { title: 'Finance', kicker: 'Flux', glyph: '■', resources: ['invoices', 'quotes', 'purchases', 'expenses', 'bank_accounts'] },
+  planning:   { title: 'Planning', kicker: 'Rendez-vous', glyph: '◔', resources: ['appointments'] },
+  agenda:     { title: 'Agenda', kicker: 'Événements, tâches, rappels', glyph: '◉', view: (el, r) => agendaView(el, r) },
+  production: { title: 'Production', kicker: 'Spectacles', glyph: '◆', resources: ['representations', 'collaborators', 'mission_orders'] },
+  finance:    { title: 'Finance', kicker: 'Flux', glyph: '■', resources: ['invoices', 'quotes', 'purchases', 'expenses', 'cash_entries', 'bank_accounts', 'bank_entries'] },
+  accounting: { title: 'Comptabilité', kicker: 'Grand livre', glyph: '⚖', view: (el, r) => accountingView(el, r) },
   documents:  { title: 'Documents', kicker: 'Pièces', glyph: '▬', resources: ['documents'] },
   reports:    { title: 'Rapports', kicker: 'Analyse', glyph: '◧', view: (el, r) => reportsView(el, r.resource) },
   inventory:  { title: 'Inventaire', kicker: 'Stock', glyph: '▤', resources: ['inventory_items', 'suppliers'] },
@@ -43,6 +55,9 @@ async function boot() {
   $('login-form').addEventListener('submit', onLogin);
   $('logout').addEventListener('click', onLogout);
   $('tenant-select').addEventListener('change', onTenantChange);
+  $('login-show-setup').addEventListener('click', showSetup);
+  $('setup-show-login').addEventListener('click', showLogin);
+  $('setup-form').addEventListener('submit', onSetupPassword);
   document.addEventListener('erp:modules-changed', () => refreshModules().then(renderRail));
   // Always ask the server: the HttpOnly cookie may be valid even when this
   // tab holds no state yet (new tab). 401 → login form.
@@ -55,7 +70,35 @@ async function boot() {
 
 function showLogin() {
   $('app').hidden = true; $('login').hidden = false; clear($('view'));
+  $('login-form').hidden = false; $('setup-form').hidden = true;
+  // Every path that shows this form (boot with no session, session-expired
+  // drop-back, explicit logout) must start from an empty state: neither field
+  // is cleared by onLogin() itself except password on success, so a value
+  // typed before a previous attempt can otherwise still be sitting here —
+  // clicking in and typing again then inserts at the cursor instead of
+  // replacing it, corrupting the submitted email/password.
+  $('login-email').value = ''; $('login-password').value = '';
   $('login-email').focus();
+}
+
+function showSetup() {
+  $('login-form').hidden = true; $('setup-form').hidden = false;
+  $('setup-token').value = ''; $('setup-password').value = '';
+  $('setup-error').hidden = true; $('setup-ok').hidden = true;
+  $('setup-token').focus();
+}
+
+async function onSetupPassword(ev) {
+  ev.preventDefault();
+  const err = $('setup-error'); err.hidden = true;
+  const ok = $('setup-ok'); ok.hidden = true;
+  const btn = $('setup-submit'); btn.disabled = true;
+  try {
+    await api.post('/auth/password-reset/complete', { token: $('setup-token').value.trim(), password: $('setup-password').value });
+    $('setup-token').value = ''; $('setup-password').value = '';
+    ok.hidden = false;
+  } catch (e) { err.textContent = describeError(e); err.hidden = false; }
+  finally { btn.disabled = false; }
 }
 
 async function onLogin(ev) {
@@ -137,11 +180,15 @@ function route(r) {
         (k) => go(r.module + '/' + k)), body);
     }
     if (res === 'invoices') return invoicesView(body, r.id);
+    if (res === 'quotes') return quotesView(body, r.id);
     if (res === 'settings') return settingsView(body);
-    if (res === 'documents') {
-      body.appendChild(h('div', { class: 'notice' }, h('strong', { text: 'Dépôt de fichiers non disponible. ' }),
-        'Le pipeline de documents sécurisé est une phase ultérieure ; cette vue liste seulement les enregistrements existants.'));
-    }
+    if (res === 'documents') return documentsView(body);
+    if (res === 'bank_entries') return bankTransactionsView(body);
+    if (res === 'mission_orders') return missionOrdersView(body, r);
+    if (res === 'purchases') return purchasesView(body, r.id);
+    if (res === 'expenses') return expensesView(body, r.id);
+    if (res === 'contacts') return contactsView(body, r.id);
+    if (res === 'cash_entries') return cashView(body);
     resourceView(res, body);
   } catch (e) { body.appendChild(errorBox('Cette vue n\'a pas pu s\'afficher.', () => route(r), String(e && e.message))); }
 }

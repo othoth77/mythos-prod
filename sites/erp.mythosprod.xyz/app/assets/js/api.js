@@ -67,6 +67,8 @@ export function describeError(err) {
     invalid_credentials: 'Identifiants incorrects.',
     rate_limited: 'Trop de tentatives. Réessayez plus tard.',
     locked: 'Compte temporairement verrouillé.',
+    invalid_token: 'Jeton invalide, expiré ou déjà utilisé. Demandez-en un nouveau à un administrateur.',
+    already_member: 'Cette personne est déjà membre de cette entité.',
     internal_error: 'Erreur serveur.'
   };
   if (map[e]) return map[e];

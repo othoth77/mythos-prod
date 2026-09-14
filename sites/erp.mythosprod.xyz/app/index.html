@@ -32,6 +32,29 @@
     </div>
     <p class="error" id="login-error" role="alert" hidden></p>
     <button type="submit" class="btn btn-primary" id="login-submit">Se connecter</button>
+    <button type="button" class="btn btn-ghost" id="login-show-setup">J'ai un jeton de configuration</button>
+  </form>
+  <!-- Shown only after "J'ai un jeton de configuration": completes account
+       setup for a teammate who received a one-time token from an
+       administrator (Utilisateurs → Nouvel utilisateur). Not a general
+       self-service "forgot password" flow — no email/SMS delivery exists
+       yet, so a lost token still requires asking an administrator. -->
+  <form class="login-card card" id="setup-form" novalidate hidden>
+    <div class="rail-brand"><span class="wordmark">MYTHOS</span><span class="unit">ERP</span></div>
+    <h1>Configurer mon mot de passe</h1>
+    <p class="login-sub">Jeton reçu d'un administrateur.</p>
+    <div class="field">
+      <label for="setup-token">Jeton</label>
+      <input class="input" id="setup-token" name="token" required>
+    </div>
+    <div class="field">
+      <label for="setup-password">Nouveau mot de passe</label>
+      <input class="input" id="setup-password" name="password" type="password" autocomplete="new-password" minlength="12" required>
+    </div>
+    <p class="error" id="setup-error" role="alert" hidden></p>
+    <p class="hint" id="setup-ok" hidden>Mot de passe défini. Vous pouvez maintenant vous connecter.</p>
+    <button type="submit" class="btn btn-primary" id="setup-submit">Définir le mot de passe</button>
+    <button type="button" class="btn btn-ghost" id="setup-show-login">Retour à la connexion</button>
   </form>
 </section>
 

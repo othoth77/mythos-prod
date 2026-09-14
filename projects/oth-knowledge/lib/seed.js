@@ -38,7 +38,7 @@ function loadSeed(store, classes, seedPath) {
   });
 
   const byKey = new Map();
-  const created = { entities: 0, facts: 0, observations: 0, events: 0, evidence: 0 };
+  const created = { entities: 0, facts: 0, claims: 0, observations: 0, events: 0, evidence: 0 };
   const keep = (key, rec) => {
     if (key) {
       if (byKey.has(key)) throw fail('OTHK_SEED_INPUT', 'duplicate seed key ' + key);
@@ -62,6 +62,23 @@ function loadSeed(store, classes, seedPath) {
       prov: baseProv(o), entity_ids: entityIds(o), tags: o.tags, metadata: o.metadata,
     }));
     created.observations++;
+  }
+  // Claims are loaded before facts so a fact may cite one as evidence.
+  // `claim` is already in the model's closed KINDS enum and already has a
+  // constructor in extract.js — this loop only gives the authorised curated
+  // path access to it. Repository-derived documentation belongs here rather
+  // than under `facts`: a fact from a repository-verified source assesses as
+  // `accepted-fact`, whereas a claim assesses as `imported-claim`, which is
+  // what "a claim is never presented as a fact" requires.
+  for (const c of seed.claims || []) {
+    if (typeof c.asserted_by !== 'string' || !c.asserted_by) {
+      throw fail('OTHK_SEED_INPUT', 'claim requires asserted_by' + (c.key ? ' (key ' + c.key + ')' : ''));
+    }
+    keep(c.key, extract.addClaim(store, classes, {
+      statement: c.statement, asserted_by: c.asserted_by,
+      prov: baseProv(c), entity_ids: entityIds(c), tags: c.tags, metadata: c.metadata,
+    }));
+    created.claims++;
   }
   for (const f of seed.facts || []) {
     const fact = keep(f.key, extract.addFact(store, classes, {

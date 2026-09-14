@@ -101,8 +101,20 @@ function serviceHolder(storeRoot) {
     // answer, which is exactly what this facade must never give. OTHMODE's
     // memory bridge guards the same way before opening the same service.
     if (!fs.existsSync(storeRoot)) {
-      reason = 'store root ' + storeRoot + ' does not exist on this host '
-        + '(fail-closed; provisioning is an operator step, never this service\'s)';
+      // existsSync is false for EACCES as well as ENOENT. Both stay
+      // fail-closed here, but they are different operator problems — a
+      // missing directory is provisioned, an unreadable one is a permission
+      // fix — so the reason must not claim the store is absent when it is
+      // merely inaccessible to this service's user.
+      var why = 'does not exist on this host';
+      try { fs.accessSync(storeRoot, fs.constants.F_OK); }
+      catch (e) {
+        if (e.code && e.code !== 'ENOENT') {
+          why = 'exists but is not accessible to this service (' + e.code + ')';
+        }
+      }
+      reason = 'store root ' + storeRoot + ' ' + why
+        + ' (fail-closed; provisioning is an operator step, never this service\'s)';
       return { ok: false, reason: reason };
     }
     try {

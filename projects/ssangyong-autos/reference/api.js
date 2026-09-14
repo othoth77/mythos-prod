@@ -75,6 +75,12 @@ var db = require('./db.js');
 var DEFAULT_LIMIT = 50;
 var MAX_LIMIT = 200;
 
+// Upper bound on /api/quotes. A storefront cart is the only caller and the
+// Piece.Autos cart is capped at 30 distinct products, so 50 leaves headroom
+// without turning this into a bulk-export route: a caller wanting the whole
+// catalogue must page /api/products like everyone else.
+var MAX_QUOTE_UIDS = 50;
+
 // The single definition of "this part is currently in the catalogue".
 //
 // database/schema.sql's status domain is ('active','updated','inactive',
@@ -87,6 +93,26 @@ var MAX_LIMIT = 200;
 // 'delisted' are withheld, and that decision lives here once so every
 // endpoint's count and page agree by construction.
 var LIVE_STATUS = "status IN ('active', 'updated')";
+
+// The single definition of "which part category this product belongs to".
+//
+// The catalog has no category table (gap KG-2) and this stage does not add one:
+// the source's own category slug is already carried inside product_url, whose
+// shape is fixed —
+//   https://autopart.tn/fiche/<category-slug>-<catId>/<brand-slug>-<brandId>/<ref>-<ficheId>.html
+// — so the category is a FACT ALREADY IN THE ROW, not a taxonomy anyone invents
+// here. Measured against the live catalog: 346 of 346 products yield a slug,
+// across 72 distinct values.
+//
+// Deriving it here rather than in each storefront matters for the same reason
+// LIVE_STATUS lives here: one definition means a facet can never disagree with
+// the list it describes, and three consumers cannot drift into three slightly
+// different regexes.
+//
+// split_part + regexp_replace, not a full regex match on the whole URL: both
+// return identical values on all 346 rows (verified, 0 disagreements) but the
+// full-regex form costs ~28-48 ms per facet scan against ~0.9 ms for this one.
+var PART_CATEGORY = "regexp_replace(split_part(product_url, '/', 5), '-[0-9]+$', '')";
 
 // ---------------------------------------------------------------------------
 // Response helpers
@@ -132,11 +158,85 @@ function toInt(value) {
 // and every SQL value is passed as a bound parameter, never interpolated.
 // ---------------------------------------------------------------------------
 
+// Reject text a database column cannot hold.
+//
+// PostgreSQL refuses NUL inside a text value, so a request carrying one raised
+// a driver error and surfaced as 500 "internal error" — a malformed CLIENT
+// input reported as a SERVER fault. That is wrong twice over: the caller cannot
+// tell it made a mistake, and 5xx monitoring fires on trivially malformed
+// requests.
+//
+// PRE-EXISTING since SYA-API-1: `q` and `brand` behave the same way on the
+// deployed service. This is the one deliberate behaviour change in SYA-API-3 —
+// 500 becomes 400 for input that was never answerable. Other control characters
+// are refused with it: none can appear in a slug, a reference or a uid.
+function assertClean(value, label) {
+  if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value)) {
+    throw badRequest(label + ' contains a control character');
+  }
+  return value;
+}
+
 function parsePositiveInt(raw, label) {
   if (/^\d+$/.test(raw) === false) throw badRequest(label + ' must be a non-negative integer');
   var n = parseInt(raw, 10);
   if (!Number.isSafeInteger(n)) throw badRequest(label + ' is out of range');
   return n;
+}
+
+// A vehicle manufacturer name as the catalog stores it ('SSANGYONG'). Compared
+// case-insensitively because it is a human-facing label, not an identifier, and
+// bounded in length so a pathological value cannot reach the database.
+function parseBrandCar(q) {
+  if (q === undefined || q.brand_car === undefined) return null;
+  var raw = String(q.brand_car).trim();
+  if (raw === '') return null;
+  if (raw.length > 64) throw badRequest('brand_car must be at most 64 characters');
+  return assertClean(raw, 'brand_car');
+}
+
+// One or more part-category slugs. Bounded like every other client-controlled
+// sizing parameter: 72 slugs exist today, and a caller wanting all of them
+// wants /api/products with no filter instead.
+var MAX_CATEGORIES = 40;
+
+// Punctuation-insensitive form of a part reference.
+//
+// Measured on the live catalogue: 128 of 200 sampled canonical_reference values
+// contain punctuation ('10-09-997', '10-ECO009', '103-0S-S02'). A customer
+// reading a reference off the part routinely omits the separators, and the
+// existing ?q= is a literal substring match, so '1009997' finds nothing while
+// '10-09-997' finds the part.
+//
+// Applied to BOTH sides — the stored reference and the caller's term — so the
+// match is symmetric: whichever of the two carries the punctuation, they meet in
+// the middle. Only the reference columns are normalised; ?q= keeps its exact
+// substring semantics over the title, because stripping punctuation from free
+// text would merge words that are genuinely distinct.
+var STRIP_PUNCT = "regexp_replace($COL$, '[^A-Za-z0-9]', '', 'g')";
+
+function normalisedRef(col) {
+  return STRIP_PUNCT.replace('$COL$', col);
+}
+
+function parseCategories(q) {
+  if (q === undefined || q.category === undefined) return null;
+  var raw = String(q.category).trim();
+  if (raw === '') return null;
+  var parts = raw.split(',').map(function (c) { return c.trim(); }).filter(function (c) { return c !== ''; });
+  if (parts.length === 0) return null;
+  if (parts.length > MAX_CATEGORIES) throw badRequest('category accepts at most ' + MAX_CATEGORIES + ' slugs');
+  parts.forEach(function (c) {
+    if (c.length > 128) throw badRequest('a category slug must be at most 128 characters');
+    assertClean(c, 'category');
+  });
+  var seen = Object.create(null);
+  var unique = [];
+  parts.forEach(function (c) {
+    var key = c.toLowerCase();
+    if (!seen[key]) { seen[key] = true; unique.push(key); }
+  });
+  return unique;
 }
 
 function parsePaging(q) {
@@ -182,19 +282,69 @@ async function getHealth(res) {
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/vehicle-models
+// GET /api/vehicle-brands                                            (SYA-API-2)
+//
+// The vehicle-manufacturer facet. Added because a multi-brand consumer
+// otherwise has to fetch every model and derive the brand list client-side —
+// correct at today's 17 models, wrong at any real multi-brand scale, and a
+// derivation each consumer would have to repeat identically.
+//
+// `brand_car` lives on sya_vehicle_models, so this is a facet over an existing
+// column: no new table, no new taxonomy. The catalog holds one brand today
+// (all 17 models are SSANGYONG); this endpoint reports what is there rather
+// than implying more.
+// ---------------------------------------------------------------------------
+async function getVehicleBrands(res) {
+  var result = await db.query(
+    'SELECT m.brand_car, ' +
+    '  count(DISTINCT m.id) AS model_count, ' +
+    '  (SELECT count(DISTINCT c.product_id) FROM sya_product_vehicle_compatibility c ' +
+    '   JOIN sya_products p ON p.id = c.product_id AND p.' + LIVE_STATUS + ' ' +
+    '   JOIN sya_vehicle_models m2 ON m2.id = c.vehicle_model_id ' +
+    '   WHERE m2.brand_car = m.brand_car) AS product_count ' +
+    'FROM sya_vehicle_models m ' +
+    'GROUP BY m.brand_car ' +
+    'ORDER BY m.brand_car ASC'
+  );
+  sendJson(res, 200, {
+    vehicle_brands: result.rows.map(function (r) {
+      return {
+        brand_car: r.brand_car,
+        model_count: toInt(r.model_count),
+        product_count: toInt(r.product_count)
+      };
+    })
+  });
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/vehicle-models[?brand_car=...]
 // The storefront's top-level browse axis: pick your SsangYong, then its
 // engine. Ordered by name then generation so the list is stable.
+//
+// `brand_car` is optional and additive: omitting it returns every model, which
+// is exactly what this route did before SYA-API-2, so existing consumers are
+// unaffected. An unknown brand returns an empty list, not a 404 — asking
+// "which RENAULT models do you have?" is a valid question with the answer
+// "none", and that is not the same as a missing endpoint.
 // ---------------------------------------------------------------------------
-async function getVehicleModels(res) {
+async function getVehicleModels(res, q) {
+  var params = [];
+  var where = '';
+  var brand = parseBrandCar(q);
+  if (brand !== null) {
+    params.push(brand);
+    where = 'WHERE upper(m.brand_car) = upper($1) ';
+  }
   var result = await db.query(
     'SELECT m.id, m.brand_car, m.model_name, m.generation_code, m.year_from, m.year_to, m.model_url, ' +
     '  (SELECT count(*) FROM sya_vehicle_motorizations mo WHERE mo.vehicle_model_id = m.id) AS motorization_count, ' +
     '  (SELECT count(DISTINCT c.product_id) FROM sya_product_vehicle_compatibility c ' +
     '   JOIN sya_products p ON p.id = c.product_id AND p.' + LIVE_STATUS + ' ' +
     '   WHERE c.vehicle_model_id = m.id) AS product_count ' +
-    'FROM sya_vehicle_models m ' +
-    'ORDER BY m.model_name ASC, m.generation_code ASC NULLS FIRST'
+    'FROM sya_vehicle_models m ' + where +
+    'ORDER BY m.model_name ASC, m.generation_code ASC NULLS FIRST',
+    params
   );
   sendJson(res, 200, {
     vehicle_models: result.rows.map(function (r) {
@@ -287,13 +437,13 @@ async function getProducts(res, q) {
   var params = [];
 
   if (q.q !== undefined && String(q.q).trim() !== '') {
-    params.push('%' + String(q.q).trim() + '%');
+    params.push('%' + assertClean(String(q.q).trim(), 'q') + '%');
     var i = params.length;
     where.push('(p.product_title ILIKE $' + i + ' OR p.canonical_reference ILIKE $' + i +
                ' OR p.oem_reference ILIKE $' + i + ')');
   }
   if (q.brand !== undefined && String(q.brand).trim() !== '') {
-    params.push(String(q.brand).trim());
+    params.push(assertClean(String(q.brand).trim(), 'brand'));
     where.push('p.product_brand = $' + params.length);
   }
   if (q.model_id !== undefined) {
@@ -305,6 +455,51 @@ async function getProducts(res, q) {
     params.push(parsePositiveInt(q.motorization_id, 'motorization_id'));
     where.push('EXISTS (SELECT 1 FROM sya_product_vehicle_compatibility c ' +
                'WHERE c.product_id = p.id AND c.vehicle_motorization_id = $' + params.length + ')');
+  }
+  // Vehicle manufacturer (SYA-API-2). Reaches brand_car through the fitment
+  // edge, which is the only relationship between a part and a vehicle brand
+  // that the catalog actually models — a part has no brand_car column of its
+  // own, and inventing one would be a second taxonomy.
+  // Part category (SYA-API-3). Filters on the same derived expression the
+  // facet counts, so /api/part-categories and /api/products?category= can never
+  // disagree about how many products a category has.
+  //
+  // Accepts a comma-separated LIST because a storefront's customer-facing
+  // groups span several source slugs — Piece.Autos' "Filtration" covers six of
+  // them — and rendering such a group one slug at a time would be up to
+  // fourteen requests for one page. The grouping stays the storefront's; the
+  // Kitchen only agrees to answer about several slugs at once.
+  var categories = parseCategories(q);
+  if (categories !== null) {
+    params.push(categories);
+    // Matched case-insensitively, like brand_car. The catalogue contains one
+    // capitalised slug among 71 lower-case siblings, and a URL is routinely
+    // lower-cased by hand, by a CMS or by a crawler — so the exact-case form
+    // returned 1 product and the lower-cased form returned 0. Verified safe:
+    // 72 distinct slugs lower-case to 72 distinct values, so no two slugs can
+    // merge and the facet still agrees with the list.
+    where.push('lower(' + PART_CATEGORY + ') = ANY($' + params.length + '::text[])');
+  }
+  // Reference search (SYA-API-4). A SEPARATE parameter rather than a change to
+  // ?q=: widening ?q= would alter results for an existing consumer on a route
+  // that has been byte-identical across every regression diff, and this is a
+  // different question — "find this exact part number", not "find text".
+  if (q.ref !== undefined && String(q.ref).trim() !== '') {
+    var ref = assertClean(String(q.ref).trim(), 'ref');
+    if (ref.length > 64) throw badRequest('ref must be at most 64 characters');
+    var refNorm = ref.replace(/[^A-Za-z0-9]/g, '');
+    if (refNorm === '') throw badRequest('ref must contain at least one letter or digit');
+    params.push('%' + refNorm + '%');
+    var ri = params.length;
+    where.push('(' + normalisedRef('p.canonical_reference') + ' ILIKE $' + ri +
+               ' OR ' + normalisedRef('coalesce(p.oem_reference, \'\')') + ' ILIKE $' + ri + ')');
+  }
+  var brandCar = parseBrandCar(q);
+  if (brandCar !== null) {
+    params.push(brandCar);
+    where.push('EXISTS (SELECT 1 FROM sya_product_vehicle_compatibility c ' +
+               'JOIN sya_vehicle_models m ON m.id = c.vehicle_model_id ' +
+               'WHERE c.product_id = p.id AND upper(m.brand_car) = upper($' + params.length + '))');
   }
 
   var whereSql = 'WHERE ' + where.join(' AND ');
@@ -385,6 +580,115 @@ async function getProduct(res, productUid) {
 }
 
 // ---------------------------------------------------------------------------
+// GET /api/part-categories                                          (SYA-API-3)
+//
+// The part-category facet, derived from product_url (see PART_CATEGORY).
+//
+// This is NOT the 390-slug frontier held in SPY: that is a sitemap measurement
+// of a source with 45,036 products, and importing it would create a dimension
+// for products this catalog does not have. This reports only what the 346 live
+// products actually use — 72 slugs — so every category returned has at least
+// one product behind it and no page can be generated with nothing on it.
+//
+// Slugs are returned raw. Grouping them into customer-facing families is
+// PRESENTATION and belongs to each storefront (shared-contract §12: SsangYong's
+// grouping is SsangYong's), so the Kitchen states the fact and takes no view.
+// ---------------------------------------------------------------------------
+async function getPartCategories(res) {
+  var result = await db.query(
+    'SELECT ' + PART_CATEGORY + ' AS category_slug, count(*) AS product_count ' +
+    'FROM sya_products WHERE ' + LIVE_STATUS + ' ' +
+    'GROUP BY 1 HAVING ' + PART_CATEGORY + " <> '' ORDER BY 1 ASC"
+  );
+  sendJson(res, 200, {
+    part_categories: result.rows.map(function (r) {
+      return { category_slug: r.category_slug, product_count: toInt(r.product_count) };
+    })
+  });
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/quotes?uids=a,b,c                                        (SYA-API-2)
+//
+// Price and availability for several products in ONE request.
+//
+// Why it exists: a storefront must re-read price and availability from the
+// catalog immediately before it turns a cart into an order — the browser's
+// copy is never authoritative. Without this route the only way to do that is
+// GET /api/products/:uid per line, and each of those runs three queries
+// (product, images, compatibility) to return a full document of which the
+// caller needs three fields. A five-line cart therefore cost 5 round trips and
+// 15 queries; it now costs 1 and 1.
+//
+// PARTIAL RESULTS ARE EXPLICIT. A uid that is unknown, inactive or delisted is
+// not silently dropped from `quotes` — it is named in `missing`. Silence would
+// be indistinguishable from "this part is free" to a careless consumer, and a
+// checkout must be able to tell "withdrawn" apart from "not asked for".
+// ---------------------------------------------------------------------------
+function parseQuoteUids(q) {
+  if (q === undefined || q.uids === undefined) throw badRequest('uids is required');
+  var raw = String(q.uids);
+  if (raw.trim() === '') throw badRequest('uids must not be empty');
+  var parts = raw.split(',').map(function (u) { return u.trim(); }).filter(function (u) { return u !== ''; });
+  if (parts.length === 0) throw badRequest('uids must not be empty');
+  if (parts.length > MAX_QUOTE_UIDS) {
+    throw badRequest('uids must contain at most ' + MAX_QUOTE_UIDS + ' identifiers');
+  }
+  parts.forEach(function (u) {
+    if (u.length > 128) throw badRequest('a product_uid must be at most 128 characters');
+    assertClean(u, 'uids');
+  });
+  // De-duplicate while preserving the caller's order, so asking for the same
+  // uid twice is answered once rather than rejected or double-counted.
+  var seen = Object.create(null);
+  var unique = [];
+  parts.forEach(function (u) { if (!seen[u]) { seen[u] = true; unique.push(u); } });
+  return unique;
+}
+
+async function getQuotes(res, q) {
+  var uids = parseQuoteUids(q);
+  var result = await db.query(
+    'SELECT product_uid, canonical_reference, product_title, price_tnd, currency, ' +
+    '  availability, last_checked_at ' +
+    'FROM sya_products WHERE ' + LIVE_STATUS + ' AND product_uid = ANY($1::text[])',
+    [uids]
+  );
+
+  var byUid = Object.create(null);
+  result.rows.forEach(function (r) { byUid[r.product_uid] = r; });
+
+  var quotes = [];
+  var missing = [];
+  uids.forEach(function (uid) {
+    var row = byUid[uid];
+    if (!row) { missing.push(uid); return; }
+    quotes.push({
+      product_uid: row.product_uid,
+      canonical_reference: row.canonical_reference,
+      product_title: row.product_title,
+      // The exact NUMERIC(8,2) decimal string, unchanged — same rule as
+      // everywhere else in this API. A consumer that parses it into a float
+      // has reintroduced the rounding the database refuses to have.
+      price_tnd: row.price_tnd,
+      currency: row.currency,
+      availability: row.availability,
+      last_checked_at: row.last_checked_at
+    });
+  });
+
+  sendJson(res, 200, {
+    requested: uids.length,
+    quotes: quotes,
+    missing: missing,
+    // When the caller asked for something this catalogue cannot price, say so
+    // in the envelope as well as in `missing`, so a consumer cannot treat a
+    // partial answer as a complete one by only reading `quotes`.
+    complete: missing.length === 0
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Storefront assets (SYA-SHOP-1)
 //
 // Serving the storefront from this same process is what migration-plan §22
@@ -438,9 +742,12 @@ function serveShopAsset(req, res, pathname) {
 
 var ROUTES = [
   { method: 'GET', pattern: /^\/api\/health$/, handler: function (req, res) { return getHealth(res); } },
-  { method: 'GET', pattern: /^\/api\/vehicle-models$/, handler: function (req, res) { return getVehicleModels(res); } },
+  { method: 'GET', pattern: /^\/api\/vehicle-brands$/, handler: function (req, res) { return getVehicleBrands(res); } },
+  { method: 'GET', pattern: /^\/api\/vehicle-models$/, handler: function (req, res, m, q) { return getVehicleModels(res, q); } },
   { method: 'GET', pattern: /^\/api\/vehicle-models\/([^/]+)\/motorizations$/, handler: function (req, res, m) { return getModelMotorizations(res, decodePathSegment(m[1])); } },
   { method: 'GET', pattern: /^\/api\/brands$/, handler: function (req, res) { return getBrands(res); } },
+  { method: 'GET', pattern: /^\/api\/part-categories$/, handler: function (req, res) { return getPartCategories(res); } },
+  { method: 'GET', pattern: /^\/api\/quotes$/, handler: function (req, res, m, q) { return getQuotes(res, q); } },
   { method: 'GET', pattern: /^\/api\/products$/, handler: function (req, res, m, q) { return getProducts(res, q); } },
   { method: 'GET', pattern: /^\/api\/products\/([^/]+)$/, handler: function (req, res, m) { return getProduct(res, decodePathSegment(m[1])); } }
 ];
@@ -487,6 +794,8 @@ module.exports = {
   createServer: createServer,
   DEFAULT_LIMIT: DEFAULT_LIMIT,
   MAX_LIMIT: MAX_LIMIT,
+  MAX_QUOTE_UIDS: MAX_QUOTE_UIDS,
+  MAX_CATEGORIES: MAX_CATEGORIES,
   SHOP_ASSETS: SHOP_ASSETS,
   SHOP_CSP: SHOP_CSP
 };

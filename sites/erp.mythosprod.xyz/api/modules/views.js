@@ -8,7 +8,67 @@
  * WHERE clause returns this tenant's numbers, not everyone's.
  */
 
+var fs = require('fs');
 var tenancy = require('../lib/tenancy');
+
+/* Phase 10 — backup status. The scheduled off-host backup
+   (ops/backup/mythos-backup-run-db.sh, mythos-backup-db.timer) writes a
+   redacted health record after every run; this endpoint shows it to settings
+   readers. Host-level fact, one database for every tenant, so every tenant's
+   settings reader sees the same record. Read at request time, never cached;
+   the file path, backup prefix and any path/URL inside the error tail are
+   never returned. A missing or malformed record is a 200 "unknown", not a 500:
+   the page must say "no record" rather than fail. */
+var BACKUP_HEALTH_FILE = process.env.ERP_BACKUP_HEALTH_FILE || '/home/deploy/mythos-backups/health/backup-health-db.json';
+var BACKUP_STALE_HOURS = 36;           // daily timer + a missed run = stale
+var BACKUP_MODES = ['backup', 'verify', 'restore-test'];
+function isoOrNull(v) { return (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(v) && isFinite(Date.parse(v))) ? v : null; }
+function intOrNull(v) { var n = Number(v); return (v === '' || v === null || v === undefined || !Number.isFinite(n)) ? null : Math.trunc(n); }
+/* The error tail is operator output. This layer must stand alone (the file
+   path is an env override): URLs and remote specs, credentials in key=value
+   form, user@host, IPv4/IPv6 hosts with ports, absolute AND relative paths
+   (which is also how the backup prefix `mythos-erp/daily` would appear) are
+   all replaced before the text is cut, and the cut never ends on a partial
+   marker. Review finding, drill §21 exercises each shape. */
+var REDACT_MAX = 200;
+function redactText(s) {
+  var t = String(s || '')
+    .replace(/[a-z][a-z0-9+.-]*:\/\/\S+/gi, '[url]')                          // scheme://…
+    .replace(/(^|[\s"'(<,;|])[a-z][\w.-]*:[\w.-]*\/\S*/gi, '$1[url]')          // rclone/ssh remote specs remote:bucket/x
+    .replace(/\b\w*?(pass(?:word|wd)?|pwd|secret|token|api[_-]?key|access[_-]?key|key|signature|credentials?|auth)s?\s*[=:]\s*\S+/gi, '$1=[redacted]') // password=…, PGPASSWORD=…
+    .replace(/\b(host(?:name|addr)?|port)\s*[=:]?\s*\S+/gi, '$1=[host]')       // host=db.internal, port 5432
+    .replace(/[\w.+-]+@[\w.-]+/g, '[redacted]')                               // user@host, e-mails
+    .replace(/\[[0-9a-f:.]+\](?::\d+)?/gi, '[host]')                          // [::1]:5432
+    .replace(/\b\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?\b/g, '[host]')               // 127.0.0.1:5432
+    .replace(/(^|[^\w\[])(?:~|\.{1,2})?\/[^\s"'()<>|;,]+/g, '$1[path]')       // absolute, ~/ and ./ paths
+    .replace(/\b[\w.-]+(?:\/[\w.-]+)+\b/g, '[path]')                          // relative paths ops/backup/x.sh, mythos-erp/daily
+    .replace(/\s+/g, ' ').trim();
+  if (t.length > REDACT_MAX) t = t.slice(0, REDACT_MAX).replace(/\[[a-z]*$/, '').replace(/\s+$/, '') + '…';
+  return t;
+}
+function backupStatusFrom(d, now) {
+  var lastIso = isoOrNull(d.last_success_at);
+  var lastOk = lastIso ? Date.parse(lastIso) : NaN;
+  var hours = isFinite(lastOk) ? (now - lastOk) / 36e5 : null;
+  var exitCode = intOrNull(d.exit_code);
+  // A missing exit_code is "not reported", not a failure; a non-zero one is.
+  var failed = d.status !== 'ok' || (exitCode !== null && exitCode !== 0);
+  var state = failed ? 'failed' : ((hours === null || hours > BACKUP_STALE_HOURS) ? 'stale' : 'ok');
+  return {
+    available: true, state: state,
+    status: d.status === 'ok' ? 'ok' : 'failed',
+    mode: BACKUP_MODES.indexOf(d.mode) >= 0 ? d.mode : 'unknown',
+    exit_code: exitCode,
+    started_at: isoOrNull(d.started_at), finished_at: isoOrNull(d.finished_at),
+    duration_s: intOrNull(d.duration_s),
+    last_success_at: lastIso,
+    hours_since_success: hours === null ? null : Number(hours.toFixed(1)),
+    consecutive_failures: intOrNull(d.consecutive_failures) === null ? 0 : Math.max(0, intOrNull(d.consecutive_failures)),
+    error: redactText(d.error),
+    stale_after_hours: BACKUP_STALE_HOURS,
+    checked_at: new Date(now).toISOString()
+  };
+}
 
 var dashboard = {
   summary: function (ctx, client) {
@@ -16,15 +76,29 @@ var dashboard = {
       client.query('SELECT count(*)::int AS n FROM clients WHERE deleted_at IS NULL'),
       client.query("SELECT count(*)::int AS n FROM projects WHERE deleted_at IS NULL AND status <> 'closed'"),
       client.query("SELECT count(*)::int AS n FROM invoices WHERE deleted_at IS NULL AND status IN ('sent','part_paid')"),
+      // Phase 5: TTC includes each invoice's fiscal stamp (one per document,
+      // so it is summed on invoices, not multiplied through the lines join).
       client.query(
-        "SELECT coalesce(sum(l.line_ht * (1 + l.vat_rate/100)),0)::numeric(14,3) AS ttc" +
-        ' FROM invoice_lines l JOIN invoices i ON i.id = l.invoice_id' +
-        " WHERE i.deleted_at IS NULL AND i.status IN ('sent','part_paid','paid')" +
-        "   AND i.issued_on >= date_trunc('year', current_date)"),
+        "SELECT ((SELECT coalesce(sum(l.line_ht * (1 + l.vat_rate/100)),0)" +
+        '           FROM invoice_lines l JOIN invoices i ON i.id = l.invoice_id' +
+        "          WHERE i.deleted_at IS NULL AND i.status IN ('sent','part_paid','paid')" +
+        "            AND i.issued_on >= date_trunc('year', current_date))" +
+        '       + (SELECT coalesce(sum(i.stamp_amount),0) FROM invoices i' +
+        "          WHERE i.deleted_at IS NULL AND i.status IN ('sent','part_paid','paid')" +
+        "            AND i.issued_on >= date_trunc('year', current_date)))::numeric(14,3) AS ttc"),
       client.query('SELECT coalesce(sum(amount),0)::numeric(14,3) AS paid FROM payments' +
         " WHERE paid_on >= date_trunc('year', current_date)"),
       client.query('SELECT count(*)::int AS n FROM appointments' +
         ' WHERE deleted_at IS NULL AND starts_at >= now() AND starts_at < now() + interval \'7 days\''),
+      // Phase 9: what is due — counts only (content lives behind agenda.read
+      // and invoices.read respectively; a count reveals nothing more than the
+      // dashboard already does for invoices).
+      // reminders_due = due through the end of today (same bound as the
+      // "À traiter" tab at horizon 0), so the tile and the tab agree.
+      client.query("SELECT count(*)::int AS n FROM agenda_events WHERE deleted_at IS NULL AND status = 'scheduled'" +
+        " AND kind IN ('reminder','task') AND coalesce(remind_at, starts_at) < date_trunc('day', now()) + interval '1 day'"),
+      client.query("SELECT count(*)::int AS n FROM invoices WHERE deleted_at IS NULL AND status IN ('sent','part_paid')" +
+        ' AND due_on IS NOT NULL AND due_on < current_date'),
       // Stock is not a column: on-hand = the signed sum of inventory_movements,
       // and the reorder threshold is inventory_items.min_quantity (0 = none).
       // The previous query named reorder_level / quantity_on_hand, columns that
@@ -40,31 +114,52 @@ var dashboard = {
         invoiced_ttc_ytd: r[3].rows[0].ttc,
         collected_ytd: r[4].rows[0].paid,
         appointments_next_7d: r[5].rows[0].n,
-        items_below_reorder: r[6].rows[0].n
+        reminders_due: r[6].rows[0].n,
+        invoices_overdue: r[7].rows[0].n,
+        items_below_reorder: r[8].rows[0].n
       } };
     });
   }
 };
 
+// Bare YYYY-MM-DD range bounds, shared by every report below. A bare upper
+// bound means "through the end of that day" (Phase 10 lesson: a naive <= cast
+// a plain date to midnight and silently excluded everything ON that day).
+function isDate(v) { return /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')); }
+function dateRange(q, column) {
+  var where = [], params = [];
+  if (q && q.from && isDate(q.from)) { params.push(q.from); where.push(column + ' >= $' + params.length); }
+  if (q && q.to && isDate(q.to))     { params.push(q.to);   where.push(column + " < ($" + params.length + "::date + 1)"); }
+  return { where: where, params: params };
+}
+
 var reports = {
   revenue: function (ctx, client) {
+    var r = dateRange(ctx.query, 'i.issued_on');
+    var where = ["i.deleted_at IS NULL", "i.status <> 'cancelled'"].concat(r.where);
+    // Phase 5: lines are pre-aggregated per invoice so the per-document
+    // fiscal stamp is added once, not once per line.
     return client.query(
       "SELECT to_char(date_trunc('month', i.issued_on), 'YYYY-MM') AS month," +
-      ' coalesce(sum(l.line_ht),0)::numeric(14,3) AS ht,' +
-      ' coalesce(sum(l.line_ht * l.vat_rate/100),0)::numeric(14,3) AS vat,' +
-      ' coalesce(sum(l.line_ht * (1 + l.vat_rate/100)),0)::numeric(14,3) AS ttc' +
-      ' FROM invoices i JOIN invoice_lines l ON l.invoice_id = i.id' +
-      " WHERE i.deleted_at IS NULL AND i.status <> 'cancelled'" +
-      " GROUP BY 1 ORDER BY 1 DESC LIMIT 24"
-    ).then(function (r) { return { status: 200, body: { months: r.rows } }; });
+      ' coalesce(sum(t.ht),0)::numeric(14,3) AS ht,' +
+      ' coalesce(sum(t.vat),0)::numeric(14,3) AS vat,' +
+      ' coalesce(sum(i.stamp_amount),0)::numeric(14,3) AS stamp,' +
+      ' (coalesce(sum(t.ttc),0) + coalesce(sum(i.stamp_amount),0))::numeric(14,3) AS ttc' +
+      ' FROM invoices i LEFT JOIN (SELECT invoice_id, sum(line_ht) AS ht, sum(line_ht * vat_rate/100) AS vat,' +
+      '                        sum(line_ht * (1 + vat_rate/100)) AS ttc FROM invoice_lines GROUP BY invoice_id) t' +
+      '   ON t.invoice_id = i.id' +
+      ' WHERE ' + where.join(' AND ') +
+      ' GROUP BY 1 ORDER BY 1 DESC LIMIT 24', r.params
+    ).then(function (res) { return { status: 200, body: { months: res.rows, filter: { from: ctx.query && ctx.query.from || null, to: ctx.query && ctx.query.to || null } } }; });
   },
 
   receivables: function (ctx, client) {
     return client.query(
       'SELECT i.id, i.number, i.client_id, c.name AS client_name, i.issued_on, i.due_on, i.status,' +
-      ' coalesce(t.ttc,0)::numeric(14,3) AS total_ttc,' +
+      ' (coalesce(t.ttc,0) + i.stamp_amount)::numeric(14,3) AS total_ttc,' +
       ' coalesce(p.paid,0)::numeric(14,3) AS paid,' +
-      ' (coalesce(t.ttc,0) - coalesce(p.paid,0))::numeric(14,3) AS balance' +
+      ' (coalesce(t.ttc,0) + i.stamp_amount - coalesce(p.paid,0))::numeric(14,3) AS balance,' +
+      ' (i.due_on IS NOT NULL AND i.due_on < current_date) AS overdue' +
       ' FROM invoices i' +
       ' LEFT JOIN clients c ON c.id = i.client_id' +
       ' LEFT JOIN (SELECT invoice_id, sum(line_ht * (1 + vat_rate/100)) AS ttc' +
@@ -75,17 +170,69 @@ var reports = {
       ' ORDER BY i.due_on NULLS LAST, i.issued_on'
     ).then(function (r) {
       var open = r.rows.reduce(function (a, x) { return a + Number(x.balance); }, 0);
-      return { status: 200, body: { rows: r.rows, outstanding_total: open.toFixed(3) } };
+      var overdueRows = r.rows.filter(function (x) { return x.overdue === true; });
+      var overdue = overdueRows.reduce(function (a, x) { return a + Number(x.balance); }, 0);
+      return { status: 200, body: { rows: r.rows, outstanding_total: open.toFixed(3),
+        overdue_count: overdueRows.length, overdue_total: overdue.toFixed(3) } };
     });
   },
 
   expenses: function (ctx, client) {
+    var r = dateRange(ctx.query, 'e.spent_on');
+    var where = ['e.deleted_at IS NULL'].concat(r.where);
     return client.query(
       "SELECT to_char(date_trunc('month', e.spent_on), 'YYYY-MM') AS month," +
       ' ec.label AS category, coalesce(sum(e.amount),0)::numeric(14,3) AS amount' +
       ' FROM expenses e LEFT JOIN expense_categories ec ON ec.id = e.category_id' +
-      ' WHERE e.deleted_at IS NULL GROUP BY 1,2 ORDER BY 1 DESC, 3 DESC LIMIT 200'
-    ).then(function (r) { return { status: 200, body: { rows: r.rows } }; });
+      ' WHERE ' + where.join(' AND ') + ' GROUP BY 1,2 ORDER BY 1 DESC, 3 DESC LIMIT 200', r.params
+    ).then(function (res) {
+      var total = res.rows.reduce(function (a, x) { return a + Number(x.amount); }, 0);
+      return { status: 200, body: { rows: res.rows, total: total.toFixed(3), filter: { from: ctx.query && ctx.query.from || null, to: ctx.query && ctx.query.to || null } } };
+    });
+  },
+
+  /* Prospects funnel: how many are at each stage, the win rate among decided
+     prospects (won or lost — an untouched "new" lead has not decided anything
+     yet), and how long a won prospect typically took to convert. Reads only
+     the columns Phase 8 already wrote (status, created_at, converted_at); no
+     new table, no duplicated conversion logic (POST /prospects/:id/convert
+     remains the only writer of converted_at). */
+  prospects: function (ctx, client) {
+    return Promise.all([
+      client.query("SELECT status, count(*)::int AS n FROM prospects WHERE deleted_at IS NULL GROUP BY status"),
+      client.query(
+        "SELECT count(*) FILTER (WHERE status = 'won')::int AS won," +
+        " count(*) FILTER (WHERE status IN ('won','lost'))::int AS decided," +
+        " avg(extract(epoch FROM (converted_at - created_at)) / 86400.0) FILTER (WHERE status = 'won') AS avg_days" +
+        ' FROM prospects WHERE deleted_at IS NULL')
+    ]).then(function (r) {
+      var by = {}; r[0].rows.forEach(function (x) { by[x.status] = x.n; });
+      var agg = r[1].rows[0];
+      var winRate = agg.decided > 0 ? (Number(agg.won) / Number(agg.decided)) : null;
+      return { status: 200, body: {
+        by_status: by,
+        total: r[0].rows.reduce(function (a, x) { return a + x.n; }, 0),
+        won: Number(agg.won), decided: Number(agg.decided),
+        win_rate: winRate === null ? null : Number(winRate.toFixed(4)),
+        avg_days_to_convert: agg.avg_days === null ? null : Number(Number(agg.avg_days).toFixed(1))
+      } };
+    });
+  },
+
+  /* Inventory: every item's computed on-hand (signed sum of movements) next to
+     its reorder threshold — the same fact the dashboard counts, shown as the
+     list behind that count rather than a second definition of "low stock". */
+  inventory: function (ctx, client) {
+    return client.query(
+      'SELECT i.id, i.sku, i.label, i.unit, i.min_quantity,' +
+      ' coalesce((SELECT sum(m.quantity) FROM inventory_movements m WHERE m.item_id = i.id), 0)::numeric(14,3) AS on_hand' +
+      ' FROM inventory_items i WHERE i.deleted_at IS NULL ORDER BY i.label'
+    ).then(function (r) {
+      var rows = r.rows.map(function (x) {
+        return Object.assign({}, x, { below_reorder: x.min_quantity > 0 && Number(x.on_hand) <= Number(x.min_quantity) });
+      });
+      return { status: 200, body: { rows: rows, below_reorder_count: rows.filter(function (x) { return x.below_reorder; }).length } };
+    });
   }
 };
 
@@ -96,6 +243,39 @@ var settings = {
       client.query('SELECT module_key, enabled FROM tenant_modules ORDER BY module_key')
     ]).then(function (r) {
       return { status: 200, body: { tenant: r[0], modules: r[1].rows } };
+    });
+  },
+
+  /* GET /settings/backup — see BACKUP_HEALTH_FILE above.
+     POLICY (decided, not an oversight): the record is host-level, so it is
+     shown only to the platform role — super_admin — never to a tenant admin
+     of another company sharing the database (review finding). settings.read
+     gets a 403 below that rank. Read guarded: regular file, ≤ 64 KiB, and
+     any parse/normalise failure is an "invalid_record" 200 — the promise
+     always settles, the transaction is never held on a hung read. */
+  backup: function (ctx, client) {
+    var usersModule = require('./users');
+    var needed = usersModule.ROLE_KEYS.indexOf('super_admin');
+    return usersModule.callerMaxRank(client, ctx.user.id, ctx.tenantId).then(function (myRank) {
+      if (myRank < needed) return { status: 403, body: { error: 'backup status is visible to super_admin only' } };
+      return new Promise(function (resolve) {
+        var now = Date.now();
+        var unknown = { available: false, state: 'unknown', stale_after_hours: BACKUP_STALE_HOURS, checked_at: new Date(now).toISOString() };
+        fs.stat(BACKUP_HEALTH_FILE, function (serr, st) {
+          if (serr) { unknown.reason = serr.code === 'ENOENT' ? 'no_health_record' : 'unreadable'; return resolve({ status: 200, body: unknown }); }
+          if (!st.isFile() || st.size > 64 * 1024) { unknown.reason = 'unreadable'; return resolve({ status: 200, body: unknown }); }
+          fs.readFile(BACKUP_HEALTH_FILE, 'utf8', function (err, raw) {
+            if (err) { unknown.reason = err.code === 'ENOENT' ? 'no_health_record' : 'unreadable'; return resolve({ status: 200, body: unknown }); }
+            var body;
+            try {
+              var d = JSON.parse(raw);
+              if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('not an object');
+              body = backupStatusFrom(d, now);
+            } catch (e) { unknown.reason = 'invalid_record'; body = unknown; }
+            resolve({ status: 200, body: body });
+          });
+        });
+      });
     });
   },
 
@@ -115,6 +295,30 @@ var settings = {
       sets.push('"' + k + '" = $' + params.length + (k === 'settings' ? '::jsonb' : ''));
     });
     if (!sets.length) return Promise.resolve({ status: 422, body: { error: 'nothing to update' } });
+    // Phase 5: settings.fiscal_stamp = { enabled, amount } — the only key read
+    // out of the jsonb today (lib/tenancy.js fiscalStamp). Shape-checked so a
+    // malformed policy cannot silently disable or mis-price the stamp.
+    if (b.settings !== undefined) {
+      if (!b.settings || typeof b.settings !== 'object' || Array.isArray(b.settings)) {
+        return Promise.resolve({ status: 422, body: { error: 'settings must be an object' } });
+      }
+      var fs = b.settings.fiscal_stamp;
+      if (fs !== undefined) {
+        var amt = (fs && fs.amount !== undefined && fs.amount !== null && fs.amount !== '') ? Number(fs.amount) : 1;
+        if (!fs || typeof fs !== 'object' || Array.isArray(fs) || typeof fs.enabled !== 'boolean' ||
+            !Number.isFinite(amt) || amt < 0 || amt > tenancy.STAMP_MAX) {
+          return Promise.resolve({ status: 422, body: { error: 'settings.fiscal_stamp must be { enabled: boolean, amount?: number between 0 and ' + tenancy.STAMP_MAX + ' }' } });
+        }
+        // Stored normalised (a finite number to the millime), so what is read
+        // back by lib/tenancy.js fiscalStamp is exactly what was validated.
+        b.settings = Object.assign({}, b.settings, { fiscal_stamp: { enabled: fs.enabled, amount: Number(amt.toFixed(3)) } });
+        // sets[i] and params[i] were pushed together above, so the settings
+        // parameter is the one whose SET clause names the column.
+        for (var si = 0; si < sets.length; si++) {
+          if (/^"settings"/.test(sets[si])) params[si] = JSON.stringify(b.settings);
+        }
+      }
+    }
     for (var i = 0; i < params.length; i++) {
       if (typeof params[i] === 'string' && /^brand_/.test(allowed[i])) { /* checked below */ }
     }
@@ -174,22 +378,54 @@ var users = {
     ).then(function (r) { return { status: 200, body: { rows: r.rows } }; });
   },
 
+  /* Phase 6 (RBAC hardening). Two rules this handler lacked, both already
+     enforced by POST /users (modules/users.js, Phase 1) and now shared:
+       - RANK CAP: nobody grants a role ranked above the highest role they
+         hold in this tenant. users.manage is held by admin, who by design
+         does NOT hold roles.manage (schema-auth.sql) — without this cap an
+         admin could POST {user_id: <self>, role_key: 'super_admin'} and be
+         a super_admin "with extra steps", which is exactly what that
+         separation exists to prevent. Refusals are audited.
+       - MEMBERSHIP: the target must be an active member of this tenant. The
+         INSERT was always RLS-checked for the tenant, but a row for a
+         non-member was accepted and meaningless; now it is a 422. */
   assignRole: function (ctx, client) {
+    var usersModule = require('./users');
+    var audit = require('../lib/audit');
     var b = ctx.body || {};
-    return client.query('SELECT id FROM roles WHERE key = $1', [b.role_key]).then(function (r) {
-      var role = (r.rows || [])[0];
-      if (!role) return { status: 422, body: { error: 'unknown role' } };
-      // The INSERT is RLS-checked: a user_roles row for another tenant is
-      // refused by the database, so this cannot grant access elsewhere.
-      return client.query(
-        'INSERT INTO user_roles (user_id, tenant_id, role_id) VALUES ($1,$2,$3)' +
-        ' ON CONFLICT DO NOTHING', [b.user_id, ctx.tenantId, role.id]
-      ).then(function () {
-        return {
-          status: 200, body: { assigned: true },
-          audit: { action: 'role.assigned', entity_table: 'user_roles', entity_id: b.user_id,
-                   detail: { role: b.role_key } }
-        };
+    var roleKey = String(b.role_key || '').trim();
+    var targetRank = usersModule.ROLE_KEYS.indexOf(roleKey);
+    if (targetRank === -1) return Promise.resolve({ status: 422, body: { error: 'unknown role' } });
+    if (!require('../lib/db').UUID.test(String(b.user_id || ''))) return Promise.resolve({ status: 422, body: { error: 'user_id must be a uuid' } });
+    return usersModule.callerMaxRank(client, ctx.user.id, ctx.tenantId).then(function (myRank) {
+      if (targetRank > myRank) {
+        return audit.write(client, {
+          actor_id: ctx.user.id, actor_label: ctx.user.email, action: 'permission.denied',
+          entity_table: 'user_roles', entity_id: b.user_id, outcome: 'denied',
+          detail: { reason: 'role_exceeds_own_rank', requested: roleKey }, ip: ctx.ip, tenant_id: ctx.tenantId
+        }).then(function () {
+          return { status: 403, body: { error: 'forbidden', required: 'cannot grant a role above your own' } };
+        });
+      }
+      return Promise.all([
+        client.query('SELECT id FROM roles WHERE key = $1', [roleKey]),
+        client.query("SELECT 1 FROM tenant_memberships WHERE user_id = $1 AND tenant_id = $2 AND status = 'active'", [b.user_id, ctx.tenantId])
+      ]).then(function (out) {
+        var role = (out[0].rows || [])[0];
+        if (!role) return { status: 422, body: { error: 'unknown role' } };
+        if (!out[1].rows.length) return { status: 422, body: { error: 'invalid_reference', detail: 'user is not a member of this tenant' } };
+        // The INSERT is RLS-checked: a user_roles row for another tenant is
+        // refused by the database, so this cannot grant access elsewhere.
+        return client.query(
+          'INSERT INTO user_roles (user_id, tenant_id, role_id) VALUES ($1,$2,$3)' +
+          ' ON CONFLICT DO NOTHING', [b.user_id, ctx.tenantId, role.id]
+        ).then(function () {
+          return {
+            status: 200, body: { assigned: true },
+            audit: { action: 'role.assigned', entity_table: 'user_roles', entity_id: b.user_id,
+                     detail: { role: roleKey } }
+          };
+        });
       });
     });
   }
@@ -211,4 +447,36 @@ var auditView = {
   }
 };
 
-module.exports = { dashboard: dashboard, reports: reports, settings: settings, users: users, audit: auditView };
+/* Phase 9 — what is due: scheduled reminders and tasks whose remind_at (or,
+   failing that, starts_at) has passed, plus the ones within ?days ahead.
+   Read-only, module 'agenda' (agenda.read); RLS scopes it. The legacy ERP's
+   "DU" badge, without a notification framework: a list a person opens. */
+var agenda = {
+  due: function (ctx, client) {
+    var q = ctx.query || {};
+    // Default horizon 7 days (what the "À traiter" tab opens on); an explicit
+    // but unparseable value means "overdue/today only", never a 500.
+    var days = q.days === undefined ? 7 : Math.min(Math.max(parseInt(q.days, 10) || 0, 0), 365);
+    var limit = Math.min(Math.max(parseInt(q.limit, 10) || 100, 1), 200);
+    return client.query(
+      // Full row (ends_at/location/all_day included) so the edit form opened
+      // from this list does not blank fields it never saw (review finding).
+      // Horizon N = through the END of the Nth day ahead (0 = the rest of
+      // today); "overdue" = the instant has passed. Day boundaries follow the
+      // database session timezone, like every current_date report here.
+      'SELECT id, kind, title, description, starts_at, ends_at, all_day, location, remind_at, priority, status,' +
+      ' client_id, project_id, invoice_id, quote_id, assigned_to,' +
+      ' coalesce(remind_at, starts_at) AS due_at,' +
+      ' (coalesce(remind_at, starts_at) <= now()) AS overdue' +
+      ' FROM agenda_events' +
+      " WHERE deleted_at IS NULL AND status = 'scheduled' AND kind IN ('reminder','task')" +
+      "   AND coalesce(remind_at, starts_at) < date_trunc('day', now()) + (($1::int + 1) * interval '1 day')" +
+      " ORDER BY coalesce(remind_at, starts_at), CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END LIMIT " + limit, [days]
+    ).then(function (r) {
+      var overdue = r.rows.filter(function (x) { return x.overdue === true; }).length;
+      return { status: 200, body: { rows: r.rows, total: r.rows.length, overdue: overdue, days: days } };
+    });
+  }
+};
+
+module.exports = { dashboard: dashboard, reports: reports, settings: settings, users: users, audit: auditView, agenda: agenda };

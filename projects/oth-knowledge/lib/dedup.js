@@ -127,8 +127,35 @@ function linkEntityAliases(store, candidates) {
   return linked;
 }
 
+// Semantic near-duplicates (Phase 11): cosine over real/provider
+// embeddings, complementing the lexical Jaccard pass. Catches paraphrases
+// that share meaning but few 4-grams. Link-only, never merges/deletes.
+// Requires an embedder (from lib/embeddings.js); deterministic for a given
+// provider. Default threshold intentionally high to stay conservative.
+const SEMANTIC_THRESHOLD = 0.92;
+function findSemanticNearDuplicates(store, opts) {
+  const o = opts || {};
+  const embedder = o.embedder;
+  if (typeof embedder !== 'function') throw new Error('OTHK_DEDUP_INPUT: findSemanticNearDuplicates requires an embedder');
+  const kinds = o.kinds || ['fact', 'claim', 'observation', 'document', 'chunk'];
+  const recs = store.allRecords({ where: (r) => kinds.indexOf(r.kind) !== -1 });
+  const docs = recs.map((rec) => ({ rec, text: rec.text || rec.statement || '' }))
+    .filter((d) => d.text && d.text.trim())
+    .map((d) => ({ rec: d.rec, vec: embedder(d.text) }));
+  const thr = o.threshold || SEMANTIC_THRESHOLD;
+  const pairs = [];
+  for (let i = 0; i < docs.length; i++) {
+    for (let j = i + 1; j < docs.length; j++) {
+      const sim = search.cosine(docs[i].vec, docs[j].vec);
+      if (sim >= thr) pairs.push({ a: docs[i].rec.id, b: docs[j].rec.id, similarity: +sim.toFixed(4), by: 'semantic' });
+    }
+  }
+  pairs.sort((x, y) => y.similarity - x.similarity || (x.a < y.a ? -1 : 1));
+  return pairs;
+}
+
 module.exports = {
-  DUPLICATE_THRESHOLD, POSSIBLE_THRESHOLD, SHINGLE_SIZE,
-  shingles, jaccard, findNearDuplicates, linkDuplicates,
+  DUPLICATE_THRESHOLD, POSSIBLE_THRESHOLD, SEMANTIC_THRESHOLD, SHINGLE_SIZE,
+  shingles, jaccard, findNearDuplicates, linkDuplicates, findSemanticNearDuplicates,
   findEntityAliasCandidates, linkEntityAliases,
 };

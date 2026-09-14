@@ -78,7 +78,7 @@ docker run -d --name "$C" -P \
 # start; a single pg_isready success can land in that window. Require two in a row.
 OKS=0; for i in $(seq 1 90); do if docker exec "$C" pg_isready -U erp_owner -q 2>/dev/null; then OKS=$((OKS+1)); [ $OKS -ge 2 ] && break; else OKS=0; fi; sleep 1; [ "$i" -lt 90 ] || { echo "db never ready" >&2; exit 1; }; done
 PORT="$(docker port "$C" 5432/tcp | head -1 | sed 's/.*://')"
-for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql; do
+for f in schema.sql schema-auth.sql schema-tenant.sql 0004-prospects.sql 0005-accounting.sql 0006-agenda.sql 0008-purchases-lifecycle.sql 0009-bank-reconciliation.sql 0010-mission-orders.sql 0011-fiscal-stamp.sql 0012-rbac-delete-permissions.sql 0013-expenses-ledger.sql 0014-cash-register.sql 0015-contact-import.sql; do
   docker cp "$DB/$f" "$C:/tmp/$f" >/dev/null
   docker exec "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 -f "/tmp/$f" >/dev/null
 done
@@ -86,7 +86,9 @@ docker exec -i "$C" psql -U erp_owner -d mythos_erp -q -v ON_ERROR_STOP=1 <<SQL
 CREATE ROLE erp_app LOGIN PASSWORD '$PW';
 GRANT USAGE ON SCHEMA public TO erp_app;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO erp_app;
-GRANT DELETE ON invoice_lines TO erp_app;
+GRANT DELETE ON invoice_lines, quote_lines TO erp_app;
+GRANT SELECT, INSERT, UPDATE ON accounts, journals, fiscal_periods, accounting_counters, journal_entries, journal_lines TO erp_app;
+GRANT DELETE ON journal_lines TO erp_app;   -- draft lines are replaced wholesale; the trigger freezes posted ones
 REVOKE UPDATE, DELETE ON audit_log FROM erp_app;
 GRANT INSERT, SELECT ON audit_log TO erp_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO erp_app;
@@ -131,7 +133,7 @@ check "one user exists" "[ $N_USERS = 1 ]" "$N_USERS"
 check "user has a scrypt hash and no plaintext" "[ $N_HASH = 1 ] && [ $N_PLAIN = 0 ]" "hash=$N_HASH plain=$N_PLAIN"
 check "membership in mythos, active, default" "[ $N_MEMB = 1 ]" "$N_MEMB"
 check "super_admin role scoped to mythos" "[ $N_ROLE = 1 ]" "$N_ROLE"
-check "35 effective permissions in mythos (31 + 4 prospects.*)" "[ $N_PERM = 35 ]" "$N_PERM"
+check "44 effective permissions in mythos (31 + 4 prospects.* + 4 accounting.* + 3 agenda.* + 2 delete keys of 0012)" "[ $N_PERM = 44 ]" "$N_PERM"
 check "audit: user.created + membership.granted + role.assigned, tenant-tagged" "[ $N_AUD = 3 ]" "$(q 'select action from audit_log' | tr '\n' ' ')"
 check "audit detail carries no password" "[ $N_AUDPW = 0 ]" ""
 
@@ -153,6 +155,7 @@ code() { curl -s -o "$J" -D "$H" -w '%{http_code}' "$@"; }
 login() { code -X POST "$B/auth/login" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}"; }
 
 R=$(code "$B/health");                                 check "health 200 = DB readiness as erp_app" "[ $R = 200 ] && grep -q '\"db\":\"ready\"' $J && grep -q '\"role\":\"erp_app\"' $J" "$R $(cat $J)"
+check "health reports code_identity with a real, verified HEAD (Phase 15 deployment-drift signal)" "grep -q '\"code_identity\"' $J && grep -q '\"verified\":true' $J && grep -qE '\"head\":\"[0-9a-f]{40}\"' $J" "$(cat $J)"
 R=$(login "$ADMIN_EMAIL" "definitely-not-it-12345");   check "wrong password → 401" "[ $R = 401 ]" "$R $(cat $J)"
 R=$(login "nobody@mythos.test" "definitely-not-it-12345"); check "unknown user → 401 (same shape)" "[ $R = 401 ]" "$R"
 R=$(login "$ADMIN_EMAIL" "$ADMIN_PW");                 check "correct password → 200" "[ $R = 200 ]" "$R $(cat $J)"
@@ -167,7 +170,7 @@ R=$(code -H "Cookie: $COOKIE" "$B/session");            check "GET /session with
 CSRF=$(python3 -c "import json; print(json.load(open('$J')).get('csrf',''))")
 R=$(code "$B/users");                                   check "GET /users without cookie → 401" "[ $R = 401 ]" "$R"
 R=$(code -H "Cookie: $COOKIE" "$B/users");              check "GET /users as super_admin (users.read) → 200" "[ $R = 200 ]" "$R $(cat $J)"
-R=$(code -H "Cookie: $COOKIE" "$B/dashboard");          check "GET /dashboard → 200 with all seven counters" "[ $R = 200 ] && python3 -c \"import json; d=json.load(open('$J')); assert set(d)=={'clients','open_projects','unpaid_invoices','invoiced_ttc_ytd','collected_ytd','appointments_next_7d','items_below_reorder'}, d\"" "$R $(cat $J)"
+R=$(code -H "Cookie: $COOKIE" "$B/dashboard");          check "GET /dashboard → 200 with all nine counters (Phase 9 added reminders_due / invoices_overdue)" "[ $R = 200 ] && python3 -c \"import json; d=json.load(open('$J')); assert set(d)=={'clients','open_projects','unpaid_invoices','invoiced_ttc_ytd','collected_ytd','appointments_next_7d','reminders_due','invoices_overdue','items_below_reorder'}, d\"" "$R $(cat $J)"
 for rep in revenue receivables expenses; do R=$(code -H "Cookie: $COOKIE" "$B/reports/$rep"); check "GET /reports/$rep → 200" "[ $R = 200 ]" "$R $(head -c 200 $J)"; done
 R=$(code -H "Cookie: $COOKIE" "$B/settings");           check "GET /settings → 200" "[ $R = 200 ]" "$R $(head -c 200 $J)"
 R=$(code -H "Cookie: $COOKIE" "$B/tenants");            check "GET /tenants → 200" "[ $R = 200 ]" "$R"
