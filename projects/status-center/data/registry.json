@@ -1,6 +1,6 @@
 {
   "registry_version": "1.1.0",
-  "curated_at": "2026-09-03",
+  "curated_at": "2026-09-14",
   "curation_note": "Re-sync 2026-09-03 (gh-issue-140, completing the gh-issue-95 audit): fixed the stale PROJECT-AI-ORCHESTRATION entry, which had read \"v1 COMPLETE AND CLOSED 2026-08-19\" for ten days and roughly a dozen delivered bridge/executor stages without being touched (GitHub Issues intake, model-selection policy, Resource Guard, bridge retry/quota policy, the HostOps read-only boundary) — the entry now states both facts: v1 is still closed as scoped, AND the same component has kept evolving since, all on unmerged branches (EV-AI-ORCH-EVOLUTION-0903). Added four projects/* directories the account-level repository-discovery path structurally cannot see because they are inside this monorepo, not separate GitHub repositories: PROJECT-MYTHOS-GATEWAY, PROJECT-MYTHOS-ORCHESTRATOR, PROJECT-MYTHOS-VAULT, PROJECT-OTH-MCP — found by listing every projects/* directory and checking which ones no existing project purpose/evidence text actually covered (4 of 21 did not; the other 17 already did, confirmed against git log and each project's own purpose text, and now carry a new `directories` field recording that mapping explicitly instead of leaving it implicit). Added a matching monorepo project-discovery function to the review engine (lib/engine.js discoverMonorepoProjects) so a future undeclared projects/* directory surfaces as a discovery requiring classification, the same guarantee discoverRepositories already gives for GitHub account repositories — closing the \"monorepo discovery\" gap named in gh-issue-140. No percentage invented anywhere in this pass: two new dimensions are NOT_CALCULABLE with a stated reason, one is IN_PROGRESS with a status only. Also recorded 2026-08-26: NEXT-STATUS-DISCLOSURE-REVIEW — the public Status Center carries the same class of infrastructure detail that OTHMODE reports now mask, which is a consistency question for the owner rather than something to fix piecemeal. Re-sync 2026-08-26T15:17Z: recorded a genuine platform change — OTHMODE Command History and Task Reports became publicly readable at 7252de2, redacted for anonymous callers, with the write surface verified still closed. PROJECT-OTHMODE headline, last_change, production dimension and evidence updated (EV-OTHMODE-PUBLIC-HISTORY, EV-OTHMODE-PUBLIC-VERIFIED). No other project or action changed; NEXT-EXPORTS remains the sole open owner decision. Re-sync 2026-08-26T14:38Z: no status changed. The only genuine new fact is that the publish-wipes-monitor-state fix was exercised by a real publish and held — monitor runtime state and the apex Hub feed both survived intact, which is the regression check the fix existed for. Recorded against EV-PUBLISH-WIPES-MONITOR-STATE. The board is otherwise steady: every execution-layer action is closed and NEXT-EXPORTS remains the sole owner decision. Re-sync 2026-08-26 after the owner published: NEXT-STATUS-PUBLISH closed — the live Status Center now serves REVIEW-2026-08-26-004 and matches the repository on every counted dimension (EV-STATUS-PUBLISHED-0826). The publish also exposed a real defect, now fixed: rsync --delete wiped the monitor's runtime state out of the shared docroot, taking the live panel and — via an nginx alias — the apex Hub's /api/status.json to 404, and permanently destroying data/live-history/ (EV-PUBLISH-WIPES-MONITOR-STATE). NEXT-OTHMODE-MONITOR closed 2026-08-26 after production verification: othmode.mythosprod.xyz and its Task Reports API are now monitored components of the existing STC-2 monitor (14 components live, both OTHMODE probes LIVE). Reconciliation pass 2026-08-26 (later the same day): closed three next_actions whose blockers were already DONE and whose live criteria were re-verified first-hand — NEXT-OTHK-STORE, NEXT-MOS-DEPLOY, NEXT-HUB-DEPLOY (evidence EV-STALE-RECONCILE-0826) — and marked ACTION-MOS-DEPLOY and ACTION-HUB-DNS DONE to match their own blockers. Added othmode.mythosprod.xyz to the existing STC-2 probe registry rather than building a second monitor (EV-OTHMODE-MONITOR-PROBE). Nothing was closed to make the board look finished: NEXT-STATUS-PUBLISH stays open because the live site is still unpublished, and every remaining owner decision is untouched. Also refreshed 2026-08-26: data/pr-ledger.json re-captured from the GitHub API (56 -> 90 PRs, #1-#90; 8 open, 78 merged, 4 closed-unmerged), correcting six entries that the 2026-08-20 snapshot still recorded as open (#53-#56 merged, #23 and #52 closed unmerged) and carrying curator notes across by PR number. PROJECT-COMMAND-CENTER updated against host evidence: its 'latest merged revision pending redeploy' caveat is closed (service restarted 2026-08-26 at aa4ca2d, no command-center code change since), and its relationship to OTHMODE is now stated — one Node process on 127.0.0.1:3021 serving both hostnames. Updated 2026-08-26 on the production VPS (deploy@vps-4722f0a9): added PROJECT-OTHMODE with five evidence records after the OTHMODE Task Reports release was merged (aa4ca2d), deployed and operator-verified first-hand on the host — the registry had carried no OTHMODE entry at all, which is why earlier re-syncs reported zero content change. Closed ACTION-STC2-INSTALL / NEXT-STC2-INSTALL against their own stated criteria (timer active and refreshing; published app.js byte-identical to the repository copy, carrying the live panel and the Arabic layer). Two genuinely outstanding items found while curating were recorded rather than left implicit: NEXT-STATUS-PUBLISH (the repository holds two unpublished reviews; the live site is behind because nothing published them, not because nothing re-synced) and NEXT-OTHMODE-MONITOR (othmode.mythosprod.xyz is not a monitored component). No percentage was invented: every OTHMODE dimension is recorded as a status with a note. Updated 2026-08-22 from the production VPS (deploy@vps-4722f0a9) after the real on-host OTH-KNOWLEDGE acceptance run: node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed at ef91aa0a7083b9869b293a53030ce40ade4ad5a2. Only what that run actually proves was moved — the store/provisioning/deployment/production-verification dimensions and BLOCKER-OTHK-STORE. Track B real data remains OWNER_ACTION and PROJECT-OTH-KNOWLEDGE keeps status OWNER_ACTION for exactly that reason. Curated from a full audit on 2026-08-20: complete read of docs/AI_HANDOVER.md (15,892 lines), docs/ reconciliation, full git history (668 commits, repo born 2026-07-29), all 53 PRs, and the GitHub repository inventory. Every entry cites evidence; the review engine re-verifies what it can and marks the rest RECORDED.",
   "source_hierarchy": [
     {
@@ -794,6 +794,48 @@
       "reference": "deploy@vps-4722f0a9, /home/deploy/deployments/darhijama-v1.0.1, 2026-09-14T00:5{8-9}Z",
       "date": "2026-09-14",
       "note": "Operator-directed rollback of darhijama.tn production from image tag v1.0.1 (commit 09ffdb0) to a rebuilt image from commit 704b3a3147c6b951d6ffa3523cb6607918cecd98 (git tag darhijama-v1.0.0) plus a single-file build-order fix (ops/staging/Dockerfile, checked out verbatim from darhijama-v1.0.1: mkdir+chown+chmod before `composer dump-autoload`/`artisan package:discover`, no other file touched). Root cause found first: 704b3a3's own Dockerfile never builds as committed (`Please provide a valid cache path` from `artisan package:discover` — `bootstrap/cache` is created after `composer dump-autoload` runs) — reproduced live and confirmed against the original 2026-07-28 deployment.log/deployment-retry.log, which show the exact same failure on both original deploy attempts. v1.0.0 as tagged therefore never ran as a working Docker deployment; v1.0.1 (09ffdb0, same day) was the first Laravel build that actually succeeded. Application code, routes, controllers, views, migrations are byte-identical between v1.0.0 and v1.0.1 (git diff darhijama-v1.0.0..darhijama-v1.0.1 touches only that one Dockerfile RUN step). Built and tagged separately: mythos-darhijama-production-app:v1.0.0-fixed, mythos-darhijama-production-web:v1.0.0-fixed (v1.0.1 images untouched, left on host). Cutover via `docker compose ... up -d --no-deps app web queue scheduler` from the live deployment dir using the existing .env.production; mysql + 3 redis containers and all named volumes untouched, no migrations run (none needed). Post-cutover verification: HTTP/HTTPS 200, /up 200, /admin/login 200, container RELEASE_SHA=v1.0.0-fixed, `artisan migrate:status` all Ran, queue heartbeat and scheduler both healthy, nginx access log shows zero new 5xx (the only 5xx observed, on /sitemap.xml, is a pre-existing Blade template bug present identically before and after the cutover — same stack trace recurs post-cutover, confirming no regression). Rollback-of-rollback to v1.0.1 remains a single command away (same compose invocation with SOURCE_COMMIT=v1.0.1; that image tag was never removed)."
+    },
+    {
+      "id": "EV-KITCHEN-130-GATE",
+      "type": "vps",
+      "reference": "othkm projects/mythos-auto/FINAL_OWNER_CUTOVER_CHECKLIST_2026-09-11.md Gate 10 'FINAL 24 H GATE' (PR #9); ssangyong-storefront.service MainPID 2670609 since 2026-09-12 13:49:08 UTC",
+      "date": "2026-09-13",
+      "note": "Kitchen 1.3.0 deployed 2026-09-12 13:49 UTC (owner decision A); 24 h gate PASS 2026-09-13 15:03 UTC: NRestarts 0, health 200, all 1.3.0 routes, 0 x 5xx, backup success, rollback blob 0211d08e87ff preserved. RELEASE-STABLE."
+    },
+    {
+      "id": "EV-PIECE-MAIN",
+      "type": "ci",
+      "reference": "othoth77/piece.autos main 39fcba4 — merges #6 6795559, #7 0c24ecc, #8 a17f885, #9 39fcba4 (2026-09-13); main CI runs 34782008033/34782084504/34782164074/34782259648 success",
+      "date": "2026-09-13",
+      "note": "234 tests, standalone build, route guard 9/9, smoke 27/27, live suite vs Kitchen 1.3.0 19 passed / 4 skipped / 0 failed; zero FALLBACK blocks; unit ExecStart node server.js; two-file nginx template."
+    },
+    {
+      "id": "EV-PIECE-DNS",
+      "type": "dns",
+      "reference": "OVH zone piece.autos SOA serial 2087930421 -> 2089341859; apex + www A -> the production host; no AAAA; redirection marker removed; 3/3 samples at 1.1.1.1, 8.8.8.8, 9.9.9.9 on 2026-09-14 00:29 UTC",
+      "date": "2026-09-14",
+      "note": "Owner changed the zone manually; verified read-only. TTL 3600 (planned 300) recorded as a deviation."
+    },
+    {
+      "id": "EV-PIECE-DEPLOY",
+      "type": "deployment",
+      "reference": "othkm projects/mythos-auto/FINAL_OWNER_CUTOVER_CHECKLIST_2026-09-11.md gate 11 (branch othkm/piece-deployed-20260914); unit piece-autos MainPID 298457 since 2026-09-14 00:35:18 UTC; https://piece.autos/api/health 200",
+      "date": "2026-09-14",
+      "note": "Owner-authorised deployment per PIECE_RELEASE_EXECUTION_PACK: artifact gated as deploy from main 39fcba4, nginx two-phase, Let's Encrypt certificate to 2026-12-12, public smoke PASS (10 routes, sitemap 373, API rejections), first 30 min 30/30 samples clean, 1 909 requests 0 x 5xx. Kitchen untouched. WhatsApp handoff honestly declined (no number)."
+    },
+    {
+      "id": "EV-CASSE-MAIN",
+      "type": "ci",
+      "reference": "othoth77/casse.autos main ad9d340 — merges #2 9fc89f0, #4 c855bdf, #5 be594fb, #3 ad9d340 (2026-09-14); main CI runs 34795217515/34795353788/34795503619/34795658928 success",
+      "date": "2026-09-14",
+      "note": "Backup timer templates, deployment-template fixes (release layout, two-file nginx), operator availability-transition scripts (D3) with tests, unaccent_safe in schema, first-real-inventory template with placeholder example, 311 tests / 19 skipped (Postgres-gated), smoke 54 both passes."
+    },
+    {
+      "id": "EV-CASSE-NO-INVENTORY",
+      "type": "operator-report",
+      "reference": "othkm projects/mythos-auto/evidence/2026-09-13/CASSE_AUDIT_AND_INVENTORY_READINESS.md §3 and CASSE_OPERATOR_PATH_AND_INVENTORY_TEMPLATE.md",
+      "date": "2026-09-13",
+      "note": "No real inventory source exists anywhere (repository, /home/deploy, /root, MariaDB, Kitchen). The fixture is refused in production; the placeholder example cannot be imported in place. Launch requires photographed, graded, provenance-stamped real parts (C-O5)."
     }
   ],
   "repositories": [
@@ -957,6 +999,34 @@
       "classification": "ARCHIVED",
       "visibility": "public",
       "note": "Pre-Mythos project (last push 2026-05-11)."
+    },
+    {
+      "id": "REPO-PIECE-AUTOS",
+      "full_name": "othoth77/piece.autos",
+      "classification": "ACTIVE",
+      "visibility": "private",
+      "note": "Piece.Autos storefront (MYTHOS AUTO parts channel). Consumes the Kitchen (projects/ssangyong-autos) read-only under Shared Kitchen Contract 1.3.0. Deployed 2026-09-14."
+    },
+    {
+      "id": "REPO-CASSE-AUTOS",
+      "full_name": "othoth77/casse.autos",
+      "classification": "ACTIVE",
+      "visibility": "private",
+      "note": "Casse.Autos salvage storefront (MYTHOS AUTO). Own inventory (jsonl/Postgres), Kitchen used for the vehicle taxonomy only. Not deployed; no real inventory exists yet."
+    },
+    {
+      "id": "REPO-OTHKM",
+      "full_name": "othoth77/othkm",
+      "classification": "ACTIVE",
+      "visibility": "private",
+      "note": "OTH knowledge/registry repository; carries the MYTHOS AUTO release records under projects/mythos-auto/."
+    },
+    {
+      "id": "REPO-OTHDESIGN",
+      "full_name": "othoth77/othdesign",
+      "classification": "ACTIVE",
+      "visibility": "private",
+      "note": "Central design repository; records the three storefront identities and the shared-primitives measurement."
     }
   ],
   "projects": [
@@ -1942,6 +2012,78 @@
         "EV-MCP-ECOSYSTEM-DOC",
         "EV-MCP-ECOSYSTEM-TEST-0903"
       ]
+    },
+    {
+      "id": "PROJECT-PIECE-AUTOS",
+      "name": "Piece.Autos (MYTHOS AUTO parts channel)",
+      "executive": false,
+      "purpose": "piece.autos: storefront over the shared MYTHOS AUTO Kitchen catalogue (read-only), WhatsApp-only commerce, no online payment, no own database.",
+      "status": "IN_PROGRESS",
+      "maturity": "DEPLOYED",
+      "repository": "othoth77/piece.autos",
+      "last_change": "2026-09-14 (production deployment, gate 11)",
+      "blocker": "Commercial/multi-brand claim gated by O8 (autopart.tn written authorisation; 311 product images hot-linked from autopart.tn). WhatsApp handoff inactive until a dedicated business number is configured (G4).",
+      "next_action": "Close the 24 h monitoring window (2026-09-15 00:35 UTC); owner provides PIECE_WHATSAPP_NUMBER (G4) and the O8 decision (G6).",
+      "headline": "LIVE at https://piece.autos since 2026-09-14 00:35 UTC as a single-brand consultation storefront over Kitchen 1.3.0 (346 products / 782 fitment rows). Unit piece-autos (300 MB cap), two-phase nginx, Let's Encrypt to 2026-12-12; public smoke PASS; first 30 minutes 0 anomalies. Order handoff honestly declined until a WhatsApp number exists.",
+      "dimensions": {
+        "implementation": {
+          "status": "DONE",
+          "note": "main 39fcba4; fallbacks removed; contract 1.3.0"
+        },
+        "tests": {
+          "status": "DONE",
+          "note": "234 offline, live 19/4/0, smoke 27/27, CI green"
+        },
+        "deployment": {
+          "status": "DONE",
+          "note": "2026-09-14 00:35 UTC, owner-authorised; 24 h window open"
+        },
+        "production": {
+          "status": "IN_PROGRESS",
+          "note": "24 h monitoring until 2026-09-15 00:35 UTC; WhatsApp and O8 owner gates open"
+        }
+      },
+      "evidence": [
+        "EV-PIECE-MAIN",
+        "EV-PIECE-DNS",
+        "EV-PIECE-DEPLOY",
+        "EV-KITCHEN-130-GATE"
+      ]
+    },
+    {
+      "id": "PROJECT-CASSE-AUTOS",
+      "name": "Casse.Autos (MYTHOS AUTO salvage channel)",
+      "executive": false,
+      "purpose": "casse.autos: used parts from donor vehicles with provenance and graded condition reports, WhatsApp inquiry only, own append-only inventory; Kitchen used for the vehicle taxonomy only.",
+      "status": "OWNER_ACTION",
+      "maturity": "TESTED",
+      "repository": "othoth77/casse.autos",
+      "last_change": "2026-09-14 (four preparation PRs merged, main ad9d340)",
+      "blocker": "No real inventory exists (C-O5). DNS on OVH parking (C-O2). WhatsApp number absent (C-O3). Memory-cap and store decisions open (C-O4/C-O6). Identity values proposed, not ratified (C-O1).",
+      "next_action": "Owner produces the first real inventory per docs/inventory/FIRST_REAL_INVENTORY_TEMPLATE.md (dry-run, then import); then DNS, number, deployment authorisation.",
+      "headline": "Engineering complete to the inventory boundary: storefront, inquiry path, SEO, security, standalone deployment templates, two-phase nginx, backup timer, operator availability transitions and the inventory import pipeline are on main with green CI (311 tests, smoke 54, Playwright 34). NOT launch-ready: the site is honest when empty and useless when empty.",
+      "dimensions": {
+        "implementation": {
+          "status": "DONE",
+          "note": "main ad9d340"
+        },
+        "tests": {
+          "status": "DONE",
+          "note": "311 passed / 19 skipped (Postgres-gated), smoke 54 both passes, Playwright 34/34"
+        },
+        "deployment": {
+          "status": "OWNER_ACTION",
+          "note": "templates ready; not installed; C-O2/C-O4 first"
+        },
+        "inventory": {
+          "status": "OWNER_ACTION",
+          "note": "no real inventory anywhere; fixture refused in production"
+        }
+      },
+      "evidence": [
+        "EV-CASSE-MAIN",
+        "EV-CASSE-NO-INVENTORY"
+      ]
     }
   ],
   "tracks": [
@@ -2711,6 +2853,114 @@
           ]
         }
       ]
+    },
+    {
+      "id": "TRACK-PIECE-RELEASE",
+      "name": "Piece.Autos — release to production",
+      "project": "PROJECT-PIECE-AUTOS",
+      "stages": [
+        {
+          "id": "STAGE-PIECE-FOUNDATION",
+          "status": "DONE",
+          "what": "Foundation + Kitchen contract 1.3.0 consumption (PRs #1-#5, 2026-09-12)",
+          "evidence": [
+            "EV-PIECE-MAIN"
+          ]
+        },
+        {
+          "id": "STAGE-PIECE-DEPLOY-TEMPLATES",
+          "status": "DONE",
+          "what": "Standalone build, unit, two-file nginx, runbook, smoke gate, fallback cleanup (#6-#9)",
+          "evidence": [
+            "EV-PIECE-MAIN"
+          ]
+        },
+        {
+          "id": "STAGE-PIECE-DNS",
+          "status": "DONE",
+          "what": "DNS off OVH parking, propagation verified",
+          "evidence": [
+            "EV-PIECE-DNS"
+          ]
+        },
+        {
+          "id": "STAGE-PIECE-DEPLOYED",
+          "status": "DONE",
+          "what": "Production deployment, TLS, public smoke",
+          "evidence": [
+            "EV-PIECE-DEPLOY"
+          ]
+        },
+        {
+          "id": "STAGE-PIECE-24H",
+          "status": "IN_PROGRESS",
+          "what": "24 h monitoring window (closes 2026-09-15 00:35 UTC)",
+          "evidence": [
+            "EV-PIECE-DEPLOY"
+          ]
+        },
+        {
+          "id": "STAGE-PIECE-WHATSAPP",
+          "status": "OWNER_ACTION",
+          "what": "Dedicated business number (G4)",
+          "evidence": []
+        },
+        {
+          "id": "STAGE-PIECE-O8",
+          "status": "OWNER_ACTION",
+          "what": "autopart.tn authorisation / image hosting (G6) before any commercial or multi-brand claim",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "TRACK-CASSE-RELEASE",
+      "name": "Casse.Autos — release to production",
+      "project": "PROJECT-CASSE-AUTOS",
+      "stages": [
+        {
+          "id": "STAGE-CASSE-FOUNDATION",
+          "status": "DONE",
+          "what": "CA-0..CA-8 foundation, design, IA, inquiry flow, intake, SEO, a11y, security, ops templates (PR #1, 2026-09-12)",
+          "evidence": [
+            "EV-CASSE-MAIN"
+          ]
+        },
+        {
+          "id": "STAGE-CASSE-PREP",
+          "status": "DONE",
+          "what": "Backup timer, deployment-template fixes, operator transitions, schema function, inventory template (PRs #2-#5, 2026-09-14)",
+          "evidence": [
+            "EV-CASSE-MAIN"
+          ]
+        },
+        {
+          "id": "STAGE-CASSE-INVENTORY",
+          "status": "OWNER_ACTION",
+          "what": "First real inventory (C-O5)",
+          "evidence": [
+            "EV-CASSE-NO-INVENTORY"
+          ]
+        },
+        {
+          "id": "STAGE-CASSE-DNS",
+          "status": "OWNER_ACTION",
+          "what": "casse.autos off OVH parking (C-O2)",
+          "evidence": []
+        },
+        {
+          "id": "STAGE-CASSE-DEPLOY",
+          "status": "OWNER_ACTION",
+          "what": "Production deployment after inventory, DNS, number, C-O4/C-O6",
+          "evidence": []
+        },
+        {
+          "id": "STAGE-CASSE-24H",
+          "status": "NOT_STARTED",
+          "what": "24 h monitoring window",
+          "evidence": []
+        }
+      ]
     }
   ],
   "milestones": [
@@ -2936,6 +3186,27 @@
       "status": "DONE",
       "evidence": [
         "EV-DARHIJAMA-ROLLBACK-0914"
+      ]
+    },
+    {
+      "id": "MS-2026-09-12-KITCHEN-130",
+      "date": "2026-09-12",
+      "project": "PROJECT-SSANGYONG",
+      "title": "Kitchen 1.3.0 deployed and RELEASE-STABLE",
+      "what": "Shared Kitchen Contract 1.3.0 (vehicle brands, part categories, batched quotes, reference search) deployed 2026-09-12 13:49 UTC; 24 h gate PASS 2026-09-13.",
+      "evidence": [
+        "EV-KITCHEN-130-GATE"
+      ]
+    },
+    {
+      "id": "MS-2026-09-14-PIECE-LIVE",
+      "date": "2026-09-14",
+      "project": "PROJECT-PIECE-AUTOS",
+      "title": "Piece.Autos live at https://piece.autos",
+      "what": "First MYTHOS AUTO storefront deployed to production under owner authorisation; Kitchen and SsangYong untouched.",
+      "evidence": [
+        "EV-PIECE-DEPLOY",
+        "EV-PIECE-DNS"
       ]
     }
   ],
@@ -3216,6 +3487,34 @@
         "EV-BACKUP-RESTORE-PROVEN",
         "EV-BACKUP-CHECKSUMS-BY-DESIGN"
       ]
+    },
+    {
+      "id": "BLOCKER-CASSE-INVENTORY",
+      "title": "Casse.Autos has no real inventory",
+      "type": "business",
+      "project": "PROJECT-CASSE-AUTOS",
+      "priority": "P0",
+      "status": "OWNER_ACTION",
+      "owner": "Owner/operator",
+      "impact": "The storefront is honest when empty and useless when empty; nothing can be sold.",
+      "unblock": "Photograph, grade and provenance-stamp real parts with their donor vehicles in the docs/inventory/FIRST_REAL_INVENTORY_TEMPLATE.md format; run scripts/import-inventory.ts --dry-run, then import. Never promote the fixture.",
+      "evidence": [
+        "EV-CASSE-NO-INVENTORY"
+      ]
+    },
+    {
+      "id": "BLOCKER-PIECE-O8",
+      "title": "autopart.tn authorisation (O8) gates any commercial or multi-brand Piece claim",
+      "type": "legal",
+      "project": "PROJECT-PIECE-AUTOS",
+      "priority": "P1",
+      "status": "OWNER_ACTION",
+      "owner": "Owner",
+      "impact": "The catalogue is single-brand and its 311 images are hot-linked from a host whose robots.txt forbids collection and republication and which answers 403 to the VPS.",
+      "unblock": "Owner chooses option A (written authorisation, recommended), B (reseller terms), C (licensed feed) or D (internal only) per othkm OWNER_DECISION_SHEETS_2026-09-13.md §1, and decides image re-hosting.",
+      "evidence": [
+        "EV-PIECE-DEPLOY"
+      ]
     }
   ],
   "owner_actions": [
@@ -3308,6 +3607,30 @@
       "required_input": "Root shell on the VPS.",
       "expected_result": "ACHIEVED and verified on the host 2026-08-26: mythos-status-monitor.timer active on a ~5-minute cadence (last run 13:43:34Z), /var/www/status.mythosprod.xyz/data/live-status.json refreshing with 12 probed components (10 LIVE, 1 DEGRADED, 1 NOT_MONITORED), and the published assets/app.js is byte-identical to the repository copy and carries both the live panel and the Arabic layer.",
       "procedure": "projects/status-center/monitor/README.md (install.sh) then sites/status.mythosprod.xyz/DEPLOYMENT.md §1 content sync."
+    },
+    {
+      "id": "ACTION-PIECE-WHATSAPP-NUMBER",
+      "status": "OWNER_ACTION",
+      "what": "Provide a dedicated WhatsApp Business number for Piece.Autos (PIECE_WHATSAPP_NUMBER) and name the inbox owner",
+      "why": "Commerce is WhatsApp-only; until then every handoff is honestly declined (503 WHATSAPP_NOT_CONFIGURED).",
+      "impact": "Turns the live consultation storefront into a selling one.",
+      "required_input": "One number in international digits (never the reserved notification account +216 98 999 660)."
+    },
+    {
+      "id": "ACTION-CASSE-FIRST-INVENTORY",
+      "status": "OWNER_ACTION",
+      "what": "Produce the first real Casse.Autos inventory in the documented intake format",
+      "why": "No inventory exists anywhere; the fixture is refused in production.",
+      "impact": "Unblocks Casse deployment planning; nothing else in the Casse chain can start.",
+      "required_input": "intake.json + photos per docs/inventory/FIRST_REAL_INVENTORY_TEMPLATE.md; operator initials for provenance."
+    },
+    {
+      "id": "ACTION-CASSE-DNS-AND-DEPLOY",
+      "status": "OWNER_ACTION",
+      "what": "Move casse.autos + www off OVH parking, provide CASSE_WHATSAPP_NUMBER, decide C-O4 (unit memory cap) and C-O6 (jsonl vs Postgres), then authorise the deployment",
+      "why": "Every remaining Casse step is an owner decision; engineering is complete to the inventory boundary.",
+      "impact": "Casse can go live within hours of the last decision.",
+      "required_input": "Zone change; number; two decisions; written authorisation naming the Casse execution pack."
     }
   ],
   "next_actions": [
@@ -3325,6 +3648,22 @@
       "order": 2,
       "title": "Decide whether the public Status Center should mask infrastructure detail, as OTHMODE reports now do",
       "detail": "On 2026-08-26 the owner decided that OTHMODE Task Reports, on becoming public, should have infrastructure detail masked for anonymous readers (host paths, sudo grants, internal listeners, hostname). The Status Center has been public since 2026-08-20 and carries the same class of detail: the hostname appears 12 times and absolute host paths 23 times in the published current.json. This is pre-existing convention, not a new exposure, and it is NOT obviously wrong — the Status Center is an evidence-citing instrument, and a path or a host IS the evidence, so masking it would degrade the thing it exists to do. That tension is the decision: apply the same masking for consistency, accept the disclosure as the cost of citable evidence, or mask only the narrowest subset (sudo grants and backup gaps). Recorded rather than acted on, because scrubbing two dozen evidence references is a content decision with owner-visible impact and would be pointless if done piecemeal.",
+      "depends_on": null
+    },
+    {
+      "id": "NEXT-PIECE-24H-CLOSE",
+      "priority": "P1",
+      "order": 0,
+      "title": "Close the Piece.Autos 24 h monitoring window",
+      "detail": "At 2026-09-15 00:35 UTC: NRestarts 0, memory under 300 M, 0 x 5xx, health ok; record as a gate in othkm FINAL_OWNER_CUTOVER_CHECKLIST.",
+      "depends_on": null
+    },
+    {
+      "id": "NEXT-CASSE-INVENTORY",
+      "priority": "P0",
+      "order": 0,
+      "title": "First real Casse inventory (owner/operator)",
+      "detail": "Then dry-run, import, DNS, number, deployment authorisation, deploy per the Casse execution pack.",
       "depends_on": null
     }
   ],
