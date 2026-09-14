@@ -2,6 +2,24 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-13 — VPS DISK P2 DEEP AUDIT — read-only audit + 24 MB controlled cleanup (Fable 5.1)
+
+After the P1 cleanup (57 G / 79 %, 16 G free), every P2 candidate was
+re-inspected on the live host and classified; the full matrix is in
+`docs/audits/VPS_DISK_P2_AUDIT_2026-09-13.md`. Only the 20 test-harness
+residue directories (`mythos-telegram-events-test-*` etc., 24 MB, created under
+`$HOME` by test suites that never clean up) met every P2-A condition and were
+removed with per-item re-checks; disk 56 G / 79 %, 16 G free afterwards.
+Everything else is an owner decision: Coolify is DORMANT (last login
+2026-08-15, 3 apps `exited:unhealthy`, dar-hijama now on plain compose, panel
+vhost still public) ≈ 4.8 G if retired; `evolution-api:latest` 1.83 G is only
+referenced by the documented stray `evolution-inspect` container; browser +
+Playwright pure caches ≈ 2.8 G; ≈ 40 merged/clean/pushed worktrees ≈ 1.1 G;
+archives without a verified off-host copy ≈ 0.9 G. Two traps recorded:
+`/var/lib/containerd` (20 G) is the Docker image store, and the only "dangling"
+image is `idauto-postgres`'s own image — never prune blindly. ERP, PostgreSQL,
+nginx, production units and the 8 live agent sessions were verified unchanged.
+
 ## 2026-09-13 — GO STAMP: fiscal-stamp policy ENABLED on the production tenant (owner-authorised, Fable 5.1)
 
 Owner order "GO STAMP" (2026-09-13, ~16:56 UTC). Configuration change only —
