@@ -106,7 +106,8 @@ HTTP (executor API, bearer token required): `GET /resource-guard`.
 **Kill switch:** start the executor with `MYTHOS_RESOURCE_GUARD=off`. Nothing is then
 sampled and every admission proceeds as before the guard existed.
 
-**State files** (under `MYTHOS_EXECUTOR_HOME`, default `~/.mythos-ai-executor`):
+**State files** (under `MYTHOS_EXECUTOR_HOME`, default `~/mythos-ai-executor` — no dot
+prefix, see `lib/state.js` `DEFAULT_ROOT`; on the VPS `/home/deploy/mythos-ai-executor`):
 
 * `resource-guard.json` — level, confirmation counters, kill baseline, per-kind alert
   timestamps, last 50 transitions. Atomically written; a corrupt file restarts the

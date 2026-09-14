@@ -61,6 +61,27 @@ active/idle/orphaned counts, `resident_mib`, the Resource Guard level,
 whether the ceiling is breached, what it planned, what it applied, and how
 many vetoes fired.
 
+## Memory-pressure input
+
+The runner reads the Resource Guard state written by the executor:
+`/home/deploy/mythos-ai-executor/resource-guard.json` (override:
+`MYTHOS_SESSION_GUARD_RG_STATE`). Until 2026-09-14 the default pointed at a
+dot-prefixed directory that does not exist, so the guard always read
+`NORMAL`. Every journal line now carries `pressure_source`
+(`{ path, status }`) with `status` one of `ok`, `missing`, `unreadable`,
+`invalid`, `stale`. Anything but `ok` still reads as `NORMAL` (fail-soft).
+
+**Permission prerequisite (owner decision, not changed here).** The unit
+keeps `CapabilityBoundingSet=CAP_KILL`. Root without a DAC capability cannot
+traverse the deploy-owned `0700` executor home (verified 2026-09-14 with
+`setpriv --bounding-set=-all,+kill`: EACCES), so after re-installing this
+runner the journal will show `pressure_source.status: "unreadable"`. Making
+the level usable requires one of: granting the unit `CAP_DAC_READ_SEARCH`
+(broad: read access to every file the sandbox exposes), an ACL for root on
+the executor home and state file (host change; the file is replaced by
+rename, so a default ACL is needed), or the executor publishing its level to
+a root-readable path. Pick one before relying on pressure-aware reclamation.
+
 ## Files
 
 | file | role |
