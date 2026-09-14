@@ -943,7 +943,7 @@ function planAfterIdle(root, idleForMs, cfgExtra, t0) {
     var e = Object.assign({}, process.env, {
       MYTHOS_SESSION_GUARD_HOME: runnerHome,
       MYTHOS_SESSION_GUARD_PROC: fixtureProc,
-      MYTHOS_SESSION_GUARD_RG_STATE: path.join(TMP, 'no-resource-guard-state.json')
+      MYTHOS_SESSION_GUARD_PRESSURE_FILE: path.join(TMP, 'no-pressure-publication.json')
     }, env || {});
     delete e.MYTHOS_SESSION_GUARD;
     if (env && env.MYTHOS_SESSION_GUARD) e.MYTHOS_SESSION_GUARD = env.MYTHOS_SESSION_GUARD;
@@ -977,62 +977,187 @@ function planAfterIdle(root, idleForMs, cfgExtra, t0) {
   eq(line3.applied.length, 0, 'and it still signals nothing without evidence');
   eq(r3.status, 0, 'an enforcing run with nothing to do is a success, not a failure');
 
-  // A Resource Guard state that is stale must not be believed.
-  var rgState = path.join(TMP, 'stale-rg.json');
+  // A pressure publication that is stale must not be believed.
+  var rgState = path.join(TMP, 'stale-publication.json');
   fs.writeFileSync(rgState, JSON.stringify({ level: 'CRITICAL', updated_at: '2020-01-01T00:00:00.000Z' }));
-  var r4 = runRunner({ MYTHOS_SESSION_GUARD_RG_STATE: rgState });
+  var r4 = runRunner({ MYTHOS_SESSION_GUARD_PRESSURE_FILE: rgState });
   eq(JSON.parse((r4.stdout || '').trim().split('\n').pop()).pressure_level, 'NORMAL',
-    'a stale Resource Guard state is ignored rather than acted on');
+    'a stale pressure publication is ignored rather than acted on');
   fs.writeFileSync(rgState, JSON.stringify({ level: 'CRITICAL', updated_at: new Date().toISOString() }));
-  var r5 = runRunner({ MYTHOS_SESSION_GUARD_RG_STATE: rgState });
+  var r5 = runRunner({ MYTHOS_SESSION_GUARD_PRESSURE_FILE: rgState });
   var line5 = JSON.parse((r5.stdout || '').trim().split('\n').pop());
   eq(line5.pressure_level, 'CRITICAL',
-    'a fresh CRITICAL from the Resource Guard is carried into the session guard');
+    'a fresh CRITICAL publication from the Resource Guard is carried into the session guard');
 
-  // --- Regression 2026-09-14: the default Resource Guard path ------------
-  // The default pointed at a dot-prefixed directory that never existed, so
-  // the root guard read NORMAL on every tick. Pin the default to the file
-  // the executor actually writes, and make every non-ok read explain itself.
-  var defMatch = /MYTHOS_SESSION_GUARD_RG_STATE \|\|\s*'([^']+)'/.exec(runnerSrc);
-  eq(defMatch && defMatch[1], '/home/deploy/mythos-ai-executor/resource-guard.json',
-    'the runner defaults to the Resource Guard state the executor really writes');
-  ok(!/\.mythos-ai-executor/.test(runnerSrc), 'no dot-prefixed executor home remains anywhere in the runner');
-  var stateSrc = fs.readFileSync(path.join(EXEC, 'lib', 'state.js'), 'utf8');
-  ok(/DEFAULT_ROOT = path\.join\(os\.homedir\(\), 'mythos-ai-executor'\)/.test(stateSrc) &&
-    path.basename(path.dirname(defMatch[1])) === 'mythos-ai-executor',
-    'that default matches the executor home default in lib/state.js');
-  var hostopsSrc = fs.readFileSync(path.join(BASE, 'ops', 'hostops', 'mythos-hostops.js'), 'utf8');
-  var hostopsMatch = /GUARD_STATE = '([^']+)'/.exec(hostopsSrc);
-  eq(hostopsMatch && hostopsMatch[1], defMatch[1], 'and the path hostops reads for the same state');
+  // --- Option C (2026-09-14): the dedicated pressure publication ---------
+  // The guard reads ONLY the { level, updated_at } summary the executor
+  // publishes into /var/lib/mythos/pressure. It never reads the executor's
+  // private home, and its unit keeps CAP_KILL alone.
+  var PUB_DEFAULT = '/var/lib/mythos/pressure/resource-pressure.json';
+  var defMatch = /MYTHOS_SESSION_GUARD_PRESSURE_FILE \|\|\s*'([^']+)'/.exec(runnerSrc);
+  eq(defMatch && defMatch[1], PUB_DEFAULT, 'the runner defaults to the dedicated pressure publication');
+  ok(runnerSrc.indexOf('resource-guard.json') < 0 && !/\.mythos-ai-executor/.test(runnerSrc),
+    'the pressure path never names the executor\'s private resource-guard.json');
+  // The one remaining executor-home reference is the pre-existing Execution
+  // Lifecycle registry default (a separate feature, out of this change's
+  // scope) — nothing on the pressure path.
+  eq((runnerSrc.match(/\/home\/deploy\/mythos-ai-executor/g) || []).length,
+    (runnerSrc.match(/\/home\/deploy\/mythos-ai-executor\/lifecycle/g) || []).length,
+    'the only executor-home path left in the runner is the lifecycle registry default');
+  ok(runnerSrc.indexOf('MYTHOS_SESSION_GUARD_RG_STATE') < 0, 'the old direct-state override is gone');
+  ok(/O_NOFOLLOW/.test(runnerSrc) && /O_NONBLOCK/.test(runnerSrc),
+    'the runner opens the publication without following symlinks or blocking on a FIFO');
+  var execSrc = fs.readFileSync(path.join(EXEC, 'executor.js'), 'utf8');
+  var execMatch = /DEFAULT_PRESSURE_FILE = '([^']+)'/.exec(execSrc);
+  eq(execMatch && execMatch[1], PUB_DEFAULT, 'the executor publishes to exactly the path the guard reads');
+  ok(/install -d -m 0755 -o "\$DEPLOY_UID" -g "\$DEPLOY_GID" \/var\/lib\/mythos\/pressure/.test(installer),
+    'the installer provisions the publication directory deploy-owned 0755');
+  ok(installerCode.indexOf('setfacl') < 0 && !/CAP_DAC/.test(installer + svc),
+    'no ACL and no DAC capability anywhere in the installer or the unit');
+
+  var pubDir = path.join(TMP, 'pressure');
+  fs.mkdirSync(pubDir, { recursive: true });
+  function pubLine(env) {
+    var r = runRunner(env);
+    return { status: r.status, line: JSON.parse((r.stdout || '').trim().split('\n').pop()) };
+  }
+  function publish(name, obj) {
+    var p = path.join(pubDir, name);
+    fs.writeFileSync(p, typeof obj === 'string' ? obj : JSON.stringify(obj));
+    return p;
+  }
 
   eq(line1.pressure_source && line1.pressure_source.status, 'missing',
-    'a missing Resource Guard state is reported as missing, not hidden');
-  eq(line1.pressure_source.path, path.join(TMP, 'no-resource-guard-state.json'), 'with the path it looked at');
+    'a missing publication is reported as missing, not hidden');
+  eq(line1.pressure_source.path, path.join(TMP, 'no-pressure-publication.json'), 'with the path it looked at');
+  eq(line1.pressure_source.error, 'ENOENT', 'and the error code');
   eq(JSON.parse((r4.stdout || '').trim().split('\n').pop()).pressure_source.status, 'stale',
-    'a stale state is reported as stale');
-  eq(line5.pressure_source.status, 'ok', 'a fresh state is reported as ok');
+    'a stale publication is reported as stale');
+  eq(line5.pressure_source.status, 'ok', 'a fresh publication is reported as ok');
 
-  var badJson = path.join(TMP, 'invalid-rg.json');
-  fs.writeFileSync(badJson, '{ not json');
-  var r6 = runRunner({ MYTHOS_SESSION_GUARD_RG_STATE: badJson });
-  var line6 = JSON.parse((r6.stdout || '').trim().split('\n').pop());
-  eq(r6.status, 0, 'an invalid Resource Guard state does not fail the runner');
-  eq(line6.pressure_level, 'NORMAL', 'an invalid state reads as NORMAL');
-  eq(line6.pressure_source.status, 'invalid', 'and is reported as invalid');
+  // Every published level, and the level the guard acts on.
+  [['NORMAL', 'NORMAL'], ['WARNING', 'WARNING'], ['HIGH', 'WARNING'], ['CRITICAL', 'CRITICAL'], ['EMERGENCY', 'CRITICAL']].forEach(function (c) {
+    var res = pubLine({ MYTHOS_SESSION_GUARD_PRESSURE_FILE: publish('level-' + c[0] + '.json', { level: c[0], updated_at: new Date().toISOString() }) });
+    eq(res.status, 0, 'published ' + c[0] + ': the runner exits 0');
+    eq(res.line.pressure_source.status, 'ok', 'published ' + c[0] + ': read as ok');
+    eq(res.line.pressure_source.published_level, c[0], 'published ' + c[0] + ': the published level is reported');
+    eq(res.line.pressure_level, c[1], 'published ' + c[0] + ': the guard acts on ' + c[1]);
+  });
 
-  var badLevel = path.join(TMP, 'bad-level-rg.json');
-  fs.writeFileSync(badLevel, JSON.stringify({ level: 'PANIC', updated_at: new Date().toISOString() }));
-  eq(JSON.parse((runRunner({ MYTHOS_SESSION_GUARD_RG_STATE: badLevel }).stdout || '').trim().split('\n').pop()).pressure_source.status,
-    'invalid', 'an unknown level is reported as invalid and read as NORMAL');
+  function expectFail(name, file, status, error) {
+    var res = pubLine({ MYTHOS_SESSION_GUARD_PRESSURE_FILE: file });
+    eq(res.status, 0, name + ': the runner still exits 0');
+    eq(res.line.pressure_level, 'NORMAL', name + ': reads as NORMAL (fail-soft)');
+    eq(res.line.pressure_source.status, status, name + ': reported as ' + status);
+    if (error) eq(res.line.pressure_source.error, error, name + ': with reason ' + error);
+  }
+  var fresh = new Date().toISOString();
+  expectFail('invalid JSON', publish('bad.json', '{ not json'), 'invalid', 'not_json');
+  expectFail('a JSON array', publish('array.json', '[]'), 'invalid', 'not_an_object');
+  expectFail('an unknown level', publish('panic.json', { level: 'PANIC', updated_at: fresh }), 'invalid', 'unknown_level');
+  expectFail('a lower-case level', publish('lower.json', { level: 'critical', updated_at: fresh }), 'invalid', 'unknown_level');
+  expectFail('a missing level', publish('nolevel.json', { updated_at: fresh }), 'invalid', 'unknown_level');
+  expectFail('an unparseable timestamp', publish('badts.json', { level: 'CRITICAL', updated_at: 'yesterday-ish' }), 'invalid', 'bad_timestamp');
+  expectFail('a stale timestamp', publish('old.json', { level: 'CRITICAL', updated_at: new Date(Date.now() - 6 * 60000).toISOString() }), 'stale', null);
+  expectFail('a future timestamp', publish('future.json', { level: 'CRITICAL', updated_at: new Date(Date.now() + 3600000).toISOString() }), 'stale', null);
+  expectFail('an oversized file', publish('huge.json', JSON.stringify({ level: 'CRITICAL', updated_at: fresh, pad: new Array(5000).join('x') })), 'invalid', 'too_large');
+  expectFail('a directory', pubDir, 'unreadable', 'not_a_regular_file');
+  // The publication directory is deploy-writable: a planted symlink must not
+  // make root read another file — not even a well-formed one.
+  var linkTarget = publish('real-target.json', { level: 'CRITICAL', updated_at: fresh });
+  var linkPath = path.join(pubDir, 'symlinked.json');
+  fs.symlinkSync(linkTarget, linkPath);
+  expectFail('a planted symlink', linkPath, 'unreadable', 'ELOOP');
 
-  // A path that cannot be read as a file (here: a directory) must be
-  // reported as unreadable — the shape the live host's EACCES takes.
-  var r7 = runRunner({ MYTHOS_SESSION_GUARD_RG_STATE: TMP });
-  var line7 = JSON.parse((r7.stdout || '').trim().split('\n').pop());
-  eq(r7.status, 0, 'an unreadable Resource Guard state does not fail the runner');
-  eq(line7.pressure_level, 'NORMAL', 'an unreadable state reads as NORMAL');
-  eq(line7.pressure_source.status, 'unreadable', 'and is reported as unreadable');
-  eq(line7.pressure_source.error, 'EISDIR', 'with the underlying error code');
+  // --- The security boundary itself (root + setpriv; skipped otherwise) --
+  // Rebuild the host layout in TMP and run the guard exactly as systemd
+  // does: uid 0 with the bounding set reduced to CAP_KILL. An unprivileged
+  // account (nobody) plays the executor. The guard must read the publication
+  // and must NOT read the executor home — its private state, its secrets,
+  // its SSH material, not even its directory listing.
+  var setprivBin = ['/usr/bin/setpriv', '/bin/setpriv'].filter(function (p) { return fs.existsSync(p); })[0];
+  var nobodyEnt = ((fs.readFileSync('/etc/passwd', 'utf8').split('\n').filter(function (l) { return l.split(':')[0] === 'nobody'; })[0]) || '').split(':');
+  var canProve = typeof process.getuid === 'function' && process.getuid() === 0 && !!setprivBin && nobodyEnt.length > 3;
+  if (!canProve) {
+    console.log('  SKIP CAP_KILL boundary proof (requires root and setpriv; run as root to execute it)');
+  } else {
+    var nUid = parseInt(nobodyEnt[2], 10);
+    var nGid = parseInt(nobodyEnt[3], 10);
+    var mkd = function (p, mode, uid, gid) { fs.mkdirSync(p, { recursive: true }); fs.chownSync(p, uid, gid); fs.chmodSync(p, mode); return p; };
+    var mkf = function (p, body, mode, uid, gid) { fs.writeFileSync(p, body); fs.chownSync(p, uid, gid); fs.chmodSync(p, mode); return p; };
+    fs.chmodSync(TMP, 0o755);   // TMP only: let the unprivileged publisher traverse the test tree
+    var capRoot = mkd(path.join(TMP, 'cap'), 0o755, 0, 0);
+    var varLib = mkd(path.join(capRoot, 'var-lib-mythos'), 0o750, 0, nGid);          // like root:deploy 0750 /var/lib/mythos
+    var capPub = mkd(path.join(varLib, 'pressure'), 0o755, nUid, nGid);                // like deploy 0755 /var/lib/mythos/pressure
+    var exHome = mkd(path.join(capRoot, 'executor-home'), 0o700, nUid, nGid);          // like deploy 0700 ~/mythos-ai-executor
+    var privState = mkf(path.join(exHome, 'resource-guard.json'),
+      JSON.stringify({ level: 'CRITICAL', updated_at: new Date().toISOString(), last_sample: {} }), 0o600, nUid, nGid);
+    mkd(path.join(exHome, 'secrets'), 0o700, nUid, nGid);
+    var secretFile = mkf(path.join(exHome, 'secrets', 'token.env'), 'TOKEN=fixture-not-a-real-secret\n', 0o600, nUid, nGid);
+    mkd(path.join(exHome, '.ssh'), 0o700, nUid, nGid);
+    var sshFile = mkf(path.join(exHome, '.ssh', 'id_ed25519'), 'fixture-not-a-real-key\n', 0o600, nUid, nGid);
+    var capLib = mkd(path.join(capRoot, 'lib'), 0o755, 0, 0);
+    fs.copyFileSync(path.join(EXEC, 'lib', 'resource-guard.js'), path.join(capLib, 'resource-guard.js'));
+    fs.chmodSync(path.join(capLib, 'resource-guard.js'), 0o644);
+    var capPubFile = path.join(capPub, 'resource-pressure.json');
+
+    // 1. The unprivileged executor identity publishes into the provisioned directory.
+    var pubRun = cp.spawnSync(setprivBin, ['--reuid=' + nUid, '--regid=' + nGid, '--clear-groups', '--', process.execPath, '-e',
+      'var g=require(' + JSON.stringify(path.join(capLib, 'resource-guard.js')) + ');' +
+      'process.stdout.write(JSON.stringify(g.publishPressure(' + JSON.stringify(capPubFile) + ',{level:"CRITICAL",updated_at:new Date().toISOString()})))'],
+      { encoding: 'utf8' });
+    var pubRes = null;
+    try { pubRes = JSON.parse(pubRun.stdout); } catch (e) { pubRes = null; }
+    ok(!!(pubRes && pubRes.ok === true), 'boundary: the unprivileged executor identity publishes (' + ((pubRun.stderr || '') + (pubRun.stdout || '')).trim() + ')');
+    var capSt = fs.existsSync(capPubFile) ? fs.statSync(capPubFile) : null;
+    eq(capSt && (capSt.mode & 0o777), 0o644, 'boundary: the publication is mode 0644');
+    eq(capSt && capSt.uid, nUid, 'boundary: and owned by the executor identity');
+
+    var asGuard = function (args, env) {
+      return cp.spawnSync(setprivBin, ['--bounding-set=-all,+kill', '--inh-caps=-all', '--'].concat(args),
+        { encoding: 'utf8', env: Object.assign({}, process.env, env || {}) });
+    };
+    var boundaryHome = path.join(TMP, 'boundary-home');
+    var guardEnv = function (file) {
+      return { MYTHOS_SESSION_GUARD_HOME: boundaryHome, MYTHOS_SESSION_GUARD_PROC: fixtureProc,
+        MYTHOS_SESSION_GUARD: 'off', MYTHOS_SESSION_GUARD_PRESSURE_FILE: file };
+    };
+    var runnerPath = path.join(installed, 'mythos-session-guard-run.js');
+
+    // 2. The runner, as the unit runs it, reads the publication.
+    var g1 = asGuard([process.execPath, runnerPath], guardEnv(capPubFile));
+    var gl1 = {};
+    try { gl1 = JSON.parse((g1.stdout || '').trim().split('\n').pop()); } catch (e) { gl1 = {}; }
+    eq(gl1.pressure_source && gl1.pressure_source.status, 'ok',
+      'boundary: a CAP_KILL-only root guard reads the publication (' + (g1.stderr || '').trim() + ')');
+    eq(gl1.pressure_level, 'CRITICAL', 'boundary: and acts on the published level');
+
+    // 3. The same runner cannot read the executor's private state.
+    var g2 = asGuard([process.execPath, runnerPath], guardEnv(privState));
+    var gl2 = {};
+    try { gl2 = JSON.parse((g2.stdout || '').trim().split('\n').pop()); } catch (e) { gl2 = {}; }
+    eq(gl2.pressure_source && gl2.pressure_source.status, 'unreadable', 'boundary: pointed at the private resource-guard.json, the guard gets nothing');
+    eq(gl2.pressure_source && gl2.pressure_source.error, 'EACCES', 'boundary: because the kernel denies it (EACCES)');
+    eq(gl2.pressure_level, 'NORMAL', 'boundary: and the private CRITICAL never reaches the guard');
+
+    // 4. Nor the secrets, the SSH material, or even the directory listing.
+    var probe = function (target, op) {
+      return asGuard([process.execPath, '-e',
+        'var fs=require("fs");try{fs.' + op + '(' + JSON.stringify(target) + ');process.stdout.write("READ")}catch(e){process.stdout.write(String(e.code))}']).stdout;
+    };
+    eq(probe(secretFile, 'readFileSync'), 'EACCES', 'boundary: executor secrets stay unreadable to the guard');
+    eq(probe(sshFile, 'readFileSync'), 'EACCES', 'boundary: executor SSH material stays unreadable to the guard');
+    eq(probe(privState, 'readFileSync'), 'EACCES', 'boundary: the private resource-guard.json stays unreadable to the guard');
+    eq(probe(exHome, 'readdirSync'), 'EACCES', 'boundary: the executor home cannot even be listed');
+    eq(probe(capPubFile, 'readFileSync'), 'READ', 'boundary: while the publication itself is readable');
+
+    // Control: unrestricted root CAN read the same files, so the denials
+    // above come from the CAP_KILL boundary, not from missing fixtures.
+    var control = cp.spawnSync(process.execPath, ['-e',
+      'var fs=require("fs");fs.readFileSync(' + JSON.stringify(secretFile) + ');fs.readFileSync(' + JSON.stringify(sshFile) + ');fs.readdirSync(' + JSON.stringify(exHome) + ');process.stdout.write("READ")'],
+      { encoding: 'utf8' });
+    eq(control.stdout, 'READ', 'boundary control: unrestricted root can read them, so the denials are the CAP_KILL boundary');
+  }
 })();
 
 // =====================================================

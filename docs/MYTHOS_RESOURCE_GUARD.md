@@ -114,6 +114,17 @@ prefix, see `lib/state.js` `DEFAULT_ROOT`; on the VPS `/home/deploy/mythos-ai-ex
   machine at `NORMAL` rather than throwing.
 * `resource-guard-alerts.jsonl` — durable append-only alert ledger.
 
+**Pressure publication** (the only data shared outside the private executor home):
+`/var/lib/mythos/pressure/resource-pressure.json`, exactly `{ "level", "updated_at" }`,
+rewritten atomically (O_EXCL temp + fsync + rename, mode `0644`) on every sample. The
+directory is provisioned by `ops/session-guard/install-session-guard.sh` (deploy-owned
+`0755` inside `root:deploy 0750 /var/lib/mythos`) and is never created by the executor;
+a missing destination is reported in the sample's `publication` field and nothing is
+written. The production executor publishes because it runs with its default home; a
+process with `MYTHOS_EXECUTOR_HOME` set (every fixture-based test) publishes nothing
+unless `MYTHOS_RESOURCE_PRESSURE_FILE` names a path (`''` disables). Consumer: the root
+session guard, which keeps `CapabilityBoundingSet=CAP_KILL` and cannot read this home.
+
 **Fail-open, by design.** Unreadable `/proc`, an unwritable state directory, a corrupt
 state file: none of them may block admission. Sustained unreadable telemetry (5
 samples) releases a degraded level back to `NORMAL` with

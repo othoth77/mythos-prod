@@ -63,24 +63,31 @@ many vetoes fired.
 
 ## Memory-pressure input
 
-The runner reads the Resource Guard state written by the executor:
-`/home/deploy/mythos-ai-executor/resource-guard.json` (override:
-`MYTHOS_SESSION_GUARD_RG_STATE`). Until 2026-09-14 the default pointed at a
-dot-prefixed directory that does not exist, so the guard always read
-`NORMAL`. Every journal line now carries `pressure_source`
-(`{ path, status }`) with `status` one of `ok`, `missing`, `unreadable`,
-`invalid`, `stale`. Anything but `ok` still reads as `NORMAL` (fail-soft).
+The runner reads ONLY the pressure summary the executor publishes:
+`/var/lib/mythos/pressure/resource-pressure.json` (override:
+`MYTHOS_SESSION_GUARD_PRESSURE_FILE`), containing exactly
+`{ "level", "updated_at" }`. It never reads the executor's private home
+(`/home/deploy/mythos-ai-executor`, `0700`, holds `secrets/`), and the unit
+keeps `CapabilityBoundingSet=CAP_KILL` — no DAC capability, no ACL.
 
-**Permission prerequisite (owner decision, not changed here).** The unit
-keeps `CapabilityBoundingSet=CAP_KILL`. Root without a DAC capability cannot
-traverse the deploy-owned `0700` executor home (verified 2026-09-14 with
-`setpriv --bounding-set=-all,+kill`: EACCES), so after re-installing this
-runner the journal will show `pressure_source.status: "unreadable"`. Making
-the level usable requires one of: granting the unit `CAP_DAC_READ_SEARCH`
-(broad: read access to every file the sandbox exposes), an ACL for root on
-the executor home and state file (host change; the file is replaced by
-rename, so a default ACL is needed), or the executor publishing its level to
-a root-readable path. Pick one before relying on pressure-aware reclamation.
+The installer provisions `/var/lib/mythos/pressure` deploy-owned `0755`
+inside `root:deploy 0750 /var/lib/mythos`: root traverses the parent as its
+owner and reads the `0644` file as "other"; nobody outside root and the
+deploy group can reach it. The executor writes it atomically on every sample
+(O_EXCL temp + fsync + rename) and never creates the directory.
+
+The runner opens the file with `O_NOFOLLOW|O_NONBLOCK` (the directory is
+deploy-writable), requires a regular file of at most 4 KiB, and maps the
+published level onto what the guard acts on (`HIGH`→`WARNING`,
+`EMERGENCY`→`CRITICAL`). Every journal line carries `pressure_source`
+(`{ path, status, published_level?, error? }`) with `status` one of `ok`,
+`missing`, `unreadable`, `invalid`, `stale`; anything but `ok` reads as
+`NORMAL` (fail-soft), older than 5 minutes is `stale`.
+
+Activation needs, in order: the executor running this code (it publishes
+only once the directory exists), and this runner re-installed with
+`install-session-guard.sh` (which also creates the directory). Until then the
+journal says `missing`.
 
 ## Files
 

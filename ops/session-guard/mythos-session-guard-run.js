@@ -35,7 +35,7 @@
 // fixture tree without touching the real host):
 //   MYTHOS_SESSION_GUARD_HOME      state + ledger + marker directory
 //   MYTHOS_SESSION_GUARD_PROC      /proc root (read by session-guard.js)
-//   MYTHOS_SESSION_GUARD_RG_STATE  the Resource Guard's state file
+//   MYTHOS_SESSION_GUARD_PRESSURE_FILE  the published pressure summary
 //   MYTHOS_SESSION_GUARD_MAX       concurrent-session ceiling
 //   MYTHOS_SESSION_GUARD_IDLE      idle timeout in seconds
 //   MYTHOS_SESSION_GUARD=off       kill switch, overrides the marker
@@ -55,58 +55,72 @@ var LIFECYCLE = process.env.MYTHOS_SESSION_GUARD_LIFECYCLE || '/home/deploy/myth
 var SNAPSHOT = process.env.MYTHOS_LIFECYCLE_SNAPSHOT || '/var/lib/mythos/lifecycle/host-sessions.json';
 var vpsRuntime = null;
 try { vpsRuntime = require('./runtime-vps'); } catch (e) { vpsRuntime = null; }
-// The Resource Guard writes its state under the executor's
-// MYTHOS_EXECUTOR_HOME, whose default is ~/mythos-ai-executor
-// (projects/mythos-ai-executor/lib/state.js DEFAULT_ROOT) — the same file
-// ops/hostops/mythos-hostops.js reads. This default previously pointed at a
-// dot-prefixed directory that does not exist, so every tick silently read
-// NORMAL and the pressure-lowered idle threshold could never engage.
-var RG_STATE = process.env.MYTHOS_SESSION_GUARD_RG_STATE ||
-  '/home/deploy/mythos-ai-executor/resource-guard.json';
-// How stale the Resource Guard's state may be and still be believed. The
-// executor samples every 15s; beyond this the file is ignored and the
-// level read as NORMAL, which only ever makes this guard LESS eager.
-var RG_MAX_AGE_MS = 5 * 60 * 1000;
+// Memory pressure arrives through a dedicated publication channel, never
+// from the executor's private home. The executor (deploy) atomically writes
+// ONLY { level, updated_at } into /var/lib/mythos/pressure/ — a directory
+// install-session-guard.sh provisions deploy-owned 0755 inside root:deploy
+// 0750 /var/lib/mythos (the same exchange area as the lifecycle snapshot,
+// in the opposite direction). This unit keeps CapabilityBoundingSet=CAP_KILL:
+// root can traverse /var/lib/mythos as its owner and read the 0644 file as
+// "other", and still cannot read anything in the 0700 executor home.
+var PRESSURE_FILE = process.env.MYTHOS_SESSION_GUARD_PRESSURE_FILE ||
+  '/var/lib/mythos/pressure/resource-pressure.json';
+// How stale the publication may be and still be believed. The executor
+// samples every 15s; beyond this the file is ignored and the level read as
+// NORMAL, which only ever makes this guard LESS eager.
+var PRESSURE_MAX_AGE_MS = 5 * 60 * 1000;
+// The summary is a few dozen bytes; anything larger is not a publication.
+var PRESSURE_MAX_BYTES = 4096;
+// Published levels → the three levels session-guard.js acts on.
+var LEVEL_MAP = { NORMAL: 'NORMAL', WARNING: 'WARNING', HIGH: 'WARNING', CRITICAL: 'CRITICAL', EMERGENCY: 'CRITICAL' };
 
-// The memory signal is READ from the Resource Guard, never recomputed
-// here: gh-issue-101 owns the thresholds, the hysteresis and the rule that
-// swap is reported and never a trigger. A second memory reader would be a
-// second opinion, and the two would eventually disagree.
+// The memory signal is READ from the Resource Guard's publication, never
+// recomputed here: gh-issue-101 owns the thresholds, the hysteresis and the
+// rule that swap is reported and never a trigger.
 //
-// Fail-soft stays: anything but a fresh, valid state reads as NORMAL. What
-// changed is that the reason is now reported (`source.status`: ok, missing,
-// unreadable, invalid, stale), because a guard that silently reads NORMAL
-// is indistinguishable from a healthy host — which is how the wrong
-// default above went unnoticed. Note: the unit keeps only CAP_KILL, and
-// root without a DAC capability cannot traverse the deploy-owned 0700
-// executor home, so on the VPS this reports `unreadable` until the owner
-// decides how the state is made readable (ops/session-guard/README.md).
+// Fail-soft: anything but a fresh, valid publication reads as NORMAL — and
+// the reason is always reported (`source.status`: ok, missing, unreadable,
+// invalid, stale), because a guard that silently reads NORMAL is
+// indistinguishable from a healthy host.
 function pressure() {
-  var source = { path: RG_STATE, status: 'ok' };
-  var text;
+  var source = { path: PRESSURE_FILE, status: 'ok' };
+  function fail(status, error) {
+    source.status = status;
+    if (error) source.error = error;
+    return { level: 'NORMAL', source: source };
+  }
+  var fd;
   try {
-    text = fs.readFileSync(RG_STATE, 'utf8');
+    // The directory is deploy-writable. O_NOFOLLOW: a planted symlink must
+    // not make root read another file. O_NONBLOCK: a planted FIFO must not
+    // hang the guard.
+    fd = fs.openSync(PRESSURE_FILE, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
   } catch (e) {
     var code = e && e.code;
-    source.status = (code === 'ENOENT' || code === 'ENOTDIR') ? 'missing' : 'unreadable';
-    if (code) source.error = code;
-    return { level: 'NORMAL', source: source };
+    return fail(code === 'ENOENT' || code === 'ENOTDIR' ? 'missing' : 'unreadable', code || 'open_failed');
+  }
+  var text;
+  try {
+    var st = fs.fstatSync(fd);
+    if (!st.isFile()) return fail('unreadable', 'not_a_regular_file');
+    if (st.size > PRESSURE_MAX_BYTES) return fail('invalid', 'too_large');
+    var buf = Buffer.alloc(st.size);
+    var n = st.size ? fs.readSync(fd, buf, 0, st.size, 0) : 0;
+    text = buf.toString('utf8', 0, n);
+  } catch (e) {
+    return fail('unreadable', (e && e.code) || 'read_failed');
+  } finally {
+    try { fs.closeSync(fd); } catch (e) { /* already closed */ }
   }
   var raw;
-  try { raw = JSON.parse(text); } catch (e) {
-    source.status = 'invalid';
-    return { level: 'NORMAL', source: source };
-  }
-  var age = Date.now() - Date.parse(raw && raw.updated_at);
-  if (isNaN(age) || age < 0 || age > RG_MAX_AGE_MS) {
-    source.status = 'stale';
-    return { level: 'NORMAL', source: source };
-  }
-  if (['NORMAL', 'WARNING', 'CRITICAL'].indexOf(raw.level) < 0) {
-    source.status = 'invalid';
-    return { level: 'NORMAL', source: source };
-  }
-  return { level: raw.level, source: source };
+  try { raw = JSON.parse(text); } catch (e) { return fail('invalid', 'not_json'); }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return fail('invalid', 'not_an_object');
+  if (!Object.prototype.hasOwnProperty.call(LEVEL_MAP, raw.level)) return fail('invalid', 'unknown_level');
+  var age = Date.now() - Date.parse(raw.updated_at);
+  if (isNaN(age)) return fail('invalid', 'bad_timestamp');
+  if (age < 0 || age > PRESSURE_MAX_AGE_MS) return fail('stale', null);
+  source.published_level = raw.level;
+  return { level: LEVEL_MAP[raw.level], source: source };
 }
 
 function intEnv(name) {

@@ -310,6 +310,122 @@ function repeat(n, from, o) {
 })();
 
 // ---------------------------------------------------------------------------
+// 8b. Pressure publication (Option C: the session guard's only channel)
+// ---------------------------------------------------------------------------
+(function () {
+  var cp = require('child_process');
+  var pubDir = path.join(FIXTURES, 'pressure');
+  fs.mkdirSync(pubDir, { recursive: true });
+  var pubFile = path.join(pubDir, 'resource-pressure.json');
+  var now = new Date().toISOString();
+
+  // Every schema level publishes; anything else is refused.
+  eq(guard.PUBLISH_LEVELS.join(','), 'NORMAL,WARNING,HIGH,CRITICAL,EMERGENCY', 'publication: the schema levels are exactly the five');
+  guard.PUBLISH_LEVELS.forEach(function (lvl) {
+    var r = guard.publishPressure(pubFile, { level: lvl, updated_at: now });
+    ok(!!(r && r.ok), 'publication: ' + lvl + ' publishes');
+    eq(JSON.parse(fs.readFileSync(pubFile, 'utf8')).level, lvl, 'publication: ' + lvl + ' is what a reader sees');
+  });
+  ['PANIC', 'critical', '', null, undefined].forEach(function (bad) {
+    var before = fs.readFileSync(pubFile, 'utf8');
+    var r = guard.publishPressure(pubFile, { level: bad, updated_at: now });
+    ok(!!(r && r.ok === false && r.error === 'invalid_summary'), 'publication: level ' + JSON.stringify(bad) + ' is refused');
+    eq(fs.readFileSync(pubFile, 'utf8'), before, 'publication: a refused summary leaves the previous file untouched');
+  });
+  var badTs = guard.publishPressure(pubFile, { level: 'NORMAL', updated_at: 'not-a-time' });
+  ok(!!(badTs && badTs.error === 'invalid_summary'), 'publication: an unparseable timestamp is refused');
+
+  // No secret or foreign field: exactly level + updated_at, whatever the state holds.
+  var fullState = guard.evaluate(null, sig(0, { avail: 3000 }), {}).state;
+  fullState.last_alert_at = { WARNING: now };
+  fullState.secret_token = 'must-not-leak';
+  ok(guard.publishPressure(pubFile, fullState).ok, 'publication: a full Resource Guard state publishes');
+  var pubText = fs.readFileSync(pubFile, 'utf8');
+  eq(Object.keys(JSON.parse(pubText)).sort().join(','), 'level,updated_at', 'publication: exactly level and updated_at, nothing copied from the state');
+  ok(pubText.indexOf('must-not-leak') < 0 && pubText.indexOf('last_sample') < 0 && pubText.indexOf('history') < 0 && pubText.indexOf('oom') < 0,
+    'publication: no sample, history, alert, counter or foreign field reaches the file');
+  eq(Object.keys(guard.pressureSummary({ level: 'WARNING', updated_at: now, anything: 1 })).length, 2, 'publication: the summary projects two fields');
+
+  // Permissions: 0644 regardless of the process umask.
+  var oldMask = process.umask(0o077);
+  try { guard.publishPressure(pubFile, { level: 'NORMAL', updated_at: now }); } finally { process.umask(oldMask); }
+  eq(fs.statSync(pubFile).mode & 0o777, 0o644, 'publication: the file is 0644 even under umask 077');
+
+  // Atomic: replaced by rename (new inode), never rewritten in place; no temp left.
+  var inoBefore = fs.statSync(pubFile).ino;
+  guard.publishPressure(pubFile, { level: 'WARNING', updated_at: now });
+  ok(fs.statSync(pubFile).ino !== inoBefore, 'publication: the file is replaced by rename (new inode), never partially rewritten');
+  eq(fs.readdirSync(pubDir).filter(function (n) { return n.indexOf('.tmp-') >= 0; }).length, 0, 'publication: no temp file is left behind');
+  var tmpName = path.join(pubDir, '.resource-pressure.json.tmp-' + process.pid);
+  fs.writeFileSync(tmpName, 'garbage from a crashed publisher');
+  var afterCrash = guard.publishPressure(pubFile, { level: 'CRITICAL', updated_at: now });
+  ok(!!afterCrash.ok, 'publication: a leftover temp from a crashed publisher with the same pid does not block publication');
+  eq(JSON.parse(fs.readFileSync(pubFile, 'utf8')).level, 'CRITICAL', 'publication: and the new summary lands complete');
+  ok(!fs.existsSync(tmpName), 'publication: the leftover temp name is gone');
+
+  // Destination safety: never created, never written through a symlink.
+  var missingTarget = path.join(FIXTURES, 'no-such-dir', 'resource-pressure.json');
+  var mres = guard.publishPressure(missingTarget, { level: 'NORMAL', updated_at: now });
+  ok(mres.ok === false && mres.error === 'destination_missing', 'publication: a missing destination directory is reported');
+  ok(!fs.existsSync(path.dirname(missingTarget)), 'publication: and is NOT created by the publisher');
+  var realDir = path.join(FIXTURES, 'elsewhere');
+  fs.mkdirSync(realDir, { recursive: true });
+  var linkDir = path.join(FIXTURES, 'linked-pressure');
+  fs.symlinkSync(realDir, linkDir);
+  var lres = guard.publishPressure(path.join(linkDir, 'resource-pressure.json'), { level: 'NORMAL', updated_at: now });
+  ok(lres.ok === false && lres.error === 'destination_not_a_directory', 'publication: a symlinked destination directory is refused');
+  eq(fs.readdirSync(realDir).length, 0, 'publication: and nothing is written through it');
+  eq(guard.publishPressure(null, { level: 'NORMAL', updated_at: now }), null, 'publication: no path means no publication');
+
+  // sample() publishes when configured and reports the outcome.
+  var sp = path.join(FIXTURES, 'guard-publish.json');
+  writeProc(3000, 0, 1000, 50);
+  var s = guard.sample({ state_path: sp, publish_path: pubFile });
+  ok(!!(s.publication && s.publication.ok), 'publication: sample() publishes when publish_path is set');
+  eq(JSON.parse(fs.readFileSync(pubFile, 'utf8')).updated_at, s.state.updated_at, 'publication: the published timestamp is the sample time');
+  eq(guard.sample({ state_path: sp }).publication, null, 'publication: sample() without publish_path publishes nothing');
+
+  // Executor restart: a fresh process continues publishing into the same file.
+  var restartScript = 'var g=require(' + JSON.stringify(path.join(EXEC, 'lib', 'resource-guard')) + ');' +
+    'var r=g.sample({state_path:' + JSON.stringify(sp) + ',publish_path:' + JSON.stringify(pubFile) + '});' +
+    'process.stdout.write(JSON.stringify({pub:r.publication,at:r.state.updated_at}))';
+  var runA = cp.spawnSync(process.execPath, ['-e', restartScript], { encoding: 'utf8', env: process.env });
+  var outA = JSON.parse(runA.stdout || '{}');
+  ok(!!(outA.pub && outA.pub.ok), 'restart: a first executor process publishes (' + (runA.stderr || '').trim() + ')');
+  eq(JSON.parse(fs.readFileSync(pubFile, 'utf8')).updated_at, outA.at, 'restart: the publication survives that process exiting');
+  var waitUntil = Date.now() + 25;
+  while (Date.now() < waitUntil) { /* guarantee a later millisecond timestamp */ }
+  var runB = cp.spawnSync(process.execPath, ['-e', restartScript], { encoding: 'utf8', env: process.env });
+  var outB = JSON.parse(runB.stdout || '{}');
+  ok(!!(outB.pub && outB.pub.ok && outB.at > outA.at), 'restart: a restarted executor process republishes a newer summary');
+  eq(JSON.parse(fs.readFileSync(pubFile, 'utf8')).updated_at, outB.at, 'restart: readers see the restarted process summary');
+
+  // Executor wiring: only the default-home executor publishes by default.
+  var saveHome = process.env.MYTHOS_EXECUTOR_HOME;
+  var saveFile = process.env.MYTHOS_RESOURCE_PRESSURE_FILE;
+  try {
+    delete process.env.MYTHOS_RESOURCE_PRESSURE_FILE;
+    eq(executor.pressurePublishPath(), null, 'wiring: a process with MYTHOS_EXECUTOR_HOME set (every fixture test) publishes nothing by default');
+    delete process.env.MYTHOS_EXECUTOR_HOME;
+    eq(executor.pressurePublishPath(), '/var/lib/mythos/pressure/resource-pressure.json', 'wiring: the default-home executor publishes to the dedicated directory');
+    process.env.MYTHOS_RESOURCE_PRESSURE_FILE = '';
+    eq(executor.pressurePublishPath(), null, 'wiring: MYTHOS_RESOURCE_PRESSURE_FILE="" disables publication');
+    process.env.MYTHOS_EXECUTOR_HOME = saveHome;
+    process.env.MYTHOS_RESOURCE_PRESSURE_FILE = pubFile;
+    eq(executor.pressurePublishPath(), pubFile, 'wiring: an explicit path is honoured under a fixture home');
+  } finally {
+    if (saveHome === undefined) delete process.env.MYTHOS_EXECUTOR_HOME; else process.env.MYTHOS_EXECUTOR_HOME = saveHome;
+    if (saveFile === undefined) delete process.env.MYTHOS_RESOURCE_PRESSURE_FILE; else process.env.MYTHOS_RESOURCE_PRESSURE_FILE = saveFile;
+  }
+  var execSrc = fs.readFileSync(path.join(EXEC, 'executor.js'), 'utf8');
+  eq((execSrc.match(/publish_path/g) || []).length, 1, 'wiring: the executor sets publish_path in exactly one place (guardOptions)');
+  ok(fs.readFileSync(path.join(EXEC, 'lib', 'hostops.js'), 'utf8').indexOf('publish_path') < 0, 'wiring: the hostops read path never publishes');
+  ['bin/mythos-resource-guard', 'bin/mythos-session-guard'].forEach(function (b) {
+    ok(fs.readFileSync(path.join(EXEC, b), 'utf8').indexOf('publish_path') < 0, 'wiring: ' + b + ' never publishes');
+  });
+})();
+
+// ---------------------------------------------------------------------------
 // 9. Historical replay (the thresholds against recorded telemetry)
 // ---------------------------------------------------------------------------
 (function () {
@@ -537,6 +653,24 @@ chain = chain.then(function () {
       (servers || []).forEach(function (s) { try { s.close(); } catch (e) { /* already closed */ } });
       throw err;
     });
+});
+
+// S. A real executor tick publishes the confirmed level when a path is set.
+chain = chain.then(function () {
+  var tickDir = path.join(FIXTURES, 'pressure-tick');
+  fs.mkdirSync(tickDir, { recursive: true });
+  var tickFile = path.join(tickDir, 'resource-pressure.json');
+  process.env.MYTHOS_RESOURCE_PRESSURE_FILE = tickFile;
+  resetGuardState();
+  writeProc(2500, 0, 4000, 97);
+  function restore() { delete process.env.MYTHOS_RESOURCE_PRESSURE_FILE; }
+  return executor.tick().then(function () {
+    var pub = JSON.parse(fs.readFileSync(tickFile, 'utf8'));
+    eq(Object.keys(pub).sort().join(','), 'level,updated_at', 'executor tick: publishes exactly level and updated_at');
+    eq(pub.level, executor.resourceGuardStatus().level, 'executor tick: the published level is the guard level');
+    eq(fs.statSync(tickFile).mode & 0o777, 0o644, 'executor tick: the publication is 0644');
+    restore();
+  }, function (err) { restore(); throw err; });
 });
 
 chain.then(function () {
