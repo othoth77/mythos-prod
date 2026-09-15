@@ -1,8 +1,8 @@
 # Mythos — Free LLM Resources
 
-**Stage:** FREE-LLM-0 — discovery, health, selection and fallback over free-tier LLM providers
-**Status:** Implemented. Not deployed as a scheduled job (see §8). No credential exists for any provider yet.
-**Date:** 2026-09-14
+**Stage:** FREE-LLM-0 (discovery/health/selection/fallback, PR #290) + FREE-LLM-1 (activation, this stage)
+**Status:** Implemented AND scheduled — `mythos-free-llm-sync.timer` (daily) and `mythos-free-llm-health.timer` (every 30 min) are enabled and running on the VPS as the `deploy` user (see §10). No credential exists for any provider yet; the sync/health mechanism itself is fully live.
+**Date:** 2026-09-14 (FREE-LLM-0), 2026-09-15 (FREE-LLM-1 activation)
 **Source list:** [`raullenchai/free-llm-api-resources`](https://github.com/raullenchai/free-llm-api-resources) (a fork of `cheahjs/free-llm-api-resources`, which currently 404s under its original owner) — an auto-generated README of free/free-tier/trial LLM API providers.
 
 ---
@@ -137,20 +137,45 @@ Absence is reported as `unconfigured`, never invented — this is true today for
 - **Wired, but a different request shape** (Cloudflare Workers AI's account-scoped path, Cohere's native v1, Google's native REST): write one small dedicated adapter file mirroring `providers/gemini.js` next to `providers/openai-compat.js` — the established pattern for a provider that doesn't fit the generic shape. `endpoints.json`/`adapter.js` are the seam; `registry.js`/`selector.js` never need to change.
 - **Official docs entry**: add one entry to `official-overrides.json` (`docs_url`/`privacy_url`/`terms_url`) — always wins over whatever the community README says for that field.
 
-## 10. What this stage deliberately does NOT do
+## 10. Scheduling (FREE-LLM-1, 2026-09-15)
 
-- **No scheduled job.** `bin/free-llm-sync.js` and `bin/free-llm-health.js` are run on demand. Installing a systemd timer/cron entry is a deployment decision, owner-gated like every other scheduler in this repo (Dagu, hostops, WhatsApp bridge notify timers) — AGENTS.md §15 treats deployment as a separate task.
-- **No credential exists.** Every one of the 26 catalog providers reports `unconfigured` on this host today. This is correct, not a bug — nothing invents a key.
+Both jobs are installed and enabled as `deploy` systemd **user** units — exactly the `mythos-github-bridge.service`/`.timer` convention (source under `free-llm/systemd/`, installed to `~/.config/systemd/user/`, `systemctl --user enable --now`):
+
+- **`mythos-free-llm-sync.timer`** — `OnCalendar=*-*-* 04:15:00 UTC`, `RandomizedDelaySec=600`, `Persistent=true` (mirrors `mythos-backup.timer`'s daily pattern). Refreshes `catalog.json` in place in the live checkout once a day.
+- **`mythos-free-llm-health.timer`** — `OnBootSec=5min`, `OnUnitActiveSec=30min` (mirrors `mythos-status-monitor.timer`'s repeat-interval pattern). Probes every wired+keyed provider once per tick — a zero-network no-op today, since no provider has a credential yet.
+
+Both are `Type=oneshot`, driven by their timer, in a **separate process** from `mythos-ai-executor.service` — a sync/health failure (e.g. GitHub or a provider unreachable) exits non-zero and is visible via `systemctl --user status`, and never touches, restarts, or blocks the executor daemon. Install/rollback commands are in each `.service` file's header comment.
+
+**Operational note:** the sync timer writes `catalog.json` directly into the live `/home/deploy/projects/mythos-prod` checkout — it does not commit or push. This mirrors the repo's existing "the live checkout may run slightly ahead of the last commit" pattern (see `docs/AI_HANDOVER.md`'s dirty-tree entries); an operator/session periodically commits the accumulated drift, same as the Status Center's `repo-snapshot.json` refresh.
+
+## 11. What this stage deliberately does NOT do
+
+- **No credential exists.** Every one of the 26 catalog providers reports `unconfigured` on this host today. This is correct, not a bug — nothing invents a key. §12 names the exact file to create for Groq.
 - **Cloudflare Workers AI, Cohere's native API, Google AI Studio's native REST, and every "trial credit" provider except the nine listed in `endpoints.json`** are catalog-only today (§9 explains exactly how to wire one in).
-- **No change to `providers/openai-compat.js`, `core/provider-router.js`, `lib/quota.js`, or any pre-existing agent's behaviour.** `tests/free-llm-pool-provider-test.js` asserts the three pre-existing agents are untouched, and the full `mythos-ai-executor-test.js` (390/0) and `mythos-governance-invariant-test.js` (111/0, run as `deploy`) suites were re-verified green after every edit in this stage.
+- **No change to `providers/openai-compat.js`, `core/provider-router.js`, `lib/quota.js`, or any pre-existing agent's behaviour.** `tests/free-llm-pool-provider-test.js` asserts the three pre-existing agents are untouched, and the full `mythos-ai-executor-test.js` (390/0) and `mythos-governance-invariant-test.js` (111/0, run as `deploy`) suites were re-verified green after every edit in both stages.
 
-## 11. Tests
+## 12. Activating a provider — Groq, as the worked example
+
+1. Create `~/.config/mythos-ai-executor/free-llm/groq.env` (mode 0600) containing exactly:
+   ```
+   MYTHOS_FREE_LLM_GROQ_API_KEY=<the real key>
+   ```
+   The directory (`~/.config/mythos-ai-executor/free-llm/`, mode 0700) already exists on the VPS, empty, ready for this file.
+2. Nothing else changes — `endpoints.json` already wires Groq (`https://api.groq.com/openai/v1`, live-verified), and the catalog already carries a confirmed chat model (`groq/compound`). The next health-check tick (≤30 min) or `node bin/free-llm-health.js groq` picks the key up automatically.
+3. Verify: `node bin/free-llm-status.js --json | node -e "process.stdin.pipe(require('fs').createWriteStream('/dev/stdout'))"` or simply re-run `bin/free-llm-health.js groq` and check `status: "active"`.
+
+The same three steps apply to any of the other 8 already-wired providers (openrouter, cerebras, mistral-la-plateforme, nvidia-nim, huggingface-inference-providers, fireworks, sambanova-cloud, cohere) — only the filename changes.
+
+## 13. Tests
 
 ```
-node tests/free-llm-parser-test.js          # 29/0 — offline, fixed README fixture
-node tests/free-llm-registry-test.js        # 21/0 — health state machine, offline
-node tests/free-llm-selector-test.js        # 9/0  — quota -> transient -> success fallback, offline
-node tests/free-llm-pool-provider-test.js   # 12/0 — agent-registry/executor.js wiring, offline
+node tests/free-llm-parser-test.js           # 29/0 — offline, fixed README fixture
+node tests/free-llm-registry-test.js         # 21/0 — health state machine, offline
+node tests/free-llm-selector-test.js         # 9/0  — quota -> transient -> success fallback, offline
+node tests/free-llm-pool-provider-test.js    # 12/0 — agent-registry/executor.js wiring, offline
+node tests/free-llm-groq-activation-test.js  # 11/0 — the real catalog/endpoints, Groq selected first, Groq quota -> fallback to the next provider
 ```
+
+All five isolate `MYTHOS_EXECUTOR_HOME` (core/reputation.js's store) and `MYTHOS_FREE_LLM_KEY_DIR` to a per-run temp directory under the home directory — never `/tmp`, never the real `~/mythos-ai-executor/orchestration/` or `~/.config/mythos-ai-executor/free-llm/` paths. The first three tests originally did NOT isolate `MYTHOS_EXECUTOR_HOME` and were found, live on this VPS during FREE-LLM-1 activation, to have written fake `free-llm:*` evidence into the real production reputation store; this was corrected and the contaminated file was retired (renamed aside, not deleted) rather than silently left in place.
 
 No test makes a real network call; every HTTP interaction is injected (`opts.transport`), the same discipline `providers/openai-compat.js` and `personal-intelligence/runtime/openrouter-provider.js` already use.

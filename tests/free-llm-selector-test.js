@@ -26,6 +26,14 @@ fs.mkdirSync(FIXTURES, { recursive: true });
 var KEY_DIR = path.join(FIXTURES, 'keys');
 fs.mkdirSync(KEY_DIR, { recursive: true, mode: 0o700 });
 process.env.MYTHOS_FREE_LLM_KEY_DIR = KEY_DIR;
+// selector.js's fallback loop calls core/reputation.js on every attempt,
+// which persists under core/store.js's root() — MUST also be isolated
+// here, or a run pollutes the REAL production orchestration store with
+// fake "free-llm:alpha/bravo/charlie" evidence, and enough accumulated
+// runs eventually skew the reputation tiebreak (found live during
+// FREE-LLM activation, 2026-09-15 — this exact contamination broke this
+// test's own "tried in ranked order" assertion after repeated runs).
+process.env.MYTHOS_EXECUTOR_HOME = FIXTURES;
 
 var EXEC = path.join(__dirname, '..', 'projects', 'mythos-ai-executor');
 var selector = require(path.join(EXEC, 'free-llm', 'selector'));

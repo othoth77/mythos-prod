@@ -1,0 +1,20 @@
+# MYTHOS Free LLM Resources — health check cadence.
+#
+# 30 minutes: frequent enough to catch a provider going quota_exhausted/
+# unavailable promptly, conservative enough not to spend a meaningful
+# share of any provider's free daily quota just on health probes (the
+# source list explicitly asks integrators not to abuse these services —
+# see docs/MYTHOS_FREE_LLM_RESOURCES.md). Right now this is a zero-cost
+# no-op for all 26 catalog providers (none has a credential configured),
+# so the cadence only starts to matter once the owner adds a key.
+[Unit]
+Description=MYTHOS Free LLM Resources — probe provider health every 30 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+RandomizedDelaySec=60
+Unit=mythos-free-llm-health.service
+
+[Install]
+WantedBy=timers.target

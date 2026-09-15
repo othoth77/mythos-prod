@@ -17,6 +17,14 @@ var path = require('path');
 var FIXTURES = path.join(os.homedir(), 'free-llm-registry-test-' + process.pid);
 fs.mkdirSync(FIXTURES, { recursive: true });
 
+// checkProviderHealth() calls core/reputation.js, which persists under
+// core/store.js's root() — MUST be isolated here, before requiring
+// registry.js, or every run pollutes the REAL production orchestration
+// store at ~/mythos-ai-executor/orchestration/reputation.json with fake
+// "free-llm:provider-a" evidence (found live during FREE-LLM activation,
+// 2026-09-15 — same class of bug as tests-can-write-production-defaults).
+process.env.MYTHOS_EXECUTOR_HOME = FIXTURES;
+
 var EXEC = path.join(__dirname, '..', 'projects', 'mythos-ai-executor');
 var registry = require(path.join(EXEC, 'free-llm', 'registry'));
 

@@ -1,0 +1,28 @@
+# MYTHOS Free LLM Resources — catalog sync, systemd USER unit for `deploy`.
+# Exactly the mythos-github-bridge.service convention: Type=oneshot, driven
+# by the paired .timer, rootless, no credential (discovery needs none).
+#
+# Install (as deploy):
+#   mkdir -p ~/.config/systemd/user
+#   cp projects/mythos-ai-executor/free-llm/systemd/mythos-free-llm-sync.{service,timer} ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now mythos-free-llm-sync.timer
+#
+# A failed sync (e.g. GitHub unreachable) exits non-zero and is visible in
+# `systemctl --user status mythos-free-llm-sync.service` / the journal —
+# it never touches, restarts, or otherwise affects mythos-ai-executor.service
+# (a separate unit and process); the previously committed catalog.json is
+# simply left as-is until the next successful tick.
+#
+# ROLLBACK: systemctl --user disable --now mythos-free-llm-sync.timer;
+# rm ~/.config/systemd/user/mythos-free-llm-sync.{service,timer}; daemon-reload.
+[Unit]
+Description=MYTHOS Free LLM Resources — refresh the provider/model catalog
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+WorkingDirectory=/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/free-llm
+ExecStart=/usr/bin/node bin/free-llm-sync.js
+NoNewPrivileges=true
+TimeoutStartSec=120

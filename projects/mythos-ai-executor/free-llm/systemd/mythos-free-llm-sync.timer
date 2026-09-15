@@ -1,0 +1,17 @@
+# MYTHOS Free LLM Resources — daily catalog sync timer.
+#
+# OnCalendar=daily, offset from mythos-backup.timer's 03:30 UTC so the two
+# don't contend for network/CPU at the same instant. RandomizedDelaySec +
+# Persistent= follow the exact mythos-backup.timer convention (a missed
+# tick, e.g. host down at 04:15, still fires once at the next boot).
+[Unit]
+Description=MYTHOS Free LLM Resources — refresh the catalog once per day
+
+[Timer]
+OnCalendar=*-*-* 04:15:00 UTC
+RandomizedDelaySec=600
+Persistent=true
+Unit=mythos-free-llm-sync.service
+
+[Install]
+WantedBy=timers.target
