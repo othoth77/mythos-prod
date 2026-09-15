@@ -73,6 +73,9 @@ function defaultProbe(def) {
   if (def.provider === 'gemini') {
     return require('../providers/gemini').available({});
   }
+  if (def.provider === 'free-llm-pool') {
+    return require('../providers/free-llm-pool').available();
+  }
   return false; // unknown provider: unavailable until a probe is registered
 }
 

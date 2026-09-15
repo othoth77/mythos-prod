@@ -32,5 +32,17 @@
     "latency": { "class": "fast" },
     "enabled": true,
     "note": "Registered architecturally. Reports unavailable until ~/.config/mythos-ai-executor/gemini.env provides MYTHOS_GEMINI_API_KEY — a Gemini Plus subscription is NOT an API credential and none is invented."
+  },
+  "free-llm-pool": {
+    "provider": "free-llm-pool",
+    "capabilities": ["analysis", "review", "planning", "summarization", "second_opinion", "research"],
+    "task_types": ["research", "review", "analysis", "planning"],
+    "model": null,
+    "execution_authority": false,
+    "risk_level": "low",
+    "cost": { "tier": "free" },
+    "latency": { "class": "unknown" },
+    "enabled": true,
+    "note": "Meta-agent over free-llm/catalog.json — selects and auto-falls-back across free-tier LLM services discovered from raullenchai/free-llm-api-resources. Reports unavailable until an operator creates a credential file under ~/.config/mythos-ai-executor/free-llm/<provider>.env for at least one wired provider (see free-llm/README.md) — none is invented, and no key from the upstream list is ever used."
   }
 }

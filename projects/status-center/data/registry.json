@@ -913,6 +913,13 @@
       "reference": "othkm projects/mythos-auto/CASSE_UNIVERSAL_PARTS_SEARCH_2026-09-14.md decision block + FINAL_OWNER_CUTOVER_CHECKLIST_2026-09-11.md gate 14 (branch othkm/casse-model-decision-20260914)",
       "date": "2026-09-14",
       "note": "Owner decision recorded: NEW + USED, no internal inventory sold; C-O5 -> C-O5'; AutoPart and TecDoc briefs prepared, not sent."
+    },
+    {
+      "id": "EV-FREE-LLM-0",
+      "type": "commit",
+      "reference": "f2cc71d",
+      "date": "2026-09-14",
+      "note": "feat(free-llm): Free LLM Resources catalog/health/selector/fallback over free-tier LLM providers, on branch mythos/free-llm-resources-20260914 (not yet merged to main). 26 providers / 205 models discovered from raullenchai/free-llm-api-resources; 9 wired for live calls (endpoints.json, live-verified); one new meta-agent providers/free-llm-pool.js registered in config/agents.json. Tests: free-llm-parser-test.js 29/0, free-llm-registry-test.js 21/0, free-llm-selector-test.js 9/0, free-llm-pool-provider-test.js 12/0. Regression (as deploy): mythos-ai-executor-test.js 390/0, mythos-governance-invariant-test.js 111/0. No credential configured for any provider yet."
     }
   ],
   "repositories": [
@@ -1766,7 +1773,8 @@
         "EV-PR-46",
         "EV-AI-ORCH-EVOLUTION-0903",
         "EV-BRIDGE-PUSH-GUARD-COMMIT",
-        "EV-BRIDGE-TIMER-ONESHOT-COMMIT"
+        "EV-BRIDGE-TIMER-ONESHOT-COMMIT",
+        "EV-FREE-LLM-0"
       ],
       "directories": [
         "projects/mythos-ai-executor"
@@ -2665,6 +2673,14 @@
           "id": "MAOL-1",
           "status": "NOT_STARTED",
           "what": "NOT AUTHORISED — gates O-MAOL-1..10 open"
+        },
+        {
+          "id": "FREE-LLM-0",
+          "status": "READY",
+          "what": "Free LLM Resources: catalog (26 providers/205 models) + health checks + selector with A->B->C fallback across free-tier LLM providers, wired into the existing agent-registry/provider-router/quota framework as one new meta-agent (free-llm-pool). Implemented and tested (71 new assertions); on an unmerged branch, no credential configured yet.",
+          "evidence": [
+            "EV-FREE-LLM-0"
+          ]
         }
       ]
     },
