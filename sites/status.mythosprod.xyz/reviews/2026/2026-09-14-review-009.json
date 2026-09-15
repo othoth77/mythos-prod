@@ -1,6 +1,6 @@
 {
   "review_id": "REVIEW-2026-09-14-009",
-  "timestamp": "2026-09-14T22:01:09.498Z",
+  "timestamp": "2026-09-14T22:17:06.216Z",
   "engine_version": "1.0.0",
   "audited_sources": {
     "repository": "https://github.com/othoth77/mythos-prod.git",
@@ -12,8 +12,8 @@
   },
   "git": {
     "collected": true,
-    "head": "f2cc71db9d938e458223c841c1afb70b801bee4f",
-    "branch": "mythos/free-llm-resources-20260914",
+    "head": "eba47dc23beac95e3bb3b9df76d18ab66f44078b",
+    "branch": "main",
     "origin_main": "eba47dc23beac95e3bb3b9df76d18ab66f44078b",
     "remote_url": "https://github.com/othoth77/mythos-prod.git",
     "worktree_clean": false,
@@ -1687,8 +1687,7 @@
         "EV-PR-46",
         "EV-AI-ORCH-EVOLUTION-0903",
         "EV-BRIDGE-PUSH-GUARD-COMMIT",
-        "EV-BRIDGE-TIMER-ONESHOT-COMMIT",
-        "EV-FREE-LLM-0"
+        "EV-BRIDGE-TIMER-ONESHOT-COMMIT"
       ],
       "directories": [
         "projects/mythos-ai-executor"
@@ -2643,22 +2642,14 @@
           "id": "MAOL-1",
           "status": "NOT_STARTED",
           "what": "NOT AUTHORISED — gates O-MAOL-1..10 open"
-        },
-        {
-          "id": "FREE-LLM-0",
-          "status": "READY",
-          "what": "Free LLM Resources: catalog (26 providers/205 models) + health checks + selector with A->B->C fallback across free-tier LLM providers, wired into the existing agent-registry/provider-router/quota framework as one new meta-agent (free-llm-pool). Implemented and tested (71 new assertions); on an unmerged branch, no credential configured yet.",
-          "evidence": [
-            "EV-FREE-LLM-0"
-          ]
         }
       ],
       "progress": {
         "done_stages": 6,
-        "total_stages": 8,
-        "percent": 75,
+        "total_stages": 7,
+        "percent": 86,
         "basis": "CALCULATED",
-        "explanation": "6 of 8 recorded stages DONE (superseded counted as closed)"
+        "explanation": "6 of 7 recorded stages DONE (superseded counted as closed)"
       }
     },
     {
@@ -3387,6 +3378,18 @@
       "status": "DONE",
       "evidence": [
         "EV-DARHIJAMA-ADMIN-ARTICLES-403-FIX-0914"
+      ]
+    },
+    {
+      "id": "MS-2026-09-14-DARHIJAMA-PISTE15-STAGING",
+      "date": "2026-09-14",
+      "project": "PROJECT-PORTFOLIO",
+      "title": "darhijama.tn Piste 1.5 redesign: PR #3 ready, staging-verified, not deployed",
+      "what": "Built the premium booking-first homepage (hero, trust strip, process, service, coverage, articles, FAQ, final CTA, footer, sticky mobile booking bar) on the existing Laravel/Filament stack with all SEO and the Articles CMS unchanged, and fixed two pre-existing defects that kept the Cairo font from ever rendering in production.",
+      "result": "PR #3 (commit 0154462, stacked on still-open PR #2). 179/1375 tests green, vite build OK, isolated staging 8/8 healthy, real admin flow 200, browser QA clean on desktop/390/360 px (no overflow, CLS 0, Cairo loaded, 0 console errors). Screenshots in /home/deploy/deployments/darhijama-piste15-qa-evidence/. Blockers: owner merge of PR #2 then PR #3, and an explicit production deploy decision; real photography optional. Next action: owner review of PR #3.",
+      "status": "IN_PROGRESS",
+      "evidence": [
+        "EV-DARHIJAMA-PISTE15-STAGING-0914"
       ]
     },
     {
@@ -4271,7 +4274,7 @@
       "full_name": "othoth77/darhijama",
       "classification": "FOUNDATION",
       "visibility": "public",
-      "note": "Dar Hijama (darhijama.tn) — as of 2026-09-14, production serves the Piste 1 design PLUS the SEO-first homepage revision and native Articles CMS (mythos-darhijama-production-{app,web}:seo-articles-20260914, PR #2, EV-DARHIJAMA-SEO-ARTICLES-PRODUCTION-0914). First real article published and live (EV-DARHIJAMA-FIRST-ARTICLE-PUBLISHED-0914). A post-merge deployment gap (dar-hijama:install never re-run on production) caused /admin/articles to 403 for the real admin; root-caused via full evidence chain and fixed by running the seed command — no code change, PR #1 and PR #2 both merged to main by the owner (EV-DARHIJAMA-ADMIN-ARTICLES-403-FIX-0914). CI on main fails for two pre-existing, unrelated causes (stale phpstan path, missing npm build in one CI job) — flagged, not yet fixed."
+      "note": "Dar Hijama (darhijama.tn) — as of 2026-09-14, production serves the Piste 1 design PLUS the SEO-first homepage revision and native Articles CMS (mythos-darhijama-production-{app,web}:seo-articles-20260914, PR #2, EV-DARHIJAMA-SEO-ARTICLES-PRODUCTION-0914). First real article published and live (EV-DARHIJAMA-FIRST-ARTICLE-PUBLISHED-0914). A post-merge deployment gap (dar-hijama:install never re-run on production) caused /admin/articles to 403 for the real admin; root-caused via full evidence chain and fixed by running the seed command, no code change (EV-DARHIJAMA-ADMIN-ARTICLES-403-FIX-0914). CORRECTION 2026-09-14: PR #2 is still OPEN on GitHub (only PR #1 is merged; main = 7e76fa4) — production runs PR #2's head commit 04e479c, not main. Piste 1.5 redesign is ready in PR #3 (stacked on PR #2), staging-verified, NOT deployed (EV-DARHIJAMA-PISTE15-STAGING-0914); it also fixes two pre-existing reasons Cairo never rendered in production (CSP-blocked Google Fonts, unlayered body font rule). CI on main fails for two pre-existing, unrelated causes (stale phpstan path, missing npm build in one CI job) — flagged, not yet fixed."
     },
     {
       "id": "REPO-DARHIJAMA-SITE",
@@ -4350,8 +4353,12 @@
   ],
   "monorepo_discovery": {
     "checked": true,
-    "directories_checked": 23,
+    "directories_checked": 24,
     "new_discoveries": [
+      {
+        "directory": "projects/idauto",
+        "note": "Directory present under projects/ but not claimed by any registry project's \"directories\" list. Requires classification (existing project or a new one)."
+      },
       {
         "directory": "projects/mythos-delegate",
         "note": "Directory present under projects/ but not claimed by any registry project's \"directories\" list. Requires classification (existing project or a new one)."
@@ -5313,6 +5320,15 @@
       "evidence_status": "RECORDED"
     },
     {
+      "id": "EV-DARHIJAMA-PISTE15-STAGING-0914",
+      "type": "pr",
+      "reference": "othoth77/darhijama PR #3 (https://github.com/othoth77/darhijama/pull/3), commit 0154462, branch feature/darhijama-piste15-20260914, base feature/darhijama-seo-articles-20260914 (PR #2); QA evidence deploy@vps-4722f0a9:/home/deploy/deployments/darhijama-piste15-qa-evidence/",
+      "date": "2026-09-14",
+      "note": "Piste 1.5 booking-first homepage redesign built, tested and verified in isolated staging — NOT deployed. Audit first: production runs image seo-articles-20260914 = commit 04e479c, which is PR #2's head, and PR #2 is still OPEN (GitHub); main is only at PR #1 (7e76fa4), so the work is stacked on 04e479c and PR #3 targets PR #2's branch. Implemented in a separate worktree (/home/deploy/deployments/darhijama-piste15): hero (exact owner copy), trust strip, 3-step process, service, Grand Tunis coverage (only the 4 real governorates), latest articles (max 3, indexable only, crawlable links), existing FAQ content restyled, final CTA, footer, sticky mobile booking bar; shared header/footer/mobile-cta partials also applied to article pages. Zero new packages, no schema change, no Filament change; title/description/canonical/robots/OG/MedicalBusiness JSON-LD/sitemap/robots/redirects unchanged. No real photography exists anywhere in the estate, so hero/service use inline SVG illustrations with a documented drop-in path for real photos. Found and fixed two PRE-EXISTING production defects, each proven with evidence: (1) the production CSP (style-src/font-src) only allows fonts.bunny.net but pages load Google Fonts — confirmed on live https://darhijama.tn response headers — so Cairo was blocked; (2) an unlayered body{font-family} rule in resources/css/app.css beats Tailwind v4's font-dar-hijama-arabic utility — confirmed by computed style (body has the class, computed font Inter). Net effect: Cairo has never rendered on darhijama.tn. Fixed by moving to fonts.bunny.net and wrapping the body rule in @layer base (no other app puts a font utility on <body>, verified by grep). Contrast: buttons/labels use #15803D (5.0:1) / #0F766E (5.2:1); #16A34A/#14B8A6 kept for accents. Verification: 179 tests / 1375 assertions pass (171 baseline + 8 new PublicHomePiste15Test); Pint clean on changed PHP; vite build OK. Isolated staging (compose project darhijama-piste15-staging, ephemeral MySQL/Redis, 127.0.0.1:18082, memory-capped, images mythos-darhijama-production-{app,web}:piste15-20260914): 8/8 healthy; public routes 200, unknown slug 404, guest /admin/articles 302; migrations + db:seed + dar-hijama:install run on the ephemeral DB; real admin login -> /admin/articles, /create, /{slug}/edit all 200. Headless Chrome QA with CSP active: Cairo loaded, 0 console errors, 1 h1, ordered headings, 0 images without alt, CLS 0, LCP = H1 text, visible keyboard focus, keyboard-operable FAQ, mobile menu open/close, no horizontal overflow at 1440/390/360 px, sticky mobile booking bar visible, all 12 scroll-reveal blocks visible after real scrolling. Staging containers removed and staging secrets file deleted afterwards; images kept as the deploy candidate. Production verified untouched (same images, started 12:26 UTC, public routes 200).",
+      "evidence_status": "NOT_VERIFIED",
+      "evidence_note": "PR not present in the recorded ledger"
+    },
+    {
       "id": "EV-KITCHEN-130-GATE",
       "type": "vps",
       "reference": "othkm projects/mythos-auto/FINAL_OWNER_CUTOVER_CHECKLIST_2026-09-11.md Gate 10 'FINAL 24 H GATE' (PR #9); ssangyong-storefront.service MainPID 2670609 since 2026-09-12 13:49:08 UTC",
@@ -5386,14 +5402,6 @@
       "note": "Owner decision recorded: NEW + USED, no internal inventory sold; C-O5 -> C-O5'; AutoPart and TecDoc briefs prepared, not sent.",
       "evidence_status": "NOT_VERIFIED",
       "evidence_note": "file not found at othkm projects/mythos-auto/CASSE_UNIVERSAL_PARTS_SEARCH_2026-09-14.md decision block + FINAL_OWNER_CUTOVER_CHECKLIST_2026-09-11.md gate 14 (branch othkm/casse-model-decision-20260914)"
-    },
-    {
-      "id": "EV-FREE-LLM-0",
-      "type": "commit",
-      "reference": "f2cc71d",
-      "date": "2026-09-14",
-      "note": "feat(free-llm): Free LLM Resources catalog/health/selector/fallback over free-tier LLM providers, on branch mythos/free-llm-resources-20260914 (not yet merged to main). 26 providers / 205 models discovered from raullenchai/free-llm-api-resources; 9 wired for live calls (endpoints.json, live-verified); one new meta-agent providers/free-llm-pool.js registered in config/agents.json. Tests: free-llm-parser-test.js 29/0, free-llm-registry-test.js 21/0, free-llm-selector-test.js 9/0, free-llm-pool-provider-test.js 12/0. Regression (as deploy): mythos-ai-executor-test.js 390/0, mythos-governance-invariant-test.js 111/0. No credential configured for any provider yet.",
-      "evidence_status": "VERIFIED"
     }
   ],
   "prs": [
@@ -6225,35 +6233,17 @@
   ],
   "previous_review": "REVIEW-2026-09-14-008",
   "changes": {
-    "added": [
-      {
-        "id": "TRACK-AI-ORCHESTRATION/FREE-LLM-0",
-        "what": "stage added",
-        "to": "READY"
-      }
-    ],
+    "added": [],
     "completed": [],
     "unblocked": [],
     "blocked": [],
     "changed": [],
-    "regressed": [
-      {
-        "id": "TRACK-AI-ORCHESTRATION",
-        "from": "86%",
-        "to": "75%"
-      }
-    ],
+    "regressed": [],
     "superseded": [],
     "new_blockers": [],
     "removed_blockers": [],
     "new_owner_actions": [],
-    "percent_changes": [
-      {
-        "id": "TRACK-AI-ORCHESTRATION",
-        "from": 86,
-        "to": 75
-      }
-    ],
+    "percent_changes": [],
     "new_projects": []
   }
 }
