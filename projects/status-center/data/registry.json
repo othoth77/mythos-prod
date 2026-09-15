@@ -927,6 +927,13 @@
       "reference": "branch mythos/free-llm-activation-20260915, base main@032dd35 (PR #290 merged)",
       "date": "2026-09-15",
       "note": "Post-merge activation of FREE-LLM-0. Fixed a real bug found live: registry.js pickProbeModel() ignored modality, so a health probe could pick a TTS/moderation model and misreport a healthy provider as unavailable — now filters to modality=chat. Found and corrected a second live issue: tests/free-llm-registry-test.js, free-llm-selector-test.js and free-llm-pool-provider-test.js never isolated MYTHOS_EXECUTOR_HOME, so repeated runs wrote fake free-llm:* evidence into the REAL production core/reputation.js store (~/mythos-ai-executor/orchestration/reputation.json); all three fixed, the contaminated file renamed aside (not deleted) for audit, verified absent again after the fix across repeated runs. Added tests/free-llm-groq-activation-test.js (11 assertions) proving, against the REAL committed catalog.json/endpoints.json, the exact requested flow: task -> selection -> Groq -> automatic fallback on Groq quota_exhausted -> next provider -> Othmode never stops on total failure. Prepared ~/.config/mythos-ai-executor/free-llm/ (mode 0700) for the owner-created groq.env; no key exists or was invented. Ran bin/free-llm-sync.js live (26 providers/205 models, no change) and bin/free-llm-health.js live (all 26 correctly report unconfigured with the exact reason). Installed and enabled, as deploy systemd user units mirroring mythos-github-bridge.service/.timer exactly: mythos-free-llm-sync.timer (daily, 04:15 UTC) and mythos-free-llm-health.timer (every 30 min) — both live-verified via systemctl --user list-timers and a real triggered tick (health.json produced with correct per-provider state), independent of mythos-ai-executor.service. Tests: parser 29/0, registry 21/0, selector 9/0, pool-provider 12/0, groq-activation 11/0 (82 total); regression mythos-ai-executor-test.js 390/0, mythos-governance-invariant-test.js 111/0 (as deploy)."
+    },
+    {
+      "id": "EV-FREE-LLM-2-GROQ-LIVE",
+      "type": "operator-report",
+      "reference": "~/.config/mythos-ai-executor/free-llm/groq.env (owner-created, mode 0600, never committed)",
+      "date": "2026-09-15",
+      "note": "Owner provided a real Groq API key and it was placed at the documented path (~/.config/mythos-ai-executor/free-llm/groq.env). Live-verified end to end, real network, real key, key value never logged/committed/printed: node bin/free-llm-health.js groq -> status active, latency_ms 1769, probed_model groq/compound (after applying the FREE-LLM-1 modality fix directly to the main checkout ahead of PR #291's merge -- the live checkout is intentionally ahead of the last commit here, same as this repo's other dirty-tree entries). A direct free-llm/selector.js complete() call (the real Othmode-task path) returned a genuine Groq answer. Fallback mechanism re-confirmed via the existing offline tests/free-llm-groq-activation-test.js (11/0, mocked, no real key touched) rather than by deliberately forcing a live Groq failure, which would be exactly the kind of free-service abuse the source list asks integrators to avoid. Unrelated finding, NOT caused by this change and reproduced on an unmodified checkout with and without the fix: tests/mythos-ai-executor-test.js has a time-dependent flake in its http/route gemini assertions (387/3, same 3 failures, appearing/disappearing with elapsed wall-clock time) -- recorded for a separate investigation, out of scope here."
     }
   ],
   "repositories": [
@@ -2691,10 +2698,19 @@
         },
         {
           "id": "FREE-LLM-1",
-          "status": "READY",
+          "status": "DONE",
           "what": "Post-merge activation: daily sync + 30-min health-check systemd timers installed and enabled on the VPS (deploy user, mirrors mythos-github-bridge convention); a real modality-filtering bug and a real test-isolation bug (writing into the production reputation store) found and fixed; Groq end-to-end selection/fallback proven against the real catalog (offline-mocked, no real key). No credential configured yet — owner step: create ~/.config/mythos-ai-executor/free-llm/groq.env. On an unmerged branch.",
           "evidence": [
-            "EV-FREE-LLM-1-ACTIVATION"
+            "EV-FREE-LLM-1-ACTIVATION",
+            "EV-FREE-LLM-2-GROQ-LIVE"
+          ]
+        },
+        {
+          "id": "FREE-LLM-2",
+          "status": "DONE",
+          "what": "Groq activated live: owner-provided key placed at the documented path, health check reports active (real network, real key), a real end-to-end task -> selection -> Groq completion succeeded. First of the 9 wired providers to go from unconfigured to active.",
+          "evidence": [
+            "EV-FREE-LLM-2-GROQ-LIVE"
           ]
         }
       ]
