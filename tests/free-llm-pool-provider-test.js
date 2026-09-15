@@ -19,6 +19,10 @@ var path = require('path');
 var FIXTURES = path.join(os.homedir(), 'free-llm-pool-provider-test-' + process.pid);
 fs.mkdirSync(FIXTURES, { recursive: true });
 process.env.MYTHOS_FREE_LLM_KEY_DIR = path.join(FIXTURES, 'keys'); // no keys created -> pool reports unavailable, honestly
+// Isolates core/reputation.js (reached via selector.js on any real
+// attempt) from the REAL production orchestration store — see the
+// identical note in free-llm-selector-test.js.
+process.env.MYTHOS_EXECUTOR_HOME = FIXTURES;
 
 var EXEC = path.join(__dirname, '..', 'projects', 'mythos-ai-executor');
 var agents = require(path.join(EXEC, 'core', 'agent-registry'));

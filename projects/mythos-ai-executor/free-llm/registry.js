@@ -107,13 +107,19 @@ function persistHealthRecord(providerId, status, outcome, opts) {
   return record;
 }
 
-// The first model the catalog itself is confident about (link_derived
-// or literal_text) — never a hand-asserted guess. A provider whose
-// catalog entry only ever names a category link ("Various open
-// models") is correctly left unprobed rather than invent a slug.
+// The first CHAT-modality model the catalog itself is confident about
+// (link_derived or literal_text) — never a hand-asserted guess. Modality
+// matters here: adapter.js only speaks chat/completions, so probing with
+// a table row that happens to be a TTS/moderation/embedding model (e.g.
+// Groq's confirmed-looking "canopylabs/orpheus-arabic-saudi") would send
+// a chat request to a non-chat model and misreport a healthy provider as
+// degraded/unavailable for the wrong reason. A provider whose catalog
+// entry only ever names a category link ("Various open models") — or
+// whose only confirmed ids are non-chat — is correctly left unprobed
+// rather than invent a slug or probe with the wrong modality.
 function pickProbeModel(provider) {
   return (provider.models || []).find(function (m) {
-    return m.api_model_id && m.api_model_id_confidence !== 'unconfirmed';
+    return m.api_model_id && m.api_model_id_confidence !== 'unconfirmed' && m.modality === 'chat';
   }) || null;
 }
 

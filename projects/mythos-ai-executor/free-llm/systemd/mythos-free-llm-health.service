@@ -1,0 +1,29 @@
+# MYTHOS Free LLM Resources — health check, systemd USER unit for `deploy`.
+# One probe per WIRED+KEYED provider per tick (never per model — see
+# registry.js's checkAllHealth comment on why parallel/per-model probing
+# would abuse these free services); a provider with no credential yet is
+# a zero-network early return, so this is a no-op today for all 26
+# catalog providers until the owner creates a key file.
+#
+# Install (as deploy):
+#   mkdir -p ~/.config/systemd/user
+#   cp projects/mythos-ai-executor/free-llm/systemd/mythos-free-llm-health.{service,timer} ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now mythos-free-llm-health.timer
+#
+# A failed/degraded provider is recorded in free-llm/health.json (under
+# $MYTHOS_EXECUTOR_HOME) and printed as one compact line per provider —
+# it never restarts, blocks, or otherwise affects mythos-ai-executor.service.
+#
+# ROLLBACK: systemctl --user disable --now mythos-free-llm-health.timer;
+# rm ~/.config/systemd/user/mythos-free-llm-health.{service,timer}; daemon-reload.
+[Unit]
+Description=MYTHOS Free LLM Resources — probe provider health
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+WorkingDirectory=/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/free-llm
+ExecStart=/usr/bin/node bin/free-llm-health.js
+NoNewPrivileges=true
+TimeoutStartSec=300
