@@ -648,6 +648,49 @@ section('6. engine: tick, roll-up, host vs Guardian health');
 })();
 
 (function () {
+  // A tick has a wall-clock budget. Under real memory pressure on 2026-09-16
+  // a tick took 76 s against a median of 0.8 s, because the host was stalled
+  // on memory 57 % of the time — exactly when Guardian must still report.
+  healthyHost(CFG);
+  var clock = NOW;
+  var slowIo = makeIo({
+    now: function () { return clock; },
+    spawn: function (argv) { clock += 30000; return fakeSpawn(argv); }   // every command costs 30 s
+  });
+  var budgeted = configMod.deepMerge(CFG, { tick_budget_ms: 45000, tick_slow_ms: 5000 });
+  var out = engine.tick({ io: slowIo, config: budgeted, state: engine.emptyState(iso()), now_ms: NOW, dry_run: true });
+
+  ok(out.report.host.partial, 'a tick that runs out of budget reports a PARTIAL host level');
+  ok(out.report.host.unknown_domains.length > 0, 'and names the domains it could not reach');
+  ok(out.report.guardian.state !== 'OK', 'and Guardian reports itself degraded');
+  eq(out.report.domains.memory.unknown, false, 'memory is read FIRST and always makes the budget');
+  ok(out.report.findings.some(function (f) { return f.kind === 'collector_error' && /budget/.test(f.trigger); }),
+    'the budget exhaustion is reported explicitly, not silently');
+  ok(out.report.findings.some(function (f) { return f.kind === 'slow_tick'; }), 'and a slow tick is itself a finding');
+  ok(typeof out.report.collect_ms === 'number', 'the collection time is recorded in the report');
+  ok(levels.isLevel(out.report.host.level), 'a budget-limited tick still produces a valid host level');
+
+  // With no budget configured, nothing is skipped.
+  clock = NOW;
+  var unbudgeted = engine.tick({ io: slowIo, config: configMod.deepMerge(CFG, { tick_budget_ms: undefined }), state: engine.emptyState(iso()), now_ms: NOW, dry_run: true });
+  eq(unbudgeted.report.host.partial, false, 'without a budget every domain is still collected');
+
+  // The budget must stay under the unit's TimeoutStartSec.
+  ok(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { tick_budget_ms: 120000 })).length > 0,
+    'a budget at or above the unit timeout is rejected');
+  ok(configMod.DEFAULTS.tick_budget_ms < 120000, 'the default budget is under the unit timeout');
+
+  // deepMerge is exported and callable with an explicit undefined. A config
+  // helper that throws is a config helper that can take Guardian down at
+  // startup, so it removes the key instead.
+  var threw = null;
+  try { configMod.deepMerge(configMod.DEFAULTS, { tick_budget_ms: undefined }); } catch (e) { threw = e && e.message; }
+  eq(threw, null, 'deepMerge survives an explicit undefined');
+  eq('tick_budget_ms' in configMod.deepMerge(configMod.DEFAULTS, { tick_budget_ms: undefined }), false,
+    'and removes the key rather than storing a broken value');
+})();
+
+(function () {
   var io = makeIo();
   healthyHost(CFG);
   SPAWN._unitOverrides = { memwatch: { ActiveState: 'inactive' } };

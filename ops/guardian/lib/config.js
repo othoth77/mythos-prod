@@ -32,6 +32,11 @@ var DEFAULTS = {
   allow_agent_throttling: false,
 
   interval_seconds: 120,
+  // Wall-clock budget for one collection pass. Well under the unit's
+  // TimeoutStartSec=120 s, so a tick always finishes and reports rather than
+  // being killed. Domains not reached in time are unknown, not NORMAL.
+  tick_budget_ms: 45000,
+  tick_slow_ms: 5000,
   hysteresis: { escalate_samples: 2, deescalate_samples: 3, recovery_samples: 3 },
   incidents: { max_bytes: 5 * 1024 * 1024, keep: 3 },
 
@@ -139,12 +144,17 @@ var DEFAULTS = {
   }
 };
 
-function clone(v) { return JSON.parse(JSON.stringify(v)); }
+// JSON.stringify(undefined) is undefined, and JSON.parse(undefined) throws.
+// A JSON file can never produce an undefined value, but deepMerge is exported
+// and callable with one, and a configuration helper that throws is a
+// configuration helper that can take Guardian down at startup.
+function clone(v) { return v === undefined ? undefined : JSON.parse(JSON.stringify(v)); }
 function isPlainObject(v) { return v && typeof v === 'object' && !Array.isArray(v); }
 function deepMerge(base, over) {
   if (!isPlainObject(over)) return clone(over);
   var out = isPlainObject(base) ? clone(base) : {};
   Object.keys(over).forEach(function (k) {
+    if (over[k] === undefined) { delete out[k]; return; }
     out[k] = isPlainObject(over[k]) && isPlainObject(out[k]) ? deepMerge(out[k], over[k]) : clone(over[k]);
   });
   return out;
@@ -159,6 +169,8 @@ function validate(cfg) {
   if (!isPlainObject(cfg)) return ['config is not an object'];
   if (cfg.version !== 1) err('version must be 1');
   posInt(cfg.interval_seconds, 'interval_seconds');
+  posInt(cfg.tick_budget_ms, 'tick_budget_ms');
+  if (cfg.tick_budget_ms >= 120000) err('tick_budget_ms must stay under the unit TimeoutStartSec of 120 s');
   ['escalate_samples', 'deescalate_samples', 'recovery_samples'].forEach(function (k) { posInt(cfg.hysteresis && cfg.hysteresis[k], 'hysteresis.' + k); });
   if (cfg.hysteresis && cfg.hysteresis.escalate_samples < 2) err('hysteresis.escalate_samples must be at least 2 (one transient sample may never escalate)');
 

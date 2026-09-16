@@ -181,6 +181,15 @@ mythos-guardian selftest          # prove the observe-only boundary here
 `simulate` is always dry and always synthetic. It cannot be made to run a live
 tick and it never reads the real host — the scenario supplies the data.
 
+A tick has a wall-clock budget (45 s, well under the unit's 120 s timeout).
+Domains not reached inside it are marked unknown, so the host level comes back
+`partial` with them named, rather than late or not at all. This is not
+theoretical: during a real memory event on 2026-09-16 a tick took 76 seconds
+against a median of 0.8 s, because the host was stalled on memory 57 % of the
+time — exactly the moment Guardian most needs to report. A collection slower
+than 5 s is itself reported as a `slow_tick` finding, which is almost always a
+symptom of the host being slow rather than of Guardian.
+
 State lives in `~/.local/state/mythos-guardian`: `state.json` (hysteresis),
 `report.json` (the last verdict, which the Status Center probe reads),
 `ticks.jsonl` and `incidents.jsonl`.

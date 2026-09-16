@@ -225,7 +225,38 @@ six until it was checked.
 A skipped collection is reported as `not_needed`, never as a failure — a
 deliberate choice must not look like a broken one.
 
-## D13. Rejected alternatives
+## D13. A prompt partial answer beats a late complete one
+
+**Decision.** Collection stops at a 45-second wall-clock budget. Domains not
+reached are unknown, and the host level is reported partial.
+
+**Why.** During a real memory event on 2026-09-16 — MemAvailable 861 MiB, PSI60
+at 37 then 57, swap fully consumed — a Guardian tick took **76 seconds**
+against a median of 0.8 s. Nothing was wrong with Guardian. The host was
+stalled on memory 57 % of the time, so every read it made was slow.
+
+That is the worst possible time for the observer to go quiet, and the unit's
+`TimeoutStartSec` is 120 s: a slower event would have had the tick killed
+mid-collection, producing nothing at all.
+
+The machinery for the answer already existed. `unknown` means "excluded from
+the roll-up, host level partial, Guardian degraded" — precisely the right
+thing to say about a domain that could not be read in time. So the budget
+simply feeds the existing path.
+
+Domain order is priority order, and it was already right: memory is both the
+cheapest to read and the most likely reason a tick is slow, so it is first and
+effectively always makes the budget.
+
+A tick slower than 5 s also raises a `slow_tick` finding, worded to say what
+it usually means — the host is slow, not Guardian.
+
+**The general rule.** Guardian's job is to report. A verdict that arrives is
+worth more than a complete verdict that does not, provided it is honest about
+what it does not know — which is the same principle as D4, applied to time
+instead of availability.
+
+## D14. Rejected alternatives
 
 **Beszel** (or any off-the-shelf host monitor). Evaluated and not adopted. It
 would give dashboards and historical graphs, which is real value, but it

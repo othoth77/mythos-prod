@@ -71,14 +71,36 @@ function loadState(io, file, nowIso) {
 // without touching the real one.
 function collect(cfg, io, ctx, collectors) {
   var c = collectors || sources;
+  // A tick has a wall-clock budget. Under severe memory pressure every read
+  // on this host slows down — a tick during the 2026-09-16 23:38 event took
+  // 76 s against a median of 0.8 s, because the host was stalled on memory
+  // 57 % of the time. That is precisely when Guardian must still report.
+  //
+  // So collection stops at the budget and the domains it did not reach are
+  // marked unknown, which already means "excluded from the roll-up, host
+  // level partial, Guardian degraded". A late verdict about a thrashing host
+  // is worth less than a prompt partial one, and a tick that runs past the
+  // unit's TimeoutStartSec is worth nothing at all.
+  //
+  // DOMAINS order is the priority order: memory first, because it is both the
+  // cheapest to read and the most likely to be the reason a tick is slow.
+  var budgetMs = typeof ctx.budgetMs === 'number' ? ctx.budgetMs : null;
+  var startedAt = io.now();
+  function overBudget() { return budgetMs !== null && (io.now() - startedAt) > budgetMs; }
+
   var procs = null;
   try { procs = sources.scanProcs(io); } catch (e) { procs = null; }
   var sub = { nowMs: ctx.nowMs, procs: procs };
   var out = {};
   DOMAINS.forEach(function (d) {
+    if (overBudget()) {
+      out[d] = { collector_error: 'tick budget of ' + budgetMs + ' ms exhausted before ' + d + ' could be read' };
+      return;
+    }
     try { out[d] = c[d](cfg[d], io, sub); }
     catch (e) { out[d] = { collector_error: String((e && e.message) || e) }; }
   });
+  out._elapsed_ms = io.now() - startedAt;
   return out;
 }
 
@@ -89,9 +111,10 @@ function tick(opts) {
   var nowMs = opts.now_ms;
   var nowIso = new Date(nowMs).toISOString();
   var prev = opts.state || emptyState(nowIso);
-  var ctx = { nowMs: nowMs, nowIso: nowIso };
+  var ctx = { nowMs: nowMs, nowIso: nowIso, budgetMs: cfg.tick_budget_ms };
 
   var raws = collect(cfg, io, ctx, opts.collectors);
+  var collectMs = raws._elapsed_ms;
   var next = emptyState(nowIso);
   next.tick = prev.tick + 1;
   next.memory = prev.memory || {};
@@ -155,6 +178,14 @@ function tick(opts) {
   if (hostRaw !== hostPrev) transitions.push({ domain: 'host', at: nowIso, from: hostPrev, to: hostRaw, reason: 'roll-up' });
 
   // --- Guardian health (separate from host health) ---------------------
+  if (typeof collectMs === 'number' && cfg.tick_slow_ms && collectMs > cfg.tick_slow_ms) {
+    findings.push({
+      domain: 'guardian', severity: 'INFO', kind: 'slow_tick',
+      trigger: 'collection took ' + collectMs + ' ms (usual is under ' + cfg.tick_slow_ms + ' ms) — normally a symptom of the host being slow, not of Guardian',
+      evidence: { collect_ms: collectMs }
+    });
+  }
+
   var cfgErrors = opts.config_errors || [];
   var guardian = {
     state: 'OK', issues: guardianIssues.slice(), observed_domains: known.length, total_domains: DOMAINS.length,
@@ -208,6 +239,7 @@ function tick(opts) {
     mode: opts.dry_run ? 'dry-run' : 'observe',
     host: { level: hostRaw, since: next.host.since, partial: partial, unknown_domains: DOMAINS.filter(function (d) { return verdicts[d].unknown; }) },
     guardian: guardian,
+    collect_ms: collectMs === undefined ? null : collectMs,
     domains: verdicts,
     findings: findings.sort(function (a, b) { return levels.rank(b.severity) - levels.rank(a.severity); }),
     transitions: transitions,
