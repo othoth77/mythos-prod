@@ -1,0 +1,24 @@
+# MYTHOS Guardian V0 — observation cadence.
+#
+# 2 minutes matches the memwatch sampling interval and the Resource Guard's
+# own cadence, so Guardian never reports on evidence older than one upstream
+# sample. With escalate_samples=2 that means a sustained condition is
+# confirmed within ~4 minutes, and a confirmed upstream level (an OOM kill,
+# a Resource Guard CRITICAL, a down critical unit) is reported on the first
+# tick that sees it.
+#
+# The tick is a few hundred milliseconds of reads. Persistent=true is
+# deliberately NOT set: Guardian reports on the host as it is now, and a
+# catch-up tick after a reboot would only re-report a moment that has passed.
+[Unit]
+Description=MYTHOS Guardian — observe the host every 2 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+RandomizedDelaySec=15
+AccuracySec=10s
+Unit=mythos-guardian.service
+
+[Install]
+WantedBy=timers.target

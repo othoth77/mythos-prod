@@ -742,8 +742,85 @@ section('12. CLI surface');
 })();
 
 // =====================================================
-console.log('');
-try { fs.rmSync(ROOT, { recursive: true, force: true }); } catch (e) { /* best-effort */ }
-console.log('Guardian: ' + passed + ' passed, ' + failed + ' failed');
-if (failed) { console.error('failures:\n  ' + failures.join('\n  ')); process.exit(1); }
-process.exit(0);
+section('13. Status Center probe: NOT_INSTALLED is not DOWN');
+// =====================================================
+(function () {
+  var monitor = require(path.join(BASE, 'projects', 'status-center', 'monitor', 'bin', 'monitor.js'));
+  var probes = JSON.parse(fs.readFileSync(path.join(BASE, 'projects', 'status-center', 'monitor', 'probes.json'), 'utf8'));
+  var registered = probes.probes.filter(function (x) { return x.type === 'guardian'; });
+  eq(registered.length, 1, 'exactly one guardian probe is registered');
+  eq(registered[0].id, 'guardian-lifecycle', 'it is guardian-lifecycle');
+  eq(registered[0].file.indexOf('/home/deploy/.local/state/'), 0, 'it reads Guardian state, not a production path');
+
+  var reportFile = path.join(FIX, 'guardian-report.json');
+  var marker = path.join(FIX, 'guardian-installed-marker');
+  function probe(over) { return monitor.probeGuardian(Object.assign({ file: reportFile, installed_marker: marker, max_age_seconds: 900 }, over || {})); }
+  function write(r) { fs.writeFileSync(reportFile, JSON.stringify(r)); }
+  function clean() { [reportFile, marker].forEach(function (f) { try { fs.unlinkSync(f); } catch (e) { /* absent */ } }); }
+
+  var chain = Promise.resolve();
+  function step(name, setup, check) {
+    chain = chain.then(function () { clean(); setup(); return probe(); }).then(check);
+  }
+
+  // THE requirement: Guardian that was never installed is NOT an outage.
+  step('not installed', function () { /* nothing exists */ }, function (r) {
+    eq(r.state, 'NOT_MONITORED', 'with no report and no installed timer the probe is NOT_MONITORED');
+    eq(r.error, null, 'and reports no error');
+    ok(/not installed/.test(r.note || ''), 'and says why');
+  });
+  step('installed but silent', function () { fs.writeFileSync(marker, ''); }, function (r) {
+    eq(r.state, 'DOWN', 'an INSTALLED Guardian that has never reported is DOWN');
+  });
+  step('healthy', function () {
+    fs.writeFileSync(marker, '');
+    write({ generated_at: new Date().toISOString(), tick: 5, host: { level: 'NORMAL', partial: false }, guardian: { state: 'OK', issues: [], observed_domains: 5, remediation: { remediation_available: false } } });
+  }, function (r) {
+    eq(r.state, 'LIVE', 'a reporting, healthy Guardian is LIVE');
+    eq(r.detail.remediation_available, false, 'the report records that remediation is unavailable');
+    eq(r.detail.host_level, 'NORMAL', 'and carries the host level for context');
+  });
+  step('host critical, guardian fine', function () {
+    write({ generated_at: new Date().toISOString(), tick: 6, host: { level: 'CRITICAL', partial: false }, guardian: { state: 'OK', issues: [], observed_domains: 5, remediation: { remediation_available: false } } });
+  }, function (r) {
+    eq(r.state, 'LIVE', 'a CRITICAL host does not make the GUARDIAN probe red: the host has its own probes');
+    eq(r.detail.host_level, 'CRITICAL', 'the host level is still reported as detail');
+  });
+  step('degraded', function () {
+    write({ generated_at: new Date().toISOString(), tick: 7, host: { level: 'NORMAL', partial: true }, guardian: { state: 'DEGRADED', issues: ['memory: signal degraded'], observed_domains: 4, remediation: { remediation_available: false } } });
+  }, function (r) {
+    eq(r.state, 'DEGRADED', 'a degraded Guardian is DEGRADED');
+    ok(/signal degraded/.test(r.error), 'and the reason is carried through');
+  });
+  step('blind', function () {
+    write({ generated_at: new Date().toISOString(), tick: 8, host: { level: 'NORMAL', partial: true }, guardian: { state: 'BLIND', issues: ['everything'], observed_domains: 0, remediation: { remediation_available: false } } });
+  }, function (r) {
+    eq(r.state, 'DOWN', 'a BLIND Guardian is DOWN: the observer itself has failed');
+  });
+  step('stale', function () {
+    fs.writeFileSync(marker, '');
+    write({ generated_at: new Date(Date.now() - 3600000).toISOString(), tick: 9, host: { level: 'NORMAL', partial: false }, guardian: { state: 'OK', issues: [], observed_domains: 5, remediation: { remediation_available: false } } });
+  }, function (r) {
+    eq(r.state, 'DOWN', 'a Guardian that stopped reporting is DOWN');
+    ok(/stopped reporting/.test(r.error), 'and says how long ago');
+  });
+  step('corrupt report', function () { fs.writeFileSync(marker, ''); fs.writeFileSync(reportFile, '{broken'); }, function (r) {
+    eq(r.state, 'DOWN', 'an unreadable report is DOWN, never silent green');
+  });
+
+  chain.then(function () {
+    clean();
+    finish();
+  }).catch(function (e) {
+    failed++; failures.push('status-center probe section threw: ' + (e && e.stack || e));
+    finish();
+  });
+})();
+
+function finish() {
+  console.log('');
+  try { fs.rmSync(ROOT, { recursive: true, force: true }); } catch (e) { /* best-effort */ }
+  console.log('Guardian: ' + passed + ' passed, ' + failed + ' failed');
+  if (failed) { console.error('failures:\n  ' + failures.join('\n  ')); process.exit(1); }
+  process.exit(0);
+}

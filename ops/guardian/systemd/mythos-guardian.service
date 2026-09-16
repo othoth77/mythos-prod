@@ -1,0 +1,43 @@
+# MYTHOS Guardian V0 — one observe tick. systemd USER unit for `deploy`.
+#
+# Guardian is UNPRIVILEGED on purpose. It needs no capability, no root and
+# no DAC override: everything it reads is either world-readable (/proc, the
+# Option C publication, the Status Center output) or already owned by
+# deploy (the backup health records, the executor state). Running it as
+# root would buy nothing and widen the blast radius of an observer.
+#
+# This version is OBSERVE-ONLY. It has no kill, restart, stop, cleanup or
+# deletion path, so the hardening below is a second line of defence, not
+# the first: the first is that the code contains no such path at all.
+#
+# Install (as deploy):  ops/guardian/install-guardian.sh
+# Rollback (as deploy): systemctl --user disable --now mythos-guardian.timer
+[Unit]
+Description=MYTHOS Guardian — one observe tick (observe-only, no remediation)
+Documentation=file:/home/deploy/projects/mythos-prod/docs/MYTHOS_GUARDIAN.md
+
+[Service]
+Type=oneshot
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+ExecStart=/home/deploy/.local/bin/mythos-guardian run
+# A tick that cannot finish is a tick that must not pile up. The CLI also
+# takes its own lock, so an overrun is skipped rather than raced.
+TimeoutStartSec=120
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=strict
+# The ONLY writable path. Everything else on the filesystem is read-only to
+# this unit, which is what makes "observe-only" enforceable from outside the
+# code as well as inside it.
+ReadWritePaths=/home/deploy/.local/state/mythos-guardian
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryMax=192M
+# Guardian must never be the reason the host is short of memory, and must
+# never be chosen over a production service when the kernel has to pick.
+OOMScoreAdjust=200

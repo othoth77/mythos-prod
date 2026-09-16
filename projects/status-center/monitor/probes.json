@@ -260,6 +260,16 @@
       "note": "ADDED 2026-09-01 (MCP-ECOSYSTEM-1). The bridge is the only path by which ContextForge reaches the OTH MCP; if it is down the gateway's every MYTHOS tool is down while the gateway itself still answers healthy. Liveness only, by the bridge's own design (/health states the process is up, never that an upstream is): the per-server truth is measured by projects/mythos-gateway/bin/mcp-registry-check and published to OTHMODE at /api/othmode/mcp. Loopback, unauthenticated, GET — the same precedent as sya-api-loopback."
     },
     {
+      "id": "guardian-lifecycle",
+      "name": "MYTHOS Guardian (host observer)",
+      "type": "guardian",
+      "file": "/home/deploy/.local/state/mythos-guardian/report.json",
+      "installed_marker": "/home/deploy/.config/systemd/user/mythos-guardian.timer",
+      "max_age_seconds": 900,
+      "enabled": true,
+      "note": "ADDED 2026-09-16 (GUARDIAN-V0). Reports GUARDIAN health, never host health — memory, disk, services and backups already have their own probes here, and duplicating them would double-count one outage. NOT_INSTALLED IS NOT DOWN: with no report file and no installed timer this reads NOT_MONITORED, because software the owner has not deployed is not an outage. That distinction is the reason this probe exists; the PR #283 version would have shown DOWN the moment it merged, before anything was installed. DOWN is reserved for a Guardian that IS installed and has either stopped reporting for more than max_age_seconds or gone BLIND (installed, running, and unable to read any signal) — in both cases the observer itself has failed and every green state below it is unverified. DEGRADED means Guardian is reporting but some input is missing; the host may well be fine."
+    },
+    {
       "id": "mcp-gateway-loopback",
       "name": "MYTHOS MCP Gateway — ContextForge (loopback origin)",
       "type": "https",
