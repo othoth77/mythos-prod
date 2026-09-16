@@ -304,14 +304,23 @@ function backup(cfg, io, ctx) {
     out.records[r.id] = h ? envelope(true, h) : missing(io.exists(r.file) ? 'unreadable_or_invalid' : 'missing');
   });
   cfg.restore_tests.forEach(function (t) {
-    var r = io.spawn(['systemctl', 'show', '--no-pager', '--timestamp=unix', '-p', 'Result', '-p', 'ExecMainStatus', '-p', 'ExecMainExitTimestamp', t.unit], { timeout_ms: 10000 });
+    var r = io.spawn(['systemctl', 'show', '--no-pager', '--timestamp=unix', '-p', 'Result', '-p', 'ExecMainStatus', '-p', 'ExecMainExitTimestamp', '-p', 'InactiveExitTimestamp', '-p', 'ActiveState', t.unit], { timeout_ms: 10000 });
     if (r.status !== 0) { out.restore_tests[t.id] = missing(r.error || 'systemctl_failed'); return; }
     var o = {};
     r.stdout.split('\n').forEach(function (l) { var i = l.indexOf('='); if (i > 0) o[l.slice(0, i)] = l.slice(i + 1); });
+    // Same window as the session guard: while a restore test is running,
+    // systemd has cleared its exit timestamp and Result, so a tick landing
+    // inside the run would read a healthy test as never-run. A restore test
+    // takes minutes, not seconds, so this window is much wider than the
+    // guard's — it is the more likely of the two to be hit.
     var m = /^@(\d+)/.exec(o.ExecMainExitTimestamp || '');
+    var sm = /^@(\d+)/.exec(o.InactiveExitTimestamp || '');
+    var inProgress = ['activating', 'active', 'reloading'].indexOf(o.ActiveState) >= 0;
     out.restore_tests[t.id] = envelope(true, {
       result: o.Result || null, exec_status: o.ExecMainStatus || null,
-      last_run_ms: m ? parseInt(m[1], 10) * 1000 : null
+      running: inProgress,
+      last_run_ms: m ? parseInt(m[1], 10) * 1000 : null,
+      started_ms: sm ? parseInt(sm[1], 10) * 1000 : null
     });
   });
   return out;

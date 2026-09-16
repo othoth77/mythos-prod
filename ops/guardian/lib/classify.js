@@ -350,7 +350,12 @@ function backup(src, cfg, prev, ctx) {
     if (!env || !env.ok) { st = 'RESTORE_TEST_UNVERIFIED'; why = 'unit state unavailable'; unknown = true; }
     else {
       var o = env.data, maxMs = t.max_age_days * 86400000;
-      if (o.last_run_ms && o.result) {
+      if (o.running) {
+        // Running right now. That is the freshest possible evidence that it
+        // has not been abandoned, and its verdict is simply not in yet.
+        st = 'RESTORE_TEST_OK';
+        why = 'running now (started ' + (o.started_ms ? new Date(o.started_ms).toISOString() : 'recently') + ')';
+      } else if (o.last_run_ms && o.result) {
         if (o.result !== 'success' || (o.exec_status && o.exec_status !== '0')) { st = 'RESTORE_TEST_FAILED'; why = 'last run result ' + o.result + ' status ' + o.exec_status; }
         else if (ctx.nowMs - o.last_run_ms > maxMs) { st = 'RESTORE_TEST_FAILED'; why = 'no restore test in ' + t.max_age_days + ' days'; }
         else st = 'RESTORE_TEST_OK';

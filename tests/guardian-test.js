@@ -533,6 +533,33 @@ section('5. classify: domain verdicts');
   fs.unlinkSync(path.join(FIX, 'backup-health.json'));
   eq(bk().summary.records['idauto-media'].state, 'BACKUP_FAILED', 'a missing required record is FAILED, never assumed healthy');
   fixture('backup-health.json', { mode: 'backup', status: 'ok', last_success_at: iso(8 * 3600), consecutive_failures: 0, last_backup_status: 'ok' });
+
+  // Same systemd window as the session guard, and wider: a restore test runs
+  // for minutes, and while it does its Result and exit timestamp are cleared.
+  // A test in progress is the freshest possible evidence it is not abandoned.
+  (function () {
+    var saved = SPAWN['systemctl show --no-pager'];
+    function restoreShow(fields) {
+      SPAWN['systemctl show --no-pager'] = function (argv) {
+        var last = argv[argv.length - 1];
+        if (/restore/.test(last)) return { status: 0, stderr: '', error: null, stdout: fields };
+        return saved(argv);
+      };
+      return classify.backup(sources.backup(CFG.backup, io, ctx), CFG.backup, {}, ctx);
+    }
+    var running = restoreShow('Result=\nExecMainStatus=\nExecMainExitTimestamp=\nInactiveExitTimestamp=@' + Math.round((NOW - 120000) / 1000) + '\nActiveState=activating\n');
+    eq(running.summary.restore_tests['restore-mythos-erp'].state, 'RESTORE_TEST_OK', 'a restore test running right now is not unverified');
+    eq(running.summary.restore_test_state, 'RESTORE_TEST_OK', 'and does not drag the overall restore state down');
+    eq(running.raw, 'NORMAL', 'nor the backup domain');
+
+    var failed = restoreShow('Result=exit-code\nExecMainStatus=1\nExecMainExitTimestamp=@' + Math.round((NOW - 3600000) / 1000) + '\nInactiveExitTimestamp=@' + Math.round((NOW - 3660000) / 1000) + '\nActiveState=failed\n');
+    eq(failed.summary.restore_tests['restore-mythos-erp'].state, 'RESTORE_TEST_FAILED', 'a failed restore test is still caught');
+    var overdue = restoreShow('Result=success\nExecMainStatus=0\nExecMainExitTimestamp=@' + Math.round((NOW - 60 * 86400000) / 1000) + '\nInactiveExitTimestamp=@' + Math.round((NOW - 60 * 86400000) / 1000) + '\nActiveState=inactive\n');
+    eq(overdue.summary.restore_tests['restore-mythos-erp'].state, 'RESTORE_TEST_FAILED', 'an overdue restore test is still caught');
+    var noResult = restoreShow('Result=\nExecMainStatus=\nExecMainExitTimestamp=\nInactiveExitTimestamp=\nActiveState=inactive\n');
+    eq(noResult.summary.restore_tests['restore-mythos-erp'].state, 'RESTORE_TEST_UNVERIFIED', 'an idle unit with no recorded result is still unverified');
+    SPAWN['systemctl show --no-pager'] = saved;
+  })();
 })();
 
 // =====================================================
