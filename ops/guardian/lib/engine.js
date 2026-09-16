@@ -229,9 +229,18 @@ function paths(stateDir) {
   };
 }
 
+// Rotation keeps `cfg.keep` generations: file.2 -> file.3, file.1 -> file.2,
+// file -> file.1. The oldest generation is dropped by being renamed over,
+// because Guardian has no delete primitive at all and is not getting one for
+// log rotation. Guardian's own history is therefore bounded by
+// (keep + 1) * max_bytes and never by a deletion.
 function rotate(io, file, cfg) {
   var st = io.lstat(file);
   if (!st || st.size < cfg.max_bytes) return false;
+  var keep = typeof cfg.keep === 'number' && cfg.keep > 0 ? cfg.keep : 1;
+  for (var i = keep - 1; i >= 1; i--) {
+    if (io.exists(file + '.' + i)) io.renameState(file + '.' + i, file + '.' + (i + 1));
+  }
   return io.renameState(file, file + '.1');
 }
 

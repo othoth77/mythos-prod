@@ -669,6 +669,22 @@ section('7. engine.run: writes, locking, dry-run');
   eq(dryUnderLock.written, false, 'and still writes nothing');
   io.unlock(held2);
 
+  // Rotation keeps `keep` generations and drops the oldest by renaming over
+  // it — Guardian has no delete primitive and is not getting one for logs.
+  (function () {
+    var tiny = configMod.deepMerge(CFG, { incidents: { max_bytes: 200, keep: 3 } });
+    var seen = {};
+    for (var i = 0; i < 12; i++) {
+      engine.run({ io: io, state_dir: STATE, config: tiny, now_ms: NOW + (100 + i) * 120000 });
+      ['', '.1', '.2', '.3', '.4'].forEach(function (suffix) { if (fs.existsSync(p.ticks + suffix)) seen[suffix] = true; });
+    }
+    eq(!!seen['.1'], true, 'the tick log rotates once it passes max_bytes');
+    eq(!!seen['.3'], true, 'and keeps the configured number of generations');
+    eq(fs.existsSync(p.ticks + '.4'), false, 'but no more than that: the oldest is renamed over');
+    var total = ['', '.1', '.2', '.3'].reduce(function (a, s2) { try { return a + fs.statSync(p.ticks + s2).size; } catch (e) { return a; } }, 0);
+    ok(total < 200 * 5, 'so Guardian history stays bounded (' + total + ' bytes) without any deletion');
+  })();
+
   fs.writeFileSync(p.state, '{broken');
   eq(engine.run({ io: io, state_dir: STATE, config: CFG, now_ms: NOW + 360000 }).report.tick, 1, 'corrupt state restarts cleanly from tick 1');
   fs.writeFileSync(p.state, JSON.stringify({ version: 999 }));
