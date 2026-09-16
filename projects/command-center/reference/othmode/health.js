@@ -50,19 +50,46 @@ function monitorComponents() {
   };
 }
 
+// Free-LLM runtime states (executor's free-llm/registry.js) → the six
+// OTHMODE states. Quota exhaustion is a temporary condition, not a failure.
+var FREE_LLM_STATE_MAP = {
+  active: 'ACTIVE', degraded: 'DEGRADED', quota_exhausted: 'DEGRADED',
+  unavailable: 'FAILED', expired: 'FAILED', unknown: 'BLOCKED', unconfigured: 'BLOCKED'
+};
+
 function providerComponents() {
   var p = registries.providers();
-  return p.providers.map(function (prov) {
-    var state;
-    if (!prov.enabled) state = 'DEPRECATED';
-    else if (prov.credential_present === false) state = 'BLOCKED';
-    else state = 'ACTIVE';
-    return {
-      id: 'provider:' + prov.id, kind: 'provider', name: prov.id, state: state,
-      detail: prov.credential_present === false ? 'credential absent' : (prov.note || null),
-      latency_ms: null
-    };
+  var pool = p.free_llm || null;
+  var comps = p.providers.map(function (prov) {
+    var state, detail;
+    if (!prov.enabled) { state = 'DEPRECATED'; detail = prov.note || null; }
+    else if (prov.pool && pool) {
+      // The pool is as healthy as its configured members: no key anywhere
+      // is a configuration state (BLOCKED), keys present but nothing
+      // answering is a real failure, otherwise ACTIVE.
+      if (!prov.pool.configured) { state = 'BLOCKED'; detail = 'no free provider configured (' + prov.pool.wired + ' wired, 0 with a credential)'; }
+      else if (prov.pool.active) { state = 'ACTIVE'; detail = prov.pool.active + ' of ' + prov.pool.configured + ' configured free providers active'; }
+      else { state = 'FAILED'; detail = prov.pool.configured + ' configured free providers, none active'; }
+    }
+    else if (prov.credential_present === false) { state = 'BLOCKED'; detail = 'credential absent'; }
+    else { state = 'ACTIVE'; detail = prov.note || null; }
+    return { id: 'provider:' + prov.id, kind: 'provider', name: prov.id, state: state, detail: detail, latency_ms: null };
   });
+  // One component per CONFIGURED free provider. Unconfigured catalog entries
+  // are discoverable in the Providers view but are not health components —
+  // 20+ "BLOCKED: no key" rows would drown the signal.
+  if (pool) {
+    pool.providers.forEach(function (f) {
+      if (f.credential_present !== true) return;
+      comps.push({
+        id: 'provider:free-llm/' + f.id, kind: 'provider', name: 'free-llm/' + f.id,
+        state: FREE_LLM_STATE_MAP[f.status] || 'BLOCKED',
+        detail: f.status + (f.status !== 'active' && f.last_failure_reason ? ' — ' + f.last_failure_reason : ''),
+        latency_ms: f.latency_ms
+      });
+    });
+  }
+  return comps;
 }
 
 function toolComponents() {

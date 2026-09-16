@@ -65,6 +65,8 @@ ok(mistral.requirements.indexOf('phone_verification') !== -1 && mistral.requirem
   'mistral (la plateforme): both requirement flags detected from its notes bullets');
 ok(mistral.data_policy_note === 'Free tier (Experiment plan) requires opting into data training',
   'mistral (la plateforme): data policy note captured verbatim');
+ok(mistral.models[0].api_model_id === null && mistral.models[0].api_model_id_confidence === 'unconfirmed',
+  'mistral (la plateforme): a DOCUMENTATION deep link ("…/getting-started/models/models_overview/") is never mistaken for a model slug');
 
 var codestral = byId(catalog.free, 'mistral-codestral');
 ok(!!codestral && codestral.models.length === 1 && codestral.models[0].name === 'Codestral',

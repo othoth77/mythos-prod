@@ -175,6 +175,25 @@ var registries = require('../projects/command-center/reference/othmode/registrie
     ok(typeof p.credential_present === 'boolean' || p.credential_present === null, 'credential info for ' + p.id + ' is presence-only');
   });
 
+  // FREE-LLM (OTHMODE V1): the pool behind the free-llm-pool agent is part of
+  // the providers read model — catalog, wired/configured counts and the
+  // executor's last health verdict per service, presence-only credentials.
+  var fl = providers.free_llm;
+  ok(fl && fl.available === true && fl.counts.providers > 0 && fl.counts.models > 0,
+    'free-LLM catalog folded into the providers read model (' + (fl && fl.counts.providers) + ' services, ' + (fl && fl.counts.models) + ' models)');
+  ok(fl.counts.wired > 0 && fl.counts.wired <= fl.counts.providers, 'wired services are a subset of the catalog (' + fl.counts.wired + ')');
+  ok(fl.providers.every(function (f) { return (typeof f.credential_present === 'boolean' || f.credential_present === null) && fl.states.indexOf(f.status) !== -1; }),
+    'every free-LLM row is presence-only for credentials and carries a known health state');
+  ok(fl.providers.every(function (f) { return f.wired || f.credential_present === null; }),
+    'credential presence is only ever asserted for WIRED services (catalog-only entries are not tracked)');
+  var pool = providers.providers.find(function (p) { return p.id === 'free-llm-pool'; });
+  ok(pool && typeof pool.credential_present === 'boolean' && pool.pool && typeof pool.pool.configured === 'number',
+    'free-llm-pool credential presence is aggregated from the pool, never "not tracked"');
+  ok(!JSON.stringify(fl).match(/(sk-[A-Za-z0-9]|gsk_[A-Za-z0-9]|api[_-]?key\s*[:=]|\.env\b)/i),
+    'free-LLM payload carries no credential-shaped content and no credential file path');
+  ok(registries.freeLlm().selection_rule && Array.isArray(registries.freeLlm().providers),
+    'registries.freeLlm() is the standalone read model behind /api/othmode/providers/free-llm');
+
   var projects = registries.projects();
   ok(projects.total > 0 && projects.projects[0].id, 'portfolio tracks folded into projects');
 }

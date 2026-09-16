@@ -316,9 +316,64 @@
         data.routing ? el('div.detail-block', {}, [
           el('h2.block-title', { text: t('oth.providers.routing') }),
           el('div.callout.callout-info', { text: t('oth.providers.routing_rule') })
-        ]) : null
+        ]) : null,
+        renderFreeLlm(data.free_llm)
       ]));
     }).catch(function (err) { errorView('oth.providers.title', 'oth.providers.sub', err); });
+  }
+
+  // The free-LLM pool behind the free-llm-pool agent: what the catalog
+  // holds, which services are wired/configured, and the executor's last
+  // health verdict per service. Wired services only — catalog-only entries
+  // are discoverable through the API, but a 26-row table of "not wired"
+  // would bury the two numbers that matter (configured, active).
+  var FREE_LLM_CHIP = {
+    active: 'ACTIVE', degraded: 'DEGRADED', quota_exhausted: 'DEGRADED',
+    unavailable: 'FAILED', expired: 'FAILED', unknown: 'BLOCKED', unconfigured: 'BLOCKED'
+  };
+
+  function renderFreeLlm(fl) {
+    if (!fl) return null;
+    if (!fl.available) {
+      return el('div.detail-block', {}, [
+        el('h2.block-title', { text: t('oth.providers.free_llm') }),
+        emptyState('oth.providers.free_llm_empty')
+      ]);
+    }
+    var c = fl.counts;
+    var summary = el('div.card-meta', {}, [
+      el('span.badge.badge-category', { text: t('oth.providers.free_llm_catalog') + ' ' + c.providers + ' / ' + c.models }),
+      el('span.badge', { text: t('oth.providers.free_llm_wired') + ' ' + c.wired }),
+      el('span.badge', { text: t('oth.providers.free_llm_configured') + ' ' + c.configured }),
+      stateChip(c.active ? 'ACTIVE' : (c.configured ? 'FAILED' : 'BLOCKED')),
+      el('span.field-hint', { text: t('oth.providers.free_llm_active') + ' ' + c.active })
+    ]);
+    var wired = fl.providers.filter(function (f) { return f.wired; }).sort(function (a, b) {
+      var ka = (a.credential_present ? 0 : 1) + a.id, kb = (b.credential_present ? 0 : 1) + b.id;
+      return ka < kb ? -1 : (ka > kb ? 1 : 0);
+    });
+    var rows = wired.map(function (f) {
+      return [
+        f.id,
+        stateChip(FREE_LLM_CHIP[f.status] || 'BLOCKED'),
+        f.credential_present === true ? t('oth.providers.credential_present')
+          : (f.credential_present === false ? t('oth.providers.credential_absent') : t('oth.providers.credential_unknown')),
+        f.chat_model || '—',
+        f.latency_ms == null ? '—' : f.latency_ms + ' ms',
+        f.last_checked ? f.last_checked.replace('T', ' ').slice(0, 16) : '—'
+      ];
+    });
+    return el('div.detail-block', {}, [
+      el('h2.block-title', { text: t('oth.providers.free_llm') }),
+      summary,
+      fl.generated_at ? el('p.field-hint', { text: t('oth.providers.free_llm_synced') + ' ' + fl.generated_at.replace('T', ' ').slice(0, 16) + ' UTC' }) : null,
+      rows.length ? table([
+        t('oth.providers.col_service'), t('oth.providers.col_status'), t('oth.providers.col_credential'),
+        t('oth.providers.col_model'), t('oth.providers.col_latency'), t('oth.providers.col_checked')
+      ], rows) : emptyState('oth.providers.free_llm_empty'),
+      el('div.callout.callout-info', { text: t('oth.providers.free_llm_rule') }),
+      el('p.field-hint', { text: t('oth.providers.free_llm_hint') })
+    ]);
   }
 
   function renderProjects() {

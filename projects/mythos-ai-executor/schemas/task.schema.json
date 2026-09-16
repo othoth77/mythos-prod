@@ -80,9 +80,10 @@
         "claude-code",
         "openai-compat",
         "mock",
-        "delegate"
+        "delegate",
+        "free-llm-pool"
       ],
-      "description": "Execution/advisory provider. `delegate` runs the task through the delegation boundary, which resolves the task's `lane` and runs that lane's implementer CLI; it requires a lane and grants no authority beyond the task's execution_profile."
+      "description": "Execution/advisory provider. `delegate` runs the task through the delegation boundary, which resolves the task's `lane` and runs that lane's implementer CLI; it requires a lane and grants no authority beyond the task's execution_profile. `free-llm-pool` is the advisory meta-agent over free-llm/ (selection + A→B→C fallback across free-tier providers); it never has execution authority."
     },
     "model": {
       "type": [

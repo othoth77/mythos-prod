@@ -137,6 +137,31 @@ var chain = registry.checkProviderHealth('provider-c-unwired', opts()).then(func
   var b = rows.find(function (r) { return r.provider_id === 'provider-b-no-confirmed-model'; });
   ok(b.model_id === null && b.model_id_confidence === 'unconfirmed',
     'provider-b: an unconfirmed catalog model id is surfaced honestly, never invented');
+}).then(function () {
+  // ---------------------------------------------------------------- 6. reliability matrix (OTHMODE V1 §6):
+  // timeout / invalid key / forbidden / 5xx / garbage body — Othmode never
+  // crashes, every case lands in a named state with a safe reason, and the
+  // credential value never enters the record.
+  function probeWith(transport) { return registry.checkProviderHealth('provider-a', opts({ transport: transport })); }
+  return probeWith(function () { return Promise.reject(new Error('request timed out')); }).then(function (r) {
+    ok(r.status === 'degraded' && /timed out/.test(r.last_failure_reason), 'provider timeout -> degraded (transient), reason recorded');
+    return probeWith(function () { return Promise.resolve({ status: 401, body: JSON.stringify({ error: { message: 'Invalid API Key' } }) }); });
+  }).then(function (r) {
+    ok(r.status === 'unavailable' && /401/.test(r.last_failure_reason), 'invalid API key (401) -> unavailable with the HTTP reason, never a crash');
+    ok(JSON.stringify(r).indexOf('sk-fixture') === -1, 'the health record never carries the credential value');
+    return probeWith(function () { return Promise.resolve({ status: 403, body: 'forbidden' }); });
+  }).then(function (r) {
+    ok(r.status === 'unavailable', 'forbidden (403) -> unavailable');
+    return probeWith(function () { return Promise.resolve({ status: 500, body: 'Internal Server Error' }); });
+  }).then(function (r) {
+    ok(r.status === 'degraded', 'provider 500 -> degraded (transient), retried on the next tick');
+    return probeWith(function () { return Promise.resolve({ status: 200, body: 'not json at all' }); });
+  }).then(function (r) {
+    ok(r.status === 'unavailable' && /unparseable/.test(r.last_failure_reason), 'a garbage 200 body -> unavailable with a clear reason');
+    return probeWith(function () { return Promise.resolve({ status: 200, body: JSON.stringify({ model: 'model-a', choices: [{ message: { content: 'ok' } }] }) }); });
+  }).then(function (r) {
+    ok(r.status === 'active' && r.consecutive_failures === 0, 'recovery: the first success after a failure run resets the counter and returns to active');
+  });
 });
 
 chain.then(function () {

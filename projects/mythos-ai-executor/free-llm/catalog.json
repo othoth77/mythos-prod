@@ -5,7 +5,7 @@
     "branch": "main",
     "readme_url": "https://raw.githubusercontent.com/raullenchai/free-llm-api-resources/main/README.md"
   },
-  "generated_at": "2026-09-15T20:00:44.676Z",
+  "generated_at": "2026-09-16T22:23:38.931Z",
   "provider_count": 26,
   "model_count": 205,
   "providers": [
@@ -232,7 +232,7 @@
         "terms_url": "https://openrouter.ai/terms"
       },
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "google-ai-studio",
@@ -354,7 +354,7 @@
         "terms_url": "https://ai.google.dev/gemini-api/terms"
       },
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "nvidia-nim",
@@ -388,7 +388,7 @@
         "terms_url": null
       },
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "mistral-la-plateforme",
@@ -411,8 +411,8 @@
         {
           "name": "Open and Proprietary Mistral models",
           "url": "https://docs.mistral.ai/getting-started/models/models_overview/",
-          "api_model_id": "getting-started/models/models_overview/",
-          "api_model_id_confidence": "link_derived",
+          "api_model_id": null,
+          "api_model_id_confidence": "unconfirmed",
           "limits_text": null,
           "modality": "chat"
         }
@@ -423,7 +423,7 @@
         "terms_url": "https://mistral.ai/terms"
       },
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "mistral-codestral",
@@ -457,7 +457,7 @@
         "terms_url": "https://mistral.ai/terms"
       },
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "huggingface-inference-providers",
@@ -490,7 +490,7 @@
         "terms_url": "https://huggingface.co/terms-of-service"
       },
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "vercel-ai-gateway",
@@ -510,7 +510,7 @@
       "models": [],
       "official": null,
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "opencode-zen",
@@ -555,7 +555,7 @@
       ],
       "official": null,
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "cerebras",
@@ -596,7 +596,7 @@
         "terms_url": null
       },
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "groq",
@@ -749,7 +749,7 @@
         "terms_url": "https://groq.com/terms-of-use/"
       },
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "cohere",
@@ -854,7 +854,7 @@
         "terms_url": "https://cohere.com/terms-of-use"
       },
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "github-models",
@@ -1223,7 +1223,7 @@
         "terms_url": "https://docs.github.com/en/site-policy/github-terms/github-terms-of-service"
       },
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "cloudflare-workers-ai",
@@ -1680,7 +1680,7 @@
         "terms_url": "https://www.cloudflare.com/website-terms/"
       },
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "fireworks",
@@ -1713,7 +1713,7 @@
         "terms_url": null
       },
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "baseten",
@@ -1734,15 +1734,15 @@
         {
           "name": "Any supported model - pay by compute time",
           "url": "https://www.baseten.co/library/",
-          "api_model_id": "library/",
-          "api_model_id_confidence": "link_derived",
+          "api_model_id": null,
+          "api_model_id_confidence": "unconfirmed",
           "limits_text": null,
           "modality": "chat"
         }
       ],
       "official": null,
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "nebius",
@@ -1771,7 +1771,7 @@
       ],
       "official": null,
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "novita",
@@ -1800,7 +1800,7 @@
       ],
       "official": null,
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "ai21",
@@ -1829,7 +1829,7 @@
       ],
       "official": null,
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "upstage",
@@ -1858,7 +1858,7 @@
       ],
       "official": null,
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "nlp-cloud",
@@ -1888,7 +1888,7 @@
       ],
       "official": null,
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "alibaba-cloud-international-model-studio",
@@ -1909,15 +1909,15 @@
         {
           "name": "Various open and proprietary Qwen models",
           "url": "https://www.alibabacloud.com/en/product/modelstudio",
-          "api_model_id": "en/product/modelstudio",
-          "api_model_id_confidence": "link_derived",
+          "api_model_id": null,
+          "api_model_id_confidence": "unconfirmed",
           "limits_text": null,
           "modality": "chat"
         }
       ],
       "official": null,
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "modal",
@@ -1946,7 +1946,7 @@
       ],
       "official": null,
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "inference-net",
@@ -1975,7 +1975,7 @@
       ],
       "official": null,
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "hyperbolic",
@@ -2028,7 +2028,7 @@
       ],
       "official": null,
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "sambanova-cloud",
@@ -2117,7 +2117,7 @@
         "terms_url": null
       },
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     },
     {
       "id": "scaleway-generative-apis",
@@ -2250,7 +2250,7 @@
       ],
       "official": null,
       "first_seen": "2026-09-14T21:40:42.618Z",
-      "last_seen": "2026-09-15T20:00:44.676Z"
+      "last_seen": "2026-09-16T22:23:38.931Z"
     }
   ]
 }
