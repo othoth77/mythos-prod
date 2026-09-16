@@ -301,15 +301,105 @@ function credentialPresence(file) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Free LLM pool — projects/mythos-ai-executor/free-llm/{catalog,endpoints}.json
+// (Git-reviewed) + the executor's own runtime health.json (written by
+// mythos-free-llm-health.timer, never by OTHMODE). Same rules as every read
+// model here: rendered in place, nothing written, credential PRESENCE by
+// file existence only (the file is never opened), never a value, never a
+// network probe from this process — the executor's timer owns probing.
+// ---------------------------------------------------------------------------
+
+var FREE_LLM_KEY_DIR_REL = path.join('.config', 'mythos-ai-executor', 'free-llm');
+var FREE_LLM_HEALTH_STATES = ['active', 'degraded', 'unavailable', 'quota_exhausted', 'expired', 'unconfigured', 'unknown'];
+
+function providerHome() {
+  return process.env.OTHMODE_PROVIDER_HOME || process.env.HOME || '/home/ubuntu';
+}
+
+function freeLlmHealthFile(home) {
+  return process.env.OTHMODE_FREE_LLM_HEALTH_FILE ||
+    path.join(process.env.MYTHOS_EXECUTOR_HOME || path.join(home, 'mythos-ai-executor'), 'free-llm', 'health.json');
+}
+
+// The executor's failure reasons are operator-facing and may name host
+// paths (e.g. the credential file it looked for). This read model is a
+// public surface: an unconfigured service gets a fixed phrase, anything
+// else keeps the provider's message with filesystem paths blanked.
+function safeFreeLlmReason(status, reason) {
+  if (!reason) return null;
+  if (status === 'unconfigured') return /NOT_WIRED/.test(String(reason)) ? 'not wired' : 'no credential file';
+  return String(reason).replace(/\/[^\s'"`)]+/g, '[path]').slice(0, 200);
+}
+
+function freeLlm() {
+  var catalogRes = resolve.cachedJson(resolve.repoPath('projects', 'mythos-ai-executor', 'free-llm', 'catalog.json'));
+  var endpointsRes = resolve.cachedJson(resolve.repoPath('projects', 'mythos-ai-executor', 'free-llm', 'endpoints.json'));
+  var home = providerHome();
+  var healthRes = resolve.readJson(freeLlmHealthFile(home));
+  var endpoints = endpointsRes.ok && endpointsRes.data.providers ? endpointsRes.data.providers : {};
+  var health = healthRes.ok && healthRes.data ? healthRes.data : {};
+  var rows = [];
+  var counts = { providers: 0, models: 0, wired: 0, configured: 0, active: 0 };
+  ((catalogRes.ok && catalogRes.data.providers) || []).forEach(function (p) {
+    var ep = endpoints[p.id] || null;
+    var wired = !!(ep && ep.wired);
+    var present = wired ? credentialPresence(path.join(home, FREE_LLM_KEY_DIR_REL, p.id + '.env')) : null;
+    var h = health[p.id] || null;
+    var status = h && FREE_LLM_HEALTH_STATES.indexOf(h.status) !== -1 ? h.status : (wired ? 'unknown' : 'unconfigured');
+    var chat = (p.models || []).filter(function (m) {
+      return m.api_model_id && m.api_model_id_confidence !== 'unconfirmed' && m.modality === 'chat';
+    });
+    counts.providers++;
+    counts.models += (p.models || []).length;
+    if (wired) counts.wired++;
+    if (present === true) counts.configured++;
+    if (present === true && status === 'active') counts.active++;
+    rows.push({
+      id: p.id,
+      name: p.name || p.id,
+      homepage: p.homepage || null,
+      category: p.category || null,
+      access_type: p.access_type || null,
+      requirements: p.requirements || [],
+      limits: p.limits_text || p.credits_text || null,
+      privacy_url: p.official && p.official.privacy_url ? p.official.privacy_url : null,
+      data_policy_note: p.data_policy_note || null,
+      models: (p.models || []).length,
+      chat_model: chat.length ? chat[0].api_model_id : null,
+      wired: wired,
+      credential_present: present,
+      status: status,
+      last_checked: h ? h.last_checked || null : null,
+      latency_ms: h && typeof h.latency_ms === 'number' ? h.latency_ms : null,
+      consecutive_failures: h ? h.consecutive_failures || 0 : 0,
+      last_failure_reason: h ? safeFreeLlmReason(status, h.last_failure_reason) : null
+    });
+  });
+  return {
+    available: catalogRes.ok,
+    reason: catalogRes.ok ? null : catalogRes.reason,
+    generated_at: catalogRes.ok ? catalogRes.data.generated_at || null : null,
+    source: catalogRes.ok && catalogRes.data.source ? catalogRes.data.source.repo || null : null,
+    counts: counts,
+    states: FREE_LLM_HEALTH_STATES,
+    health_file: healthRes.ok ? 'loaded' : (healthRes.reason || 'absent'),
+    selection_rule: 'wired + credential present + catalog-confirmed chat model + health not unavailable/expired; ranked availability → historical success rate → latency; one candidate per service; automatic A → B → C fallback on failure or quota (mythos-ai-executor/free-llm/selector.js)',
+    providers: rows
+  };
+}
+
 function providers() {
   var agentsRes = resolve.cachedJson(resolve.repoPath('projects', 'mythos-ai-executor', 'config', 'agents.json'));
   var routerRes = resolve.cachedJson(resolve.repoPath('projects', 'mythos-ai-executor', 'config', 'router.json'));
-  var home = process.env.OTHMODE_PROVIDER_HOME || process.env.HOME || '/home/ubuntu';
+  var home = providerHome();
+  var pool = freeLlm();
   var list = [];
   if (agentsRes.ok) {
     Object.keys(agentsRes.data).forEach(function (key) {
       var a = agentsRes.data[key];
       var envFile = PROVIDER_ENV_FILES[key];
+      var isPool = (a.provider || key) === 'free-llm-pool';
       list.push({
         id: key,
         provider: a.provider || key,
@@ -322,7 +412,11 @@ function providers() {
         risk_level: a.risk_level || null,
         cost_tier: a.cost && a.cost.tier ? a.cost.tier : null,
         latency_class: a.latency && a.latency.class ? a.latency.class : null,
-        credential_present: envFile ? credentialPresence(path.join(home, envFile)) : null,
+        // The pool is "configured" when at least one wired free provider has
+        // a credential file — presence-only, aggregated the same way.
+        credential_present: isPool ? pool.counts.configured > 0
+          : (envFile ? credentialPresence(path.join(home, envFile)) : null),
+        pool: isPool ? { configured: pool.counts.configured, active: pool.counts.active, wired: pool.counts.wired } : undefined,
         note: a.note || null
       });
     });
@@ -330,13 +424,18 @@ function providers() {
   return {
     total: list.length,
     providers: list,
+    free_llm: pool,
     routing: routerRes.ok ? {
       router_id: routerRes.data.router_id || null,
       fallback_enabled: !!(routerRes.data.fallback && routerRes.data.fallback.enabled),
       fallback_task_types: routerRes.data.fallback ? routerRes.data.fallback.allowed_task_types || [] : [],
       never_for_execution_authority: !!(routerRes.data.fallback && routerRes.data.fallback.never_for_execution_authority)
     } : null,
-    sources: { agents_json: agentsRes.ok ? 'loaded' : (agentsRes.reason || 'absent') }
+    sources: {
+      agents_json: agentsRes.ok ? 'loaded' : (agentsRes.reason || 'absent'),
+      free_llm_catalog: pool.available ? 'loaded' : (pool.reason || 'absent'),
+      free_llm_health: pool.health_file
+    }
   };
 }
 
@@ -398,6 +497,7 @@ module.exports = {
   tools: tools,
   mcp: mcpView,
   providers: providers,
+  freeLlm: freeLlm,
   projects: projects,
   parseSkillFrontmatter: parseSkillFrontmatter
 };

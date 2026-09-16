@@ -14,9 +14,15 @@ existing engines (skills, tools, providers, projects), health aggregation
 with recovery records, unified command history, a read-first memory bridge
 through the oth-knowledge boundary, the controlled Evolution layer with an
 append-only store outside Git (`/home/deploy/oth-evolution-store`,
-fail-closed when absent), the owner-only OthMode ON/OFF switch, and the
-operator CLI `cli/othmode-cli.js`. Suite:
-`node tests/othmode-2-platform-test.js` (no database needed).
+fail-closed when absent), per-command activation by the standalone
+`othmode` keyword (the global ON/OFF switch was removed 2026-08-26), the
+free-LLM pool view (`/api/othmode/providers/free-llm`, over
+`projects/mythos-ai-executor/free-llm/` — see
+[`docs/MYTHOS_FREE_LLM_RESOURCES.md`](../../docs/MYTHOS_FREE_LLM_RESOURCES.md)),
+and the operator CLI `cli/othmode-cli.js`. Suites:
+`node tests/othmode-2-platform-test.js` and `node tests/othmode-3-tasks-test.js`
+(no database needed); `node tests/mcc-1-command-center-test.js` needs the
+`mythos_command_center_test` database (it truncates; it refuses any other name).
 
 A searchable, permanent library of the commands used to build and operate Mythos. Find a
 command, understand it, copy it, adapt it, note what you learned, and see which ones you

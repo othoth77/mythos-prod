@@ -21,6 +21,7 @@
 // =====================================================
 
 var fs = require('fs');
+var os = require('os');
 var path = require('path');
 
 // reference/othmode → reference → command-center → projects → repo root
@@ -45,8 +46,13 @@ function statusDataDir() {
 }
 
 // Executor / orchestrator runtime state (their own stores; read-only here).
+// The executor's store root is $MYTHOS_EXECUTOR_HOME, defaulting to
+// ~/mythos-ai-executor of the user it runs as (lib/state.js) — the same
+// user this service runs as, so the default follows the same rule instead
+// of a hard-coded /home/ubuntu that no longer exists on the host.
 function executorTasksDir() {
-  return process.env.OTHMODE_EXECUTOR_TASKS_DIR || '/home/ubuntu/mythos-ai-executor/tasks';
+  return process.env.OTHMODE_EXECUTOR_TASKS_DIR ||
+    path.join(process.env.MYTHOS_EXECUTOR_HOME || path.join(os.homedir(), 'mythos-ai-executor'), 'tasks');
 }
 function orchestratorTasksDir() {
   return process.env.OTHMODE_ORCHESTRATOR_TASKS_DIR || '/home/deploy/mythos-orchestrator/tasks';

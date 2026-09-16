@@ -169,12 +169,16 @@ The same three steps apply to any of the other 8 already-wired providers (openro
 ## 13. Tests
 
 ```
-node tests/free-llm-parser-test.js           # 29/0 — offline, fixed README fixture
-node tests/free-llm-registry-test.js         # 21/0 — health state machine, offline
+node tests/free-llm-parser-test.js           # 30/0 — offline, fixed README fixture (incl. "a docs deep link is never a model slug")
+node tests/free-llm-registry-test.js         # 28/0 — health state machine + the reliability matrix: timeout, 401 invalid key, 403, 500, garbage body, recovery
 node tests/free-llm-selector-test.js         # 9/0  — quota -> transient -> success fallback, offline
 node tests/free-llm-pool-provider-test.js    # 12/0 — agent-registry/executor.js wiring, offline
 node tests/free-llm-groq-activation-test.js  # 11/0 — the real catalog/endpoints, Groq selected first, Groq quota -> fallback to the next provider
+node tests/mythos-ai-executor-test.js        # 392/0 — includes /route: the pool is routable for advisory read-only work, never for repo-write
+node tests/othmode-2-platform-test.js        # 172/0 — OTHMODE's providers read model folds the pool in (presence-only, no paths, no values)
 ```
+
+The executor suite pins `MYTHOS_FREE_LLM_KEY_DIR` to an empty fixture directory (OTHMODE V1, 2026-09-16): without that, a host that holds a real free-provider key makes `free-llm-pool` available, it ranks first for advisory work (free tier), and the suite's `/route` assertions silently change meaning — which is exactly what happened on the VPS the moment the Groq key was placed (390/0 → 387/3). The same class of fix as `MYTHOS_ADVISORY_KEY_FILE` there.
 
 All five isolate `MYTHOS_EXECUTOR_HOME` (core/reputation.js's store) and `MYTHOS_FREE_LLM_KEY_DIR` to a per-run temp directory under the home directory — never `/tmp`, never the real `~/mythos-ai-executor/orchestration/` or `~/.config/mythos-ai-executor/free-llm/` paths. The first three tests originally did NOT isolate `MYTHOS_EXECUTOR_HOME` and were found, live on this VPS during FREE-LLM-1 activation, to have written fake `free-llm:*` evidence into the real production reputation store; this was corrected and the contaminated file was retired (renamed aside, not deleted) rather than silently left in place.
 

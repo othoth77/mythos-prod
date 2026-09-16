@@ -69,11 +69,18 @@ function firstLink(text) {
 // spaces ("Llama 3.3 70B") is NOT the real slug and must never be sent
 // to a provider's API as one — 'unconfirmed', api_model_id null. Never
 // invented past what the source text actually shows.
+// A deep link counts only when its path has the exact `org/model[:tag]`
+// shape — two segments, no trailing slash, no query. A documentation link
+// (Mistral's ".../getting-started/models/models_overview/") or a catalog
+// page (".../models") is NOT a model, and treating it as one would hand
+// the selector a slug that no provider accepts (found live 2026-09-16).
+var MODEL_SLUG_PATH = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._:-]*$/;
+
 function deriveApiModelId(rawText, url) {
   if (url) {
     try {
-      var seg = decodeURIComponent(String(url).replace(/^[a-z]+:\/\/[^/]+\//i, ''));
-      if (seg && !/\s/.test(seg) && (seg.indexOf('/') !== -1 || /:free$/i.test(seg))) {
+      var seg = decodeURIComponent(String(url).replace(/^[a-z]+:\/\/[^/]+\//i, '').replace(/[?#].*$/, ''));
+      if (seg && !/\s/.test(seg) && MODEL_SLUG_PATH.test(seg)) {
         return { api_model_id: seg, api_model_id_confidence: 'link_derived' };
       }
     } catch (e) { /* fall through */ }

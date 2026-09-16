@@ -144,6 +144,13 @@ function buildRoutes(db, auth) {
     { method: 'GET', auth: false, pattern: /^\/api\/othmode\/providers$/, handler: function (req, res) {
       return sendJson(res, 200, registries.providers());
     } },
+    // FREE-LLM: the pool behind the free-llm-pool agent — catalog services,
+    // which are wired/configured, and the executor's last health verdict per
+    // service. Public read like the registry it summarises; presence-only
+    // credentials; OTHMODE probes nothing (the executor's timer does).
+    { method: 'GET', auth: false, pattern: /^\/api\/othmode\/providers\/free-llm$/, handler: function (req, res) {
+      return sendJson(res, 200, registries.freeLlm());
+    } },
     { method: 'GET', auth: false, pattern: /^\/api\/othmode\/projects$/, handler: function (req, res) {
       return sendJson(res, 200, registries.projects());
     } },

@@ -38,6 +38,14 @@ delete process.env.MYTHOS_MOCK_SCRIPT;
 // credential on one machine and not another would stop being
 // deterministic. Read once, at provider load, so it must be set first.
 process.env.MYTHOS_ADVISORY_KEY_FILE = path.join(FIXTURES, 'no-advisory-credential.env');
+// FREE-LLM-1: the free-LLM pool's default probe reads REAL credential files
+// under ~/.config/mythos-ai-executor/free-llm/. Pinned to an empty fixture
+// directory for the same reason as the advisory credential above — on a host
+// with a real Groq key the pool becomes available, ranks first for advisory
+// work (free tier) and silently changes what the /route assertions mean.
+// (Found live 2026-09-16: this suite went 390/0 → 387/3 the moment a key was
+// placed on the VPS.) Read once at secrets.js load, so it must be set first.
+process.env.MYTHOS_FREE_LLM_KEY_DIR = path.join(FIXTURES, 'free-llm-keys-empty');
 // gh-issue-101: this suite asserts dispatch/tick decisions, which the
 // Resource Guard is entitled to override when the HOST is short of memory.
 // That would make the suite depend on the machine's mood, so the guard is
@@ -975,6 +983,25 @@ chain = chain.then(function () {
     ok(res.code === 200 && res.body.action === 'no_provider',
       'http/route: gemini is never returned as routable even when it reports itself available');
     ok(res.body.agent === undefined, 'http/route: the gemini refusal carries no agent field either');
+
+    // free-llm-pool IS wired into the executor's real PROVIDERS map: when its
+    // probe reports available it is a legitimate advisory route (the free
+    // cost tier ranks first), with no execution authority — and therefore
+    // never an answer for a repo-write profile.
+    agentRegistry.resetForTests();
+    agentRegistry.registerProbe('claude-code', function () { return false; });
+    agentRegistry.registerProbe('openai-compat', function () { return false; });
+    agentRegistry.registerProbe('gemini', function () { return false; });
+    agentRegistry.registerProbe('free-llm-pool', function () { return true; });
+    return post('/route', { task_type: 'research', execution_profile: 'repo-read' });
+  }).then(function (res) {
+    ok(res.code === 200 && res.body.action === 'route' && res.body.agent === 'free-llm-pool' &&
+      res.body.provider === 'free-llm-pool' && res.body.authority === false,
+      'http/route: the free-LLM pool is routable for an advisory read-only task');
+    return post('/route', { task_type: 'research', execution_profile: 'repo-write' });
+  }).then(function (res) {
+    ok(res.code === 200 && res.body.action === 'no_provider',
+      'http/route: the free-LLM pool never satisfies a repo-write profile (no execution authority)');
 
     // Nothing available at all: no_provider, cleanly.
     agentRegistry.resetForTests();

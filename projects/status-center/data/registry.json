@@ -954,7 +954,14 @@
       "type": "pr",
       "reference": "othoth77/mythos-prod PR #291, commit 9bf7359",
       "date": "2026-09-15",
-      "note": "Full pre-merge review of PR #291. (1) Base check: merge-base(HEAD, origin/main) == origin/main exact tip (032dd35) -- clean fast-forward, mergeStateStatus CLEAN, mergeable MERGEABLE. (2) Diff review: only the intended 18 files touched (registry.js one-line modality filter + 3 test-isolation one-liners + 1 new test + 4 new systemd unit files + docs + Status Center evidence) -- confirmed via gh pr diff --name-only, no unrelated file. (3) Secret scan, 5 independent angles (diff grep for the exact key pattern, generic API-key-value pattern, per-file grep across every changed file, full branch-history patch text, and confirming groq.env itself was never git-tracked) -- all clean, zero occurrences. (4) Tests: full free-llm suite 82/82 on the PR branch; mythos-governance-invariant-test.js 111/0; stc-2-monitor-test.js 86/0; stc-1-status-center-test.js 80/1 and mythos-ai-executor-test.js 387/3 both show the SAME pre-existing failures reproduced in a genuinely pristine detached-HEAD worktree at origin/main's exact merged commit (032dd35, zero PR #291 changes present) -- rigorously confirmed unrelated to this PR, not merely asserted. (5) Live re-verification: Groq health-check active (fresh probe, 1884ms); a live selector.complete() end-to-end call returned a genuine Groq answer with real token usage; one transient HTTP 413 was observed mid-review on the agentic groq/compound model, self-classified unavailable and self-recovered on the very next check with no manual intervention -- the resilience mechanism performing exactly as designed under real noisy conditions, not a regression. (6) Scheduling: both systemd user timers still active/scheduled (mythos-free-llm-health.timer ticked again independently during this review). Verdict: clean, no regression attributable to this PR, no secret exposure, ready to merge."
+      "note": "Full pre-merge review of PR #291. (1) Base check: merge-base(HEAD, origin/main) == origin/main exact tip (032dd35) -- clean fast-forward, mergeStateStatus CLEAN, mergeable MERGEABLE. (2) Diff review: only the intended 18 files touched (registry.js one-line modality filter + 3 test-isolation one-liners + 1 new test + 4 new systemd unit files + docs + Status Center evidence) -- confirmed via gh pr diff --name-only, no unrelated file. (3) Secret scan, 5 independent angles (diff grep for the exact key pattern, generic credential-value pattern, per-file grep across every changed file, full branch-history patch text, and confirming groq.env itself was never git-tracked) -- all clean, zero occurrences. (4) Tests: full free-llm suite 82/82 on the PR branch; mythos-governance-invariant-test.js 111/0; stc-2-monitor-test.js 86/0; stc-1-status-center-test.js 80/1 and mythos-ai-executor-test.js 387/3 both show the SAME pre-existing failures reproduced in a genuinely pristine detached-HEAD worktree at origin/main's exact merged commit (032dd35, zero PR #291 changes present) -- rigorously confirmed unrelated to this PR, not merely asserted. (5) Live re-verification: Groq health-check active (fresh probe, 1884ms); a live selector.complete() end-to-end call returned a genuine Groq answer with real token usage; one transient HTTP 413 was observed mid-review on the agentic groq/compound model, self-classified unavailable and self-recovered on the very next check with no manual intervention -- the resilience mechanism performing exactly as designed under real noisy conditions, not a regression. (6) Scheduling: both systemd user timers still active/scheduled (mythos-free-llm-health.timer ticked again independently during this review). Verdict: clean, no regression attributable to this PR, no secret exposure, ready to merge. CORRECTION 2026-09-16 (EV-OTHMODE-V1-CLOSURE): the \"rigorously pre-existing / time-dependent\" verdict on the mythos-ai-executor-test.js 387/3 was WRONG. The pristine worktree shared the same real host environment, so it proved nothing about the cause. Real cause: the suite's /route section stubs probes for claude-code/openai-compat/gemini only, so free-llm-pool fell through to its real probe, saw the real Groq key placed minutes earlier, and won advisory routing (free tier ranks first). Fixed in the suite (MYTHOS_FREE_LLM_KEY_DIR pinned to an empty fixture) and covered by two new positive assertions; 392/0."
+    },
+    {
+      "id": "EV-OTHMODE-V1-CLOSURE",
+      "type": "commit",
+      "reference": "branch mythos/othmode-v1-closure-20260916 (base main@8c827e8)",
+      "date": "2026-09-16",
+      "note": "OTHMODE V1 closure pass: reality audit of the live platform (othmode.mythosprod.xyz 200; every surface — commands 24, skills 31, tools 85, providers 4, projects 21, health, status, history, tasks, work intake, memory, evolution, trust — answering; mcc-1 506/0 against mythos_command_center_test). Found and fixed: (1) executor task.schema.json provider enum lacked free-llm-pool, so the router could pick an agent the executor then refused (TASK_SCHEMA_INVALID) — live-verified on the daemon, fixed; (2) OTHMODE Providers view knew nothing about the free-LLM pool (credential \"not tracked\", health falsely ACTIVE) — new read model registries.freeLlm(), GET /api/othmode/providers/free-llm, pool-aware health components (BLOCKED/FAILED/ACTIVE from configured/active counts, one component per CONFIGURED free provider), Providers screen table in EN/FR/AR, presence-only credentials, host paths blanked; (3) mythos-ai-executor-test.js 387/3 was caused by the real Groq key leaking into the suite through free-llm-pool's real probe — MYTHOS_FREE_LLM_KEY_DIR now pinned, +2 assertions (pool routable for advisory read-only, never repo-write), 392/0; (4) parser turned Mistral's documentation deep link into a fake model slug — MODEL_SLUG_PATH (org/model[:tag] only), catalog regenerated; (5) history read model's executor source pointed at /home/ubuntu (stale) — now follows the executor's own $MYTHOS_EXECUTOR_HOME / ~/mythos-ai-executor rule; (6) reliability matrix added to free-llm-registry-test.js (timeout, 401, 403, 500, garbage body, recovery — 28/0); (7) stale \"owner-only ON/OFF switch\" sentence in projects/command-center/README.md. Secrets: repo-wide scan of tracked files + full history — only documented synthetic test vectors, zero live credentials, Groq key present in no commit. Daemon restart + production smoke (Command → Othmode → free-llm-pool → Groq → result) recorded in EV-OTHMODE-V1-PRODUCTION after merge."
     }
   ],
   "repositories": [
@@ -1282,10 +1289,10 @@
       "status": "DONE",
       "maturity": "PRODUCTION_VERIFIED",
       "repository": "othoth77/mythos-prod",
-      "last_change": "2026-08-26 (Command History and Task Reports made publicly readable, redacted for anonymous callers — 7252de2)",
+      "last_change": "2026-09-16 (OTHMODE V1 closure: free-LLM pool folded into Providers/Health, executor schema fix, test isolation fix — see EV-OTHMODE-V1-CLOSURE)",
       "blocker": null,
-      "next_action": "None required for the platform. Outstanding around it: othmode.mythosprod.xyz is not yet a monitored component in the STC-2 probe registry (NEXT-OTHMODE-MONITOR).",
-      "headline": "Live at https://othmode.mythosprod.xyz since 2026-08-26. Built over the MCC-1 runtime rather than as a second system: one process on a single loopback port, same auth, CSRF and secret gate, no new event store. Task Reports add an append-only tasks/records.jsonl stream to the existing OTHMODE store and a fourth source to the existing Command History. As of 7252de2 the Command History and every Task Report are PUBLIC READS — no session, login link or token — while every write stays authenticated and secret-gated; anonymous readers get the full narrative with infrastructure detail masked by a read-side projection, since the append-only store cannot be rewritten to be publishable. Suites othmode-3 94/0 and othmode-2 157/0 on the production host. Per-command activation replaced the global switch in PR #87; the keyword confers no privilege.",
+      "next_action": "Post-merge: restart mythos-ai-executor.service so the daemon loads free-llm-pool (schema + PROVIDERS map), run the production smoke (task → free-llm-pool → Groq → report), then scripts/deploy-status-center.sh from main. Outstanding around the platform: othmode.mythosprod.xyz still not a monitored STC-2 component (NEXT-OTHMODE-MONITOR); projects/mythos-wp is unclaimed by any registry project (needs a Comms project entry — outside OTHMODE scope).",
+      "headline": "Live at https://othmode.mythosprod.xyz since 2026-08-26. Built over the MCC-1 runtime rather than as a second system: one process on a single loopback port, same auth, CSRF and secret gate, no new event store. Task Reports add an append-only tasks/records.jsonl stream to the existing OTHMODE store and a fourth source to the existing Command History. As of 7252de2 the Command History and every Task Report are PUBLIC READS — no session, login link or token — while every write stays authenticated and secret-gated; anonymous readers get the full narrative with infrastructure detail masked by a read-side projection, since the append-only store cannot be rewritten to be publishable. Suites othmode-3 94/0 and othmode-2 157/0 on the production host. Per-command activation replaced the global switch in PR #87; the keyword confers no privilege. V1 CLOSURE 2026-09-16: the platform is live and every V1 surface is verified (commands CRUD via the MCC library, skills/tools/providers/projects read models, health, status, unified history, Task Reports, work intake → GitHub Issue → executor, memory, evolution, trust). Providers now include the free-LLM pool (catalog 26/205, 9 wired, Groq ACTIVE) with presence-only credentials; the executor accepts free-llm-pool tasks; the executor suite no longer depends on real host credentials.",
       "dimensions": {
         "implementation": {
           "status": "DONE",
@@ -1311,7 +1318,8 @@
         "EV-OTHMODE-LIVE",
         "EV-OTHMODE-STORE",
         "EV-OTHMODE-PUBLIC-HISTORY",
-        "EV-OTHMODE-PUBLIC-VERIFIED"
+        "EV-OTHMODE-PUBLIC-VERIFIED",
+        "EV-OTHMODE-V1-CLOSURE"
       ],
       "directories": [
         "projects/othmode",
@@ -1812,7 +1820,8 @@
         "EV-FREE-LLM-0"
       ],
       "directories": [
-        "projects/mythos-ai-executor"
+        "projects/mythos-ai-executor",
+        "projects/mythos-delegate"
       ]
     },
     {
@@ -2732,6 +2741,14 @@
           "what": "Groq activated live: owner-provided key placed at the documented path, health check reports active (real network, real key), a real end-to-end task -> selection -> Groq completion succeeded. First of the 9 wired providers to go from unconfigured to active.",
           "evidence": [
             "EV-FREE-LLM-2-GROQ-LIVE"
+          ]
+        },
+        {
+          "id": "OTHMODE-V1",
+          "status": "READY",
+          "what": "OTHMODE V1 closure: free-LLM pool visible/actionable in OTHMODE (providers + health + UI), executor accepts free-llm-pool tasks (schema fix), executor suite isolated from real host credentials, reliability matrix, history executor path fixed. On an unmerged branch until merged; production smoke recorded post-merge.",
+          "evidence": [
+            "EV-OTHMODE-V1-CLOSURE"
           ]
         }
       ]
