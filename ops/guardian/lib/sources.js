@@ -168,17 +168,33 @@ function sessions(cfg, io, ctx) {
   }
 
   // Is the session guard itself running? (unit + timer state, read-only)
-  var show = io.spawn(['systemctl', 'show', '--no-pager', '--timestamp=unix', '-p', 'Result', '-p', 'ExecMainExitTimestamp', '-p', 'ActiveState', cfg.session_guard_unit], { timeout_ms: 10000 });
+  var show = io.spawn(['systemctl', 'show', '--no-pager', '--timestamp=unix', '-p', 'Result', '-p', 'ExecMainExitTimestamp', '-p', 'InactiveExitTimestamp', '-p', 'ActiveState', '-p', 'SubState', cfg.session_guard_unit], { timeout_ms: 10000 });
   if (show.status !== 0) out.guard_unit = missing(show.error || 'systemctl_failed');
   else {
     var o = {};
     show.stdout.split('\n').forEach(function (l) { var i = l.indexOf('='); if (i > 0) o[l.slice(0, i)] = l.slice(i + 1); });
+    // A oneshot that is running RIGHT NOW is the opposite of stale, but
+    // systemd clears ExecMainExitTimestamp while the unit is activating — so
+    // a tick that lands inside the guard's ~4 s run would otherwise read
+    // "never ran". Observed live on 2026-09-16: a Guardian tick at 23:08:40
+    // against a guard that started at 23:08:38 and finished at 23:08:42
+    // reported `session_guard_stale` while the guard was healthy and on time.
+    //
+    // So: if it is active or activating, it is running. Otherwise use the
+    // exit timestamp, falling back to InactiveExitTimestamp (when this run
+    // STARTED), which survives the window in which the exit time is absent.
+    var running = ['activating', 'active', 'reloading'].indexOf(o.ActiveState) >= 0;
     var atM = /^@(\d+)/.exec(o.ExecMainExitTimestamp || '');
-    var lastMs = atM ? parseInt(atM[1], 10) * 1000 : null;
+    var startM = /^@(\d+)/.exec(o.InactiveExitTimestamp || '');
+    var lastMs = atM ? parseInt(atM[1], 10) * 1000 : (startM ? parseInt(startM[1], 10) * 1000 : null);
     var gAge = lastMs === null ? null : Math.round((ctx.nowMs - lastMs) / 1000);
-    var gStale = gAge === null || gAge > cfg.session_guard_max_age_seconds;
-    out.guard_unit = envelope(!gStale, { result: o.Result || null, last_run_at: lastMs ? new Date(lastMs).toISOString() : null },
-      { stale: gStale, age_seconds: gAge, error: gStale ? 'stale_or_never_run' : null });
+    var gStale = running ? false : (gAge === null || gAge > cfg.session_guard_max_age_seconds);
+    out.guard_unit = envelope(!gStale, {
+      result: o.Result || null,
+      running: running,
+      active_state: o.ActiveState || null,
+      last_run_at: lastMs ? new Date(lastMs).toISOString() : null
+    }, { stale: gStale, age_seconds: gAge, error: gStale ? 'stale_or_never_run' : null });
   }
   return out;
 }

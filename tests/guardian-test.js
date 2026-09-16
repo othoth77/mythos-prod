@@ -334,6 +334,45 @@ healthyHost(CFG);
   eq(s.snapshot.ok, true, 'the session-guard snapshot is read');
   eq(s.guard_unit.ok, true, 'the session-guard unit state is read');
 
+  // The guard is a oneshot that runs every 5 minutes for a few seconds, and
+  // systemd clears ExecMainExitTimestamp while it is activating. A Guardian
+  // tick landing inside that window must not call a healthy guard stale.
+  // Observed live on 2026-09-16 before this was fixed.
+  (function () {
+    var saved = SPAWN['systemctl show --no-pager'];
+    function guardShow(fields) {
+      SPAWN['systemctl show --no-pager'] = function (argv) {
+        var last = argv[argv.length - 1];
+        if (last === CFG.sessions.session_guard_unit) return { status: 0, stderr: '', error: null, stdout: fields };
+        return saved(argv);
+      };
+      return sources.sessions(CFG.sessions, io, { nowMs: NOW }).guard_unit;
+    }
+    var startedAt = Math.round((NOW - 2000) / 1000);   // started 2 s ago, still running
+    var midRun = guardShow('Result=\nActiveState=activating\nSubState=start\nExecMainExitTimestamp=\nInactiveExitTimestamp=@' + startedAt + '\n');
+    eq(midRun.ok, true, 'a guard caught mid-run is NOT stale');
+    eq(midRun.data.running, true, 'and is reported as running');
+    eq(midRun.error, null, 'with no stale error');
+    var v = classify.sessions({ procs: sources.envelope(true, { total: 10, remote_sessions: 1, remote_rss_mib: 10, oldest_session_hours: 1, orphan_count: 0, orphans: [] }), snapshot: sources.envelope(true, { sessions: 1, denied: false }), guard_unit: midRun }, CFG.sessions, {}, { nowMs: NOW, memoryLevel: 'NORMAL' });
+    eq(v.findings.filter(function (f) { return f.kind === 'session_guard_stale'; }).length, 0, 'and produces no session_guard_stale finding');
+
+    // Exit timestamp missing but the unit is idle: fall back to when this run
+    // started, rather than concluding it never ran.
+    var idleNoExit = guardShow('Result=success\nActiveState=inactive\nSubState=dead\nExecMainExitTimestamp=\nInactiveExitTimestamp=@' + Math.round((NOW - 60000) / 1000) + '\n');
+    eq(idleNoExit.ok, true, 'a recent start with no exit timestamp is not stale either');
+
+    // A genuinely stale guard must still be caught.
+    var reallyStale = guardShow('Result=success\nActiveState=inactive\nSubState=dead\nExecMainExitTimestamp=@' + Math.round((NOW - 7200000) / 1000) + '\nInactiveExitTimestamp=@' + Math.round((NOW - 7210000) / 1000) + '\n');
+    eq(reallyStale.ok, false, 'a guard that has not run for two hours IS stale');
+    eq(reallyStale.error, 'stale_or_never_run', 'and says so');
+
+    // And one that has genuinely never run.
+    var never = guardShow('Result=\nActiveState=inactive\nSubState=dead\nExecMainExitTimestamp=\nInactiveExitTimestamp=\n');
+    eq(never.ok, false, 'a guard that has never run is stale');
+
+    SPAWN['systemctl show --no-pager'] = saved;
+  })();
+
   var d = sources.disk(CFG.disk, io);
   eq(d.fs.ok, true, 'statfs succeeds');
   ok(typeof d.fs.data.used_pct === 'number', 'used_pct is a number');
