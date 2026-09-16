@@ -962,6 +962,13 @@
       "reference": "branch mythos/othmode-v1-closure-20260916 (base main@8c827e8)",
       "date": "2026-09-16",
       "note": "OTHMODE V1 closure pass: reality audit of the live platform (othmode.mythosprod.xyz 200; every surface — commands 24, skills 31, tools 85, providers 4, projects 21, health, status, history, tasks, work intake, memory, evolution, trust — answering; mcc-1 506/0 against mythos_command_center_test). Found and fixed: (1) executor task.schema.json provider enum lacked free-llm-pool, so the router could pick an agent the executor then refused (TASK_SCHEMA_INVALID) — live-verified on the daemon, fixed; (2) OTHMODE Providers view knew nothing about the free-LLM pool (credential \"not tracked\", health falsely ACTIVE) — new read model registries.freeLlm(), GET /api/othmode/providers/free-llm, pool-aware health components (BLOCKED/FAILED/ACTIVE from configured/active counts, one component per CONFIGURED free provider), Providers screen table in EN/FR/AR, presence-only credentials, host paths blanked; (3) mythos-ai-executor-test.js 387/3 was caused by the real Groq key leaking into the suite through free-llm-pool's real probe — MYTHOS_FREE_LLM_KEY_DIR now pinned, +2 assertions (pool routable for advisory read-only, never repo-write), 392/0; (4) parser turned Mistral's documentation deep link into a fake model slug — MODEL_SLUG_PATH (org/model[:tag] only), catalog regenerated; (5) history read model's executor source pointed at /home/ubuntu (stale) — now follows the executor's own $MYTHOS_EXECUTOR_HOME / ~/mythos-ai-executor rule; (6) reliability matrix added to free-llm-registry-test.js (timeout, 401, 403, 500, garbage body, recovery — 28/0); (7) stale \"owner-only ON/OFF switch\" sentence in projects/command-center/README.md. Secrets: repo-wide scan of tracked files + full history — only documented synthetic test vectors, zero live credentials, Groq key present in no commit. Daemon restart + production smoke (Command → Othmode → free-llm-pool → Groq → result) recorded in EV-OTHMODE-V1-PRODUCTION after merge."
+    },
+    {
+      "id": "EV-OTHMODE-V1-PRODUCTION",
+      "type": "vps",
+      "reference": "main@0805084 (PR #292 merged 2026-09-16T22:28Z) + PR #293; mythos-command-center.service + mythos-ai-executor.service restarted 2026-09-16 22:28-22:35 UTC",
+      "date": "2026-09-16",
+      "note": "Post-merge production verification of OTHMODE V1. main pulled to 0805084 (local == remote, clean tree). mythos-ai-executor.service restarted with 0 in-flight tasks: the daemon now loads free-llm-pool in its PROVIDERS map and the fixed task schema (POST /tasks with provider=free-llm-pool -> 201 QUEUED; before the fix the live daemon answered TASK_SCHEMA_INVALID). mythos-command-center.service restarted: public https://othmode.mythosprod.xyz 200, the served othmode.js/othmode-i18n.js carry the new Providers table, GET /api/othmode/providers/free-llm 200 through nginx with no credential value and no host path in the payload. Found on the host during this verification: the command-center deployment env carried OTHMODE_PROVIDER_HOME=/home/ubuntu (stale — credentials moved to deploy long ago), which made every provider credential presence \"not tracked\" and the free-LLM pool read 0 configured / health unreadable while Groq was live; corrected to /home/deploy (backup .env.bak-othmode-v1-20260916 kept), service restarted, and PR #293 decouples the free-LLM read model from that variable entirely. Live afterwards: claude-code present, omniroute-advisory present, gemini-advisor absent (BLOCKED), free-llm-pool ACTIVE (1 of 1 configured), free-llm/groq ACTIVE. Timers: mythos-free-llm-health.timer and mythos-free-llm-sync.timer active and ticking; mythos-github-bridge.timer active. Production smoke (Command -> executor -> free-llm-pool -> Groq -> report): COMPLETED — task t-20260916223157-2ofs2d, accepted 201 at 22:31:57, dispatch deferred twice by the Resource Guard (CRITICAL after the restarts and parallel test runs), admitted when the guard de-escalated to WARNING, provider_launch at 22:46:09, finished 22:46:12 (3.2 s) with a genuine mythos_report from the model; the free-LLM health record's last_success (22:46:12.615Z, groq/compound, 3110 ms) coincides with the task's finish and core/reputation.js recorded the outcome under free-llm:groq."
     }
   ],
   "repositories": [
@@ -1289,9 +1296,9 @@
       "status": "DONE",
       "maturity": "PRODUCTION_VERIFIED",
       "repository": "othoth77/mythos-prod",
-      "last_change": "2026-09-16 (OTHMODE V1 closure: free-LLM pool folded into Providers/Health, executor schema fix, test isolation fix — see EV-OTHMODE-V1-CLOSURE)",
+      "last_change": "2026-09-16 (OTHMODE V1 closure merged #292 + follow-up #293; production verified — EV-OTHMODE-V1-PRODUCTION)",
       "blocker": null,
-      "next_action": "Post-merge: restart mythos-ai-executor.service so the daemon loads free-llm-pool (schema + PROVIDERS map), run the production smoke (task → free-llm-pool → Groq → report), then scripts/deploy-status-center.sh from main. Outstanding around the platform: othmode.mythosprod.xyz still not a monitored STC-2 component (NEXT-OTHMODE-MONITOR); projects/mythos-wp is unclaimed by any registry project (needs a Comms project entry — outside OTHMODE scope).",
+      "next_action": "None required for V1. Around it: othmode.mythosprod.xyz still not a monitored STC-2 component (NEXT-OTHMODE-MONITOR); projects/mythos-wp unclaimed (needs a Comms project entry); host memory pressure (swap 100 %) is a host matter, not OTHMODE's.",
       "headline": "Live at https://othmode.mythosprod.xyz since 2026-08-26. Built over the MCC-1 runtime rather than as a second system: one process on a single loopback port, same auth, CSRF and secret gate, no new event store. Task Reports add an append-only tasks/records.jsonl stream to the existing OTHMODE store and a fourth source to the existing Command History. As of 7252de2 the Command History and every Task Report are PUBLIC READS — no session, login link or token — while every write stays authenticated and secret-gated; anonymous readers get the full narrative with infrastructure detail masked by a read-side projection, since the append-only store cannot be rewritten to be publishable. Suites othmode-3 94/0 and othmode-2 157/0 on the production host. Per-command activation replaced the global switch in PR #87; the keyword confers no privilege. V1 CLOSURE 2026-09-16: the platform is live and every V1 surface is verified (commands CRUD via the MCC library, skills/tools/providers/projects read models, health, status, unified history, Task Reports, work intake → GitHub Issue → executor, memory, evolution, trust). Providers now include the free-LLM pool (catalog 26/205, 9 wired, Groq ACTIVE) with presence-only credentials; the executor accepts free-llm-pool tasks; the executor suite no longer depends on real host credentials.",
       "dimensions": {
         "implementation": {
@@ -1319,7 +1326,8 @@
         "EV-OTHMODE-STORE",
         "EV-OTHMODE-PUBLIC-HISTORY",
         "EV-OTHMODE-PUBLIC-VERIFIED",
-        "EV-OTHMODE-V1-CLOSURE"
+        "EV-OTHMODE-V1-CLOSURE",
+        "EV-OTHMODE-V1-PRODUCTION"
       ],
       "directories": [
         "projects/othmode",
@@ -2745,10 +2753,11 @@
         },
         {
           "id": "OTHMODE-V1",
-          "status": "READY",
-          "what": "OTHMODE V1 closure: free-LLM pool visible/actionable in OTHMODE (providers + health + UI), executor accepts free-llm-pool tasks (schema fix), executor suite isolated from real host credentials, reliability matrix, history executor path fixed. On an unmerged branch until merged; production smoke recorded post-merge.",
+          "status": "DONE",
+          "what": "OTHMODE V1 closure: free-LLM pool visible/actionable in OTHMODE (providers + health + UI), executor accepts free-llm-pool tasks (schema fix), executor suite isolated from real host credentials, reliability matrix, history executor path fixed. Merged (#292, main@0805084) + follow-up #293; production verified (EV-OTHMODE-V1-PRODUCTION); production smoke task -> free-llm-pool -> Groq COMPLETED.",
           "evidence": [
-            "EV-OTHMODE-V1-CLOSURE"
+            "EV-OTHMODE-V1-CLOSURE",
+            "EV-OTHMODE-V1-PRODUCTION"
           ]
         }
       ]
