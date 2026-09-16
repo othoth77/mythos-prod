@@ -198,6 +198,19 @@ function disk(cfg, io) {
     });
   }
   if (!cfg.docker_df) { out.docker = envelope(false, null, { error: 'disabled' }); return out; }
+
+  // `docker system df` walks the image, volume and build-cache trees and
+  // costs ~2.8 s on this host — about 80 % of a whole tick. Its output is a
+  // breakdown of WHERE disk is going, which is only actionable once disk is
+  // actually under pressure, so it is collected only then. Below the warning
+  // threshold Guardian still reports used/free/inodes from statfs, which is
+  // what the disk level is computed from; it just does not ask the Docker
+  // daemon to inventory itself every two minutes for a number nobody needs.
+  var floorPct = typeof cfg.docker_df_min_pct === 'number' ? cfg.docker_df_min_pct : cfg.thresholds.warning_pct;
+  if (out.fs.ok && typeof out.fs.data.used_pct === 'number' && out.fs.data.used_pct < floorPct) {
+    out.docker = envelope(false, null, { error: 'not_needed', note: 'disk below ' + floorPct + ' %' });
+    return out;
+  }
   var r = io.spawn(['docker', 'system', 'df', '--format', '{{.Type}}|{{.Size}}|{{.Reclaimable}}'], { timeout_ms: 20000 });
   if (r.status !== 0) out.docker = missing(r.error || 'docker_df_failed');
   else {

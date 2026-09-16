@@ -72,6 +72,10 @@ var DEFAULTS = {
     thresholds: { warning_pct: 80, high_pct: 85, critical_pct: 90, emergency_pct: 95 },
     inode_thresholds: { warning_pct: 80, high_pct: 85, critical_pct: 90, emergency_pct: 95 },
     docker_df: true,
+    // Collect the Docker breakdown only once disk is at or above this
+    // percentage. It costs ~2.8 s per call and is only actionable under
+    // pressure; the disk LEVEL always comes from statfs, which is free.
+    docker_df_min_pct: 80,
     // Reported growth sources (observation only in V0; the cleanup policy
     // document lists what a future remediation layer may touch).
     watch: [

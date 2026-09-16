@@ -121,7 +121,10 @@ minutes are reported as orphans. A session guard that has not run in fifteen
 minutes is reported, because an uncounted session is an unbounded one.
 
 **disk** — `statfs` on `/`, blocks and inodes both, at 80 / 85 / 90 / 95 %.
-`docker system df` names where the growth is. Guardian only reports it.
+`docker system df` names where the growth is, and is only collected once disk
+is at or above 80 %: it costs about 2.8 seconds against the Docker daemon, and
+a breakdown of where disk is going is only actionable under pressure. The disk
+*level* always comes from `statfs`, which is free. Guardian only reports it.
 
 **services** — 24 units (system and the deploy user manager) and 7 containers,
 each classified `critical`, `production` or `support`. A down critical unit is

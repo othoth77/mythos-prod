@@ -116,7 +116,9 @@ function buildConfig(over) {
   var cfg = configMod.deepMerge(configMod.DEFAULTS, {
     memory: { pressure_file: path.join(FIX, 'resource-pressure.json'), memwatch_log: path.join(FIX, 'memwatch.log') },
     sessions: { snapshot_file: path.join(FIX, 'host-sessions.json') },
-    disk: { path: ROOT, docker_df: true },
+    // docker_df_min_pct: 0 so the collector always runs in the suite; the
+    // gate itself is tested explicitly below.
+    disk: { path: ROOT, docker_df: true, docker_df_min_pct: 0 },
     services: { live_status_file: path.join(FIX, 'live-status.json') },
     backup: {
       records: [
@@ -337,6 +339,23 @@ healthyHost(CFG);
   ok(typeof d.fs.data.used_pct === 'number', 'used_pct is a number');
   eq(d.docker.ok, true, 'docker system df is parsed');
   eq(d.docker.data.Images.size, '12GB', 'the Images row is parsed');
+
+  // `docker system df` costs ~2.8 s and is only actionable under pressure,
+  // so it is skipped below the threshold. The disk LEVEL must not depend on
+  // it: that always comes from statfs.
+  (function () {
+    var calls = [];
+    var counting = makeIo({ spawn: function (argv) { calls.push(argv.slice(0, 3).join(' ')); return fakeSpawn(argv); } });
+    var gated = sources.disk(Object.assign({}, CFG.disk, { docker_df_min_pct: 99.9 }), counting);
+    eq(gated.docker.ok, false, 'below the threshold the Docker breakdown is not collected');
+    eq(gated.docker.error, 'not_needed', 'and it says why, rather than looking like a failure');
+    eq(calls.indexOf('docker system df'), -1, 'the Docker daemon is not queried at all');
+    eq(gated.fs.ok, true, 'statfs still runs');
+    var verdict = classify.disk(gated, CFG.disk, {}, { nowMs: NOW });
+    ok(levels.isLevel(verdict.raw), 'the disk level is still computed without it');
+    eq(verdict.findings.filter(function (f) { return f.kind === 'docker_df_unavailable'; }).length, 0,
+      'a deliberately skipped collection is not reported as unavailable');
+  })();
 
   var sv = sources.services(CFG.services, io, ctx);
   eq(Object.keys(sv.units).length, CFG.services.units.length, 'every configured unit is reported');

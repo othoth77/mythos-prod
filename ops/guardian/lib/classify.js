@@ -217,7 +217,7 @@ function disk(src, cfg, prev, ctx) {
         'Docker: ' + Object.keys(dk.data).map(function (k) { return k + ' ' + dk.data[k].size + ' (reclaimable ' + dk.data[k].reclaimable + ')'; }).join(', '),
         dk.data));
     }
-  } else if (dk && !dk.ok && dk.error !== 'disabled') {
+  } else if (dk && !dk.ok && dk.error !== 'disabled' && dk.error !== 'not_needed') {
     findings.push(finding('INFO', 'docker_df_unavailable', 'docker system df ' + dk.error, null));
   }
   return {

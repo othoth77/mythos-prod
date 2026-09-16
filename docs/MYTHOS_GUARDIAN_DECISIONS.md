@@ -200,7 +200,32 @@ episode the Resource Guard entered CRITICAL 6.7 minutes before the kill.
 is now; a catch-up tick after a reboot would only re-report a moment that has
 already passed.
 
-## D12. Rejected alternatives
+## D12. A tick must be cheap, and that was measured
+
+**Decision.** `docker system df` is collected only when disk is at or above
+80 %.
+
+**Why.** The first version collected it every tick. Measured on the host, a
+tick took 3.4 s, of which `docker system df` was 2.8 s — it walks the image,
+volume and build-cache trees, so the Docker daemon inventories itself every
+two minutes. The disk *level* never depended on it; `statfs` is free and gives
+used, free and inodes. What `docker system df` adds is a breakdown of **where**
+the disk is going, which is only actionable once there is a disk problem.
+
+Gating it took the tick from 3.4 s to ~0.6 s, an 83 % reduction, with no
+change to any level Guardian reports.
+
+The general point matters more than the number. Guardian watches a host whose
+standing problems are memory and disk. An observer that is itself a
+meaningful load on what it observes is not a good observer, and the only way
+to know is to measure rather than assume. The estimate in the first draft of
+these documents was "a few hundred milliseconds"; it was wrong by a factor of
+six until it was checked.
+
+A skipped collection is reported as `not_needed`, never as a failure — a
+deliberate choice must not look like a broken one.
+
+## D13. Rejected alternatives
 
 **Beszel** (or any off-the-shelf host monitor). Evaluated and not adopted. It
 would give dashboards and historical graphs, which is real value, but it
@@ -208,8 +233,8 @@ answers "what are the numbers" and not "what does this host's own ops stack
 conclude". It cannot read the Resource Guard's level, the session guard's
 ledger, the backup health records or the Status Center's verdicts, which are
 precisely the signals that matter here. It also adds an agent, a server, a
-port and a database to a host that is already short on memory and disk. Guardian
-is a few hundred milliseconds of reads every two minutes with a 192 MB cap.
+port and a database to a host that is already short on memory and disk. A
+Guardian tick is ~0.6 s of reads every two minutes under a 192 MB cap.
 Revisit if the estate grows past one host.
 
 **A root Guardian with `CAP_DAC_READ_SEARCH`.** Rejected: host-wide read
