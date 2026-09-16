@@ -275,6 +275,28 @@ section('3. io: the observe-only boundary');
   });
   var srcText = fs.readFileSync(path.join(LIB, 'engine.js'), 'utf8') + fs.readFileSync(path.join(LIB, 'classify.js'), 'utf8') + fs.readFileSync(path.join(LIB, 'sources.js'), 'utf8');
   ok(!/process\.kill|child_process|execSync|unlinkSync|rmSync|rmdirSync/.test(srcText), 'the engine, classifier and sources contain no kill, exec or delete call');
+
+  // The structural guarantee the whole design rests on: `fs` and
+  // `child_process` exist in exactly ONE file. Everything else either takes
+  // the injected io or is pure. If this ever stops being true, the write
+  // boundary and the command allowlist stop being boundaries, because there
+  // is a second way out of the module.
+  var CONFINED = { 'io.js': true };
+  ['levels.js', 'config.js', 'sources.js', 'classify.js', 'engine.js', 'report.js', 'scenarios.js', 'io.js'].forEach(function (name) {
+    var text = fs.readFileSync(path.join(LIB, name), 'utf8');
+    var usesFs = /require\('fs'\)/.test(text);
+    var usesCp = /require\('child_process'\)/.test(text);
+    if (CONFINED[name]) {
+      eq(usesFs, true, name + ' is the one module allowed to require fs');
+    } else {
+      eq(usesFs, false, name + ' must not require fs directly');
+      eq(usesCp, false, name + ' must not require child_process');
+    }
+  });
+  ['levels.js', 'classify.js', 'report.js'].forEach(function (name) {
+    var text = fs.readFileSync(path.join(LIB, name), 'utf8');
+    ok(!/require\('(?!\.\/)/.test(text), name + ' is pure: it requires nothing but its siblings');
+  });
 })();
 (function () {
   var bounded = ioMod.createIo({});
