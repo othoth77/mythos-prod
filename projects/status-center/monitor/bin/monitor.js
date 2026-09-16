@@ -270,6 +270,63 @@ function probeBackupHealth(p) {
   }
 }
 
+function probeGuardian(p) {
+  // Consumes MYTHOS Guardian's own report. Guardian is an observer, so this
+  // probe reports GUARDIAN health, not host health: the host's memory, disk,
+  // services and backups already have their own probes here.
+  //
+  // NOT_INSTALLED IS NOT DOWN. A Guardian that has never been installed, or
+  // whose installation is a deliberate operator decision still pending, is
+  // NOT_MONITORED. Reporting DOWN for software that was never deployed was
+  // the exact defect this probe was written to avoid (PR #283 review).
+  // DOWN is reserved for a Guardian that IS installed and has stopped
+  // reporting, because then the observer itself has failed.
+  try {
+    if (!fs.existsSync(p.file)) {
+      var installed = !!(p.installed_marker && fs.existsSync(p.installed_marker));
+      if (!installed) {
+        return Promise.resolve({
+          state: 'NOT_MONITORED',
+          error: null,
+          note: 'MYTHOS Guardian is not installed on this host; nothing is expected to report here yet'
+        });
+      }
+      return Promise.resolve({ state: 'DOWN', error: 'Guardian is installed but has produced no report at ' + p.file });
+    }
+    var r = JSON.parse(fs.readFileSync(p.file, 'utf8'));
+    var ageS = Math.round((Date.now() - Date.parse(r.generated_at || '')) / 1000);
+    var out = {
+      detail: {
+        guardian_state: r.guardian && r.guardian.state,
+        host_level: r.host && r.host.level,
+        host_partial: !!(r.host && r.host.partial),
+        observed_domains: r.guardian && r.guardian.observed_domains,
+        remediation_available: !!(r.guardian && r.guardian.remediation && r.guardian.remediation.remediation_available),
+        report_age_s: isFinite(ageS) ? ageS : null,
+        tick: r.tick
+      }
+    };
+    var maxAge = num(p.max_age_seconds, 900);
+    if (!isFinite(ageS) || ageS > maxAge) {
+      out.state = 'DOWN';
+      out.error = isFinite(ageS)
+        ? 'Guardian stopped reporting ' + ageS + 's ago (limit ' + maxAge + 's)'
+        : 'Guardian report has no usable timestamp';
+    } else if (r.guardian && r.guardian.state === 'BLIND') {
+      out.state = 'DOWN';
+      out.error = 'Guardian is reporting but can no longer read any signal';
+    } else if (r.guardian && r.guardian.state !== 'OK') {
+      out.state = 'DEGRADED';
+      out.error = 'Guardian is ' + r.guardian.state + ': ' + ((r.guardian.issues || []).join('; ') || 'reason not recorded');
+    } else {
+      out.state = 'LIVE';
+    }
+    return Promise.resolve(out);
+  } catch (e) {
+    return Promise.resolve({ state: 'DOWN', error: 'unreadable Guardian report: ' + redact(e.message) });
+  }
+}
+
 function runProbe(p, defaults) {
   if (p.enabled === false) {
     return Promise.resolve({ state: 'NOT_MONITORED', error: null, note: p.note || null });
@@ -279,6 +336,7 @@ function runProbe(p, defaults) {
   else if (p.type === 'tcp') exec = probeTcp(p, defaults);
   else if (p.type === 'resources') exec = probeResources(p);
   else if (p.type === 'backup-health') exec = probeBackupHealth(p);
+  else if (p.type === 'guardian') exec = probeGuardian(p);
   else exec = Promise.resolve({ state: 'DOWN', error: 'unknown probe type: ' + p.type });
   return exec.then(function (r) {
     if (['LIVE', 'DEGRADED', 'DOWN', 'NOT_MONITORED'].indexOf(r.state) < 0) {
@@ -412,6 +470,7 @@ module.exports = {
   runProbe: runProbe,
   probeTcp: probeTcp,
   probeBackupHealth: probeBackupHealth,
+  probeGuardian: probeGuardian,
   probeResources: probeResources,
   historyTail: historyTail,
   MONITOR_VERSION: MONITOR_VERSION
