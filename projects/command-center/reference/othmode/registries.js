@@ -13,6 +13,7 @@
 // =====================================================
 
 var fs = require('fs');
+var os = require('os');
 var path = require('path');
 var resolve = require('./resolve.js');
 var trust = require('./trust/index.js');
@@ -332,10 +333,21 @@ function safeFreeLlmReason(status, reason) {
   return String(reason).replace(/\/[^\s'"`)]+/g, '[path]').slice(0, 200);
 }
 
+// The free-LLM files belong to the EXECUTOR, which runs as the same user as
+// this service: its runtime home ($MYTHOS_EXECUTOR_HOME or ~/mythos-ai-executor)
+// and its ~/.config/mythos-ai-executor/free-llm/ key directory. They are
+// deliberately NOT resolved through OTHMODE_PROVIDER_HOME — that variable
+// exists for the legacy env-file map above and on the production host pointed
+// at a home this process cannot read, which made the pool report 0 configured
+// while Groq was live (found 2026-09-16).
+function freeLlmHome() {
+  return process.env.OTHMODE_FREE_LLM_HOME || process.env.HOME || os.homedir();
+}
+
 function freeLlm() {
   var catalogRes = resolve.cachedJson(resolve.repoPath('projects', 'mythos-ai-executor', 'free-llm', 'catalog.json'));
   var endpointsRes = resolve.cachedJson(resolve.repoPath('projects', 'mythos-ai-executor', 'free-llm', 'endpoints.json'));
-  var home = providerHome();
+  var home = freeLlmHome();
   var healthRes = resolve.readJson(freeLlmHealthFile(home));
   var endpoints = endpointsRes.ok && endpointsRes.data.providers ? endpointsRes.data.providers : {};
   var health = healthRes.ok && healthRes.data ? healthRes.data : {};
