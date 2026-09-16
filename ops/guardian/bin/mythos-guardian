@@ -1,0 +1,290 @@
+#!/usr/bin/env node
+'use strict';
+// =====================================================
+// MYTHOS Guardian V0 — CLI
+// ops/guardian/bin/mythos-guardian
+//
+//   mythos-guardian run [--dry-run] [--json]     one observe tick
+//   mythos-guardian status [--json]              last report, reads only
+//   mythos-guardian simulate <scenario|all>      dry-run, synthetic host
+//   mythos-guardian scenarios                    list scenarios
+//   mythos-guardian validate [--config PATH]     check configuration
+//   mythos-guardian incident [--json]            last report, OTH format
+//   mythos-guardian selftest                     prove the observe-only
+//                                                boundary on this host
+//
+// EVERY subcommand is read-only with respect to the host. The only writes
+// this program can perform are inside its own state directory, and the I/O
+// layer refuses anything else (io.assertOwnState).
+//
+// `simulate` is ALWAYS dry-run: it cannot be made to execute a live tick.
+// =====================================================
+
+var path = require('path');
+var os = require('os');
+var lib = path.join(__dirname, '..', 'lib');
+var ioMod = require(path.join(lib, 'io'));
+var configMod = require(path.join(lib, 'config'));
+var engine = require(path.join(lib, 'engine'));
+var report = require(path.join(lib, 'report'));
+var scenarios = require(path.join(lib, 'scenarios'));
+var levels = require(path.join(lib, 'levels'));
+
+var VERSION = '0.1.0';
+
+function defaultStateDir() {
+  return process.env.MYTHOS_GUARDIAN_STATE_DIR || path.join(os.homedir(), '.local', 'state', 'mythos-guardian');
+}
+function defaultConfigPath() {
+  return process.env.MYTHOS_GUARDIAN_CONFIG || path.join(os.homedir(), '.config', 'mythos', 'guardian.json');
+}
+
+function parseArgs(argv) {
+  var out = { _: [], flags: {} };
+  for (var i = 0; i < argv.length; i++) {
+    var a = argv[i];
+    if (a.indexOf('--') === 0) {
+      var eq = a.indexOf('=');
+      if (eq > 0) out.flags[a.slice(2, eq)] = a.slice(eq + 1);
+      else if (argv[i + 1] && argv[i + 1].indexOf('--') !== 0 && ['config', 'state-dir', 'ticks'].indexOf(a.slice(2)) >= 0) out.flags[a.slice(2)] = argv[++i];
+      else out.flags[a.slice(2)] = true;
+    } else out._.push(a);
+  }
+  return out;
+}
+
+function usage() {
+  return [
+    'mythos-guardian ' + VERSION + ' — MYTHOS Guardian (observe-only)',
+    '',
+    '  run [--dry-run] [--json]        one observe tick (writes only Guardian state)',
+    '  status [--json]                 show the last report (reads only)',
+    '  incident [--json]               render the last report in the OTH incident format',
+    '  simulate <name|all> [--ticks N] dry-run against a synthetic host (never touches this one)',
+    '  scenarios                       list the simulation scenarios',
+    '  validate [--config PATH]        validate configuration and print the effective policy',
+    '  selftest                        prove the observe-only boundary on this host',
+    '',
+    'Options: --state-dir PATH  --config PATH  --json',
+    '',
+    'This version has no remediation. It cannot kill, restart, stop, delete or clean anything.'
+  ].join('\n');
+}
+
+function main(argv) {
+  var args = parseArgs(argv);
+  var cmd = args._[0] || 'status';
+  var stateDir = args.flags['state-dir'] || defaultStateDir();
+  var configPath = args.flags.config || defaultConfigPath();
+  var json = !!args.flags.json;
+  var io = ioMod.createIo({});
+
+  if (cmd === 'help' || args.flags.help) { console.log(usage()); return 0; }
+  if (cmd === 'version') { console.log(VERSION); return 0; }
+
+  if (cmd === 'scenarios') {
+    var names = scenarios.names();
+    if (json) { console.log(JSON.stringify(names.map(function (n) { return { name: n, why: scenarios.SCENARIOS[n].why, expect: scenarios.SCENARIOS[n].expect }; }), null, 2)); return 0; }
+    console.log('Scenarios (' + names.length + '), all dry-run against synthetic data:\n');
+    names.forEach(function (n) { console.log('  ' + n + (' '.repeat(Math.max(1, 34 - n.length))) + scenarios.SCENARIOS[n].why); });
+    return 0;
+  }
+
+  if (cmd === 'validate') {
+    var loaded = configMod.load(io, configPath);
+    var errs = configMod.validate(loaded.config);
+    var out = {
+      config_path: configPath, config_present: io.exists(configPath), source: loaded.source,
+      load_errors: loaded.errors, validation_errors: errs,
+      observe_only: loaded.config.observe_only,
+      remediation: engine.remediationPosture(loaded.config),
+      state_dir: stateDir,
+      domains: engine.DOMAINS,
+      units: loaded.config.services.units.length, containers: loaded.config.services.containers.length,
+      backup_records: loaded.config.backup.records.length
+    };
+    if (json) { console.log(JSON.stringify(out, null, 2)); return errs.length ? 1 : 0; }
+    console.log('config     ' + configPath + (out.config_present ? '' : ' (absent — built-in defaults)'));
+    console.log('effective  ' + loaded.source);
+    console.log('state dir  ' + stateDir);
+    console.log('observing  ' + engine.DOMAINS.join(', '));
+    console.log('watching   ' + out.units + ' units, ' + out.containers + ' containers, ' + out.backup_records + ' backup records');
+    console.log('posture    observe-only=' + out.remediation.observe_only + ', remediation available=' + out.remediation.remediation_available);
+    if (loaded.errors.length) loaded.errors.forEach(function (e) { console.log('IGNORED    ' + e); });
+    if (errs.length) { errs.forEach(function (e) { console.log('INVALID    ' + e); }); return 1; }
+    console.log('OK');
+    return 0;
+  }
+
+  if (cmd === 'run') {
+    var dry = !!args.flags['dry-run'];
+    var res = engine.run({ io: io, state_dir: stateDir, config_path: configPath, dry_run: dry, guardian_version: VERSION });
+    if (res.skipped) {
+      if (json) { console.log(JSON.stringify(res, null, 2)); return 0; }
+      console.log('skipped: another Guardian tick holds the lock' + (res.held_by ? ' (pid ' + res.held_by.pid + ' since ' + res.held_by.at + ')' : ''));
+      return 0;   // not an error: the timer simply overlapped
+    }
+    if (json) { console.log(JSON.stringify(res.report, null, 2)); return 0; }
+    console.log(report.text(res.report));
+    if (!dry) console.log('\nwrote: ' + Object.keys(res.written).filter(function (k) { return res.written[k]; }).join(', ') + '  (Guardian state only)');
+    else console.log('\ndry run: nothing was written');
+    return 0;
+  }
+
+  if (cmd === 'status' || cmd === 'incident') {
+    var rp = engine.paths(stateDir).report;
+    var last = io.readJson(rp);
+    if (!last) {
+      var msg = { state: 'NOT_RUN', state_dir: stateDir, report: rp, note: 'Guardian has not produced a report yet' };
+      if (json) console.log(JSON.stringify(msg, null, 2));
+      else console.log('MYTHOS Guardian — NOT_RUN (no report at ' + rp + ')');
+      return 0;
+    }
+    if (json) { console.log(JSON.stringify(last, null, 2)); return 0; }
+    console.log(cmd === 'incident' ? report.incident(last) : report.text(last));
+    return 0;
+  }
+
+  if (cmd === 'simulate') {
+    var name = args._[1];
+    if (!name) { console.error('simulate: name required (see `mythos-guardian scenarios`)'); return 2; }
+    var cfg = configMod.load(io, configPath).config;
+    var list = name === 'all' ? scenarios.names() : [name];
+    if (name !== 'all' && !scenarios.SCENARIOS[name]) { console.error('simulate: unknown scenario ' + name); return 2; }
+    var ticks = parseInt(args.flags.ticks || '3', 10);
+    var results = list.map(function (n) { return simulateOne(io, cfg, n, ticks); });
+    if (json) { console.log(JSON.stringify(results, null, 2)); return 0; }
+    var bad = 0;
+    results.forEach(function (r) {
+      var ok = r.matches_expectation !== false;
+      if (!ok) bad++;
+      console.log((ok ? 'PASS  ' : 'DIFF  ') + r.scenario + (' '.repeat(Math.max(1, 34 - r.scenario.length))) +
+        'host=' + r.final.host + (r.final.partial ? '(partial)' : '') + '  guardian=' + r.final.guardian +
+        '  [' + engine.DOMAINS.map(function (d) { return d[0] + ':' + r.final.domains[d]; }).join(' ') + ']');
+      if (!ok) console.log('      expected ' + JSON.stringify(r.expect) + ', findings: ' + r.findings.join('; '));
+    });
+    console.log('\n' + results.length + ' scenario(s), ' + (results.length - bad) + ' matched expectation, ' + bad + ' differed. Nothing was written; the real host was never read.');
+    return bad ? 1 : 0;
+  }
+
+  if (cmd === 'selftest') return selftest(io, stateDir, configPath, json);
+
+  console.error(usage());
+  return 2;
+}
+
+// Runs a scenario for N ticks with an in-memory state, always dry.
+function simulateOne(io, cfg, name, ticks) {
+  var s = scenarios.SCENARIOS[name];
+  // A scenario may pin its own tick count when the point IS the tick count
+  // (for example: one sample of evidence must not escalate).
+  if (typeof s.ticks === 'number') ticks = s.ticks;
+  var nowMs = Date.now();
+  var state = engine.emptyState(new Date(nowMs).toISOString());
+  if (s.prevState) {
+    Object.keys(s.prevState).forEach(function (k) {
+      if (k === 'services' && s.prevState.services.restarts) {
+        var r = {};
+        Object.keys(s.prevState.services.restarts).forEach(function (id) {
+          r[id] = s.prevState.services.restarts[id].map(function (h) { return { at: h.at === -1 ? nowMs - 10 * 60000 : h.at, n: h.n }; });
+        });
+        state.services = { restarts: r };
+      } else state[k] = s.prevState[k];
+    });
+  }
+  var last = null, allFindings = [];
+  // Peaks matter as much as the final state: a spike (an OOM kill) is real
+  // even though the domain de-escalates once it stops recurring.
+  var peak = { host: 'NORMAL' };
+  engine.DOMAINS.forEach(function (d) { peak[d] = 'NORMAL'; });
+  for (var i = 0; i < ticks; i++) {
+    var collectors = scenarios.isOscillating(name)
+      ? scenarios.oscillatingCollectors(name, cfg, nowMs + i * 120000, i)
+      : scenarios.collectorsFor(name, cfg, nowMs + i * 120000);
+    var out = engine.tick({
+      io: io, config: cfg, state: state, now_ms: nowMs + i * 120000, dry_run: true,
+      collectors: collectors, guardian_version: VERSION
+    });
+    state = out.state;
+    last = out.report;
+    peak.host = levels.max(peak.host, out.report.host.level);
+    engine.DOMAINS.forEach(function (d) { peak[d] = levels.max(peak[d], out.report.domains[d].level); });
+    out.report.findings.forEach(function (f) { if (allFindings.indexOf(f.kind) < 0) allFindings.push(f.kind); });
+  }
+  var final = {
+    host: last.host.level, partial: last.host.partial, guardian: last.guardian.state,
+    domains: engine.DOMAINS.reduce(function (a, d) { a[d] = last.domains[d].level; return a; }, {})
+  };
+  var expect = s.expect || {};
+  var matches = Object.keys(expect).every(function (k) {
+    if (k === 'samples') return true;
+    if (k === 'host') return final.host === expect.host;
+    if (k === 'guardian') return final.guardian === expect.guardian;
+    if (k === 'partial') return final.partial === expect.partial;
+    if (k === 'peak_host') return peak.host === expect.peak_host;
+    if (k.indexOf('peak_') === 0) return peak[k.slice(5)] === expect[k];
+    return final.domains[k] === expect[k];
+  });
+  return { scenario: name, why: s.why, ticks: ticks, expect: expect, final: final, peak: peak, matches_expectation: matches, findings: allFindings, report: last };
+}
+
+// Proves, on this host, the properties the design claims.
+function selftest(io, stateDir, configPath, json) {
+  var checks = [];
+  function check(id, pass, detail) { checks.push({ id: id, pass: !!pass, detail: detail }); }
+
+  // 1. The I/O layer refuses to write outside the state directory.
+  var probe = ioMod.createIo({});
+  probe.stateDir = stateDir;
+  var escaped = null;
+  try { probe.assertOwnState('/etc/passwd'); escaped = 'ALLOWED'; } catch (e) { escaped = 'refused'; }
+  check('write-boundary', escaped === 'refused', 'assertOwnState("/etc/passwd") -> ' + escaped);
+  check('write-boundary-traversal', (function () { try { probe.assertOwnState(path.join(stateDir, '..', 'x')); return false; } catch (e) { return true; } })(), 'traversal out of the state dir is refused');
+
+  // 2. Only allowlisted read commands can run.
+  var refusals = [['systemctl', 'restart', 'nginx'], ['systemctl', 'stop', 'erp-api'], ['docker', 'system', 'prune'], ['rm', '-rf', '/'], ['kill', '-9', '1']];
+  var allRefused = refusals.every(function (a) { return ioMod.allowedCommand(a) === false; });
+  check('command-allowlist', allRefused, refusals.length + ' mutating argv rejected; allowlist = ' + ioMod.READ_COMMANDS.map(function (c) { return c.join(' '); }).join(', '));
+  var spawned = probe.spawn(['systemctl', 'restart', 'nginx']);
+  check('command-allowlist-enforced', spawned.refused === true && spawned.status === null, 'spawn(["systemctl","restart","nginx"]) -> ' + (spawned.refused ? 'refused before exec' : 'EXECUTED'));
+
+  // 3. No remediation code path exists.
+  var posture = engine.remediationPosture(configMod.load(io, configPath).config);
+  check('observe-only', posture.observe_only === true && posture.remediation_available === false, posture.note);
+
+  // 4. A dry tick writes nothing.
+  var cfg = configMod.load(io, configPath).config;
+  var before = io.lstat(engine.paths(stateDir).state);
+  var dry = engine.run({ io: io, state_dir: stateDir, config_path: configPath, dry_run: true, collectors: scenarios.collectorsFor('normal', cfg, Date.now()), guardian_version: VERSION });
+  var after = io.lstat(engine.paths(stateDir).state);
+  check('dry-run-writes-nothing', dry.written === false &&
+    ((before === null && after === null) || (before && after && before.mtimeMs === after.mtimeMs)),
+    'state.json ' + (before ? 'mtime ' + before.mtimeMs : 'absent') + ' -> ' + (after ? 'mtime ' + after.mtimeMs : 'absent'));
+
+  // 5. Missing inputs degrade Guardian, they never read as a healthy host.
+  var blind = engine.tick({ io: io, config: cfg, state: engine.emptyState(new Date().toISOString()), now_ms: Date.now(), dry_run: true, collectors: scenarios.collectorsFor('guardian-blind', cfg, Date.now()) });
+  check('unknown-is-not-normal', blind.report.guardian.state === 'BLIND' && blind.report.host.partial === true,
+    'all sources missing -> guardian=' + blind.report.guardian.state + ', host partial=' + blind.report.host.partial);
+
+  // 6. Escalation cannot starve (the #283 case).
+  var osc = simulateOne(io, cfg, 'oscillating-evidence', 4);
+  check('no-escalation-starvation', levels.rank(osc.final.domains.disk) >= levels.rank('HIGH'),
+    'evidence alternating HIGH/CRITICAL (no upstream hysteresis) -> disk=' + osc.final.domains.disk);
+
+  // 7. A degraded signal must not silently erase a real host level.
+  var deg = simulateOne(io, cfg, 'pressure-missing-under-real-pressure', 3);
+  check('degraded-still-reports', deg.final.domains.memory === 'CRITICAL' && deg.final.guardian === 'DEGRADED',
+    'publication missing + /proc critical -> memory=' + deg.final.domains.memory + ', guardian=' + deg.final.guardian);
+
+  var passed = checks.filter(function (c) { return c.pass; }).length;
+  if (json) { console.log(JSON.stringify({ version: VERSION, checks: checks, passed: passed, total: checks.length }, null, 2)); }
+  else {
+    console.log('MYTHOS Guardian ' + VERSION + ' — observe-only self test\n');
+    checks.forEach(function (c) { console.log('  ' + (c.pass ? 'PASS' : 'FAIL') + '  ' + c.id + (' '.repeat(Math.max(1, 28 - c.id.length))) + c.detail); });
+    console.log('\n' + passed + '/' + checks.length + ' checks passed.');
+  }
+  return passed === checks.length ? 0 : 1;
+}
+
+if (require.main === module) process.exit(main(process.argv.slice(2)));
+module.exports = { main: main, parseArgs: parseArgs, simulateOne: simulateOne, VERSION: VERSION };
