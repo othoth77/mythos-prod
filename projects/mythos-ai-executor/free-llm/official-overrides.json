@@ -35,7 +35,9 @@
     "groq": {
       "docs_url": "https://console.groq.com/docs/rate-limits",
       "privacy_url": "https://groq.com/privacy-policy/",
-      "terms_url": "https://groq.com/terms-of-use/"
+      "terms_url": "https://groq.com/terms-of-use/",
+      "preferred_chat_model": "openai/gpt-oss-120b",
+      "preferred_chat_model_note": "Verified 2026-09-17 with the live key: GET /models lists it; the same 6 KB executor task prompt costs ~1.5k prompt tokens and answers in ~1.6 s, whereas groq/compound (first confirmed chat model in table order) spends ~15k tokens per request against the 30k tokens-per-minute free budget and answered 413/429 on real prompts. openai/gpt-oss-20b called a tool on the same prompt (HTTP 400 tool_use_failed); llama-3.3-70b-versatile and qwen/qwen3-32b are not served to this organisation (404)."
     },
     "cerebras": {
       "docs_url": "https://inference-docs.cerebras.ai/",

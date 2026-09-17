@@ -201,6 +201,7 @@ function taskFiles(taskId) {
   var dir = path.join(resolve.executorTasksDir(), taskId);
   return {
     status: resolve.readJson(path.join(dir, 'status.json')),
+    task: resolve.readJson(path.join(dir, 'task.json')),
     report: resolve.readJson(path.join(dir, 'report.json'))
   };
 }
@@ -228,7 +229,8 @@ function lifecycleOf(taskId) {
     status: life,
     terminal: TERMINAL.indexOf(life) !== -1,
     executor_status: s.status,
-    provider: s.provider || null,
+    // status.json carries no provider of its own — the task record does.
+    provider: s.provider || (files.task.ok ? files.task.data.provider || null : null),
     provider_used: s.provider_used || null,
     model_used: s.model_used || null,
     attempts: attempts ? attempts.length : null,

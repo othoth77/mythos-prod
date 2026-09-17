@@ -63,7 +63,10 @@ function applyOverrides(entries, overrides) {
   return entries.map(function (p) {
     var o = table[p.id];
     return Object.assign({}, p, {
-      official: o ? { docs_url: o.docs_url || null, privacy_url: o.privacy_url || null, terms_url: o.terms_url || null } : null
+      official: o ? { docs_url: o.docs_url || null, privacy_url: o.privacy_url || null, terms_url: o.terms_url || null } : null,
+      // OTHMODE V2: an officially verified preferred chat model, honoured by
+      // registry.js at runtime (override file) and recorded here for readers.
+      preferred_chat_model: o && o.preferred_chat_model ? o.preferred_chat_model : null
     });
   });
 }

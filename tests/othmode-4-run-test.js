@@ -170,6 +170,12 @@ server.listen(0, '127.0.0.1', function () {
     l = run.lifecycleOf(firstId);
     ok(l.status === 'failed' && l.error === 'provider error at [path]: boom' && l.next_action === 'check the key', 'FAILED → failed, error kept, filesystem paths blanked');
     ok(run.lifecycleOf('t-99999999999999-zzzzzz').status === 'unknown', 'unknown task → unknown, never a throw');
+    var real = 't-20260917000000-realsh';
+    fs.mkdirSync(path.join(TASKS, real), { recursive: true });
+    fs.writeFileSync(path.join(TASKS, real, 'status.json'), JSON.stringify({ task_id: real, status: 'RUNNING', created_at: '2026-09-17T10:00:00.000Z', started_at: '2026-09-17T10:00:01.000Z' }));
+    fs.writeFileSync(path.join(TASKS, real, 'task.json'), JSON.stringify({ task_id: real, provider: 'free-llm-pool', instruction: 'x' }));
+    var lr = run.lifecycleOf(real);
+    ok(lr.status === 'running' && lr.provider === 'free-llm-pool', 'the real executor keeps the provider in task.json, not status.json — lifecycle still names it');
     ok(run.lifecycleOf('../../etc/passwd').status === 'unknown', 'task id traversal refused');
     var list = run.listRuns(10);
     ok(list.provisioned && list.runs.length === 4 && list.runs[0].task_id !== firstId, 'listRuns: newest first, lifecycle attached');

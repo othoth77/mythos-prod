@@ -80,6 +80,10 @@ ok(registry.statusFromOutcome({ parsed: { is_error: true, result: 'rate limit ex
   'a transient-shaped message maps to degraded, not unavailable');
 ok(registry.statusFromOutcome({ parsed: { is_error: true, result: 'HTTP 404: model not found' }, http_status: 404 }) === 'expired',
   'an HTTP 404 maps to expired (the :free slug likely rotated out)');
+ok(registry.statusFromOutcome({ parsed: { is_error: true, result: 'HTTP 429: Rate limit reached … tokens per minute (TPM)' }, http_status: 429 }) === 'quota_exhausted',
+  'HTTP 429 -> quota_exhausted (per-minute budget, not an outage)');
+ok(registry.statusFromOutcome({ parsed: { is_error: true, result: 'HTTP 413: Request Entity Too Large' }, http_status: 413 }) === 'quota_exhausted',
+  'HTTP 413 -> quota_exhausted (Groq answers 413 for requests over the TPM budget — observed live 2026-09-17)');
 ok(registry.statusFromOutcome({ parsed: { is_error: true, result: 'invalid api key' } }) === 'unavailable',
   'a blocked/permanent-shaped message maps to unavailable, never a crash');
 
@@ -108,8 +112,8 @@ var chain = registry.checkProviderHealth('provider-c-unwired', opts()).then(func
   };
   return registry.checkProviderHealth('provider-a', opts({ transport: transport })).then(function (r) {
     ok(calls === 1, 'exactly one HTTP call was made for the probe');
-    ok(r.status === 'active' && r.last_success && !r.last_failure_reason,
-      'a successful probe records active + last_success, no failure reason');
+    ok(r.status === 'active' && r.last_success && (r.last_failure ? true : !r.last_failure_reason),
+      'a successful probe records active + last_success; a failure reason only ever accompanies a last_failure timestamp (V2 keeps it for the reader)');
     ok(r.probed_model === 'model-a', 'the health record remembers which model was actually probed');
   });
 }).then(function () {
@@ -125,6 +129,30 @@ var chain = registry.checkProviderHealth('provider-c-unwired', opts()).then(func
     ok(onDisk['provider-a'].status === 'quota_exhausted', 'health.json on disk reflects the latest state');
   });
 }).then(function () {
+  // ---------------------------------------------------------------- 4b. preferred chat model (official override) — OTHMODE V2
+  var CAT2 = path.join(FIXTURES, 'catalog-pref.json'), OVR = path.join(FIXTURES, 'overrides-pref.json');
+  fs.writeFileSync(CAT2, JSON.stringify({ providers: [{ id: 'provider-a', name: 'Provider A', models: [
+    { name: 'heavy', api_model_id: 'heavy-agentic', api_model_id_confidence: 'literal_text', modality: 'chat' },
+    { name: 'light', api_model_id: 'light-plain', api_model_id_confidence: 'literal_text', modality: 'chat' },
+    { name: 'tts', api_model_id: 'tts-model', api_model_id_confidence: 'literal_text', modality: 'text-to-speech' }
+  ] }] }));
+  var provA = JSON.parse(fs.readFileSync(CAT2, 'utf8')).providers[0];
+  ok(registry.pickProbeModel(provA, { overridesPath: path.join(FIXTURES, 'no-such-overrides.json') }).api_model_id === 'heavy-agentic',
+    'without an override the first confirmed chat model is used (table order)');
+  fs.writeFileSync(OVR, JSON.stringify({ providers: { 'provider-a': { preferred_chat_model: 'light-plain' } } }));
+  ok(registry.pickProbeModel(provA, { overridesPath: OVR }).api_model_id === 'light-plain', 'an official preferred_chat_model wins the probe');
+  var prefRows = registry.listEntries(opts({ catalogPath: CAT2, overridesPath: OVR })).filter(function (r) { return r.provider_id === 'provider-a'; });
+  ok(prefRows[0].model_id === 'light-plain' && prefRows[0].preferred === true && prefRows.length === 3, 'listEntries leads with the preferred model (so the selector picks it) and keeps every row');
+  fs.writeFileSync(OVR, JSON.stringify({ providers: { 'provider-a': { preferred_chat_model: 'tts-model' } } }));
+  ok(registry.pickProbeModel(provA, { overridesPath: OVR }).api_model_id === 'heavy-agentic', 'a preference naming a non-chat model is ignored — an override can never invent a chat model');
+  fs.writeFileSync(OVR, JSON.stringify({ providers: { 'provider-a': { preferred_chat_model: 'ghost' } } }));
+  ok(registry.pickProbeModel(provA, { overridesPath: OVR }).api_model_id === 'heavy-agentic', 'a preference the catalog does not confirm is ignored');
+  var realOv = registry.loadOverrides();
+  var realCat = JSON.parse(fs.readFileSync(path.join(EXEC, 'free-llm', 'catalog.json'), 'utf8'));
+  var realGroq = realCat.providers.filter(function (p) { return p.id === 'groq'; })[0];
+  ok(realOv.providers.groq && realOv.providers.groq.preferred_chat_model === 'openai/gpt-oss-120b' && registry.preferredChatModel(realGroq, realOv) !== null,
+    'the committed Groq preference (openai/gpt-oss-120b) is a catalog-confirmed chat model');
+
   // ---------------------------------------------------------------- 5. listEntries shape
   var rows = registry.listEntries(opts());
   ok(rows.length === 3, 'listEntries returns one row per {provider, model} pair (' + rows.length + ')');

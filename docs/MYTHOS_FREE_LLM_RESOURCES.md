@@ -104,6 +104,7 @@ tests/
 - clean success → `active`
 - `lib/quota.js` category `quota` (e.g. "usage limit reached") → `quota_exhausted`
 - category `transient` (e.g. 503, rate-limit, network error) → `degraded`
+- HTTP 429/413 → `quota_exhausted` (V2: per-minute token budgets — Groq answers **413** for a request over its tokens-per-minute budget, observed live 2026-09-17; temporary, never an outage; the pool reports it as retryable so the executor waits/retries instead of writing PROVIDER_FAILED)
 - HTTP 401/403 → `invalid_credentials` (V2: the key was rejected — actionable "API key invalid", never confused with an outage; the selector never offers it)
 - HTTP 404 → `expired` (the specific `:free` model slug most likely rotated out — the source README explicitly warns free models churn)
 - category `permission`/`governance`/`human`/`permanent` (invalid key, billing, etc.) → `unavailable`
@@ -114,6 +115,7 @@ Two additional honest states exist for when no live attempt has even been made: 
 
 `selector.selectCandidates(requirements)`:
 
+0. **Preferred chat model (V2, official override):** `official-overrides.json` may carry `preferred_chat_model` per provider. `registry.pickProbeModel` and `registry.listEntries` lead with it when the catalog confirms it as a chat model (an override can never invent a model). Groq: `openai/gpt-oss-120b` — the README's first confirmed chat model, `groq/compound`, is an agentic model that spent ~15k tokens on a 6 KB task prompt against a 30k TPM free budget (413/429 on real prompts while the tiny health probe passed); gpt-oss-120b answers the same prompt for ~1.5k tokens in ~1.6 s. Verified with the live key on 2026-09-17 (`GET /models` + a real completion). Change it by editing the override file; the daily sync copies it into the catalog for readers.
 1. Filters `registry.listEntries()` to rows that are `wired`, have a **confirmed** `model_id` (never a guessed one), match the requested modality, have a credential configured, and are not `unavailable`/`unconfigured`/`expired`.
 2. Collapses to **one candidate per provider** (never per model) — several providers explicitly share one quota across their whole model list, so retrying five sibling models is retrying the same exhausted bucket five times, not five independent attempts.
 3. Ranks: health status (`active` > `degraded`/`unknown` > `quota_exhausted`) → historical success rate (`core/reputation.js`, only once `MIN_EVIDENCE` outcomes exist) → measured latency → deterministic id order.
