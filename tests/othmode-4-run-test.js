@@ -198,7 +198,7 @@ server.listen(0, '127.0.0.1', function () {
     var before = seen.tasks.length;
     var resC = fakeRes();
     return create.handler({ identity: 'editor-x' }, resC, ['', 'plain'], {}, { provider: 'free-llm-pool' }).then(function () {
-      ok(resC.statusCode === 201 && /^t-/.test(resC.body.task_id) && seen.tasks.length === before + 1, 'clean run accepted through the route (201 + task id)');
+      ok(resC.statusCode === 201 && /^t-/.test(resC.body.task_id) && seen.tasks.length === before + 1, 'clean run accepted through the route (201 + task id) — got ' + resC.statusCode + ' ' + JSON.stringify(resC.body).slice(0, 200));
       var resN = fakeRes();
       return findRoute('POST', '/api/othmode/commands/nope/run').handler({ identity: 'e' }, resN, ['', 'nope'], {}, {}).then(function () {
         ok(resN.statusCode === 404, 'unknown command → 404 through the route');
@@ -207,10 +207,15 @@ server.listen(0, '127.0.0.1', function () {
           ok(resB.statusCode === 400 && /SAFE or READ_ONLY/.test(resB.body.error), 'safety gate answers 400 with the rule');
           var resL = fakeRes();
           findRoute('GET', '/api/othmode/runs').handler({}, resL, [], { limit: '10' });
-          ok(resL.statusCode === 200 && resL.body.runs.length === 5, 'GET /runs lists runs');
+          ok(resL.statusCode === 200 && resL.body.runs.length === 5, 'GET /runs lists runs — got ' + resL.statusCode + ' ' + (resL.body && resL.body.runs ? resL.body.runs.length : JSON.stringify(resL.body).slice(0, 200)));
           var resG = fakeRes();
           findRoute('GET', '/api/othmode/runs/' + firstId).handler({}, resG, ['', firstId]);
           ok(resG.statusCode === 200 && resG.body.lifecycle.status === 'failed' && resG.body.run.command_slug === 'audit-readme', 'GET /runs/:id returns record + lifecycle');
+          ok(resG.body.run.actor === undefined && !/127\.0\.0\.1/.test(JSON.stringify(resG.body)), 'anonymous read: actor removed, internal endpoints masked');
+          var resA = fakeRes();
+          findRoute('GET', '/api/othmode/runs/' + firstId).handler({ identity: 'editor-x' }, resA, ['', firstId]);
+          ok(resA.body.run.actor === 'editor-x', 'authenticated read keeps the actor verbatim');
+          ok(resL.body.runs.every(function (r) { return r.actor === undefined; }), 'anonymous list: no actor on any run');
           var resCfg = fakeRes();
           findRoute('GET', '/api/othmode/run-config').handler({}, resCfg, [], {});
           ok(resCfg.statusCode === 200 && resCfg.body.enabled === true && resCfg.body.runnable_safety.join() === 'SAFE,READ_ONLY', 'run-config exposes the rule, never the token');

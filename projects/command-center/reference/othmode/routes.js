@@ -293,12 +293,13 @@ function buildRoutes(db, auth) {
     } },
     { method: 'GET', auth: false, pattern: /^\/api\/othmode\/runs$/, handler: function (req, res, m, q) {
       var list = run.listRuns(q.limit);
-      if (!auth.identityFromRequest(req)) list.runs = list.runs.map(tasks.redactValue || function (x) { return x; });
+      if (!auth.identityFromRequest(req)) list.runs = list.runs.map(function (r) { return tasks.redactValue(run.publicRun(r)); });
       return sendJson(res, 200, list);
     } },
     { method: 'GET', auth: false, pattern: /^\/api\/othmode\/runs\/([^/]+)$/, handler: function (req, res, m) {
       var found = run.getRun(decodeURIComponent(m[1]));
       if (!found) return sendJson(res, 404, { error: 'not found' });
+      if (!auth.identityFromRequest(req)) found = tasks.redactValue({ run: run.publicRun(found.run), lifecycle: found.lifecycle });
       return sendJson(res, 200, found);
     } },
 

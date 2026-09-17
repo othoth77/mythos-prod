@@ -215,7 +215,9 @@ function lifecycleOf(taskId) {
   if (!files) return { task_id: taskId, status: 'unknown', reason: 'invalid task id' };
   if (!files.status.ok) return { task_id: taskId, status: 'unknown', reason: 'task state ' + files.status.reason + ' on this host' };
   var s = files.status.data;
-  var life = LIFECYCLE[s.status] || 'unknown';
+  // Every executor status maps; an unmapped one is shown as itself (lower
+  // case) rather than hidden behind 'unknown'.
+  var life = LIFECYCLE[s.status] || String(s.status || 'unknown').toLowerCase();
   var started = s.started_at || s.created_at || null;
   var ended = s.ended_at || null;
   var duration = started && ended ? Math.max(0, Date.parse(ended) - Date.parse(started)) : null;
@@ -260,6 +262,16 @@ function getRun(taskId) {
   return { run: rec || null, lifecycle: life };
 }
 
+// Anonymous projection of a run record: same shape, the actor (an account
+// label) removed, then the same masking Command History applies. The stored
+// record is never mutated.
+function publicRun(rec) {
+  if (!rec) return rec;
+  var copy = Object.assign({}, rec);
+  delete copy.actor;
+  return copy;
+}
+
 // Rows for the unified Command History (source `run`).
 function historyRows(limit) {
   var list = listRuns(limit);
@@ -299,5 +311,6 @@ module.exports = {
   listRuns: listRuns,
   getRun: getRun,
   historyRows: historyRows,
+  publicRun: publicRun,
   setTransport: setTransport
 };

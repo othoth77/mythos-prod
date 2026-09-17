@@ -879,10 +879,10 @@ function handleFailure(task, taskId, outcome, mode, opts) {
     pid: null, ended_at: new Date().toISOString(),
     last_error: tailOf(text.trim(), 500),
     last_failure: lastFailure,
-    provider_used: outcome.provider_used || task.provider,
-    model_used: outcome.model_used || task.model || null,
-    attempts: Array.isArray(outcome.attempts) ? outcome.attempts : null,
-    fallback: Array.isArray(outcome.attempts) && outcome.attempts.length > 1,
+    provider_used: (outcome && outcome.provider_used) || task.provider,
+    model_used: (outcome && outcome.model_used) || task.model || null,
+    attempts: outcome && Array.isArray(outcome.attempts) ? outcome.attempts : null,
+    fallback: !!(outcome && Array.isArray(outcome.attempts) && outcome.attempts.length > 1),
     transition_reason: detail.category + ' failure (' + detail.code + ') — ' + detail.policy.strategy,
     next_action: terminal === 'BLOCKED'
       ? (detail.category === 'governance'
