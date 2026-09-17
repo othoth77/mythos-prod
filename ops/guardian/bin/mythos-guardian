@@ -28,9 +28,12 @@ var configMod = require(path.join(lib, 'config'));
 var engine = require(path.join(lib, 'engine'));
 var report = require(path.join(lib, 'report'));
 var scenarios = require(path.join(lib, 'scenarios'));
+var sources = require(path.join(lib, 'sources'));
+var actionsMod = require(path.join(lib, 'actions'));
+var remediateMod = require(path.join(lib, 'remediate'));
 var levels = require(path.join(lib, 'levels'));
 
-var VERSION = '0.1.0';
+var VERSION = '1.0.0';
 
 function defaultStateDir() {
   return process.env.MYTHOS_GUARDIAN_STATE_DIR || path.join(os.homedir(), '.local', 'state', 'mythos-guardian');
@@ -58,6 +61,9 @@ function usage() {
     'mythos-guardian ' + VERSION + ' — MYTHOS Guardian (observe-only)',
     '',
     '  run [--dry-run] [--json]        one observe tick (writes only Guardian state)',
+    '  remediate [--execute] [--json]  show what remediation would do; --execute performs it',
+    '  actions [--json]                list every action Guardian can ever take',
+    '  audit [--lines N] [--json]      the record of actions actually taken',
     '  status [--json]                 show the last report (reads only)',
     '  incident [--json]               render the last report in the OTH incident format',
     '  simulate <name|all> [--ticks N] dry-run against a synthetic host (never touches this one)',
@@ -67,7 +73,8 @@ function usage() {
     '',
     'Options: --state-dir PATH  --config PATH  --json',
     '',
-    'This version has no remediation. It cannot kill, restart, stop, delete or clean anything.'
+    'Remediation is OFF by default (observe_only). It has no kill and no delete:',
+    'every action is a static entry in ops/guardian/lib/actions.js, individually gated.'
   ].join('\n');
 }
 
@@ -118,7 +125,16 @@ function main(argv) {
 
   if (cmd === 'run') {
     var dry = !!args.flags['dry-run'];
-    var res = engine.run({ io: io, state_dir: stateDir, config_path: configPath, dry_run: dry, guardian_version: VERSION });
+    var runCfg = configMod.load(io, configPath).config;
+    var res = engine.run({
+      io: io, state_dir: stateDir, config_path: configPath, dry_run: dry,
+      measure: sources.measure(runCfg.disk, io),
+      // `run` NEVER executes actions, whatever the configuration says. That
+      // is `remediate --execute`, so a scheduled tick and a deliberate change
+      // can never be confused for one another.
+      execute_actions: false,
+      guardian_version: VERSION
+    });
     if (res.skipped) {
       if (json) { console.log(JSON.stringify(res, null, 2)); return 0; }
       console.log('skipped: another Guardian tick holds the lock' + (res.held_by ? ' (pid ' + res.held_by.pid + ' since ' + res.held_by.at + ')' : ''));
@@ -165,6 +181,80 @@ function main(argv) {
     });
     console.log('\n' + results.length + ' scenario(s), ' + (results.length - bad) + ' matched expectation, ' + bad + ' differed. Nothing was written; the real host was never read.');
     return bad ? 1 : 0;
+  }
+
+  if (cmd === 'actions') {
+    var all = actionsMod.list();
+    if (json) { console.log(JSON.stringify(all.map(function (a) {
+      return { id: a.id, domain: a.domain, flag: a.flag, min_level: a.min_level, cooldown_s: a.cooldown_s,
+        max_per_day: a.max_per_day, reversible: a.reversible, protects: a.protects, title: a.title, description: a.description };
+    }), null, 2)); return 0; }
+    console.log('Every action MYTHOS Guardian can take. There are no others: an id not in\n' +
+                'ops/guardian/lib/actions.js does not exist, and nothing can add one at runtime.\n');
+    all.forEach(function (a) {
+      console.log('  ' + a.id);
+      console.log('    ' + a.title);
+      console.log('    domain ' + a.domain + '  needs ' + a.flag + '  at ' + a.min_level + '+  cooldown ' + Math.round(a.cooldown_s / 60) + ' min  max ' + a.max_per_day + '/day');
+      console.log('    reversible: ' + a.reversible);
+      a.protects.forEach(function (x) { console.log('    protects:   ' + x); });
+      console.log('');
+    });
+    console.log('Never, at any level, under any configuration: no kill, no delete, no database,');
+    console.log('no backup, no credential, no production volume, no critical or production unit.');
+    return 0;
+  }
+
+  if (cmd === 'audit') {
+    var af = engine.paths(stateDir).actions;
+    var text = io.readFile(af);
+    if (!text) { console.log(json ? '[]' : 'No action has ever been taken (no record at ' + af + ').'); return 0; }
+    var lines = text.trim().split('\n').filter(Boolean);
+    var n = parseInt(args.flags.lines || '20', 10);
+    var recs = lines.slice(-n).map(function (l) { try { return JSON.parse(l); } catch (e) { return null; } }).filter(Boolean);
+    if (json) { console.log(JSON.stringify(recs, null, 2)); return 0; }
+    console.log('MYTHOS Guardian — actions taken (' + lines.length + ' total, showing ' + recs.length + ')\n');
+    recs.forEach(function (r) {
+      console.log('  ' + r.at + '  ' + r.action + (r.target ? ' [' + r.target + ']' : ''));
+      console.log('    mode ' + r.mode + '  result ' + r.result + (r.verified === null ? '' : '  verified ' + r.verified));
+      if (r.argv) console.log('    ran  ' + r.argv.join(' '));
+      if (r.verification) console.log('    ->   ' + r.verification);
+      if (r.error) console.log('    err  ' + r.error);
+      console.log('');
+    });
+    return 0;
+  }
+
+  if (cmd === 'remediate') {
+    var execute = !!args.flags.execute;
+    var rcfgLoaded = configMod.load(io, configPath);
+    var rcfg = rcfgLoaded.config;
+    var res2 = engine.run({
+      io: io, state_dir: stateDir, config_path: configPath,
+      // --execute is the ONLY path that writes action history and runs
+      // anything. Without it this is a dry run in every respect.
+      dry_run: !execute, execute_actions: execute,
+      measure: sources.measure(rcfg.disk, io), guardian_version: VERSION
+    });
+    if (res2.skipped) { console.log('skipped: another Guardian tick holds the lock'); return 0; }
+    var rep = res2.report;
+    if (json) { console.log(JSON.stringify({ remediation: rep.remediation, actions: rep.actions, posture: rep.guardian.remediation }, null, 2)); return 0; }
+    console.log('MYTHOS Guardian — remediation ' + (execute ? 'EXECUTE' : 'dry run') + '\n');
+    console.log('  posture: ' + rep.guardian.remediation.note);
+    console.log('  host:    ' + rep.host.level + '   ' + engine.DOMAINS.map(function (d) { return d[0] + ':' + rep.domains[d].level; }).join(' '));
+    console.log('');
+    (rep.remediation ? rep.remediation.decisions : []).forEach(function (d) {
+      console.log('  ' + (d.allowed ? 'ALLOW' : 'block') + '  ' + d.action + (d.target ? ' [' + d.target + ']' : ''));
+      if (!d.allowed) console.log('         gate ' + d.gate + ': ' + d.reason);
+      else console.log('         would run: ' + (d.argv || []).join(' '));
+    });
+    if (rep.actions && rep.actions.length) {
+      console.log('\n  RESULTS');
+      rep.actions.forEach(function (r) {
+        console.log('   ' + r.action + '  ' + r.mode + '  ' + r.result + (r.verification ? '  (' + r.verification + ')' : '') + (r.error ? '  ERR ' + r.error : ''));
+      });
+    }
+    if (!execute) console.log('\n  Nothing was done. Add --execute to perform the allowed actions.');
+    return 0;
   }
 
   if (cmd === 'selftest') return selftest(io, stateDir, configPath, json);
@@ -275,6 +365,26 @@ function selftest(io, stateDir, configPath, json) {
   var deg = simulateOne(io, cfg, 'pressure-missing-under-real-pressure', 3);
   check('degraded-still-reports', deg.final.domains.memory === 'CRITICAL' && deg.final.guardian === 'DEGRADED',
     'publication missing + /proc critical -> memory=' + deg.final.domains.memory + ', guardian=' + deg.final.guardian);
+
+  // 8. The action channel is disarmed and its allowlist excludes destruction.
+  var probe2 = ioMod.createIo({});
+  probe2.stateDir = stateDir;
+  var disarmed = probe2.act(['npm', 'cache', 'clean', '--force']);
+  check('action-channel-disarmed', disarmed.refused === true && disarmed.error === 'action_channel_disarmed',
+    'an allowlisted action refuses while io.armed is false');
+  var destructive = [['docker', 'system', 'prune'], ['docker', 'volume', 'prune'], ['docker', 'rm', 'x'],
+                     ['systemctl', '--user', 'stop', 'x'], ['systemctl', 'stop', 'nginx'], ['rm', '-rf', '/'], ['kill', '-9', '1']];
+  check('action-allowlist', destructive.every(function (a) { return ioMod.allowedAction(a) === false; }),
+    destructive.length + ' destructive argv rejected; action allowlist = ' + ioMod.ACTION_COMMANDS.map(function (c) { return c.join(' '); }).join(', '));
+  check('allowlists-disjoint', ioMod.ACTION_COMMANDS.every(function (a) { return ioMod.allowedCommand(a) === false; }),
+    'no action command is also a read command');
+
+  // 9. Every registered action refuses protected resources.
+  var prot = actionsMod.list().every(function (a) {
+    return actionsMod.refusesProtected(['systemctl', '--user', 'restart', 'erp-api.service']) !== null;
+  });
+  check('protected-resources', prot && actionsMod.refusesProtected(['docker', 'rm', 'idauto-postgres']) !== null,
+    'PROTECTED refuses ERP, databases, backups, credentials and repositories');
 
   var passed = checks.filter(function (c) { return c.pass; }).length;
   if (json) { console.log(JSON.stringify({ version: VERSION, checks: checks, passed: passed, total: checks.length }, null, 2)); }

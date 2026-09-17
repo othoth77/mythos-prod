@@ -19,17 +19,35 @@
 // =====================================================
 
 var LEVELS = require('./levels').LEVELS;
+var PROTECTED_UNITS = require('./actions').PROTECTED.units;
 
 var DEFAULTS = {
   version: 1,
-  // V0 is observation only. The remediation flags exist so the enablement
-  // path is explicit and testable; V0 ships no remediation code and the
-  // engine refuses to act on them (see engine.js remediationPosture()).
+  // Remediation exists as of V1 and is OFF by default. observe_only wins
+  // over every flag below it: with observe_only true, an enabled flag still
+  // takes no action. Turning any of this on is a deliberate edit to
+  // ~/.config/mythos/guardian.json, and every action is still gated
+  // individually (see ops/guardian/lib/remediate.js).
   observe_only: true,
   allow_memory_remediation: false,
   allow_disk_remediation: false,
   allow_service_restart: false,
   allow_agent_throttling: false,
+
+  remediation: {
+    // Where ACTION_PUBLISH_ADMISSION_ADVISORY writes. The same deploy-owned
+    // directory the Resource Guard publishes into (#286), and the only path
+    // outside Guardian's state directory it may write at all.
+    publish_dir: '/var/lib/mythos/pressure',
+    // At most this many actions in one tick, whatever else is true. A host
+    // in trouble should get one careful change and another look, not a burst.
+    max_actions_per_tick: 1,
+    action_timeout_ms: 120000,
+    // After this many restarts of one unit, it is DEGRADED and left alone.
+    max_attempts: 3,
+    // docker builder prune keeps cache newer than this.
+    docker_build_cache_keep_hours: 168
+  },
 
   interval_seconds: 120,
   // Wall-clock budget for one collection pass. Well under the unit's
@@ -77,6 +95,8 @@ var DEFAULTS = {
     thresholds: { warning_pct: 80, high_pct: 85, critical_pct: 90, emergency_pct: 95 },
     inode_thresholds: { warning_pct: 80, high_pct: 85, critical_pct: 90, emergency_pct: 95 },
     docker_df: true,
+    // Read-only, used by ACTION_CLEAR_NPM_CACHE's precondition.
+    npm_cache_dir: '/home/deploy/.npm/_cacache',
     // Collect the Docker breakdown only once disk is at or above this
     // percentage. It costs ~2.8 s per call and is only actionable under
     // pressure; the disk LEVEL always comes from statfs, which is free.
@@ -120,6 +140,10 @@ var DEFAULTS = {
       { id: 'spy-monitor', manager: 'deploy', unit: 'spy-monitor.service', class: 'support' },
       { id: 'ssangyong-storefront', manager: 'deploy', unit: 'ssangyong-storefront.service', class: 'production' }
     ],
+    // EMPTY by default. Adding a unit here AND setting allow_service_restart
+    // are two separate deliberate edits, and validation still refuses
+    // anything that is not a support-class deploy user unit.
+    restartable: [],
     containers: [
       { id: 'idauto-postgres', container: 'idauto-postgres', class: 'critical' },
       { id: 'darhijama-mysql', container: 'dar-hijama-production-mysql-1', class: 'production' },
@@ -174,10 +198,32 @@ function validate(cfg) {
   ['escalate_samples', 'deescalate_samples', 'recovery_samples'].forEach(function (k) { posInt(cfg.hysteresis && cfg.hysteresis[k], 'hysteresis.' + k); });
   if (cfg.hysteresis && cfg.hysteresis.escalate_samples < 2) err('hysteresis.escalate_samples must be at least 2 (one transient sample may never escalate)');
 
-  // V0 invariant: no override may claim remediation.
-  if (cfg.observe_only !== true) err('observe_only must be true: this version ships no remediation');
+  // Remediation policy. observe_only may now be false, but only coherently.
+  if (typeof cfg.observe_only !== 'boolean') err('observe_only must be a boolean');
   ['allow_memory_remediation', 'allow_disk_remediation', 'allow_service_restart', 'allow_agent_throttling'].forEach(function (k) {
-    if (cfg[k] !== false) err(k + ' must be false: this version ships no remediation');
+    if (typeof cfg[k] !== 'boolean') err(k + ' must be a boolean');
+  });
+  var rem = cfg.remediation || {};
+  absPath(rem.publish_dir, 'remediation.publish_dir');
+  posInt(rem.max_actions_per_tick, 'remediation.max_actions_per_tick');
+  if (rem.max_actions_per_tick > 3) err('remediation.max_actions_per_tick must be at most 3: a host in trouble gets one careful change and another look');
+  posInt(rem.action_timeout_ms, 'remediation.action_timeout_ms');
+  posInt(rem.max_attempts, 'remediation.max_attempts');
+  if (rem.max_attempts > 5) err('remediation.max_attempts must be at most 5, or a restart loop is just slower');
+  posInt(rem.docker_build_cache_keep_hours, 'remediation.docker_build_cache_keep_hours');
+  if (rem.docker_build_cache_keep_hours < 24) err('remediation.docker_build_cache_keep_hours must be at least 24');
+
+  // A unit is restartable only if it is configured, support-class, a deploy
+  // user unit, and not protected. Configuration cannot promote a unit past
+  // any of those.
+  var unitsById = {};
+  ((cfg.services || {}).units || []).forEach(function (u) { unitsById[u.id] = u; });
+  ((cfg.services || {}).restartable || []).forEach(function (id) {
+    var u = unitsById[id];
+    if (!u) { err('services.restartable names an unknown unit: ' + id); return; }
+    if (u.class !== 'support') err('services.restartable: ' + id + ' is ' + u.class + '-class; only support units may be restarted');
+    if (u.manager !== 'deploy') err('services.restartable: ' + id + ' is a system unit; Guardian is unprivileged');
+    if (PROTECTED_UNITS.indexOf(u.unit) >= 0) err('services.restartable: ' + u.unit + ' is protected and may never be restarted');
   });
 
   absPath(cfg.memory && cfg.memory.pressure_file, 'memory.pressure_file');

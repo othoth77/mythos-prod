@@ -23,7 +23,7 @@ function text(report) {
   L.push('MYTHOS Guardian — ' + h.level + ' (' + GLYPH[h.level] + ')' + (h.partial ? '  [PARTIAL: ' + h.unknown_domains.join(', ') + ' unknown]' : ''));
   L.push('  generated ' + report.generated_at + '   tick ' + report.tick + '   mode ' + report.mode);
   L.push('  guardian  ' + report.guardian.state + '   observing ' + report.guardian.observed_domains + '/' + report.guardian.total_domains +
-    ' domains   remediation ' + (report.guardian.remediation.remediation_available ? 'available' : 'not available (observe-only)'));
+    ' domains   remediation ' + remediationLine(report.guardian.remediation));
   if (report.guardian.issues.length) report.guardian.issues.forEach(function (i) { L.push('            - ' + i); });
   L.push('');
   L.push('  DOMAIN     LEVEL       SINCE                     DETAIL');
@@ -47,6 +47,12 @@ function text(report) {
       ' — peak ' + report.incident.peak_level + ', ' + report.incident.ticks + ' tick(s), domains: ' + report.incident.domains.join(', '));
   }
   return L.join('\n');
+}
+
+function remediationLine(r) {
+  if (!r) return 'unknown';
+  if (!r.remediation_available) return r.observe_only ? 'off (observe-only)' : 'off (no flag enabled)';
+  return 'ON for ' + (r.enabled_flags || []).join(', ') + ' — max ' + r.max_actions_per_tick + '/tick';
 }
 
 function detail(domain, v) {
@@ -107,12 +113,32 @@ function incident(report, opts) {
   L.push('');
   L.push('## What Guardian did');
   L.push('');
-  L.push('Nothing. This version is **observe-only**: it reads state that other components already own and records a verdict.');
-  L.push('It has no kill, restart, cleanup or deletion path, and it made no change to any service, file, container, database or backup.');
-  if (report.guardian.remediation.requested_but_unavailable.length) {
+  var taken = (report.actions || []).filter(function (a) { return a.mode === 'executed'; });
+  if (!taken.length) {
+    L.push('Nothing. It reads state that other components already own and records a verdict.');
+    L.push('It has no kill and no delete, and it made no change to any service, file, container, database or backup.');
+    var blocked = ((report.remediation && report.remediation.decisions) || []).filter(function (d) { return !d.allowed; });
+    if (blocked.length) {
+      L.push('');
+      L.push('What it considered, and why each was not done:');
+      L.push('');
+      blocked.forEach(function (d) {
+        L.push('- `' + d.action + '`' + (d.target ? ' on `' + d.target + '`' : '') + ' — ' + d.gate + ': ' + d.reason);
+      });
+    }
+  } else {
     L.push('');
-    L.push('The configuration requests `' + report.guardian.remediation.requested_but_unavailable.join('`, `') +
-      '`, which this version does not implement. Guardian observed only.');
+    L.push('| Action | Target | Ran | Verified |');
+    L.push('|---|---|---|---|');
+    taken.forEach(function (a) {
+      L.push('| `' + a.action + '` | ' + (a.target || '—') + ' | `' + (a.argv || []).join(' ') + '` | ' +
+        (a.verified === true ? 'yes — ' + (a.verification || '') : (a.verified === false ? '**no** — ' + (a.verification || a.error || '') : 'n/a')) + ' |');
+    });
+    L.push('');
+    taken.forEach(function (a) { L.push('- Undoing `' + a.action + '`: ' + a.reversible); });
+    L.push('');
+    L.push('Nothing else was touched. Every action is a static entry in `ops/guardian/lib/actions.js`,');
+    L.push('individually gated, and Guardian still has no kill and no delete path.');
   }
   if (o.suggestions !== false) {
     var sug = suggestions(report);
@@ -161,4 +187,4 @@ function suggestions(report) {
   return out;
 }
 
-module.exports = { text: text, incident: incident, suggestions: suggestions, detail: detail };
+module.exports = { text: text, incident: incident, remediationLine: remediationLine, suggestions: suggestions, detail: detail };

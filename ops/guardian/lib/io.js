@@ -32,6 +32,37 @@ var READ_COMMANDS = [
   ['docker', 'system', 'df']
 ];
 
+// A SECOND allowlist, kept deliberately separate from READ_COMMANDS and
+// never merged with it. These argv prefixes CHANGE something.
+//
+// Reaching them requires all of:
+//   1. the argv matches a prefix here (not READ_COMMANDS);
+//   2. io.armed === true — remediate.js sets it for the duration of exactly
+//      one call and clears it in a finally block;
+//   3. the action that asked for it passed its own gates (flag, level,
+//      cooldown, rate limit, precondition, protected-resource check).
+//
+// Absent from this list, permanently and on purpose:
+//   docker system prune      docker volume prune      docker rm / rmi
+//   systemctl stop / kill / disable        anything with --all or -a
+//   kill, pkill, rm, chmod, chown, git
+// `docker builder prune` is here because build cache is derived data; the
+// action that uses it also pins an `until=` filter. No entry here can remove
+// an image, a container or a volume.
+var ACTION_COMMANDS = [
+  ['npm', 'cache', 'clean', '--force'],
+  ['docker', 'builder', 'prune', '--force', '--filter'],
+  ['systemctl', '--user', 'restart']
+];
+
+function allowedAction(argv) {
+  if (!Array.isArray(argv) || !argv.length) return false;
+  // An action argv must NOT also be a read command: the two sets stay disjoint.
+  return ACTION_COMMANDS.some(function (prefix) {
+    return prefix.every(function (tok, i) { return argv[i] === tok; });
+  });
+}
+
 function allowedCommand(argv) {
   if (!Array.isArray(argv) || !argv.length) return false;
   return READ_COMMANDS.some(function (prefix) {
@@ -118,6 +149,68 @@ function createIo(overrides) {
         return { status: r.status, stdout: r.stdout || '', stderr: r.stderr || '', error: r.error ? String(r.error.code || r.error.message) : null };
       } catch (e) {
         return { status: null, stdout: '', stderr: '', error: String(e.code || e.message) };
+      }
+    },
+
+    // --- the action channel (disarmed by default) -----------------------
+    //
+    // io.armed is false at every moment except inside one deliberate call.
+    // A tick that never arms it cannot execute an action even if every other
+    // gate somehow passed, and observe-only builds never arm it at all.
+    armed: false,
+
+    act: function (argv, opts) {
+      var o = opts || {};
+      if (io.armed !== true) {
+        return { status: null, stdout: '', stderr: '', error: 'action_channel_disarmed', refused: true };
+      }
+      if (!allowedAction(argv)) {
+        return { status: null, stdout: '', stderr: '', error: 'action_not_allowlisted', refused: true };
+      }
+      try {
+        var r = cp.spawnSync(argv[0], argv.slice(1), {
+          encoding: 'utf8',
+          timeout: o.timeout_ms || 120000,
+          maxBuffer: o.max_buffer || 4 * 1024 * 1024,
+          env: cleanEnv(o),
+          stdio: ['ignore', 'pipe', 'pipe']
+        });
+        return { status: r.status, stdout: r.stdout || '', stderr: r.stderr || '', error: r.error ? String(r.error.code || r.error.message) : null };
+      } catch (e) {
+        return { status: null, stdout: '', stderr: '', error: String(e.code || e.message) };
+      }
+    },
+
+    // The only write Guardian makes outside its own state directory, and it
+    // is a PUBLICATION: one named file, in one configured directory, with a
+    // JSON body. Same shape and discipline as the Resource Guard publication
+    // from #286 — refuse a symlinked or non-directory destination, write a
+    // temp file with O_EXCL, fsync, rename. It cannot write a path of its
+    // own choosing: the caller supplies a bare filename, and a name with a
+    // separator or a dot-segment is refused.
+    publishAdvisory: function (dir, name, body) {
+      if (io.armed !== true) return { ok: false, error: 'action_channel_disarmed' };
+      if (typeof name !== 'string' || !/^[a-z0-9][a-z0-9._-]*\.json$/.test(name) || name.indexOf('..') >= 0) {
+        return { ok: false, error: 'invalid_publication_name' };
+      }
+      var st;
+      try { st = fs.lstatSync(dir); } catch (e) { return { ok: false, error: 'publish_dir_missing' }; }
+      if (!st.isDirectory() || st.isSymbolicLink()) return { ok: false, error: 'publish_dir_not_a_directory' };
+
+      var target = path.join(dir, name);
+      var tmp = target + '.tmp-' + process.pid;
+      var fd = null;
+      try {
+        fd = fs.openSync(tmp, 'wx', 0o644);
+        fs.writeSync(fd, JSON.stringify(body) + '\n');
+        fs.fsyncSync(fd);
+        fs.closeSync(fd); fd = null;
+        fs.renameSync(tmp, target);
+        return { ok: true, path: target };
+      } catch (e) {
+        if (fd !== null) { try { fs.closeSync(fd); } catch (e2) { /* already closed */ } }
+        try { fs.unlinkSync(tmp); } catch (e3) { /* nothing staged */ }
+        return { ok: false, error: String((e && e.code) || e) };
       }
     },
 
@@ -213,4 +306,5 @@ function createIo(overrides) {
   return io;
 }
 
-module.exports = { createIo: createIo, READ_COMMANDS: READ_COMMANDS, allowedCommand: allowedCommand, cleanEnv: cleanEnv };
+module.exports = { createIo: createIo, READ_COMMANDS: READ_COMMANDS, ACTION_COMMANDS: ACTION_COMMANDS,
+  allowedCommand: allowedCommand, allowedAction: allowedAction, cleanEnv: cleanEnv };
