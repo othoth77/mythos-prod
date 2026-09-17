@@ -809,6 +809,16 @@ function handleFailure(task, taskId, outcome, mode, opts) {
   var kind = detail.kind;
   var now = Date.now();
   var lastFailure = { category: detail.category, code: detail.code, retryable: detail.retryable, timed_out: !!outcome.timed_out, classified_at: new Date(now).toISOString() };
+  // OTHMODE V2 observability: which provider/model actually answered (or was
+  // tried) travels onto EVERY outcome of this function — quota wait, retry
+  // wait, retries exhausted and the terminal blocked/failed path — so a
+  // reader never has to guess who failed. Computed once, merged everywhere.
+  var providerFields = {
+    provider_used: (outcome && outcome.provider_used) || task.provider,
+    model_used: (outcome && outcome.model_used) || task.model || null,
+    attempts: outcome && Array.isArray(outcome.attempts) ? outcome.attempts : null,
+    fallback: !!(outcome && Array.isArray(outcome.attempts) && outcome.attempts.length > 1)
+  };
   state.appendEvent(taskId, 'failure_classified', { category: detail.category, kind: kind, code: detail.code, retryable: detail.retryable, timed_out: !!outcome.timed_out, retry_policy: detail.policy.strategy });
 
   if (kind === 'quota') {
@@ -827,6 +837,10 @@ function handleFailure(task, taskId, outcome, mode, opts) {
       next_action: 'automatic resume of session after ' + new Date(resumeAfter).toISOString(),
       last_error: 'quota exhausted',
       last_failure: lastFailure,
+      provider_used: providerFields.provider_used,
+      model_used: providerFields.model_used,
+      attempts: providerFields.attempts,
+      fallback: providerFields.fallback,
       transition_reason: 'quota exhausted — not a failure; the same session resumes after the window'
     });
     writeCheckpoint(task, updated, {
@@ -849,6 +863,10 @@ function handleFailure(task, taskId, outcome, mode, opts) {
         pid: null, retry_count: retryCount, ended_at: new Date().toISOString(),
         last_error: 'transient failures exceeded max_retries: ' + tailOf(text.trim(), 300),
         last_failure: lastFailure,
+        provider_used: providerFields.provider_used,
+        model_used: providerFields.model_used,
+        attempts: providerFields.attempts,
+        fallback: providerFields.fallback,
         transition_reason: 'transient failure #' + retryCount + ' exceeds max_retries=' + maxRetries + ' — the bounded retry budget is spent',
         next_action: 'inspect logs; re-queue explicitly if appropriate'
       });
@@ -866,6 +884,10 @@ function handleFailure(task, taskId, outcome, mode, opts) {
       pid: null, retry_count: retryCount, retry_at: retryAt,
       last_error: tailOf(text.trim(), 300),
       last_failure: lastFailure,
+      provider_used: providerFields.provider_used,
+      model_used: providerFields.model_used,
+      attempts: providerFields.attempts,
+      fallback: providerFields.fallback,
       retry_backoff: { attempt: retryCount, max_retries: maxRetries, base_ms: baseMs, delay_ms: delayMs, jitter: 'additive', max_ms: quota.RETRY_MAX_MS },
       transition_reason: (outcome.timed_out ? 'provider timed out' : 'transient provider/network failure') + ' — retry ' + retryCount + '/' + maxRetries + ' after ' + delayMs + ' ms (base ' + baseMs + ' ms, additive jitter)',
       next_action: 'automatic retry after ' + retryAt
@@ -879,10 +901,10 @@ function handleFailure(task, taskId, outcome, mode, opts) {
     pid: null, ended_at: new Date().toISOString(),
     last_error: tailOf(text.trim(), 500),
     last_failure: lastFailure,
-    provider_used: (outcome && outcome.provider_used) || task.provider,
-    model_used: (outcome && outcome.model_used) || task.model || null,
-    attempts: outcome && Array.isArray(outcome.attempts) ? outcome.attempts : null,
-    fallback: !!(outcome && Array.isArray(outcome.attempts) && outcome.attempts.length > 1),
+    provider_used: providerFields.provider_used,
+    model_used: providerFields.model_used,
+    attempts: providerFields.attempts,
+    fallback: providerFields.fallback,
     transition_reason: detail.category + ' failure (' + detail.code + ') — ' + detail.policy.strategy,
     next_action: terminal === 'BLOCKED'
       ? (detail.category === 'governance'
