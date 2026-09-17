@@ -303,8 +303,15 @@
     },
     {
       "review_id": "REVIEW-2026-09-17-003",
-      "timestamp": "2026-09-17T17:35:02.813Z",
+      "timestamp": "2026-09-17T17:00:25.637Z",
       "file": "reviews/2026/2026-09-17-review-003.json",
+      "head": "d772c952b4e2a4079521904e4070ce6856bdab47",
+      "blockers": 6
+    },
+    {
+      "review_id": "REVIEW-2026-09-17-004",
+      "timestamp": "2026-09-17T17:46:54.015Z",
+      "file": "reviews/2026/2026-09-17-review-004.json",
       "head": "96150e099dfe19561ba4726b6e67a11adeffaa6a",
       "blockers": 6
     }
