@@ -1,6 +1,6 @@
 {
   "review_id": "REVIEW-2026-09-17-005",
-  "timestamp": "2026-09-17T18:59:02.460Z",
+  "timestamp": "2026-09-17T21:51:20.797Z",
   "engine_version": "1.0.0",
   "audited_sources": {
     "repository": "https://github.com/othoth77/mythos-prod.git",
@@ -8,21 +8,31 @@
     "pr_ledger_captured_at": "2026-08-26T13:58:00Z",
     "repo_snapshot_captured_at": "2026-09-02T19:32:00Z",
     "documents_checked": 24,
-    "evidence_checked": 148
+    "evidence_checked": 149
   },
   "git": {
     "collected": true,
-    "head": "b6c146abc15c0926189f18c6fecfb3e8cbb92a6a",
+    "head": "a1b59ad0f72e886294e36ca8771ec83a2d343766",
     "branch": "mythos/othmode-v2-20260917",
-    "origin_main": "96150e099dfe19561ba4726b6e67a11adeffaa6a",
+    "origin_main": "baf7cd30d1c1f10986d29a2cd60f193aac31788e",
     "remote_url": "https://github.com/othoth77/mythos-prod.git",
     "worktree_clean": false,
     "last_commit": {
-      "hash": "96150e099dfe19561ba4726b6e67a11adeffaa6a",
-      "date": "2026-09-17T17:00:32Z",
-      "subject": "status-center: session-guard enforcement ENABLED — and it has signalled nothing (#306)"
+      "hash": "baf7cd30d1c1f10986d29a2cd60f193aac31788e",
+      "date": "2026-09-17T19:01:26Z",
+      "subject": "Merge pull request #311 from othoth77/mythos/casse-closure-20260917"
     },
     "recent_commits": [
+      {
+        "hash": "baf7cd30",
+        "date": "2026-09-17",
+        "subject": "Merge pull request #311 from othoth77/mythos/casse-closure-20260917"
+      },
+      {
+        "hash": "4d44a272",
+        "date": "2026-09-17",
+        "subject": "status-center: Casse.Autos engineering closure 2026-09-17 (main 89c636d) — stays OWNER_ACTION / TESTED, not deployed"
+      },
       {
         "hash": "96150e09",
         "date": "2026-09-17",
@@ -1012,16 +1022,6 @@
         "hash": "34af9dc6",
         "date": "2026-09-05",
         "subject": "Merge pull request #199 from othoth77/mythos/wp-20260905"
-      },
-      {
-        "hash": "d5a6ff57",
-        "date": "2026-09-05",
-        "subject": "Merge remote-tracking branch 'origin/main' into mythos/wp-20260905"
-      },
-      {
-        "hash": "52c449e2",
-        "date": "2026-09-05",
-        "subject": "docs: reconcile GitHub Telegram bridge and close PR 188"
       }
     ],
     "commit_count": null,
@@ -1161,18 +1161,18 @@
       "status": "DONE",
       "maturity": "PRODUCTION_VERIFIED",
       "repository": "othoth77/mythos-prod",
-      "last_change": "2026-09-17 (OTHMODE V2 build: command runs edge, provider observability, invalid_credentials state, simplified UI — EV-OTHMODE-V2-BUILD; production verification follows the merge)",
+      "last_change": "2026-09-17 (OTHMODE V2 build: command runs edge, provider observability, invalid_credentials state, Groq preferred model, simplified UI — EV-OTHMODE-V2-BUILD; production verification follows the merge)",
       "blocker": null,
-      "next_action": "OWNER: merge PR #307 (MERGEABLE/CLEAN, reviewed) then run /home/deploy/othmode-v2-deploy.sh (pull, executor-link drop-in, restarts), verify GET /api/othmode/run-config enabled:true, one real run through POST /api/othmode/commands/:slug/run -> COMPLETED via groq/openai-gpt-oss-120b, then record EV-OTHMODE-V2-PRODUCTION, stage OTHMODE-V2 DONE, publish Status Center. Around it: NEXT-OTHMODE-MONITOR; projects/mythos-wp classification; host memory pressure.",
-      "headline": "Live at https://othmode.mythosprod.xyz since 2026-08-26. Built over the MCC-1 runtime rather than as a second system: one process on a single loopback port, same auth, CSRF and secret gate, no new event store. Task Reports add an append-only tasks/records.jsonl stream to the existing OTHMODE store and a fourth source to the existing Command History. As of 7252de2 the Command History and every Task Report are PUBLIC READS — no session, login link or token — while every write stays authenticated and secret-gated; anonymous readers get the full narrative with infrastructure detail masked by a read-side projection, since the append-only store cannot be rewritten to be publishable. Suites othmode-3 94/0 and othmode-2 157/0 on the production host. Per-command activation replaced the global switch in PR #87; the keyword confers no privilege. V1 CLOSURE 2026-09-16: the platform is live and every V1 surface is verified (commands CRUD via the MCC library, skills/tools/providers/projects read models, health, status, unified history, Task Reports, work intake → GitHub Issue → executor, memory, evolution, trust). Providers now include the free-LLM pool (catalog 26/205, 9 wired, Groq ACTIVE) with presence-only credentials; the executor accepts free-llm-pool tasks; the executor suite no longer depends on real host credentials. V2 (2026-09-17): the missing edge exists — a command runs from OTHMODE as an advisory executor task (router-selected provider, pool fallback, no Git report), with a run record, a self-refreshing status page (provider used, model, fallback, duration, result) and runs as the fifth source of Command History; the executor persists which provider/model answered; the free-LLM registry distinguishes invalid credentials from outages; navigation reduced to COMMAND/TASKS/PROJECTS/AI/STATUS/MORE and the dashboard answers \"AI ready? needs attention? last run? health?\" in plain words. Nothing rebuilt, nothing migrated, nothing deleted.",
+      "next_action": "Merge PR #307 then deploy via /home/deploy/othmode-v2-deploy.sh (pull, executor-link drop-in, restarts), verify GET /api/othmode/run-config enabled:true, one real run through POST /api/othmode/commands/:slug/run -> COMPLETED via groq/openai-gpt-oss-120b, then record EV-OTHMODE-V2-PRODUCTION and set stage OTHMODE-V2 DONE. Around it: NEXT-OTHMODE-MONITOR; projects/mythos-wp classification; host memory pressure.",
+      "headline": "Live at https://othmode.mythosprod.xyz since 2026-08-26. Built over the MCC-1 runtime rather than as a second system: one process on a single loopback port, same auth, CSRF and secret gate, no new event store. Task Reports add an append-only tasks/records.jsonl stream to the existing OTHMODE store and a fourth source to the existing Command History. As of 7252de2 the Command History and every Task Report are PUBLIC READS — no session, login link or token — while every write stays authenticated and secret-gated; anonymous readers get the full narrative with infrastructure detail masked by a read-side projection, since the append-only store cannot be rewritten to be publishable. Suites othmode-3 94/0 and othmode-2 157/0 on the production host. Per-command activation replaced the global switch in PR #87; the keyword confers no privilege. V1 CLOSURE 2026-09-16: the platform is live and every V1 surface is verified (commands CRUD via the MCC library, skills/tools/providers/projects read models, health, status, unified history, Task Reports, work intake → GitHub Issue → executor, memory, evolution, trust). Providers now include the free-LLM pool (catalog 26/205, 9 wired, Groq ACTIVE) with presence-only credentials; the executor accepts free-llm-pool tasks; the executor suite no longer depends on real host credentials. V2 (2026-09-17): the missing edge exists — a command runs from OTHMODE as an advisory executor task (router-selected provider, pool fallback, no Git report), with a run record, a self-refreshing status page (provider used, model, fallback, duration, result) and runs as the fifth source of Command History; the executor persists which provider/model answered; the free-LLM registry distinguishes invalid credentials from outages and honours an officially verified preferred chat model per provider (Groq: openai/gpt-oss-120b, after groq/compound exhausted the 30k-tokens-per-minute budget on real prompts); navigation reduced to COMMAND/TASKS/PROJECTS/AI/STATUS/MORE and the dashboard answers \"AI ready? needs attention? last run? health?\" in plain words. Nothing rebuilt, nothing migrated, nothing deleted.",
       "dimensions": {
         "implementation": {
           "status": "DONE",
-          "note": "tasks.js writer/read model, 4 authenticated API routes, CLI task show/create/update/import, Command History integration, EN/FR/AR UI with zero key gaps · V2 2026-09-17: run.js + 4 run routes, runs store stream, history source run, executor provider_used/model_used/attempts/fallback, free-LLM invalid_credentials, Run button + Overview + #/runs UI (EN/FR/AR)"
+          "note": "tasks.js writer/read model, 4 authenticated API routes, CLI task show/create/update/import, Command History integration, EN/FR/AR UI with zero key gaps · V2 2026-09-17: run.js + 4 run routes, runs store stream, history source run, executor provider_used/model_used/attempts/fallback, free-LLM invalid_credentials + 429/413 quota + preferred_chat_model + per-attempt reasons, Run button + Overview + #/runs UI (EN/FR/AR)"
         },
         "tests": {
           "status": "DONE",
-          "note": "othmode-3 68/0 · othmode-2 152/0 · governance 99/0 (host, 2026-08-26); no existing test modified by the change · V2 2026-09-17: othmode-4-run 56/0 (new), othmode-3 94/0, othmode-2 173/0, executor 393/0, mcc-1 506/0, free-llm 30/28/9/12/11, skill-trust 130/0, governance 111/0"
+          "note": "othmode-3 68/0 · othmode-2 152/0 · governance 99/0 (host, 2026-08-26); no existing test modified by the change · V2 2026-09-17: othmode-4-run 60/0 (new), othmode-3 94/0, othmode-2 173/0, executor 393/0, mcc-1 506/0, free-llm 30/36/10/17/11, skill-trust 130/0, governance 111/0"
         },
         "deployment": {
           "status": "DONE",
@@ -2056,32 +2056,32 @@
     },
     {
       "id": "PROJECT-CASSE-AUTOS",
-      "name": "Casse.Autos (MYTHOS AUTO salvage channel)",
+      "name": "Casse.Autos (MYTHOS AUTO parts sourcing channel — NEW + USED)",
       "executive": false,
       "purpose": "casse.autos: universal parts search + WhatsApp sourcing (business model corrected 2026-09-14): identify vehicle + part, search composed catalogue/supplier sources, verify fitment/OEM, hand off to WhatsApp; own salvage inventory becomes an optional provider.",
       "status": "OWNER_ACTION",
       "maturity": "TESTED",
       "repository": "othoth77/casse.autos",
-      "last_change": "2026-09-14 (owner decision: NEW + USED parts, universal search + sourcing; C-O5' adopted)",
-      "blocker": "C-O5': no consented supplier answers yet (launch = a real answering provider, not code); DNS on OVH parking (C-O2); WhatsApp number/inbox operator absent (C-O3); C-O4/C-O6/C-O1 open; O8 and TecDoc contact awaiting the owner sending the prepared briefs.",
-      "next_action": "Owner sends the AutoPart brief and authorises the TecAlliance contact; names consented suppliers and the sourcing-inbox operator; moves DNS. Engineering: review/merge casse.autos #8 and the stacked NEW+USED branch; enable CASSE_SEARCH_PROVIDERS only when a supplier exists.",
-      "headline": "Engineering complete for the honest empty storefront (main 4a65955; 311 tests, smoke 60, Playwright 37). Product redefined 2026-09-14 as universal parts search: research found no open OEM/fitment data (TecDoc only, licence-gated), vehicle identification composable from open data, no Tunisian supplier API; prototype search core on PR #8 (374 tests, feature off). NOT launch-ready until the model decision and a first consented supplier.",
+      "last_change": "2026-09-17 (engineering closure: PR #11 reviewed+merged, PR #12 merged; main 89c636d)",
+      "blocker": "Engineering closed; every remaining gate is the owner's: C-O2 DNS (casse.autos on OVH parking — no certificate, no public deployment possible), C-O3 WhatsApp number + sourcing-inbox operator, C-O4 unit memory cap, C-O5′ a consented supplier who answers (the launch gate), C-O6 store/backup, C-O1 ratification (incl. public wording for NEW + USED), O8 / TecDoc briefs to send.",
+      "next_action": "Owner: move DNS (C-O2), then run the Casse execution pack with the CI artifact + scripts/release.sh; provide CASSE_WHATSAPP_NUMBER and the consented supplier list. Engineering: none — V1 closed on the code side; releases via CI artifact + release.sh (proven on piece.autos).",
+      "headline": "Engineering CLOSED 2026-09-17 (main 89c636d): sourcing hardening reviewed and merged (consent verified at selection and in file order, no phone in listing URLs, images refused by value, listing freshness vs the snapshot), CI-built release artifact + release.sh with rollback, rehearsed from the artifact against the real Kitchen. NOT deployed and NOT launch-ready: DNS still parked (C-O2) and no consented supplier answers yet (C-O5′).",
       "dimensions": {
         "implementation": {
           "status": "DONE",
-          "note": "main ad9d340"
+          "note": "main 89c636d; V1 engineering closed"
         },
         "tests": {
           "status": "DONE",
-          "note": "311 passed / 19 skipped (Postgres-gated), smoke 54 both passes, Playwright 34/34"
+          "note": "vitest 480 + 20 Postgres (500), Postgres 19/19 (CI), smoke 71, Playwright 37, CI green (Node 22)"
         },
         "deployment": {
           "status": "OWNER_ACTION",
-          "note": "templates ready; not installed; C-O2/C-O4 first"
+          "note": "artifact + release.sh ready and rehearsed on loopback; not installed — C-O2 (DNS) first"
         },
         "inventory": {
           "status": "OWNER_ACTION",
-          "note": "no real inventory anywhere; fixture refused in production"
+          "note": "no inventory sold by design (NEW + USED sourcing); launch gate is C-O5′ (a consented supplier who answers)"
         }
       },
       "evidence": [
@@ -2089,7 +2089,8 @@
         "EV-CASSE-NO-INVENTORY",
         "EV-CASSE-UPS-RESEARCH",
         "EV-CASSE-UPS-PROTOTYPE",
-        "EV-CASSE-MODEL-DECISION"
+        "EV-CASSE-MODEL-DECISION",
+        "EV-CASSE-CLOSURE"
       ]
     },
     {
@@ -2735,7 +2736,7 @@
         {
           "id": "OTHMODE-V2",
           "status": "IN_PROGRESS",
-          "what": "OTHMODE V2: command runs edge (Command -> executor task -> provider -> result -> history), provider/model/fallback observability in the executor, invalid_credentials provider state, simplified plain-language UI. Built and tested on branch mythos/othmode-v2-20260917 (EV-OTHMODE-V2-BUILD); DONE only after merge + production verification (drop-in installed, services restarted, real run COMPLETED through the new endpoint).",
+          "what": "OTHMODE V2: command runs edge (Command -> executor task -> provider -> result -> history), provider/model/fallback observability in the executor, invalid_credentials provider state, Groq preferred chat model, simplified plain-language UI. Built and tested on branch mythos/othmode-v2-20260917 / PR #307 (EV-OTHMODE-V2-BUILD); DONE only after merge + production verification (drop-in installed, services restarted, real run COMPLETED through the new endpoint).",
           "evidence": [
             "EV-OTHMODE-V2-BUILD"
           ]
@@ -3153,9 +3154,17 @@
           ]
         },
         {
+          "id": "STAGE-CASSE-ENGINEERING-CLOSED",
+          "status": "DONE",
+          "what": "Engineering closure 2026-09-17: sourcing hardening reviewed + merged, CI release artifact, release.sh, rehearsal from the artifact",
+          "evidence": [
+            "EV-CASSE-CLOSURE"
+          ]
+        },
+        {
           "id": "STAGE-CASSE-INVENTORY",
           "status": "OWNER_ACTION",
-          "what": "First real inventory (C-O5)",
+          "what": "Launch gate C-O5′: a consented supplier who answers (own inventory is an optional provider)",
           "evidence": [
             "EV-CASSE-NO-INVENTORY"
           ]
@@ -3180,11 +3189,11 @@
         }
       ],
       "progress": {
-        "done_stages": 2,
-        "total_stages": 6,
-        "percent": 33,
+        "done_stages": 3,
+        "total_stages": 7,
+        "percent": 43,
         "basis": "CALCULATED",
-        "explanation": "2 of 6 recorded stages DONE (superseded counted as closed)"
+        "explanation": "3 of 7 recorded stages DONE (superseded counted as closed)"
       }
     }
   ],
@@ -3574,6 +3583,16 @@
       "what": "Closure release d92a46a live and verified; only owner gates (WhatsApp number, O8) remain.",
       "evidence": [
         "EV-PIECE-CLOSURE"
+      ]
+    },
+    {
+      "id": "MS-2026-09-17-CASSE-ENGINEERING-CLOSED",
+      "date": "2026-09-17",
+      "project": "PROJECT-CASSE-AUTOS",
+      "title": "Casse.Autos engineering closed (not deployed)",
+      "what": "main 89c636d; deployment and launch remain owner gates (C-O2 DNS, C-O5′ supplier).",
+      "evidence": [
+        "EV-CASSE-CLOSURE"
       ]
     }
   ],
@@ -4038,8 +4057,8 @@
       "id": "NEXT-CASSE-INVENTORY",
       "priority": "P0",
       "order": 0,
-      "title": "Casse.Autos: owner business-model decision, then inquiry/WhatsApp adaptation on the prototype",
-      "detail": "C-O5 superseded by C-O5' (first live provider answers). After the decision: adapt OrderItem.sourced + state-driven WhatsApp wording on top of casse.autos PR #8; draft the AutoPart letter and TecAlliance brief; deployment pack stays valid for the honest empty storefront.",
+      "title": "Casse.Autos: owner gates only — DNS (C-O2), WhatsApp number (C-O3), consented supplier list (C-O5′)",
+      "detail": "Engineering closed 2026-09-17 (main 89c636d). When DNS moves: run the othkm execution pack with the CI artifact (`gh run download … -n casse-autos-standalone`) and `scripts/release.sh artifact`; certbot; TLS vhost. Launch only when a consented supplier answers.",
       "depends_on": null
     }
   ],
@@ -5725,11 +5744,19 @@
       "evidence_status": "RECORDED"
     },
     {
+      "id": "EV-CASSE-CLOSURE",
+      "type": "ci",
+      "reference": "othoth77/casse.autos main 89c636d — PR #11 (sourcing hardening; reviewed: 10 findings confirmed by independent verification, all fixed in 4546db2) merged 22a8b71; PR #12 (closure: CI release artifact after every gate, scripts/release.sh artifact|build|rollback, icons, /api/health without infrastructure names, docs to the real state); CI run 35262142115",
+      "date": "2026-09-17",
+      "note": "typecheck 0 · lint 0 · vitest 480 + 20 Postgres (500) · Postgres suites in CI · smoke 71 · Playwright 37 · audit 0. Rehearsed on loopback from the CI artifact against the real Kitchen with empty jsonl stores: every route 200/404 as documented, honest empty state, 'Canal WhatsApp non configuré', security headers, sitemap 8 URLs. NOT deployed: casse.autos still resolves to OVH parking (C-O2); no unit, vhost, env or release directory exists on the host. Ten merged branches deleted; 0 open PRs; 0 open issues.",
+      "evidence_status": "RECORDED"
+    },
+    {
       "id": "EV-OTHMODE-V2-BUILD",
       "type": "commit",
-      "reference": "branch mythos/othmode-v2-20260917 (base main@d772c95)",
+      "reference": "branch mythos/othmode-v2-20260917 (PR #307)",
       "date": "2026-09-17",
-      "note": "OTHMODE V2 build pass — no rebuild, no migration, no deletion. Reality first: main d772c95 (eleven Guardian PRs after V1), both deploy user units active, live providers truthful (claude/omniroute present, gemini absent, pool 1/1 active), executor router answering advisory research routes with free-llm-pool. Added the ONE edge V1 lacked: run.js — a library command becomes an executor task from OTHMODE (POST /api/othmode/commands/:slug/run): placeholders rendered by the library renderer, provider chosen by the executor router (repo-read; only routes without execution authority are accepted, everything else falls back to free-llm-pool; explicit free-llm-pool/openai-compat allowed), task created through the executor API with report_to_git=false, requested_by=othmode:<who>, max_retries 1, timeout 30-1800 s; the link recorded in a new append-only runs stream of the OTHMODE store; lifecycle read from the executor's own status.json/report.json on disk (queued/running/retrying/waiting_for_quota/completed/failed/cancelled) with provider used, model used, attempts, fallback, duration, failure reason (paths blanked), next action; runs are the fifth source of Command History (source=run); GET /runs, /runs/:id, /run-config public like History. Safety: ACTIVE + SAFE/READ_ONLY commands only, secret gate on placeholder values, the executor bearer file read at call time and used only as a loopback header (drop-in deploy/executor-link.conf; disabled with a stated reason when unset). Executor: every task now persists provider_used/model_used/attempts/fallback in status.json and report.json (single-provider adapters simply have no attempts). Free-LLM: new state invalid_credentials for HTTP 401/403 (distinct from unavailable; never selected; Health BLOCKED \"API key invalid\"). UI simplified: navigation COMMAND/TASKS/PROJECTS/AI/STATUS/MORE (every V1 screen kept), plain-language Overview (AI ready?, needs attention?, last run?, health), Run button on command detail through a backward-compatible extension point (MccApp.registerCommandActions), #/runs and #/run/:taskId with self-refreshing status; EN/FR/AR, no innerHTML, no eval. Tests on the host as deploy: new othmode-4-run 56/0 (offline stub executor); othmode-3 94/0; othmode-2 173/0; work-intake 35/0; free-llm parser 30/0, registry 28/0 (401/403 now invalid_credentials), selector 9/0, pool 12/0, groq-activation 11/0; skill-trust 130/0; governance-invariant 111/0; redact-governance 199/0; stc-2 86/0; stc-ar 50/0; mcc-1 506/0 on mythos_command_center_test; mythos-ai-executor 393/0 (run inside an isolated network namespace because another session's test servers held 127.0.0.1:8198/8199 on the host — 17 http-section listen failures outside the namespace were EADDRINUSE, not code). stc-1 80/1: the pre-existing projects/mythos-wp classification gap, outside OTHMODE scope. Secrets: diff scanned, zero credential shapes beyond the documented synthetic vectors. PRE-MERGE SMOKE (real path, live executor, before the merge): two real runs FAILED with PROVIDER_FAILED \"free LLM pool exhausted\" while the health probe said Groq ACTIVE. Root cause reproduced with the live key and the executor's own 6 KB prompt: the pool picked groq/compound (first confirmed chat model in README order), an agentic model spending ~15k tokens per request against a 30k tokens-per-minute free budget -> HTTP 413/429 on real prompts, and the pool reported only ALL_CANDIDATES_FAILED, which the executor classifies as permanent. Fixed on the branch: official-overrides.json preferred_chat_model (Groq -> openai/gpt-oss-120b, verified via GET /models and a real completion: ~1.5k tokens, ~1.6 s), honoured by registry probe/listing only when the catalog confirms the id as a chat model; 429/413 -> quota_exhausted; per-attempt reason/http_status/timed_out on selector attempts; pool exhaustion text names each candidate and classifies as retryable when every attempt was a budget/transient failure; health record keeps last_failure_reason across a later success; run.js reads the provider from task.json. Proof with the V2 pool code against real Groq and the same prompt: openai/gpt-oss-120b ACTIVE, 2.0 s, structured report present. Re-run after the fixes: free-llm registry 36/0, selector 10/0, pool 17/0, parser 30/0, groq 11/0; othmode-4 60/0; executor 393/0. MERGE: owner-gated (auto-mode classifier refuses gh pr merge even after the recorded review comment); PR #307 MERGEABLE/CLEAN.",
+      "note": "OTHMODE V2 build pass — no rebuild, no migration, no deletion. Reality first: both deploy user units active, live providers truthful (claude/omniroute present, gemini absent, pool 1/1 active), executor router answering advisory research routes with free-llm-pool. Added the ONE edge V1 lacked: run.js — a library command becomes an executor task from OTHMODE (POST /api/othmode/commands/:slug/run): placeholders rendered by the library renderer, provider chosen by the executor router (repo-read; only routes without execution authority are accepted, everything else falls back to free-llm-pool; explicit free-llm-pool/openai-compat allowed), task created through the executor API with report_to_git=false, requested_by=othmode:<who>, max_retries 1, timeout 30-1800 s; the link recorded in a new append-only runs stream of the OTHMODE store; lifecycle read from the executor own status.json/report.json on disk (queued/running/retrying/waiting_for_quota/completed/failed/cancelled) with provider used, model used, attempts, fallback, duration, failure reason (paths blanked), next action; runs are the fifth source of Command History (source=run); GET /runs, /runs/:id, /run-config public like History, with anonymous reads redacted (actor removed, host paths and loopback endpoints masked). Safety: ACTIVE + SAFE/READ_ONLY commands only, secret gate on placeholder values, the executor bearer file read at call time and used only as a loopback header (drop-in deploy/executor-link.conf; disabled with a stated reason when unset). Executor: every task now persists provider_used/model_used/attempts/fallback in status.json and report.json. Free-LLM: new state invalid_credentials for HTTP 401/403 (distinct from unavailable; never selected; Health BLOCKED \"API key invalid\"). UI simplified: navigation COMMAND/TASKS/PROJECTS/AI/STATUS/MORE (every V1 screen kept), plain-language Overview (AI ready?, needs attention?, last run?, health), Run button on command detail through a backward-compatible extension point (MccApp.registerCommandActions), #/runs and #/run/:taskId with self-refreshing status; EN/FR/AR, no innerHTML, no eval. PRE-MERGE SMOKE (real path, live executor, before the merge): two real runs FAILED with PROVIDER_FAILED \"free LLM pool exhausted\" while the health probe said Groq ACTIVE. Root cause reproduced with the live key and the executor own 6 KB prompt: the pool picked groq/compound (first confirmed chat model in README order), an agentic model spending ~15k tokens per request against a 30k tokens-per-minute free budget -> HTTP 413/429 on real prompts, and the pool reported only ALL_CANDIDATES_FAILED, which the executor classifies as permanent. Fixed on the branch: official-overrides.json preferred_chat_model (Groq -> openai/gpt-oss-120b, verified via GET /models and a real completion: ~1.5k tokens, ~1.6 s), honoured by registry probe/listing only when the catalog confirms the id as a chat model; 429/413 -> quota_exhausted; per-attempt reason/http_status/timed_out on selector attempts; pool exhaustion text names each candidate and classifies as retryable when every attempt was a budget/transient failure; health record keeps last_failure_reason across a later success; run.js reads the provider from task.json. Proof with the V2 pool code against real Groq and the same prompt: openai/gpt-oss-120b ACTIVE, 2.0 s, structured report present. Tests on the host as deploy: othmode-4-run 60/0 (new, offline stub executor); othmode-3 94/0; othmode-2 173/0; work-intake 35/0; free-llm parser 30/0, registry 36/0, selector 10/0, pool 17/0, groq-activation 11/0; skill-trust 130/0; governance-invariant 111/0; redact-governance 199/0; stc-2 86/0; stc-ar 50/0; mcc-1 506/0 on mythos_command_center_test; mythos-ai-executor 393/0 (run inside an isolated network namespace because another session test servers held 127.0.0.1:8198/8199 on the host — 17 http-section listen failures outside the namespace were EADDRINUSE, not code). stc-1 80/1: the pre-existing projects/mythos-wp classification gap, outside OTHMODE scope. Secrets: diff scanned, zero credential shapes beyond the documented synthetic vectors.",
       "evidence_status": "NOT_VERIFIED",
       "evidence_note": "commit not in local object database"
     }
@@ -6563,17 +6590,35 @@
   ],
   "previous_review": "REVIEW-2026-09-17-004",
   "changes": {
-    "added": [],
+    "added": [
+      {
+        "id": "TRACK-AI-ORCHESTRATION/OTHMODE-V2",
+        "what": "stage added",
+        "to": "IN_PROGRESS"
+      }
+    ],
     "completed": [],
     "unblocked": [],
     "blocked": [],
     "changed": [],
-    "regressed": [],
+    "regressed": [
+      {
+        "id": "TRACK-AI-ORCHESTRATION",
+        "from": "91%",
+        "to": "83%"
+      }
+    ],
     "superseded": [],
     "new_blockers": [],
     "removed_blockers": [],
     "new_owner_actions": [],
-    "percent_changes": [],
+    "percent_changes": [
+      {
+        "id": "TRACK-AI-ORCHESTRATION",
+        "from": 91,
+        "to": 83
+      }
+    ],
     "new_projects": []
   }
 }
