@@ -365,5 +365,6 @@ module.exports = {
   publicTask: publicTask,
   publicTasks: publicTasks,
   publicHistoryRows: publicHistoryRows,
-  redactString: redactString
+  redactString: redactString,
+  redactValue: redactValue
 };

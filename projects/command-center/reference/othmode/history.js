@@ -20,6 +20,7 @@
 var path = require('path');
 var resolve = require('./resolve.js');
 var tasks = require('./tasks.js');
+var run = require('./run.js');
 
 // db is injected (the api layer passes the real pool; tests pass a stub)
 // so this module never creates its own database dependency.
@@ -100,7 +101,13 @@ async function unified(db, options) {
   try { oth = tasks.historyRows(limit); }
   catch (e) { oth = { available: false, reason: e.message, rows: [] }; }
 
-  var rows = lib.rows.concat(exec.rows).concat(orch.rows).concat(oth.rows);
+  // OTHMODE V2 command runs: the link between a library command and its
+  // executor task, with the executor's live lifecycle folded in.
+  var runs;
+  try { runs = run.historyRows(limit); }
+  catch (e) { runs = { available: false, reason: e.message, rows: [] }; }
+
+  var rows = lib.rows.concat(exec.rows).concat(orch.rows).concat(oth.rows).concat(runs.rows);
 
   if (opts.source) rows = rows.filter(function (r) { return r.source === opts.source; });
   if (opts.status) rows = rows.filter(function (r) { return String(r.status).toUpperCase() === String(opts.status).toUpperCase(); });
@@ -121,7 +128,8 @@ async function unified(db, options) {
       library: lib.available ? 'loaded' : (lib.reason || 'unavailable'),
       executor: exec.available ? 'loaded' : (exec.reason || 'unavailable'),
       orchestrator: orch.available ? 'loaded' : (orch.reason || 'unavailable'),
-      othmode: oth.available ? 'loaded' : (oth.reason || 'unavailable')
+      othmode: oth.available ? 'loaded' : (oth.reason || 'unavailable'),
+      run: runs.available ? 'loaded' : (runs.reason || 'unavailable')
     }
   };
 }

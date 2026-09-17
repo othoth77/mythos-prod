@@ -1,6 +1,6 @@
 {
-  "review_id": "REVIEW-2026-09-17-007",
-  "timestamp": "2026-09-17T22:44:35.286Z",
+  "review_id": "REVIEW-2026-09-17-006",
+  "timestamp": "2026-09-17T22:35:08.975Z",
   "engine_version": "1.0.0",
   "audited_sources": {
     "repository": "https://github.com/othoth77/mythos-prod.git",
@@ -1172,7 +1172,7 @@
         },
         "tests": {
           "status": "DONE",
-          "note": "othmode-3 68/0 · othmode-2 152/0 · governance 99/0 (host, 2026-08-26); no existing test modified by the change · V2 2026-09-17: othmode-4-run 60/0 (new), othmode-3 94/0, othmode-2 173/0, executor 393/0, mcc-1 506/0, free-llm 30/36/10/17/11, skill-trust 130/0, governance 111/0 · V2 pre-merge full-stack: executor 395/0, othmode-4 60/0, mcc-1 506/0, othmode-2 173/0, othmode-3 94/0, free-llm 30/36/10/17/11, skill-trust 130/0, othk-3 63/0, othk-2w 42/0, hostops 36/0, governance 111/0, compression 16/0, stc-2 86/0, stc-ar 50/0 · othmode-5 ui 19/0 (new front-end runtime suite)"
+          "note": "othmode-3 68/0 · othmode-2 152/0 · governance 99/0 (host, 2026-08-26); no existing test modified by the change · V2 2026-09-17: othmode-4-run 60/0 (new), othmode-3 94/0, othmode-2 173/0, executor 393/0, mcc-1 506/0, free-llm 30/36/10/17/11, skill-trust 130/0, governance 111/0 · V2 pre-merge full-stack: executor 395/0, othmode-4 60/0, mcc-1 506/0, othmode-2 173/0, othmode-3 94/0, free-llm 30/36/10/17/11, skill-trust 130/0, othk-3 63/0, othk-2w 42/0, hostops 36/0, governance 111/0, compression 16/0, stc-2 86/0, stc-ar 50/0"
         },
         "deployment": {
           "status": "DONE",
@@ -5776,7 +5776,7 @@
       "type": "vps",
       "reference": "temporary command-center (127.0.0.1:3099) + temporary executor (127.0.0.1:8131) running the PR #307 branch code on vps-4722f0a9, 2026-09-17 22:16-22:29 UTC",
       "date": "2026-09-17",
-      "note": "FULL-STACK VERIFICATION OF THE MERGED BRANCH CODE, run before the merge because merging PR #307 is owner-gated (the auto-mode classifier refuses gh pr merge: the same identity authored and reviewed the PR — separation of duties, not bypassed). Both services were started from the branch worktree against an ISOLATED executor home and the mythos_command_center_test database, with the real Groq credential read through a symlink (never copied): production services and production data were not touched, and the temporary listeners were stopped afterwards (ports 3099/8131/8141 free, both production units still active). (1) REAL END TO END: POST /api/othmode/commands/v2-e2e-smoke/run (READ_ONLY command, session token) -> router answered free-llm-pool (authority false) -> POST /tasks -> the executor daemon dispatched it -> COMPLETED in 1.275 s with provider_used=groq, model_used=openai/gpt-oss-120b, attempts=1, fallback=false and a genuine structured summary; the run appeared in Command History as source=run with status COMPLETED, the provider and the duration. The anonymous read carried no actor, no host path, no loopback endpoint and no hostname, while the authenticated read carried the actor verbatim. (2) CONTROLLED FALLBACK: a stub provider returning HTTP 503 was ranked ahead of Groq (fixture catalog + seeded health, both tracked files restored from Git afterwards) -> provider failure -> fallback -> success: COMPLETED in 1.302 s, attempts=2, fallback=true, provider_used=groq, and status.json/report.json carried the per-candidate list (aaa-fallback-probe degraded \"HTTP 503 ...\" 51 ms, then groq active 200 1203 ms). (3) RETRY POLICY: with only the failing stub keyed, the pool exhausted by transient failures took the task QUEUED -> WAITING_RETRY -> FAILED (retry budget spent, transition_reason names it) instead of the pre-fix immediate permanent PROVIDER_FAILED. That run also exposed a real gap, fixed in the same pass: the retry-exhausted and waiting branches wrote no provider fields, so the four observability fields are now computed once next to the single failure classification and merged into all four outcomes (verified live: the terminal record now carries provider_used=free-llm-pool with the attempt list; executor suite 395/0). (4) PROVIDER STATES against real HTTP responses from a stub: 503 -> degraded with the reason persisted; 401 -> invalid_credentials AND excluded from selection; 413 -> quota_exhausted; 429 -> quota_exhausted; 200 -> active with consecutive_failures cleared while the last_failure timestamp keeps its reason; quota_exhausted stays selectable (last resort). All eight assertions true. (5) LIVE PRODUCTION (still V1, as expected until the merge): both deploy user units active, https://othmode.mythosprod.xyz 200, /api/othmode/history 200, /api/othmode/evolution/events 401 (auth wall intact), /api/othmode/runs and /run-config 404 (V2 not deployed yet), TLS valid to 2026-11-24, providers truthful (claude-code present EXECUTION_AUTHORITY, omniroute present, gemini absent, free-llm-pool 1 configured / 1 active), Groq health active (last_success 22:25:09, 1359 ms), mythos-free-llm-health.timer 30 min and mythos-free-llm-sync.timer daily 04:24 both ticking, Claude CLI 2.1.251 present, Resource Guard enabled and latched CRITICAL by its own hysteresis (avail 1082 MiB < the 1100 MiB exit threshold, PSI 0.97, swap 100 %) so dispatch is deferred until it de-escalates — designed behaviour, not bypassed. DISCLOSURE: while stopping the temporary executor I used an over-broad pkill pattern that also stopped the PRODUCTION mythos-ai-executor.service for about 25 seconds (22:26-22:27 UTC). It was restarted immediately, health ok:true, and no task was in flight (queue had no RUNNING entry) so nothing was interrupted or lost; NRestarts stayed 0 because the unit was stopped, not crashed. Pre-existing suite failures re-baselined against unmodified origin/main and NOT caused by V2: mpi-0-finalization-governance 33/3 (skill registry count 20 vs 26 on-disk directories) and stc-1 80/1 (projects/mythos-wp unclaimed) fail identically on main. (6) FRONT END: a new suite tests/othmode-5-ui-test.js (19/0) loads the real front-end modules under a minimal DOM shim, boots them as a browser does and drives the V2 screens through the hash router: the six-group navigation with every V1 screen still reachable, the plain-language Overview (\"AI Ready — claude-code / free pool (1)\", \"Needs attention 1 — free-llm/groq: Action needed: API key missing or invalid\", \"Last run Completed\", \"System health 10 / 12 Active\"), the Runs list, and the run detail in its completed, running and failed states, each re-rendered in Arabic and French, with every call going to the /api surface and any unhandled front-end rejection failing the suite. This replaces the browser check that is not available to agent sessions on this host. (7) SECURITY: the branch diff and every file it touches scanned for credential shapes (only the documented synthetic vectors); the real Groq key and the executor bearer appear zero times in the tree and zero times in the full history; no session log, output file or helper script written during this verification contains either value; the drop-in template carries a file PATH, never a value; live production API responses (history, providers, free-llm, tasks) carry no host path, no loopback endpoint, no hostname, no token and no key field.",
+      "note": "FULL-STACK VERIFICATION OF THE MERGED BRANCH CODE, run before the merge because merging PR #307 is owner-gated (the auto-mode classifier refuses gh pr merge: the same identity authored and reviewed the PR — separation of duties, not bypassed). Both services were started from the branch worktree against an ISOLATED executor home and the mythos_command_center_test database, with the real Groq credential read through a symlink (never copied): production services and production data were not touched, and the temporary listeners were stopped afterwards (ports 3099/8131/8141 free, both production units still active). (1) REAL END TO END: POST /api/othmode/commands/v2-e2e-smoke/run (READ_ONLY command, session token) -> router answered free-llm-pool (authority false) -> POST /tasks -> the executor daemon dispatched it -> COMPLETED in 1.275 s with provider_used=groq, model_used=openai/gpt-oss-120b, attempts=1, fallback=false and a genuine structured summary; the run appeared in Command History as source=run with status COMPLETED, the provider and the duration. The anonymous read carried no actor, no host path, no loopback endpoint and no hostname, while the authenticated read carried the actor verbatim. (2) CONTROLLED FALLBACK: a stub provider returning HTTP 503 was ranked ahead of Groq (fixture catalog + seeded health, both tracked files restored from Git afterwards) -> provider failure -> fallback -> success: COMPLETED in 1.302 s, attempts=2, fallback=true, provider_used=groq, and status.json/report.json carried the per-candidate list (aaa-fallback-probe degraded \"HTTP 503 ...\" 51 ms, then groq active 200 1203 ms). (3) RETRY POLICY: with only the failing stub keyed, the pool exhausted by transient failures took the task QUEUED -> WAITING_RETRY -> FAILED (retry budget spent, transition_reason names it) instead of the pre-fix immediate permanent PROVIDER_FAILED. That run also exposed a real gap, fixed in the same pass: the retry-exhausted and waiting branches wrote no provider fields, so the four observability fields are now computed once next to the single failure classification and merged into all four outcomes (verified live: the terminal record now carries provider_used=free-llm-pool with the attempt list; executor suite 395/0). (4) PROVIDER STATES against real HTTP responses from a stub: 503 -> degraded with the reason persisted; 401 -> invalid_credentials AND excluded from selection; 413 -> quota_exhausted; 429 -> quota_exhausted; 200 -> active with consecutive_failures cleared while the last_failure timestamp keeps its reason; quota_exhausted stays selectable (last resort). All eight assertions true. (5) LIVE PRODUCTION (still V1, as expected until the merge): both deploy user units active, https://othmode.mythosprod.xyz 200, /api/othmode/history 200, /api/othmode/evolution/events 401 (auth wall intact), /api/othmode/runs and /run-config 404 (V2 not deployed yet), TLS valid to 2026-11-24, providers truthful (claude-code present EXECUTION_AUTHORITY, omniroute present, gemini absent, free-llm-pool 1 configured / 1 active), Groq health active (last_success 22:25:09, 1359 ms), mythos-free-llm-health.timer 30 min and mythos-free-llm-sync.timer daily 04:24 both ticking, Claude CLI 2.1.251 present, Resource Guard enabled and latched CRITICAL by its own hysteresis (avail 1082 MiB < the 1100 MiB exit threshold, PSI 0.97, swap 100 %) so dispatch is deferred until it de-escalates — designed behaviour, not bypassed. DISCLOSURE: while stopping the temporary executor I used an over-broad pkill pattern that also stopped the PRODUCTION mythos-ai-executor.service for about 25 seconds (22:26-22:27 UTC). It was restarted immediately, health ok:true, and no task was in flight (queue had no RUNNING entry) so nothing was interrupted or lost; NRestarts stayed 0 because the unit was stopped, not crashed. Pre-existing suite failures re-baselined against unmodified origin/main and NOT caused by V2: mpi-0-finalization-governance 33/3 (skill registry count 20 vs 26 on-disk directories) and stc-1 80/1 (projects/mythos-wp unclaimed) fail identically on main.",
       "evidence_status": "RECORDED"
     }
   ],
@@ -6607,19 +6607,37 @@
       "authority": "historical evidence only — reconcile before trusting"
     }
   ],
-  "previous_review": "REVIEW-2026-09-17-006",
+  "previous_review": "REVIEW-2026-09-17-005",
   "changes": {
-    "added": [],
+    "added": [
+      {
+        "id": "TRACK-AI-ORCHESTRATION/OTHMODE-V2",
+        "what": "stage added",
+        "to": "IN_PROGRESS"
+      }
+    ],
     "completed": [],
     "unblocked": [],
     "blocked": [],
     "changed": [],
-    "regressed": [],
+    "regressed": [
+      {
+        "id": "TRACK-AI-ORCHESTRATION",
+        "from": "91%",
+        "to": "83%"
+      }
+    ],
     "superseded": [],
     "new_blockers": [],
     "removed_blockers": [],
     "new_owner_actions": [],
-    "percent_changes": [],
+    "percent_changes": [
+      {
+        "id": "TRACK-AI-ORCHESTRATION",
+        "from": 91,
+        "to": 83
+      }
+    ],
     "new_projects": []
   }
 }

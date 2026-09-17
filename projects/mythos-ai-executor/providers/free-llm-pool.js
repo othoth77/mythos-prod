@@ -51,11 +51,26 @@ function run(task, prompt, _sessionId, _mode, opts) {
         session_id: null, started_pid: null
       };
     }
+    // OTHMODE V2: say WHY every candidate failed, in a shape lib/quota.js can
+    // classify. When every attempt was a per-minute budget (413/429) or a
+    // transient error, the executor must retry/wait, not mark the task
+    // permanently FAILED — the second real run of the day proved this:
+    // Groq answered 413 on a 6 KB prompt and the daemon wrote PROVIDER_FAILED.
+    var attempts = result.attempts || [];
+    var detail = attempts.map(function (a) {
+      return a.provider_id + '=' + a.status + (a.reason ? ' (' + a.reason + ')' : '');
+    }).join('; ');
+    var allBudget = attempts.length > 0 && attempts.every(function (a) { return a.status === 'quota_exhausted' || a.status === 'degraded'; });
+    var allTimedOut = attempts.length > 0 && attempts.every(function (a) { return a.timed_out; });
+    var headline = 'FREE_LLM_POOL_EXHAUSTED: ' + result.reason +
+      (allBudget ? ' — rate limit or transient error on every free candidate, retry later' : '') +
+      (detail ? ' — ' + detail : '');
+    var totalMs = attempts.reduce(function (n, a) { return n + (a.duration_ms || 0); }, 0);
     return {
-      exit_code: 1, signal: null, timed_out: false, duration_ms: null,
-      stdout: '', stderr: 'FREE_LLM_POOL_EXHAUSTED: ' + result.reason,
-      parsed: { is_error: true, result: 'free LLM pool exhausted: ' + result.reason },
-      attempts: result.attempts,
+      exit_code: 1, signal: null, timed_out: allTimedOut, duration_ms: attempts.length ? totalMs : null,
+      stdout: '', stderr: headline,
+      parsed: { is_error: true, result: 'free LLM pool exhausted: ' + headline.slice('FREE_LLM_POOL_EXHAUSTED: '.length) },
+      attempts: attempts,
       session_id: null, started_pid: null
     };
   });

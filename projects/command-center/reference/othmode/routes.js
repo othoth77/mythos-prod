@@ -28,6 +28,7 @@ var work = require('./work.js');
 var sessions = require('./sessions.js');
 var activation = require('./activation.js');
 var tasks = require('./tasks.js');
+var run = require('./run.js');
 
 function sendJson(res, status, body) {
   res.writeHead(status, {
@@ -39,7 +40,10 @@ function sendJson(res, status, body) {
 }
 
 function inputError(res, err) {
-  if (err && (err.code === 'OTHMODE_EVOLUTION_INPUT' || err.code === 'OTHMODE_HEALTH_INPUT' || err.code === 'OTHMODE_TASK_INPUT' || err.code === 'OTHMODE_WORK_INPUT')) {
+  if (err && err.code === 'OTHMODE_RUN_NOT_FOUND') {
+    return sendJson(res, 404, { error: 'not found' });
+  }
+  if (err && (err.code === 'OTHMODE_EVOLUTION_INPUT' || err.code === 'OTHMODE_HEALTH_INPUT' || err.code === 'OTHMODE_TASK_INPUT' || err.code === 'OTHMODE_WORK_INPUT' || err.code === 'OTHMODE_RUN_INPUT')) {
     return sendJson(res, 400, { error: err.message });
   }
   if (err && err.code === 'OTHMODE_STORE_ABSENT') {
@@ -62,6 +66,9 @@ function enforceNoSecrets(res, body) {
   });
   if (body && Array.isArray(body.evidence_texts)) fields.evidence = body.evidence_texts.join('\n');
   if (body && body.data) fields.data = JSON.stringify(body.data);
+  // Command runs: placeholder values become part of the instruction sent to
+  // a provider — scanned like every other write.
+  if (body && body.values) fields.values = JSON.stringify(body.values);
   // Task Reports carry structured sections: scan the WHOLE payload — a
   // credential must not enter the persistent record through any field.
   if (body && body.sections) fields.sections = JSON.stringify(body.sections);
@@ -258,6 +265,42 @@ function buildRoutes(db, auth) {
           // and must not be reported as a bad request.
           return sendJson(res, 503, { error: (e && e.message) || 'work intake unavailable' });
         });
+    } },
+
+    // ── Command runs (OTHMODE V2): Command → executor task → provider ──────
+    // Creating a run is authenticated + secret-gated; reading runs is public
+    // like Command History (the executor's own paths are blanked on read).
+    { method: 'GET', auth: false, pattern: /^\/api\/othmode\/run-config$/, handler: function (req, res) {
+      var cfg = run.config();
+      return sendJson(res, 200, {
+        enabled: cfg.enabled,
+        reason: cfg.enabled ? null : run.disabledReason(cfg),
+        project: cfg.project,
+        providers: run.PROVIDER_CHOICES,
+        task_types: run.TASK_TYPES,
+        runnable_safety: run.RUNNABLE_SAFETY,
+        rule: 'Only ACTIVE commands with safety SAFE or READ_ONLY run here, always as advisory tasks (repo-read, no Git report). Repository changes go through work intake.'
+      });
+    } },
+    { method: 'POST', auth: true, pattern: /^\/api\/othmode\/commands\/([^/]+)\/run$/, handler: function (req, res, m, q, body) {
+      if (!enforceNoSecrets(res, body)) return;
+      return run.startRun(db, decodeURIComponent(m[1]), body || {}, auth.identityFromRequest(req))
+        .then(function (started) { return sendJson(res, 201, started); })
+        .catch(function (e) {
+          if (e && (e.code === 'OTHMODE_RUN_INPUT' || e.code === 'OTHMODE_RUN_NOT_FOUND' || e.code === 'OTHMODE_STORE_ABSENT')) return inputError(res, e);
+          return sendJson(res, 503, { error: 'command run unavailable: ' + ((e && e.message) || 'executor error') });
+        });
+    } },
+    { method: 'GET', auth: false, pattern: /^\/api\/othmode\/runs$/, handler: function (req, res, m, q) {
+      var list = run.listRuns(q.limit);
+      if (!auth.identityFromRequest(req)) list.runs = list.runs.map(function (r) { return tasks.redactValue(run.publicRun(r)); });
+      return sendJson(res, 200, list);
+    } },
+    { method: 'GET', auth: false, pattern: /^\/api\/othmode\/runs\/([^/]+)$/, handler: function (req, res, m) {
+      var found = run.getRun(decodeURIComponent(m[1]));
+      if (!found) return sendJson(res, 404, { error: 'not found' });
+      if (!auth.identityFromRequest(req)) found = tasks.redactValue({ run: run.publicRun(found.run), lifecycle: found.lifecycle });
+      return sendJson(res, 200, found);
     } },
 
     // ── Memory (read-first; ingestion stays on the operator CLI) ─────────
