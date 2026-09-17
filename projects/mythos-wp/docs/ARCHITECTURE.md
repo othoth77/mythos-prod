@@ -1,4 +1,4 @@
-# MYTHOS WP V2 — Architecture
+# MYTHOS WP V2.1 — Architecture
 
 Companion documents: `README.md`, `DEPLOYMENT.md`, `SECURITY.md`, `WHATSAPP_SETUP.md`, `AI_AGENTS.md`, `V2_BUILD_CONTRACT.md` (internal API contract). Repo-level history of the communication layer: `docs/MYTHOS_COMMUNICATION_OS_ARCHITECTURE.md`.
 
@@ -23,12 +23,14 @@ Every mutation is audited (`audit.js` → `wp_audit_events`), every internal err
 | Module | Role |
 |---|---|
 | `server.js` | HTTP server, static map, security headers, route dispatch, platform boot (`bootPlatform`: integrations/agents/automations defaults, automations bus attach + sweep timer, health scheduler) |
-| `api.js` | route table: session, meta, health, generic resources (`/api/r/:resource`), users, project dashboard, Communication OS (conversations, messages, contacts, tags, SSE), providers, routing rules, receiver status, auto-reply status/simulate, audit history; concatenates the three V2 route modules |
+| `api.js` | route table: session, meta, health, generic resources (`/api/r/:resource`), the V2.1 project routes (`POST /api/projects`, `GET/PUT /api/projects/:p/ai`, `GET /api/projects/:p/numbers`), users, project dashboard, Communication OS (conversations, messages, contacts, tags, SSE), providers, routing rules, receiver status, auto-reply status/simulate, audit history; concatenates the three V2 route modules |
 | `api-util.js` | `projectFrom(req, params)` (resolves `?project=` / `:project` and enforces project access → 404), `accessibleProjects`, `auditFor`, `q` |
 | `auth.js` | scrypt hashes, users file, `verifyCredentials` (wp_users first, file second), in-memory sessions (8 h absolute), CSRF check, login throttle, roles and ranks |
 | `users.js` | `wp_users` / `wp_user_projects`: list, import from the users file, upsert, password, project grants |
-| `resources.js` + `crud.js` | declarative registry (fields, validation, permissions, filters) → generic list/get/create/update/delete with audit. V2 registry: knowledge, rules, handoffs, inboxes (number ↔ project links), inbox_members, audit, projects, users, tags. **No catalogue resource exists any more** |
-| `db.js` | one `pg` pool for `mythos_wp` (`MYTHOS_WP_DB_*`); `catalog()` (per-project catalogue pool named by `wp_projects.catalog_dsn_env`) is kept for rollback and unused by V2 |
+| `resources.js` + `crud.js` | declarative registry (fields, validation, permissions, filters) → generic list/get/create/update/delete with audit. Registry: knowledge, rules, handoffs, inboxes (number ↔ project links), inbox_members, audit, projects (sections Project / Advanced / Audit; `catalog_dsn_env` / `catalog_schema` are `hidden` + `readonly` and absent from `/api/meta`), users, tags. **No catalogue resource exists** |
+| `projects.js` | V2.1: `createSimple()` (the New project form: generated slug, status active, Kitchen attached for Auto, optional number link + agent binding, warnings instead of rollback), `aiGet()` / `aiPut()` (Project → AI: project-level binding + `settings.ai_mode`), `numbersOf()`, `slugify()` |
+| `projects-store.js` | cached `wp_projects` rows; `resolve(id)` → `{ project, wpPool }` (the V1 second pool is gone) |
+| `db.js` | one `pg` pool for `mythos_wp` (`MYTHOS_WP_DB_*`). The V1 per-project catalogue pool (`catalog()`) was removed in V2.1; the Kitchen is reached over HTTP only |
 | `migrate.js` | additive SQL migrations, one transaction each, ledger `wp_schema_migrations` |
 | `audit.js` | `record()` (secret-shaped keys dropped, values redacted, bounded), `history()`; action vocabulary in `ACTIONS` |
 | `kitchen.js` | read-only client of the MYTHOS AUTO Shared Kitchen, contract 1.3.0 (see §6) |
@@ -36,7 +38,7 @@ Every mutation is audited (`audit.js` → `wp_audit_events`), every internal err
 | `health.js` | health center: runs every check, persists `wp_health_checks` (last 2000 rows), scheduler |
 | `automations.js` | bus subscriber that runs `wp_automations` (project rows + global rows, in `position` order) and journals `wp_automation_runs`; `sweepInactive` every 10 min; modules it needs (handoff, agents, assistant) are required lazily → action `skipped` with `MODULE_UNAVAILABLE` when absent |
 | `notes.js` | `wp_notes` on contacts / projects |
-| `search.js`, `dashboard.js` | global search groups and dashboard counters (WhatsApp, projects, AI, infrastructure, alerts) |
+| `search.js`, `dashboard.js` | global search (V2.1: only the projects / conversations / contacts groups are returned — the others are computed and filtered out) and dashboard counters (WhatsApp, projects with `whatsapp[]` + `ai { agent, mode }` per activity item, AI, infrastructure, alerts) |
 | `autoreply.js` | status + `simulate()` of the #173 engine with the panel ports connected (forced dry-run) |
 | `comms/ports.js` | the #173 business-data ports (vehicle, parts, price, stock) implemented over the Kitchen; `order` not connected |
 | `comms/provider.js` | provider contract + registry (`describe, capabilities, parseInbound, sendText, fetchMedia, verifyWebhook, health, payloadHash, redactDeep`) |
@@ -52,14 +54,14 @@ Every mutation is audited (`audit.js` → `wp_audit_events`), every internal err
 | `comms/reconcile.js` | delivery reconciliation alarm, inbox heartbeat, dead-letter replay |
 | `comms/assistant.js` | AI runs on a conversation: `suggest` (engine-173 or llm with fallback to the template path), `decide`, `markSent`, `autoReply` (every policy gate, `client_ref auto-<run id>`), `test` (synthetic message, no run row, no send), `attach` (bus listener: resolved agent → autoReply / suggest / nothing; legacy `settings.ai_suggest` when no agent is bound) |
 | `comms/bus.js`, `comms/events.js` | in-process event bus (`comms` channel) and neutral event names |
-| `ai/agents.js` | `wp_agents` / `wp_project_agents`, `resolveForConversation`, `effectiveMode`, default agent |
+| `ai/agents.js` | `wp_agents` / `wp_project_agents`, `resolveForConversation`, `effectiveMode(agent, inbox, project)` (agent → project `settings.ai_mode` → number link, restrict only), default agent |
 | `ai/tools.js` | least-privilege read-only tool registry (Kitchen, knowledge, conversation history, handoff flag) |
 | `ai/llm.js` | completion over the free-LLM pool, JSON tool protocol, #173 `factGuard` |
 | `comms/templates.js` | `wp_templates`: render (`{{1}}` / `{{name}}`, missing listed), CRUD, Meta sync (412 `META_CLOUD_NOT_CONFIGURED` without token file + WABA id), test send through `outbound.send` (`client_ref tpl-<id>-<ts>`) |
 | `comms/meta-mcp.js` | descriptor + HTTPS reachability probe of the Meta WhatsApp Business Tools MCP (18 documented tools); no tool invocation |
 | `comms/contacts360.js` | cross-project contact list grouped by phone identity and the 360 document (persons, conversations, timeline, counters; masked unless admin) |
 | `routes/whatsapp.js`, `routes/ai.js`, `routes/platform.js` | the V2 route arrays concatenated by `api.js` (paths and roles as in `V2_BUILD_CONTRACT.md`; one addition: `POST /api/projects/:p/comms/conversations/:id/auto-reply`, manager) |
-| `web/**` | shell (`index.html`), `app.js` (nav: Dashboard, Inbox, Contacts, Projects, WhatsApp, AI, Automations, Integrations, Health, Audit, Settings), views, `wp.css` on the brand tokens |
+| `web/**` | shell (`index.html`), `app.js` (nav is exactly Dashboard, Inbox, Projects, WhatsApp, Settings; old hashes redirect), views (`dashboard`, `inbox` + `contacts`, `projects`, `whatsapp`, `ai` (agent page + panels), `settings`, generic `resource` / `record`), `command.js` (Ctrl / ⌘ K), `wp.css` on the brand tokens |
 
 ## 3. Data model
 
@@ -81,7 +83,7 @@ wp_projects ──┬─< wp_user_projects >── wp_users
               └─  wp_integrations, wp_health_checks, wp_inbound_events, wp_reserved_accounts, wp_audit_events, wp_schema_migrations
 ```
 
-Retired but kept for rollback (0 rows in production, no code path writes them): `wp_product_commercial`, `wp_stock`, and the columns `wp_projects.catalog_dsn_env` / `catalog_schema`. Product, price and stock are read from the Kitchen (§6).
+Retired but kept for rollback: `wp_product_commercial`, `wp_stock` (0 rows in production, no code path writes them) and the **hidden legacy columns** `wp_projects.catalog_dsn_env` / `catalog_schema` (hidden and read-only in the `projects` resource, written only by the CLI `seed-project` arguments, read by nothing since the catalogue pool was removed in V2.1). Product, price and stock are read from the Kitchen (§6). V2.1 adds no migration.
 
 Per-migration summary:
 
@@ -128,7 +130,7 @@ WP V2 owns no product data. An automotive project reads the MYTHOS AUTO Shared K
 - routes: `/api/health`, `/api/products?q=&ref=&category=&brand_car=&limit=&offset=`, `/api/products/:uid`, `/api/vehicle-models`, `/api/vehicle-models/:id/motorizations`, `/api/brands`, `/api/vehicle-brands` (1.1), `/api/part-categories` (1.2), `/api/quotes?uids=` (1.1);
 - 404 on a capability route = older Kitchen → degrade (`{ ok:true, degraded:true, empty }`); any other failure → `{ ok:false, kind: UNREACHABLE | TIMEOUT | BAD_STATUS | BAD_PAYLOAD }`; timeout 3 s;
 - availability is normalised once to `IN_STOCK | ON_ORDER | UNAVAILABLE | UNKNOWN`; there is no quantity anywhere;
-- consumers: `comms/ports.js` (engine-173 facts), `ai/tools.js` (`kitchen.*` tools), `/api/projects/:p/kitchen/*` passthrough, search.
+- consumers: `comms/ports.js` (engine-173 facts), `ai/tools.js` (`kitchen.*` tools), `/api/projects/:p/kitchen/*` passthrough (the Catalogue tab of an Auto project). Search no longer surfaces products (V2.1).
 
 ## 7. Event bus and background workers
 

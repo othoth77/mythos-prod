@@ -1,6 +1,6 @@
-# MYTHOS WP V2 — WhatsApp setup
+# MYTHOS WP V2.1 — WhatsApp setup
 
-Numbers, links, routing, receiver, providers. Companion: `ARCHITECTURE.md` §4, `SECURITY.md`, `OPERATIONS.md`, `TROUBLESHOOTING.md`, `MCP.md`; repo-level runbook `docs/MYTHOS_COMMUNICATION_OS_OPERATIONS.md` (pairing, `customer-instance.sh`, `qr-live.sh`).
+Numbers, links, routing, receiver, providers. In the panel, **WhatsApp** has three tabs: **Numbers** (one table, §2), **Templates** (§8) and **Advanced** (admin only: accounts, add a number manually, routing rules + simulate + drops, receiver and providers, Meta WhatsApp MCP). A project's own numbers and switches are also on **Project → WhatsApp**. Companion: `ARCHITECTURE.md` §4, `SECURITY.md`, `OPERATIONS.md`, `TROUBLESHOOTING.md`, `MCP.md`; repo-level runbook `docs/MYTHOS_COMMUNICATION_OS_OPERATIONS.md` (pairing, `customer-instance.sh`, `qr-live.sh`).
 
 ## 1. The model
 
@@ -22,9 +22,21 @@ Two link modes:
 | `dedicated` | the number serves exactly one project; every inbound goes to that inbox (COMMS-1..9 behaviour) | the only link on the instance (`wp_inboxes_dedicated_uidx`) |
 | `shared` | the number serves several projects; an explicit routing decision is required for every inbound; unrouted = DROP | `account_ref` mandatory; no dedicated neighbour; a reserved (notification) account only with the audited `allow_personal_account` opt-in; `mythos-bridge` allowed only in shared mode |
 
-## 2. Numbers: discover, register, check
+## 2. Numbers: the table, discover, register, check
 
-**Sync** (admin) — `POST /api/whatsapp/numbers/sync` (UI: WhatsApp → Numbers → Sync; module `comms/numbers.js#sync`):
+**The numbers table** (WhatsApp → Numbers, every role) — one row per number:
+
+| Column | Meaning |
+|---|---|
+| Number | masked digits (`***` + last 4) and the display name (or the instance) |
+| Status | the provider connection: connected (`open`), connecting (`pairing`), disconnected (`closed`), error, unknown |
+| Projects | the linked projects (chips); *Not linked* when none |
+| Connection | **Receiving** when the instance webhook points at the receiver (`webhook_state ok`), otherwise **Not receiving** |
+| AI | **Active** when at least one link has its AI switch on, **Off** otherwise |
+| Last message | last event on the number |
+| actions | **Check** (manager), **Link to project** (admin), **More** — the per-project link cards with the switches **Receiving · Replies · AI**, *Project* (opens Project → WhatsApp), **Unlink**, and **Edit number** (admin) |
+
+**Sync all** (admin) — `POST /api/whatsapp/numbers/sync` (the button above the table; also the command-menu action *Sync WhatsApp numbers*; module `comms/numbers.js#sync`):
 
 1. `GET <MYTHOS_WP_EVOLUTION_BASE_URL>/instance/fetchInstances` with the key from `MYTHOS_WP_EVOLUTION_API_KEY_FILE` (412 when the file is absent);
 2. every instance is upserted into `wp_phone_numbers` (`provider = evolution`, `status` from `connectionStatus` → `open | closed | pairing | error | unknown`, `phone_ref` from `ownerJid` digits, `display_name` from the profile name, `health_state` ok / warning / disconnected);
@@ -33,17 +45,17 @@ Two link modes:
 
 Sync **never creates an instance and never changes a webhook** — those are owner steps with `ops/whatsapp/evolution/customer-instance.sh`.
 
-**Manual registration** (admin) — `POST /api/whatsapp/numbers { provider, instance, phone_ref?, display_name, is_personal?, account_id? }` → 201; instance shape `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`; a Cloud API number uses the `phone_number_id` as instance. `PATCH /api/whatsapp/numbers/:id` (admin) changes name, digits, `is_personal`, account, status, settings. `DELETE` (owner) is refused with 409 while links exist.
+**Manual registration** (admin) — WhatsApp → Advanced → **Add a number manually**, or `POST /api/whatsapp/numbers { provider, instance, phone_ref?, display_name, is_personal?, account_id? }` → 201; instance shape `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`; a Cloud API number uses the `phone_number_id` as instance. `PATCH /api/whatsapp/numbers/:id` (admin; **Edit number** under More) changes name, digits, `is_personal`, account, status, settings. `DELETE` (owner) is refused with 409 while links exist.
 
-**Check** (manager) — `POST /api/whatsapp/numbers/:id/check` → `provider.health({ instance })` (Evolution: `GET /instance/connectionState/:instance`) → updates `status`, `health_state`, and the `status` of every inbox on the instance.
+**Check** (manager, the row button) — `POST /api/whatsapp/numbers/:id/check` → `provider.health({ instance })` (Evolution: `GET /instance/connectionState/:instance`) → updates `status`, `health_state`, and the `status` of every inbox on the instance.
 
 **List** — `GET /api/whatsapp/numbers` returns `phone_masked` (`***` + last 4) for everyone; `phone_ref` (full digits) only for admin+; plus `projects: [{ project_id, inbox_id, account_mode, inbound_enabled, outbound_enabled, ai_mode, status }]`.
 
-Accounts: `GET/POST /api/whatsapp/accounts` (any / admin), `PATCH` (admin), `DELETE` (owner); `external_ref` = Meta Business / WABA id or `evolution:<host>`; unique per `(provider, external_ref)`.
+Accounts (WhatsApp → Advanced → **Accounts**): `GET/POST /api/whatsapp/accounts` (any / admin), `PATCH` (admin), `DELETE` (owner); `external_ref` = Meta Business / WABA id or `evolution:<host>`; unique per `(provider, external_ref)`.
 
 ## 3. Linking a number to one or several projects
 
-`POST /api/whatsapp/numbers/:id/projects { project_id, display_name?, account_mode: 'dedicated' | 'shared', allow_personal_account?: true }` (admin) → 201 `{ inbox }` (`comms/numbers.js#link`). Rules, in order:
+UI: **Link to project** on the number row (dialog: Project · Use = *This project only* (`dedicated`) | *Shared between projects (routing rules decide)* (`shared`) · checkbox *Allow a personal / already-used number*), or **Project → WhatsApp → Link a number** (a free number, always `dedicated`), or the WhatsApp field of the **New project** form (`PROJECTS.md` §2). API: `POST /api/whatsapp/numbers/:id/projects { project_id, display_name?, account_mode: 'dedicated' | 'shared', allow_personal_account?: true }` (admin) → 201 `{ inbox }` (`comms/numbers.js#link`). Rules, in order:
 
 | Request | Result |
 |---|---|
@@ -55,9 +67,9 @@ Accounts: `GET/POST /api/whatsapp/accounts` (any / admin), `PATCH` (admin), `DEL
 | `shared` and the number `is_personal` | 412 unless `allow_personal_account: true`; then created through `routing.createSharedInbox` (audited `shared_account_optin`) |
 | `shared`, ordinary number | inbox created `shared` |
 
-Every new inbox starts with `inbound_enabled = false` (dry-run), `outbound_enabled = false`, `ai_mode = inherit`. Switch them on per inbox with `PATCH /api/projects/:p/inboxes/:inbox_id { inbound_enabled, outbound_enabled, ai_mode, display_name, settings }` (admin, audited). `allow_personal_account` cannot be toggled through this PATCH: it is a creation-time opt-in only.
+Every new inbox starts with `inbound_enabled = false` (dry-run), `outbound_enabled = false`, `ai_mode = inherit`. In the panel these are the three switches of a link — **Receiving** (`inbound_enabled`), **Replies** (`outbound_enabled`), **AI** (`ai_mode` on = `inherit`, off = `off`) — under More on the number row and on Project → WhatsApp. API: `PATCH /api/projects/:p/inboxes/:inbox_id { inbound_enabled, outbound_enabled, ai_mode, display_name, settings }` (admin, audited); `ai_mode` also accepts `suggest` / `auto`, which restrict the agent's mode (`AI_AGENTS.md` §2). `allow_personal_account` cannot be toggled through this PATCH: it is a creation-time opt-in only.
 
-Unlink: `DELETE /api/whatsapp/numbers/:id/projects/:inbox_id` (admin) → 409 while the inbox has conversations (nothing is archived automatically); resolve/archive them first.
+Unlink (**Unlink** on the link card): `DELETE /api/whatsapp/numbers/:id/projects/:inbox_id` (admin) → 409 while the inbox has conversations (nothing is archived automatically); resolve/archive them first.
 
 To move a number from one project to several: unlink the dedicated inbox (requires zero conversations) and relink every project as `shared`, then add routing rules (§5) **before** enabling `inbound_enabled` on any of the shared inboxes — until a rule exists every message is dropped.
 
@@ -85,9 +97,9 @@ To move a number from one project to several: unlink the dedicated inbox (requir
 
 Rules never route across projects or instances (a rule whose inbox is not on the instance or not in the rule's project is `RULE_MALFORMED` and skipped). Disabled rules are absent (deny).
 
-**Managing rules** — UI: WhatsApp → Routing, or per project. API: `GET /api/projects/:p/comms/routes` (any), `POST` (admin) `{ inbox_id, kind, identity_kind?, identity_value | entry, opt_in_code?, ttl_hours?, expires_at?, priority?, note? }`, `POST …/routes/:id/enable|disable` (admin), `DELETE …/routes/:id` (admin, `routes/whatsapp.js` → `routing.removeRule`, audited without the identity value). CLI: `bin/mythos-wp comms route list|add|enable|disable|drops|shared-inbox …` (`OPERATIONS.md`). Rules apply to shared inboxes only (412 on a dedicated inbox). The API lists identity rules with `identity_tail` (last 4) only; keyword/default rules show their `entry`.
+**Managing rules** — UI: WhatsApp → Advanced → **Routing rules** (pick a project), or Project → Advanced → Routing rules; each shows the rules table (priority, kind, match, number, opt-in state, note, Enabled switch, Delete), **Add rule** (admin), a **Simulate routing** card (manager, *never writes*) and **Recent routing drops** (admin, hashes only). API: `GET /api/projects/:p/comms/routes` (any), `POST` (admin) `{ inbox_id, kind, identity_kind?, identity_value | entry, opt_in_code?, ttl_hours?, expires_at?, priority?, note? }`, `POST …/routes/:id/enable|disable` (admin), `DELETE …/routes/:id` (admin, `routes/whatsapp.js` → `routing.removeRule`, audited without the identity value). CLI: `bin/mythos-wp comms route list|add|enable|disable|drops|shared-inbox …` (`OPERATIONS.md`). Rules apply to shared inboxes only (412 on a dedicated inbox). The API lists identity rules with `identity_tail` (last 4) only; keyword/default rules show their `entry`.
 
-**Dry-run** — `POST /api/whatsapp/routing/simulate { provider, instance, from (digits), text }` (manager) → `{ routed, mode, reason, project_id, inbox_id, rule_id, personal, would_activate }` — no write, no activation, no ledger.
+**Dry-run** (the Simulate routing card) — `POST /api/whatsapp/routing/simulate { provider, instance, from (digits), text }` (manager) → `{ routed, mode, reason, project_id, inbox_id, rule_id, personal, would_activate }` — no write, no activation, no ledger.
 
 **Drops** — `GET /api/whatsapp/routing-drops` (admin; alias of `/api/comms/routing-drops`) → `{ id, at, provider, instance, reason, has_identity_hash }`. The hash itself is never returned.
 
@@ -131,6 +143,8 @@ The reserved account `+216…660` (instance `mythos-bridge`) is the MYTHOS notif
 
 ## 6. Receiver and webhook
 
+UI: WhatsApp → Advanced → **Receiver and providers** (admin) — the receiver card (route, enabled, webhook token present / missing, max body, providers, inboxes with persisting / dry-run) and, per provider, the capability table and the credential-present badge (`GET /api/comms/receiver`, `GET /api/comms/providers`).
+
 Endpoint `POST /hooks/evolution` (and `GET|POST /hooks/meta_cloud`) on the panel process; mounted only when `MYTHOS_WP_RECEIVER_ENABLED=1`; status via `GET /api/comms/receiver` (enabled, token presence, max body, providers, capabilities, inbox rows — never the token).
 
 Evolution (unsigned): the shared token from `MYTHOS_WP_WEBHOOK_TOKEN_FILE` (0600, ≥ 16 chars) must be presented as `?token=` or header `x-mythos-webhook-token`; compared in constant time **before the body is read**; missing file → 503 `receiver_not_configured`, wrong token → 401. The per-instance webhook is set by `ops/whatsapp/evolution/customer-instance.sh` to `http://127.0.0.1:8170/hooks/evolution` with the header, events `MESSAGES_UPSERT`, `MESSAGES_UPDATE`, `CONNECTION_UPDATE`, `byEvents=false`, `base64=false`. **Sync** reports whether each instance's webhook points at the receiver.
@@ -154,8 +168,8 @@ Connection events set `wp_inboxes.status` for every inbox on the instance and pu
 | Health | `GET /instance/connectionState/:instance` | `GET /{phone_number_id}?fields=display_phone_number,verified_name,quality_rating` |
 | Limitations | unofficial; cold outbound to unknown contacts refused by policy; `LOG_BAILEYS=debug` forbidden in production (leaks Signal keys) | needs Meta approval per template; media outbound not implemented |
 
-Switching a number to the Cloud API is an owner project: create the three 0600 files, set the variables, enable the `meta-cloud-api` integration row, register the number with `provider: meta_cloud` and `instance = phone_number_id`, put the WABA id on its account, point Meta's webhook at `https://wp.mythosprod.xyz/hooks/meta_cloud`, verify the subscription, then link projects as usual. The official Meta MCP helps with the Meta-side steps but is not the messaging path (`MCP.md`).
+Switching a number to the Cloud API is an owner project: create the three 0600 files, set the variables, enable the `meta-cloud-api` integration row, register the number with `provider: meta_cloud` and `instance = phone_number_id`, put the WABA id on its account, point Meta's webhook at `https://wp.mythosprod.xyz/hooks/meta_cloud`, verify the subscription, then link projects as usual. The official Meta MCP helps with the Meta-side steps but is not the messaging path (`MCP.md`; its card is on Settings → Integrations and under WhatsApp → Advanced).
 
 ## 8. Templates (`comms/templates.js`)
 
-`wp_templates` (project-scoped or shared, optional number, name `^[a-z0-9_]{1,120}$`, `{{1}}` positional / `{{name}}` named placeholders; local drafts are sent verbatim by unofficial providers, Meta-synced rows carry `provider meta_cloud`, `provider_template_id` and the WABA status). `GET /api/templates?project=` (any), `POST` (manager), `PATCH` (manager), `DELETE` (admin), `POST …/:id/preview { variables }` (any) → `{ text, missing, used }` (a missing placeholder is left in place), `POST …/:id/sync` and `POST /api/templates/sync-all` (admin) → Meta Graph `/{waba_id}/message_templates` when the Cloud API is configured (token file **and** a `meta_cloud` account with `external_ref` = WABA id), else 412 `META_CLOUD_NOT_CONFIGURED`, `POST …/:id/test { conversation_id, variables }` (manager) → rendered and sent through `outbound.send` (`client_ref tpl-<id>-<ts>`, i.e. the normal policy path: inbox open + `outbound_enabled`, hourly cap) into an existing conversation.
+UI: WhatsApp → **Templates** (project picker, **New template** for manager+, **Sync with Meta** for admin; a row opens the preview drawer with variables, Preview, Sync with Meta and **Test send…**). `wp_templates` (project-scoped or shared, optional number, name `^[a-z0-9_]{1,120}$`, `{{1}}` positional / `{{name}}` named placeholders; local drafts are sent verbatim by unofficial providers, Meta-synced rows carry `provider meta_cloud`, `provider_template_id` and the WABA status). `GET /api/templates?project=` (any), `POST` (manager), `PATCH` (manager), `DELETE` (admin), `POST …/:id/preview { variables }` (any) → `{ text, missing, used }` (a missing placeholder is left in place), `POST …/:id/sync` and `POST /api/templates/sync-all` (admin) → Meta Graph `/{waba_id}/message_templates` when the Cloud API is configured (token file **and** a `meta_cloud` account with `external_ref` = WABA id), else 412 `META_CLOUD_NOT_CONFIGURED`, `POST …/:id/test { conversation_id, variables }` (manager) → rendered and sent through `outbound.send` (`client_ref tpl-<id>-<ts>`, i.e. the normal policy path: inbox open + `outbound_enabled`, hourly cap) into an existing conversation.

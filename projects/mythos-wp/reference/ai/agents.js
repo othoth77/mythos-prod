@@ -221,13 +221,18 @@ function resolveForConversation(pool, convId) {
 }
 
 // effectiveMode(agent, inbox) → 'off' | 'suggest' | 'auto'
-function effectiveMode(agent, inbox) {
+// effectiveMode(agent, inbox, project?) — the project's settings.ai_mode (Project → AI) and the inbox link's
+// ai_mode may each RESTRICT the agent's own mode (off wins); neither can escalate it.
+function effectiveMode(agent, inbox, project) {
   if (!agent || agent.status !== 'active') return 'off';
   var a = MODES.indexOf(agent.mode) !== -1 ? agent.mode : 'off';
+  var p = project && project.settings && project.settings.ai_mode ? project.settings.ai_mode : 'inherit';
   var i = inbox && inbox.ai_mode ? inbox.ai_mode : 'inherit';
-  if (a === 'off' || i === 'off') return 'off';
-  if (i === 'inherit' || MODES.indexOf(i) === -1) return a;
-  return MODE_RANK[i] < MODE_RANK[a] ? i : a;
+  if (a === 'off' || i === 'off' || p === 'off') return 'off';
+  var m = a;
+  if (p !== 'inherit' && MODES.indexOf(p) !== -1 && MODE_RANK[p] < MODE_RANK[m]) m = p;
+  if (i !== 'inherit' && MODES.indexOf(i) !== -1 && MODE_RANK[i] < MODE_RANK[m]) m = i;
+  return m;
 }
 
 // ensureDefaults(pool) → { created: boolean, agent } — one default agent when the table is empty; binds nothing

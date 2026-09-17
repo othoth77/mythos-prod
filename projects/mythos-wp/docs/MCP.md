@@ -1,4 +1,4 @@
-# MYTHOS WP V2 — MCP servers
+# MYTHOS WP V2.1 — MCP servers
 
 Two MCP servers appear in the Control Center. Both are **integration records with a reachability probe**; WP contains no MCP client, invokes no MCP tool at runtime, and never sends a customer message through an MCP. Companion: `INTEGRATIONS.md`, `WHATSAPP_SETUP.md` §7, `SECURITY.md`.
 
@@ -13,7 +13,7 @@ Two MCP servers appear in the Control Center. Both are **integration records wit
 | Tools | namespace `whatsapp_biz_*` (businesses, accounts, phone numbers, add / verify / register phone number, list / get / create / update / delete template, send message, configure webhooks, subscribe webhook, configure payments, verify business, system-user token). The seeded row lists the names read from the documentation page on 2026-09-17 (18 names); nothing is invented to reach a count |
 | Docs | https://developers.facebook.com/documentation/mcp/whatsapp-business-tools-mcp |
 | Integration row | `meta-whatsapp-business-mcp` (kind `mcp`, status `disabled`, `credentials_state missing`) |
-| Panel surface | `GET /api/whatsapp/mcp` (any) → `comms/meta-mcp.js#describe()` (`endpoint, transport, status:'beta', auth, scopes, tool_namespace, tools, tools_documented, docs, claude_code_command, purpose, owner_step, reachable, probed_at, http_status`) + the integration row; `POST /api/whatsapp/mcp/probe` (admin) → HTTPS GET of the endpoint, any HTTP status (401/405 included) = reachable, recorded as health component `integration:meta-whatsapp-business-mcp`. UI: WhatsApp → MCP |
+| Panel surface | **Settings → Integrations → Meta WhatsApp MCP** card: **Status** (row status + reachable / unreachable / not probed) · **Last check** · **Connect** (the owner step and the `claude mcp add …` command) · **Probe** (admin) · **Meta docs** · **Configure** (admin); the endpoint, transport, auth, scopes and the tool list are shown only under the card's **Advanced** fold. The same panel sits under WhatsApp → Advanced → Meta WhatsApp MCP. API: `GET /api/whatsapp/mcp` (any) → `comms/meta-mcp.js#describe()` (`endpoint, transport, status:'beta', auth, scopes, tool_namespace, tools, tools_documented, docs, claude_code_command, purpose, owner_step, reachable, probed_at, http_status`) + the integration row; `POST /api/whatsapp/mcp/probe` (admin) → HTTPS GET of the endpoint, any HTTP status (401/405 included) = reachable, recorded as health component `integration:meta-whatsapp-business-mcp` |
 
 ### What it is
 
@@ -44,10 +44,10 @@ Least privilege: grant the OAuth scopes to the owner's identity only; do not cre
 | Endpoint | `https://mythosprod.xyz/mcp` |
 | Transport | Streamable HTTP |
 | Auth | OAuth through the mcp-auth-proxy + Dex (one owner identity); the owner password login is the manual step |
-| Integration row | `mythos-mcp` (kind `mcp`, enabled) — probed by the health center as `integration:mythos-mcp` (any HTTP answer = reachable) |
+| Integration row | `mythos-mcp` (kind `mcp`, enabled) — probed by the health center as `integration:mythos-mcp` (any HTTP answer = reachable); shown as a technical card under Settings → Integrations → Advanced |
 | Purpose | the group's MCP gateway for Claude Web / Claude Code sessions (knowledge, project context, system health, execution status …) |
 
-WP does not call it. The row exists so that the Health center shows whether the gateway answers, alongside the other MYTHOS surfaces.
+WP does not call it. The row exists so that Settings → System → Health shows whether the gateway answers, alongside the other MYTHOS surfaces.
 
 ## 3. Rules for any MCP in this panel
 

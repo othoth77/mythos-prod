@@ -75,7 +75,9 @@ function search(pool, o) {
     }), 'products', 'Products'));
   }
 
-  return Promise.all(tasks).then(function (groups) { return { q: term, scope: { project: all ? 'all' : String(o.project), project_ids: ids }, groups: groups.filter(function (g) { return g.items.length; }) }; });
+  var VISIBLE = { projects: true, conversations: true, contacts: true };   // V2.1: the operator searches people, threads and projects — nothing technical
+  return Promise.all(tasks).then(function (groups) {
+    groups = groups.filter(function (g) { return VISIBLE[g.key] === true; }); return { q: term, scope: { project: all ? 'all' : String(o.project), project_ids: ids }, groups: groups.filter(function (g) { return g.items.length; }) }; });
 }
 
 module.exports = { LIMIT: LIMIT, search: search };

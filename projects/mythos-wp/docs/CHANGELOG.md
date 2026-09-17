@@ -1,0 +1,59 @@
+# MYTHOS WP — Changelog
+
+## V2.1 — 2026-09-17 (simplification)
+
+The operator screens were reduced to five sections; every technical surface moved under an **Advanced** fold. No API route, table or migration was removed.
+
+**Removed (from the first screen)**
+- Sidebar entries Contacts, AI, Automations, Integrations, Health, Audit. The sidebar is exactly Dashboard, Inbox, Projects, WhatsApp, Settings; the old hashes (`#/ai`, `#/automations`, `#/integrations`, `#/health`, `#/audit`, `#/r/projects`, `#/r/inboxes`) redirect.
+- The long project form (slug, status, settings JSON, notes) as the way to create a project.
+- Global search results for phone numbers, AI agents, templates, integrations and products: `GET /api/search` now returns projects, conversations and contacts only.
+- The V1 per-project catalogue pool code (`db.catalog()` and the second pool `projects-store.resolve()` used to hand out): `db.js` holds one pool, `projects-store.resolve()` returns `{ project, wpPool }`.
+
+**Hidden (still on the server)**
+- `wp_projects.catalog_dsn_env` / `catalog_schema`: hidden, read-only legacy columns of the `projects` resource (absent from `/api/meta`), kept for rollback only. The `MYTHOS_WP_CATALOG_*` variables are unused; `check-env` still names them when present.
+- Accounts, manual number registration, routing rules + simulate + drops, receiver / provider capabilities and the Meta WhatsApp MCP panel: WhatsApp → **Advanced** (admin).
+- Agent cards and the agent editor, AI runs, routing rules, automations, technical integration rows, project audit: Project → **Advanced**.
+- Technical integration cards (`mythos-mcp`, `database`, custom rows) and **New integration**: Settings → Integrations → **Advanced**.
+- Conversation status / priority, routed-by, intent, ids and the handoff history: the **Advanced** fold of the Inbox customer panel; contact timeline and counters: the **Advanced** fold of the contact 360.
+- The MCP endpoint, transport, auth, scopes and tool list: the **Advanced** fold of the Meta WhatsApp MCP card.
+
+**Simplified**
+- **New project** = Name, Type (Service / Auto / Internal), Domain, WhatsApp, AI Agent, Description, Currency; status Active; slug generated (`POST /api/projects`, `reference/projects.js`). Auto reveals *Vehicle brand* and attaches the Kitchen automatically. A chosen number is linked and a chosen agent bound in the same action; failures come back as warnings.
+- Project page tabs: Overview · WhatsApp · AI · Catalogue (Auto only) · Members · Advanced.
+- **Project → AI**: Agent, Mode (Off / Suggest / Auto), Status, Test AI (`GET/PUT /api/projects/:p/ai`). The project mode (`settings.ai_mode`) is a third restriction level in `agents.effectiveMode(agent, inbox, project)`: agent → project → number link, restrict only.
+- `GET /api/projects/:p/numbers`: the project's numbers with masked phone, connection, receiving, switches.
+- WhatsApp: one numbers table (Number, Status, Projects, Connection, AI, Last message) with Sync all / Check / Link to project / More (per-link switches Receiving · Replies · AI, Unlink, Edit number); Templates; Advanced.
+- Settings → Integrations: five cards — Meta / WhatsApp, Kitchen Mythos Auto, n8n, AI provider, Meta WhatsApp MCP — Name · Status · Test · Configure.
+- Settings → System: Health (Run checks), Audit, Backup, AI runs. Automations under Settings (admin).
+- Contacts live inside the Inbox (Conversations | Contacts). Inbox filters: All, Unread, Human, Waiting, Closed.
+- Dashboard: today's figures and one projects table (numbers with connection state, agent + mode); `GET /api/dashboard` activity items carry `whatsapp[]` and `ai { agent, mode }`.
+- The `projects` resource form: sections Project / Advanced (settings JSON, notes) / Audit.
+
+**Kept**
+- Every route of V2 (`V2_BUILD_CONTRACT.md`) plus the three V2.1 additions above; the generic resources (`#/r/knowledge`, `#/r/rules`, `#/r/handoffs`, `#/r/users`, `#/r/tags`, `/api/r/projects`); the CLI (`seed-project` still accepts the catalogue arguments).
+- Schema `0001` … `0007`; no new migration. The V1 tables `wp_product_commercial` / `wp_stock` (0 rows) and the two legacy columns stay for rollback.
+- Routing order (dedicated → owner exclusion → sticky → identity rules → keyword → default → DROP), the personal-number privacy guard, the auto-reply gates, the read-only tool registry, the fact guard.
+- Roles and permissions per route; every mutation audited.
+
+## V2 — 2026-09-17 (Control Center)
+
+Multi-project WhatsApp control center on the COMMS-1 … 11 communication layer (`../../docs/MYTHOS_COMMUNICATION_OS_ARCHITECTURE.md`).
+
+**Removed**
+- The catalogue as WP data: no catalogue resource, no product / price / stock table is written. Product, price and stock are read live from the MYTHOS AUTO Shared Kitchen (contract 1.3.0) through `kitchen.js`.
+- The V1 SsangYong-only navigation and any product identity other than MYTHOS WP / MYTHOS Control Center / MYTHOS AI.
+
+**Hidden / kept for rollback**
+- `wp_product_commercial`, `wp_stock` (0 rows), `wp_projects.catalog_dsn_env` / `catalog_schema` (nullable since `0004`), the `MYTHOS_WP_CATALOG_*` variables.
+
+**Added**
+- Migration `0006_shared_account_routing` (account modes, routing rules, drops, guard triggers) and `0007_control_center` (users + RBAC, accounts + phone numbers, `wp_inboxes.phone_number_id` / `ai_mode`, keyword / default routes, `routed_by` / `handler` / `agent_id`, agents, handoff direction, templates, integrations, health checks, automations, notes).
+- Users and roles (viewer < agent < manager < admin < owner), project-level access, break-glass users file.
+- WhatsApp numbers (Sync from Evolution, webhook state, check), number ↔ project links (dedicated / shared), deterministic routing on shared numbers, personal-number privacy guard, receiver ledger, templates, the Cloud API provider (implemented, not configured).
+- MYTHOS AI: agents (`engine-173` / `llm`), modes off / suggest / auto with policy gates, read-only tool registry, fact guard, AI ↔ human handoff, agent test.
+- Integrations registry with probes, health center, automations (triggers → actions incl. n8n webhooks), notes, contact 360, global search, dashboard, audit history.
+- Rollout script `deploy/v2-rollout.sh` (backup → checkout → migrate → users import → restart → smoke).
+
+**Kept**
+- The receiver / routing / core / outbound path of COMMS-1 … 11, the #173 deterministic engine as the fallback generator, the no-secret-in-database rule, the loopback-only process.

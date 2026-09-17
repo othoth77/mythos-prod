@@ -29,35 +29,23 @@ const ICONS = {
   project: '<path d="M3 7h6l2 2h10v10H3z"/>',
   whatsapp: '<path d="M4 20l1.3-3.8A8 8 0 1 1 8.4 19z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 1a4 4 0 0 1-2-2l1-1-1-2z"/>',
   ai: '<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M5 17l.8 2.2L8 20l-2.2.8L5 23l-.8-2.2L2 20l2.2-.8z"/>',
-  automation: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
-  integration: '<path d="M9 3v4M15 3v4"/><path d="M6 7h12v5a6 6 0 0 1-12 0z"/><path d="M12 18v3"/>',
-  health: '<path d="M3 12h4l2-5 3 10 3-7 1.5 2H21"/>',
-  audit: '<path d="M9 3h6l1 3h3v15H5V6h3z"/><path d="M9 12h6M9 16h4"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
-  part: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
-  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
-  handoff: '<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M17 8l4 4-4 4"/>',
-  knowledge: '<path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2z"/><path d="M8 8h6M8 12h6"/>',
-  system: '<circle cx="12" cy="12" r="3"/><path d="M4 12h4M16 12h4M12 4v4M12 16v4"/>',
-  rule: '<path d="M4 6h16M4 12h16M4 18h10"/><path d="m17 16 2 2 3-3"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   edit: '<path d="M4 20h4l10-10-4-4L4 16z"/><path d="m13 7 4 4"/>',
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
   columns: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
   back: '<path d="m15 6-6 6 6 6"/>',
-  external: '<path d="M14 4h6v6M20 4l-9 9"/><path d="M19 14v6H4V5h6"/>',
   refresh: '<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/>',
   copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5h10"/>',
   check: '<path d="m5 12 4 4L19 7"/>',
   close: '<path d="M6 6l12 12M18 6 6 18"/>',
-  play: '<path d="M7 4l12 8-12 8z"/>',
   theme: '<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/>'
 };
 export function icon(name) {
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '1.7'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round'); s.setAttribute('aria-hidden', 'true');
-  s.innerHTML = ICONS[name] || ICONS.part;
+  s.innerHTML = ICONS[name] || ICONS.project;
   return s;
 }
 
@@ -282,5 +270,15 @@ export function chip(text, cls) { return h('span', { class: 'chip ' + (cls || ''
 export function dot(state) { return h('span', { class: 'status-dot ' + (STATUS_TONE[state] || ''), title: state || '' }); }
 export function qget(query, key, dflt) { const u = new URLSearchParams(query || ''); return u.has(key) ? u.get(key) : (dflt === undefined ? '' : dflt); }
 export function setQuery(base, obj) { const u = new URLSearchParams(); Object.keys(obj).forEach((k) => { if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') u.set(k, obj[k]); }); const s = u.toString(); history.replaceState(null, '', base + (s ? '?' + s : '')); }
-export function maskPhone(v) { if (!v) return '—'; const s = String(v); return s.startsWith('***') ? s : '***' + s.replace(/\D/g, '').slice(-4); }
 export function roleNote(ctx, role, what) { return ctx.can(role) ? null : h('p', { class: 'dim role-note' }, (what || 'This action') + ' requires the ' + role + ' role.'); }
+
+/* Masked phone: mask dots + the last four digits, never more. */
+export function fmtMasked(masked) {
+  if (!masked) return '—';
+  const tail = String(masked).replace(/\D/g, '').slice(-4);
+  return tail ? '•••• ' + tail : String(masked);
+}
+/* Collapsed "Advanced" style section. */
+export function details(title, body, open) { return h('details', { class: 'adv', open: open || undefined }, h('summary', {}, title), h('div', { class: 'adv-body' }, body)); }
+/* Connection wording for a WhatsApp number status (open | pairing | closed). */
+export function connBadge(status) { const m = { open: ['Connected', 'ok'], pairing: ['Connecting', 'warn'], closed: ['Disconnected', 'danger'] }[status]; return m ? badge(m[0], m[1]) : badge(status || 'unknown', 'mock'); }

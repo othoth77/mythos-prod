@@ -51,7 +51,7 @@ Routing runs before any ledger row; an unrouted message on a shared number leave
 
 ## 7. Secrets
 
-- **None in the database**: every credential is referenced by the NAME of an env variable / file-path variable (`wp_integrations.credential_env`, `wp_projects.catalog_dsn_env`); JSON `config` / `settings` refuse credential-shaped keys; the schema test enforces "no secret column".
+- **None in the database**: every credential is referenced by the NAME of an env variable / file-path variable (`wp_integrations.credential_env`; the hidden legacy column `wp_projects.catalog_dsn_env` followed the same rule and is read by nothing since V2.1); JSON `config` / `settings` refuse credential-shaped keys; the schema test enforces "no secret column".
 - **None in logs**: every log value passes `projects/mythos-orchestrator/lib/redact.js`; provider errors are scrubbed (`[A-Za-z0-9._-]{20,}` → `…`); provider payloads are stored minus `apikey|token|authorization|mediaKey|fileEncSha256|url|directPath|thumbnails|base64` (Evolution) / `access_token|secret|url|sha256` (Meta).
 - **None in the audit**: `audit.clean()` drops keys matching `password|passwd|secret|token|api_?key|credential|scrypt|dsn|connection`, redacts strings, bounds documents (2000 chars / 16 KiB).
 - **Read at call time only**: Evolution key, Meta token / secret / verify token, LLM keys (`secrets.loadKey`) — never cached in a module variable beyond the call, never returned.
@@ -67,7 +67,7 @@ Routing runs before any ledger row; an unrouted message on a shared number leave
 
 ## 9. Audit log
 
-`wp_audit_events`: actor (username or `system:<component>` / `db:wp_inboxes_guard` / `cli:<user>`), role, action (`create update delete login login_failed logout status setting upsert simulate send handoff route run sync test execute check import link unlink`), resource, record id, project, changed fields, previous / next (redacted), request id, client. Readable at `#/audit` and `GET /api/audit/:resource/:id`; a failed audit write never undoes the business mutation and is reported as `audited:false`.
+`wp_audit_events`: actor (username or `system:<component>` / `db:wp_inboxes_guard` / `cli:<user>`), role, action (`create update delete login login_failed logout status setting upsert simulate send handoff route run sync test execute check import link unlink`), resource, record id, project, changed fields, previous / next (redacted), request id, client. Readable at Settings → System → Audit (`#/audit` redirects there; per project under Project → Advanced → Audit) and `GET /api/audit/:resource/:id`; a failed audit write never undoes the business mutation and is reported as `audited:false`.
 
 ## 10. Process hardening
 

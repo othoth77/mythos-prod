@@ -144,7 +144,7 @@ step('setup', function () {
     .then(function (r) { inboxA = r.rows[0]; return q("INSERT INTO wp_inboxes (project_id, provider, instance, display_name, inbound_enabled, outbound_enabled, status) VALUES ($1,'evolution','v2ai-inbox2','V2AI B', true, false, 'open') RETURNING *", [PROJECT]); })
     .then(function (r) { inboxB = r.rows[0]; return q("INSERT INTO wp_knowledge (project_id, kind, title, customer_text, language, allowed_for_auto_reply, status) VALUES ($1,'faq','Horaires d ouverture','Nous sommes ouverts du lundi au samedi de 8h à 17h.','fr',true,'active'), ($1,'faq','Horaires secret','Brouillon horaires interne','fr',false,'active'), ($1,'policy','Horaires draft','Draft horaires','fr',true,'draft')", [PROJECT]); })
     .then(function () { store.invalidate(); return store.resolve(PROJECT); })
-    .then(function (r) { resolved = r; ok(resolved && resolved.catalogPool === null, 'project resolves without a catalogue'); })
+    .then(function (r) { resolved = r; ok(resolved && !resolved.catalogPool, 'project resolves without a catalogue'); })
     .then(function () { return new Promise(function (resolve) { evo.listen(0, '127.0.0.1', function () { process.env.MYTHOS_WP_EVOLUTION_BASE_URL = 'http://127.0.0.1:' + evo.address().port; server.listen(0, '127.0.0.1', function () { PORT = server.address().port; resolve(); }); }); }); })
     .then(function () { return req('POST', '/api/login', { username: 'v2ai-admin', password: 'admin-password-1' }, ''); })
     .then(function (x) { S.admin = x.cookie; return req('POST', '/api/login', { username: 'v2ai-manager', password: 'manager-password-1' }, ''); })

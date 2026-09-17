@@ -2,10 +2,11 @@
 import { h, clear, toast } from './ui.js';
 import { api } from './api.js';
 
+const GROUPS = ['projects', 'conversations', 'contacts'];
 export function commandMenu(ctx) {
   const dlg = document.getElementById('cmd');
   let items = [], selected = 0, timer = null;
-  const input = h('input', { class: 'input', type: 'search', placeholder: 'Type a command, or search contacts, numbers, conversations, agents, templates, products…', 'aria-label': 'Command or search' });
+  const input = h('input', { class: 'input', type: 'search', placeholder: 'Search projects, conversations, contacts — or type a command', 'aria-label': 'Command or search' });
   const list = h('div', { class: 'cmd-list', role: 'listbox' });
   const status = h('div', { class: 'cmd-status', 'aria-live': 'polite' });
   dlg.append(input, list, status);
@@ -16,12 +17,8 @@ export function commandMenu(ctx) {
   }
   function actionItems(q) {
     const acts = [
-      { title: 'New project', sub: 'Projects', route: '#/r/projects/new', role: 'admin' },
-      { title: 'New agent', sub: 'AI', route: '#/ai?tab=agents&new=1', role: 'admin' },
-      { title: 'New automation', sub: 'Automations', route: '#/automations?new=1', role: 'admin' },
-      { title: 'New template', sub: 'WhatsApp', route: '#/whatsapp?tab=templates&new=1', role: 'manager' },
-      { title: 'Sync WhatsApp numbers', sub: 'WhatsApp · Evolution discovery', role: 'admin', run: async () => { try { const r = await api.post('/api/whatsapp/numbers/sync', {}); ctxToast('Synced: ' + (r.discovered || 0) + ' discovered, ' + (r.created || 0) + ' created, ' + (r.updated || 0) + ' updated.', 'ok'); location.hash = '#/whatsapp?tab=numbers'; } catch (e) { ctxToast(e.detail || 'Sync failed.', 'danger'); } } },
-      { title: 'Run health checks', sub: 'Health', role: 'manager', run: async () => { try { await api.post('/api/health/run', {}); ctxToast('Health checks ran.', 'ok'); location.hash = '#/health'; } catch (e) { ctxToast(e.detail || 'Health run failed.', 'danger'); } } },
+      { title: 'New project', sub: 'Projects', route: '#/projects/new', role: 'admin' },
+      { title: 'Sync WhatsApp numbers', sub: 'WhatsApp', role: 'admin', run: async () => { try { const r = await api.post('/api/whatsapp/numbers/sync', {}); ctxToast('Synced: ' + (r.discovered || 0) + ' found, ' + (r.created || 0) + ' new, ' + (r.updated || 0) + ' updated.', 'ok'); location.hash = '#/whatsapp'; } catch (e) { ctxToast(e.detail || 'Sync failed.', 'danger'); } } },
       { title: 'Toggle theme', sub: 'Display', run: () => ctx.toggleTheme() },
       { title: 'Sign out', sub: 'Session', run: () => ctx.signOut() }
     ];
@@ -48,7 +45,7 @@ export function commandMenu(ctx) {
       try {
         const res = await api.get('/api/search' + api.qs({ project: ctx.project(), q }));
         if (input.value.trim() !== q) return;
-        (res.groups || []).forEach((g) => (g.items || []).forEach((it) => items.push({ group: g.label || g.key, title: it.title, sub: it.sub, route: it.route })));
+        (res.groups || []).filter((g) => GROUPS.includes(g.key)).forEach((g) => (g.items || []).forEach((it) => items.push({ group: g.label || g.key, title: it.title, sub: it.sub, route: it.route })));
         status.textContent = items.length ? '' : 'Nothing found';
         render();
       } catch (e) { status.textContent = e && e.status === 404 ? 'Global search is not available on this server yet.' : 'Search unavailable.'; }

@@ -29,13 +29,14 @@ function nowIso() { return new Date().toISOString(); }
 var LIVE = "status NOT IN ('resolved','archived')";
 
 function whatsappCounts(pool, ids) {
-  if (!ids.length) return Promise.resolve({ conversations: 0, unread: 0, ai: 0, human: 0, waiting: 0, needs_attention: 0 });
+  if (!ids.length) return Promise.resolve({ conversations: 0, unread: 0, ai: 0, human: 0, waiting: 0, waiting_human: 0, needs_attention: 0 });
   return pool.query(
     'SELECT count(*) FILTER (WHERE ' + LIVE + ')::int AS conversations, ' +
     'COALESCE(sum(unread_count) FILTER (WHERE ' + LIVE + '), 0)::int AS unread, ' +
     "count(*) FILTER (WHERE " + LIVE + " AND handler = 'ai')::int AS ai, " +
     "count(*) FILTER (WHERE " + LIVE + " AND handler = 'human')::int AS human, " +
     "count(*) FILTER (WHERE status = 'waiting_customer')::int AS waiting, " +
+    'count(*) FILTER (WHERE ' + LIVE + " AND (status = 'needs_human' OR EXISTS (SELECT 1 FROM wp_handoffs h WHERE h.conversation_id = c.id AND h.status IN ('NEW','REQUIRES_HUMAN','IN_PROGRESS'))))::int AS waiting_human, " +
     'count(*) FILTER (WHERE ' + LIVE + " AND (status = 'needs_human' " +
     "OR EXISTS (SELECT 1 FROM wp_handoffs h WHERE h.conversation_id = c.id AND h.status IN ('NEW','REQUIRES_HUMAN','IN_PROGRESS')) " +
     "OR (unread_count > 0 AND last_inbound_at < now() - interval '30 minutes' AND (last_outbound_at IS NULL OR last_outbound_at < last_inbound_at))))::int AS needs_attention " +
@@ -43,15 +44,20 @@ function whatsappCounts(pool, ids) {
 }
 
 function projectActivity(pool, rows, ids) {
-  var byId = {};
+  var byId = {}, wa = {}, ai = {};
   var p = ids.length ? pool.query("SELECT project_id, count(*)::int AS n FROM wp_conversations WHERE project_id = ANY($1::text[]) AND last_message_at > now() - interval '24 hours' GROUP BY project_id", [ids]) : Promise.resolve({ rows: [] });
-  return p.then(function (r) {
+  var waQ = ids.length ? pool.query("SELECT i.project_id, n.phone_ref, n.status, n.webhook_state, i.inbound_enabled FROM wp_inboxes i JOIN wp_phone_numbers n ON n.id = i.phone_number_id WHERE i.project_id = ANY($1::text[]) ORDER BY n.id", [ids]) : Promise.resolve({ rows: [] });
+  var aiQ = ids.length ? pool.query("SELECT DISTINCT ON (pa.project_id) pa.project_id, a.name, a.mode, a.status, p.settings FROM wp_project_agents pa JOIN wp_agents a ON a.id = pa.agent_id JOIN wp_projects p ON p.id = pa.project_id WHERE pa.project_id = ANY($1::text[]) AND pa.enabled AND pa.inbox_id IS NULL ORDER BY pa.project_id, pa.priority, pa.id", [ids]) : Promise.resolve({ rows: [] });
+  return Promise.all([p, waQ, aiQ]).then(function (all) {
+    var r = all[0];
+    all[1].rows.forEach(function (x) { (wa[x.project_id] = wa[x.project_id] || []).push({ phone_masked: x.phone_ref ? '***' + String(x.phone_ref).slice(-4) : '***', status: x.status, receiving: x.webhook_state === 'ok' && x.inbound_enabled === true }); });
+    all[2].rows.forEach(function (x) { var pm = x.settings && x.settings.ai_mode ? x.settings.ai_mode : 'inherit'; var mode = x.status !== 'active' || x.mode === 'off' || pm === 'off' ? 'off' : (pm === 'inherit' ? x.mode : (pm === 'suggest' ? 'suggest' : x.mode)); ai[x.project_id] = { agent: x.name, mode: mode }; });
     r.rows.forEach(function (x) { byId[x.project_id] = x.n; });
     var selected = rows.filter(function (row) { return ids.indexOf(row.id) !== -1; });
     return {
       active: selected.filter(function (row) { return row.status === 'active'; }).length,
       total: selected.length,
-      activity: selected.map(function (row) { return { id: row.id, display_name: row.display_name, kind: row.kind || 'automotive', status: row.status, conversations_24h: byId[row.id] || 0 }; }).sort(function (a, b) { return b.conversations_24h - a.conversations_24h || a.id.localeCompare(b.id); })
+      activity: selected.map(function (row) { return { id: row.id, display_name: row.display_name, kind: row.kind || 'automotive', status: row.status, conversations_24h: byId[row.id] || 0, whatsapp: (wa[row.id] || []), ai: ai[row.id] || { agent: null, mode: 'off' } }; }).sort(function (a, b) { return b.conversations_24h - a.conversations_24h || a.id.localeCompare(b.id); })
     };
   });
 }

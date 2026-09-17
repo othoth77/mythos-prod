@@ -14,8 +14,8 @@
 //   mythos-wp users list | users grant <username> <project_id> | users revoke <username> <project_id>
 //   mythos-wp remove-user <users.json> <username>
 //   mythos-wp list-users <users.json>
-//   mythos-wp seed-project <id> <display_name> <domain> <brand_car> <catalog_dsn_env> [catalog_schema]
-//       Inserts a registry row (needs MYTHOS_WP_DB_* in the environment).
+//   mythos-wp seed-project <display_name> [service|auto|internal] [domain]
+//       Creates a project the way the New project form does (slug generated; needs MYTHOS_WP_DB_*).
 //   mythos-wp check-env
 //       Reports which environment variables and files are present (names only).
 //   mythos-wp reserve-account <digits> [reason]
@@ -103,13 +103,13 @@ if (cmd === 'set-password') {
   var d3 = readUsers(args[1] || '');
   d3.users.forEach(function (u) { process.stdout.write(u.username + '\t' + u.role + '\n'); });
 } else if (cmd === 'seed-project') {
-  var id = args[1], name = args[2], domain = args[3] || null, brand = args[4] || null, envName = args[5] && args[5] !== '-' ? args[5] : null, schema = args[6] && args[6] !== '-' ? args[6] : null;
-  if (!id || !name) die('usage: seed-project <id> <display_name> <domain|-> <brand_car|-> [catalog_dsn_env|-] [catalog_schema|-]   (V2: catalogue columns are optional; use the project settings.kitchen instead)');
-  if (domain === '-') domain = null; if (brand === '-') brand = null;
-  var db = require('../reference/db');
-  db.wp().query("INSERT INTO wp_projects (id, display_name, domain, brand_car, catalog_dsn_env, catalog_schema, status) VALUES ($1,$2,$3,$4,$5,$6,'active') ON CONFLICT (id) DO UPDATE SET display_name = EXCLUDED.display_name, domain = EXCLUDED.domain, brand_car = EXCLUDED.brand_car, catalog_dsn_env = EXCLUDED.catalog_dsn_env, catalog_schema = EXCLUDED.catalog_schema, updated_at = now() RETURNING id", [id, name, domain, brand, envName, schema])
-    .then(function (r) { process.stdout.write('project ' + r.rows[0].id + ' upserted\n'); return db.closeAll(); })
-    .catch(function (e) { die('seed failed: ' + (e.code || e.message)); });
+  // V2.1: the short form — name + type; the slug is generated (same code path as POST /api/projects)
+  var spName = args[1], spKind = args[2] || 'service', spDomain = args[3] && args[3] !== '-' ? args[3] : null;
+  if (!spName) die('usage: seed-project <display_name> [service|auto|internal] [domain]');
+  var spDb = require('../reference/db');
+  require('../reference/projects').createSimple(spDb.wp(), { name: spName, kind: spKind, domain: spDomain }, 'cli')
+    .then(function (out) { process.stdout.write('project ' + out.project.id + ' created (' + out.project.kind + ')\n'); return spDb.closeAll(); })
+    .catch(function (e) { die('seed failed: ' + (e.detail || e.code || e.message)); });
 } else if (cmd === 'check-env') {
   var dbm = require('../reference/db');
   var missing = dbm.missingEnv();

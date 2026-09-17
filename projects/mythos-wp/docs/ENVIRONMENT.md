@@ -1,4 +1,4 @@
-# MYTHOS WP V2 — Environment
+# MYTHOS WP V2.1 — Environment
 
 All variables live in `/home/deploy/deployments/mythos-wp/.env` (0600, owner `deploy`), loaded by the unit's `EnvironmentFile`. Nothing is read from the repository. A variable marked **secret** must never appear in a log, an audit row, an API response or a commit; a variable marked **file** names a 0600 file whose *content* is the secret (the panel refuses a file with any group/other permission bit).
 
@@ -37,7 +37,7 @@ All variables live in `/home/deploy/deployments/mythos-wp/.env` (0600, owner `de
 | `MYTHOS_WP_RECEIVER_ENABLED` | `1` mounts `/hooks/<provider>`; absent = the route answers 404 | unset | no |
 | `MYTHOS_WP_WEBHOOK_TOKEN_FILE` | 0600 file with the shared webhook token (≥ 16 chars) Evolution presents as `?token=` or header `x-mythos-webhook-token` | unset (receiver answers 503 `receiver_not_configured`) | **file** |
 | `MYTHOS_WP_RECEIVER_MAX_BODY` | max webhook body in bytes, clamped to 16 KiB … 4 MiB | `524288` | no |
-| `MYTHOS_WP_RECEIVER_URL` | the URL the panel expects on every Evolution instance webhook (used by **Numbers → Sync** to compute `webhook_state ok|mismatch`) | `http://127.0.0.1:<MYTHOS_WP_PORT>` + `/hooks/evolution` | no |
+| `MYTHOS_WP_RECEIVER_URL` | the URL the panel expects on every Evolution instance webhook (used by **WhatsApp → Sync all** to compute `webhook_state ok|mismatch`, i.e. the *Receiving* / *Not receiving* badge) | `http://127.0.0.1:<MYTHOS_WP_PORT>` + `/hooks/evolution` | no |
 | `MYTHOS_WP_EVOLUTION_API_KEY_FILE` | 0600 file with the Evolution API key (≥ 8 chars); read at call time for sends, health, discovery | unset (sends and probes answer `CONFIG: credential missing`) | **file** |
 | `MYTHOS_WP_EVOLUTION_BASE_URL` | Evolution API base | `http://127.0.0.1:8080` | no |
 | `MYTHOS_WP_OUTBOUND_CAP_PER_HOUR` | per-conversation outbound cap (429 above) | `30` | no |
@@ -71,27 +71,27 @@ None of these files exist on the host today; `meta_cloud.describe()` reports `co
 
 WP never holds an LLM key. `GET /api/ai/status` reports presence only (`credential_present`).
 
-## 8. Legacy (V1 catalogue) — kept for rollback, unused by V2
+## 8. Legacy (V1 catalogue) — unused since V2.1, safe to remove from the env file
 
 | Variable | Purpose | State |
 |---|---|---|
-| `MYTHOS_WP_CATALOG_<PROJECT>` (e.g. `MYTHOS_WP_CATALOG_SSANGYONG_AUTOS`) | libpq URL of a project's catalogue database, named by `wp_projects.catalog_dsn_env` | **secret** (URL with password). Still present in the production env; no V2 resource reads it (the registry has no catalogue resource; `db.catalog()` remains for rollback). Safe to remove once V1 is retired |
+| `MYTHOS_WP_CATALOG_<PROJECT>` (e.g. `MYTHOS_WP_CATALOG_SSANGYONG_AUTOS`) | libpq URL of a project's V1 catalogue database, named by the hidden legacy column `wp_projects.catalog_dsn_env` | **secret** (URL with password). **Unused since V2.1**: the catalogue pool code (`db.catalog()`) is gone, no route, resource, probe or agent reads the variable; `check-env` only names it when it is still set. Still present in the production env today — **safe to remove from `.env`** (then restart). Keep a copy with the other rollback material only if a V1 rollback is still contemplated |
 
 ## 9. Tests and tooling only
 
 | Variable | Purpose |
 |---|---|
 | `MYTHOS_WP_TEST_DB_URL` | libpq URL of `mythos_wp_test` for every `tests/mythos-wp-*` suite (**secret**, shell only) |
-| `MYTHOS_WP_TEST_CATALOG_URL` | V1 catalogue fixture URL (legacy suites) |
+| `MYTHOS_WP_TEST_CATALOG_URL` | V1 catalogue fixture URL (legacy suites only; nothing in V2.1 reads it) |
 | `MYTHOS_WP_ALLOW_SKIP` | `1` lets `tools/check.sh` exit 0 when the database section is skipped |
 | `MYTHOS_WP_PG_CONTAINER` | container name for `deploy/provision-db.sh` (default `idauto-postgres`) |
 
 ## 10. Production env today (names only, verified 2026-09-17)
 
-`MYTHOS_WP_PORT`, `MYTHOS_WP_BIND`, `MYTHOS_WP_DB_HOST`, `MYTHOS_WP_DB_PORT`, `MYTHOS_WP_DB_USER`, `MYTHOS_WP_DB_PASSWORD`, `MYTHOS_WP_DB_NAME`, `MYTHOS_WP_USERS_FILE`, `MYTHOS_WP_CATALOG_SSANGYONG_AUTOS`, `MYTHOS_WP_WEBHOOK_TOKEN_FILE`, `MYTHOS_WP_RECEIVER_ENABLED`, `MYTHOS_WP_EVOLUTION_API_KEY_FILE`. Files in the same directory: `users.json`, `webhook.token` (both 0600). No `MYTHOS_WP_META_*` variable or file exists.
+`MYTHOS_WP_PORT`, `MYTHOS_WP_BIND`, `MYTHOS_WP_DB_HOST`, `MYTHOS_WP_DB_PORT`, `MYTHOS_WP_DB_USER`, `MYTHOS_WP_DB_PASSWORD`, `MYTHOS_WP_DB_NAME`, `MYTHOS_WP_USERS_FILE`, `MYTHOS_WP_CATALOG_SSANGYONG_AUTOS` (legacy, unused — §8), `MYTHOS_WP_WEBHOOK_TOKEN_FILE`, `MYTHOS_WP_RECEIVER_ENABLED`, `MYTHOS_WP_EVOLUTION_API_KEY_FILE`. Files in the same directory: `users.json`, `webhook.token` (both 0600). No `MYTHOS_WP_META_*` variable or file exists.
 
 ## 11. Rules
 
-- Reference a credential only by the **name** of its variable (`wp_integrations.credential_env`, `wp_projects.catalog_dsn_env`); the panel validates the shape `^[A-Z][A-Z0-9_]{2,62}$` and refuses a value that looks like a credential in any JSON config.
+- Reference a credential only by the **name** of its variable (`wp_integrations.credential_env`; the legacy `wp_projects.catalog_dsn_env` followed the same rule); the panel validates the shape `^[A-Z][A-Z0-9_]{2,62}$` and refuses a value that looks like a credential in any JSON config.
 - Changing the env requires `systemctl --user restart mythos-wp.service` (as deploy); a restart signs every user out (sessions are in memory).
 - Never print the env (`cat .env`) in a shared terminal or a ticket; use `check-env`.

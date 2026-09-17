@@ -22,6 +22,7 @@ var db = require('./db');
 var auth = require('./auth');
 var resources = require('./resources');
 var users = require('./users');
+var projectsOps = require('./projects');
 var crud = require('./crud');
 var audit = require('./audit');
 var store = require('./projects-store');
@@ -227,6 +228,27 @@ var ROUTES = [
       if (r.key === 'users') return usersGuard(req, ctx.params[2], {}).then(function () { return crud.remove(r, crudCtx(req, r, resolved), ctx.params[2]).then(function (o) { auth.revokeUser(ctx.params[2]); return o; }); });
       return crud.remove(r, crudCtx(req, r, resolved), ctx.params[2]).then(function (o) { if (r.key === 'projects') store.invalidate(); return o; });
     });
+  } },
+
+  // --- V2.1 simple project operations ------------------------------------
+  { method: 'POST', path: /^\/api\/projects$/, role: 'admin', handler: function (req, res, ctx) {
+    return projectsOps.createSimple(db.wp(), ctx.body || {}, req.session.username).then(function (out) {
+      ctx.status(201);
+      return audit.record(db.wp(), Object.assign(apiUtil.auditFor(req), { action: 'create', resource: 'projects', record_id: out.project.id, project_id: out.project.id, next: { display_name: out.project.display_name, kind: out.project.kind, domain: out.project.domain, inbox_id: out.inbox ? out.inbox.id : null, agent_link: out.agent ? out.agent.id : null } })).then(function () { return out; });
+    });
+  } },
+  { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/ai$/, role: 'any', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return projectsOps.aiGet(db.wp(), resolved.project.id, { choices: auth.hasRole(req.session, 'manager') }); });
+  } },
+  { method: 'PUT', path: /^\/api\/projects\/([a-z0-9-]+)\/ai$/, role: 'admin', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
+      return projectsOps.aiPut(db.wp(), resolved.project.id, ctx.body || {}, req.session.username).then(function (out) {
+        return audit.record(db.wp(), Object.assign(apiUtil.auditFor(req), { action: 'setting', resource: 'projects', record_id: resolved.project.id, project_id: resolved.project.id, next: { ai_agent: out.agent ? out.agent.id : null, ai_mode: out.project_mode } })).then(function () { return out; });
+      });
+    });
+  } },
+  { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/numbers$/, role: 'any', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return projectsOps.numbersOf(db.wp(), resolved.project.id).then(function (rows) { return { items: rows }; }); });
   } },
 
   // --- users: password + project access (admin) --------------------------

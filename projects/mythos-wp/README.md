@@ -3,27 +3,39 @@
 **Product:** MYTHOS WP · **URL:** https://wp.mythosprod.xyz/ · **Repository:** othoth77/mythos-prod (`projects/mythos-wp/`)
 **Runtime:** Node `http` + `pg`, no framework, no bundler · **Unit:** `mythos-wp.service` (deploy user manager) · **Port:** loopback `127.0.0.1:8170` behind nginx + certbot
 **Database:** `mythos_wp` in the `idauto-postgres` container (PostgreSQL 15) · **Env:** `/home/deploy/deployments/mythos-wp/.env` (0600)
+**Version:** V2.1 (2026-09-17, simplification) — history in `docs/CHANGELOG.md`
 
-MYTHOS WP is the operator control center of the MYTHOS group: one panel that
-controls every project's WhatsApp numbers, conversations, AI agents,
-integrations, automations, users and health. It owns the communication data
+MYTHOS WP is the operator control center of the MYTHOS group: one panel where
+an operator sees every project, answers its WhatsApp conversations and decides
+which AI agent helps on which number. It owns the communication data
 (contacts, conversations, messages, handoffs, audit) and reads everything else
 from the systems that own it — product, price and stock come from the MYTHOS
 AUTO Shared Kitchen, automations run through n8n, models come from the
 free-LLM pool. It never duplicates a catalogue and never stores a secret.
 
-## What it controls
+## The five sections
 
-| Area | What the panel does | Where |
+The sidebar is exactly **Dashboard, Inbox, Projects, WhatsApp, Settings**.
+Everything technical sits behind an **Advanced** fold on the page it belongs
+to; nothing was removed from the server, only from the first screen.
+
+| Section | What you do there | Detail |
 |---|---|---|
-| Projects | registry of services (SsangYong Autos, Dar Hijama, Mythos Prod, …), per-project members, settings, catalogue access via the Kitchen | `docs/PROJECTS.md` |
-| WhatsApp | business accounts, phone numbers (one per provider instance), number ↔ project links (many-to-many), deterministic routing on shared numbers, receiver/webhook state, templates | `docs/WHATSAPP_SETUP.md` |
-| Inbox | conversations, contacts (cross-project 360 view), tags, notes, human replies, AI ↔ human handoff | `docs/OPERATIONS.md` |
-| MYTHOS AI | agents bound to projects/numbers, engines `engine-173` (deterministic) or `llm` (free-LLM pool with tools + fact guard), modes off / suggest / auto | `docs/AI_AGENTS.md` |
-| Integrations | Evolution API, WhatsApp Cloud API (implemented, not configured), Kitchen, n8n, MCP servers, LLM pool, database — with health probes | `docs/INTEGRATIONS.md`, `docs/MCP.md` |
-| Automations | event rules (conversation.created, message.received, conversation.inactive, handoff.requested) → assign / tag / handoff / AI / n8n webhook | `docs/OPERATIONS.md` |
-| Health | one health center: database, backend, receiver, provider, every number, every integration, AI | `docs/OPERATIONS.md` |
-| Users | roles viewer < agent < manager < admin < owner, project-level access, audit log | `docs/SECURITY.md` |
+| **Dashboard** | today's figures and one table of projects (WhatsApp numbers with their connection state, AI agent + mode) for the selected project or for all of them | — |
+| **Inbox** | conversations (All / Unread / Human / Waiting / Closed), the chat, AI suggestions, **Take over (AI → Human)** / **Hand back to AI**, the customer panel; **Contacts** are the second tab of the Inbox (cross-project list + contact 360) | `docs/OPERATIONS.md` §6 |
+| **Projects** | the list (Name, Type, Status, WhatsApp, AI); **New project** = Name, Type (Service / Auto / Internal), Domain, WhatsApp, AI agent, Description, Currency — the slug is generated; a project page with **Overview · WhatsApp · AI · Catalogue (Auto only) · Members · Advanced** | `docs/PROJECTS.md` |
+| **WhatsApp** | one table of numbers (Number, Status, Projects, Connection, AI, Last message) with **Sync all**, **Check**, **Link to project**; **Templates**; **Advanced** (admin: accounts, add a number manually, routing rules + simulate + drops, receiver and providers, Meta WhatsApp MCP) | `docs/WHATSAPP_SETUP.md` |
+| **Settings** | **General** (account, language, appearance) · **Users** · **Integrations** (cards: Meta / WhatsApp, Kitchen Mythos Auto, n8n, AI provider, Meta WhatsApp MCP) · **Automations** (admin) · **System** (Health, Audit, Backup, AI runs) | `docs/INTEGRATIONS.md`, `docs/MCP.md`, `docs/OPERATIONS.md`, `docs/SECURITY.md` |
+
+AI is decided per project: **Project → AI** holds the Agent, the Mode
+(Off / Suggest / Auto), the Status and a **Test AI** box. The agent editor
+itself (engine, tools, instructions) lives under **Project → Advanced → AI
+agents** — `docs/AI_AGENTS.md`. Global search (Ctrl / ⌘ K) returns projects,
+conversations and contacts only.
+
+Old links keep working: `#/ai`, `#/automations`, `#/integrations`,
+`#/health`, `#/audit`, `#/r/projects`, `#/r/inboxes` redirect to where the
+feature now lives.
 
 ## Architecture
 
@@ -46,7 +58,8 @@ free-LLM pool. It never duplicates a catalogue and never stores a secret.
 │           providers/evolution.js (production)  providers/meta_cloud.js   │
 │  ai/      agents · tools (read-only registry) · llm (free-LLM pool)      │
 │  kitchen.js  read-only client, contract 1.3.0                            │
-│  integrations.js · health.js · automations.js · notes.js · search.js     │
+│  projects.js (simple create, Project → AI) · integrations.js · health.js │
+│  automations.js · notes.js · search.js · dashboard.js                    │
 └───────┬──────────────┬───────────────┬──────────────┬────────────────────┘
         │ pg           │ http          │ http         │ http
    mythos_wp      Evolution API    Kitchen        n8n            free-LLM pool
@@ -75,10 +88,12 @@ journalctl --user -u mythos-wp.service -n 100 --no-pager
 ```
 
 Sign in at https://wp.mythosprod.xyz/login with a `wp_users` account (the
-0600 users file is the bootstrap / break-glass source). First things to look
-at: **Health** (every component), **WhatsApp → Numbers → Sync** (discover the
-Evolution instances), **Projects** (link a number to a project), **AI**
-(bind an agent).
+0600 users file is the bootstrap / break-glass source). Then, in the panel:
+
+1. **Settings → System → Health** — every component, **Run checks**.
+2. **WhatsApp → Sync all** — discovers the Evolution instances and their connection / webhook state.
+3. **Projects → New project** — Name, Type, Domain, pick the WhatsApp number and the AI agent, Create. Or, on an existing project, **Project → WhatsApp → Link a number** and switch **Receiving** on.
+4. **Project → AI** — choose the Agent, set the Mode to **Suggest**, **Test AI** with a customer sentence; move to **Auto** only after reviewing real suggestions.
 
 Production rollout of V2: `deploy/v2-rollout.sh` — see `docs/DEPLOYMENT.md`.
 
@@ -86,18 +101,19 @@ Production rollout of V2: `deploy/v2-rollout.sh` — see `docs/DEPLOYMENT.md`.
 
 | File | Content |
 |---|---|
+| `docs/CHANGELOG.md` | V2 and V2.1: what was removed, hidden, simplified, kept |
+| `docs/PROJECTS.md` | the New project form, the project page tabs, Project → AI, Kitchen access, onboarding |
+| `docs/WHATSAPP_SETUP.md` | the numbers table, links (dedicated / shared), switches, routing rules, personal numbers, receiver, Evolution vs Cloud API — technical parts under WhatsApp → Advanced |
+| `docs/AI_AGENTS.md` | where AI is configured, mode precedence (agent → project → number link), engines, tools, handoff |
+| `docs/INTEGRATIONS.md` | Settings → Integrations cards, integration rows, probes, n8n, Kitchen, LLM pool |
+| `docs/MCP.md` | Meta WhatsApp Business Tools MCP and MYTHOS MCP: what they are and are not |
+| `docs/OPERATIONS.md` | CLI, Settings → System (Health, Audit, Backup), Automations, reconcile / heartbeat / replay, users |
 | `docs/ARCHITECTURE.md` | components, data model, request path, event bus |
 | `docs/DEPLOYMENT.md` | rollout script, worktree model, rollback, backup |
-| `docs/ENVIRONMENT.md` | every `MYTHOS_WP_*` variable: purpose, default, secret or not |
-| `docs/WHATSAPP_SETUP.md` | numbers, links, dedicated vs shared, routing rules, personal numbers, receiver, Evolution vs Cloud API |
-| `docs/AI_AGENTS.md` | agents, engines, modes, tools, handoff |
-| `docs/PROJECTS.md` | projects, kinds, settings, members, Kitchen access |
-| `docs/INTEGRATIONS.md` | integration rows, probes, n8n, Kitchen, LLM pool |
-| `docs/MCP.md` | Meta WhatsApp Business Tools MCP and MYTHOS MCP: what they are and are not |
+| `docs/ENVIRONMENT.md` | every `MYTHOS_WP_*` variable: purpose, default, secret or not; legacy variables |
 | `docs/SECURITY.md` | sessions, CSRF, roles, webhooks, audit, secrets |
-| `docs/OPERATIONS.md` | CLI, health center, automations, reconcile / heartbeat / replay, users |
 | `docs/TROUBLESHOOTING.md` | symptom → check → fix |
-| `docs/V2_BUILD_CONTRACT.md` | the internal build contract the V2 code implements (API paths, module ownership) |
+| `docs/V2_BUILD_CONTRACT.md` | the internal build contract the V2 code implements (API paths, module ownership; the V2 navigation it describes was simplified in V2.1) |
 | `../../docs/MYTHOS_COMMUNICATION_OS_ARCHITECTURE.md` | repo-level Communication OS record (COMMS-1 … 11) |
 | `../../docs/MYTHOS_COMMUNICATION_OS_OPERATIONS.md` | repo-level runbook (onboarding, pairing, shared routing) |
 

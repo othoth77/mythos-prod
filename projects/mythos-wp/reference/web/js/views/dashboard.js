@@ -1,16 +1,14 @@
-/* MYTHOS Control Center — dashboard: WhatsApp / Projects / AI / Infrastructure
-   tiles, alerts, per-project activity. GET /api/dashboard?project=<id|all>. */
-import { h, clear, badge, fmtDate, relTime, skeletonRows, errorBox, empty, pageHead, cardHead, simpleTable } from '../ui.js';
+/* MYTHOS Control Center — dashboard: today's five figures and one projects
+   table. GET /api/dashboard?project=<id|all>; numbers and agents are the
+   fallback when an activity item lacks the V2.1 whatsapp / ai fields. */
+import { h, clear, badge, skeletonRows, errorBox, empty, pageHead, simpleTable, fmtMasked, connBadge } from '../ui.js';
+import { loadNumbers, loadAgents, summarize, aiWords } from '../data.js';
 
-function stat(label, value, sub, tone, href) {
+function tile(label, value, href, tone) {
   const na = value === null || value === undefined;
-  return h(href ? 'a' : 'div', { class: 'card stat link ' + (na ? '' : tone || ''), href: href || undefined },
+  return h('a', { class: 'card stat link ' + (na ? '' : tone || ''), href },
     h('span', { class: 'stat-label' }, label),
-    h('span', { class: 'stat-value' + (na ? ' na' : '') }, na ? 'unavailable' : Number(value).toLocaleString()),
-    sub ? h('span', { class: 'stat-sub' }, sub) : null);
-}
-function group(title, tiles, link) {
-  return h('section', { class: 'dash-group' }, h('div', { class: 'dash-group-head' }, h('h3', {}, title), link ? h('a', { class: 'btn btn-ghost btn-sm', href: link.href }, link.label) : null), h('div', { class: 'grid cols-4' }, tiles));
+    h('span', { class: 'stat-value' + (na ? ' na' : '') }, na ? 'n/a' : (typeof value === 'number' ? value.toLocaleString() : String(value))));
 }
 
 export async function render(main, params, query, ctx) {
@@ -18,51 +16,30 @@ export async function render(main, params, query, ctx) {
   const project = ctx.project();
   const row = ctx.projectRow();
   const pq = project === 'all' ? '' : '&project=' + encodeURIComponent(project);
-  main.appendChild(pageHead(row ? (row.domain || row.id) : 'All projects', 'Dashboard', row ? 'Operational state of ' + row.display_name + '. Every figure is a live count; nothing is estimated.' : 'Operational state across every project you can access. Every figure is a live count; nothing is estimated.'));
-  const body = h('div', { class: 'stack' }, skeletonRows(4)); main.appendChild(body);
-  let d;
-  try { d = await ctx.api.get('/api/dashboard' + ctx.api.qs({ project })); } catch (err) { clear(body); body.appendChild(errorBox(err, () => render(clear(main), params, query, ctx))); if (err.status === 404) body.appendChild(fallback(ctx)); return; }
+  main.appendChild(pageHead(null, 'Today', row ? row.display_name : 'Every project you can access'));
+  const body = h('div', { class: 'stack' }, skeletonRows(3)); main.appendChild(body);
+  const [dash, numbers, agents] = await Promise.all([ctx.api.get('/api/dashboard' + ctx.api.qs({ project })).then((d) => ({ ok: true, d }), (err) => ({ ok: false, err })), loadNumbers(), loadAgents()]);
   clear(body);
-  const w = d.whatsapp || {}, p = d.projects || {}, a = d.ai || {};
-  const alerts = d.alerts || [];
-  if (alerts.length) body.appendChild(h('div', { class: 'card alerts' }, cardHead('Alerts', [badge(alerts.length + ' open', alerts.some((x) => x.level === 'error') ? 'danger' : 'warn')]),
-    h('div', { class: 'alert-list' }, alerts.map((x) => h('div', { class: 'alert ' + (x.level || 'warning') }, badge(x.level || 'warning'), h('strong', {}, x.component || '—'), h('span', {}, x.message || ''), h('span', { class: 'when' }, relTime(x.at)))))));
-  body.appendChild(group('WhatsApp', [
-    stat('Conversations', w.conversations, 'live conversations', '', '#/inbox?view=all' + pq),
-    stat('Unread', w.unread, 'messages awaiting a look', w.unread > 0 ? 'warn' : 'ok', '#/inbox?view=unread' + pq),
-    stat('Handled by AI', w.ai, 'handler = AI', 'info', '#/inbox?view=ai' + pq),
-    stat('Handled by humans', w.human, 'handler = human', '', '#/inbox?view=human' + pq),
-    stat('Waiting on customer', w.waiting, 'status waiting_customer', '', '#/inbox?view=waiting' + pq),
-    stat('Needs attention', w.needs_attention, 'needs_human · open handoffs', w.needs_attention > 0 ? 'danger' : 'ok', '#/inbox?view=attention' + pq)
-  ], { label: 'Open inbox', href: '#/inbox' }));
-  body.appendChild(group('Projects', [
-    stat('Active projects', p.active, 'status active', 'ok', '#/projects'),
-    stat('Total projects', p.total, 'all statuses', '', '#/projects')
-  ], { label: 'All projects', href: '#/projects' }));
-  body.appendChild(group('AI', [
-    stat('Active agents', a.active_agents, 'agents in service', 'info', '#/ai?tab=agents'),
-    stat('Handled (24 h)', a.handled_24h, 'AI runs', '', '#/ai?tab=runs'),
-    stat('Handoffs (24 h)', a.handoffs_24h, 'AI → human', a.handoffs_24h > 0 ? 'warn' : '', '#/inbox?view=attention' + pq),
-    stat('Errors (24 h)', a.errors_24h, 'failed runs', a.errors_24h > 0 ? 'danger' : 'ok', '#/ai?tab=runs')
-  ], { label: 'AI centre', href: '#/ai' }));
-  const infra = d.infrastructure || [];
-  body.appendChild(h('div', { class: 'grid cols-2' },
-    h('div', { class: 'card' }, cardHead('Infrastructure', [h('a', { class: 'btn btn-ghost btn-sm', href: '#/health' }, 'Health center')]),
-      infra.length ? h('div', { class: 'health-grid compact' }, infra.map((c) => h('div', { class: 'health-item ' + (c.status || 'unknown') }, h('span', { class: 'status-dot ' + ({ ok: 'ok', warning: 'warn', error: 'danger', disconnected: 'danger' }[c.status] || '') }), h('span', { class: 'health-name' }, c.component), badge(c.status || 'unknown'), h('span', { class: 'dim' }, typeof c.detail === 'string' ? c.detail : (c.detail && (c.detail.reason || c.detail.detail)) || ''), h('span', { class: 'when' }, relTime(c.checked_at))))) : h('p', {}, 'No health check recorded yet.')),
-    h('div', { class: 'card' }, cardHead('Activity per project (24 h)', [h('a', { class: 'btn btn-ghost btn-sm', href: '#/projects' }, 'Projects')]),
-      (p.activity || []).length ? simpleTable([
-        { label: 'Project', cell: (r) => h('a', { href: '#/projects/' + encodeURIComponent(r.id) }, r.display_name || r.id) },
-        { label: 'Conversations', cell: (r) => String(r.conversations_24h === undefined ? '—' : r.conversations_24h), cls: 'num' },
-        { label: '', cell: (r) => h('a', { class: 'btn btn-ghost btn-sm', href: '#/inbox?view=all&project=' + encodeURIComponent(r.id) }, 'Inbox'), stop: true }
-      ], p.activity, { compact: true, noScroll: true }) : empty('No activity', 'No conversation in the last 24 hours.'))
-  ));
-  body.appendChild(h('p', { class: 'dim' }, h('small', {}, 'Generated ' + fmtDate(d.generated_at))));
-}
-
-/* Until /api/dashboard exists the page still offers the way in. */
-function fallback(ctx) {
-  return h('div', { class: 'grid cols-4' },
-    stat('Inbox', null, 'open the inbox', '', '#/inbox'),
-    stat('Projects', ctx.projects().length, 'known to this panel', '', '#/projects'),
-    stat('Health', null, 'process health', '', '#/health'));
+  if (!dash.ok) { body.appendChild(errorBox(dash.err, () => render(clear(main), params, query, ctx))); return; }
+  const d = dash.d, w = d.whatsapp || {}, p = d.projects || {};
+  const rows = (p.activity || []).length ? p.activity : ctx.projects().filter((x) => project === 'all' || x.id === project);
+  const summaries = {}; rows.forEach((r) => { summaries[r.id] = summarize(r, numbers, agents, r.id); });
+  // WhatsApp status: distinct numbers across the shown projects (all numbers when nothing is linked yet)
+  const seen = {}; let total = 0, connected = 0;
+  rows.forEach((r) => summaries[r.id].whatsapp.forEach((n) => { const k = n.phone_masked || JSON.stringify(n); if (seen[k]) return; seen[k] = true; total++; if (n.status === 'open') connected++; }));
+  if (!total && project === 'all') { total = numbers.length; connected = numbers.filter((n) => n.status === 'open').length; }
+  const waiting = w.waiting_human !== undefined ? w.waiting_human : w.needs_attention;
+  body.appendChild(h('div', { class: 'grid cols-5' },
+    tile('Unread messages', w.unread, '#/inbox?view=unread' + pq, w.unread > 0 ? 'warn' : ''),
+    tile('Open conversations', w.conversations, '#/inbox' + pq),
+    tile('Waiting for human', waiting, '#/inbox?view=human' + pq, waiting > 0 ? 'danger' : 'ok'),
+    tile('Active projects', p.active, '#/projects'),
+    tile('WhatsApp', connected + ' / ' + total, '#/whatsapp', total && connected === total ? 'ok' : total ? 'warn' : '')));
+  body.appendChild(h('div', { class: 'card' }, h('h3', {}, 'Projects'),
+    rows.length ? simpleTable([
+      { label: 'Project', cell: (r) => h('a', { href: '#/projects/' + encodeURIComponent(r.id) }, r.display_name || r.id) },
+      { label: 'Status', cell: (r) => badge(r.status) },
+      { label: 'WhatsApp', cell: (r) => summaries[r.id].whatsapp.length ? h('div', { class: 'stack xs' }, summaries[r.id].whatsapp.map((n) => h('span', { class: 'num-line' }, h('span', { class: 'mono' }, fmtMasked(n.phone_masked)), ' ', connBadge(n.status)))) : h('span', { class: 'dim' }, 'No number') },
+      { label: 'AI', cell: (r) => summaries[r.id].ai.agent ? h('span', {}, summaries[r.id].ai.agent, ' ', badge(aiWords(summaries[r.id].ai.mode), summaries[r.id].ai.mode === 'auto' ? 'ok' : summaries[r.id].ai.mode === 'suggest' ? 'info' : 'mock')) : h('span', { class: 'dim' }, 'No agent') }
+    ], rows, { noScroll: true, onRow: (r) => { location.hash = '#/projects/' + encodeURIComponent(r.id); } }) : empty('No project yet', 'Create the first one.', ctx.can('admin') ? h('a', { class: 'btn btn-primary', href: '#/projects/new' }, 'New project') : null)));
 }

@@ -7,14 +7,9 @@ import { commandMenu } from './command.js';
 import { dirtyGuard } from './form.js';
 import * as dashboard from './views/dashboard.js';
 import * as inbox from './views/inbox.js';
-import * as contacts from './views/contacts.js';
 import * as projects from './views/projects.js';
 import * as whatsapp from './views/whatsapp.js';
 import * as ai from './views/ai.js';
-import * as automations from './views/automations.js';
-import * as integrations from './views/integrations.js';
-import * as health from './views/health.js';
-import * as audit from './views/audit.js';
 import * as settings from './views/settings.js';
 import * as resource from './views/resource.js';
 import * as record from './views/record.js';
@@ -45,14 +40,8 @@ export function navEntries() {
   return [
     { label: 'Dashboard', icon: 'dashboard', route: '#/dashboard' },
     { label: 'Inbox', icon: 'inbox', route: '#/inbox', count: state.inboxUnread },
-    { label: 'Contacts', icon: 'contacts', route: '#/contacts' },
     { label: 'Projects', icon: 'project', route: '#/projects' },
     { label: 'WhatsApp', icon: 'whatsapp', route: '#/whatsapp' },
-    { label: 'AI', icon: 'ai', route: '#/ai' },
-    { label: 'Automations', icon: 'automation', route: '#/automations' },
-    { label: 'Integrations', icon: 'integration', route: '#/integrations' },
-    { label: 'Health', icon: 'health', route: '#/health' },
-    { label: 'Audit', icon: 'audit', route: '#/audit' },
     { label: 'Settings', icon: 'settings', route: '#/settings' }
   ];
 }
@@ -60,12 +49,12 @@ export function navEntries() {
 function renderNav(current) {
   const nav = document.getElementById('nav'); clear(nav);
   navEntries().forEach((e) => {
-    const active = current === e.route || current.startsWith(e.route + '/') || (e.route === '#/audit' && current === '#/r/audit') || (e.route === '#/settings' && /^#\/r\/(users|rules|tags)/.test(current)) || (e.route === '#/ai' && /^#\/r\/(knowledge|handoffs)/.test(current));
+    const active = current === e.route || current.startsWith(e.route + '/') || (e.route === '#/inbox' && current.startsWith('#/contacts')) || (e.route === '#/settings' && /^#\/r\//.test(current)) || (e.route === '#/projects' && current.startsWith('#/ai/'));
     nav.appendChild(h('a', { href: e.route, 'aria-current': active ? 'page' : undefined, onClick: () => { document.getElementById('rail').classList.remove('open'); } },
       h('span', { class: 'glyph' }, icon(e.icon)), h('span', { class: 'nav-label' }, e.label), e.count ? h('span', { class: 'count', 'aria-label': e.count + ' unread' }, String(e.count)) : null));
   });
   const foot = document.getElementById('rail-foot'); clear(foot);
-  foot.append(h('div', { class: 'who' }, h('span', {}, state.meta.user.username, ' ', badge(userRole())), h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onClick: signOut }, 'Sign out')), h('span', {}, 'MYTHOS Control Center v' + state.meta.version));
+  foot.append(h('div', { class: 'who' }, h('span', {}, state.meta.user.username, ' ', badge(userRole())), h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onClick: signOut }, 'Sign out')));
 }
 
 function renderProjects() {
@@ -111,24 +100,37 @@ export const ctx = {
   remember: (entry) => { state.recent = [entry].concat(state.recent.filter((r) => r.route !== entry.route)).slice(0, 8); try { sessionStorage.setItem('mythos-wp:recent', JSON.stringify(state.recent)); } catch (e) { /* pref */ } }
 };
 
+/* Old hashes keep working: they land where the feature now lives. */
+const GENERIC = ['knowledge', 'rules', 'handoffs', 'users', 'tags'];
+function redirectFor(segs, query) {
+  const p = '/' + segs.join('/');
+  const pid = ctx.projectId();
+  if (p === '/ai') return pid ? '#/projects/' + encodeURIComponent(pid) + '?tab=ai' : '#/projects';
+  if (p === '/automations') return '#/settings?section=automations';
+  if (p === '/integrations') return '#/settings?section=integrations';
+  if (p === '/health' || p === '/system') return '#/settings?section=system';
+  if (p === '/audit' || p === '/r/audit') return '#/settings?section=system&sub=audit' + (query ? '&' + query : '');
+  if (p === '/r/projects/new') return '#/projects/new';
+  if (p === '/r/projects') return '#/projects';
+  if (/^\/r\/projects\/[^/]+/.test(p)) return '#/projects/' + segs[2];
+  if (p === '/r/inboxes' || /^\/r\/inboxes\//.test(p)) return '#/whatsapp';
+  if (segs[0] === 'r' && segs[1] && !GENERIC.includes(segs[1])) return '#/dashboard';
+  return null;
+}
+
 const VIEWS = [
   ['/dashboard', dashboard.render],
   ['/inbox', inbox.render],
   ['/inbox/:id', inbox.render],
-  ['/contacts', contacts.render],
-  ['/contacts/360/:phone', contacts.render360],
+  ['/contacts', inbox.render],
+  ['/contacts/360/:contact', inbox.render],
   ['/projects', projects.render],
+  ['/projects/new', projects.renderForm],
   ['/projects/:id', projects.renderOne],
+  ['/projects/:id/edit', projects.renderForm],
   ['/whatsapp', whatsapp.render],
-  ['/ai', ai.render],
   ['/ai/agents/:id', ai.renderAgent],
-  ['/automations', automations.render],
-  ['/integrations', integrations.render],
-  ['/health', health.render],
-  ['/system', health.render],
-  ['/audit', audit.render],
   ['/settings', settings.render],
-  ['/r/audit', audit.render],
   ['/r/:resource', resource.render],
   ['/r/:resource/new', record.renderNew],
   ['/r/:resource/:id', record.render],
@@ -143,6 +145,8 @@ async function route() {
   }
   lastHash = location.hash;
   const { segs, query } = parseHash(location.hash || '#/dashboard');
+  const to = redirectFor(segs, query);
+  if (to) { history.replaceState(null, '', to); lastHash = to; return route(); }
   const main = document.getElementById('view');
   renderNav('#/' + segs.join('/'));
   for (const [pattern, fn] of VIEWS) {

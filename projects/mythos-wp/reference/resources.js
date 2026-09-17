@@ -231,15 +231,15 @@ var RESOURCES = {
       { name: 'id', label: 'Project ID', type: 'text', required: true, maxLength: 64, pattern: '^[a-z0-9][a-z0-9-]{1,62}$', createOnly: true, section: 'identity', listed: true, sortable: true, help: 'Stable slug used everywhere (routing, agents, audit). Lowercase, digits and dashes.' },
       { name: 'display_name', label: 'Name', type: 'text', required: true, maxLength: 128, section: 'identity', listed: true, sortable: true },
       { name: 'domain', label: 'Domain', type: 'text', maxLength: 128, section: 'identity', listed: true },
-      { name: 'brand_car', label: 'Vehicle brand', type: 'text', maxLength: 64, section: 'identity', listed: true },
+      { name: 'brand_car', label: 'Vehicle brand', type: 'text', maxLength: 64, section: 'identity', help: 'Auto projects only.' },
       { name: 'kind', label: 'Kind', type: 'enum', enum: ['automotive', 'service', 'internal', 'other'], required: true, defaultValue: 'service', section: 'identity', listed: true, sortable: true, help: 'automotive = reads a Kitchen (parts, vehicles, prices); service = any customer-facing service (Dar Hijama…); internal = MYTHOS itself.' },
       { name: 'description', label: 'Description', type: 'textarea', maxLength: 4000, section: 'identity' },
-      { name: 'settings', label: 'Settings (JSON, non-secret)', type: 'json', defaultValue: {}, section: 'identity', help: 'Known keys: kitchen (integration key, e.g. kitchen-mythos-auto), timezone, default_agent_id.' },
+      { name: 'settings', label: 'Advanced settings (JSON, non-secret)', type: 'json', defaultValue: {}, section: 'advanced', help: 'Known keys: kitchen (integration key, e.g. kitchen-mythos-auto), ai_mode (off|suggest|auto|inherit), timezone.' },
       { name: 'status', label: 'Status', type: 'enum', enum: ['active', 'planned', 'archived'], required: true, defaultValue: 'planned', section: 'identity', listed: true, sortable: true },
       { name: 'currency', label: 'Currency', type: 'text', required: true, pattern: ISO3, maxLength: 3, defaultValue: 'TND', section: 'identity' },
-      { name: 'catalog_dsn_env', label: 'Legacy catalogue env var (unused)', type: 'text', maxLength: 64, pattern: '^[A-Z][A-Z0-9_]{2,62}$', section: 'catalog', help: 'V1 direct-database catalogue connection. V2 reads the Kitchen API (settings.kitchen) instead; kept for rollback only.' },
-      { name: 'catalog_schema', label: 'Legacy catalogue schema (unused)', type: 'text', maxLength: 64, pattern: '^[a-z_][a-z0-9_]{0,62}$', section: 'catalog' },
-      { name: 'notes', label: 'Notes', type: 'textarea', maxLength: 4000, section: 'identity' },
+      { name: 'catalog_dsn_env', label: 'catalog_dsn_env', type: 'text', maxLength: 64, pattern: '^[A-Z][A-Z0-9_]{2,62}$', hidden: true, readonly: true },
+      { name: 'catalog_schema', label: 'catalog_schema', type: 'text', maxLength: 64, pattern: '^[a-z_][a-z0-9_]{0,62}$', hidden: true, readonly: true },
+      { name: 'notes', label: 'Internal notes', type: 'textarea', maxLength: 4000, section: 'advanced' },
       CREATED, UPDATED
     ],
     check: function (v, existing) {
@@ -250,7 +250,7 @@ var RESOURCES = {
       if (st && st.kitchen !== undefined && st.kitchen !== null && !/^[a-z0-9][a-z0-9-]{1,62}$/.test(String(st.kitchen))) errs.settings = 'settings.kitchen must be an integration key';
       return errs;
     },
-    sections: { identity: 'Project', catalog: 'Legacy catalogue connection (V1, unused)', audit: 'Audit' }
+    sections: { identity: 'Project', advanced: 'Advanced', audit: 'Audit' }
   },
   users: {
     key: 'users', label: 'Users', singular: 'User', group: 'settings', icon: 'project', global: true,
@@ -316,7 +316,7 @@ function publicShape(r) {
     search: r.search.map(function (s) { return s.replace(/^[a-z]+\./, ''); }),
     defaultSort: r.defaultSort,
     filters: r.filters.map(function (f) { return { name: f.name, label: f.label, enum: f.enum || null, kind: f.kind || 'value', ref: f.ref || null, boolean: !!f.boolean }; }),
-    fields: r.fields.map(function (f) {
+    fields: r.fields.filter(function (f) { return !f.hidden; }).map(function (f) {
       var o = {};
       Object.keys(f).forEach(function (k) { if (k !== 'sql') o[k] = f[k]; });
       return o;

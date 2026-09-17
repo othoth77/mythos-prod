@@ -210,7 +210,7 @@ function autoReply(pool, resolved, convId, opts) {
     return (opts.agent !== undefined ? Promise.resolve(opts.agent) : agents.resolveForConversation(pool, convId)).then(function (a) {
       agent = a || null;
       if (!agent) return { ran: false, sent: false, reason: 'NO_AGENT' };
-      mode = agents.effectiveMode(agent, inboxOf(c));
+      mode = agents.effectiveMode(agent, inboxOf(c), resolved && resolved.project);
       if (mode === 'off') return { ran: false, sent: false, reason: 'MODE_OFF', mode: mode, agent_id: agent.id };
       if (msgId && trigger !== 'manual' && inflight[msgId]) return { ran: false, sent: false, reason: 'DUPLICATE_MESSAGE', mode: mode, agent_id: agent.id };
       return (trigger !== 'manual' ? alreadyRan(pool, msgId) : Promise.resolve(false)).then(function (dup) {
@@ -336,7 +336,7 @@ function attach(pool, log) {
         return agents.resolveForConversation(pool, ev.conversation_id).then(function (agent) {
           if (agent && row.handler === 'ai') {
             return loadConversation(pool, row.project_id, ev.conversation_id).then(function (c) {
-              var mode = agents.effectiveMode(agent, inboxOf(c));
+              var mode = agents.effectiveMode(agent, inboxOf(c), resolved.project);
               if (mode === 'off') return { ran: false, reason: 'MODE_OFF', agent_id: agent.id };
               if (mode === 'auto') return autoReply(pool, resolved, ev.conversation_id, { message_id: msgId, trigger: 'auto', agent: agent });
               return alreadyRan(pool, msgId).then(function (dup) {

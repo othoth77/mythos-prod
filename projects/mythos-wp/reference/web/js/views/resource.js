@@ -3,8 +3,9 @@ import { h, icon, toast, confirmDialog, empty } from '../ui.js';
 import { dataTable, stateFromQuery, queryFromState, apiQuery } from '../table.js';
 import { navigate } from '../router.js';
 
+export const GENERIC = ['knowledge', 'rules', 'handoffs', 'users', 'tags'];
 export async function render(main, params, query, ctx) {
-  const r = ctx.resources()[params.resource];
+  const r = GENERIC.includes(params.resource) ? ctx.resources()[params.resource] : null;
   if (!r) { main.appendChild(empty('Unknown resource')); return; }
   const project = ctx.projectId();
   const needsProject = r.scope === 'catalog' || (r.scope === 'wp' && !r.global && !r.projectOptional);
@@ -45,11 +46,7 @@ function describe(r) {
     knowledge: 'Customer-facing knowledge an agent may use verbatim, when active and explicitly allowed for auto-reply.',
     rules: 'Per-project business configuration as JSON values (opening hours, delivery zones, …). Owner only.',
     handoffs: 'Conversations handed between the AI and humans: NEW → REQUIRES_HUMAN → IN_PROGRESS → RESOLVED. Numbers are masked; no message text is stored.',
-    audit: 'Who changed what and when. Read-only.',
-    projects: 'Every business the Control Center serves.',
     users: 'Panel accounts, roles and project access.',
-    tags: 'Labels for conversations and contacts.',
-    inboxes: 'Legacy inbox registry: number ↔ project links with their switches. Prefer WhatsApp → Numbers.',
-    inbox_members: 'Users restricted to specific inboxes (visibility scope).'
+    tags: 'Labels for conversations and contacts.'
   }[r.key] || '';
 }

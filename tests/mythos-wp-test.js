@@ -246,15 +246,15 @@ async function dbSection(port, opCookie) {
   var P = '?project=test-core';
 
   // --- users: DB accounts, roles, project access, hidden hash
-  r = await request(port, 'POST', '/api/r/users', { username: 'core-agent', role: 'agent', password: 'agent-password-not-real-1', display_name: 'Core Agent' }, OP); eq(r.status, 403, 'users: manager cannot create accounts');
+  r = await request(port, 'POST', '/api/r/users', { username: 'core-agent', role: 'agent', password: 'test-agent-pw-not-a-real-1', display_name: 'Core Agent' }, OP); eq(r.status, 403, 'users: manager cannot create accounts');
   r = await request(port, 'POST', '/api/r/users', { username: 'core-agent', role: 'agent', password: 'short' }, C); eq(r.status, 400, 'users: password policy');
-  r = await request(port, 'POST', '/api/r/users', { username: 'core-agent', role: 'agent', password: 'agent-password-not-real-1', display_name: 'Core Agent' }, C);
+  r = await request(port, 'POST', '/api/r/users', { username: 'core-agent', role: 'agent', password: 'test-agent-pw-not-a-real-1', display_name: 'Core Agent' }, C);
   ok(r.status === 201 && r.json.data.row.username === 'core-agent' && r.json.data.row.scrypt === undefined && !/scrypt|\$[0-9a-f]{32}/.test(r.text), 'users: created, hash never returned');
-  r = await request(port, 'POST', '/api/r/users', { username: 'core-admin', role: 'admin', password: 'admin-password-not-real-1', all_projects: true }, C); eq(r.status, 201, 'users: admin created');
-  r = await request(port, 'POST', '/api/r/users', { username: 'core-viewer', role: 'viewer', password: 'viewer-password-not-real-1' }, C); eq(r.status, 201, 'users: viewer created');
+  r = await request(port, 'POST', '/api/r/users', { username: 'core-admin', role: 'admin', password: 'test-admin-pw-not-a-real-1', all_projects: true }, C); eq(r.status, 201, 'users: admin created');
+  r = await request(port, 'POST', '/api/r/users', { username: 'core-viewer', role: 'viewer', password: 'test-viewer-pw-not-a-real-1' }, C); eq(r.status, 201, 'users: viewer created');
   r = await request(port, 'GET', '/api/r/users', undefined, C); ok(r.status === 200 && r.json.data.rows.length >= 3 && !/scrypt/.test(r.text), 'users: list hides the hash');
   r = await request(port, 'GET', '/api/r/users/core-agent', undefined, C); ok(r.status === 200 && r.json.data.row.scrypt === undefined && r.json.data.history.length === 1, 'users: record hidden field + audited create (' + r.status + ' ' + JSON.stringify(r.json && r.json.data && r.json.data.history) + ')');
-  r = await request(port, 'POST', '/api/login', { username: 'core-agent', password: 'agent-password-not-real-1' }, H);
+  r = await request(port, 'POST', '/api/login', { username: 'core-agent', password: 'test-agent-pw-not-a-real-1' }, H);
   ok(r.status === 200 && r.json.data.role === 'agent' && JSON.stringify(r.json.data.projects) === '[]', 'users: DB login, no project yet');
   var AG = { Cookie: cookieOf(r), 'X-Requested-With': 'MythosWP' };
   r = await request(port, 'GET', '/api/meta', undefined, AG); ok(r.status === 200 && r.json.data.projects.length === 0, 'access: agent without grants sees no project');
@@ -262,20 +262,20 @@ async function dbSection(port, opCookie) {
   r = await request(port, 'PATCH', '/api/users/core-agent/projects', { add: ['test-core'] }, OP); eq(r.status, 403, 'access: manager cannot grant');
   r = await request(port, 'PATCH', '/api/users/core-agent/projects', { add: ['test-core', 'nope-project'] }, C); eq(r.status, 404, 'access: unknown project refused');
   r = await request(port, 'PATCH', '/api/users/core-agent/projects', { add: ['test-core'] }, C); ok(r.status === 200 && JSON.stringify(r.json.data.projects) === '["test-core"]', 'access: owner grants a project');
-  r = await request(port, 'POST', '/api/login', { username: 'core-agent', password: 'agent-password-not-real-1' }, H); AG = { Cookie: cookieOf(r), 'X-Requested-With': 'MythosWP' };
+  r = await request(port, 'POST', '/api/login', { username: 'core-agent', password: 'test-agent-pw-not-a-real-1' }, H); AG = { Cookie: cookieOf(r), 'X-Requested-With': 'MythosWP' };
   ok(JSON.stringify(r.json.data.projects) === '["test-core"]', 'access: session carries the grant');
   r = await request(port, 'GET', '/api/meta', undefined, AG); ok(r.json.data.projects.length === 1 && r.json.data.projects[0].id === 'test-core', 'access: meta lists only granted projects');
   r = await request(port, 'GET', '/api/r/knowledge?project=test-core-2', undefined, AG); eq(r.status, 404, 'access: other project still hidden');
   r = await request(port, 'GET', '/api/r/knowledge' + P, undefined, AG); eq(r.status, 200, 'access: granted project readable');
   r = await request(port, 'GET', '/api/r/audit', undefined, AG); eq(r.status, 403, 'access: agents cannot read the audit log at all (manager+)');
-  r = await request(port, 'POST', '/api/users/core-agent/password', { password: 'new-agent-password-not-real' }, OP); eq(r.status, 403, 'users: manager cannot reset passwords');
-  r = await request(port, 'POST', '/api/users/core-agent/password', { password: 'new-agent-password-not-real' }, C); eq(r.status, 200, 'users: owner resets a password');
-  r = await request(port, 'POST', '/api/login', { username: 'core-agent', password: 'agent-password-not-real-1' }, H); eq(r.status, 401, 'users: old password refused');
-  r = await request(port, 'POST', '/api/login', { username: 'core-agent', password: 'new-agent-password-not-real' }, H); eq(r.status, 200, 'users: new password works'); AG = { Cookie: cookieOf(r), 'X-Requested-With': 'MythosWP' };
-  r = await request(port, 'POST', '/api/login', { username: 'core-admin', password: 'admin-password-not-real-1' }, H); var AD = { Cookie: cookieOf(r), 'X-Requested-With': 'MythosWP' }; ok(r.json.data.projects === null, 'access: admin sees every project');
+  r = await request(port, 'POST', '/api/users/core-agent/password', { password: 'test-new-agent-pw-not-a-real' }, OP); eq(r.status, 403, 'users: manager cannot reset passwords');
+  r = await request(port, 'POST', '/api/users/core-agent/password', { password: 'test-new-agent-pw-not-a-real' }, C); eq(r.status, 200, 'users: owner resets a password');
+  r = await request(port, 'POST', '/api/login', { username: 'core-agent', password: 'test-agent-pw-not-a-real-1' }, H); eq(r.status, 401, 'users: old password refused');
+  r = await request(port, 'POST', '/api/login', { username: 'core-agent', password: 'test-new-agent-pw-not-a-real' }, H); eq(r.status, 200, 'users: new password works'); AG = { Cookie: cookieOf(r), 'X-Requested-With': 'MythosWP' };
+  r = await request(port, 'POST', '/api/login', { username: 'core-admin', password: 'test-admin-pw-not-a-real-1' }, H); var AD = { Cookie: cookieOf(r), 'X-Requested-With': 'MythosWP' }; ok(r.json.data.projects === null, 'access: admin sees every project');
   r = await request(port, 'PATCH', '/api/r/users/core-viewer', { role: 'owner' }, AD); eq(r.status, 403, 'users: admin cannot grant owner');
   r = await request(port, 'PATCH', '/api/r/users/core-viewer', { status: 'disabled' }, AD); eq(r.status, 200, 'users: admin disables an account');
-  r = await request(port, 'POST', '/api/login', { username: 'core-viewer', password: 'viewer-password-not-real-1' }, H); eq(r.status, 401, 'users: disabled account cannot log in');
+  r = await request(port, 'POST', '/api/login', { username: 'core-viewer', password: 'test-viewer-pw-not-a-real-1' }, H); eq(r.status, 401, 'users: disabled account cannot log in');
   r = await request(port, 'DELETE', '/api/r/users/core-admin', undefined, AD); eq(r.status, 403, 'users: cannot delete own account');
   r = await request(port, 'DELETE', '/api/r/users/core-viewer', undefined, AD); eq(r.status, 403, 'users: admin cannot delete accounts (owner only)');
 
@@ -332,10 +332,40 @@ async function dbSection(port, opCookie) {
   r = await request(port, 'POST', '/api/r/projects', { id: 'test-core-3', display_name: 'Third', kind: 'automotive', status: 'planned', settings: { kitchen: 'kitchen-mythos-auto' } }, OP); eq(r.status, 403, 'authz: manager cannot create projects');
   r = await request(port, 'POST', '/api/r/projects', { id: 'test-core-3', display_name: 'Third', kind: 'automotive', status: 'planned', settings: { kitchen: 'kitchen-mythos-auto' } }, AD); eq(r.status, 201, 'projects: automotive project needs no database catalogue (Kitchen via settings)');
   r = await request(port, 'POST', '/api/r/projects', { id: 'bad', display_name: 'B', settings: { kitchen: 'Not A Key' } }, AD); ok(r.status === 400 && r.json.errors.settings, 'projects: settings.kitchen validated');
-  r = await request(port, 'POST', '/api/r/projects', { id: 'bad', display_name: 'B', catalog_dsn_env: 'lowercase' }, AD); ok(r.status === 400 && r.json.errors.catalog_dsn_env === 'pattern', 'projects: legacy env name pattern still validated');
+  r = await request(port, 'POST', '/api/r/projects', { id: 'bad', display_name: 'B', catalog_dsn_env: 'lowercase' }, AD); ok(r.status === 400 && r.json.errors.catalog_dsn_env === 'read_only', 'projects: legacy catalogue column is not writable any more');
   r = await request(port, 'GET', '/api/meta', undefined, C); ok(r.json.data.projects.some(function (p) { return p.id === 'test-core-3' && p.kitchen === 'kitchen-mythos-auto'; }), 'projects: meta exposes the kitchen key');
   r = await request(port, 'DELETE', '/api/r/projects/test-core-3', undefined, AD); eq(r.status, 403, 'projects: admin cannot delete');
   r = await request(port, 'DELETE', '/api/r/projects/test-core-3', undefined, C); eq(r.status, 200, 'projects: owner deletes unused project');
+
+  // --- V2.1 simple project operations: the short "New project" form, Project → AI, search scope
+  r = await request(port, 'POST', '/api/projects', { name: 'Core Simple Service', kind: 'service', domain: 'simple.test', description: 'created by the short form', currency: 'tnd' }, OP); eq(r.status, 403, 'simple create: manager cannot create projects');
+  r = await request(port, 'POST', '/api/projects', { name: 'Core Simple Service', kind: 'service', domain: 'simple.test', description: 'created by the short form', currency: 'tnd' }, AD);
+  ok(r.status === 201 && r.json.data.project.id === 'core-simple-service' && r.json.data.project.kind === 'service' && r.json.data.project.status === 'active' && r.json.data.project.currency === 'TND', 'simple create: slug generated, active, currency normalised (' + JSON.stringify(r.json.data && r.json.data.project && r.json.data.project.id) + ')');
+  ok(r.json.data.inbox === null && r.json.data.agent === null && !(r.json.data.project.settings || {}).kitchen, 'simple create: no number, no agent, no kitchen for a service project');
+  r = await request(port, 'POST', '/api/projects', { name: 'Core Simple Service', kind: 'auto', brand_car: 'KIA' }, AD);
+  ok(r.status === 201 && r.json.data.project.id === 'core-simple-service-2' && r.json.data.project.kind === 'automotive' && r.json.data.project.settings.kitchen === 'kitchen-mythos-auto' && r.json.data.project.brand_car === 'KIA', 'simple create: duplicate name gets a suffix; Auto type attaches the Kitchen automatically');
+  r = await request(port, 'POST', '/api/projects', { name: 'x', kind: 'bogus' }, AD); eq(r.status, 400, 'simple create: type validated');
+  r = await request(port, 'POST', '/api/projects', { name: '' }, AD); eq(r.status, 400, 'simple create: name required');
+  r = await request(port, 'POST', '/api/projects', { name: 'Core With Agent', kind: 'internal', agent_id: 999999 }, AD);
+  ok(r.status === 201 && r.json.data.agent === null && r.json.data.warnings.length === 1, 'simple create: unknown agent is reported as a warning, project still created');
+  r = await request(port, 'GET', '/api/r/projects/core-simple-service', undefined, AG); ok(r.status === 404, 'access: agent without grant does not see the new project');
+  r = await request(port, 'GET', '/api/r/projects', undefined, AD); ok(r.status === 200 && !/catalog_dsn_env|catalog_schema|Legacy/i.test(r.text), 'projects: legacy catalogue columns are hidden from the API');
+  r = await request(port, 'GET', '/api/meta', undefined, AD); ok(!/catalog_dsn_env|Legacy catalogue/.test(JSON.stringify(r.json.data.resources.projects)), 'meta: no legacy catalogue field reaches the browser');
+  await pool.query("INSERT INTO wp_agents (slug, name, mode, engine, status) VALUES ('core-agent-a','Core Agent A','auto','engine-173','active') ON CONFLICT (slug) DO UPDATE SET mode = 'auto', status = 'active'");
+  var agentRow = (await pool.query("SELECT id FROM wp_agents WHERE slug = 'core-agent-a'")).rows[0];
+  r = await request(port, 'GET', '/api/projects/core-simple-service/ai', undefined, AD); ok(r.status === 200 && r.json.data.agent === null && r.json.data.mode === 'off' && r.json.data.status === 'disabled' && Array.isArray(r.json.data.agents), 'project ai: nothing bound → off/disabled with choices for managers+');
+  r = await request(port, 'PUT', '/api/projects/core-simple-service/ai', { agent_id: agentRow.id, mode: 'suggest' }, OP); eq(r.status, 403, 'project ai: manager cannot change it');
+  r = await request(port, 'PUT', '/api/projects/core-simple-service/ai', { agent_id: agentRow.id, mode: 'suggest' }, AD);
+  ok(r.status === 200 && r.json.data.agent && r.json.data.agent.id === agentRow.id && r.json.data.mode === 'suggest' && r.json.data.project_mode === 'suggest' && r.json.data.status === 'active', 'project ai: bound + project mode restricts an auto agent to suggest');
+  r = await request(port, 'PUT', '/api/projects/core-simple-service/ai', { mode: 'inherit' }, AD); ok(r.json.data.mode === 'auto', 'project ai: inherit → the agent mode');
+  r = await request(port, 'PUT', '/api/projects/core-simple-service/ai', { mode: 'off' }, AD); ok(r.json.data.mode === 'off' && r.json.data.status === 'disabled', 'project ai: off wins');
+  var agentsLib = require(path.join(WP, 'reference/ai/agents'));
+  ok(agentsLib.effectiveMode({ status: 'active', mode: 'auto' }, { ai_mode: 'inherit' }, { settings: { ai_mode: 'suggest' } }) === 'suggest' && agentsLib.effectiveMode({ status: 'active', mode: 'suggest' }, { ai_mode: 'auto' }, { settings: { ai_mode: 'auto' } }) === 'suggest' && agentsLib.effectiveMode({ status: 'active', mode: 'auto' }, { ai_mode: 'auto' }, { settings: { ai_mode: 'off' } }) === 'off', 'effectiveMode: project and inbox can only restrict');
+  r = await request(port, 'PUT', '/api/projects/core-simple-service/ai', { agent_id: null }, AD); ok(r.json.data.agent === null, 'project ai: unbind');
+  r = await request(port, 'GET', '/api/projects/core-simple-service/numbers', undefined, AD); ok(r.status === 200 && r.json.data.items.length === 0, 'project numbers: empty list');
+  r = await request(port, 'GET', '/api/search?q=core%20simple&project=all', undefined, AD);
+  ok(r.status === 200 && r.json.data.groups.every(function (g) { return ['projects', 'conversations', 'contacts'].indexOf(g.key) !== -1; }) && r.json.data.groups.some(function (g) { return g.key === 'projects' && g.items.some(function (i) { return i.route === '#/projects/core-simple-service'; }); }), 'search: only projects / conversations / contacts, project found');
+  await pool.query("DELETE FROM wp_project_agents WHERE project_id LIKE 'core-%'; DELETE FROM wp_inboxes WHERE project_id LIKE 'core-%'; DELETE FROM wp_audit_events WHERE project_id LIKE 'core-%'; DELETE FROM wp_projects WHERE id LIKE 'core-simple-%' OR id = 'core-with-agent'; DELETE FROM wp_agents WHERE slug = 'core-agent-a'");
 
   // --- engine through the simulator (no Kitchen configured: greeting answers, business questions hand off)
   var sim = await autoreply.simulate(resolved, 'Bonjour');

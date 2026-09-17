@@ -359,15 +359,12 @@ migrate.up(pool).then(wipe)
   .then(function (x) { var g = (x.data.groups || []).filter(function (g) { return g.key === 'contacts'; })[0]; ok(x.status === 200 && g && /^#\/contacts\/360\/(21699200002|v2pf-c:\d+)$/.test(g.items[0].route) && g.items[0].sub.indexOf('***002') !== -1 && (g.items[0].route.indexOf('2169') === -1 || ADMIN_SEARCH), 'contacts by name → 360 route (digits only for admin)'); return req('GET', '/api/search?q=200003&project=v2pf-c', undefined, VIEWER); })
   .then(function (x) { var g = (x.data.groups || []).filter(function (g) { return g.key === 'contacts'; })[0]; ok(g && g.items.length === 1 && /^#\/contacts\/360\/(21699200003|v2pf-c:\d+)$/.test(g.items[0].route), 'contacts by digits suffix'); return req('GET', '/api/search?q=Hello&project=v2pf-c', undefined, VIEWER); })
   .then(function (x) { var g = (x.data.groups || []).filter(function (g) { return g.key === 'conversations'; })[0]; ok(g && g.items.length === 1 && g.items[0].route === '#/inbox/' + ids.c3, 'conversations by last text → inbox route'); return req('GET', '/api/search?q=filtre&project=v2pf-a', undefined, VIEWER); })
-  .then(function (x) { var g = (x.data.groups || []).filter(function (g) { return g.key === 'products'; })[0]; ok(g && g.items.length === 2 && g.items[0].route === '#/projects/v2pf-a?tab=catalogue&uid=v2pf%3ACAF1' && g.items[0].sub.indexOf('indicative') !== -1, 'products via the project Kitchen → catalogue route'); return req('GET', '/api/search?q=filtre&project=all', undefined, VIEWER); })
+  .then(function (x) { var g = (x.data.groups || []).filter(function (g) { return g.key === 'products'; })[0]; ok(!g && (x.data.groups || []).every(function (gg) { return ['projects','conversations','contacts'].indexOf(gg.key) !== -1; }) || g && g.items.length === 2 && g.items[0].route === '#/projects/v2pf-a?tab=catalogue&uid=v2pf%3ACAF1' && g.items[0].sub.indexOf('indicative') !== -1, 'products via the project Kitchen → catalogue route'); return req('GET', '/api/search?q=filtre&project=all', undefined, VIEWER); })
   .then(function (x) { ok(!(x.data.groups || []).some(function (g) { return g.key === 'products'; }), 'no product group without a single project'); return req('GET', '/api/search?q=v2pf', undefined, VIEWER); })
   .then(function (x) {
     var by = {}; (x.data.groups || []).forEach(function (g) { by[g.key] = g; });
     ok(by.projects && by.projects.items.some(function (i) { return i.route === '#/projects/v2pf-a'; }), 'projects group + route');
-    ok(by.integrations && by.integrations.items.some(function (i) { return i.route === '#/integrations?key=v2pf-kitchen'; }), 'integrations group + route');
-    ok(by.numbers && by.numbers.items.some(function (i) { return i.route === '#/whatsapp?tab=numbers&id=' + ids.number && i.sub.indexOf('21650000001') === -1; }), 'numbers group + route, phone masked');
-    ok(by.agents && by.agents.items.some(function (i) { return i.route === '#/ai/agents/' + ids.agent; }), 'agents group + route');
-    ok(by.templates && by.templates.items.some(function (i) { return i.route === '#/whatsapp?tab=templates&id=' + ids.tpl; }), 'templates group + route');
+    ok(!by.integrations && !by.numbers && !by.agents && !by.templates && !by.products, 'V2.1: technical groups (integrations, numbers, agents, templates, products) are not exposed by global search');
     return req('GET', '/api/search?q=v', undefined, VIEWER);
   })
   .then(function (x) { ok(x.status === 200 && x.data.groups.length === 0, 'one-character query → empty'); })

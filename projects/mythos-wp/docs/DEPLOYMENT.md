@@ -42,11 +42,11 @@ bash …/v2-rollout.sh --skip-backup                                            
 | 3 migrate | `bin/mythos-wp migrate up` with the production env (applies `0006_shared_account_routing`, `0007_control_center` — additive), then `migrate status` | `pending: []` |
 | 4 users | `bin/mythos-wp users import` — the 0600 users file becomes `wp_users` rows (existing names untouched; failure is non-fatal) | `{"imported":n,"skipped":m}` |
 | 5 restart | `systemctl --user restart mythos-wp.service` (as deploy) and wait ≤ 30 s for `GET /healthz` | `is-active` = active |
-| 6 smoke | loopback `GET /login` → 200, `GET /` unauthenticated → 302 | then sign in at https://wp.mythosprod.xyz/ and open **Health** |
+| 6 smoke | loopback `GET /login` → 200, `GET /` unauthenticated → 302 | then sign in at https://wp.mythosprod.xyz/ and open **Settings → System → Health** |
 
 After the rollout the server seeds, at boot: the default integrations (`integrations.ensureDefaults`), the default agent (`mythos-assistant`, engine-173, suggest, bound to nothing) and the three default automations (`automations.ensureDefaults`). Seeding is idempotent and key-wise.
 
-Post-rollout owner checks: **WhatsApp → Numbers → Sync** (discovers the Evolution instances; marks the reserved account as personal), **Health → Run now**, **Integrations** (credentials_state of `evolution`, `kitchen-mythos-auto`, `n8n`).
+Post-rollout owner checks: **WhatsApp → Sync all** (discovers the Evolution instances; marks the reserved account as personal), **Settings → System → Health → Run checks**, **Settings → Integrations** (the Meta / WhatsApp, Kitchen Mythos Auto and n8n cards must not say *Not configured*).
 
 ## 4. Rollback
 
