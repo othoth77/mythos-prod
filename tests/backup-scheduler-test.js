@@ -32,13 +32,66 @@ function w(rel, content) {
   return p;
 }
 function readHealth(p) { return JSON.parse(fs.readFileSync(p, 'utf8')); }
+// Every invocation of the wrapper is pinned to this workspace HERE, in the
+// helper, not at the call sites.
+//
+// 2026-09-14: the fail-closed "missing config" check called the wrapper with
+// no MYTHOS_BACKUP_HEALTH_FILE. The script's default is
+// "$HOME/mythos-backups/health/backup-health.json", which for a suite run as deploy on the
+// VPS is the LIVE record — four runs wrote status:fail and
+// consecutive_failures:4 into production while real backups were healthy.
+// A call site that forgets the override is the failure mode, so the override
+// is applied where it cannot be forgotten. §0 asserts this holds.
+var HEALTH_SANDBOX = path.join(work, 'health');
+function pinEnv(env) {
+  var merged = Object.assign({}, process.env, env || {});
+  var h = merged.MYTHOS_BACKUP_HEALTH_FILE;
+  if (typeof h !== 'string' || h.indexOf(work + path.sep) !== 0) {
+    merged.MYTHOS_BACKUP_HEALTH_FILE = path.join(HEALTH_SANDBOX, 'unpinned-call-site.json');
+  }
+  // HOME is redirected too: it is the root of every other production default
+  // in these scripts (the config path, the local backup tree).
+  merged.HOME = path.join(work, 'home');
+  return merged;
+}
 function run(args, env) {
   return cp.spawnSync('bash', [SCRIPT].concat(args), {
-    env: Object.assign({}, process.env, env || {}),
+    env: pinEnv(env),
     encoding: 'utf8',
     timeout: 120000
   });
 }
+
+console.log('\u00a70 REGRESSION (2026-09-14): no invocation can reach a production health record');
+fs.mkdirSync(HEALTH_SANDBOX, { recursive: true });
+fs.mkdirSync(path.join(work, 'home'), { recursive: true });
+(function () {
+  var PRODUCTION_HEALTH = path.join(os.homedir(), 'mythos-backups', 'health', 'backup-health.json');
+  var before = null;
+  try { before = fs.statSync(PRODUCTION_HEALTH).mtimeMs + ':' + fs.statSync(PRODUCTION_HEALTH).size; } catch (e) { before = 'absent'; }
+
+  // The exact shape of the 2026-09-14 incident: a fail-closed run with no
+  // health override at all.
+  var incident = run(['backup'], { MYTHOS_BACKUP_CONFIG: path.join(work, 'does-not-exist.env') });
+  check('the incident invocation still fails closed', incident.status === 1);
+  var after = null;
+  try { after = fs.statSync(PRODUCTION_HEALTH).mtimeMs + ':' + fs.statSync(PRODUCTION_HEALTH).size; } catch (e) { after = 'absent'; }
+  check('REGRESSION: an unpinned call site does not touch the production health record',
+    after === before, 'production record changed: ' + before + ' -> ' + after);
+  check('REGRESSION: the unpinned call was redirected into the workspace',
+    fs.existsSync(path.join(HEALTH_SANDBOX, 'unpinned-call-site.json')) || after === before);
+
+  // And the pinning helper itself, directly.
+  check('pinEnv redirects a missing health override into the workspace',
+    pinEnv({}).MYTHOS_BACKUP_HEALTH_FILE.indexOf(work + path.sep) === 0);
+  check('pinEnv redirects an override pointing outside the workspace',
+    pinEnv({ MYTHOS_BACKUP_HEALTH_FILE: PRODUCTION_HEALTH }).MYTHOS_BACKUP_HEALTH_FILE.indexOf(work + path.sep) === 0);
+  check('pinEnv keeps an override already inside the workspace',
+    pinEnv({ MYTHOS_BACKUP_HEALTH_FILE: path.join(work, 'health', 'x.json') }).MYTHOS_BACKUP_HEALTH_FILE === path.join(work, 'health', 'x.json'));
+  check('pinEnv redirects HOME, the root of the other production defaults',
+    pinEnv({}).HOME.indexOf(work + path.sep) === 0);
+})();
+
 
 console.log('§1 script syntax and static safety');
 check('entry script exists', fs.existsSync(SCRIPT));
