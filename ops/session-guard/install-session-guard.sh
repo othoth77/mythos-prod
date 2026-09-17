@@ -63,7 +63,17 @@ fi
 
 echo "==> lifecycle snapshot directory (root writes, deploy reads)"
 DEPLOY_GID="$(getent group deploy | cut -d: -f3 || true)"
-install -d -m 0750 -o root -g "${DEPLOY_GID:-0}" /var/lib/mythos/lifecycle
+# 2750, not 0750: the setgid bit is load-bearing. The runner writes this
+# snapshot as root restricted to CAP_KILL, which means it has no CAP_CHOWN
+# and CANNOT hand the file to the deploy group after the fact — its
+# best-effort chown fails with EPERM, silently. With setgid the kernel gives
+# every file created here the directory's group, so the 0640 snapshot is
+# group-readable by deploy without any privilege at all.
+# Measured 2026-09-17: without it the snapshot lands root:root 0640 and
+# every deploy-side reader gets EACCES on a file that exists.
+install -d -m 2750 -o root -g "${DEPLOY_GID:-0}" /var/lib/mythos/lifecycle
+# Existing installs were created 0750; re-apply so an upgrade fixes them too.
+chmod 2750 /var/lib/mythos/lifecycle
 
 echo "==> resource pressure publication directory (executor writes, guard reads)"
 # The executor (deploy) publishes ONLY { level, updated_at } here, and the
