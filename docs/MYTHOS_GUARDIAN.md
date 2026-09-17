@@ -154,8 +154,21 @@ Four independent mechanisms, because a comment is not a control:
 3. **A write boundary.** Every write goes through `io.assertOwnState()`, which
    refuses any path outside Guardian's own state directory. Not by convention —
    it throws.
-4. **The unit.** `ProtectSystem=strict` with a single `ReadWritePaths` entry.
-   The kernel refuses what the code would refuse anyway.
+4. **The unit** carries `ProtectSystem=strict` with a single `ReadWritePaths`
+   entry — but **measure before relying on it.** On this host it is inert: a
+   systemd *user* manager cannot create a mount namespace, so every sandboxing
+   directive is silently not applied. Verified 2026-09-17 by running a user
+   unit with `ProtectSystem=strict` and watching it write
+   `/var/lib/mythos/guardian` anyway; the mount table inside the unit was
+   byte-identical to the host's. `/etc` is blocked by ordinary file
+   permissions, not by the sandbox. The directives are kept because they cost
+   nothing and would apply if Guardian ever ran as a system unit, but they are
+   **not** part of the enforced boundary here. See
+   `docs/MYTHOS_GUARDIAN_SECURITY.md` for the measurement and how to repeat it.
+
+Mechanisms 1–3 are the real boundary, and 3 is what stops Guardian writing the
+production checkout, the backup health records or `~/.ssh` — none of which the
+unit protects. The suite tests `assertOwnState()` against those paths by name.
 
 The configuration carries `allow_*` remediation flags so the future enablement
 path is explicit and testable. In this version they must all be `false` and an

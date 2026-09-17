@@ -261,10 +261,28 @@ section('3. io: the observe-only boundary');
   var r = realIo.spawn(['systemctl', 'restart', 'nginx']);
   eq(r.refused, true, 'a mutating argv is refused before exec');
   eq(r.status, null, 'a refused argv never produces an exit status');
-  ['/etc/passwd', path.join(STATE, '..', 'escape'), '/var/lib/mythos/pressure/resource-pressure.json'].forEach(function (p) {
+  // These are the paths that MATTER, and the ones the unit sandbox does not
+  // protect. Measured on this host 2026-09-17: a systemd USER manager cannot
+  // create a mount namespace, so ProtectSystem/ProtectHome/ReadOnlyPaths are
+  // silently inert — a user unit with ProtectSystem=strict still wrote
+  // /var/lib/mythos/guardian, and /etc was blocked by ordinary file
+  // permissions rather than by the sandbox. The enforced boundary is THIS
+  // function, so it is tested against the real production paths by name.
+  [
+    '/etc/passwd',
+    path.join(STATE, '..', 'escape'),
+    '/var/lib/mythos/pressure/resource-pressure.json',
+    '/home/deploy/projects/mythos-prod/ops/guardian/lib/engine.js',
+    '/home/deploy/mythos-backups/health/backup-health-db.json',
+    '/home/deploy/.ssh/id_ed25519',
+    '/home/deploy/.config/systemd/user/mythos-guardian.timer',
+    '/home/deploy/mythos-ai-executor/orchestration/resource-guard.json',
+    '/var/www/status.mythosprod.xyz/data/live-status.json',
+    '/home/deploy/.local/state/mythos-guardian-other/state.json'
+  ].forEach(function (p) {
     var threw = false;
     try { realIo.assertOwnState(p); } catch (e) { threw = true; }
-    eq(threw, true, 'writing ' + p + ' is refused');
+    eq(threw, true, 'writing ' + p + ' is refused by the code boundary');
   });
   eq(realIo.assertOwnState(path.join(STATE, 'state.json')), path.join(STATE, 'state.json'), 'writing inside the state directory is allowed');
   var escape = path.join(os.tmpdir(), 'guardian-escape-' + process.pid);
