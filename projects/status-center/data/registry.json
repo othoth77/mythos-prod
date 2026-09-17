@@ -1,6 +1,6 @@
 {
   "registry_version": "1.1.0",
-  "curated_at": "2026-09-17T16:59:58.983Z",
+  "curated_at": "2026-09-17",
   "curation_note": "Re-sync 2026-09-03 (gh-issue-140, completing the gh-issue-95 audit): fixed the stale PROJECT-AI-ORCHESTRATION entry, which had read \"v1 COMPLETE AND CLOSED 2026-08-19\" for ten days and roughly a dozen delivered bridge/executor stages without being touched (GitHub Issues intake, model-selection policy, Resource Guard, bridge retry/quota policy, the HostOps read-only boundary) — the entry now states both facts: v1 is still closed as scoped, AND the same component has kept evolving since, all on unmerged branches (EV-AI-ORCH-EVOLUTION-0903). Added four projects/* directories the account-level repository-discovery path structurally cannot see because they are inside this monorepo, not separate GitHub repositories: PROJECT-MYTHOS-GATEWAY, PROJECT-MYTHOS-ORCHESTRATOR, PROJECT-MYTHOS-VAULT, PROJECT-OTH-MCP — found by listing every projects/* directory and checking which ones no existing project purpose/evidence text actually covered (4 of 21 did not; the other 17 already did, confirmed against git log and each project's own purpose text, and now carry a new `directories` field recording that mapping explicitly instead of leaving it implicit). Added a matching monorepo project-discovery function to the review engine (lib/engine.js discoverMonorepoProjects) so a future undeclared projects/* directory surfaces as a discovery requiring classification, the same guarantee discoverRepositories already gives for GitHub account repositories — closing the \"monorepo discovery\" gap named in gh-issue-140. No percentage invented anywhere in this pass: two new dimensions are NOT_CALCULABLE with a stated reason, one is IN_PROGRESS with a status only. Also recorded 2026-08-26: NEXT-STATUS-DISCLOSURE-REVIEW — the public Status Center carries the same class of infrastructure detail that OTHMODE reports now mask, which is a consistency question for the owner rather than something to fix piecemeal. Re-sync 2026-08-26T15:17Z: recorded a genuine platform change — OTHMODE Command History and Task Reports became publicly readable at 7252de2, redacted for anonymous callers, with the write surface verified still closed. PROJECT-OTHMODE headline, last_change, production dimension and evidence updated (EV-OTHMODE-PUBLIC-HISTORY, EV-OTHMODE-PUBLIC-VERIFIED). No other project or action changed; NEXT-EXPORTS remains the sole open owner decision. Re-sync 2026-08-26T14:38Z: no status changed. The only genuine new fact is that the publish-wipes-monitor-state fix was exercised by a real publish and held — monitor runtime state and the apex Hub feed both survived intact, which is the regression check the fix existed for. Recorded against EV-PUBLISH-WIPES-MONITOR-STATE. The board is otherwise steady: every execution-layer action is closed and NEXT-EXPORTS remains the sole owner decision. Re-sync 2026-08-26 after the owner published: NEXT-STATUS-PUBLISH closed — the live Status Center now serves REVIEW-2026-08-26-004 and matches the repository on every counted dimension (EV-STATUS-PUBLISHED-0826). The publish also exposed a real defect, now fixed: rsync --delete wiped the monitor's runtime state out of the shared docroot, taking the live panel and — via an nginx alias — the apex Hub's /api/status.json to 404, and permanently destroying data/live-history/ (EV-PUBLISH-WIPES-MONITOR-STATE). NEXT-OTHMODE-MONITOR closed 2026-08-26 after production verification: othmode.mythosprod.xyz and its Task Reports API are now monitored components of the existing STC-2 monitor (14 components live, both OTHMODE probes LIVE). Reconciliation pass 2026-08-26 (later the same day): closed three next_actions whose blockers were already DONE and whose live criteria were re-verified first-hand — NEXT-OTHK-STORE, NEXT-MOS-DEPLOY, NEXT-HUB-DEPLOY (evidence EV-STALE-RECONCILE-0826) — and marked ACTION-MOS-DEPLOY and ACTION-HUB-DNS DONE to match their own blockers. Added othmode.mythosprod.xyz to the existing STC-2 probe registry rather than building a second monitor (EV-OTHMODE-MONITOR-PROBE). Nothing was closed to make the board look finished: NEXT-STATUS-PUBLISH stays open because the live site is still unpublished, and every remaining owner decision is untouched. Also refreshed 2026-08-26: data/pr-ledger.json re-captured from the GitHub API (56 -> 90 PRs, #1-#90; 8 open, 78 merged, 4 closed-unmerged), correcting six entries that the 2026-08-20 snapshot still recorded as open (#53-#56 merged, #23 and #52 closed unmerged) and carrying curator notes across by PR number. PROJECT-COMMAND-CENTER updated against host evidence: its 'latest merged revision pending redeploy' caveat is closed (service restarted 2026-08-26 at aa4ca2d, no command-center code change since), and its relationship to OTHMODE is now stated — one Node process on 127.0.0.1:3021 serving both hostnames. Updated 2026-08-26 on the production VPS (deploy@vps-4722f0a9): added PROJECT-OTHMODE with five evidence records after the OTHMODE Task Reports release was merged (aa4ca2d), deployed and operator-verified first-hand on the host — the registry had carried no OTHMODE entry at all, which is why earlier re-syncs reported zero content change. Closed ACTION-STC2-INSTALL / NEXT-STC2-INSTALL against their own stated criteria (timer active and refreshing; published app.js byte-identical to the repository copy, carrying the live panel and the Arabic layer). Two genuinely outstanding items found while curating were recorded rather than left implicit: NEXT-STATUS-PUBLISH (the repository holds two unpublished reviews; the live site is behind because nothing published them, not because nothing re-synced) and NEXT-OTHMODE-MONITOR (othmode.mythosprod.xyz is not a monitored component). No percentage was invented: every OTHMODE dimension is recorded as a status with a note. Updated 2026-08-22 from the production VPS (deploy@vps-4722f0a9) after the real on-host OTH-KNOWLEDGE acceptance run: node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed at ef91aa0a7083b9869b293a53030ce40ade4ad5a2. Only what that run actually proves was moved — the store/provisioning/deployment/production-verification dimensions and BLOCKER-OTHK-STORE. Track B real data remains OWNER_ACTION and PROJECT-OTH-KNOWLEDGE keeps status OWNER_ACTION for exactly that reason. Curated from a full audit on 2026-08-20: complete read of docs/AI_HANDOVER.md (15,892 lines), docs/ reconciliation, full git history (668 commits, repo born 2026-07-29), all 53 PRs, and the GitHub repository inventory. Every entry cites evidence; the review engine re-verifies what it can and marks the rest RECORDED.",
   "source_hierarchy": [
     {
@@ -1053,6 +1053,13 @@
       "reference": "/var/lib/mythos-session-guard/session-guard.enabled on vps-4722f0a9, 2026-09-17 16:53",
       "date": "2026-09-17",
       "note": "Enforcement enabled by owner decision. mode=enforce, enforcement_reason=marker. Two ticks observed: planned [] and applied [] both times, 18 then 17 sessions all vetoed (recent_activity, has_child_processes, below_min_age). Lifetime ledger: 20,954 veto events and 0 termination events. Thresholds: min_age 900 s, idle 3600 s, orphan_grace 300 s, max_sessions 6. lifecycle.consulted=false, so idle is judged on the CPU clock alone and an idle ccd-cli still burns CPU — enforcement is conservative by construction. Rollback: rm the marker. Kill switch: MYTHOS_SESSION_GUARD=off."
+    },
+    {
+      "id": "EV-CASSE-CLOSURE",
+      "type": "ci",
+      "reference": "othoth77/casse.autos main 89c636d — PR #11 (sourcing hardening; reviewed: 10 findings confirmed by independent verification, all fixed in 4546db2) merged 22a8b71; PR #12 (closure: CI release artifact after every gate, scripts/release.sh artifact|build|rollback, icons, /api/health without infrastructure names, docs to the real state); CI run 35262142115",
+      "date": "2026-09-17",
+      "note": "typecheck 0 · lint 0 · vitest 480 + 20 Postgres (500) · Postgres suites in CI · smoke 71 · Playwright 37 · audit 0. Rehearsed on loopback from the CI artifact against the real Kitchen with empty jsonl stores: every route 200/404 as documented, honest empty state, 'Canal WhatsApp non configuré', security headers, sitemap 8 URLs. NOT deployed: casse.autos still resolves to OVH parking (C-O2); no unit, vhost, env or release directory exists on the host. Ten merged branches deleted; 0 open PRs; 0 open issues."
     }
   ],
   "repositories": [
@@ -2274,32 +2281,32 @@
     },
     {
       "id": "PROJECT-CASSE-AUTOS",
-      "name": "Casse.Autos (MYTHOS AUTO salvage channel)",
+      "name": "Casse.Autos (MYTHOS AUTO parts sourcing channel — NEW + USED)",
       "executive": false,
       "purpose": "casse.autos: universal parts search + WhatsApp sourcing (business model corrected 2026-09-14): identify vehicle + part, search composed catalogue/supplier sources, verify fitment/OEM, hand off to WhatsApp; own salvage inventory becomes an optional provider.",
       "status": "OWNER_ACTION",
       "maturity": "TESTED",
       "repository": "othoth77/casse.autos",
-      "last_change": "2026-09-14 (owner decision: NEW + USED parts, universal search + sourcing; C-O5' adopted)",
-      "blocker": "C-O5': no consented supplier answers yet (launch = a real answering provider, not code); DNS on OVH parking (C-O2); WhatsApp number/inbox operator absent (C-O3); C-O4/C-O6/C-O1 open; O8 and TecDoc contact awaiting the owner sending the prepared briefs.",
-      "next_action": "Owner sends the AutoPart brief and authorises the TecAlliance contact; names consented suppliers and the sourcing-inbox operator; moves DNS. Engineering: review/merge casse.autos #8 and the stacked NEW+USED branch; enable CASSE_SEARCH_PROVIDERS only when a supplier exists.",
-      "headline": "Engineering complete for the honest empty storefront (main 4a65955; 311 tests, smoke 60, Playwright 37). Product redefined 2026-09-14 as universal parts search: research found no open OEM/fitment data (TecDoc only, licence-gated), vehicle identification composable from open data, no Tunisian supplier API; prototype search core on PR #8 (374 tests, feature off). NOT launch-ready until the model decision and a first consented supplier.",
+      "last_change": "2026-09-17 (engineering closure: PR #11 reviewed+merged, PR #12 merged; main 89c636d)",
+      "blocker": "Engineering closed; every remaining gate is the owner's: C-O2 DNS (casse.autos on OVH parking — no certificate, no public deployment possible), C-O3 WhatsApp number + sourcing-inbox operator, C-O4 unit memory cap, C-O5′ a consented supplier who answers (the launch gate), C-O6 store/backup, C-O1 ratification (incl. public wording for NEW + USED), O8 / TecDoc briefs to send.",
+      "next_action": "Owner: move DNS (C-O2), then run the Casse execution pack with the CI artifact + scripts/release.sh; provide CASSE_WHATSAPP_NUMBER and the consented supplier list. Engineering: none — V1 closed on the code side; releases via CI artifact + release.sh (proven on piece.autos).",
+      "headline": "Engineering CLOSED 2026-09-17 (main 89c636d): sourcing hardening reviewed and merged (consent verified at selection and in file order, no phone in listing URLs, images refused by value, listing freshness vs the snapshot), CI-built release artifact + release.sh with rollback, rehearsed from the artifact against the real Kitchen. NOT deployed and NOT launch-ready: DNS still parked (C-O2) and no consented supplier answers yet (C-O5′).",
       "dimensions": {
         "implementation": {
           "status": "DONE",
-          "note": "main ad9d340"
+          "note": "main 89c636d; V1 engineering closed"
         },
         "tests": {
           "status": "DONE",
-          "note": "311 passed / 19 skipped (Postgres-gated), smoke 54 both passes, Playwright 34/34"
+          "note": "vitest 480 + 20 Postgres (500), Postgres 19/19 (CI), smoke 71, Playwright 37, CI green (Node 22)"
         },
         "deployment": {
           "status": "OWNER_ACTION",
-          "note": "templates ready; not installed; C-O2/C-O4 first"
+          "note": "artifact + release.sh ready and rehearsed on loopback; not installed — C-O2 (DNS) first"
         },
         "inventory": {
           "status": "OWNER_ACTION",
-          "note": "no real inventory anywhere; fixture refused in production"
+          "note": "no inventory sold by design (NEW + USED sourcing); launch gate is C-O5′ (a consented supplier who answers)"
         }
       },
       "evidence": [
@@ -2307,7 +2314,8 @@
         "EV-CASSE-NO-INVENTORY",
         "EV-CASSE-UPS-RESEARCH",
         "EV-CASSE-UPS-PROTOTYPE",
-        "EV-CASSE-MODEL-DECISION"
+        "EV-CASSE-MODEL-DECISION",
+        "EV-CASSE-CLOSURE"
       ]
     },
     {
@@ -3251,9 +3259,17 @@
           ]
         },
         {
+          "id": "STAGE-CASSE-ENGINEERING-CLOSED",
+          "status": "DONE",
+          "what": "Engineering closure 2026-09-17: sourcing hardening reviewed + merged, CI release artifact, release.sh, rehearsal from the artifact",
+          "evidence": [
+            "EV-CASSE-CLOSURE"
+          ]
+        },
+        {
           "id": "STAGE-CASSE-INVENTORY",
           "status": "OWNER_ACTION",
-          "what": "First real inventory (C-O5)",
+          "what": "Launch gate C-O5′: a consented supplier who answers (own inventory is an optional provider)",
           "evidence": [
             "EV-CASSE-NO-INVENTORY"
           ]
@@ -3665,6 +3681,16 @@
       "what": "Closure release d92a46a live and verified; only owner gates (WhatsApp number, O8) remain.",
       "evidence": [
         "EV-PIECE-CLOSURE"
+      ]
+    },
+    {
+      "id": "MS-2026-09-17-CASSE-ENGINEERING-CLOSED",
+      "date": "2026-09-17",
+      "project": "PROJECT-CASSE-AUTOS",
+      "title": "Casse.Autos engineering closed (not deployed)",
+      "what": "main 89c636d; deployment and launch remain owner gates (C-O2 DNS, C-O5′ supplier).",
+      "evidence": [
+        "EV-CASSE-CLOSURE"
       ]
     }
   ],
@@ -4129,8 +4155,8 @@
       "id": "NEXT-CASSE-INVENTORY",
       "priority": "P0",
       "order": 0,
-      "title": "Casse.Autos: owner business-model decision, then inquiry/WhatsApp adaptation on the prototype",
-      "detail": "C-O5 superseded by C-O5' (first live provider answers). After the decision: adapt OrderItem.sourced + state-driven WhatsApp wording on top of casse.autos PR #8; draft the AutoPart letter and TecAlliance brief; deployment pack stays valid for the honest empty storefront.",
+      "title": "Casse.Autos: owner gates only — DNS (C-O2), WhatsApp number (C-O3), consented supplier list (C-O5′)",
+      "detail": "Engineering closed 2026-09-17 (main 89c636d). When DNS moves: run the othkm execution pack with the CI artifact (`gh run download … -n casse-autos-standalone`) and `scripts/release.sh artifact`; certbot; TLS vhost. Launch only when a consented supplier answers.",
       "depends_on": null
     }
   ],
