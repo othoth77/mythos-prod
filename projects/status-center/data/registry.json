@@ -1,6 +1,6 @@
 {
   "registry_version": "1.1.0",
-  "curated_at": "2026-09-14",
+  "curated_at": "2026-09-16",
   "curation_note": "Re-sync 2026-09-03 (gh-issue-140, completing the gh-issue-95 audit): fixed the stale PROJECT-AI-ORCHESTRATION entry, which had read \"v1 COMPLETE AND CLOSED 2026-08-19\" for ten days and roughly a dozen delivered bridge/executor stages without being touched (GitHub Issues intake, model-selection policy, Resource Guard, bridge retry/quota policy, the HostOps read-only boundary) — the entry now states both facts: v1 is still closed as scoped, AND the same component has kept evolving since, all on unmerged branches (EV-AI-ORCH-EVOLUTION-0903). Added four projects/* directories the account-level repository-discovery path structurally cannot see because they are inside this monorepo, not separate GitHub repositories: PROJECT-MYTHOS-GATEWAY, PROJECT-MYTHOS-ORCHESTRATOR, PROJECT-MYTHOS-VAULT, PROJECT-OTH-MCP — found by listing every projects/* directory and checking which ones no existing project purpose/evidence text actually covered (4 of 21 did not; the other 17 already did, confirmed against git log and each project's own purpose text, and now carry a new `directories` field recording that mapping explicitly instead of leaving it implicit). Added a matching monorepo project-discovery function to the review engine (lib/engine.js discoverMonorepoProjects) so a future undeclared projects/* directory surfaces as a discovery requiring classification, the same guarantee discoverRepositories already gives for GitHub account repositories — closing the \"monorepo discovery\" gap named in gh-issue-140. No percentage invented anywhere in this pass: two new dimensions are NOT_CALCULABLE with a stated reason, one is IN_PROGRESS with a status only. Also recorded 2026-08-26: NEXT-STATUS-DISCLOSURE-REVIEW — the public Status Center carries the same class of infrastructure detail that OTHMODE reports now mask, which is a consistency question for the owner rather than something to fix piecemeal. Re-sync 2026-08-26T15:17Z: recorded a genuine platform change — OTHMODE Command History and Task Reports became publicly readable at 7252de2, redacted for anonymous callers, with the write surface verified still closed. PROJECT-OTHMODE headline, last_change, production dimension and evidence updated (EV-OTHMODE-PUBLIC-HISTORY, EV-OTHMODE-PUBLIC-VERIFIED). No other project or action changed; NEXT-EXPORTS remains the sole open owner decision. Re-sync 2026-08-26T14:38Z: no status changed. The only genuine new fact is that the publish-wipes-monitor-state fix was exercised by a real publish and held — monitor runtime state and the apex Hub feed both survived intact, which is the regression check the fix existed for. Recorded against EV-PUBLISH-WIPES-MONITOR-STATE. The board is otherwise steady: every execution-layer action is closed and NEXT-EXPORTS remains the sole owner decision. Re-sync 2026-08-26 after the owner published: NEXT-STATUS-PUBLISH closed — the live Status Center now serves REVIEW-2026-08-26-004 and matches the repository on every counted dimension (EV-STATUS-PUBLISHED-0826). The publish also exposed a real defect, now fixed: rsync --delete wiped the monitor's runtime state out of the shared docroot, taking the live panel and — via an nginx alias — the apex Hub's /api/status.json to 404, and permanently destroying data/live-history/ (EV-PUBLISH-WIPES-MONITOR-STATE). NEXT-OTHMODE-MONITOR closed 2026-08-26 after production verification: othmode.mythosprod.xyz and its Task Reports API are now monitored components of the existing STC-2 monitor (14 components live, both OTHMODE probes LIVE). Reconciliation pass 2026-08-26 (later the same day): closed three next_actions whose blockers were already DONE and whose live criteria were re-verified first-hand — NEXT-OTHK-STORE, NEXT-MOS-DEPLOY, NEXT-HUB-DEPLOY (evidence EV-STALE-RECONCILE-0826) — and marked ACTION-MOS-DEPLOY and ACTION-HUB-DNS DONE to match their own blockers. Added othmode.mythosprod.xyz to the existing STC-2 probe registry rather than building a second monitor (EV-OTHMODE-MONITOR-PROBE). Nothing was closed to make the board look finished: NEXT-STATUS-PUBLISH stays open because the live site is still unpublished, and every remaining owner decision is untouched. Also refreshed 2026-08-26: data/pr-ledger.json re-captured from the GitHub API (56 -> 90 PRs, #1-#90; 8 open, 78 merged, 4 closed-unmerged), correcting six entries that the 2026-08-20 snapshot still recorded as open (#53-#56 merged, #23 and #52 closed unmerged) and carrying curator notes across by PR number. PROJECT-COMMAND-CENTER updated against host evidence: its 'latest merged revision pending redeploy' caveat is closed (service restarted 2026-08-26 at aa4ca2d, no command-center code change since), and its relationship to OTHMODE is now stated — one Node process on 127.0.0.1:3021 serving both hostnames. Updated 2026-08-26 on the production VPS (deploy@vps-4722f0a9): added PROJECT-OTHMODE with five evidence records after the OTHMODE Task Reports release was merged (aa4ca2d), deployed and operator-verified first-hand on the host — the registry had carried no OTHMODE entry at all, which is why earlier re-syncs reported zero content change. Closed ACTION-STC2-INSTALL / NEXT-STC2-INSTALL against their own stated criteria (timer active and refreshing; published app.js byte-identical to the repository copy, carrying the live panel and the Arabic layer). Two genuinely outstanding items found while curating were recorded rather than left implicit: NEXT-STATUS-PUBLISH (the repository holds two unpublished reviews; the live site is behind because nothing published them, not because nothing re-synced) and NEXT-OTHMODE-MONITOR (othmode.mythosprod.xyz is not a monitored component). No percentage was invented: every OTHMODE dimension is recorded as a status with a note. Updated 2026-08-22 from the production VPS (deploy@vps-4722f0a9) after the real on-host OTH-KNOWLEDGE acceptance run: node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed at ef91aa0a7083b9869b293a53030ce40ade4ad5a2. Only what that run actually proves was moved — the store/provisioning/deployment/production-verification dimensions and BLOCKER-OTHK-STORE. Track B real data remains OWNER_ACTION and PROJECT-OTH-KNOWLEDGE keeps status OWNER_ACTION for exactly that reason. Curated from a full audit on 2026-08-20: complete read of docs/AI_HANDOVER.md (15,892 lines), docs/ reconciliation, full git history (668 commits, repo born 2026-07-29), all 53 PRs, and the GitHub repository inventory. Every entry cites evidence; the review engine re-verifies what it can and marks the rest RECORDED.",
   "source_hierarchy": [
     {
@@ -976,6 +976,13 @@
       "reference": "main@0805084 (PR #292 merged 2026-09-16T22:28Z) + PR #293; mythos-command-center.service + mythos-ai-executor.service restarted 2026-09-16 22:28-22:35 UTC",
       "date": "2026-09-16",
       "note": "Post-merge production verification of OTHMODE V1. main pulled to 0805084 (local == remote, clean tree). mythos-ai-executor.service restarted with 0 in-flight tasks: the daemon now loads free-llm-pool in its PROVIDERS map and the fixed task schema (POST /tasks with provider=free-llm-pool -> 201 QUEUED; before the fix the live daemon answered TASK_SCHEMA_INVALID). mythos-command-center.service restarted: public https://othmode.mythosprod.xyz 200, the served othmode.js/othmode-i18n.js carry the new Providers table, GET /api/othmode/providers/free-llm 200 through nginx with no credential value and no host path in the payload. Found on the host during this verification: the command-center deployment env carried OTHMODE_PROVIDER_HOME=/home/ubuntu (stale — credentials moved to deploy long ago), which made every provider credential presence \"not tracked\" and the free-LLM pool read 0 configured / health unreadable while Groq was live; corrected to /home/deploy (backup .env.bak-othmode-v1-20260916 kept), service restarted, and PR #293 decouples the free-LLM read model from that variable entirely. Live afterwards: claude-code present, omniroute-advisory present, gemini-advisor absent (BLOCKED), free-llm-pool ACTIVE (1 of 1 configured), free-llm/groq ACTIVE. Timers: mythos-free-llm-health.timer and mythos-free-llm-sync.timer active and ticking; mythos-github-bridge.timer active. Production smoke (Command -> executor -> free-llm-pool -> Groq -> report): COMPLETED — task t-20260916223157-2ofs2d, accepted 201 at 22:31:57, dispatch deferred twice by the Resource Guard (CRITICAL after the restarts and parallel test runs), admitted when the guard de-escalated to WARNING, provider_launch at 22:46:09, finished 22:46:12 (3.2 s) with a genuine mythos_report from the model; the free-LLM health record's last_success (22:46:12.615Z, groq/compound, 3110 ms) coincides with the task's finish and core/reputation.js recorded the outcome under free-llm:groq."
+    },
+    {
+      "id": "EV-PIECE-CLOSURE",
+      "type": "deployment",
+      "reference": "othoth77/piece.autos PR #10 merged → main d92a46a; CI run 35165893535 (Node 22, 242 tests, smoke 35/35, artifact piece-autos-standalone-d92a46a.tgz); release d92a46a switched in by scripts/release.sh at 2026-09-17 00:18:20 UTC; public verification through https://piece.autos",
+      "date": "2026-09-16",
+      "note": "V1 closure: robots crawl rules + nginx bot/health limits (GPTBot had been ~150 000 req/day = 99 % of traffic), honest 404/noindex for manufactured filter pages, favicon/icons, French checkout errors, brand claim follows the Kitchen (O-1), CI-built release artifact + release.sh with health check and rollback; docs rewritten to the live state (docs/PRODUCTION_STATUS.md). 24 h window had closed clean: NRestarts 0, 0 × 5xx, 111 MB / 300 MB."
     }
   ],
   "repositories": [
@@ -2162,36 +2169,37 @@
       "name": "Piece.Autos (MYTHOS AUTO parts channel)",
       "executive": false,
       "purpose": "piece.autos: storefront over the shared MYTHOS AUTO Kitchen catalogue (read-only), WhatsApp-only commerce, no online payment, no own database.",
-      "status": "IN_PROGRESS",
-      "maturity": "DEPLOYED",
+      "status": "DONE",
+      "maturity": "PRODUCTION_VERIFIED",
       "repository": "othoth77/piece.autos",
-      "last_change": "2026-09-14 (production deployment, gate 11)",
-      "blocker": "Commercial/multi-brand claim gated by O8 (autopart.tn written authorisation; 311 product images hot-linked from autopart.tn). WhatsApp handoff inactive until a dedicated business number is configured (G4).",
-      "next_action": "Close the 24 h monitoring window (2026-09-15 00:35 UTC); owner provides PIECE_WHATSAPP_NUMBER (G4) and the O8 decision (G6).",
-      "headline": "LIVE at https://piece.autos since 2026-09-14 00:35 UTC as a single-brand consultation storefront over Kitchen 1.3.0 (346 products / 782 fitment rows). Unit piece-autos (300 MB cap), two-phase nginx, Let's Encrypt to 2026-12-12; public smoke PASS; first 30 minutes 0 anomalies. Order handoff honestly declined until a WhatsApp number exists.",
+      "last_change": "2026-09-16 (V1 closure release d92a46a, PR #10)",
+      "blocker": "None engineering. Owner gates: WhatsApp business number (PIECE_WHATSAPP_NUMBER, O-6) — until then the handoff is honestly declined; O8 autopart.tn authorisation before any commercial / multi-brand claim (the storefront now names the single published brand everywhere).",
+      "next_action": "Owner: provide PIECE_WHATSAPP_NUMBER (env edit + `systemctl --user restart piece-autos`, no release needed) and decide O8. Engineering: none — V1 CLOSED; releases via CI artifact + scripts/release.sh.",
+      "headline": "V1 CLOSED 2026-09-16: live at https://piece.autos since 2026-09-14, release d92a46a (PR #10) verified end to end; crawl storm closed (robots + bot limits), honest 404/noindex, icons, French validation, brand claim follows the Kitchen; CI-built artifact + release.sh with automatic rollback. Only owner gates remain: WhatsApp number (O-6), O8.",
       "dimensions": {
         "implementation": {
           "status": "DONE",
-          "note": "main 39fcba4; fallbacks removed; contract 1.3.0"
+          "note": "main d92a46a; V1 closed"
         },
         "tests": {
           "status": "DONE",
-          "note": "234 offline, live 19/4/0, smoke 27/27, CI green"
+          "note": "242 offline (23 files), live 19/4/0, smoke 35/35, CI green (Node 22)"
         },
         "deployment": {
           "status": "DONE",
-          "note": "2026-09-14 00:35 UTC, owner-authorised; 24 h window open"
+          "note": "2026-09-14 first release; 2026-09-16 closure release via CI artifact + scripts/release.sh (health check, rollback)"
         },
         "production": {
-          "status": "IN_PROGRESS",
-          "note": "24 h monitoring until 2026-09-15 00:35 UTC; WhatsApp and O8 owner gates open"
+          "status": "DONE",
+          "note": "24 h window closed clean; closure release d92a46a live and verified 2026-09-16"
         }
       },
       "evidence": [
         "EV-PIECE-MAIN",
         "EV-PIECE-DNS",
         "EV-PIECE-DEPLOY",
-        "EV-KITCHEN-130-GATE"
+        "EV-KITCHEN-130-GATE",
+        "EV-PIECE-CLOSURE"
       ]
     },
     {
@@ -3074,10 +3082,18 @@
         },
         {
           "id": "STAGE-PIECE-24H",
-          "status": "IN_PROGRESS",
-          "what": "24 h monitoring window (closes 2026-09-15 00:35 UTC)",
+          "status": "DONE",
+          "what": "24 h monitoring window closed clean (NRestarts 0, 0 × 5xx, ≤ 137 MB peak)",
           "evidence": [
-            "EV-PIECE-DEPLOY"
+            "EV-PIECE-CLOSURE"
+          ]
+        },
+        {
+          "id": "STAGE-PIECE-V1-CLOSURE",
+          "status": "DONE",
+          "what": "V1 closure release d92a46a (2026-09-16): crawl rules, honest 404s, icons, checkout copy, brand scope, CI artifact + release.sh",
+          "evidence": [
+            "EV-PIECE-CLOSURE"
           ]
         },
         {
@@ -3520,6 +3536,16 @@
       "evidence": [
         "EV-PIECE-DEPLOY",
         "EV-PIECE-DNS"
+      ]
+    },
+    {
+      "id": "MS-2026-09-16-PIECE-V1-CLOSED",
+      "date": "2026-09-16",
+      "project": "PROJECT-PIECE-AUTOS",
+      "title": "Piece.Autos V1 closed",
+      "what": "Closure release d92a46a live and verified; only owner gates (WhatsApp number, O8) remain.",
+      "evidence": [
+        "EV-PIECE-CLOSURE"
       ]
     }
   ],
@@ -3978,14 +4004,6 @@
       "order": 2,
       "title": "Decide whether the public Status Center should mask infrastructure detail, as OTHMODE reports now do",
       "detail": "On 2026-08-26 the owner decided that OTHMODE Task Reports, on becoming public, should have infrastructure detail masked for anonymous readers (host paths, sudo grants, internal listeners, hostname). The Status Center has been public since 2026-08-20 and carries the same class of detail: the hostname appears 12 times and absolute host paths 23 times in the published current.json. This is pre-existing convention, not a new exposure, and it is NOT obviously wrong — the Status Center is an evidence-citing instrument, and a path or a host IS the evidence, so masking it would degrade the thing it exists to do. That tension is the decision: apply the same masking for consistency, accept the disclosure as the cost of citable evidence, or mask only the narrowest subset (sudo grants and backup gaps). Recorded rather than acted on, because scrubbing two dozen evidence references is a content decision with owner-visible impact and would be pointless if done piecemeal.",
-      "depends_on": null
-    },
-    {
-      "id": "NEXT-PIECE-24H-CLOSE",
-      "priority": "P1",
-      "order": 0,
-      "title": "Close the Piece.Autos 24 h monitoring window",
-      "detail": "At 2026-09-15 00:35 UTC: NRestarts 0, memory under 300 M, 0 x 5xx, health ok; record as a gate in othkm FINAL_OWNER_CUTOVER_CHECKLIST.",
       "depends_on": null
     },
     {
