@@ -270,6 +270,49 @@ function probeBackupHealth(p) {
   }
 }
 
+function probeGuardianHealth(p) {
+  // Consumes the MYTHOS Guardian public status (ops/guardian). The monitor
+  // only READS it: an unavailable Status Center never affects Guardian, and
+  // a silent Guardian is DOWN here, never assumed green.
+  try {
+    if (!fs.existsSync(p.file)) {
+      return Promise.resolve({ state: 'DOWN', error: 'no Guardian status at ' + p.file });
+    }
+    var s = JSON.parse(fs.readFileSync(p.file, 'utf8'));
+    var generated = Date.parse(s.generated_at || '');
+    var ageMin = isNaN(generated) ? Infinity : (Date.now() - generated) / 60000;
+    var domains = s.domains || {};
+    var detail = { level: s.level, mode: s.mode };
+    Object.keys(domains).forEach(function (d) { detail[d] = domains[d] && domains[d].level; });
+    if (s.admission) detail.max_heavy_sessions = s.admission.max_heavy_sessions;
+    if (s.last_incident) detail.last_incident = s.last_incident.id + ' ' + s.last_incident.severity;
+    var out = { detail: detail };
+    if (!(ageMin <= num(p.stale_minutes, 10))) {
+      out.state = 'DOWN';
+      out.error = isFinite(ageMin) ? 'Guardian not reporting for ' + Math.round(ageMin) + ' min' : 'Guardian status has no timestamp';
+      return Promise.resolve(out);
+    }
+    var findings = [];
+    Object.keys(domains).forEach(function (d) {
+      ((domains[d] && domains[d].findings) || []).forEach(function (f) {
+        if (f.severity !== 'INFO') findings.push(d + ': ' + f.trigger);
+      });
+    });
+    var level = s.level;
+    if (level === 'CRITICAL' || level === 'EMERGENCY') out.state = 'DOWN';
+    else if (level === 'WARNING' || level === 'HIGH') out.state = 'DEGRADED';
+    else if (level === 'NORMAL' || level === 'RECOVERY') out.state = 'LIVE';
+    else { out.state = 'DOWN'; out.error = 'unknown Guardian level ' + redact(String(level)); return Promise.resolve(out); }
+    if (s.config_errors && s.config_errors.length && out.state === 'LIVE') out.state = 'DEGRADED';
+    if (out.state !== 'LIVE') {
+      out.error = redact((level + ' — ' + (findings.slice(0, 3).join(' | ') || (s.config_errors || []).join('; '))).slice(0, 400));
+    }
+    return Promise.resolve(out);
+  } catch (e) {
+    return Promise.resolve({ state: 'DOWN', error: 'unreadable Guardian status: ' + redact(e.message) });
+  }
+}
+
 function runProbe(p, defaults) {
   if (p.enabled === false) {
     return Promise.resolve({ state: 'NOT_MONITORED', error: null, note: p.note || null });
@@ -279,6 +322,7 @@ function runProbe(p, defaults) {
   else if (p.type === 'tcp') exec = probeTcp(p, defaults);
   else if (p.type === 'resources') exec = probeResources(p);
   else if (p.type === 'backup-health') exec = probeBackupHealth(p);
+  else if (p.type === 'guardian-health') exec = probeGuardianHealth(p);
   else exec = Promise.resolve({ state: 'DOWN', error: 'unknown probe type: ' + p.type });
   return exec.then(function (r) {
     if (['LIVE', 'DEGRADED', 'DOWN', 'NOT_MONITORED'].indexOf(r.state) < 0) {
@@ -412,6 +456,7 @@ module.exports = {
   runProbe: runProbe,
   probeTcp: probeTcp,
   probeBackupHealth: probeBackupHealth,
+  probeGuardianHealth: probeGuardianHealth,
   probeResources: probeResources,
   historyTail: historyTail,
   MONITOR_VERSION: MONITOR_VERSION

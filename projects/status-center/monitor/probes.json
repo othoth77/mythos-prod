@@ -196,6 +196,15 @@
       "note": "Reads the health record written by ops/backup/mythos-backup-run.sh. A missing record is DOWN, never unknown-green."
     },
     {
+      "id": "guardian",
+      "name": "MYTHOS Guardian (host protection: memory, disk, services, backups, sessions)",
+      "type": "guardian-health",
+      "file": "/var/lib/mythos-guardian/public/status.json",
+      "stale_minutes": 10,
+      "enabled": true,
+      "note": "ADDED 2026-09-14 (MYTHOS Guardian). Reads the public status written every 2 minutes by mythos-guardian.service (ops/guardian). NORMAL/RECOVERY = LIVE, WARNING/HIGH = DEGRADED, CRITICAL/EMERGENCY = DOWN; a status older than 10 minutes is DOWN (Guardian silent), never assumed green. The monitor only reads — Guardian does not depend on the Status Center."
+    },
+    {
       "id": "idauto-site",
       "name": "idauto.tn (IDauto citizen site)",
       "type": "https",

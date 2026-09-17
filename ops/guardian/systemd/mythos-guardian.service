@@ -1,0 +1,68 @@
+# /etc/systemd/system/mythos-guardian.service
+[Unit]
+# MYTHOS Guardian — host protection decision engine (oneshot, timer-driven).
+#
+# WHY ROOT. It reads the whole host (every process for in-use checks, the
+# deploy user manager, Docker, backup health records under a 0700 deploy
+# directory) and its gated actions touch root-owned caches and systemd.
+# It gets the four capabilities those reads/actions need and nothing else:
+# no CAP_KILL (the session guard owns signalling), no CAP_SYS_ADMIN.
+#
+# WHY THIS PATH. Root never executes the deploy-writable checkout.
+# ops/guardian/install-guardian.sh copies the reviewed files, root:root,
+# into /usr/local/lib/mythos-guardian.
+#
+# DEFAULT POSTURE: observe + report. Every active action class needs its
+# marker in /var/lib/mythos-guardian/enable/ (see docs/guardian/RUNBOOK.md).
+# Kill switch: touch /var/lib/mythos-guardian/enable/disabled.
+Description=MYTHOS Guardian — host protection (memory, disk, services, backups, sessions)
+Documentation=file:///usr/local/lib/mythos-guardian/docs/MYTHOS_GUARDIAN.md
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/bin/node /usr/local/lib/mythos-guardian/bin/mythos-guardian run
+TimeoutStartSec=150
+
+# Guardian must never be the memory problem, and must survive long enough
+# to report one: bounded, low priority, slightly protected from the OOM killer.
+MemoryMax=192M
+CPUQuota=25%
+TasksMax=32
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+OOMScoreAdjust=-100
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_FOWNER CAP_SYS_PTRACE
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=read-only
+# Host /tmp is required: claude-scratch-old inspects /tmp/claude-0.
+PrivateTmp=no
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+UMask=0077
+
+StateDirectory=mythos-guardian
+StateDirectoryMode=0700
+# Write access = exactly the code-defined cleanup roots (disk.js ALLOWED_ROOTS)
+# plus the journal for the EMERGENCY vacuum. '-' = tolerate absence.
+ReadWritePaths=-/root/.npm -/opt/mythos-gh-runner -/root/.vscode-server/cli/servers -/tmp/claude-0 -/root/.claude/remote/ccd-cli -/var/log/journal
+InaccessiblePaths=-/opt/mythos-gh-runner/.credentials -/opt/mythos-gh-runner/.credentials_rsaparams -/opt/mythos-gh-runner/.runner -/opt/mythos-gh-runner/_work -/root/.ssh -/home/deploy/.ssh
+
+# No [Install]: driven only by mythos-guardian.timer.

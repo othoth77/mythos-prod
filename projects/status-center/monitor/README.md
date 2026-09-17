@@ -39,7 +39,11 @@ ssangyong.autos storefront · SYA catalog API (**disabled** until the
 operator confirms the real health path) · idauto-postgres (**disabled**
 until the operator confirms a host-reachable port — deploy is
 deliberately outside the docker group) · VPS disk/memory/**swap**/load ·
-the off-host backup system (via `ops/backup`'s health record).
+the off-host backup system (via `ops/backup`'s health record) ·
+MYTHOS Guardian (probe type `guardian-health`, reads
+`/var/lib/mythos-guardian/public/status.json`; NORMAL/RECOVERY = LIVE,
+WARNING/HIGH = DEGRADED, CRITICAL/EMERGENCY or a status older than
+`stale_minutes` = DOWN — see `docs/guardian/MYTHOS_GUARDIAN.md`).
 
 The resources probe reports `swap_used_pct` and `swap_free_gb` alongside
 disk, memory and load. Swap is **reported but not judged** by default: it
