@@ -27,6 +27,8 @@ var levels = require('./levels');
 var configMod = require('./config');
 var sources = require('./sources');
 var classify = require('./classify');
+var remediateMod = require('./remediate');
+var actionsMod = require('./actions');
 
 var DOMAINS = ['memory', 'sessions', 'disk', 'services', 'backup'];
 var STATE_VERSION = 1;
@@ -34,21 +36,26 @@ var STATE_VERSION = 1;
 // The enablement flags exist so the future path is explicit; V0 must never
 // act on them. This is asserted every tick, not documented and hoped for.
 function remediationPosture(cfg) {
-  var requested = ['allow_memory_remediation', 'allow_disk_remediation', 'allow_service_restart', 'allow_agent_throttling']
+  var enabled = ['allow_memory_remediation', 'allow_disk_remediation', 'allow_service_restart', 'allow_agent_throttling']
     .filter(function (k) { return cfg[k] === true; });
+  var observeOnly = cfg.observe_only === true;
   return {
-    observe_only: true,                 // structural: no remediation code exists here
-    configured_observe_only: cfg.observe_only === true,
-    remediation_available: false,
-    requested_but_unavailable: requested,
-    note: requested.length
-      ? 'configuration requests remediation this version does not implement; Guardian observed only'
-      : 'observe-only by construction'
+    observe_only: observeOnly,
+    remediation_available: !observeOnly && enabled.length > 0,
+    enabled_flags: enabled,
+    registered_actions: actionsMod.list().length,
+    max_actions_per_tick: cfg.remediation ? cfg.remediation.max_actions_per_tick : null,
+    restartable_units: (cfg.services && cfg.services.restartable) || [],
+    note: observeOnly
+      ? (enabled.length
+        ? 'observe_only overrides ' + enabled.join(', ') + ': nothing runs'
+        : 'observe-only: Guardian reports and takes no action')
+      : 'remediation enabled for ' + enabled.join(', ') + '; every action is still gated individually'
   };
 }
 
 function emptyState(nowIso) {
-  var st = { version: STATE_VERSION, updated_at: nowIso, tick: 0, host: levels.initial(nowIso), domains: {}, incident: null, memory: {}, services: {} };
+  var st = { version: STATE_VERSION, updated_at: nowIso, tick: 0, host: levels.initial(nowIso), domains: {}, incident: null, memory: {}, services: {}, actions: remediateMod.emptyHistory() };
   DOMAINS.forEach(function (d) { st.domains[d] = levels.initial(nowIso); });
   return st;
 }
@@ -63,6 +70,7 @@ function loadState(io, file, nowIso) {
   if (raw.incident && typeof raw.incident === 'object') st.incident = raw.incident;
   if (raw.memory && typeof raw.memory === 'object') st.memory = raw.memory;
   if (raw.services && typeof raw.services === 'object') st.services = raw.services;
+  if (raw.actions && typeof raw.actions === 'object') st.actions = remediateMod.normaliseHistory(raw.actions);
   return st;
 }
 
@@ -119,6 +127,7 @@ function tick(opts) {
   next.tick = prev.tick + 1;
   next.memory = prev.memory || {};
   next.services = prev.services || {};
+  next.actions = prev.actions || remediateMod.emptyHistory();
 
   var verdicts = {}, findings = [], transitions = [], guardianIssues = [];
   var memoryLevel = 'NORMAL';
@@ -229,6 +238,44 @@ function tick(opts) {
     next.incident = null;
   }
 
+  // --- remediation ------------------------------------------------------
+  // The plan is ALWAYS computed, even in observe-only, because "what would
+  // Guardian do about this, and why not" is exactly what an operator wants
+  // to read during an incident. Execution is a separate, opt-in step.
+  var remediation = { plan: null, results: [], history: prev.actions || remediateMod.emptyHistory() };
+  try {
+    var thePlan = remediateMod.plan(
+      { domains: verdicts, host: { level: hostRaw } },
+      cfg, io,
+      { now_ms: nowMs, history: remediation.history, measure: opts.measure, docker: (raws.disk && raws.disk.docker && raws.disk.docker.ok) ? {
+        build_cache_reclaimable_gb: parseReclaimGb(raws.disk.docker.data)
+      } : null }
+    );
+    var dry = !!opts.dry_run || cfg.observe_only === true || opts.execute_actions !== true;
+    var results = remediateMod.execute(thePlan, cfg, io, { dry_run: dry });
+    remediation.plan = {
+      at: thePlan.at, observe_only: thePlan.observe_only,
+      decisions: thePlan.decisions.map(function (d) {
+        return { action: d.action, target: d.target, title: d.title, domain: d.domain,
+          allowed: d.allowed, gate: d.gate, reason: d.reason, argv: d.argv, kind: d.kind };
+      })
+    };
+    remediation.results = results;
+    remediation.history = dry ? remediation.history : remediateMod.recordRuns(remediation.history, results, nowMs);
+    results.forEach(function (r) {
+      if (r.mode !== 'executed') return;
+      findings.push({
+        domain: 'guardian', severity: r.result === 'failed' ? 'WARNING' : 'INFO', kind: 'action_' + r.result,
+        trigger: r.action + (r.target ? ' on ' + r.target : '') + ': ' + (r.verification || r.error || r.result),
+        evidence: { argv: r.argv, verified: r.verified }
+      });
+    });
+  } catch (e) {
+    findings.push({ domain: 'guardian', severity: 'WARNING', kind: 'remediation_error',
+      trigger: 'remediation planning failed: ' + String((e && e.message) || e), evidence: null });
+  }
+  next.actions = remediation.history;
+
   next.updated_at = nowIso;
 
   var report = {
@@ -244,20 +291,38 @@ function tick(opts) {
     findings: findings.sort(function (a, b) { return levels.rank(b.severity) - levels.rank(a.severity); }),
     transitions: transitions,
     incident: next.incident,
-    incident_events: incidentEvents
+    incident_events: incidentEvents,
+    remediation: remediation.plan,
+    actions: remediation.results
   };
 
   return { report: report, state: next, transitions: transitions, incident_events: incidentEvents };
 }
 
 // --- persistence + locking (the only writes, all under stateDir) -------
+// "3.496GB (67%)" -> 3.496
+function parseReclaimGb(rows) {
+  var row = rows && rows['Build Cache'];
+  if (!row || !row.reclaimable) return null;
+  var m = /^([0-9.]+)\s*([KMGT]?B)/i.exec(String(row.reclaimable).trim());
+  if (!m) return null;
+  var v = parseFloat(m[1]);
+  var unit = m[2].toUpperCase();
+  if (unit === 'TB') return v * 1024;
+  if (unit === 'GB') return v;
+  if (unit === 'MB') return v / 1024;
+  if (unit === 'KB') return v / (1024 * 1024);
+  return v / (1024 * 1024 * 1024);
+}
+
 function paths(stateDir) {
   return {
     state: path.join(stateDir, 'state.json'),
     report: path.join(stateDir, 'report.json'),
     lock: path.join(stateDir, 'guardian.lock'),
     incidents: path.join(stateDir, 'incidents.jsonl'),
-    ticks: path.join(stateDir, 'ticks.jsonl')
+    ticks: path.join(stateDir, 'ticks.jsonl'),
+    actions: path.join(stateDir, 'actions.jsonl')
   };
 }
 
@@ -305,6 +370,7 @@ function run(opts) {
     var out = tick({
       io: io, config: loaded.config, config_errors: loaded.errors, config_source: loaded.source,
       state: state, now_ms: nowMs, dry_run: dry, collectors: opts.collectors,
+      execute_actions: opts.execute_actions, measure: opts.measure,
       guardian_version: opts.guardian_version
     });
 
@@ -316,6 +382,10 @@ function run(opts) {
     if (out.incident_events.length) {
       rotate(io, p.incidents, loaded.config.incidents);
       wrote.incidents = io.appendState(p.incidents, out.incident_events.map(function (e) { return JSON.stringify(e); }).join('\n') + '\n', 0o644);
+    }
+    if (out.report.actions && out.report.actions.length) {
+      rotate(io, p.actions, loaded.config.incidents);
+      wrote.actions = io.appendState(p.actions, out.report.actions.map(function (r) { return JSON.stringify(r); }).join('\n') + '\n', 0o644);
     }
     rotate(io, p.ticks, loaded.config.incidents);
     wrote.ticks = io.appendState(p.ticks, JSON.stringify({
@@ -333,6 +403,6 @@ function run(opts) {
 
 module.exports = {
   DOMAINS: DOMAINS, STATE_VERSION: STATE_VERSION,
-  run: run, tick: tick, collect: collect, paths: paths,
+  run: run, tick: tick, collect: collect, paths: paths, parseReclaimGb: parseReclaimGb,
   emptyState: emptyState, loadState: loadState, remediationPosture: remediationPosture
 };

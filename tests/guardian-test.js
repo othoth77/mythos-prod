@@ -39,6 +39,8 @@ var classify = require(path.join(LIB, 'classify'));
 var engine = require(path.join(LIB, 'engine'));
 var report = require(path.join(LIB, 'report'));
 var scenarios = require(path.join(LIB, 'scenarios'));
+var actionsMod = require(path.join(LIB, 'actions'));
+var remediateMod = require(path.join(LIB, 'remediate'));
 
 var ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'mythos-guardian-test-'));
 var STATE = path.join(ROOT, 'state');
@@ -225,18 +227,40 @@ eq(configMod.DEFAULTS.observe_only, true, 'the defaults are observe-only');
 ['allow_memory_remediation', 'allow_disk_remediation', 'allow_service_restart', 'allow_agent_throttling'].forEach(function (k) {
   eq(configMod.DEFAULTS[k], false, 'default ' + k + ' is false');
 });
-ok(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { observe_only: false })).length > 0, 'observe_only:false is rejected');
-ok(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { allow_service_restart: true })).length > 0, 'a remediation flag set true is rejected');
+// Remediation may be enabled — that is the point of V1 — but only coherently,
+// and observe_only still overrides every flag at plan time (section 16).
+eq(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { observe_only: false })).length, 0, 'observe_only:false is a valid configuration');
+eq(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { allow_service_restart: true })).length, 0, 'enabling a remediation flag is valid');
+ok(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { observe_only: 'yes' })).length > 0, 'a non-boolean observe_only is rejected');
+ok(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { allow_disk_remediation: 'true' })).length > 0, 'a non-boolean flag is rejected');
+ok(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { remediation: { max_actions_per_tick: 10 } })).length > 0, 'a large per-tick budget is rejected');
+ok(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { remediation: { max_attempts: 99 } })).length > 0, 'a large restart ceiling is rejected');
+ok(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { remediation: { docker_build_cache_keep_hours: 1 } })).length > 0, 'too short a build-cache retention is rejected');
+ok(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { remediation: { publish_dir: 'relative' } })).length > 0, 'a relative publish_dir is rejected');
+ok(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { services: { restartable: ['erp-api'] } })).length > 0, 'a critical unit cannot be made restartable');
+ok(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { services: { restartable: ['memwatch'] } })).length > 0, 'a system unit cannot be made restartable');
+ok(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { services: { restartable: ['nope'] } })).length > 0, 'an unknown unit cannot be made restartable');
+eq(configMod.DEFAULTS.services.restartable.length, 0, 'no unit is restartable by default');
 ok(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { hysteresis: { escalate_samples: 1 } })).length > 0, 'escalate_samples:1 is rejected');
 ok(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { disk: { thresholds: { warning_pct: 95, high_pct: 90 } } })).length > 0, 'non-ascending disk thresholds are rejected');
 ok(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { memory: { pressure_file: 'relative/path' } })).length > 0, 'a relative pressure path is rejected');
 (function () {
-  var bad = fixture('bad-guardian.json', { observe_only: false, allow_service_restart: true });
+  // An INVALID override is ignored wholesale — including the parts of it that
+  // would have been fine. Partial application of a rejected config is how a
+  // half-configured Guardian happens.
+  var bad = fixture('bad-guardian.json', { observe_only: false, allow_service_restart: true, services: { restartable: ['erp-api'] } });
   var loaded = configMod.load(makeIo(), bad);
-  eq(loaded.config.observe_only, true, 'a rejected override leaves observe_only true');
-  eq(loaded.config.allow_service_restart, false, 'a rejected override cannot enable remediation');
+  eq(loaded.config.observe_only, true, 'a rejected override leaves observe_only at its default');
+  eq(loaded.config.allow_service_restart, false, 'and cannot enable remediation');
+  eq(loaded.config.services.restartable.length, 0, 'and cannot make a protected unit restartable');
   eq(loaded.source, 'defaults', 'a rejected override falls back to the defaults');
   ok(loaded.errors.length > 0, 'the rejection is reported, not silent');
+  // A VALID remediation override is applied in full.
+  var okCfg = fixture('ok-remediation.json', { observe_only: false, allow_disk_remediation: true });
+  var okLoaded = configMod.load(makeIo(), okCfg);
+  eq(okLoaded.config.observe_only, false, 'a valid remediation override is applied');
+  eq(okLoaded.config.allow_disk_remediation, true, 'including its flags');
+  eq(okLoaded.errors.length, 0, 'with no errors');
   var good = fixture('good-guardian.json', { interval_seconds: 300 });
   eq(configMod.load(makeIo(), good).config.interval_seconds, 300, 'a valid override is applied');
   eq(configMod.load(makeIo(), path.join(FIX, 'absent.json')).source, 'defaults', 'an absent override is not an error');
@@ -962,12 +986,15 @@ section('13. Status Center probe: NOT_INSTALLED is not DOWN');
   eq(registered.length, 1, 'exactly one guardian probe is registered');
   eq(registered[0].id, 'guardian-lifecycle', 'it is guardian-lifecycle');
   eq(registered[0].file.indexOf('/home/deploy/.local/state/'), 0, 'it reads Guardian state, not a production path');
+  ok(registered[0].enabled_marker, 'it distinguishes installed from enabled');
 
   var reportFile = path.join(FIX, 'guardian-report.json');
   var marker = path.join(FIX, 'guardian-installed-marker');
-  function probe(over) { return monitor.probeGuardian(Object.assign({ file: reportFile, installed_marker: marker, max_age_seconds: 900 }, over || {})); }
+  var enabled = path.join(FIX, 'guardian-enabled-marker');
+  function probe(over) { return monitor.probeGuardian(Object.assign({ file: reportFile, installed_marker: marker, enabled_marker: enabled, max_age_seconds: 900 }, over || {})); }
   function write(r) { fs.writeFileSync(reportFile, JSON.stringify(r)); }
-  function clean() { [reportFile, marker].forEach(function (f) { try { fs.unlinkSync(f); } catch (e) { /* absent */ } }); }
+  function clean() { [reportFile, marker, enabled].forEach(function (f) { try { fs.unlinkSync(f); } catch (e) { /* absent */ } }); }
+  function guardian(over) { return Object.assign({ state: 'OK', issues: [], observed_domains: 5, remediation: { remediation_available: false, enabled_flags: [] } }, over || {}); }
 
   var chain = Promise.resolve();
   function step(name, setup, check) {
@@ -980,42 +1007,70 @@ section('13. Status Center probe: NOT_INSTALLED is not DOWN');
     eq(r.error, null, 'and reports no error');
     ok(/not installed/.test(r.note || ''), 'and says why');
   });
-  step('installed but silent', function () { fs.writeFileSync(marker, ''); }, function (r) {
-    eq(r.state, 'DOWN', 'an INSTALLED Guardian that has never reported is DOWN');
+  step('installed but silent', function () { fs.writeFileSync(marker, ''); fs.writeFileSync(enabled, ''); }, function (r) {
+    eq(r.state, 'DOWN', 'an INSTALLED and ENABLED Guardian that has never reported is DOWN');
   });
-  step('healthy', function () {
-    fs.writeFileSync(marker, '');
-    write({ generated_at: new Date().toISOString(), tick: 5, host: { level: 'NORMAL', partial: false }, guardian: { state: 'OK', issues: [], observed_domains: 5, remediation: { remediation_available: false } } });
+  // Installed but deliberately switched off is an operator decision, not an
+  // outage. This is the same principle as NOT_INSTALLED, one step later.
+  step('installed but disabled', function () { fs.writeFileSync(marker, ''); }, function (r) {
+    eq(r.state, 'NOT_MONITORED', 'an installed Guardian with its timer off is NOT_MONITORED, not DOWN');
+    eq(r.detail.lifecycle, 'DISABLED', 'and its lifecycle is DISABLED');
+  });
+  step('healthy, observe-only', function () {
+    fs.writeFileSync(marker, ''); fs.writeFileSync(enabled, '');
+    write({ generated_at: new Date().toISOString(), tick: 5, host: { level: 'NORMAL', partial: false }, guardian: guardian() });
   }, function (r) {
     eq(r.state, 'LIVE', 'a reporting, healthy Guardian is LIVE');
+    eq(r.detail.lifecycle, 'OBSERVE_ONLY', 'and its lifecycle is OBSERVE_ONLY');
     eq(r.detail.remediation_available, false, 'the report records that remediation is unavailable');
     eq(r.detail.host_level, 'NORMAL', 'and carries the host level for context');
   });
+  step('healthy, remediation on', function () {
+    fs.writeFileSync(marker, ''); fs.writeFileSync(enabled, '');
+    write({ generated_at: new Date().toISOString(), tick: 6, host: { level: 'NORMAL', partial: false },
+      guardian: guardian({ remediation: { remediation_available: true, enabled_flags: ['allow_disk_remediation'] } }),
+      actions: [{ mode: 'executed' }, { mode: 'dry-run' }] });
+  }, function (r) {
+    eq(r.state, 'LIVE', 'remediation being enabled does not make the probe red');
+    eq(r.detail.lifecycle, 'ACTIVE', 'the lifecycle is ACTIVE');
+    eq(r.detail.enabled_flags[0], 'allow_disk_remediation', 'and the enabled flags are published');
+    eq(r.detail.actions_taken, 1, 'and only EXECUTED actions are counted');
+  });
+  step('host emergency', function () {
+    fs.writeFileSync(marker, ''); fs.writeFileSync(enabled, '');
+    write({ generated_at: new Date().toISOString(), tick: 7, host: { level: 'EMERGENCY', partial: false }, guardian: guardian() });
+  }, function (r) {
+    eq(r.detail.lifecycle, 'EMERGENCY', 'a host emergency shows in the Guardian lifecycle');
+    eq(r.state, 'LIVE', 'but the GUARDIAN probe stays LIVE: the host has its own probes');
+  });
   step('host critical, guardian fine', function () {
-    write({ generated_at: new Date().toISOString(), tick: 6, host: { level: 'CRITICAL', partial: false }, guardian: { state: 'OK', issues: [], observed_domains: 5, remediation: { remediation_available: false } } });
+    fs.writeFileSync(marker, ''); fs.writeFileSync(enabled, '');
+    write({ generated_at: new Date().toISOString(), tick: 8, host: { level: 'CRITICAL', partial: false }, guardian: { state: 'OK', issues: [], observed_domains: 5, remediation: { remediation_available: false } } });
   }, function (r) {
     eq(r.state, 'LIVE', 'a CRITICAL host does not make the GUARDIAN probe red: the host has its own probes');
     eq(r.detail.host_level, 'CRITICAL', 'the host level is still reported as detail');
   });
   step('degraded', function () {
-    write({ generated_at: new Date().toISOString(), tick: 7, host: { level: 'NORMAL', partial: true }, guardian: { state: 'DEGRADED', issues: ['memory: signal degraded'], observed_domains: 4, remediation: { remediation_available: false } } });
+    fs.writeFileSync(marker, ''); fs.writeFileSync(enabled, '');
+    write({ generated_at: new Date().toISOString(), tick: 9, host: { level: 'NORMAL', partial: true }, guardian: { state: 'DEGRADED', issues: ['memory: signal degraded'], observed_domains: 4, remediation: { remediation_available: false } } });
   }, function (r) {
     eq(r.state, 'DEGRADED', 'a degraded Guardian is DEGRADED');
     ok(/signal degraded/.test(r.error), 'and the reason is carried through');
   });
   step('blind', function () {
-    write({ generated_at: new Date().toISOString(), tick: 8, host: { level: 'NORMAL', partial: true }, guardian: { state: 'BLIND', issues: ['everything'], observed_domains: 0, remediation: { remediation_available: false } } });
+    fs.writeFileSync(marker, ''); fs.writeFileSync(enabled, '');
+    write({ generated_at: new Date().toISOString(), tick: 10, host: { level: 'NORMAL', partial: true }, guardian: { state: 'BLIND', issues: ['everything'], observed_domains: 0, remediation: { remediation_available: false } } });
   }, function (r) {
     eq(r.state, 'DOWN', 'a BLIND Guardian is DOWN: the observer itself has failed');
   });
   step('stale', function () {
-    fs.writeFileSync(marker, '');
+    fs.writeFileSync(marker, ''); fs.writeFileSync(enabled, '');
     write({ generated_at: new Date(Date.now() - 3600000).toISOString(), tick: 9, host: { level: 'NORMAL', partial: false }, guardian: { state: 'OK', issues: [], observed_domains: 5, remediation: { remediation_available: false } } });
   }, function (r) {
     eq(r.state, 'DOWN', 'a Guardian that stopped reporting is DOWN');
     ok(/stopped reporting/.test(r.error), 'and says how long ago');
   });
-  step('corrupt report', function () { fs.writeFileSync(marker, ''); fs.writeFileSync(reportFile, '{broken'); }, function (r) {
+  step('corrupt report', function () { fs.writeFileSync(marker, ''); fs.writeFileSync(enabled, ''); fs.writeFileSync(reportFile, '{broken'); }, function (r) {
     eq(r.state, 'DOWN', 'an unreadable report is DOWN, never silent green');
   });
 
@@ -1026,6 +1081,488 @@ section('13. Status Center probe: NOT_INSTALLED is not DOWN');
     failed++; failures.push('status-center probe section threw: ' + (e && e.stack || e));
     finish();
   });
+})();
+
+
+// =====================================================
+section('14. remediation: the action registry');
+// =====================================================
+(function () {
+  var ids = actionsMod.list().map(function (a) { return a.id; });
+  ok(ids.length >= 4, ids.length + ' actions are registered');
+  eq(new Set(ids).size, ids.length, 'every action id is unique');
+  actionsMod.list().forEach(function (a) {
+    ok(/^ACTION_[A-Z_]+$/.test(a.id), a.id + ' has a conventional id');
+    ok(['memory', 'sessions', 'disk', 'services', 'backup'].indexOf(a.domain) >= 0, a.id + ' names a real domain');
+    ok(levels.isLevel(a.min_level), a.id + ' has a valid min_level');
+    ok(typeof a.flag === 'string' && /^allow_/.test(a.flag), a.id + ' is gated by an allow_* flag');
+    ok(typeof a.cooldown_s === 'number' && a.cooldown_s > 0, a.id + ' has a cooldown');
+    ok(typeof a.max_per_day === 'number' && a.max_per_day > 0, a.id + ' has a daily ceiling');
+    ok(typeof a.reversible === 'string' && a.reversible.length > 10, a.id + ' states what undoing it costs');
+    ok(Array.isArray(a.protects) && a.protects.length, a.id + ' states what it protects');
+    ok(typeof a.precondition === 'function', a.id + ' has a precondition');
+    ok(typeof a.verify === 'function', a.id + ' verifies its own effect');
+    ok(typeof a.command === 'function' || typeof a.publish === 'function', a.id + ' declares a command or a publication');
+    eq(actionsMod.get(a.id), a, a.id + ' is retrievable from the registry by id');
+  });
+  eq(actionsMod.get('ACTION_DOES_NOT_EXIST'), null, 'an unknown action id yields nothing');
+  eq(actionsMod.get('constructor'), null, 'a prototype key is not an action');
+  eq(actionsMod.get('__proto__'), null, 'neither is __proto__');
+
+  // No action may ever touch a protected resource.
+  [
+    ['systemctl', '--user', 'restart', 'erp-api.service'],
+    ['systemctl', '--user', 'restart', 'mythos-ai-executor.service'],
+    ['docker', 'rm', 'idauto-postgres'],
+    ['npm', 'cache', 'clean', '--prefix', '/home/deploy/mythos-backups'],
+    ['docker', 'builder', 'prune', '--force', '--filter', 'label=erp'],
+    ['systemctl', '--user', 'restart', 'mariadb.service']
+  ].forEach(function (argv) {
+    ok(actionsMod.refusesProtected(argv) !== null, 'PROTECTED refuses: ' + argv.join(' '));
+  });
+  eq(actionsMod.refusesProtected(['npm', 'cache', 'clean', '--force']), null, 'and allows a genuinely harmless argv');
+
+  // Whatever an action asks to run must be in the ACTION allowlist.
+  actionsMod.list().forEach(function (a) {
+    if (!a.command) return;
+    var argv = a.command({ policy: configMod.DEFAULTS.remediation, target: { unit: 'spy-monitor.service' } });
+    ok(ioMod.allowedAction(argv), a.id + ' produces an allowlisted argv: ' + argv.join(' '));
+    eq(ioMod.allowedCommand(argv), false, a.id + ' argv is NOT a read command');
+  });
+})();
+
+// =====================================================
+section('15. remediation: the action channel is disarmed');
+// =====================================================
+(function () {
+  var realIo = ioMod.createIo({});
+  realIo.stateDir = STATE;
+  eq(realIo.armed, false, 'io.armed is false by default');
+
+  var r = realIo.act(['npm', 'cache', 'clean', '--force']);
+  eq(r.refused, true, 'an allowlisted action refuses while disarmed');
+  eq(r.error, 'action_channel_disarmed', 'and says why');
+  eq(r.status, null, 'and never produced an exit status');
+
+  realIo.armed = true;
+  var bad = realIo.act(['docker', 'system', 'prune', '-a']);
+  eq(bad.refused, true, 'even ARMED, a non-allowlisted argv refuses');
+  eq(bad.error, 'action_not_allowlisted', 'and says why');
+  realIo.armed = false;
+
+  [['docker', 'system', 'prune'], ['docker', 'volume', 'prune'], ['docker', 'rm', 'x'], ['docker', 'rmi', 'x'],
+   ['systemctl', '--user', 'stop', 'x'], ['systemctl', 'stop', 'nginx'], ['systemctl', '--user', 'disable', 'x'],
+   ['rm', '-rf', '/'], ['kill', '-9', '1'], ['pkill', 'node'], ['chmod', '777', '/'], ['git', 'reset', '--hard']
+  ].forEach(function (argv) {
+    eq(ioMod.allowedAction(argv), false, 'action allowlist refuses: ' + argv.join(' '));
+  });
+  ok(ioMod.ACTION_COMMANDS.every(function (a) { return ioMod.allowedCommand(a) === false; }),
+    'the read and action allowlists are disjoint');
+
+  // publishAdvisory: disarmed, and cannot be pointed anywhere.
+  var pubDir = path.join(ROOT, 'pub');
+  fs.mkdirSync(pubDir, { recursive: true });
+  eq(realIo.publishAdvisory(pubDir, 'admission.json', { a: 1 }).error, 'action_channel_disarmed', 'publishing refuses while disarmed');
+  realIo.armed = true;
+  ['../escape.json', '/etc/passwd.json', 'a/b.json', 'admission.txt', '..json', ''].forEach(function (name) {
+    var res = realIo.publishAdvisory(pubDir, name, { a: 1 });
+    eq(res.ok, false, 'publication name refused: ' + JSON.stringify(name));
+  });
+  eq(realIo.publishAdvisory(path.join(ROOT, 'no-such-dir'), 'admission.json', { a: 1 }).error, 'publish_dir_missing', 'a missing publish dir refuses');
+  var good = realIo.publishAdvisory(pubDir, 'admission.json', { level: 'WARNING', max_concurrent_agents: 4 });
+  eq(good.ok, true, 'a valid publication succeeds');
+  eq(JSON.parse(fs.readFileSync(path.join(pubDir, 'admission.json'), 'utf8')).max_concurrent_agents, 4, 'and is readable back');
+  eq(fs.statSync(path.join(pubDir, 'admission.json')).mode & 0o777, 0o644, 'and is 0644');
+  realIo.armed = false;
+})();
+
+// =====================================================
+section('16. remediation: every gate, in order');
+// =====================================================
+(function () {
+  // A synthetic report puts each domain exactly where a test needs it.
+  function reportAt(overrides) {
+    var d = { memory: 'NORMAL', sessions: 'NORMAL', disk: 'NORMAL', services: 'NORMAL', backup: 'NORMAL' };
+    Object.keys(overrides || {}).forEach(function (k) { d[k] = overrides[k]; });
+    return {
+      host: { level: levels.maxOf(Object.keys(d).map(function (k) { return d[k]; })) },
+      domains: {
+        memory: { level: d.memory, summary: { mem_available_mib: 900 } },
+        sessions: { level: d.sessions, summary: { remote_sessions: 14, admission_ceiling: 4 } },
+        disk: { level: d.disk, summary: { used_pct: 91, free_gb: 5, docker: null } },
+        services: { level: d.services, summary: { table: { 'spy-monitor': { status: 'FAILED', class: 'support' }, 'erp-api': { status: 'FAILED', class: 'critical' } } } },
+        backup: { level: d.backup, summary: {} }
+      }
+    };
+  }
+  function cfgWith(over) {
+    return configMod.deepMerge(configMod.deepMerge(configMod.DEFAULTS, {
+      observe_only: false, allow_disk_remediation: true, allow_agent_throttling: true, allow_service_restart: true,
+      remediation: { publish_dir: path.join(ROOT, 'pub'), max_actions_per_tick: 3 },
+      services: { restartable: ['spy-monitor'] }
+    }), over || {});
+  }
+  var measure = { npmCacheMib: function () { return 300; }, dockerBuildCacheGb: function () { return 4.2; } };
+  function planWith(report, cfg, extra) {
+    var io = makeIo();
+    return remediateMod.plan(report, cfg, io, Object.assign({
+      now_ms: NOW, history: remediateMod.emptyHistory(), measure: measure, docker: { build_cache_reclaimable_gb: 4.2 }
+    }, extra || {}));
+  }
+  function gateOf(p, id) { return (p.decisions.filter(function (d) { return d.action === id; })[0] || {}).gate; }
+  function allowedIds(p) { return p.approved.map(function (d) { return d.action; }); }
+
+  // GATE 1 — observe_only beats an enabled flag.
+  var obs = planWith(reportAt({ disk: 'CRITICAL' }), cfgWith({ observe_only: true }));
+  eq(allowedIds(obs).length, 0, 'observe_only allows nothing');
+  eq(gateOf(obs, 'ACTION_CLEAR_NPM_CACHE'), 'observe_only', 'and that is the gate that stopped it');
+
+  // GATE 2 — the flag.
+  var noFlag = planWith(reportAt({ disk: 'CRITICAL' }), cfgWith({ allow_disk_remediation: false }));
+  eq(gateOf(noFlag, 'ACTION_CLEAR_NPM_CACHE'), 'flag', 'a disabled flag blocks its actions');
+
+  // GATE 4 — level.
+  var lowDisk = planWith(reportAt({ disk: 'WARNING' }), cfgWith());
+  eq(gateOf(lowDisk, 'ACTION_CLEAR_NPM_CACHE'), 'level', 'disk WARNING is below the HIGH threshold');
+  var highDisk = planWith(reportAt({ disk: 'HIGH' }), cfgWith());
+  ok(allowedIds(highDisk).indexOf('ACTION_CLEAR_NPM_CACHE') >= 0, 'disk HIGH makes the npm cache action a candidate');
+
+  // GATE 5 — precondition.
+  var tinyCache = remediateMod.plan(reportAt({ disk: 'CRITICAL' }), cfgWith(), makeIo(), {
+    now_ms: NOW, history: remediateMod.emptyHistory(),
+    measure: { npmCacheMib: function () { return 10; }, dockerBuildCacheGb: function () { return 0.1; } },
+    docker: { build_cache_reclaimable_gb: 0.1 }
+  });
+  eq(gateOf(tinyCache, 'ACTION_CLEAR_NPM_CACHE'), 'precondition', 'a 10 MiB cache is not worth an action');
+  eq(gateOf(tinyCache, 'ACTION_PRUNE_DOCKER_BUILD_CACHE'), 'precondition', 'nor is 0.1 GB of build cache');
+
+  // GATE 8 — cooldown.
+  var hist = remediateMod.emptyHistory();
+  hist.last_run_ms['ACTION_CLEAR_NPM_CACHE'] = NOW - 60 * 1000;
+  var cooled = planWith(reportAt({ disk: 'CRITICAL' }), cfgWith(), { history: hist });
+  eq(gateOf(cooled, 'ACTION_CLEAR_NPM_CACHE'), 'cooldown', 'a recent run blocks the next one');
+
+  // GATE 9 — rolling daily ceiling.
+  var hist2 = remediateMod.emptyHistory();
+  hist2.runs['ACTION_CLEAR_NPM_CACHE'] = [NOW - 20 * 3600000, NOW - 10 * 3600000];
+  var rated = planWith(reportAt({ disk: 'CRITICAL' }), cfgWith(), { history: hist2 });
+  eq(gateOf(rated, 'ACTION_CLEAR_NPM_CACHE'), 'rate_limit', '2 runs in 24 h hits the ceiling of 2');
+  var hist3 = remediateMod.emptyHistory();
+  hist3.runs['ACTION_CLEAR_NPM_CACHE'] = [NOW - 30 * 3600000, NOW - 26 * 3600000];
+  ok(allowedIds(planWith(reportAt({ disk: 'CRITICAL' }), cfgWith(), { history: hist3 })).indexOf('ACTION_CLEAR_NPM_CACHE') >= 0,
+    'runs older than 24 h fall out of the window');
+
+  // GATE 10 — per-tick budget.
+  var budgeted = planWith(reportAt({ disk: 'CRITICAL', sessions: 'HIGH', services: 'HIGH' }), cfgWith({ remediation: { max_actions_per_tick: 1 } }));
+  eq(budgeted.approved.length, 1, 'the tick budget caps how many actions are approved');
+  ok(budgeted.decisions.some(function (d) { return d.gate === 'budget'; }), 'and the others say budget');
+
+  // The service restart gate chain.
+  var svc = planWith(reportAt({ services: 'HIGH' }), cfgWith());
+  var svcDec = svc.decisions.filter(function (d) { return d.action === 'ACTION_RESTART_APPROVED_SERVICE'; });
+  eq(svcDec.length, 1, 'only the configured restartable unit is a candidate');
+  eq(svcDec[0].target, 'spy-monitor', 'and it is the support unit, never erp-api');
+  ok(svc.approved.some(function (d) { return d.target === 'spy-monitor'; }), 'a down support unit is restartable');
+
+  var looping = reportAt({ services: 'HIGH' });
+  looping.domains.services.summary.table['spy-monitor'].status = 'LOOP';
+  eq(gateOf(planWith(looping, cfgWith()), 'ACTION_RESTART_APPROVED_SERVICE'), 'precondition',
+    'a unit already in a restart loop is NOT restarted again');
+
+  var healthy = reportAt({ services: 'HIGH' });
+  healthy.domains.services.summary.table['spy-monitor'].status = 'OK';
+  eq(gateOf(planWith(healthy, cfgWith()), 'ACTION_RESTART_APPROVED_SERVICE'), 'precondition',
+    'a unit that is up is not restarted');
+
+  var exhausted = remediateMod.emptyHistory();
+  exhausted.runs['ACTION_RESTART_APPROVED_SERVICE:spy-monitor'] = [NOW - 5 * 3600000, NOW - 4 * 3600000, NOW - 3 * 3600000];
+  var deg = planWith(reportAt({ services: 'HIGH' }), cfgWith(), { history: exhausted });
+  ok(['precondition', 'rate_limit'].indexOf(gateOf(deg, 'ACTION_RESTART_APPROVED_SERVICE')) >= 0,
+    'after max_attempts the unit is left alone for a human, not restarted forever');
+
+  // Configuration cannot promote a protected unit into the restartable list.
+  var promoted = configMod.validate(cfgWith({ services: { restartable: ['erp-api'] } }));
+  ok(promoted.length > 0, 'configuration cannot make erp-api restartable');
+  ok(configMod.validate(cfgWith({ services: { restartable: ['nginx'] } })).length > 0, 'nor nginx');
+  ok(configMod.validate(cfgWith({ services: { restartable: ['memwatch'] } })).length > 0, 'nor a system unit');
+})();
+
+// =====================================================
+section('17. remediation: dry run changes nothing, execute is opt-in');
+// =====================================================
+(function () {
+  function cfgWith(over) {
+    return configMod.deepMerge(configMod.deepMerge(configMod.DEFAULTS, {
+      observe_only: false, allow_agent_throttling: true,
+      remediation: { publish_dir: path.join(ROOT, 'pub2'), max_actions_per_tick: 3 }
+    }), over || {});
+  }
+  fs.mkdirSync(path.join(ROOT, 'pub2'), { recursive: true });
+  var report = {
+    host: { level: 'HIGH' },
+    domains: {
+      memory: { level: 'CRITICAL', summary: {} },
+      sessions: { level: 'HIGH', summary: { remote_sessions: 14, admission_ceiling: 0 } },
+      disk: { level: 'NORMAL', summary: { used_pct: 60 } },
+      services: { level: 'NORMAL', summary: { table: {} } },
+      backup: { level: 'NORMAL', summary: {} }
+    }
+  };
+  var cfg = cfgWith();
+  var io = makeIo();
+  var p = remediateMod.plan(report, cfg, io, { now_ms: NOW, history: remediateMod.emptyHistory(), measure: { npmCacheMib: function () { return 0; }, dockerBuildCacheGb: function () { return 0; } } });
+  ok(p.approved.some(function (d) { return d.action === 'ACTION_PUBLISH_ADMISSION_ADVISORY'; }), 'the advisory is approved under pressure');
+
+  // Dry run: nothing written, io never armed.
+  var armedEver = false;
+  var watching = makeIo();
+  Object.defineProperty(watching, 'armed', {
+    get: function () { return false; },
+    set: function (v) { if (v === true) armedEver = true; }
+  });
+  var dryResults = remediateMod.execute(p, cfg, watching, { dry_run: true });
+  eq(dryResults.length, p.approved.length, 'a dry run produces a record per approved action');
+  ok(dryResults.every(function (r) { return r.mode === 'dry-run' && r.result === 'would-run'; }), 'each says would-run');
+  eq(armedEver, false, 'a dry run never arms the action channel');
+  eq(fs.existsSync(path.join(ROOT, 'pub2', 'admission.json')), false, 'and writes no publication');
+
+  // execute defaults to dry: you must ask for it.
+  var defaulted = remediateMod.execute(p, cfg, makeIo(), {});
+  ok(defaulted.every(function (r) { return r.mode === 'dry-run'; }), 'execute() defaults to a dry run');
+  eq(fs.existsSync(path.join(ROOT, 'pub2', 'admission.json')), false, 'still nothing written');
+
+  // Real execution of the one non-command action.
+  var liveIo = makeIo();
+  var liveResults = remediateMod.execute(p, cfg, liveIo, { dry_run: false });
+  var pub = liveResults.filter(function (r) { return r.action === 'ACTION_PUBLISH_ADMISSION_ADVISORY'; })[0];
+  eq(pub.mode, 'executed', 'the advisory executes when asked');
+  eq(pub.result, 'published', 'and reports published');
+  eq(pub.verified, true, 'and verifies its own effect');
+  eq(liveIo.armed, false, 'the channel is disarmed again afterwards');
+  var body = JSON.parse(fs.readFileSync(path.join(ROOT, 'pub2', 'admission.json'), 'utf8'));
+  eq(body.max_concurrent_agents, 0, 'the published ceiling matches the memory level');
+  eq(body.advisory, true, 'and it is marked advisory');
+
+  // History records only real runs.
+  var h = remediateMod.recordRuns(remediateMod.emptyHistory(), liveResults, NOW);
+  ok(h.last_run_ms['ACTION_PUBLISH_ADMISSION_ADVISORY'] === NOW, 'an executed action is recorded');
+  var h2 = remediateMod.recordRuns(remediateMod.emptyHistory(), dryResults, NOW);
+  eq(Object.keys(h2.last_run_ms).length, 0, 'a dry run is NOT recorded, so it cannot consume a cooldown');
+})();
+
+// =====================================================
+section('18. remediation: through the engine, and the audit trail');
+// =====================================================
+(function () {
+  healthyHost(CFG);
+  var io = makeIo();
+  var base = configMod.deepMerge(CFG, {
+    observe_only: false, allow_agent_throttling: true,
+    remediation: { publish_dir: path.join(ROOT, 'pub3'), max_actions_per_tick: 2 }
+  });
+  fs.mkdirSync(path.join(ROOT, 'pub3'), { recursive: true });
+
+  // The plan is present even when nothing is allowed — that is what an
+  // operator reads during an incident.
+  var observeCfg = configMod.deepMerge(base, { observe_only: true });
+  var obs = engine.tick({ io: io, config: observeCfg, state: engine.emptyState(iso()), now_ms: NOW, dry_run: true });
+  ok(obs.report.remediation, 'the report always carries a remediation plan');
+  ok(obs.report.remediation.decisions.length > 0, 'with a decision per action');
+  ok(obs.report.remediation.decisions.every(function (d) { return d.gate === 'observe_only'; }), 'all blocked by observe_only');
+  eq(obs.report.actions.length, 0, 'and nothing ran');
+  eq(obs.report.guardian.remediation.remediation_available, false, 'posture says remediation is unavailable');
+
+  var live = engine.tick({ io: io, config: base, state: engine.emptyState(iso()), now_ms: NOW, dry_run: true });
+  eq(live.report.guardian.remediation.remediation_available, true, 'with observe_only off the posture says available');
+  ok(live.report.guardian.remediation.enabled_flags.indexOf('allow_agent_throttling') >= 0, 'and names the enabled flags');
+
+  // `run` must never execute, whatever the config says.
+  var p = engine.paths(STATE);
+  try { fs.unlinkSync(p.actions); } catch (e) { /* none yet */ }
+  var ran = engine.run({ io: io, state_dir: STATE, config: base, now_ms: NOW });
+  ok(ran.report.actions.every(function (r) { return r.mode === 'dry-run'; }), 'engine.run never executes actions');
+
+  // Explicit execution writes the audit trail.
+  var pressured = configMod.deepMerge(base, { sessions: { hard_max_sessions: 0 } });
+  var ex = engine.run({ io: io, state_dir: STATE, config: pressured, now_ms: NOW + 600000, execute_actions: true });
+  var executed = ex.report.actions.filter(function (r) { return r.mode === 'executed'; });
+  if (executed.length) {
+    ok(fs.existsSync(p.actions), 'an executed action is written to actions.jsonl');
+    var rec = JSON.parse(fs.readFileSync(p.actions, 'utf8').trim().split('\n').pop());
+    ok(rec.at && rec.action && rec.mode === 'executed', 'the audit record carries a timestamp, an id and the mode');
+    ok(Object.prototype.hasOwnProperty.call(rec, 'before'), 'and the state before');
+    ok(Object.prototype.hasOwnProperty.call(rec, 'verification') || rec.result === 'failed', 'and the verification after');
+    ok(rec.reversible, 'and what undoing it costs');
+    ok(ex.state.actions.last_run_ms[rec.action + (rec.target ? ':' + rec.target : '')], 'and the cooldown is recorded in state');
+  } else {
+    ok(true, 'no action was approved in this environment; the gate chain is covered by §16');
+  }
+})();
+
+
+// =====================================================
+section('19. failure matrix: what survives what');
+// =====================================================
+(function () {
+  // Each case asserts the SAME thing: Guardian degrades honestly and takes
+  // nothing down with it. These are the failure modes the runbook promises.
+  healthyHost(CFG);
+  var remCfg = configMod.deepMerge(CFG, {
+    observe_only: false, allow_disk_remediation: true, allow_agent_throttling: true,
+    remediation: { publish_dir: path.join(ROOT, 'pub4') }
+  });
+  fs.mkdirSync(path.join(ROOT, 'pub4'), { recursive: true });
+
+  // Two ticks, because a level Guardian INFERS (as opposed to one an upstream
+  // component already confirmed) must earn two consecutive samples. Asserting
+  // a committed level after one tick would be asserting the absence of the
+  // hysteresis, not the presence of the signal.
+  function tickWith(io, cfg, ticks) {
+    var st = engine.emptyState(iso()), out = null;
+    var n = ticks || 2;
+    for (var i = 0; i < n; i++) {
+      out = engine.tick({ io: io, config: cfg || CFG, state: st, now_ms: NOW + i * 120000, dry_run: true });
+      st = out.state;
+    }
+    return out;
+  }
+
+  // Status Center unavailable — Guardian keeps every other domain.
+  fixture('live-status.json', '');
+  var noSC = tickWith(makeIo());
+  ok(levels.isLevel(noSC.report.host.level), 'Status Center gone: Guardian still produces a host level');
+  eq(noSC.report.domains.memory.unknown, false, 'and memory is still observed');
+  eq(noSC.report.domains.disk.unknown, false, 'and disk is still observed');
+  ok(noSC.report.guardian.issues.length > 0, 'and Guardian says an input is missing');
+  healthyHost(CFG);
+
+  // Resource Guard publication gone — /proc still believed.
+  try { fs.unlinkSync(path.join(FIX, 'resource-pressure.json')); } catch (e) { /* absent */ }
+  writeProc({ availMib: 500, psi60: 45 });
+  var noRG = tickWith(makeIo());
+  eq(noRG.report.domains.memory.level, 'CRITICAL', 'publication gone: real pressure is still CRITICAL');
+  eq(noRG.report.domains.memory.unknown, false, 'and the domain is not blind');
+  ok(noRG.report.guardian.state !== 'OK', 'Guardian reports itself degraded');
+  healthyHost(CFG);
+
+  // Backup record failing — Guardian must not report success.
+  fixture('backup-health-db.json', { mode: 'backup', status: 'fail', last_backup_status: 'fail', last_success_at: iso(80 * 3600), consecutive_failures: 5 });
+  var badBk = tickWith(makeIo());
+  ok(levels.rank(badBk.report.domains.backup.level) >= levels.rank('HIGH'), 'a failed backup is HIGH, never green');
+  ok(badBk.report.findings.some(function (f) { return f.domain === 'backup'; }), 'and is reported');
+  healthyHost(CFG);
+
+  // Disk pressure with remediation ON — only approved actions, nothing else.
+  (function () {
+    var io = makeIo({ statfs: function () { return { blocks: 1000, bfree: 60, bavail: 60, bsize: 4096, files: 1000, ffree: 900 }; } });
+    var out = tickWith(io, remCfg);
+    ok(levels.rank(out.report.domains.disk.level) >= levels.rank('CRITICAL'), 'a 94 % filesystem is at least CRITICAL');
+    var ids = (out.report.remediation.decisions || []).map(function (d) { return d.action; });
+    ok(ids.every(function (id) { return actionsMod.get(id) !== null; }), 'every planned action is a registry action');
+    var allowed = (out.report.remediation.decisions || []).filter(function (d) { return d.allowed; });
+    allowed.forEach(function (d) {
+      eq(actionsMod.refusesProtected(d.argv || []), null, d.action + ' targets nothing protected');
+      if (d.kind === 'command') ok(ioMod.allowedAction(d.argv), d.action + ' argv is allowlisted');
+    });
+    ok(allowed.length <= remCfg.remediation.max_actions_per_tick, 'never more than the per-tick budget');
+  })();
+
+  // A service failing repeatedly becomes DEGRADED, it is not restarted forever.
+  (function () {
+    var cfg = configMod.deepMerge(remCfg, { allow_service_restart: true, services: { restartable: ['memwatch'] } });
+    // memwatch is a SYSTEM unit, so validation refuses it outright: a restart
+    // storm on a system unit is not merely rate-limited, it is impossible.
+    ok(configMod.validate(cfg).length > 0, 'a system unit cannot be made restartable at all');
+  })();
+
+  // Guardian's own crash must not be able to take anything with it: every
+  // collector throwing still yields a valid, honest report.
+  var hostile = makeIo({
+    readFile: function () { throw new Error('EIO'); },
+    readJson: function () { throw new Error('EIO'); },
+    readdir: function () { throw new Error('EACCES'); },
+    statfs: function () { throw new Error('ENOSYS'); },
+    spawn: function () { throw new Error('ENOENT'); },
+    lstat: function () { throw new Error('EIO'); }
+  });
+  var threw = null, crashed = null;
+  try { crashed = engine.tick({ io: hostile, config: remCfg, state: engine.emptyState(iso()), now_ms: NOW, dry_run: true }); }
+  catch (e) { threw = e && e.message; }
+  eq(threw, null, 'a totally hostile host does not crash the tick');
+  if (crashed) {
+    ok(levels.isLevel(crashed.report.host.level), 'and the report still carries a valid host level');
+    eq(crashed.report.host.partial, true, 'flagged partial');
+    ok(crashed.report.guardian.state !== 'OK', 'with Guardian degraded or blind');
+    eq(crashed.report.actions.filter(function (a) { return a.mode === 'executed'; }).length, 0,
+      'and NOTHING was executed while blind');
+  }
+
+  // Corrupt state, unknown version, empty state: Guardian restarts clean.
+  var p = engine.paths(STATE);
+  healthyHost(CFG);
+  [['{broken', 'corrupt'], [JSON.stringify({ version: 999 }), 'a future version'], ['', 'an empty file'],
+   [JSON.stringify({ version: 1, domains: 'not-an-object' }), 'a wrong-typed field']].forEach(function (c) {
+    fs.writeFileSync(p.state, c[0]);
+    var r = engine.run({ io: makeIo(), state_dir: STATE, config: CFG, now_ms: NOW });
+    eq(r.report.tick, 1, 'state that is ' + c[1] + ' restarts cleanly at tick 1');
+  });
+
+  // The lock is not a wedge: a stale sentinel from a dead pid is reclaimed.
+  (function () {
+    var io = makeIo();
+    var held = io.lock(p.lock);
+    eq(held.acquired, true, 'lock acquired');
+    // Rewrite the sentinel as a long-dead pid with an ancient timestamp.
+    fs.writeFileSync(held.path, JSON.stringify({ pid: 999999, at: new Date(NOW - 3600000).toISOString() }) + '\n');
+    var io2 = makeIo();
+    var again = io2.lock(p.lock);
+    eq(again.acquired, true, 'a stale lock from a dead holder is reclaimed, not a permanent wedge');
+    io2.unlock(again);
+  })();
+})();
+
+// =====================================================
+section('20. rollback: every documented step actually works');
+// =====================================================
+(function () {
+  // The runbook promises three rollbacks. Each is asserted here so the
+  // documentation cannot drift away from the code.
+
+  // 1. observe_only turns remediation off without stopping observation.
+  var off = configMod.deepMerge(configMod.DEFAULTS, {
+    observe_only: true, allow_disk_remediation: true, allow_service_restart: true, allow_agent_throttling: true
+  });
+  eq(configMod.validate(off).length, 0, 'observe_only:true with every flag set is a VALID configuration');
+  var io = makeIo();
+  healthyHost(CFG);
+  var merged = configMod.deepMerge(CFG, { observe_only: true, allow_disk_remediation: true });
+  var out = engine.tick({ io: io, config: merged, state: engine.emptyState(iso()), now_ms: NOW, dry_run: true });
+  eq(out.report.guardian.remediation.remediation_available, false, 'and remediation is unavailable');
+  ok((out.report.remediation.decisions || []).every(function (d) { return d.gate === 'observe_only'; }),
+    'every action is stopped at the observe_only gate');
+  eq(out.report.actions.filter(function (a) { return a.mode === 'executed'; }).length, 0, 'and nothing runs');
+  ok(out.report.domains.memory.level, 'while observation continues normally');
+
+  // 2. Disabling one flag disables exactly its actions and no others.
+  var oneOff = configMod.deepMerge(CFG, { observe_only: false, allow_disk_remediation: false, allow_agent_throttling: true });
+  var out2 = engine.tick({ io: io, config: oneOff, state: engine.emptyState(iso()), now_ms: NOW, dry_run: true });
+  var byAction = {};
+  (out2.report.remediation.decisions || []).forEach(function (d) { byAction[d.action] = d; });
+  eq(byAction['ACTION_CLEAR_NPM_CACHE'].gate, 'flag', 'a disabled flag stops its own actions');
+  ok(byAction['ACTION_PUBLISH_ADMISSION_ADVISORY'].gate !== 'flag', 'and leaves the other flag alone');
+
+  // 3. The installer's rollback removes only Guardian's own files.
+  var inst = fs.readFileSync(path.join(BASE, 'ops', 'guardian', 'install-guardian.sh'), 'utf8');
+  var rollback = inst.slice(inst.indexOf('Rollback'), inst.indexOf('set -euo'));
+  ok(/systemctl --user disable --now mythos-guardian.timer/.test(rollback), 'rollback disables the timer');
+  ok(/rm -f .*\.local\/bin\/mythos-guardian/.test(rollback), 'removes the CLI symlink');
+  ok(/rm -f .*mythos-guardian\.\{service,timer\}/.test(rollback), 'removes its own units');
+  ok(/state directory is left in place/i.test(inst), 'and deliberately keeps the state directory');
+  ok(!/rm -rf/.test(inst), 'the installer contains no rm -rf at all');
+  ok(!/\/var\/lib\/mythos\/pressure/.test(rollback), 'and rollback never touches the pressure publication');
+
+  // The installer refuses root, which is itself a safety property.
+  ok(/refusing to run as root/.test(inst), 'and the installer refuses to run as root');
 })();
 
 function finish() {

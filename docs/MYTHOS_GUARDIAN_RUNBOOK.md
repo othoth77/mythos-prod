@@ -169,6 +169,40 @@ overdue or its result is unreadable. A backup that has never been restored is
 not yet a backup. `UNVERIFIED` is often just a reboot clearing the systemd
 result — re-run the restore test unit on its own schedule rather than by hand.
 
+## 8b. Remediation — what it may have done, and turning it off
+
+By default Guardian does nothing: `observe_only` is true. If it is enabled:
+
+```bash
+mythos-guardian audit          # what it actually did, with verification
+mythos-guardian remediate      # what it would do right now, and why not
+mythos-guardian actions        # everything it can ever do
+```
+
+**Turn it off, immediately and without stopping Guardian:**
+
+```bash
+# edit ~/.config/mythos/guardian.json
+{ "observe_only": true }
+```
+
+`observe_only` beats every flag, takes effect on the next tick, and leaves
+Guardian observing. That is the first thing to reach for — not disabling the
+timer, which also loses the observation you need during an incident.
+
+**What it can never have done**, whatever the report says: touched ERP, a
+database, a backup, a credential, a repository, a production container or
+volume, or deleted any file chosen by path. Guardian has no delete primitive.
+If a Guardian report appears to claim otherwise, that is a bug in the report
+renderer and the audit record is the authority.
+
+**If an action verified `false`**, Guardian recorded that the effect did not
+happen and raised a WARNING finding. It does not retry. Read the record, and
+treat the underlying condition as un-remediated.
+
+**A service that stopped being restarted** has hit `max_attempts` and is
+deliberately left alone. Read its journal; repeated restarts hide the fault.
+
 ## 9. Guardian itself
 
 **Is it running?**
@@ -184,16 +218,18 @@ systemctl --user list-timers mythos-guardian.timer
 systemctl --user disable --now mythos-guardian.timer
 ```
 
-**Is it still observe-only?**
+**Is the boundary still intact?**
 
 ```bash
 mythos-guardian selftest
 ```
 
-Nine checks, run against this host: the write boundary, the command
+Thirteen checks, run against this host: the write boundary, the command
 allowlist, the absence of remediation, that a dry run writes nothing, that
 missing inputs do not read as NORMAL, that escalation cannot starve, and that
-a degraded signal still reports a real host level.
+a degraded signal still reports a real host level, the action channel is
+disarmed, the action allowlist refuses every destructive argv, the two
+allowlists are disjoint, and PROTECTED refuses the production resources.
 
 **Did a change break it?**
 

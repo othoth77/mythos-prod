@@ -335,4 +335,46 @@ function backup(cfg, io, ctx) {
   return out;
 }
 
-module.exports = { memory: memory, sessions: sessions, disk: disk, services: services, backup: backup, scanProcs: scanProcs, parseShow: parseShow, envelope: envelope, missing: missing, ageSeconds: ageSeconds };
+// Sizes the disk actions need for their preconditions. Read-only and
+// bounded: a directory walk with a node cap, never a shell, never `du`.
+function measure(cfg, io) {
+  return {
+    npmCacheMib: function () {
+      var root = (cfg && cfg.npm_cache_dir) || null;
+      if (!root) return null;
+      var total = 0, seen = 0, stack = [root];
+      while (stack.length && seen < 200000) {
+        var dir = stack.pop();
+        var names = io.readdir(dir);
+        if (!names) continue;
+        for (var i = 0; i < names.length; i++) {
+          seen++;
+          var full = path.join(dir, names[i]);
+          var st = io.lstat(full);
+          if (!st) continue;
+          if (st.isDirectory()) stack.push(full);
+          else if (st.isFile()) total += st.size;
+        }
+      }
+      return Math.round(total / 1048576);
+    },
+    dockerBuildCacheGb: function () {
+      var r = io.spawn(['docker', 'system', 'df', '--format', '{{.Type}}|{{.Size}}|{{.Reclaimable}}'], { timeout_ms: 20000 });
+      if (r.status !== 0) return null;
+      var out = null;
+      String(r.stdout || '').trim().split('\n').forEach(function (l) {
+        var f = l.split('|');
+        if (f.length >= 3 && f[0].trim() === 'Build Cache') {
+          var m = /^([0-9.]+)\s*([KMGT]?B)/i.exec(f[2].trim());
+          if (m) {
+            var v = parseFloat(m[1]), u = m[2].toUpperCase();
+            out = u === 'TB' ? v * 1024 : u === 'GB' ? v : u === 'MB' ? v / 1024 : v / 1048576;
+          }
+        }
+      });
+      return out === null ? null : Math.round(out * 100) / 100;
+    }
+  };
+}
+
+module.exports = { measure: measure, memory: memory, sessions: sessions, disk: disk, services: services, backup: backup, scanProcs: scanProcs, parseShow: parseShow, envelope: envelope, missing: missing, ageSeconds: ageSeconds };
