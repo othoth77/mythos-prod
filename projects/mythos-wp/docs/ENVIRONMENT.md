@@ -95,3 +95,5 @@ WP never holds an LLM key. `GET /api/ai/status` reports presence only (`credenti
 - Reference a credential only by the **name** of its variable (`wp_integrations.credential_env`; the legacy `wp_projects.catalog_dsn_env` followed the same rule); the panel validates the shape `^[A-Z][A-Z0-9_]{2,62}$` and refuses a value that looks like a credential in any JSON config.
 - Changing the env requires `systemctl --user restart mythos-wp.service` (as deploy); a restart signs every user out (sessions are in memory).
 - Never print the env (`cat .env`) in a shared terminal or a ticket; use `check-env`.
+
+| `MYTHOS_WP_DB_CONNECT_TIMEOUT_MS` | how long a pool connection may take before it is a failure | `5000` (clamped 1–60 s) | no |

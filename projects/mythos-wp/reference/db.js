@@ -39,7 +39,9 @@ function wp() {
     database: process.env.MYTHOS_WP_DB_NAME,
     max: 5,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000
+    // A loaded host can deschedule this process for seconds; MYTHOS_WP_DB_CONNECT_TIMEOUT_MS raises the
+    // connect timeout so heavy load is not reported as a database failure (default 5 s, clamped 1–60 s).
+    connectionTimeoutMillis: Math.min(60000, Math.max(1000, parseInt(process.env.MYTHOS_WP_DB_CONNECT_TIMEOUT_MS || '5000', 10) || 5000))
   });
   wpPool.on('error', function () {});
   return wpPool;

@@ -47,12 +47,12 @@ function numbersPanel(ctx) {
     items.forEach((n) => {
       const links = n.projects || [];
       const aiOn = links.some((l) => (l.ai_mode || 'inherit') !== 'off');
-      const receiving = n.webhook_state === 'ok';
+      const receiving = n.webhook_state === 'ok' && (n.projects || []).some((l) => l.inbound_enabled);
       const exp = h('tr', { class: 'expander', hidden: !open[n.id] }, h('td', { colspan: '7' }, linksBlock(n)));
       const toggle = h('button', { class: 'btn btn-ghost btn-sm', type: 'button', 'aria-expanded': open[n.id] ? 'true' : 'false', onClick: () => { open[n.id] = !open[n.id]; exp.hidden = !open[n.id]; toggle.setAttribute('aria-expanded', open[n.id] ? 'true' : 'false'); } }, open[n.id] ? 'Less' : 'More');
       tbody.append(h('tr', {},
         h('td', {}, h('strong', { class: 'mono' }, fmtMasked(n.phone_masked)), h('div', { class: 'dim small' }, n.display_name || n.instance)),
-        h('td', {}, connBadge(n.status)),
+        h('td', {}, connBadge(n)),
         h('td', {}, links.length ? h('span', { class: 'chips' }, links.map((l) => chip(ctx.projectName(l.project_id), 'project'))) : h('span', { class: 'dim' }, 'Not linked')),
         h('td', {}, badge(receiving ? 'Receiving' : 'Not receiving', receiving ? 'ok' : 'warn')),
         h('td', {}, links.length ? badge(aiOn ? 'Active' : 'Off', aiOn ? 'ok' : 'mock') : h('span', { class: 'dim' }, '—')),

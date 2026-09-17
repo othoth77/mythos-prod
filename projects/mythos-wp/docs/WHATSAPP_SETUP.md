@@ -173,3 +173,9 @@ Switching a number to the Cloud API is an owner project: create the three 0600 f
 ## 8. Templates (`comms/templates.js`)
 
 UI: WhatsApp → **Templates** (project picker, **New template** for manager+, **Sync with Meta** for admin; a row opens the preview drawer with variables, Preview, Sync with Meta and **Test send…**). `wp_templates` (project-scoped or shared, optional number, name `^[a-z0-9_]{1,120}$`, `{{1}}` positional / `{{name}}` named placeholders; local drafts are sent verbatim by unofficial providers, Meta-synced rows carry `provider meta_cloud`, `provider_template_id` and the WABA status). `GET /api/templates?project=` (any), `POST` (manager), `PATCH` (manager), `DELETE` (admin), `POST …/:id/preview { variables }` (any) → `{ text, missing, used }` (a missing placeholder is left in place), `POST …/:id/sync` and `POST /api/templates/sync-all` (admin) → Meta Graph `/{waba_id}/message_templates` when the Cloud API is configured (token file **and** a `meta_cloud` account with `external_ref` = WABA id), else 412 `META_CLOUD_NOT_CONFIGURED`, `POST …/:id/test { conversation_id, variables }` (manager) → rendered and sent through `outbound.send` (`client_ref tpl-<id>-<ts>`, i.e. the normal policy path: inbox open + `outbound_enabled`, hourly cap) into an existing conversation.
+
+## Connection states
+
+The Numbers table shows **Connected · Action required · Disconnected · Error** (hover for the reason).
+The rule behind them, and why a failed check never marks a number broken, is in
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md#whatsapp-connection-states-what-the-four-words-mean).

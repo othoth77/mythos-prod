@@ -1,7 +1,7 @@
 /* MYTHOS Control Center — dashboard: today's five figures and one projects
    table. GET /api/dashboard?project=<id|all>; numbers and agents are the
    fallback when an activity item lacks the V2.1 whatsapp / ai fields. */
-import { h, clear, badge, skeletonRows, errorBox, empty, pageHead, simpleTable, fmtMasked, connBadge } from '../ui.js';
+import { h, clear, badge, skeletonRows, errorBox, empty, pageHead, simpleTable, fmtMasked, connBadge, isConnected } from '../ui.js';
 import { loadNumbers, loadAgents, summarize, aiWords } from '../data.js';
 
 function tile(label, value, href, tone) {
@@ -26,8 +26,8 @@ export async function render(main, params, query, ctx) {
   const summaries = {}; rows.forEach((r) => { summaries[r.id] = summarize(r, numbers, agents, r.id); });
   // WhatsApp status: distinct numbers across the shown projects (all numbers when nothing is linked yet)
   const seen = {}; let total = 0, connected = 0;
-  rows.forEach((r) => summaries[r.id].whatsapp.forEach((n) => { const k = n.phone_masked || JSON.stringify(n); if (seen[k]) return; seen[k] = true; total++; if (n.status === 'open') connected++; }));
-  if (!total && project === 'all') { total = numbers.length; connected = numbers.filter((n) => n.status === 'open').length; }
+  rows.forEach((r) => summaries[r.id].whatsapp.forEach((n) => { const k = n.phone_masked || JSON.stringify(n); if (seen[k]) return; seen[k] = true; total++; if (isConnected(n)) connected++; }));
+  if (!total && project === 'all') { total = numbers.length; connected = numbers.filter(isConnected).length; }
   const waiting = w.waiting_human !== undefined ? w.waiting_human : w.needs_attention;
   body.appendChild(h('div', { class: 'grid cols-5' },
     tile('Unread messages', w.unread, '#/inbox?view=unread' + pq, w.unread > 0 ? 'warn' : ''),
@@ -39,7 +39,7 @@ export async function render(main, params, query, ctx) {
     rows.length ? simpleTable([
       { label: 'Project', cell: (r) => h('a', { href: '#/projects/' + encodeURIComponent(r.id) }, r.display_name || r.id) },
       { label: 'Status', cell: (r) => badge(r.status) },
-      { label: 'WhatsApp', cell: (r) => summaries[r.id].whatsapp.length ? h('div', { class: 'stack xs' }, summaries[r.id].whatsapp.map((n) => h('span', { class: 'num-line' }, h('span', { class: 'mono' }, fmtMasked(n.phone_masked)), ' ', connBadge(n.status)))) : h('span', { class: 'dim' }, 'No number') },
+      { label: 'WhatsApp', cell: (r) => summaries[r.id].whatsapp.length ? h('div', { class: 'stack xs' }, summaries[r.id].whatsapp.map((n) => h('span', { class: 'num-line' }, h('span', { class: 'mono' }, fmtMasked(n.phone_masked)), ' ', connBadge(n)))) : h('span', { class: 'dim' }, 'No number') },
       { label: 'AI', cell: (r) => summaries[r.id].ai.agent ? h('span', {}, summaries[r.id].ai.agent, ' ', badge(aiWords(summaries[r.id].ai.mode), summaries[r.id].ai.mode === 'auto' ? 'ok' : summaries[r.id].ai.mode === 'suggest' ? 'info' : 'mock')) : h('span', { class: 'dim' }, 'No agent') }
     ], rows, { noScroll: true, onRow: (r) => { location.hash = '#/projects/' + encodeURIComponent(r.id); } }) : empty('No project yet', 'Create the first one.', ctx.can('admin') ? h('a', { class: 'btn btn-primary', href: '#/projects/new' }, 'New project') : null)));
 }

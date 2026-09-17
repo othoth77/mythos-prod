@@ -57,3 +57,19 @@ Multi-project WhatsApp control center on the COMMS-1 … 11 communication layer 
 
 **Kept**
 - The receiver / routing / core / outbound path of COMMS-1 … 11, the #173 deterministic engine as the fallback generator, the no-secret-in-database rule, the loopback-only process.
+
+## V2.1.1 — 2026-09-17 (WhatsApp connection status)
+
+**Fixed.** A health check that could not reach the WhatsApp gateway was written as the number's device
+status (`status = 'error'`), so a probe timeout under host load showed "WhatsApp 0 / 2" and ERROR on every
+project row while the session was open. A project link created during that window kept `error` for ever and
+blocked replies for that project.
+
+- `health.js` / `comms/numbers.js`: only a state the provider really reported may change the device status;
+  a failed check records `health_state = 'error'` and keeps the last known status.
+- `comms/numbers.connectionOf()`: one connection model — **Connected · Action required · Disconnected ·
+  Error** — with a plain-language detail; a never-paired number reads *Action required*, not an error.
+- `comms/numbers.syncInboxStatus()`: every project link follows its number on each successful check.
+- Dashboard, project pages and the Numbers table use that model; the dashboard counts connected numbers.
+- `MYTHOS_WP_DB_CONNECT_TIMEOUT_MS` makes the pool connect timeout configurable for a loaded host.
+- New suite `tests/mythos-wp-v21-whatsapp-status-test.js` (26 assertions) locks the behaviour down.

@@ -25,7 +25,41 @@ var INSTANCE_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 var PHONE_RE = /^[0-9]{6,32}$/;
 var STATUS = { unknown: true, inactive: true, pairing: true, open: true, closed: true, error: true };
 var CONNECTION_MAP = { open: 'open', close: 'closed', closed: 'closed', connecting: 'pairing', refused: 'error' };
+// The ONLY states that count as "the provider told us what the session is doing". Anything else —
+// unknown, unreachable, refused, a 5xx, a timeout — is a failed check, never a device status.
+var REPORTED_STATE = { open: 'open', close: 'closed', closed: 'closed', connecting: 'pairing', pairing: 'pairing' };
 var INBOX_STATUS = { open: 'open', closed: 'closed', pairing: 'pairing', error: 'error', inactive: 'inactive', unknown: 'inactive' };
+
+// ---- the ONE connection model shown to an operator ---------------------------------------
+// `status` is the DEVICE state last observed through the provider; `health_state` says whether the
+// last CHECK reached the gateway at all. The two are never mixed: a check that could not reach the
+// gateway leaves the device status alone and reports `error` — "we do not know", not "it is broken".
+//
+//   connected        the WhatsApp session is open
+//   action_required  never paired (no digits yet), pairing, or never checked — a human must act
+//   disconnected     it was paired and the session closed — re-pair from the phone
+//   error            the last check could not reach the WhatsApp gateway (status is the last known one)
+var CONNECTION_LABEL = { connected: 'Connected', action_required: 'Action required', disconnected: 'Disconnected', error: 'Error' };
+function connectionOf(row) {
+  var status = row && row.status ? String(row.status) : 'unknown';
+  var health = row && row.health_state ? String(row.health_state) : 'unknown';
+  var paired = !!(row && row.phone_ref);
+  if (health === 'error') return { state: 'error', label: CONNECTION_LABEL.error, detail: 'The WhatsApp gateway did not answer the last check; the number was ' + (status === 'open' ? 'connected' : status) + ' before that.' };
+  if (status === 'open') return { state: 'connected', label: CONNECTION_LABEL.connected, detail: 'The WhatsApp session is open.' };
+  if (status === 'pairing') return { state: 'action_required', label: CONNECTION_LABEL.action_required, detail: 'Pairing in progress: scan the QR code from the phone.' };
+  if (status === 'closed') return paired
+    ? { state: 'disconnected', label: CONNECTION_LABEL.disconnected, detail: 'The session closed. Re-pair this number from the phone.' }
+    : { state: 'action_required', label: CONNECTION_LABEL.action_required, detail: 'Not paired yet: scan the QR code from the phone to connect this number.' };
+  return { state: 'action_required', label: CONNECTION_LABEL.action_required, detail: 'No successful check yet for this number.' };
+}
+// syncInboxStatus(pool, row) — every project link of a number follows the number's device status, so a
+// link created (or left behind) during an outage can never keep a stale value that blocks replies.
+function syncInboxStatus(pool, row) {
+  if (!row || !row.status) return Promise.resolve(0);
+  var target = INBOX_STATUS[row.status] || 'inactive';
+  return pool.query('UPDATE wp_inboxes SET status = $2, updated_at = now() WHERE (phone_number_id = $1 OR (provider = $3 AND instance = $4)) AND status IS DISTINCT FROM $2', [row.id, target, row.provider, row.instance])
+    .then(function (r) { return r.rowCount || 0; }, function () { return 0; });
+}
 var AI_MODES = { inherit: true, off: true, suggest: true, auto: true };
 function fail(code, status, detail) { var e = new Error(detail || code); e.code = code; e.status = status; return e; }
 function mask(n) { n = String(n || '').replace(/[^0-9]/g, ''); return n.length >= 4 ? '***' + n.slice(-4) : '***'; }
@@ -66,7 +100,8 @@ function deleteAccount(pool, id) {
 // ---- numbers -----------------------------------------------------------------------
 var NUMBER_COLS = 'p.id, p.account_id, p.provider, p.instance, p.phone_ref, p.display_name, p.status, p.is_personal, p.health_state, p.health_detail, p.last_health_at, p.webhook_state, p.webhook_detail, p.last_event_at, p.settings, p.created_at, p.updated_at';
 function shape(row, admin) {
-  var out = { id: row.id, provider: row.provider, instance: row.instance, phone_masked: mask(row.phone_ref), display_name: row.display_name, status: row.status, is_personal: row.is_personal === true, health_state: row.health_state, health_detail: row.health_detail, last_health_at: row.last_health_at, webhook_state: row.webhook_state, webhook_detail: row.webhook_detail, last_event_at: row.last_event_at, settings: row.settings || {}, created_at: row.created_at, updated_at: row.updated_at, account: row.account_id ? { id: row.account_id, display_name: row.account_name || null } : null, projects: row.projects || [] };
+  var conn = connectionOf(row);
+  var out = { connection: conn.state, connection_label: conn.label, connection_detail: conn.detail, id: row.id, provider: row.provider, instance: row.instance, phone_masked: mask(row.phone_ref), display_name: row.display_name, status: row.status, is_personal: row.is_personal === true, health_state: row.health_state, health_detail: row.health_detail, last_health_at: row.last_health_at, webhook_state: row.webhook_state, webhook_detail: row.webhook_detail, last_event_at: row.last_event_at, settings: row.settings || {}, created_at: row.created_at, updated_at: row.updated_at, account: row.account_id ? { id: row.account_id, display_name: row.account_name || null } : null, projects: row.projects || [] };
   if (admin) out.phone_ref = row.phone_ref;
   return out;
 }
@@ -204,12 +239,15 @@ function check(pool, id) {
     if (!p) throw fail('precondition', 412, 'provider not registered: ' + row.provider);
     return p.health({ instance: row.instance }).then(function (h) {
       var state = String(h.state || 'unknown');
-      var status = CONNECTION_MAP[state] || (STATUS[state] ? state : (state === 'unreachable' ? 'error' : 'unknown'));
-      var health = h.ok && status === 'open' ? 'ok' : status === 'pairing' ? 'warning' : status === 'closed' ? 'disconnected' : (state === 'unreachable' || status === 'error') ? 'error' : 'unknown';
-      var detail = h.reason ? String(h.reason) : (h.detail ? JSON.stringify(h.detail) : 'state ' + state);
-      return pool.query('UPDATE wp_phone_numbers SET status = $2, health_state = $3, health_detail = $4, last_health_at = now(), updated_at = now() WHERE id = $1', [id, status, health, detail.slice(0, 200)])
-        .then(function () { return pool.query('UPDATE wp_inboxes SET status = $2, updated_at = now() WHERE (phone_number_id = $1 OR (provider = $3 AND instance = $4)) AND status <> $2', [id, INBOX_STATUS[status] || 'inactive', row.provider, row.instance]); })
-        .then(function () { return { id: id, status: status, health_state: health, detail: detail.slice(0, 200) }; });
+      var known = REPORTED_STATE[state] || null;                                                  // a state the provider really reported
+      var reachable = known !== null;
+      // UNREACHABLE GATEWAY ≠ BROKEN NUMBER: keep the last known device status, report the check failure.
+      var status = reachable ? known : row.status;
+      var health = !reachable ? 'error' : status === 'open' ? 'ok' : status === 'pairing' ? 'warning' : status === 'closed' ? 'disconnected' : 'unknown';
+      var detail = !reachable ? ('gateway unreachable: ' + String(h.reason || state)) : (h.reason ? String(h.reason) : 'state ' + state);
+      return pool.query('UPDATE wp_phone_numbers SET status = $2, health_state = $3, health_detail = $4, last_health_at = now(), updated_at = now() WHERE id = $1 RETURNING id, provider, instance, status, health_state, phone_ref', [id, status, health, detail.slice(0, 200)])
+        .then(function (r) { return syncInboxStatus(pool, r.rows[0]).then(function () { return r.rows[0]; }); })
+        .then(function (fresh) { var conn = connectionOf(fresh); return { id: id, status: status, health_state: health, connection: conn.state, connection_label: conn.label, connection_detail: conn.detail, detail: detail.slice(0, 200) }; });
     });
   });
 }
@@ -273,4 +311,4 @@ function updateInbox(pool, projectId, inboxId, patch) {
   return pool.query('UPDATE wp_inboxes SET ' + sets.join(', ') + ' WHERE project_id = $1 AND id = $2 RETURNING id, project_id, provider, instance, display_name, account_mode, inbound_enabled, outbound_enabled, ai_mode, status, settings, phone_number_id', params)
     .then(function (r) { if (!r.rows[0]) throw fail('not_found', 404, 'no such inbox in this project'); return { inbox: r.rows[0], changed: changed }; }, function (e) { if (/wp_inboxes_/.test(e.message + (e.constraint || ''))) throw fail('precondition', 412, e.message); throw e; });
 }
-module.exports = { mask: mask, rawNumber: rawNumber, inboxesOfNumber: inboxesOfNumber, listAccounts: listAccounts, createAccount: createAccount, updateAccount: updateAccount, deleteAccount: deleteAccount, listNumbers: listNumbers, getNumber: getNumber, createNumber: createNumber, updateNumber: updateNumber, deleteNumber: deleteNumber, sync: sync, check: check, link: link, unlink: unlink, updateInbox: updateInbox, webhookState: webhookState, instanceOf: instanceOf, receiverBase: receiverBase };
+module.exports = { mask: mask, rawNumber: rawNumber, inboxesOfNumber: inboxesOfNumber, connectionOf: connectionOf, syncInboxStatus: syncInboxStatus, INBOX_STATUS: INBOX_STATUS, listAccounts: listAccounts, createAccount: createAccount, updateAccount: updateAccount, deleteAccount: deleteAccount, listNumbers: listNumbers, getNumber: getNumber, createNumber: createNumber, updateNumber: updateNumber, deleteNumber: deleteNumber, sync: sync, check: check, link: link, unlink: unlink, updateInbox: updateInbox, webhookState: webhookState, instanceOf: instanceOf, receiverBase: receiverBase };

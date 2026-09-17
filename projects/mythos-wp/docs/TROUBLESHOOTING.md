@@ -111,3 +111,32 @@ Symptom → check → fix. Commands run as `deploy` with the env loaded (`set -a
 3. `wp_inbound_events` (deliveries), `wp_routing_drops` (refused routing), `wp_conversation_events` (journal), `wp_ai_runs` (AI decisions), `wp_automation_runs`, `wp_audit_events` (who changed what).
 4. WhatsApp → Advanced → Receiver and providers (`GET /api/comms/providers`, `GET /api/comms/receiver`), `GET /api/ai/status`, `GET /api/projects/:p/ai`, Settings → Integrations (`GET /api/integrations`).
 5. The providers themselves: Evolution (`:8080`), Kitchen (`:3011`), n8n (`:5678`), the free-LLM pool.
+
+## WhatsApp connection states (what the four words mean)
+
+The panel never shows a raw provider state. `numbers.connectionOf()` derives one of four words from the
+number's last known **device status** and the result of the last **check**, and the detail behind the badge
+says what to do:
+
+| Badge | Meaning | What to do |
+|---|---|---|
+| **Connected** | the WhatsApp session is open | nothing |
+| **Action required** | never paired (no digits yet), pairing in progress, or never checked | scan the QR code from the phone (`ops/whatsapp/evolution/qr-live.sh <instance>`) |
+| **Disconnected** | it was paired and the session closed | re-pair the number from the phone |
+| **Error** | the last check could not reach the WhatsApp gateway | check Evolution (`docker ps`, `systemctl --user status mythos-wp`), then press **Check**; the device status shown before the failure is kept |
+
+**A check that fails is never written as a device status.** A gateway timeout sets `health_state = 'error'`
+and leaves `wp_phone_numbers.status` untouched, so a slow host cannot make a healthy number look broken
+(incident of 2026-09-17 22:07 UTC: a probe timeout under host load wrote `status = 'error'` on both numbers
+and the dashboard read "WhatsApp 0 / 2" with ERROR on four project rows while the session was open).
+
+**Project links follow their number.** Every successful check propagates the device status to the
+`wp_inboxes` rows of that number, so a link created during an outage cannot keep a stale `error` that would
+block replies for that project (`numbers.syncInboxStatus`).
+
+| Symptom | Check | Fix |
+|---|---|---|
+| Dashboard shows `Error` on every number | `GET /api/health/center` → `whatsapp:evolution` | the gateway is unreachable: `docker ps \| grep evolution-api`; the numbers keep their last known status and recover at the next successful check |
+| A number says `Action required` | `wp_phone_numbers.phone_ref` empty = never paired | pair it from the phone; the panel cannot pair a number for you |
+| A project cannot send although the number is connected | `SELECT status FROM wp_inboxes WHERE project_id = …` | press **Check** on the number (WhatsApp → Numbers); the link follows the number |
+| Database errors under heavy host load | `MYTHOS_WP_DB_CONNECT_TIMEOUT_MS` (default 5000) | raise it in the env file when the host runs other heavy work |

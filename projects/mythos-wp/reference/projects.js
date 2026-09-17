@@ -114,8 +114,9 @@ function aiPut(pool, projectId, body, actor) {
 
 // numbersOf(pool, projectId) → [{ id, phone_masked, status, inbox_id, ai_mode, inbound_enabled }] for the project summary
 function numbersOf(pool, projectId) {
-  return pool.query("SELECT n.id, n.phone_ref, n.status, n.webhook_state, i.id AS inbox_id, i.ai_mode, i.inbound_enabled, i.outbound_enabled, i.account_mode FROM wp_inboxes i JOIN wp_phone_numbers n ON n.id = i.phone_number_id WHERE i.project_id = $1 ORDER BY n.id", [projectId])
-    .then(function (r) { return r.rows.map(function (x) { return { id: x.id, phone_masked: x.phone_ref ? '***' + String(x.phone_ref).slice(-4) : '***', status: x.status, receiving: x.webhook_state === 'ok' && x.inbound_enabled === true, inbox_id: x.inbox_id, ai_mode: x.ai_mode, account_mode: x.account_mode, inbound_enabled: x.inbound_enabled, outbound_enabled: x.outbound_enabled }; }); });
+  var numbers = require('./comms/numbers');
+  return pool.query("SELECT n.id, n.provider, n.instance, n.phone_ref, n.status, n.health_state, n.webhook_state, i.id AS inbox_id, i.ai_mode, i.inbound_enabled, i.outbound_enabled, i.account_mode FROM wp_inboxes i JOIN wp_phone_numbers n ON n.id = i.phone_number_id WHERE i.project_id = $1 ORDER BY n.id", [projectId])
+    .then(function (r) { return r.rows.map(function (x) { var conn = numbers.connectionOf(x); return { id: x.id, phone_masked: x.phone_ref ? '***' + String(x.phone_ref).slice(-4) : '***', status: x.status, connection: conn.state, connection_label: conn.label, connection_detail: conn.detail, receiving: x.webhook_state === 'ok' && x.inbound_enabled === true, inbox_id: x.inbox_id, ai_mode: x.ai_mode, account_mode: x.account_mode, inbound_enabled: x.inbound_enabled, outbound_enabled: x.outbound_enabled }; }); });
 }
 
 module.exports = { slugify: slugify, uniqueSlug: uniqueSlug, createSimple: createSimple, aiGet: aiGet, aiPut: aiPut, numbersOf: numbersOf, AI_MODES: AI_MODES };

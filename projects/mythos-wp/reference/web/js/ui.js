@@ -281,4 +281,17 @@ export function fmtMasked(masked) {
 /* Collapsed "Advanced" style section. */
 export function details(title, body, open) { return h('details', { class: 'adv', open: open || undefined }, h('summary', {}, title), h('div', { class: 'adv-body' }, body)); }
 /* Connection wording for a WhatsApp number status (open | pairing | closed). */
-export function connBadge(status) { const m = { open: ['Connected', 'ok'], pairing: ['Connecting', 'warn'], closed: ['Disconnected', 'danger'] }[status]; return m ? badge(m[0], m[1]) : badge(status || 'unknown', 'mock'); }
+/* One connection badge for a number: the server sends { connection, connection_label, connection_detail }
+   (numbers.connectionOf). A plain status string is still accepted so an older payload degrades sanely.
+   The detail is the tooltip — the operator sees four words, never a technical state. */
+const CONN = { connected: ['Connected', 'ok'], action_required: ['Action required', 'warn'], disconnected: ['Disconnected', 'danger'], error: ['Error', 'danger'] };
+const STATUS_TO_CONN = { open: 'connected', pairing: 'action_required', closed: 'disconnected', inactive: 'action_required', unknown: 'action_required', error: 'error' };
+export function connBadge(n) {
+  const o = n && typeof n === 'object' ? n : { connection: STATUS_TO_CONN[n] || 'action_required', status: n };
+  const key = o.connection || STATUS_TO_CONN[o.status] || 'action_required';
+  const m = CONN[key] || CONN.action_required;
+  const b = badge(o.connection_label || m[0], m[1]);
+  if (o.connection_detail) b.setAttribute('title', o.connection_detail);
+  return b;
+}
+export function isConnected(n) { return !!n && (n.connection ? n.connection === 'connected' : n.status === 'open'); }

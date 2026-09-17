@@ -24,6 +24,7 @@
 // =====================================================
 var path = require('path');
 var integrations = require('./integrations');
+var numbers = require('./comms/numbers');
 
 var KEEP_ROWS = 2000;
 var DEFAULT_INTERVAL_MS = 300000;
@@ -81,7 +82,7 @@ function checkIntegrations(pool, deps) {
   });
 }
 
-var NUMBER_STATE = { open: 'ok', connecting: 'warning', pairing: 'warning', close: 'disconnected', closed: 'disconnected', unknown: 'warning', unreachable: 'disconnected' };
+var NUMBER_STATE = { open: 'ok', connecting: 'warning', pairing: 'warning', close: 'disconnected', closed: 'disconnected', unknown: 'warning', unreachable: 'error' };
 var NUMBER_STATUS = { open: 'open', connecting: 'pairing', pairing: 'pairing', close: 'closed', closed: 'closed' };
 
 function providerModule(provider) {
@@ -90,7 +91,7 @@ function providerModule(provider) {
 }
 
 function checkNumbers(pool, deps) {
-  return pool.query('SELECT id, provider, instance, display_name, status FROM wp_phone_numbers ORDER BY id').then(function (r) {
+  return pool.query('SELECT id, provider, instance, display_name, status, phone_ref FROM wp_phone_numbers ORDER BY id').then(function (r) {
     var rows = r.rows;
     if (Array.isArray(deps.numberInstances)) rows = rows.filter(function (n) { return deps.numberInstances.indexOf(n.instance) !== -1; });
     return Promise.all(rows.map(function (n) {
@@ -102,9 +103,17 @@ function checkNumbers(pool, deps) {
         var status = NUMBER_STATE[state] || (h && h.ok ? 'ok' : 'warning');
         var detail = { state: state, provider: n.provider, display_name: n.display_name };
         if (h && h.reason) detail.reason = String(h.reason).replace(/\/[^\s]*/g, '[path]').slice(0, 120);
+        // A CHECK THAT COULD NOT REACH THE GATEWAY IS NOT A DEVICE STATUS. Only a state the provider
+        // really reported (NUMBER_STATUS) may change wp_phone_numbers.status; otherwise the last known
+        // status stays and health_state carries the failure — see numbers.connectionOf.
+        var reported = NUMBER_STATUS[state] || null;
+        var newStatus = reported || n.status;
+        if (!reported) { detail.kept_status = n.status; if (!detail.reason) detail.reason = 'gateway unreachable'; }
         var out = quick('number:' + n.instance, status, detail, t0);
-        var newStatus = NUMBER_STATUS[state] || (state === 'unreachable' ? 'error' : n.status);
-        return pool.query('UPDATE wp_phone_numbers SET health_state = $2, health_detail = $3, last_health_at = now(), status = $4, updated_at = now() WHERE id = $1', [n.id, status, JSON.stringify(detail).slice(0, 200), newStatus]).catch(function () {}).then(function () { return out; });
+        out.detail.connection = numbers.connectionOf({ status: newStatus, health_state: status, phone_ref: n.phone_ref }).state;
+        return pool.query('UPDATE wp_phone_numbers SET health_state = $2, health_detail = $3, last_health_at = now(), status = $4, updated_at = now() WHERE id = $1 RETURNING id, provider, instance, status', [n.id, status, JSON.stringify(detail).slice(0, 200), newStatus])
+          .then(function (up) { return reported && up.rows[0] ? numbers.syncInboxStatus(pool, up.rows[0]) : null; }, function () { return null; })
+          .then(function () { return out; });
       });
     }));
   }, function () { return []; });

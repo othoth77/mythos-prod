@@ -1,4 +1,5 @@
 'use strict';
+var numbers = require('./comms/numbers');
 // =====================================================
 // MYTHOS WP V2 — control-center dashboard (real data only)
 // projects/mythos-wp/reference/dashboard.js
@@ -46,11 +47,14 @@ function whatsappCounts(pool, ids) {
 function projectActivity(pool, rows, ids) {
   var byId = {}, wa = {}, ai = {};
   var p = ids.length ? pool.query("SELECT project_id, count(*)::int AS n FROM wp_conversations WHERE project_id = ANY($1::text[]) AND last_message_at > now() - interval '24 hours' GROUP BY project_id", [ids]) : Promise.resolve({ rows: [] });
-  var waQ = ids.length ? pool.query("SELECT i.project_id, n.phone_ref, n.status, n.webhook_state, i.inbound_enabled FROM wp_inboxes i JOIN wp_phone_numbers n ON n.id = i.phone_number_id WHERE i.project_id = ANY($1::text[]) ORDER BY n.id", [ids]) : Promise.resolve({ rows: [] });
+  var waQ = ids.length ? pool.query("SELECT i.project_id, n.id, n.provider, n.instance, n.phone_ref, n.status, n.health_state, n.webhook_state, i.inbound_enabled FROM wp_inboxes i JOIN wp_phone_numbers n ON n.id = i.phone_number_id WHERE i.project_id = ANY($1::text[]) ORDER BY n.id", [ids]) : Promise.resolve({ rows: [] });
   var aiQ = ids.length ? pool.query("SELECT DISTINCT ON (pa.project_id) pa.project_id, a.name, a.mode, a.status, p.settings FROM wp_project_agents pa JOIN wp_agents a ON a.id = pa.agent_id JOIN wp_projects p ON p.id = pa.project_id WHERE pa.project_id = ANY($1::text[]) AND pa.enabled AND pa.inbox_id IS NULL ORDER BY pa.project_id, pa.priority, pa.id", [ids]) : Promise.resolve({ rows: [] });
   return Promise.all([p, waQ, aiQ]).then(function (all) {
     var r = all[0];
-    all[1].rows.forEach(function (x) { (wa[x.project_id] = wa[x.project_id] || []).push({ phone_masked: x.phone_ref ? '***' + String(x.phone_ref).slice(-4) : '***', status: x.status, receiving: x.webhook_state === 'ok' && x.inbound_enabled === true }); });
+    all[1].rows.forEach(function (x) {
+      var conn = numbers.connectionOf(x);
+      (wa[x.project_id] = wa[x.project_id] || []).push({ id: x.id, phone_masked: x.phone_ref ? '***' + String(x.phone_ref).slice(-4) : '***', status: x.status, connection: conn.state, connection_label: conn.label, connection_detail: conn.detail, receiving: x.webhook_state === 'ok' && x.inbound_enabled === true });
+    });
     all[2].rows.forEach(function (x) { var pm = x.settings && x.settings.ai_mode ? x.settings.ai_mode : 'inherit'; var mode = x.status !== 'active' || x.mode === 'off' || pm === 'off' ? 'off' : (pm === 'inherit' ? x.mode : (pm === 'suggest' ? 'suggest' : x.mode)); ai[x.project_id] = { agent: x.name, mode: mode }; });
     r.rows.forEach(function (x) { byId[x.project_id] = x.n; });
     var selected = rows.filter(function (row) { return ids.indexOf(row.id) !== -1; });

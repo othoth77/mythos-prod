@@ -149,7 +149,7 @@ function overview(ctx, row) {
     const links = linksOf(numbers, row.id);
     clear(wa); wa.className = '';
     if (!links.length) wa.appendChild(h('span', { class: 'dim' }, 'No number linked'));
-    else wa.appendChild(h('div', { class: 'stack xs' }, links.map((x) => h('span', { class: 'num-line' }, h('span', { class: 'mono' }, fmtMasked(x.number.phone_masked)), ' ', connBadge(x.number.status)))));
+    else wa.appendChild(h('div', { class: 'stack xs' }, links.map((x) => h('span', { class: 'num-line' }, h('span', { class: 'mono' }, fmtMasked(x.number.phone_masked)), ' ', connBadge(x.number)))));
     const s = aiCfg && aiCfg.agent ? { agent: typeof aiCfg.agent === 'object' ? aiCfg.agent.name : aiCfg.agent, mode: aiCfg.mode } : (() => { const a = agentOf(agents, row.id); return a ? { agent: a.name, mode: a.mode } : null; })();
     clear(ai); ai.className = '';
     ai.appendChild(s ? h('span', {}, s.agent, ' ', aiBadge(s.mode)) : h('span', { class: 'dim' }, 'No agent'));
@@ -170,7 +170,7 @@ function whatsappTab(ctx, row) {
     const free = numbers.filter((n) => !(n.projects || []).some((l) => l.project_id === row.id));
     const table = links.length ? simpleTable([
       { label: 'Number', cell: (x) => h('div', {}, h('strong', { class: 'mono' }, fmtMasked(x.number.phone_masked)), h('div', { class: 'dim small' }, x.link.inbox_display_name || x.number.display_name || '')) },
-      { label: 'Connection', cell: (x) => connBadge(x.number.status) },
+      { label: 'Connection', cell: (x) => connBadge(x.number) },
       { label: 'Receiving', stop: true, cell: (x) => switchInput({ checked: x.link.inbound_enabled, disabled: !admin, small: true, onChange: (v) => patch(x, { inbound_enabled: v }) }) },
       { label: 'Replies', stop: true, cell: (x) => switchInput({ checked: x.link.outbound_enabled, disabled: !admin, small: true, onChange: (v) => patch(x, { outbound_enabled: v }) }) },
       { label: 'AI', stop: true, cell: (x) => switchInput({ checked: (x.link.ai_mode || 'inherit') !== 'off', disabled: !admin, small: true, onChange: (v) => patch(x, { ai_mode: v ? 'inherit' : 'off' }) }) },

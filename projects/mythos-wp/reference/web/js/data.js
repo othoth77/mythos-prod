@@ -25,7 +25,7 @@ export function agentOf(agents, projectId) {
 export function summarize(activityItem, numbers, agents, projectId) {
   const out = { whatsapp: [], ai: { agent: null, mode: 'off' } };
   if (activityItem && Array.isArray(activityItem.whatsapp)) out.whatsapp = activityItem.whatsapp;
-  else out.whatsapp = linksOf(numbers, projectId).map((x) => ({ phone_masked: x.number.phone_masked, status: x.number.status }));
+  else out.whatsapp = linksOf(numbers, projectId).map((x) => ({ phone_masked: x.number.phone_masked, status: x.number.status, connection: x.number.connection, connection_label: x.number.connection_label, connection_detail: x.number.connection_detail }));
   if (activityItem && activityItem.ai && typeof activityItem.ai === 'object') out.ai = { agent: activityItem.ai.agent || null, mode: activityItem.ai.mode || 'off' };
   else { const a = agentOf(agents, projectId); out.ai = a ? { agent: a.name, mode: a.mode || 'off' } : { agent: null, mode: 'off' }; }
   return out;
