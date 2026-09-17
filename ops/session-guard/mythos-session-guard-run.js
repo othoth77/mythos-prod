@@ -157,13 +157,29 @@ function main() {
     try {
       var snap = vpsRuntime.snapshot({ snapshot_path: SNAPSHOT });
       snapshot.sessions = snap.sessions.length;
-      if (!snap.denied) {
-        cfg.lifecycle_snapshot = snap;
+      snapshot.partial = !!snap.partial;
+      snapshot.denied_homes = (snap.denied_homes || []).length;
+
+      // EXPORT: write whenever anything was read. This runner is root
+      // restricted to CAP_KILL, so another user's 0700 Claude home is
+      // permanently unreadable — and until now one such home suppressed the
+      // whole export. Measured 2026-09-17: 93 sessions were read from
+      // /root/.claude and then discarded because /home/deploy/.claude and
+      // /home/ubuntu/.claude were denied. The deploy-side readers (Guardian,
+      // the lifecycle) are better served by a snapshot that says which homes
+      // it covers than by no snapshot at all.
+      if (snap.sessions.length || !snap.denied) {
         if (vpsRuntime.writeSnapshot({ snapshot_path: SNAPSHOT }, snap)) {
           snapshot.written = true;
           try { var owner = fs.statSync(LIFECYCLE); fs.chownSync(SNAPSHOT, 0, owner.gid); } catch (e) { /* group handoff best effort */ }
         }
       }
+
+      // THIS GUARD'S OWN EVIDENCE: unchanged. A partial snapshot is fine to
+      // publish and wrong to reason about, because a session missing from it
+      // may be missing only because its home was unreadable. Enforcement
+      // decisions keep requiring a complete scan.
+      if (!snap.denied) cfg.lifecycle_snapshot = snap;
     } catch (e) { snapshot.error = String(e && e.message).slice(0, 80); }
   }
 

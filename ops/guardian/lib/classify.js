@@ -173,6 +173,17 @@ function sessions(src, cfg, prev, ctx) {
     degraded = true;
     findings.push(finding('INFO', 'session_snapshot_unavailable',
       'session-guard lifecycle snapshot ' + (snap.error || 'unavailable') + ' — Guardian used its own process scan', null));
+  } else if (snap && snap.ok && snap.data.partial) {
+    // A partial snapshot is not a degraded signal. The root runner carries
+    // CAP_KILL only, so another user's 0700 Claude home is unreadable BY
+    // DESIGN and always will be. Reporting that as degradation would park
+    // Guardian in DEGRADED permanently for a boundary that is working
+    // correctly. It is reported, and it does not degrade.
+    findings.push(finding('INFO', 'session_snapshot_partial',
+      'lifecycle snapshot covers ' + (snap.data.read_homes || []).join(', ') +
+      ' and not ' + (snap.data.denied_homes || []).join(', ') +
+      ' (the root runner holds CAP_KILL only — unreadable by design); Guardian also scans /proc itself',
+      { sessions: snap.data.sessions, read_homes: snap.data.read_homes, denied_homes: snap.data.denied_homes }));
   }
   return {
     raw: raw, immediate: false, unknown: unknown, degraded: degraded, findings: findings, stateOut: {},

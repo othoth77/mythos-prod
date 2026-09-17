@@ -80,11 +80,17 @@ function statSafe(f) { try { return fs.statSync(f); } catch (e) { return null; }
 function readClaudeSessions(cfg) {
   var out = [];
   var denied = false;
+  var deniedHomes = [];
+  var readHomes = [];
   cfg.claude_homes.forEach(function (home) {
     var dir = path.join(home, 'sessions');
     var names;
     try { names = fs.readdirSync(dir); }
-    catch (e) { if (e && (e.code === 'EACCES' || e.code === 'EPERM')) denied = true; return; }
+    catch (e) {
+      if (e && (e.code === 'EACCES' || e.code === 'EPERM')) { denied = true; deniedHomes.push(home); }
+      return;
+    }
+    readHomes.push(home);
     names.forEach(function (n) {
       var m = /^(\d+)\.json$/.exec(n);
       if (!m) return;
@@ -101,7 +107,11 @@ function readClaudeSessions(cfg) {
       } catch (e) { /* skip */ }
     });
   });
-  return { sessions: out, denied: denied };
+  // `denied` says SOME home was unreadable. It does not say the scan failed:
+  // the runner is root restricted to CAP_KILL, so another user's 0700 home is
+  // permanently unreadable by design, while /root/.claude — where the agent
+  // sessions actually live — reads fine. Callers get both facts and decide.
+  return { sessions: out, denied: denied, denied_homes: deniedHomes, read_homes: readHomes };
 }
 
 // --- Signal 3: transcript turn state ---------------------------------------------------
@@ -210,7 +220,15 @@ function snapshot(opts) {
       transcript: { available: tr.available, turn: tr.turn, stop_reason: tr.stop_reason, last_record_at: tr.last_record_at, mtime_ms: tr.mtime_ms }
     };
   });
-  return { at: new Date(now).toISOString(), host: cfg.host, location: 'VPS', denied: reg.denied, uptime_seconds: up, sessions: items };
+  return {
+    at: new Date(now).toISOString(), host: cfg.host, location: 'VPS',
+    denied: reg.denied,
+    // Partial means: some home was unreadable AND some sessions were still
+    // read. That snapshot is useful and must not be thrown away.
+    partial: !!(reg.denied && items.length),
+    denied_homes: reg.denied_homes || [], read_homes: reg.read_homes || [],
+    uptime_seconds: up, sessions: items
+  };
 }
 
 function writeSnapshot(cfg, snap) {
