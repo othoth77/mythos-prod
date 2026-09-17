@@ -147,11 +147,11 @@ var chain = registry.checkProviderHealth('provider-c-unwired', opts()).then(func
     ok(r.status === 'degraded' && /timed out/.test(r.last_failure_reason), 'provider timeout -> degraded (transient), reason recorded');
     return probeWith(function () { return Promise.resolve({ status: 401, body: JSON.stringify({ error: { message: 'Invalid API Key' } }) }); });
   }).then(function (r) {
-    ok(r.status === 'unavailable' && /401/.test(r.last_failure_reason), 'invalid API key (401) -> unavailable with the HTTP reason, never a crash');
+    ok(r.status === 'invalid_credentials' && /401/.test(r.last_failure_reason), 'invalid API key (401) -> invalid_credentials with the HTTP reason, never a crash');
     ok(JSON.stringify(r).indexOf('sk-fixture') === -1, 'the health record never carries the credential value');
     return probeWith(function () { return Promise.resolve({ status: 403, body: 'forbidden' }); });
   }).then(function (r) {
-    ok(r.status === 'unavailable', 'forbidden (403) -> unavailable');
+    ok(r.status === 'invalid_credentials', 'forbidden (403) -> invalid_credentials (the key was rejected, not the service down)');
     return probeWith(function () { return Promise.resolve({ status: 500, body: 'Internal Server Error' }); });
   }).then(function (r) {
     ok(r.status === 'degraded', 'provider 500 -> degraded (transient), retried on the next tick');

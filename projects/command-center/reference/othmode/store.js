@@ -52,7 +52,11 @@ var STREAMS = {
   tasks: 'tasks/records.jsonl',
   // SKILL-TRUST-0: every scan ever run (skill, hash, scanners, decision).
   // The Git ledgers hold the CURRENT attestation; this stream is the history.
-  trust: 'trust/records.jsonl'
+  trust: 'trust/records.jsonl',
+  // OTHMODE V2: every command run started from OTHMODE (who ran what, which
+  // executor task, which provider was selected and why). Task state itself
+  // stays in the executor's store; this is only the link.
+  runs: 'runs/records.jsonl'
 };
 
 function appendRecord(stream, record) {

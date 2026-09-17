@@ -1046,6 +1046,13 @@
       "reference": "docs/MYTHOS_GUARDIAN{,_ARCHITECTURE,_DECISIONS,_RUNBOOK,_SECURITY,_CLEANUP_POLICY,_INCIDENTS}.md",
       "date": "2026-09-17",
       "note": "Six documents. SECURITY records each control with the command that measured it; DECISIONS D14 records that a security control you have not measured is a belief."
+    },
+    {
+      "id": "EV-OTHMODE-V2-BUILD",
+      "type": "commit",
+      "reference": "branch mythos/othmode-v2-20260917 (base main@d772c95)",
+      "date": "2026-09-17",
+      "note": "OTHMODE V2 build pass — no rebuild, no migration, no deletion. Reality first: main d772c95 (eleven Guardian PRs after V1), both deploy user units active, live providers truthful (claude/omniroute present, gemini absent, pool 1/1 active), executor router answering advisory research routes with free-llm-pool. Added the ONE edge V1 lacked: run.js — a library command becomes an executor task from OTHMODE (POST /api/othmode/commands/:slug/run): placeholders rendered by the library renderer, provider chosen by the executor router (repo-read; only routes without execution authority are accepted, everything else falls back to free-llm-pool; explicit free-llm-pool/openai-compat allowed), task created through the executor API with report_to_git=false, requested_by=othmode:<who>, max_retries 1, timeout 30-1800 s; the link recorded in a new append-only runs stream of the OTHMODE store; lifecycle read from the executor's own status.json/report.json on disk (queued/running/retrying/waiting_for_quota/completed/failed/cancelled) with provider used, model used, attempts, fallback, duration, failure reason (paths blanked), next action; runs are the fifth source of Command History (source=run); GET /runs, /runs/:id, /run-config public like History. Safety: ACTIVE + SAFE/READ_ONLY commands only, secret gate on placeholder values, the executor bearer file read at call time and used only as a loopback header (drop-in deploy/executor-link.conf; disabled with a stated reason when unset). Executor: every task now persists provider_used/model_used/attempts/fallback in status.json and report.json (single-provider adapters simply have no attempts). Free-LLM: new state invalid_credentials for HTTP 401/403 (distinct from unavailable; never selected; Health BLOCKED \"API key invalid\"). UI simplified: navigation COMMAND/TASKS/PROJECTS/AI/STATUS/MORE (every V1 screen kept), plain-language Overview (AI ready?, needs attention?, last run?, health), Run button on command detail through a backward-compatible extension point (MccApp.registerCommandActions), #/runs and #/run/:taskId with self-refreshing status; EN/FR/AR, no innerHTML, no eval. Tests on the host as deploy: new othmode-4-run 56/0 (offline stub executor); othmode-3 94/0; othmode-2 173/0; work-intake 35/0; free-llm parser 30/0, registry 28/0 (401/403 now invalid_credentials), selector 9/0, pool 12/0, groq-activation 11/0; skill-trust 130/0; governance-invariant 111/0; redact-governance 199/0; stc-2 86/0; stc-ar 50/0; mcc-1 506/0 on mythos_command_center_test; mythos-ai-executor 393/0 (run inside an isolated network namespace because another session's test servers held 127.0.0.1:8198/8199 on the host — 17 http-section listen failures outside the namespace were EADDRINUSE, not code). stc-1 80/1: the pre-existing projects/mythos-wp classification gap, outside OTHMODE scope. Secrets: diff scanned, zero credential shapes beyond the documented synthetic vectors."
     }
   ],
   "repositories": [
@@ -1373,18 +1380,18 @@
       "status": "DONE",
       "maturity": "PRODUCTION_VERIFIED",
       "repository": "othoth77/mythos-prod",
-      "last_change": "2026-09-16 (OTHMODE V1 closure merged #292 + follow-up #293; production verified — EV-OTHMODE-V1-PRODUCTION)",
+      "last_change": "2026-09-17 (OTHMODE V2 build: command runs edge, provider observability, invalid_credentials state, simplified UI — EV-OTHMODE-V2-BUILD; production verification follows the merge)",
       "blocker": null,
       "next_action": "None required for V1. Around it: othmode.mythosprod.xyz still not a monitored STC-2 component (NEXT-OTHMODE-MONITOR); projects/mythos-wp unclaimed (needs a Comms project entry); host memory pressure (swap 100 %) is a host matter, not OTHMODE's.",
-      "headline": "Live at https://othmode.mythosprod.xyz since 2026-08-26. Built over the MCC-1 runtime rather than as a second system: one process on a single loopback port, same auth, CSRF and secret gate, no new event store. Task Reports add an append-only tasks/records.jsonl stream to the existing OTHMODE store and a fourth source to the existing Command History. As of 7252de2 the Command History and every Task Report are PUBLIC READS — no session, login link or token — while every write stays authenticated and secret-gated; anonymous readers get the full narrative with infrastructure detail masked by a read-side projection, since the append-only store cannot be rewritten to be publishable. Suites othmode-3 94/0 and othmode-2 157/0 on the production host. Per-command activation replaced the global switch in PR #87; the keyword confers no privilege. V1 CLOSURE 2026-09-16: the platform is live and every V1 surface is verified (commands CRUD via the MCC library, skills/tools/providers/projects read models, health, status, unified history, Task Reports, work intake → GitHub Issue → executor, memory, evolution, trust). Providers now include the free-LLM pool (catalog 26/205, 9 wired, Groq ACTIVE) with presence-only credentials; the executor accepts free-llm-pool tasks; the executor suite no longer depends on real host credentials.",
+      "headline": "Live at https://othmode.mythosprod.xyz since 2026-08-26. Built over the MCC-1 runtime rather than as a second system: one process on a single loopback port, same auth, CSRF and secret gate, no new event store. Task Reports add an append-only tasks/records.jsonl stream to the existing OTHMODE store and a fourth source to the existing Command History. As of 7252de2 the Command History and every Task Report are PUBLIC READS — no session, login link or token — while every write stays authenticated and secret-gated; anonymous readers get the full narrative with infrastructure detail masked by a read-side projection, since the append-only store cannot be rewritten to be publishable. Suites othmode-3 94/0 and othmode-2 157/0 on the production host. Per-command activation replaced the global switch in PR #87; the keyword confers no privilege. V1 CLOSURE 2026-09-16: the platform is live and every V1 surface is verified (commands CRUD via the MCC library, skills/tools/providers/projects read models, health, status, unified history, Task Reports, work intake → GitHub Issue → executor, memory, evolution, trust). Providers now include the free-LLM pool (catalog 26/205, 9 wired, Groq ACTIVE) with presence-only credentials; the executor accepts free-llm-pool tasks; the executor suite no longer depends on real host credentials. V2 (2026-09-17): the missing edge exists — a command runs from OTHMODE as an advisory executor task (router-selected provider, pool fallback, no Git report), with a run record, a self-refreshing status page (provider used, model, fallback, duration, result) and runs as the fifth source of Command History; the executor persists which provider/model answered; the free-LLM registry distinguishes invalid credentials from outages; navigation reduced to COMMAND/TASKS/PROJECTS/AI/STATUS/MORE and the dashboard answers \"AI ready? needs attention? last run? health?\" in plain words. Nothing rebuilt, nothing migrated, nothing deleted.",
       "dimensions": {
         "implementation": {
           "status": "DONE",
-          "note": "tasks.js writer/read model, 4 authenticated API routes, CLI task show/create/update/import, Command History integration, EN/FR/AR UI with zero key gaps"
+          "note": "tasks.js writer/read model, 4 authenticated API routes, CLI task show/create/update/import, Command History integration, EN/FR/AR UI with zero key gaps · V2 2026-09-17: run.js + 4 run routes, runs store stream, history source run, executor provider_used/model_used/attempts/fallback, free-LLM invalid_credentials, Run button + Overview + #/runs UI (EN/FR/AR)"
         },
         "tests": {
           "status": "DONE",
-          "note": "othmode-3 68/0 · othmode-2 152/0 · governance 99/0 (host, 2026-08-26); no existing test modified by the change"
+          "note": "othmode-3 68/0 · othmode-2 152/0 · governance 99/0 (host, 2026-08-26); no existing test modified by the change · V2 2026-09-17: othmode-4-run 56/0 (new), othmode-3 94/0, othmode-2 173/0, executor 393/0, mcc-1 506/0, free-llm 30/28/9/12/11, skill-trust 130/0, governance 111/0"
         },
         "deployment": {
           "status": "DONE",
@@ -1404,7 +1411,8 @@
         "EV-OTHMODE-PUBLIC-HISTORY",
         "EV-OTHMODE-PUBLIC-VERIFIED",
         "EV-OTHMODE-V1-CLOSURE",
-        "EV-OTHMODE-V1-PRODUCTION"
+        "EV-OTHMODE-V1-PRODUCTION",
+        "EV-OTHMODE-V2-BUILD"
       ],
       "directories": [
         "projects/othmode",
@@ -2884,6 +2892,14 @@
           "evidence": [
             "EV-OTHMODE-V1-CLOSURE",
             "EV-OTHMODE-V1-PRODUCTION"
+          ]
+        },
+        {
+          "id": "OTHMODE-V2",
+          "status": "IN_PROGRESS",
+          "what": "OTHMODE V2: command runs edge (Command -> executor task -> provider -> result -> history), provider/model/fallback observability in the executor, invalid_credentials provider state, simplified plain-language UI. Built and tested on branch mythos/othmode-v2-20260917 (EV-OTHMODE-V2-BUILD); DONE only after merge + production verification (drop-in installed, services restarted, real run COMPLETED through the new endpoint).",
+          "evidence": [
+            "EV-OTHMODE-V2-BUILD"
           ]
         }
       ]

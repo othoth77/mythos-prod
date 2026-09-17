@@ -737,12 +737,20 @@ function handleSuccess(task, taskId, outcome, parsed) {
     claude_session_id: outcome.session_id,
     next_action: nextAction,
     last_error: null,
-    cost_usd: parsed.total_cost_usd || null
+    cost_usd: parsed.total_cost_usd || null,
+    // OTHMODE V2 observability: which provider/model actually answered and
+    // whether a pool fell back before succeeding (the adapter reports it;
+    // a single-provider adapter simply has no attempts list).
+    provider_used: outcome.provider_used || task.provider,
+    model_used: outcome.model_used || task.model || null,
+    attempts: Array.isArray(outcome.attempts) ? outcome.attempts : null,
+    fallback: Array.isArray(outcome.attempts) && outcome.attempts.length > 1
   });
 
   state.writeJSON(taskId, 'report.json', {
     task_id: taskId, report: report, structured: structured, blocker: blocker, problems: extras.report_problems,
-    git: extras, provider_result_tail: tailOf(resultText, 4000)
+    git: extras, provider_result_tail: tailOf(resultText, 4000),
+    provider_used: status.provider_used, model_used: status.model_used, attempts: status.attempts, fallback: status.fallback
   });
   var md = reporting.renderMarkdown(task, status, report || structured, extras);
   state.writeText(taskId, 'report.md', md);
@@ -871,6 +879,10 @@ function handleFailure(task, taskId, outcome, mode, opts) {
     pid: null, ended_at: new Date().toISOString(),
     last_error: tailOf(text.trim(), 500),
     last_failure: lastFailure,
+    provider_used: outcome.provider_used || task.provider,
+    model_used: outcome.model_used || task.model || null,
+    attempts: Array.isArray(outcome.attempts) ? outcome.attempts : null,
+    fallback: Array.isArray(outcome.attempts) && outcome.attempts.length > 1,
     transition_reason: detail.category + ' failure (' + detail.code + ') — ' + detail.policy.strategy,
     next_action: terminal === 'BLOCKED'
       ? (detail.category === 'governance'

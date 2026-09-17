@@ -155,3 +155,42 @@ REJECTED, CANCELLED…).
 - **Evolution:** a task is not automatically an evolution event; when the
   existing Evolution rules qualify the operation, the task's `evolution`
   section references the event id, and only then.
+
+## OTHMODE V2 — COMMAND RUNS and the plain-language overview (2026-09-17)
+
+V2 changed no boundary. It added the one edge V1 lacked and simplified what a
+user sees.
+
+- **Run path (`reference/othmode/run.js`):** User command → OTHMODE →
+  executor task → provider → AI → result → history. OTHMODE renders the
+  library command (`variables.render`), asks the executor's router for an
+  advisory route (`POST /route`, `repo-read`), accepts only a route whose
+  agent has **no execution authority**, otherwise uses `free-llm-pool`, and
+  creates the task through the executor's own API (`report_to_git: false`,
+  `max_retries: 1`, timeout 30–1800 s). The record of who ran what goes to the
+  append-only `runs` stream of the OTHMODE store; task state stays in the
+  executor's store and is read from disk (same host, same user) — no second
+  copy of task state, no polling of the executor over HTTP for reads.
+- **Safety gate:** ACTIVE + SAFE/READ_ONLY only. DESTRUCTIVE, ELEVATED and
+  every other level are refused with the rule in the message. Placeholder
+  values pass `enforceNoSecrets`. The executor bearer token is read from a
+  0600 file at call time, sent only as a header on loopback, never returned.
+- **Lifecycle as the user reads it:** `queued → running → completed` or
+  `failed` (`retrying` / `waiting_for_quota` in between), with provider used,
+  model used, attempts, fallback flag, duration, failure reason (paths
+  blanked) and next action. The executor now persists `provider_used`,
+  `model_used`, `attempts`, `fallback` in status.json/report.json for every
+  provider (single-provider adapters simply have no attempts list).
+- **Provider states (V2):** the free-LLM registry distinguishes
+  `invalid_credentials` (HTTP 401/403 — the key was rejected) from
+  `unavailable` (the service is down). The selector never offers it; Health
+  shows BLOCKED with "API key invalid"; the Overview says "Action needed".
+- **UI:** navigation is COMMAND / TASKS / PROJECTS / AI / STATUS / MORE
+  (every V1 screen still reachable); the dashboard overview answers four
+  questions in plain words (AI ready?, needs attention?, last run?, health?);
+  command detail gets a Run button through a backward-compatible extension
+  point (`MccApp.registerCommandActions`); `#/runs` and `#/run/:taskId` are
+  the run screens. i18n EN/FR/AR, no innerHTML, no eval.
+- **What V2 deliberately did not do:** no rebuild, no schema migration, no
+  deletion, no new event store, no change to the work-intake edge, no
+  execution from the command-center process.

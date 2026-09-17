@@ -54,7 +54,7 @@ function monitorComponents() {
 // OTHMODE states. Quota exhaustion is a temporary condition, not a failure.
 var FREE_LLM_STATE_MAP = {
   active: 'ACTIVE', degraded: 'DEGRADED', quota_exhausted: 'DEGRADED',
-  unavailable: 'FAILED', expired: 'FAILED', unknown: 'BLOCKED', unconfigured: 'BLOCKED'
+  unavailable: 'FAILED', expired: 'FAILED', invalid_credentials: 'BLOCKED', unknown: 'BLOCKED', unconfigured: 'BLOCKED'
 };
 
 function providerComponents() {

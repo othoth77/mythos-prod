@@ -47,6 +47,7 @@ var STATUS = {
   UNAVAILABLE: 'unavailable',
   QUOTA_EXHAUSTED: 'quota_exhausted',
   EXPIRED: 'expired',
+  INVALID_CREDENTIALS: 'invalid_credentials',
   UNCONFIGURED: 'unconfigured',
   UNKNOWN: 'unknown'
 };
@@ -76,6 +77,9 @@ function statusFromOutcome(outcome) {
   if (!outcome) return STATUS.UNKNOWN;
   if (outcome.parsed && !outcome.parsed.is_error) return STATUS.ACTIVE;
   if (outcome.http_status === 404) return STATUS.EXPIRED;
+  // 401/403 mean the credential itself was rejected — a distinct, actionable
+  // state ("API key invalid"), never retried, never confused with an outage.
+  if (outcome.http_status === 401 || outcome.http_status === 403) return STATUS.INVALID_CREDENTIALS;
   var text = (outcome.parsed && outcome.parsed.result) || '';
   var cls = quota.classifyOutcome(text, { timed_out: outcome.timed_out });
   if (cls.category === 'quota') return STATUS.QUOTA_EXHAUSTED;

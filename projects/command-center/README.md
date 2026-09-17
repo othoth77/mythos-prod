@@ -113,6 +113,36 @@ out. Cookie-authenticated writes additionally require same-origin proof (CSRF ch
 `MCC_ADMIN_TOKENS` bearer tokens remain valid for the API (CLI, agents, automation) —
 they are simply no longer part of any interface workflow.
 
+## Command runs (OTHMODE V2)
+
+A library command can be **run** from its detail page (button "Run", session
+required). OTHMODE renders the placeholders, asks the executor's router which
+advisory provider is healthiest (`POST /route`, repo-read), falls back to the
+free-LLM pool when the router is off or would hand the task to an
+execution-authority agent, creates an executor task (`report_to_git: false`,
+`requested_by: othmode:<who>`) and records the link in the OTHMODE store
+(`runs/records.jsonl`). The page then follows the task until it ends and shows
+which provider and model actually answered, whether the pool fell back, how
+long it took and the report summary. Runs are the fifth source of Command
+History (`source=run`).
+
+Rules that never bend: only **ACTIVE** commands with safety **SAFE** or
+**READ_ONLY** are runnable here; a run is always an advisory task — anything
+that must change a repository goes through work intake (Issue → bridge →
+executor). Placeholder values pass the same secret gate as every other write.
+
+Endpoints: `GET /api/othmode/run-config` (enabled?, the rule),
+`POST /api/othmode/commands/:slug/run` (auth; body `{values, provider, task_type,
+timeout_seconds}`; provider `auto` | `free-llm-pool` | `openai-compat`),
+`GET /api/othmode/runs`, `GET /api/othmode/runs/:taskId` (public reads,
+executor paths blanked).
+
+Enable on a host with the drop-in `deploy/executor-link.conf`
+(`OTHMODE_EXECUTOR_TOKEN_FILE` → the executor's own 0600 bearer file, read at
+call time and sent only as a header on loopback; `OTHMODE_EXECUTOR_URL`,
+`OTHMODE_EXECUTOR_PROJECT`). Without the variable the edge is disabled and
+says so. Tests: `node tests/othmode-4-run-test.js` (offline, stub executor).
+
 ## Never store a credential here
 
 Saving content that matches a known credential format (PEM key, AWS key ID, GitHub or

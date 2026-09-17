@@ -88,7 +88,7 @@ tests/
 | service type (modality) | heuristically tagged (`chat`/`speech-to-text`/`text-to-speech`/`embedding`/`moderation`/`vision`/`reranking`) — labelled non-authoritative in `parser.js` |
 | free / free-tier / trial | `access_type` (`free_tier` for the README's "Free Providers" section, `trial` for "Providers with trial credits") |
 | usage limits | `limits_text` (model-level if the source gave one, else the service-level line) |
-| service status | `health.status` — `active`\|`degraded`\|`unavailable`\|`quota_exhausted`\|`expired`\|`unconfigured`\|`unknown` |
+| service status | `health.status` — `active`\|`degraded`\|`unavailable`\|`quota_exhausted`\|`expired`\|`invalid_credentials`\|`unconfigured`\|`unknown` |
 | last check | `health.last_checked` |
 | response speed | `health.latency_ms` (measured on the last probe/attempt) |
 | service URL | `homepage` |
@@ -104,6 +104,7 @@ tests/
 - clean success → `active`
 - `lib/quota.js` category `quota` (e.g. "usage limit reached") → `quota_exhausted`
 - category `transient` (e.g. 503, rate-limit, network error) → `degraded`
+- HTTP 401/403 → `invalid_credentials` (V2: the key was rejected — actionable "API key invalid", never confused with an outage; the selector never offers it)
 - HTTP 404 → `expired` (the specific `:free` model slug most likely rotated out — the source README explicitly warns free models churn)
 - category `permission`/`governance`/`human`/`permanent` (invalid key, billing, etc.) → `unavailable`
 

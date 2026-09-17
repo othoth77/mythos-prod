@@ -312,7 +312,7 @@ function credentialPresence(file) {
 // ---------------------------------------------------------------------------
 
 var FREE_LLM_KEY_DIR_REL = path.join('.config', 'mythos-ai-executor', 'free-llm');
-var FREE_LLM_HEALTH_STATES = ['active', 'degraded', 'unavailable', 'quota_exhausted', 'expired', 'unconfigured', 'unknown'];
+var FREE_LLM_HEALTH_STATES = ['active', 'degraded', 'unavailable', 'quota_exhausted', 'expired', 'invalid_credentials', 'unconfigured', 'unknown'];
 
 function providerHome() {
   return process.env.OTHMODE_PROVIDER_HOME || process.env.HOME || '/home/ubuntu';

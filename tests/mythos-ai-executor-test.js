@@ -357,6 +357,7 @@ chain = chain.then(function () {
   return executor.runTask(t.task_id).then(function (st) {
     ok(st.status === 'COMPLETED', 'run: success → COMPLETED');
     var rep = state.readJSON(t.task_id, 'report.json');
+    ok(st.provider_used === 'mock' && st.fallback === false && rep.provider_used === 'mock', 'run: provider_used/fallback persisted in status + report (OTHMODE V2 observability)');
     ok(rep && rep.report && rep.report.summary === 'normal path', 'run: report persisted');
     ok(state.readText(t.task_id, 'report.md').indexOf('normal path') !== -1, 'run: markdown report rendered');
     var cp1 = state.readJSON(t.task_id, 'checkpoint.json');
