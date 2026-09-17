@@ -175,11 +175,29 @@ function main() {
         }
       }
 
-      // THIS GUARD'S OWN EVIDENCE: unchanged. A partial snapshot is fine to
-      // publish and wrong to reason about, because a session missing from it
-      // may be missing only because its home was unreadable. Enforcement
-      // decisions keep requiring a complete scan.
-      if (!snap.denied) cfg.lifecycle_snapshot = snap;
+      // THIS GUARD'S OWN EVIDENCE.
+      //
+      // A partial snapshot IS safe to reason about here, and #299 was too
+      // cautious in withholding it. The asymmetry is what makes it safe:
+      // readTurnIdle() only ever produces a number for a session that is
+      // PRESENT in the snapshot, identity-matched, and whose transcript turn
+      // is 'idle'. A session missing from a partial snapshot gets no entry,
+      // turnIdleFor() returns null, and effectiveIdleSeconds() falls back to
+      // the CPU clock — the conservative path it already used. So an absent
+      // session is never made MORE killable by a partial snapshot; it is
+      // simply unaffected.
+      //
+      // Withholding it was not conservative, it was blinding: the CPU clock
+      // cannot work for these processes at all. An idle ccd-cli still burns
+      // CPU, so `cpuMoved` is true every sweep, last_active_at is reset, and
+      // idleSeconds() reads 0 forever. Measured 2026-09-17: all 17 live
+      // sessions read exactly 0 idle seconds, including one alive since
+      // 09-11 with 1,861 observations — while the transcript-turn clock put
+      // ten of them between 8 hours and 3.4 days idle.
+      //
+      // The guard was therefore structurally incapable of reclaiming
+      // anything, at any threshold.
+      cfg.lifecycle_snapshot = snap;
     } catch (e) { snapshot.error = String(e && e.message).slice(0, 80); }
   }
 
