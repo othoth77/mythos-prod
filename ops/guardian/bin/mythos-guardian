@@ -340,9 +340,22 @@ function selftest(io, stateDir, configPath, json) {
   var spawned = probe.spawn(['systemctl', 'restart', 'nginx']);
   check('command-allowlist-enforced', spawned.refused === true && spawned.status === null, 'spawn(["systemctl","restart","nginx"]) -> ' + (spawned.refused ? 'refused before exec' : 'EXECUTED'));
 
-  // 3. No remediation code path exists.
+  // 3. The structural boundary, which holds whatever the POLICY is.
+  //
+  // This check used to assert observe_only === true, which conflated a
+  // policy choice with a security property: it failed on any host that had
+  // deliberately enabled remediation, turning a real check into noise. What
+  // must be true regardless of configuration is that Guardian has no way to
+  // delete anything and no way to run a command that is not allowlisted.
+  var probeStruct = ioMod.createIo({});
+  var noDelete = ['unlink', 'rm', 'remove', 'rmdir', 'chmod', 'chown', 'kill', 'exec']
+    .every(function (k) { return typeof probeStruct[k] === 'undefined'; });
+  check('no-delete-primitive', noDelete, 'io exposes no unlink, rm, rmdir, chmod, chown, kill or exec');
+
   var posture = engine.remediationPosture(configMod.load(io, configPath).config);
-  check('observe-only', posture.observe_only === true && posture.remediation_available === false, posture.note);
+  check('posture-coherent',
+    posture.observe_only === true ? posture.remediation_available === false : true,
+    posture.note);
 
   // 4. A dry tick writes nothing.
   var cfg = configMod.load(io, configPath).config;
@@ -391,7 +404,7 @@ function selftest(io, stateDir, configPath, json) {
   var passed = checks.filter(function (c) { return c.pass; }).length;
   if (json) { console.log(JSON.stringify({ version: VERSION, checks: checks, passed: passed, total: checks.length }, null, 2)); }
   else {
-    console.log('MYTHOS Guardian ' + VERSION + ' — observe-only self test\n');
+    console.log('MYTHOS Guardian ' + VERSION + ' — boundary self test\n');
     checks.forEach(function (c) { console.log('  ' + (c.pass ? 'PASS' : 'FAIL') + '  ' + c.id + (' '.repeat(Math.max(1, 28 - c.id.length))) + c.detail); });
     console.log('\n' + passed + '/' + checks.length + ' checks passed.');
   }

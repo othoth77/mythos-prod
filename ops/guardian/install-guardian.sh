@@ -85,7 +85,7 @@ echo
 echo "-- validate"
 if [ "$DRY" -eq 0 ]; then "$CLI" validate; else echo "  would run: $CLI validate"; fi
 echo
-echo "-- selftest (proves the observe-only boundary on this host)"
+echo "-- selftest (proves the enforced boundary on this host)"
 if [ "$DRY" -eq 0 ]; then "$CLI" selftest; else echo "  would run: $CLI selftest"; fi
 
 # 5. enablement is explicit.

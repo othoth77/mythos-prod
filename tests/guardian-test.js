@@ -969,6 +969,11 @@ section('12. CLI surface');
   eq(parsed.flags['state-dir'], '/tmp/x', 'a value flag is parsed');
   var text = fs.readFileSync(BIN, 'utf8');
   ok(/simulate/.test(text) && /scenarios/.test(text) && /validate/.test(text) && /selftest/.test(text), 'every documented subcommand exists');
+  ok(/remediate/.test(text) && /actions/.test(text) && /audit/.test(text), 'and the remediation subcommands');
+  // The self-test must assert STRUCTURE, not policy: a check that fails
+  // merely because remediation is enabled is noise, and noise gets ignored.
+  ok(/no-delete-primitive/.test(text), 'the self-test checks for the absence of a delete primitive');
+  ok(!/check\('observe-only'/.test(text), 'and does not assert observe_only, which is a policy choice');
   ok(!/child_process|execSync|spawnSync/.test(text), 'the CLI does not execute commands of its own');
   // `simulate` must be structurally incapable of a live tick.
   var sim = text.slice(text.indexOf("if (cmd === 'simulate')"), text.indexOf("if (cmd === 'selftest')"));
