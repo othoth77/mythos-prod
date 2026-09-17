@@ -31,12 +31,20 @@ ProtectSystem=strict
 # this unit, which is what makes "observe-only" enforceable from outside the
 # code as well as inside it.
 ReadWritePaths=/home/deploy/.local/state/mythos-guardian
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
+# NOTE: ProtectKernelTunables, ProtectKernelModules and ProtectControlGroups
+# are deliberately NOT set. Each implies a CapabilityBoundingSet change, and a
+# systemd USER manager running as an unprivileged uid cannot manipulate the
+# bounding set — the unit fails at step CAPABILITIES with status 218/EXIT_
+# CAPABILITIES before ExecStart is ever reached. They would also be pointless
+# here: a uid-1001 process has no capabilities to drop in the first place.
+# Found by installing this unit on the host, not by reading it.
+#
+# The directives below are all seccomp/prctl based and work unprivileged.
 RestrictSUIDSGID=true
 RestrictRealtime=true
 LockPersonality=true
+RestrictNamespaces=true
+SystemCallArchitectures=native
 MemoryMax=192M
 # Guardian must never be the reason the host is short of memory, and must
 # never be chosen over a production service when the kernel has to pick.

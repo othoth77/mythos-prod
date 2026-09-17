@@ -151,9 +151,27 @@ a minimal `{level, updated_at}` file rather than to widen root. Guardian reads
 that same file. Neither component got more access; a narrow, explicit channel
 was created instead.
 
-**The unit is the second line.** `ProtectSystem=strict` with exactly one
-`ReadWritePaths` entry. The code refuses to write outside its state directory,
-and so does the kernel.
+**The unit was meant to be the second line. It is not.** It carries
+`ProtectSystem=strict` with exactly one `ReadWritePaths` entry, and on this
+host that does nothing at all.
+
+Measured 2026-09-17, after installing it: a systemd **user** manager here
+cannot create a mount namespace, so every sandboxing directive is silently
+ignored. A user unit with `ProtectSystem=strict` wrote
+`/var/lib/mythos/guardian` without complaint, and the mount table inside the
+unit was byte-identical to the host's — 90 entries either way. `/etc` is
+blocked by ordinary file permissions, which would block it with no sandbox at
+all.
+
+The directives stay: they cost nothing and would apply if Guardian ever ran as
+a system unit. But the claim "the kernel refuses what the code would refuse"
+was wrong when it was written, and the correction matters. **The enforced
+boundary is `io.assertOwnState()` and the command allowlist**, in code, not in
+the unit. The suite now tests that function by name against the production
+checkout, the backup health records, `~/.ssh` and the executor's private
+state — precisely the paths the sandbox does not cover.
+
+The general lesson is D14.
 
 ## D9. A simulation must not be able to touch the host
 
@@ -256,7 +274,32 @@ worth more than a complete verdict that does not, provided it is honest about
 what it does not know — which is the same principle as D4, applied to time
 instead of availability.
 
-## D14. Rejected alternatives
+## D14. A security control you have not measured is a belief
+
+**Decision.** Security claims in these documents state what was measured, on
+this host, together with the command that measured it.
+
+**Why.** Four independent enforcement mechanisms were claimed for
+observe-only. Three were real. The fourth — the unit sandbox — went into the
+design document, the PR description and the runbook before anyone tried it,
+and it does nothing.
+
+It failed silently, which is the worst way for a control to fail:
+`systemctl show` faithfully reports `ProtectSystem=strict` on a unit where the
+directive has no effect, so every form of inspection short of an actual
+hostile probe agrees with the mistaken claim.
+
+It was caught only because the unit was installed on the real host and then
+attacked: write to `/etc`, to the production checkout, to `~/.ssh`, to
+`/var/lib/mythos/guardian`. Reading the unit file would never have found it.
+
+**How to apply.** For each control, write down the observation that would
+prove it works, then make that observation.
+`docs/MYTHOS_GUARDIAN_SECURITY.md` records the probes and their results, so
+the next person repeats them instead of re-deriving them — and so a future
+systemd or host change that quietly alters the answer is detectable.
+
+## D15. Rejected alternatives
 
 **Beszel** (or any off-the-shelf host monitor). Evaluated and not adopted. It
 would give dashboards and historical graphs, which is real value, but it
