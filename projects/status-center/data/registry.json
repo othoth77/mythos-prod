@@ -1,6 +1,6 @@
 {
   "registry_version": "1.1.0",
-  "curated_at": "2026-09-17T11:07:21.033Z",
+  "curated_at": "2026-09-17T13:40:00.000Z",
   "curation_note": "Re-sync 2026-09-03 (gh-issue-140, completing the gh-issue-95 audit): fixed the stale PROJECT-AI-ORCHESTRATION entry, which had read \"v1 COMPLETE AND CLOSED 2026-08-19\" for ten days and roughly a dozen delivered bridge/executor stages without being touched (GitHub Issues intake, model-selection policy, Resource Guard, bridge retry/quota policy, the HostOps read-only boundary) — the entry now states both facts: v1 is still closed as scoped, AND the same component has kept evolving since, all on unmerged branches (EV-AI-ORCH-EVOLUTION-0903). Added four projects/* directories the account-level repository-discovery path structurally cannot see because they are inside this monorepo, not separate GitHub repositories: PROJECT-MYTHOS-GATEWAY, PROJECT-MYTHOS-ORCHESTRATOR, PROJECT-MYTHOS-VAULT, PROJECT-OTH-MCP — found by listing every projects/* directory and checking which ones no existing project purpose/evidence text actually covered (4 of 21 did not; the other 17 already did, confirmed against git log and each project's own purpose text, and now carry a new `directories` field recording that mapping explicitly instead of leaving it implicit). Added a matching monorepo project-discovery function to the review engine (lib/engine.js discoverMonorepoProjects) so a future undeclared projects/* directory surfaces as a discovery requiring classification, the same guarantee discoverRepositories already gives for GitHub account repositories — closing the \"monorepo discovery\" gap named in gh-issue-140. No percentage invented anywhere in this pass: two new dimensions are NOT_CALCULABLE with a stated reason, one is IN_PROGRESS with a status only. Also recorded 2026-08-26: NEXT-STATUS-DISCLOSURE-REVIEW — the public Status Center carries the same class of infrastructure detail that OTHMODE reports now mask, which is a consistency question for the owner rather than something to fix piecemeal. Re-sync 2026-08-26T15:17Z: recorded a genuine platform change — OTHMODE Command History and Task Reports became publicly readable at 7252de2, redacted for anonymous callers, with the write surface verified still closed. PROJECT-OTHMODE headline, last_change, production dimension and evidence updated (EV-OTHMODE-PUBLIC-HISTORY, EV-OTHMODE-PUBLIC-VERIFIED). No other project or action changed; NEXT-EXPORTS remains the sole open owner decision. Re-sync 2026-08-26T14:38Z: no status changed. The only genuine new fact is that the publish-wipes-monitor-state fix was exercised by a real publish and held — monitor runtime state and the apex Hub feed both survived intact, which is the regression check the fix existed for. Recorded against EV-PUBLISH-WIPES-MONITOR-STATE. The board is otherwise steady: every execution-layer action is closed and NEXT-EXPORTS remains the sole owner decision. Re-sync 2026-08-26 after the owner published: NEXT-STATUS-PUBLISH closed — the live Status Center now serves REVIEW-2026-08-26-004 and matches the repository on every counted dimension (EV-STATUS-PUBLISHED-0826). The publish also exposed a real defect, now fixed: rsync --delete wiped the monitor's runtime state out of the shared docroot, taking the live panel and — via an nginx alias — the apex Hub's /api/status.json to 404, and permanently destroying data/live-history/ (EV-PUBLISH-WIPES-MONITOR-STATE). NEXT-OTHMODE-MONITOR closed 2026-08-26 after production verification: othmode.mythosprod.xyz and its Task Reports API are now monitored components of the existing STC-2 monitor (14 components live, both OTHMODE probes LIVE). Reconciliation pass 2026-08-26 (later the same day): closed three next_actions whose blockers were already DONE and whose live criteria were re-verified first-hand — NEXT-OTHK-STORE, NEXT-MOS-DEPLOY, NEXT-HUB-DEPLOY (evidence EV-STALE-RECONCILE-0826) — and marked ACTION-MOS-DEPLOY and ACTION-HUB-DNS DONE to match their own blockers. Added othmode.mythosprod.xyz to the existing STC-2 probe registry rather than building a second monitor (EV-OTHMODE-MONITOR-PROBE). Nothing was closed to make the board look finished: NEXT-STATUS-PUBLISH stays open because the live site is still unpublished, and every remaining owner decision is untouched. Also refreshed 2026-08-26: data/pr-ledger.json re-captured from the GitHub API (56 -> 90 PRs, #1-#90; 8 open, 78 merged, 4 closed-unmerged), correcting six entries that the 2026-08-20 snapshot still recorded as open (#53-#56 merged, #23 and #52 closed unmerged) and carrying curator notes across by PR number. PROJECT-COMMAND-CENTER updated against host evidence: its 'latest merged revision pending redeploy' caveat is closed (service restarted 2026-08-26 at aa4ca2d, no command-center code change since), and its relationship to OTHMODE is now stated — one Node process on 127.0.0.1:3021 serving both hostnames. Updated 2026-08-26 on the production VPS (deploy@vps-4722f0a9): added PROJECT-OTHMODE with five evidence records after the OTHMODE Task Reports release was merged (aa4ca2d), deployed and operator-verified first-hand on the host — the registry had carried no OTHMODE entry at all, which is why earlier re-syncs reported zero content change. Closed ACTION-STC2-INSTALL / NEXT-STC2-INSTALL against their own stated criteria (timer active and refreshing; published app.js byte-identical to the repository copy, carrying the live panel and the Arabic layer). Two genuinely outstanding items found while curating were recorded rather than left implicit: NEXT-STATUS-PUBLISH (the repository holds two unpublished reviews; the live site is behind because nothing published them, not because nothing re-synced) and NEXT-OTHMODE-MONITOR (othmode.mythosprod.xyz is not a monitored component). No percentage was invented: every OTHMODE dimension is recorded as a status with a note. Updated 2026-08-22 from the production VPS (deploy@vps-4722f0a9) after the real on-host OTH-KNOWLEDGE acceptance run: node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed at ef91aa0a7083b9869b293a53030ce40ade4ad5a2. Only what that run actually proves was moved — the store/provisioning/deployment/production-verification dimensions and BLOCKER-OTHK-STORE. Track B real data remains OWNER_ACTION and PROJECT-OTH-KNOWLEDGE keeps status OWNER_ACTION for exactly that reason. Curated from a full audit on 2026-08-20: complete read of docs/AI_HANDOVER.md (15,892 lines), docs/ reconciliation, full git history (668 commits, repo born 2026-07-29), all 53 PRs, and the GitHub repository inventory. Every entry cites evidence; the review engine re-verifies what it can and marks the rest RECORDED.",
   "source_hierarchy": [
     {
@@ -1046,6 +1046,41 @@
       "reference": "docs/MYTHOS_GUARDIAN{,_ARCHITECTURE,_DECISIONS,_RUNBOOK,_SECURITY,_CLEANUP_POLICY,_INCIDENTS}.md",
       "date": "2026-09-17",
       "note": "Six documents. SECURITY records each control with the command that measured it; DECISIONS D14 records that a security control you have not measured is a belief."
+    },
+    {
+      "id": "EV-WP-V2-PR",
+      "type": "pr",
+      "reference": "othoth77/mythos-prod#305",
+      "date": "2026-09-17",
+      "note": "MYTHOS WP V2 — Central Control Center (commit 721d2e0). Merge = owner review action; production runs this commit from the detached checkout."
+    },
+    {
+      "id": "EV-WP-V2-TESTS",
+      "type": "test",
+      "reference": "tests/mythos-wp-test.js, tests/mythos-wp-comms-*-test.js, tests/mythos-wp-v2-{whatsapp,platform,ai}-test.js",
+      "date": "2026-09-17",
+      "note": "14 suites, 1,281 assertions, 0 failures on mythos_wp_test; projects/mythos-wp/tools/check.sh GREEN."
+    },
+    {
+      "id": "EV-WP-V2-SECURITY",
+      "type": "document",
+      "reference": "projects/mythos-wp/docs/SECURITY.md + PR #305 commit message",
+      "date": "2026-09-17",
+      "note": "Independent security review (auth, RBAC, tenant isolation, secrets, webhooks, CSRF, injection, SSRF, rate limits, sessions, audit, AI tools, MCP): 3 HIGH + 9 MEDIUM findings, all fixed before release."
+    },
+    {
+      "id": "EV-WP-V2-DEPLOY",
+      "type": "file",
+      "reference": "projects/mythos-wp/deploy/v2-rollout.sh",
+      "date": "2026-09-17",
+      "note": "Production rollout 12:35 UTC: backup /var/backups/mythos-db/mythos_wp-v2-pre-20260917T123551Z.dump, migrations 0006_shared_account_routing + 0007_control_center applied, owner imported into wp_users, mythos-wp.service restarted (ExecMainStart 12:35:55 UTC)."
+    },
+    {
+      "id": "EV-WP-V2-PRODUCTION",
+      "type": "document",
+      "reference": "https://wp.mythosprod.xyz/ — smoke run 2026-09-17 13:29–13:35 UTC (audit actor mythos-smoke)",
+      "date": "2026-09-17",
+      "note": "Live checks through the public URL: login, meta (5 projects), health center 8 ok / 1 disconnected (unpaired ssangyong-autos instance), Kitchen 346 products via connector, n8n + MYTHOS MCP reachable, Meta MCP endpoint reachable (405 without OAuth), Evolution sync discovered 2 instances, owner number linked as SHARED to ssangyong-autos + dar-hijama with identity routing simulated to two projects, agents bound and tested, template preview, Cloud API sync 412 (not configured), receiver dry-run ledgered without persisting."
     }
   ],
   "repositories": [
@@ -2349,6 +2384,47 @@
         "EV-GUARDIAN-INCIDENT-0916",
         "EV-GUARDIAN-TESTS",
         "EV-GUARDIAN-DOCS"
+      ]
+    },
+    {
+      "id": "PROJECT-MYTHOS-WP",
+      "name": "MYTHOS WP — Control Center (wp.mythosprod.xyz)",
+      "executive": true,
+      "purpose": "The central control platform for MYTHOS projects: projects, WhatsApp accounts and phone numbers (one number ↔ several projects with deterministic routing), unified inbox, contacts 360, MYTHOS AI agents with least-privilege tools, AI↔human handoff, templates, automations, integrations (Evolution, Cloud API provider, official Meta WhatsApp Business Tools MCP, Kitchen Mythos Auto, n8n, MYTHOS MCP), health center, audit and RBAC. It owns no product data: the automotive catalogue is read from Kitchen Mythos Auto over HTTP.",
+      "status": "OWNER_ACTION",
+      "maturity": "PRODUCTION_VERIFIED",
+      "repository": "othoth77/mythos-prod",
+      "last_change": "2026-09-17 (V2 Control Center deployed from PR #305 commit 721d2e0; production smoke verified — EV-WP-V2-PRODUCTION)",
+      "blocker": null,
+      "next_action": "Owner: merge PR #305 into main (review gate) so the production checkout can return to origin/main; enable the mythos-bridge instance webhook + inbound on the two shared inboxes when ready to receive customers on the owner number (identity routing rules only — privacy guard); connect the official Meta WhatsApp Business Tools MCP with `claude mcp add --transport http whatsapp_business_tools https://mcp.facebook.com/whatsapp_business_tools` (OAuth); provide Cloud API credentials (MYTHOS_WP_META_* files) if the official transport is wanted; rotate the initial owner password; schedule a mythos_wp backup unit.",
+      "headline": "Live at https://wp.mythosprod.xyz/ as the MYTHOS Control Center since 2026-09-17 12:35 UTC. V2 replaces the SsangYong data panel: five projects registered (SsangYong Parts, Dar Hijama, Mythos Prod, Piece.Autos, Casse.Autos), phone numbers discovered from Evolution, the owner number linked as a shared inbox to two projects with routing proven by simulation (identity rule → project A / project B, unknown sender → drop, owner excluded), three AI agents bound (engine-173, suggest-only), Kitchen Mythos Auto connected read-only (346 products), health center green except the unpaired customer instance. Security review applied before release. No 'Asfour' identity exists anywhere (verified).",
+      "dimensions": {
+        "implementation": {
+          "status": "DONE",
+          "note": "migration 0007 + 30 WhatsApp routes, 12 AI routes, platform routes (dashboard, search, integrations, health, automations, notes, Kitchen passthrough), users/RBAC, 11-item web UI"
+        },
+        "tests": {
+          "status": "DONE",
+          "note": "14 suites / 1,281 assertions green; check.sh GREEN; headless UI with zero console errors (EV-WP-V2-TESTS)"
+        },
+        "deployment": {
+          "status": "DONE",
+          "note": "v2-rollout.sh executed 2026-09-17 12:35 UTC from commit 721d2e0; rollback = checkout b028affa + restart (schema additive) (EV-WP-V2-DEPLOY)"
+        },
+        "production": {
+          "status": "DONE",
+          "note": "public-URL smoke 2026-09-17 13:29–13:35 UTC (EV-WP-V2-PRODUCTION); owner gates remain for live customer traffic on the shared number"
+        }
+      },
+      "evidence": [
+        "EV-WP-V2-PR",
+        "EV-WP-V2-TESTS",
+        "EV-WP-V2-SECURITY",
+        "EV-WP-V2-DEPLOY",
+        "EV-WP-V2-PRODUCTION"
+      ],
+      "directories": [
+        "projects/mythos-wp"
       ]
     }
   ],

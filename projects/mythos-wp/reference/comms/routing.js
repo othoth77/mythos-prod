@@ -38,7 +38,7 @@ var LIVE_STATUSES = "('open','pending','waiting_customer','needs_human')";
 function sha(s) { return crypto.createHash('sha256').update(String(s)).digest('hex'); }
 function identitySha(instance, ids) { var first = ids && ids[0]; return first ? sha(first.kind + ':' + first.value + ':' + instance) : null; }
 
-function fail(kind, status, message) { var e = new Error(message); e.kind = kind; e.status = status; return e; }
+function fail(kind, status, message) { var e = new Error(message); e.kind = kind; e.code = kind; e.status = status; e.detail = message; return e; }
 function nowMs() { return Date.now(); }
 
 // inboxesOn(pool, provider, instance) → all inboxes hosted by the instance (0, 1 or n)
