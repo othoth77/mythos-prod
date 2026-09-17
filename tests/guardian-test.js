@@ -160,7 +160,7 @@ function healthyHost(cfg) {
   fixture('resource-pressure.json', { level: 'NORMAL', updated_at: iso(30) });
   fixture('memwatch.log', iso(3600) + ' avail=3300M/7746M swap=800M/4095M psi60=0.30 oom_kills=6812 | top x\n' +
                           iso(60) + ' avail=3200M/7746M swap=820M/4095M psi60=0.50 oom_kills=6812 | top x\n');
-  fixture('host-sessions.json', { at: iso(120), sessions: [{ pid: 201 }, { pid: 202 }], denied: false });
+  fixture('host-sessions.json', { at: iso(120), sessions: [{ pid: 201 }, { pid: 202 }], denied: false, partial: false, read_homes: ['/root/.claude'], denied_homes: [] });
   fixture('live-status.json', { generated_at: iso(180), summary: { up: 12, down: 0 }, checks: [{ id: 'erp-https', state: 'UP' }] });
   fixture('backup-health-db.json', { mode: 'verify', status: 'ok', last_success_at: iso(6 * 3600), consecutive_failures: 0, last_backup_status: 'ok' });
   fixture('backup-health.json', { mode: 'backup', status: 'ok', last_success_at: iso(8 * 3600), consecutive_failures: 0, last_backup_status: 'ok' });
@@ -512,6 +512,33 @@ section('5. classify: domain verdicts');
   eq(orph.summary.orphan_count, 6, 'the orphans are counted');
   eq(sess([{ pid: 700, ppid: 1, comm: 'node', cmdline: 'node worker', rss_mib: 50, age_seconds: 10 }]).summary.orphan_count, 0,
     'a freshly reparented process is not yet an orphan');
+
+  // A PARTIAL lifecycle snapshot must not degrade Guardian. The root runner
+  // carries CAP_KILL only, so another user's 0700 Claude home is unreadable
+  // by design and permanently — treating that as degradation would park
+  // Guardian in DEGRADED forever for a boundary that is working.
+  (function () {
+    function withSnap(snapBody) {
+      fixture('host-sessions.json', snapBody);
+      writeProc({ procs: agents(2) });
+      return classify.sessions(sources.sessions(CFG.sessions, io, { nowMs: NOW }), CFG.sessions, {}, { nowMs: NOW, memoryLevel: 'NORMAL' });
+    }
+    var partial = withSnap({ at: iso(120), sessions: [{ pid: 1 }, { pid: 2 }], denied: true, partial: true,
+      read_homes: ['/root/.claude'], denied_homes: ['/home/deploy/.claude', '/home/ubuntu/.claude'] });
+    eq(partial.degraded, false, 'a partial snapshot does not degrade Guardian');
+    ok(partial.findings.some(function (f) { return f.kind === 'session_snapshot_partial'; }), 'it is reported as INFO');
+    ok(partial.findings.every(function (f) { return f.kind !== 'session_snapshot_unavailable'; }), 'and not as unavailable');
+    var covered = partial.findings.filter(function (f) { return f.kind === 'session_snapshot_partial'; })[0];
+    ok(/\/root\/\.claude/.test(covered.trigger) && /home\/deploy/.test(covered.trigger), 'naming which homes it covers and which it does not');
+
+    var absent = withSnap('');
+    eq(absent.degraded, true, 'an ABSENT snapshot still degrades Guardian');
+    ok(absent.findings.some(function (f) { return f.kind === 'session_snapshot_unavailable'; }), 'and is reported as unavailable');
+
+    var complete = withSnap({ at: iso(120), sessions: [{ pid: 1 }], denied: false, partial: false, read_homes: ['/root/.claude'], denied_homes: [] });
+    eq(complete.degraded, false, 'a complete snapshot does not degrade Guardian');
+    ok(complete.findings.every(function (f) { return f.kind !== 'session_snapshot_partial'; }), 'and raises no partial finding');
+  })();
 })();
 
 (function () {

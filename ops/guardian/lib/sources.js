@@ -164,7 +164,16 @@ function sessions(cfg, io, ctx) {
   else {
     var sAge = ageSeconds(ctx.nowMs, snap.at);
     var sStale = sAge === null || sAge > cfg.snapshot_max_age_seconds;
-    out.snapshot = envelope(!sStale, { sessions: snap.sessions.length, denied: !!snap.denied }, { stale: sStale, age_seconds: sAge, error: sStale ? 'stale' : null });
+    out.snapshot = envelope(!sStale, {
+      sessions: snap.sessions.length,
+      denied: !!snap.denied,
+      // A snapshot can be complete, or partial because the root runner is
+      // restricted to CAP_KILL and cannot read another user's 0700 home.
+      // Partial is USABLE: it covers the homes it names.
+      partial: !!snap.partial,
+      read_homes: snap.read_homes || null,
+      denied_homes: snap.denied_homes || null
+    }, { stale: sStale, age_seconds: sAge, error: sStale ? 'stale' : null });
   }
 
   // Is the session guard itself running? (unit + timer state, read-only)
