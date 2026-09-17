@@ -129,10 +129,12 @@ function main(argv) {
     var res = engine.run({
       io: io, state_dir: stateDir, config_path: configPath, dry_run: dry,
       measure: sources.measure(runCfg.disk, io),
-      // `run` NEVER executes actions, whatever the configuration says. That
-      // is `remediate --execute`, so a scheduled tick and a deliberate change
-      // can never be confused for one another.
-      execute_actions: false,
+      // The scheduled tick acts only when remediation.on_schedule is true.
+      // Default false: remediation exists but waits to be asked. Enabling it
+      // is a separate decision from enabling any individual flag, so
+      // "Guardian may clear a cache" and "Guardian may do so unattended"
+      // are never the same checkbox.
+      execute_actions: runCfg.observe_only === false && runCfg.remediation.on_schedule === true,
       guardian_version: VERSION
     });
     if (res.skipped) {

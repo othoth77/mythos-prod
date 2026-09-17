@@ -205,9 +205,21 @@ backups, credentials, repositories and production containers — at gate 6,
 before the command allowlist is consulted — and configuration cannot promote a
 unit past it.
 
-**The scheduled tick never acts.** `run` is always observation; acting is
-`remediate --execute`, so a timer and a deliberate change can never be
-confused for one another.
+**Automation is a separate decision from permission.** Enabling a flag says
+*Guardian may clear a cache*. `remediation.on_schedule` says *it may do so
+unattended*. They are never the same checkbox, and `on_schedule` is false by
+default — so out of the box remediation exists and waits to be asked:
+
+```json
+{ "observe_only": false,
+  "allow_disk_remediation": true,
+  "remediation": { "on_schedule": true } }
+```
+
+Without `on_schedule`, the timer observes and only `remediate --execute` acts.
+
+The advisory is idempotent: it does not rewrite an identical file, so running
+on a schedule does not fill the audit log with events carrying no information.
 
 What it deliberately cannot do, and why, is in
 `docs/MYTHOS_GUARDIAN_CLEANUP_POLICY.md`. The short version: it removes

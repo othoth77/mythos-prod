@@ -1376,11 +1376,50 @@ section('18. remediation: through the engine, and the audit trail');
   eq(live.report.guardian.remediation.remediation_available, true, 'with observe_only off the posture says available');
   ok(live.report.guardian.remediation.enabled_flags.indexOf('allow_agent_throttling') >= 0, 'and names the enabled flags');
 
-  // `run` must never execute, whatever the config says.
+  // The scheduled tick acts only when remediation.on_schedule is true, and
+  // that is a SEPARATE decision from enabling any individual flag.
+  eq(configMod.DEFAULTS.remediation.on_schedule, false, 'on_schedule is false by default');
+  ok(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { remediation: { on_schedule: 'yes' } })).length > 0,
+    'a non-boolean on_schedule is rejected');
+  ok(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { remediation: { on_schedule: true } })).length > 0,
+    'on_schedule with observe_only still true is reported, because it would do nothing');
+  eq(configMod.validate(configMod.deepMerge(configMod.DEFAULTS, { observe_only: false, remediation: { on_schedule: true } })).length, 0,
+    'on_schedule with observe_only false is valid');
+
   var p = engine.paths(STATE);
   try { fs.unlinkSync(p.actions); } catch (e) { /* none yet */ }
-  var ran = engine.run({ io: io, state_dir: STATE, config: base, now_ms: NOW });
-  ok(ran.report.actions.every(function (r) { return r.mode === 'dry-run'; }), 'engine.run never executes actions');
+  var ran = engine.run({ io: io, state_dir: STATE, config: base, now_ms: NOW, execute_actions: false });
+  ok(ran.report.actions.every(function (r) { return r.mode === 'dry-run'; }), 'a tick without execute_actions never executes');
+
+  // The advisory is idempotent: it does not rewrite an identical file.
+  (function () {
+    var cfg2 = configMod.deepMerge(base, { remediation: { publish_dir: path.join(ROOT, 'pub5') } });
+    fs.mkdirSync(path.join(ROOT, 'pub5'), { recursive: true });
+    var report = {
+      host: { level: 'WARNING' },
+      domains: {
+        memory: { level: 'NORMAL', summary: {} },
+        sessions: { level: 'WARNING', summary: { remote_sessions: 14, admission_ceiling: 6 } },
+        disk: { level: 'NORMAL', summary: { used_pct: 60 } },
+        services: { level: 'NORMAL', summary: { table: {} } },
+        backup: { level: 'NORMAL', summary: {} }
+      }
+    };
+    var io2 = makeIo();
+    var opts = { now_ms: NOW, history: remediateMod.emptyHistory(), measure: { npmCacheMib: function () { return 0; }, dockerBuildCacheGb: function () { return 0; } } };
+    var first = remediateMod.plan(report, cfg2, io2, opts);
+    ok(first.approved.some(function (d) { return d.action === 'ACTION_PUBLISH_ADMISSION_ADVISORY'; }), 'the first advisory is approved');
+    remediateMod.execute(first, cfg2, io2, { dry_run: false });
+    var second = remediateMod.plan(report, cfg2, io2, opts);
+    var dec = second.decisions.filter(function (d) { return d.action === 'ACTION_PUBLISH_ADMISSION_ADVISORY'; })[0];
+    eq(dec.allowed, false, 'an identical advisory is NOT republished');
+    eq(dec.gate, 'precondition', 'it declines at the precondition');
+    ok(/already says/.test(dec.reason), 'and says the published value already matches');
+    // A changed level republishes.
+    report.domains.memory.level = 'CRITICAL';
+    var third = remediateMod.plan(report, cfg2, io2, opts);
+    ok(third.approved.some(function (d) { return d.action === 'ACTION_PUBLISH_ADMISSION_ADVISORY'; }), 'a CHANGED ceiling is republished');
+  })();
 
   // Explicit execution writes the audit trail.
   var pressured = configMod.deepMerge(base, { sessions: { hard_max_sessions: 0 } });

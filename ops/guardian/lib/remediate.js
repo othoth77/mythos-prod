@@ -110,7 +110,9 @@ function evaluate(candidate, report, cfg, io, ctxBase) {
     return decision;
   }
   // 5 — the action's own precondition.
-  var ctx = Object.assign({}, ctxBase, { target: candidate.target, policy: cfg.remediation, memory_level: report.domains.memory.level });
+  // `io` is handed to the precondition for READS only — the action channel is
+  // disarmed at this point, so a precondition cannot act even if it tried.
+  var ctx = Object.assign({}, ctxBase, { io: io, target: candidate.target, policy: cfg.remediation, memory_level: report.domains.memory.level });
   var pre;
   try { pre = a.precondition(ctx); } catch (e) { pre = { ok: false, reason: 'precondition threw: ' + String(e && e.message) }; }
   if (!pre.ok) {
@@ -207,7 +209,7 @@ function execute(thePlan, cfg, io, opts) {
   thePlan.approved.forEach(function (d) {
     var a = actionsMod.get(d.action);
     var c = d._candidate;
-    var ctx = Object.assign({}, thePlan.ctx, { target: c.target, policy: cfg.remediation, memory_level: thePlan.ctx.memory_level });
+    var ctx = Object.assign({}, thePlan.ctx, { io: io, target: c.target, policy: cfg.remediation, memory_level: thePlan.ctx.memory_level });
     var record = {
       at: new Date(thePlan.ctx.nowMs).toISOString(),
       action: a.id, target: d.target, title: a.title, domain: a.domain,

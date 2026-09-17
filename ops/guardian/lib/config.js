@@ -42,6 +42,12 @@ var DEFAULTS = {
     // At most this many actions in one tick, whatever else is true. A host
     // in trouble should get one careful change and another look, not a burst.
     max_actions_per_tick: 1,
+    // May the SCHEDULED tick act, or only `remediate --execute`?
+    // False means remediation exists but only ever runs when a human asks.
+    // True is what makes it automation, and it is a separate decision from
+    // enabling any individual flag — so "Guardian may clear a cache" and
+    // "Guardian may do so unattended at 4am" are never the same checkbox.
+    on_schedule: false,
     action_timeout_ms: 120000,
     // After this many restarts of one unit, it is DEGRADED and left alone.
     max_attempts: 3,
@@ -207,6 +213,12 @@ function validate(cfg) {
   absPath(rem.publish_dir, 'remediation.publish_dir');
   posInt(rem.max_actions_per_tick, 'remediation.max_actions_per_tick');
   if (rem.max_actions_per_tick > 3) err('remediation.max_actions_per_tick must be at most 3: a host in trouble gets one careful change and another look');
+  if (typeof rem.on_schedule !== 'boolean') err('remediation.on_schedule must be a boolean');
+  if (rem.on_schedule === true && cfg.observe_only === true) {
+    // Not an error — observe_only correctly wins — but say so, because a
+    // configuration that looks like automation and is not is worth a line.
+    err('remediation.on_schedule is true while observe_only is true: nothing will run');
+  }
   posInt(rem.action_timeout_ms, 'remediation.action_timeout_ms');
   posInt(rem.max_attempts, 'remediation.max_attempts');
   if (rem.max_attempts > 5) err('remediation.max_attempts must be at most 5, or a restart loop is just slower');
