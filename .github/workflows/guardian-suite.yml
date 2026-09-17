@@ -1,0 +1,97 @@
+# =====================================================
+# MYTHOS Guardian — test suite (GitHub-hosted, hermetic)
+#
+# Runs on every PR and push that touches Guardian or the Status Center
+# monitor. It runs on a GitHub-hosted runner, NOT the self-hosted mythos-vps
+# runner, because the suite is hermetic by construction and there is nothing
+# about the VPS it needs:
+#
+#   * every filesystem read goes through an injected io over a fixture tree
+#     in a temporary directory;
+#   * /proc is synthetic — io.procRoot is redirected;
+#   * no command is ever executed: io.spawn is replaced by a table of canned
+#     outputs, and the argv allowlist refuses anything mutating before exec;
+#   * section 10 re-runs a full tick with recording write primitives and
+#     fails if any target escapes the temporary state directory.
+#
+# Running it on the production host would therefore add risk and prove
+# nothing extra. The VPS Final Gate stays the place for host-identity checks.
+#
+# NOTE: .github/workflows/** is a governance-protected path — the on-VPS
+# relay refuses to deliver commits touching it without an explicit approval.
+# Actions executes this file from GitHub, so the workflow runs regardless;
+# approve delivery when updating the VPS checkout of main past this commit.
+# =====================================================
+name: Guardian suite
+
+on:
+  pull_request:
+    paths:
+      - 'ops/guardian/**'
+      - 'tests/guardian-test.js'
+      - 'projects/status-center/monitor/**'
+      - '.github/workflows/guardian-suite.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ops/guardian/**'
+      - 'tests/guardian-test.js'
+      - 'projects/status-center/monitor/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guardian-suite-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guardian:
+    name: Guardian suite, scenarios and observe-only self-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Syntax check every Guardian module
+        run: |
+          for f in ops/guardian/lib/*.js ops/guardian/bin/mythos-guardian tests/guardian-test.js; do
+            node --check "$f" || exit 1
+          done
+          bash -n ops/guardian/install-guardian.sh
+
+      - name: Test suite
+        run: node tests/guardian-test.js
+
+      - name: Scenarios (all dry, synthetic hosts only)
+        run: |
+          node ops/guardian/bin/mythos-guardian scenarios
+          node ops/guardian/bin/mythos-guardian simulate all --ticks 4
+
+      - name: Observe-only self-test
+        run: node ops/guardian/bin/mythos-guardian selftest
+
+      - name: Configuration validates
+        run: node ops/guardian/bin/mythos-guardian validate
+
+      # A grep is a blunt instrument, which is the point: if remediation ever
+      # appears in this tree it should have to be argued for in a PR that also
+      # changes this gate, rather than arriving quietly.
+      - name: Guardian remains observe-only
+        run: |
+          if grep -nE "child_process|execSync|spawnSync|process\.kill|unlinkSync|rmSync|rmdirSync|chmodSync|chownSync" \
+               ops/guardian/lib/engine.js ops/guardian/lib/classify.js \
+               ops/guardian/lib/sources.js ops/guardian/lib/report.js \
+               ops/guardian/lib/levels.js ops/guardian/lib/config.js; then
+            echo "::error::a remediation or deletion primitive appeared in a Guardian module"
+            exit 1
+          fi
+          if grep -nE "'(restart|stop|start|kill|prune|rm)'" ops/guardian/lib/io.js; then
+            echo "::error::a mutating verb appeared in the io allowlist"
+            exit 1
+          fi
+          echo "observe-only: no remediation primitive found"
