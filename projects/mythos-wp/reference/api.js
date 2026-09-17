@@ -26,6 +26,7 @@ var dashboard = require('./dashboard');
 var search = require('./search');
 var autoreply = require('./autoreply');
 var receiver = require('./comms/receiver');
+var routing = require('./comms/routing');
 var inbox = require('./comms/inbox');
 var outbound = require('./comms/outbound');
 var assistant = require('./comms/assistant');
@@ -422,6 +423,20 @@ var ROUTES = [
   { method: 'GET', path: /^\/api\/comms\/providers$/, role: 'any', handler: function () {
     var reg = receiver.registry;
     return { providers: reg.all().map(function (p) { return { id: p.id, describe: p.describe(), capabilities: p.capabilities() }; }) };
+  } },
+
+  // --- Shared-account routing (COMMS-11): rules are project-scoped; reads for members, writes for owners; drops are hashes only ---
+  { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/routes$/, role: 'any', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return routing.listRules(db.wp(), resolved.project.id, { inbox_id: q(req).inbox_id }).then(function (rows) { return { items: rows }; }); });
+  } },
+  { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/routes$/, role: 'owner', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return routing.addRule(db.wp(), resolved.project.id, ctx.body || {}, req.session.username).then(function (row) { ctx.status(201); return row; }); });
+  } },
+  { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/routes\/(\d+)\/(enable|disable)$/, role: 'owner', handler: function (req, res, ctx) {
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return routing.setRuleEnabled(db.wp(), resolved.project.id, ctx.params[2], ctx.params[3] === 'enable', req.session.username); });
+  } },
+  { method: 'GET', path: /^\/api\/comms\/routing-drops$/, role: 'owner', handler: function (req) {
+    return routing.listDrops(db.wp(), { limit: q(req).limit }).then(function (rows) { return { items: rows }; });
   } },
 
   // --- Multi-service: the caller's inbox memberships (visibility scope) ---
