@@ -160,6 +160,7 @@ migrate.up(pool)
   .then(function () { return store.all(true); })
   .then(function (rows) { return dashboard.build(pool, { projects: rows.filter(function (r) { return /^v21s-/.test(r.id); }), project: null }); })
   .then(function (doc) {
+    ok(doc.whatsapp && doc.whatsapp.waiting_human !== undefined, 'dashboard: the "waiting for human" figure reaches the tile');
     var a = (doc.projects.activity || []).filter(function (x) { return x.id === 'v21s-a'; })[0];
     ok(a && a.whatsapp.length === 1 && a.whatsapp[0].connection === 'connected', 'dashboard: project row carries the connection state');
     ok(a && a.whatsapp[0].connection_detail && a.whatsapp[0].phone_masked === '***0777', 'dashboard: masked number + plain detail');

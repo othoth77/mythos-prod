@@ -110,7 +110,7 @@ function build(pool, o) {
       .concat(x[4].filter(function (a) { return !infra.some(function (c) { return c.component === a.component && (c.status === 'error' || c.status === 'disconnected'); }); }), x[5]);
     return {
       scope: { project: all ? 'all' : String(o.project), project_ids: ids },
-      whatsapp: { conversations: n(x[0], 'conversations'), unread: n(x[0], 'unread'), ai: n(x[0], 'ai'), human: n(x[0], 'human'), waiting: n(x[0], 'waiting'), needs_attention: n(x[0], 'needs_attention') },
+      whatsapp: { conversations: n(x[0], 'conversations'), unread: n(x[0], 'unread'), ai: n(x[0], 'ai'), human: n(x[0], 'human'), waiting: n(x[0], 'waiting'), waiting_human: n(x[0], 'waiting_human'), needs_attention: n(x[0], 'needs_attention') },
       projects: x[1],
       ai: x[2],
       infrastructure: infra,
