@@ -169,6 +169,13 @@ var ACTIONS = {
     precondition: function (ctx) {
       if (!ctx.sessions) return no('session state unknown');
       if (typeof ctx.recommended_ceiling !== 'number') return no('no ceiling computed for this level');
+      // Do not republish an identical advisory. On a schedule this would
+      // otherwise rewrite the same two numbers every tick and fill the audit
+      // log with events that carry no information.
+      var current = ctx.io ? ctx.io.readJson(path.join(ctx.policy.publish_dir, 'admission.json')) : null;
+      if (current && current.level === ctx.memory_level && current.max_concurrent_agents === ctx.recommended_ceiling) {
+        return no('the published advisory already says ' + ctx.memory_level + '/' + ctx.recommended_ceiling);
+      }
       return ok({ level: ctx.memory_level, ceiling: ctx.recommended_ceiling, sessions: ctx.sessions.remote_sessions });
     },
     // Not a command: a publication. remediate.js routes `publish` actions to
