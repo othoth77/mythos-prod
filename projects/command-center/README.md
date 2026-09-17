@@ -137,11 +137,15 @@ timeout_seconds}`; provider `auto` | `free-llm-pool` | `openai-compat`),
 `GET /api/othmode/runs`, `GET /api/othmode/runs/:taskId` (public reads,
 executor paths blanked).
 
-Enable on a host with the drop-in `deploy/executor-link.conf`
+Deployment: `sudo /home/deploy/othmode-v2-deploy.sh` on this host (pulls `main`,
+installs the drop-in, reloads and restarts the command-center, and restarts the
+executor only when no task is RUNNING). Enable on any host with the drop-in `deploy/executor-link.conf`
 (`OTHMODE_EXECUTOR_TOKEN_FILE` → the executor's own 0600 bearer file, read at
 call time and sent only as a header on loopback; `OTHMODE_EXECUTOR_URL`,
 `OTHMODE_EXECUTOR_PROJECT`). Without the variable the edge is disabled and
-says so. Tests: `node tests/othmode-4-run-test.js` (offline, stub executor).
+says so. Tests: `node tests/othmode-4-run-test.js` (the run path, offline, stub executor)
+and `node tests/othmode-5-ui-test.js` (the real front-end modules booted under a
+DOM shim and driven through the V2 screens in EN/FR/AR — no browser, no network).
 
 ## Never store a credential here
 

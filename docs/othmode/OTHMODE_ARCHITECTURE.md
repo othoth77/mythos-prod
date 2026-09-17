@@ -194,3 +194,24 @@ user sees.
 - **What V2 deliberately did not do:** no rebuild, no schema migration, no
   deletion, no new event store, no change to the work-intake edge, no
   execution from the command-center process.
+
+### V2 verification record (2026-09-17)
+
+The run path was exercised end to end on the branch code before the merge,
+because merging is owner-gated: real command → router → `free-llm-pool` →
+executor → **Groq `openai/gpt-oss-120b`** → COMPLETED in 1.3 s → Command
+History (`source=run`). A controlled provider failure (stub returning 503
+ranked ahead of Groq) produced `attempts=2, fallback=true` and still
+COMPLETED. An exhausted pool produced `QUEUED → WAITING_RETRY → FAILED`
+rather than an immediate permanent failure. Provider states were checked
+against real HTTP responses: 503 degraded, 401 `invalid_credentials` (and
+excluded from selection), 413/429 `quota_exhausted`, 200 `active` with the
+failure counter cleared and the last failure reason kept beside its
+timestamp. Evidence: `EV-OTHMODE-V2-PREMERGE-E2E`.
+
+**Observability on every outcome.** `provider_used`, `model_used`,
+`attempts` and `fallback` are computed once beside the single failure
+classification in the executor and written on **all four** failure
+outcomes (quota wait, retry wait, retries exhausted, terminal) as well as
+on success — so the run page can always name who answered or who failed,
+including a task that died after spending its retry budget.
