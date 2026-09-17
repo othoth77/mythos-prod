@@ -15,6 +15,7 @@
 var bus = require('./bus');
 var registry = require('./provider');
 try { registry.register(require('./providers/evolution')); } catch (e) { /* already registered by the receiver */ }
+try { registry.register(require('./providers/meta_cloud')); } catch (e) { /* already registered by the receiver */ }
 var providers = { get: function (id) { return registry.get(id); } };
 var assistant = require('./assistant');
 var CAP_PER_HOUR = Math.max(1, parseInt(process.env.MYTHOS_WP_OUTBOUND_CAP_PER_HOUR || '30', 10) || 30);

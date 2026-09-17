@@ -41,7 +41,8 @@ function isHandoff(rec) {
 
 // suggestions for the agent: the matching products the ports found, if any
 function suggest(resolved, decision) {
-  if (!resolved || !resolved.catalogPool || !decision || !decision.entities) return Promise.resolve(null);
+  // V2: the matches come from the project's Kitchen through ports.js (no catalogue pool exists any more).
+  if (!resolved || !decision || !decision.entities) return Promise.resolve(null);
   var p = ports.create({ resolveProject: function () { return resolved; } });
   return p.parts(decision.entities, { project_id: resolved.project.id }).then(function (r) {
     return r && r.ok ? { matching_parts: r.data.matches.slice(0, 5) } : { matching_parts: [], parts_reason: r ? r.reason : null };

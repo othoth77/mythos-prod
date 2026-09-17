@@ -37,18 +37,20 @@ function listConversations(pool, projectId, o) {
   else if (o.assigned === 'none') where.push('c.assigned_to IS NULL');
   if (o.inbox) { params.push(parseInt(o.inbox, 10) || 0); where.push('c.inbox_id = $' + params.length); }
   if (o.tag) { params.push(String(o.tag)); where.push('EXISTS (SELECT 1 FROM wp_conversation_tags ct JOIN wp_tags t ON t.id = ct.tag_id WHERE ct.conversation_id = c.id AND t.name = $' + params.length + ')'); }
+  if (o.handler === 'ai' || o.handler === 'human') { params.push(o.handler); where.push('c.handler = $' + params.length); }
+  if (o.agent) { params.push(parseInt(o.agent, 10) || 0); where.push('c.agent_id = $' + params.length); }
   if (o.q) { params.push('%' + String(o.q).slice(0, 80) + '%'); where.push('(k.display_name ILIKE $' + params.length + ' OR k.wa_id LIKE $' + params.length + ' OR c.summary ILIKE $' + params.length + ' OR EXISTS (SELECT 1 FROM wp_messages mm WHERE mm.conversation_id = c.id AND mm.text ILIKE $' + params.length + '))'); }
   if (o.before) { params.push(String(o.before)); where.push('c.last_message_at < $' + params.length + '::timestamptz'); }
   var limit = clampInt(o.limit, LIMIT, 1, 200);
   params.push(limit);
-  var sql = 'SELECT c.id, c.status, c.priority, c.assigned_to, c.team, c.unread_count, c.language, c.last_intent, c.summary, c.last_message_at, c.last_inbound_at, c.last_outbound_at, c.waiting_since, c.created_at, c.inbox_id, i.instance AS inbox_instance, ' +
+  var sql = 'SELECT c.id, c.status, c.priority, c.assigned_to, c.team, c.unread_count, c.language, c.last_intent, c.summary, c.last_message_at, c.last_inbound_at, c.last_outbound_at, c.waiting_since, c.created_at, c.inbox_id, c.project_id, c.handler, c.agent_id, c.routed_by, i.instance AS inbox_instance, i.display_name AS inbox_name, i.phone_number_id, ag.name AS agent_name, ' +
     'k.id AS contact_id, k.display_name AS contact_name, k.wa_id AS contact_wa_id, ' +
     "(SELECT m.text FROM wp_messages m WHERE m.conversation_id = c.id AND m.direction <> 'activity' ORDER BY COALESCE(m.provider_timestamp, m.created_at) DESC, m.created_at DESC, m.id DESC LIMIT 1) AS last_text, " +
     "(SELECT m.message_type FROM wp_messages m WHERE m.conversation_id = c.id AND m.direction <> 'activity' ORDER BY COALESCE(m.provider_timestamp, m.created_at) DESC, m.created_at DESC, m.id DESC LIMIT 1) AS last_type, " +
     "(SELECT m.direction FROM wp_messages m WHERE m.conversation_id = c.id AND m.direction <> 'activity' ORDER BY COALESCE(m.provider_timestamp, m.created_at) DESC, m.created_at DESC, m.id DESC LIMIT 1) AS last_direction, " +
     "COALESCE((SELECT array_agg(t.name ORDER BY t.name) FROM wp_conversation_tags ct JOIN wp_tags t ON t.id = ct.tag_id WHERE ct.conversation_id = c.id), '{}') AS tags, " +
     "EXISTS (SELECT 1 FROM wp_handoffs hf WHERE hf.conversation_id = c.id AND hf.status IN ('NEW','REQUIRES_HUMAN','IN_PROGRESS')) AS handoff_open " +
-    'FROM wp_conversations c JOIN wp_contacts k ON k.id = c.contact_id JOIN wp_inboxes i ON i.id = c.inbox_id WHERE ' + where.join(' AND ') +
+    'FROM wp_conversations c JOIN wp_contacts k ON k.id = c.contact_id JOIN wp_inboxes i ON i.id = c.inbox_id LEFT JOIN wp_agents ag ON ag.id = c.agent_id WHERE ' + where.join(' AND ') +
     ' ORDER BY c.last_message_at DESC NULLS LAST, c.id DESC LIMIT $' + params.length;
   return pool.query(sql, params).then(function (r) {
     return { items: r.rows.map(function (x) { x.contact_masked = mask(x.contact_wa_id); delete x.contact_wa_id; x.last_text = x.last_text ? String(x.last_text).slice(0, 140) : null; return x; }), next_before: r.rows.length === limit ? r.rows[r.rows.length - 1].last_message_at : null };
@@ -64,7 +66,7 @@ function counts(pool, projectId, scope) {
   });
 }
 function getConversation(pool, projectId, id, scope) {
-  return pool.query('SELECT c.*, i.instance AS inbox_instance, i.provider, i.outbound_enabled, k.display_name AS contact_name, k.wa_id AS contact_wa_id, k.lid AS contact_lid, k.language AS contact_language, k.notes AS contact_notes, k.memory AS contact_memory, k.status AS contact_status, k.first_seen_at, k.last_seen_at FROM wp_conversations c JOIN wp_contacts k ON k.id = c.contact_id JOIN wp_inboxes i ON i.id = c.inbox_id WHERE c.project_id = $1 AND c.id = $2', [projectId, id])
+  return pool.query('SELECT c.*, i.instance AS inbox_instance, i.display_name AS inbox_name, i.phone_number_id, i.provider, i.outbound_enabled, i.ai_mode, ag.name AS agent_name, ag.mode AS agent_mode, k.display_name AS contact_name, k.wa_id AS contact_wa_id, k.lid AS contact_lid, k.language AS contact_language, k.notes AS contact_notes, k.memory AS contact_memory, k.status AS contact_status, k.first_seen_at, k.last_seen_at FROM wp_conversations c JOIN wp_contacts k ON k.id = c.contact_id JOIN wp_inboxes i ON i.id = c.inbox_id LEFT JOIN wp_agents ag ON ag.id = c.agent_id WHERE c.project_id = $1 AND c.id = $2', [projectId, id])
     .then(function (r) {
       if (!r.rows[0]) throw fail('not_found', 404, 'no such conversation');
       if (scope && scope.indexOf(r.rows[0].inbox_id) === -1) throw fail('not_found', 404, 'no such conversation');

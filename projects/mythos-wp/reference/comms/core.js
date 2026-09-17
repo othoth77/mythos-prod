@@ -53,25 +53,33 @@ function resolveContact(c, projectId, ev, provider) {
     return chain.then(function () { contact.identities_added = added; return contact; });
   });
 }
-function liveConversation(c, inbox, contactId, ev) {
+// routeInfo (V2): { routed_by: dedicated|rule|sticky|keyword|default|manual, rule_id } stored on the conversation at open time
+var ROUTED_BY = { dedicated: true, rule: true, sticky: true, keyword: true, default: true, manual: true };
+function routeOf(routeInfo) {
+  var by = routeInfo && ROUTED_BY[routeInfo.routed_by] ? routeInfo.routed_by : null;
+  var rule = routeInfo && routeInfo.rule_id ? parseInt(routeInfo.rule_id, 10) || null : null;
+  return { routed_by: by, rule_id: rule };
+}
+function liveConversation(c, inbox, contactId, ev, routeInfo) {
   return c.query("SELECT id, status FROM wp_conversations WHERE inbox_id=$1 AND contact_id=$2 AND status NOT IN ('resolved','archived') LIMIT 1", [inbox.id, contactId])
     .then(function (r) {
       if (r.rows[0]) return { id: r.rows[0].id, status: r.rows[0].status, opened: false };
-      return c.query('INSERT INTO wp_conversations (project_id, inbox_id, contact_id, provider_chat_id, status) VALUES ($1,$2,$3,$4,\'open\') RETURNING id', [inbox.project_id, inbox.id, contactId, ev.chat_id])
-        .then(function (x) { return { id: x.rows[0].id, status: 'open', opened: true }; });
+      var ri = routeOf(routeInfo);
+      return c.query('INSERT INTO wp_conversations (project_id, inbox_id, contact_id, provider_chat_id, status, routed_by, route_rule_id) VALUES ($1,$2,$3,$4,\'open\',$5,$6) RETURNING id', [inbox.project_id, inbox.id, contactId, ev.chat_id, ri.routed_by, ri.rule_id])
+        .then(function (x) { return { id: x.rows[0].id, status: 'open', opened: true, routed_by: ri.routed_by, rule_id: ri.rule_id }; });
     });
 }
-// ingest(pool, inbox, ev) → { persisted, duplicate, message_id, conversation_id, contact_id, opened }
-function ingest(pool, inbox, ev) {
-  return ingestTx(pool, inbox, ev).then(function (r) {
+// ingest(pool, inbox, ev, routeInfo) → { persisted, duplicate, message_id, conversation_id, contact_id, opened }
+function ingest(pool, inbox, ev, routeInfo) {
+  return ingestTx(pool, inbox, ev, routeInfo).then(function (r) {
     if (r.persisted) { bus.publish({ type: 'message.in', event: 'message.received', project_id: inbox.project_id, conversation_id: r.conversation_id, message_id: r.message_id, opened: r.opened, message_type: ev.message_type }); if (r.contact_created) bus.publish({ type: 'contact.created', event: 'contact.created', project_id: inbox.project_id, contact_id: r.contact_id }); }
     return r;
   });
 }
-function ingestTx(pool, inbox, ev) {
+function ingestTx(pool, inbox, ev, routeInfo) {
   return tx(pool, function (c) {
     return resolveContact(c, inbox.project_id, ev, inbox.provider).then(function (contact) {
-      return liveConversation(c, inbox, contact.id, ev).then(function (conv) {
+      return liveConversation(c, inbox, contact.id, ev, routeInfo).then(function (conv) {
         return c.query(
           'INSERT INTO wp_messages (project_id, conversation_id, contact_id, inbox_id, direction, provider, provider_message_id, message_type, text, quoted_provider_message_id, sender_kind, status, provider_timestamp, raw) ' +
           "VALUES ($1,$2,$3,$4,'in',$5,$6,$7,$8,$9,'customer','received',$10,$11) ON CONFLICT (inbox_id, provider_message_id) WHERE provider_message_id IS NOT NULL DO NOTHING RETURNING id",
@@ -86,7 +94,7 @@ function ingestTx(pool, inbox, ev) {
           return chain
             .then(function () { return c.query("UPDATE wp_conversations SET last_message_at = now(), last_inbound_at = now(), unread_count = unread_count + 1, status = CASE WHEN status = 'waiting_customer' THEN 'open' ELSE status END, waiting_since = NULL, updated_at = now() WHERE id=$1", [conv.id]); })
             .then(function () { return c.query('INSERT INTO wp_conversation_events (project_id, conversation_id, kind, event_name, actor, payload) VALUES ($1,$2,\'message_in\',$4,\'receiver\',$3)', [inbox.project_id, conv.id, JSON.stringify({ message_id: msgId, message_type: ev.message_type, attachments: (ev.attachments || []).length, opened: conv.opened, contact_created: contact.created, identities_added: contact.identities_added }), events.forKind('message_in')]); })
-            .then(function () { if (!conv.opened) return null; return c.query('INSERT INTO wp_conversation_events (project_id, conversation_id, kind, event_name, actor, payload) VALUES ($1,$2,\'created\',$3,\'receiver\',$4)', [inbox.project_id, conv.id, 'conversation.created', JSON.stringify({ status: 'open' })]); })
+            .then(function () { if (!conv.opened) return null; return c.query('INSERT INTO wp_conversation_events (project_id, conversation_id, kind, event_name, actor, payload) VALUES ($1,$2,\'created\',$3,\'receiver\',$4)', [inbox.project_id, conv.id, 'conversation.created', JSON.stringify({ status: 'open', routed_by: conv.routed_by || null, rule_id: conv.rule_id || null })]); })
             .then(function () { return c.query('UPDATE wp_inboxes SET last_event_at = now(), updated_at = now() WHERE id=$1', [inbox.id]); })
             .then(function () { return { persisted: true, duplicate: false, message_id: msgId, conversation_id: conv.id, contact_id: contact.id, opened: conv.opened, contact_created: contact.created === true }; });
         });

@@ -36,6 +36,7 @@ var ledgerLib = require(path.join(COMMS, 'lib/ledger'));
 var businessData = require(path.join(COMMS, 'lib/business-data'));
 var evolutionAdapter = require(path.join(COMMS, 'lib/crm/evolution'));
 var portsLib = require('./comms/ports');
+var kitchen = require('./kitchen');
 
 var DEFAULT_GATEWAY = 'http://127.0.0.1:8080';
 var PROBE_TIMEOUT_MS = 1500;
@@ -98,18 +99,34 @@ function mode(loaded, readiness) {
   return readiness.can_send ? 'ACTIVE' : 'DRY-RUN';
 }
 
+// The project's Kitchen (contract 1.3.0) is the only business-data source: its
+// describe() counts say what the ports can answer. No Kitchen → nothing.
+function kitchenStatus(resolved) {
+  var client = resolved.kitchen && typeof resolved.kitchen.describe === 'function' ? Promise.resolve(resolved.kitchen) : kitchen.forProject(resolved.wpPool, resolved.project);
+  return client.then(function (c) {
+    if (!c) return { configured: false, key: kitchen.keyFor(resolved.project), reachable: null, counts: null, contract: null };
+    return c.describe().then(function (d) {
+      if (!d.ok) return { configured: true, key: c.key, reachable: false, error: d.kind, counts: null, contract: kitchen.CONTRACT_VERSION };
+      return { configured: true, key: c.key, reachable: true, counts: d.data.counts, capabilities: d.data.capabilities, contract: d.data.contract };
+    });
+  }, function () { return { configured: false, key: null, reachable: null, counts: null, contract: null }; });
+}
+
 function businessDataStatus(resolved) {
   var ports = portsLib.create({ resolveProject: function () { return resolved; } });
   return Promise.all([
-    resolved.catalogPool ? resolved.catalogPool.query("SELECT count(*)::int AS n FROM sya_products WHERE status IN ('active','updated')").then(function (r) { return r.rows[0].n; }, function () { return null; }) : Promise.resolve(null),
-    resolved.wpPool.query('SELECT count(*)::int AS n FROM wp_product_commercial WHERE project_id = $1 AND selling_price IS NOT NULL', [resolved.project.id]).then(function (r) { return r.rows[0].n; }),
-    resolved.wpPool.query("SELECT count(*)::int AS n FROM wp_stock WHERE project_id = $1 AND availability <> 'unknown'", [resolved.project.id]).then(function (r) { return r.rows[0].n; }),
+    kitchenStatus(resolved),
     resolved.wpPool.query("SELECT count(*)::int AS n FROM wp_knowledge WHERE project_id = $1 AND status = 'active' AND allowed_for_auto_reply", [resolved.project.id]).then(function (r) { return r.rows[0].n; })
   ]).then(function (r) {
+    var k = r[0];
+    var products = k.counts && k.counts.products !== undefined ? Number(k.counts.products) : null;
     return {
-      connected: ports.connected, not_connected: ports.notConnected,
-      catalogue: { configured: !!resolved.catalogPool, reachable: r[0] !== null, active_products: r[0] },
-      verified_prices: r[1], verified_stock: r[2], knowledge_allowed: r[3],
+      connected: k.configured ? ports.connected : [], not_connected: k.configured ? ports.notConnected : ports.notConnected.concat(ports.connected),
+      kitchen: k,
+      // kept for the existing status view: "catalogue" now means the Kitchen the project reads
+      catalogue: { configured: k.configured, reachable: k.reachable, active_products: products, source: k.configured ? 'kitchen:' + k.key : null },
+      price_source: k.configured ? 'kitchen:catalogue (indicative)' : null,
+      knowledge_allowed: r[1],
       required_by_intent: businessData.REQUIRED_BY_INTENT
     };
   });
@@ -178,7 +195,16 @@ function webhookBody(instance, text) {
 function simulate(resolved, text) {
   text = String(text || '').slice(0, 2000);
   var loaded = loadConfig();
-  var vehicles = resolved.catalogPool ? resolved.catalogPool.query('SELECT DISTINCT model_name FROM sya_vehicle_models ORDER BY 1 LIMIT 60').then(function (r) { return r.rows.map(function (x) { return x.model_name; }).filter(function (m) { return /^[A-Za-z0-9][A-Za-z0-9 .-]{0,39}$/.test(m); }); }, function () { return []; }) : Promise.resolve([]);
+  // Vehicle model names for the intent parser come from the project's Kitchen (distinct, bounded); no Kitchen → none.
+  var clientP = resolved.kitchen && typeof resolved.kitchen.listVehicleModels === 'function' ? Promise.resolve(resolved.kitchen) : kitchen.forProject(resolved.wpPool, resolved.project);
+  var vehicles = clientP.then(function (c) {
+    if (!c) return [];
+    return c.listVehicleModels().then(function (r) {
+      if (!r.ok) return [];
+      var seen = {};
+      return r.data.vehicle_models.map(function (m) { return String(m.model_name || ''); }).filter(function (m) { if (seen[m] || !/^[A-Za-z0-9][A-Za-z0-9 .-]{0,39}$/.test(m)) return false; seen[m] = true; return true; }).sort().slice(0, 60);
+    });
+  }, function () { return []; });
   return vehicles.then(function (models) {
     var cfg, instance, source;
     var real = loaded.present && !loaded.problems.length ? (loaded.cfg.projects || []).filter(function (p) { return p && p.id === resolved.project.id; })[0] : null;

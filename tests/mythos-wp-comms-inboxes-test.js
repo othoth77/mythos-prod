@@ -23,7 +23,7 @@ var validate = require(path.join(WP, 'reference/validate'));
 var auth = require(path.join(WP, 'reference/auth'));
 var r = resources.get('inboxes');
 ok(!!r && r.table === 'wp_inboxes' && r.scope === 'wp', 'inboxes resource registered on wp_inboxes');
-ok(r.permissions.write === 'owner' && r.permissions.read === 'operator', 'owner writes, operator reads');
+ok(r.permissions.write === 'admin' && r.permissions.read === 'agent', 'admin writes, agents read');
 var inst = r.fields.filter(function (f) { return f.name === 'instance'; })[0];
 ok(inst && inst.createOnly && !new RegExp(inst.pattern).test('mythos-bridge') && new RegExp(inst.pattern).test('ssangyong-autos'), 'instance pattern refuses mythos-bridge, accepts ssangyong-autos');
 ok(r.fields.filter(function (f) { return f.name === 'status'; })[0].readonly === true, 'status is server-managed');

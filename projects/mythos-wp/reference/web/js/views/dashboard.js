@@ -1,58 +1,68 @@
-/* MYTHOS WP — dashboard: real counts only; unavailable sources show as such. */
-import { h, clear, badge, fmtDate, skeletonRows, errorBox, empty } from '../ui.js';
+/* MYTHOS Control Center — dashboard: WhatsApp / Projects / AI / Infrastructure
+   tiles, alerts, per-project activity. GET /api/dashboard?project=<id|all>. */
+import { h, clear, badge, fmtDate, relTime, skeletonRows, errorBox, empty, pageHead, cardHead, simpleTable } from '../ui.js';
 
 function stat(label, value, sub, tone, href) {
   const na = value === null || value === undefined;
-  const card = h(href ? 'a' : 'div', { class: 'card stat link ' + (na ? '' : tone || ''), href: href || undefined },
+  return h(href ? 'a' : 'div', { class: 'card stat link ' + (na ? '' : tone || ''), href: href || undefined },
     h('span', { class: 'stat-label' }, label),
     h('span', { class: 'stat-value' + (na ? ' na' : '') }, na ? 'unavailable' : Number(value).toLocaleString()),
     sub ? h('span', { class: 'stat-sub' }, sub) : null);
-  return card;
+}
+function group(title, tiles, link) {
+  return h('section', { class: 'dash-group' }, h('div', { class: 'dash-group-head' }, h('h3', {}, title), link ? h('a', { class: 'btn btn-ghost btn-sm', href: link.href }, link.label) : null), h('div', { class: 'grid cols-4' }, tiles));
 }
 
 export async function render(main, params, query, ctx) {
   ctx.crumbs([{ label: 'Dashboard' }]);
-  const p = ctx.projectRow();
-  if (!p) { main.appendChild(empty('No project', 'Create a project in Projects to start managing data.', h('a', { class: 'btn btn-primary', href: '#/r/projects/new' }, 'New project'))); return; }
-  main.appendChild(h('div', { class: 'view-head' }, h('div', {}, h('div', { class: 'view-kicker' }, p.domain || p.id), h('h2', {}, 'Dashboard'), h('p', {}, 'Operational state of ', p.display_name, '. Every figure is a live count; nothing is estimated.'))));
+  const project = ctx.project();
+  const row = ctx.projectRow();
+  const pq = project === 'all' ? '' : '&project=' + encodeURIComponent(project);
+  main.appendChild(pageHead(row ? (row.domain || row.id) : 'All projects', 'Dashboard', row ? 'Operational state of ' + row.display_name + '. Every figure is a live count; nothing is estimated.' : 'Operational state across every project you can access. Every figure is a live count; nothing is estimated.'));
   const body = h('div', { class: 'stack' }, skeletonRows(4)); main.appendChild(body);
   let d;
-  try { d = await ctx.api.get('/api/projects/' + p.id + '/dashboard'); } catch (err) { clear(body); body.appendChild(errorBox(err, () => render(clear(main), params, query, ctx))); return; }
+  try { d = await ctx.api.get('/api/dashboard' + ctx.api.qs({ project })); } catch (err) { clear(body); body.appendChild(errorBox(err, () => render(clear(main), params, query, ctx))); if (err.status === 404) body.appendChild(fallback(ctx)); return; }
   clear(body);
-  const c = d.cards;
-  if (d.catalogue.available === false) body.appendChild(h('div', { class: 'notice danger' }, h('strong', {}, 'Catalogue unavailable. '), 'Reason: ' + d.catalogue.reason + '. Catalogue-backed figures are shown as unavailable rather than zero.'));
-  body.appendChild(h('div', { class: 'grid cols-4' },
-    stat('Total records', c.total_records, 'catalogue parts', '', '#/r/products'),
-    stat('Active parts', c.active_products, 'status active / updated', 'ok', '#/r/products?f.status=active'),
-    stat('Missing verified price', c.missing_prices, 'active parts without a selling price', c.missing_prices > 0 ? 'warn' : 'ok', '#/pricing?f.missing_selling=true'),
-    stat('Missing OEM reference', c.missing_references, 'no cross-reference recorded', c.missing_references > 0 ? 'warn' : 'ok', '#/references?f.missing_oem=true'),
-    stat('Low stock', c.low_stock, 'quantity at or below minimum', c.low_stock > 0 ? 'danger' : 'ok', '#/stock?f.low=true'),
-    stat('Stock untracked', c.stock_untracked, 'active parts without a stock record', c.stock_untracked > 0 ? 'warn' : 'ok', '#/stock'),
-    stat('Modified (7 days)', c.recently_modified, 'catalogue parts updated', '', '#/r/products?sort=updated_at&dir=desc'),
-    stat('Open handoffs', c.handoff_open, 'NEW · REQUIRES_HUMAN · IN_PROGRESS', c.handoff_open > 0 ? 'danger' : 'ok', '#/r/handoffs')
-  ));
-  const s = d.catalogue.available === false ? null : d.catalogue.structure;
-  body.appendChild(h('div', { class: 'grid cols-3' },
-    h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, 'Catalogue structure')), s ? h('dl', { class: 'kv' },
-      h('dt', {}, 'Vehicle models'), h('dd', {}, String(s.models)), h('dt', {}, 'Motorizations'), h('dd', {}, String(s.motorizations)),
-      h('dt', {}, 'Compatibility rows'), h('dd', {}, String(s.compatibility)), h('dt', {}, 'Images'), h('dd', {}, String(s.images)),
-      h('dt', {}, 'Parts without fitment'), h('dd', {}, badge(String(s.without_compatibility), s.without_compatibility ? 'warn' : 'ok')),
-      h('dt', {}, 'Parts without image'), h('dd', {}, badge(String(s.without_images), s.without_images ? 'warn' : 'ok'))) : h('p', {}, 'Unavailable.')),
-    h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, 'MYTHOS AUTO data layer'), h('a', { class: 'btn btn-ghost btn-sm', href: '#/autoreply' }, 'Control centre')),
-      h('dl', { class: 'kv' },
-        h('dt', {}, 'Verified prices'), h('dd', {}, String(d.panel.commercial.priced_active === null ? '—' : d.panel.commercial.priced_active)),
-        h('dt', {}, 'Stock tracked'), h('dd', {}, String(d.panel.stock.tracked)), h('dt', {}, 'In stock'), h('dd', {}, String(d.panel.stock.in_stock)),
-        h('dt', {}, 'Knowledge allowed'), h('dd', {}, String(d.panel.knowledge.active_allowed) + ' / ' + d.panel.knowledge.total),
-        h('dt', {}, 'Business rules'), h('dd', {}, String(d.panel.rules_enabled) + ' enabled')),
-      h('p', {}, 'Price, stock, compatibility and references reach the auto-reply only when verified here; anything else is REQUIRES_HUMAN.')),
-    h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, 'Handoff queue'), h('a', { class: 'btn btn-ghost btn-sm', href: '#/r/handoffs' }, 'Open')),
-      h('div', { class: 'fact-list' }, ['NEW', 'REQUIRES_HUMAN', 'IN_PROGRESS', 'RESOLVED'].map((st) => h('a', { class: 'fact', href: '#/r/handoffs?f.status=' + st }, badge(st), h('strong', {}, String(d.panel.handoffs[st] || 0))))))
-  ));
+  const w = d.whatsapp || {}, p = d.projects || {}, a = d.ai || {};
+  const alerts = d.alerts || [];
+  if (alerts.length) body.appendChild(h('div', { class: 'card alerts' }, cardHead('Alerts', [badge(alerts.length + ' open', alerts.some((x) => x.level === 'error') ? 'danger' : 'warn')]),
+    h('div', { class: 'alert-list' }, alerts.map((x) => h('div', { class: 'alert ' + (x.level || 'warning') }, badge(x.level || 'warning'), h('strong', {}, x.component || '—'), h('span', {}, x.message || ''), h('span', { class: 'when' }, relTime(x.at)))))));
+  body.appendChild(group('WhatsApp', [
+    stat('Conversations', w.conversations, 'live conversations', '', '#/inbox?view=all' + pq),
+    stat('Unread', w.unread, 'messages awaiting a look', w.unread > 0 ? 'warn' : 'ok', '#/inbox?view=unread' + pq),
+    stat('Handled by AI', w.ai, 'handler = AI', 'info', '#/inbox?view=ai' + pq),
+    stat('Handled by humans', w.human, 'handler = human', '', '#/inbox?view=human' + pq),
+    stat('Waiting on customer', w.waiting, 'status waiting_customer', '', '#/inbox?view=waiting' + pq),
+    stat('Needs attention', w.needs_attention, 'needs_human · open handoffs', w.needs_attention > 0 ? 'danger' : 'ok', '#/inbox?view=attention' + pq)
+  ], { label: 'Open inbox', href: '#/inbox' }));
+  body.appendChild(group('Projects', [
+    stat('Active projects', p.active, 'status active', 'ok', '#/projects'),
+    stat('Total projects', p.total, 'all statuses', '', '#/projects')
+  ], { label: 'All projects', href: '#/projects' }));
+  body.appendChild(group('AI', [
+    stat('Active agents', a.active_agents, 'agents in service', 'info', '#/ai?tab=agents'),
+    stat('Handled (24 h)', a.handled_24h, 'AI runs', '', '#/ai?tab=runs'),
+    stat('Handoffs (24 h)', a.handoffs_24h, 'AI → human', a.handoffs_24h > 0 ? 'warn' : '', '#/inbox?view=attention' + pq),
+    stat('Errors (24 h)', a.errors_24h, 'failed runs', a.errors_24h > 0 ? 'danger' : 'ok', '#/ai?tab=runs')
+  ], { label: 'AI centre', href: '#/ai' }));
+  const infra = d.infrastructure || [];
   body.appendChild(h('div', { class: 'grid cols-2' },
-    h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, 'Recently modified parts')),
-      s && d.catalogue.recent.length ? h('div', { class: 'table-wrap' }, h('table', { class: 'data compact' }, h('tbody', {}, d.catalogue.recent.map((r) => h('tr', { onClick: () => { location.hash = '#/part/' + encodeURIComponent(r.product_uid); } }, h('td', { class: 'mono' }, r.canonical_reference), h('td', {}, r.product_title), h('td', {}, badge(r.status)), h('td', { class: 'mono dim' }, fmtDate(r.updated_at))))))) : h('p', {}, 'No catalogue data.')),
-    h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, 'Recent activity'), h('a', { class: 'btn btn-ghost btn-sm', href: '#/r/audit' }, 'Audit log')),
-      d.recent_audit.length ? h('div', { class: 'timeline' }, d.recent_audit.map((e) => h('div', { class: 'ev' }, h('span', { class: 'when' }, fmtDate(e.at)), h('span', { class: 'what' }, h('strong', {}, e.actor), ' ', badge(e.action), ' ', e.resource, e.record_id ? h('code', {}, ' #' + e.record_id) : null, e.changed_fields && e.changed_fields.length ? h('code', {}, ' ' + e.changed_fields.slice(0, 4).join(', ')) : null)))) : h('p', {}, 'No audited change yet.'))
+    h('div', { class: 'card' }, cardHead('Infrastructure', [h('a', { class: 'btn btn-ghost btn-sm', href: '#/health' }, 'Health center')]),
+      infra.length ? h('div', { class: 'health-grid compact' }, infra.map((c) => h('div', { class: 'health-item ' + (c.status || 'unknown') }, h('span', { class: 'status-dot ' + ({ ok: 'ok', warning: 'warn', error: 'danger', disconnected: 'danger' }[c.status] || '') }), h('span', { class: 'health-name' }, c.component), badge(c.status || 'unknown'), h('span', { class: 'dim' }, typeof c.detail === 'string' ? c.detail : (c.detail && (c.detail.reason || c.detail.detail)) || ''), h('span', { class: 'when' }, relTime(c.checked_at))))) : h('p', {}, 'No health check recorded yet.')),
+    h('div', { class: 'card' }, cardHead('Activity per project (24 h)', [h('a', { class: 'btn btn-ghost btn-sm', href: '#/projects' }, 'Projects')]),
+      (p.activity || []).length ? simpleTable([
+        { label: 'Project', cell: (r) => h('a', { href: '#/projects/' + encodeURIComponent(r.id) }, r.display_name || r.id) },
+        { label: 'Conversations', cell: (r) => String(r.conversations_24h === undefined ? '—' : r.conversations_24h), cls: 'num' },
+        { label: '', cell: (r) => h('a', { class: 'btn btn-ghost btn-sm', href: '#/inbox?view=all&project=' + encodeURIComponent(r.id) }, 'Inbox'), stop: true }
+      ], p.activity, { compact: true, noScroll: true }) : empty('No activity', 'No conversation in the last 24 hours.'))
   ));
-  body.appendChild(h('p', { class: 'dim', style: undefined }, h('small', {}, 'Generated ' + fmtDate(d.generated_at))));
+  body.appendChild(h('p', { class: 'dim' }, h('small', {}, 'Generated ' + fmtDate(d.generated_at))));
+}
+
+/* Until /api/dashboard exists the page still offers the way in. */
+function fallback(ctx) {
+  return h('div', { class: 'grid cols-4' },
+    stat('Inbox', null, 'open the inbox', '', '#/inbox'),
+    stat('Projects', ctx.projects().length, 'known to this panel', '', '#/projects'),
+    stat('Health', null, 'process health', '', '#/health'));
 }
