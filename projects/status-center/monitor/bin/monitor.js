@@ -286,22 +286,51 @@ function probeGuardian(p) {
       var installed = !!(p.installed_marker && fs.existsSync(p.installed_marker));
       if (!installed) {
         return Promise.resolve({
-          state: 'NOT_MONITORED',
-          error: null,
+          state: 'NOT_MONITORED', error: null,
+          detail: { lifecycle: 'NOT_INSTALLED' },
           note: 'MYTHOS Guardian is not installed on this host; nothing is expected to report here yet'
+        });
+      }
+      // Installed but deliberately switched off is DISABLED, not DOWN. An
+      // operator who turned the timer off did not create an outage.
+      if (p.enabled_marker && !fs.existsSync(p.enabled_marker)) {
+        return Promise.resolve({
+          state: 'NOT_MONITORED', error: null,
+          detail: { lifecycle: 'DISABLED' },
+          note: 'MYTHOS Guardian is installed but its timer is disabled; this is an operator decision, not an outage'
         });
       }
       return Promise.resolve({ state: 'DOWN', error: 'Guardian is installed but has produced no report at ' + p.file });
     }
     var r = JSON.parse(fs.readFileSync(p.file, 'utf8'));
     var ageS = Math.round((Date.now() - Date.parse(r.generated_at || '')) / 1000);
+    var rem = (r.guardian && r.guardian.remediation) || {};
+    // Guardian's own lifecycle, distinct from the probe state. The probe
+    // state answers "is the observer healthy"; the lifecycle answers "what
+    // posture is it in", which is what a reader of the board wants to know
+    // before trusting anything else on it.
+    //   NOT_INSTALLED  no report and no timer            (-> NOT_MONITORED)
+    //   DISABLED       installed, timer off               (-> NOT_MONITORED)
+    //   OBSERVE_ONLY   running, taking no action
+    //   ACTIVE         running with remediation enabled
+    //   DEGRADED       running, some input missing
+    //   EMERGENCY      running, and the host is at EMERGENCY
+    var lifecycle;
+    if (r.guardian && r.guardian.state === 'BLIND') lifecycle = 'DEGRADED';
+    else if (r.host && r.host.level === 'EMERGENCY') lifecycle = 'EMERGENCY';
+    else if (r.guardian && r.guardian.state !== 'OK') lifecycle = 'DEGRADED';
+    else if (rem.remediation_available) lifecycle = 'ACTIVE';
+    else lifecycle = 'OBSERVE_ONLY';
     var out = {
       detail: {
+        lifecycle: lifecycle,
         guardian_state: r.guardian && r.guardian.state,
         host_level: r.host && r.host.level,
         host_partial: !!(r.host && r.host.partial),
         observed_domains: r.guardian && r.guardian.observed_domains,
-        remediation_available: !!(r.guardian && r.guardian.remediation && r.guardian.remediation.remediation_available),
+        remediation_available: !!rem.remediation_available,
+        enabled_flags: rem.enabled_flags || [],
+        actions_taken: (r.actions || []).filter(function (a) { return a.mode === 'executed'; }).length,
         report_age_s: isFinite(ageS) ? ageS : null,
         tick: r.tick
       }

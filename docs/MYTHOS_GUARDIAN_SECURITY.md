@@ -239,10 +239,59 @@ step `CAPABILITIES` with status `218` before `ExecStart` was reached — the
 service never ran at all. They were also pointless: a uid-1001 process has no
 capabilities to drop.
 
-## 6. If Guardian is ever given remediation
+## 6. Remediation (V1)
 
-Not in this version. When it is, the controls above define what has to change
-and what must not:
+Remediation exists and is **off by default**: `observe_only` is true and every
+`allow_*` flag is false. The controls above are unchanged; these are added.
+
+**A second allowlist, never merged with the first.** `ACTION_COMMANDS` holds
+three argv prefixes: `npm cache clean --force`, `docker builder prune --force
+--filter`, `systemctl --user restart`. The suite asserts the two are disjoint.
+Absent permanently: `docker system prune`, `docker volume prune`,
+`docker rm`/`rmi`, `systemctl stop`/`kill`/`disable`, anything with `-a`,
+`kill`, `pkill`, `rm`, `chmod`, `chown`, `git`.
+
+**A channel that is disarmed.** `io.armed` is false at every moment except
+inside one deliberate operation, set by `remediate.js` and cleared in a
+`finally`. An allowlisted action attempted while disarmed returns
+`{refused: true, error: 'action_channel_disarmed'}`.
+
+```bash
+mythos-guardian selftest    # action-channel-disarmed, action-allowlist,
+                            # allowlists-disjoint, protected-resources
+```
+
+**Ten gates**, in order, with the failing one recorded: `observe_only`,
+`flag`, `registry`, `level`, `precondition`, `protected`, `allowlist`,
+`cooldown`, `rate_limit`, `budget`. A dry run evaluates all ten identically
+and stops before execution, so `--dry-run` reports what would happen under the
+real gates rather than under a simplified copy of them.
+
+**`PROTECTED`, at gate 6.** Refuses by substring — `mythos-backups`,
+`backup-health`, `.ssh`, `id_ed25519`, `.env`, `secrets`, `credential`,
+`postgres`, `mysql`, `mariadb`, `erp`, `.git`, `mythos-prod`, `idauto`,
+`piece`, `ssangyong`, `dar-hijama` — and by unit name for thirteen units.
+Verified two ways on the host: a configuration naming `erp-api` restartable is
+rejected and the whole override falls back to defaults; and bypassing
+validation entirely, a forged target still hits `PROTECTED` before the
+allowlist is consulted.
+
+**Still no delete primitive.** `io` exposes no `unlink`, `rm`, `rmdir`,
+`chmod` or `chown`. Disk remediation removes only derived data, by named
+command. See `MYTHOS_GUARDIAN_CLEANUP_POLICY.md`.
+
+**One write outside the state directory.** `publishAdvisory()` writes one
+named file in one configured directory, refusing a name containing a separator
+or a dot-segment, and refusing a symlinked destination — the same discipline
+as the Option C publication in #286.
+
+**The scheduled tick never acts.** `engine.run()` passes
+`execute_actions: false` unconditionally, so the timer observes and only
+`remediate --execute` changes anything.
+
+### If remediation is extended
+
+The controls above define what has to change and what must not:
 
 - The `READ_COMMANDS` allowlist must not be widened. A mutating action belongs
   in a **separate**, separately-gated allowlist with its own per-action

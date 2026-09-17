@@ -4,12 +4,16 @@ Guardian is the VPS's host-health observer. It reads what the existing
 components already know, decides one deterministic level for the host, and
 writes that down.
 
-**This version does nothing else.** It cannot kill a process, restart a
-unit, stop a service, delete a file, clean a cache or prune anything. There
-is no such code in it. Everything below is written on that assumption, and
-§6 explains how the assumption is enforced rather than merely stated.
+**It takes no action unless you deliberately turn that on**, and even then it
+has no kill and no delete. Out of the box `observe_only` is true and every
+remediation flag is false, so Guardian reports and does nothing else.
 
-Version 0.1.0. Last updated 2026-09-16.
+When remediation is enabled it can do exactly four things, listed in §7, each
+a static entry in `ops/guardian/lib/actions.js` behind ten gates. There is no
+runtime path that can add a fifth. §6 explains how that is enforced rather
+than merely stated.
+
+Version 1.0.0. Last updated 2026-09-17.
 
 ---
 
@@ -139,7 +143,7 @@ is a WARNING, beyond 50 is FAILED, and a missing required record is FAILED —
 never assumed healthy. Restore tests are read from their systemd unit results;
 a backup that has never been restored is not yet a backup.
 
-## 6. Observe-only, and how that is enforced
+## 6. The boundary, and how it is enforced
 
 Four independent mechanisms, because a comment is not a control:
 
@@ -178,7 +182,46 @@ does.
 
 `mythos-guardian selftest` proves points 1–3 on the host it runs on.
 
-## 7. Using it
+## 7. What it can do, if you let it
+
+Nothing, by default. With `observe_only: false` and the matching flag:
+
+| Action | Domain | From | Reversible |
+|---|---|---|---|
+| `ACTION_CLEAR_NPM_CACHE` | disk | HIGH | fully — npm re-downloads |
+| `ACTION_PRUNE_DOCKER_BUILD_CACHE` | disk | HIGH | the next build rebuilds those layers |
+| `ACTION_PUBLISH_ADMISSION_ADVISORY` | sessions | WARNING | fully — one small advisory file |
+| `ACTION_RESTART_APPROVED_SERVICE` | services | WARNING | a restart; support units only |
+
+Ten gates, in order, and the plan records the first one each action failed:
+
+```
+observe_only · flag · registry · level · precondition
+protected · allowlist · cooldown · rate_limit · budget
+```
+
+`observe_only` beats an enabled flag. `PROTECTED` refuses ERP, every database,
+backups, credentials, repositories and production containers — at gate 6,
+before the command allowlist is consulted — and configuration cannot promote a
+unit past it.
+
+**The scheduled tick never acts.** `run` is always observation; acting is
+`remediate --execute`, so a timer and a deliberate change can never be
+confused for one another.
+
+What it deliberately cannot do, and why, is in
+`docs/MYTHOS_GUARDIAN_CLEANUP_POLICY.md`. The short version: it removes
+**derived data by named command**, never anything chosen by path, and it still
+has no delete primitive at all.
+
+```bash
+mythos-guardian actions           # everything it can ever do
+mythos-guardian remediate         # what it would do right now, and why not
+mythos-guardian remediate --execute
+mythos-guardian audit             # what it actually did
+```
+
+## 8. Using it
 
 ```bash
 mythos-guardian run --dry-run     # observe, write nothing
@@ -207,7 +250,7 @@ State lives in `~/.local/state/mythos-guardian`: `state.json` (hysteresis),
 `report.json` (the last verdict, which the Status Center probe reads),
 `ticks.jsonl` and `incidents.jsonl`.
 
-## 8. Installing it
+## 9. Installing it
 
 ```bash
 ops/guardian/install-guardian.sh              # install, do not schedule
@@ -233,7 +276,7 @@ systemctl --user daemon-reload
 The state directory is left in place — it is Guardian's own history, and
 removing it is a separate decision.
 
-## 9. Files
+## 10. Files
 
 ```
 ops/guardian/lib/levels.js       the ladder and hysteresis (pure)
@@ -244,16 +287,21 @@ ops/guardian/lib/classify.js     per-domain verdicts (pure)
 ops/guardian/lib/engine.js       tick, roll-up, incidents, persistence
 ops/guardian/lib/report.js       text and OTH incident rendering
 ops/guardian/lib/scenarios.js    33 dry-run scenarios
+ops/guardian/lib/actions.js      every action that can ever exist
+ops/guardian/lib/remediate.js    the ten gates, planning, audit
 ops/guardian/bin/mythos-guardian the CLI
 ops/guardian/systemd/            the deploy user service and timer
 ops/guardian/install-guardian.sh the installer
 tests/guardian-test.js           310 assertions, fully isolated
 ```
 
-## 10. Related
+## 11. Related
 
-- `docs/MYTHOS_GUARDIAN_DECISIONS.md` — why it is shaped this way, including
-  what PR #283 got wrong.
+- `docs/MYTHOS_GUARDIAN_ARCHITECTURE.md` — how it is put together.
+- `docs/MYTHOS_GUARDIAN_DECISIONS.md` — why, including what was wrong first.
 - `docs/MYTHOS_GUARDIAN_RUNBOOK.md` — what to do when Guardian says something.
+- `docs/MYTHOS_GUARDIAN_SECURITY.md` — what is enforced, measured not assumed.
+- `docs/MYTHOS_GUARDIAN_CLEANUP_POLICY.md` — what it may and may not remove.
+- `docs/MYTHOS_GUARDIAN_INCIDENTS.md` — the incident record and how to read it.
 - `docs/MYTHOS_SESSION_GUARD.md`, the Resource Guard header comment, and
   `docs/STATUS_CENTER.md` for the components Guardian reads.

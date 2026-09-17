@@ -265,6 +265,7 @@
       "type": "guardian",
       "file": "/home/deploy/.local/state/mythos-guardian/report.json",
       "installed_marker": "/home/deploy/.config/systemd/user/mythos-guardian.timer",
+      "enabled_marker": "/home/deploy/.config/systemd/user/timers.target.wants/mythos-guardian.timer",
       "max_age_seconds": 900,
       "enabled": true,
       "note": "ADDED 2026-09-16 (GUARDIAN-V0). Reports GUARDIAN health, never host health — memory, disk, services and backups already have their own probes here, and duplicating them would double-count one outage. NOT_INSTALLED IS NOT DOWN: with no report file and no installed timer this reads NOT_MONITORED, because software the owner has not deployed is not an outage. That distinction is the reason this probe exists; the PR #283 version would have shown DOWN the moment it merged, before anything was installed. DOWN is reserved for a Guardian that IS installed and has either stopped reporting for more than max_age_seconds or gone BLIND (installed, running, and unable to read any signal) — in both cases the observer itself has failed and every green state below it is unverified. DEGRADED means Guardian is reporting but some input is missing; the host may well be fine."
