@@ -103,7 +103,15 @@ function complete(prompt, opts) {
       var status = registry.statusFromOutcome(outcome);
       registry.persistHealthRecord(c.provider_id, status, outcome, opts);
       reputation.recordOutcome('free-llm:' + c.provider_id, 'chat', status === registry.STATUS.ACTIVE);
-      attempts.push({ provider_id: c.provider_id, model_id: c.model_id, status: status, ok: status === registry.STATUS.ACTIVE });
+      attempts.push({
+        provider_id: c.provider_id, model_id: c.model_id, status: status, ok: status === registry.STATUS.ACTIVE,
+        // OTHMODE V2: the per-attempt reason travels up to the task record, so
+        // "pool exhausted" is never the whole story.
+        reason: status === registry.STATUS.ACTIVE ? null : String((outcome.parsed && outcome.parsed.result) || '').slice(0, 300) || null,
+        http_status: typeof outcome.http_status === 'number' ? outcome.http_status : null,
+        timed_out: !!outcome.timed_out,
+        duration_ms: typeof outcome.duration_ms === 'number' ? outcome.duration_ms : null
+      });
       if (status === registry.STATUS.ACTIVE) {
         return { ok: true, provider_id: c.provider_id, model_id: c.model_id, text: outcome.parsed.result, outcome: outcome, attempts: attempts };
       }

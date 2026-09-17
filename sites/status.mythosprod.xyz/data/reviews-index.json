@@ -310,9 +310,37 @@
     },
     {
       "review_id": "REVIEW-2026-09-17-004",
-      "timestamp": "2026-09-17T18:56:52.312Z",
+      "timestamp": "2026-09-17T19:00:05.801Z",
       "file": "reviews/2026/2026-09-17-review-004.json",
       "head": "96150e099dfe19561ba4726b6e67a11adeffaa6a",
+      "blockers": 6
+    },
+    {
+      "review_id": "REVIEW-2026-09-17-005",
+      "timestamp": "2026-09-17T22:12:33.392Z",
+      "file": "reviews/2026/2026-09-17-review-005.json",
+      "head": "2ec7f2c260a9eb98e154108f0af73b59e16336c3",
+      "blockers": 6
+    },
+    {
+      "review_id": "REVIEW-2026-09-17-006",
+      "timestamp": "2026-09-17T22:35:08.975Z",
+      "file": "reviews/2026/2026-09-17-review-006.json",
+      "head": "0bb04e53987af349a4682ac68f3f03f512601438",
+      "blockers": 6
+    },
+    {
+      "review_id": "REVIEW-2026-09-17-007",
+      "timestamp": "2026-09-17T22:44:35.286Z",
+      "file": "reviews/2026/2026-09-17-review-007.json",
+      "head": "0bb04e53987af349a4682ac68f3f03f512601438",
+      "blockers": 6
+    },
+    {
+      "review_id": "REVIEW-2026-09-17-008",
+      "timestamp": "2026-09-17T23:32:08.773Z",
+      "file": "reviews/2026/2026-09-17-review-008.json",
+      "head": "4c2f7d7aa364947a7c46721ae3ce649b84bdaa65",
       "blockers": 6
     }
   ]

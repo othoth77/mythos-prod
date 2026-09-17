@@ -1,6 +1,6 @@
 {
-  "review_id": "REVIEW-2026-09-17-004",
-  "timestamp": "2026-09-17T19:00:05.801Z",
+  "review_id": "REVIEW-2026-09-17-005",
+  "timestamp": "2026-09-17T22:12:33.392Z",
   "engine_version": "1.0.0",
   "audited_sources": {
     "repository": "https://github.com/othoth77/mythos-prod.git",
@@ -8,21 +8,36 @@
     "pr_ledger_captured_at": "2026-08-26T13:58:00Z",
     "repo_snapshot_captured_at": "2026-09-02T19:32:00Z",
     "documents_checked": 24,
-    "evidence_checked": 148
+    "evidence_checked": 149
   },
   "git": {
     "collected": true,
-    "head": "96150e099dfe19561ba4726b6e67a11adeffaa6a",
-    "branch": "mythos/casse-closure-20260917",
-    "origin_main": "96150e099dfe19561ba4726b6e67a11adeffaa6a",
+    "head": "2ec7f2c260a9eb98e154108f0af73b59e16336c3",
+    "branch": "mythos/session-guard-turn-clock-status-20260917",
+    "origin_main": "2ec7f2c260a9eb98e154108f0af73b59e16336c3",
     "remote_url": "https://github.com/othoth77/mythos-prod.git",
     "worktree_clean": false,
     "last_commit": {
-      "hash": "96150e099dfe19561ba4726b6e67a11adeffaa6a",
-      "date": "2026-09-17T17:00:32Z",
-      "subject": "status-center: session-guard enforcement ENABLED — and it has signalled nothing (#306)"
+      "hash": "2ec7f2c260a9eb98e154108f0af73b59e16336c3",
+      "date": "2026-09-17T22:06:45Z",
+      "subject": "fix(session-guard): the idle clock never advanced, so no threshold could work (#308)"
     },
     "recent_commits": [
+      {
+        "hash": "2ec7f2c2",
+        "date": "2026-09-17",
+        "subject": "fix(session-guard): the idle clock never advanced, so no threshold could work (#308)"
+      },
+      {
+        "hash": "baf7cd30",
+        "date": "2026-09-17",
+        "subject": "Merge pull request #311 from othoth77/mythos/casse-closure-20260917"
+      },
+      {
+        "hash": "4d44a272",
+        "date": "2026-09-17",
+        "subject": "status-center: Casse.Autos engineering closure 2026-09-17 (main 89c636d) — stays OWNER_ACTION / TESTED, not deployed"
+      },
       {
         "hash": "96150e09",
         "date": "2026-09-17",
@@ -1007,21 +1022,6 @@
         "hash": "2ac47fb7",
         "date": "2026-09-05",
         "subject": "erp: Phase 0–2 gates (STATE LOCK, BACKUP=PASS, DATABASE=PASS) — evidence, grant-matrix alignment"
-      },
-      {
-        "hash": "34af9dc6",
-        "date": "2026-09-05",
-        "subject": "Merge pull request #199 from othoth77/mythos/wp-20260905"
-      },
-      {
-        "hash": "d5a6ff57",
-        "date": "2026-09-05",
-        "subject": "Merge remote-tracking branch 'origin/main' into mythos/wp-20260905"
-      },
-      {
-        "hash": "52c449e2",
-        "date": "2026-09-05",
-        "subject": "docs: reconcile GitHub Telegram bridge and close PR 188"
       }
     ],
     "commit_count": null,
@@ -2100,10 +2100,10 @@
       "status": "DONE",
       "maturity": "PRODUCTION_VERIFIED",
       "repository": "othoth77/mythos-prod",
-      "last_change": "2026-09-17 (remediation V1 live; session-guard enforcement enabled 16:53)",
+      "last_change": "2026-09-17 (session-guard idle-clock fix #308 deployed, enforcement still OFF by owner decision)",
       "blocker": null,
-      "next_action": "Watch the session guard now that enforcement is on: it has planned and applied nothing so far, and the first real termination will be its first ever. Remaining owner decision: Guardian services.restartable is empty, because choosing whether oth-knowledge-http or spy-monitor should auto-restart belongs to whoever owns them.",
-      "headline": "Installed and enabled: timer every 2 min, guardian OK observing 5/5 domains, remediation ON for disk and the admission advisory with on_schedule true. Session-guard ENFORCEMENT also enabled 2026-09-17 16:53 and has signalled nothing — every session vetoed by the fence chain. Guardian itself has no kill and no delete path at any level.",
+      "next_action": "Owner decision: re-enable session-guard enforcement now that its idle clock actually works (verified plan: 3 sessions idle 3+ days would SIGTERM, 9 more idle-eligible but capped at 3/run, 0 false positives found). Also open: whether Guardian services.restartable should name a support unit, and the ongoing live memory CRITICAL incident on the host.",
+      "headline": "Installed and enabled: timer every 2 min, guardian OK/DEGRADED observing 5/5 domains (currently tracking a live host memory CRITICAL incident), remediation ON for disk and the admission advisory with on_schedule true. Session-guard's idle clock was found structurally broken (0 idle seconds forever) and fixed in #308 (deployed, non-enforcing). Enforcement marker remains OFF by explicit owner decision; the guard now correctly identifies 3 sessions idle 3+ days via the transcript-turn clock but signals nothing.",
       "dimensions": {
         "roadmap": {
           "percent": 100,
@@ -2138,7 +2138,8 @@
         "EV-GUARDIAN-INCIDENT-0916",
         "EV-GUARDIAN-TESTS",
         "EV-GUARDIAN-DOCS",
-        "EV-SESSION-GUARD-ENFORCE"
+        "EV-SESSION-GUARD-ENFORCE",
+        "EV-SESSION-GUARD-TURNIDLE-FIX"
       ]
     }
   ],
@@ -5741,6 +5742,14 @@
       "date": "2026-09-17",
       "note": "typecheck 0 · lint 0 · vitest 480 + 20 Postgres (500) · Postgres suites in CI · smoke 71 · Playwright 37 · audit 0. Rehearsed on loopback from the CI artifact against the real Kitchen with empty jsonl stores: every route 200/404 as documented, honest empty state, 'Canal WhatsApp non configuré', security headers, sitemap 8 URLs. NOT deployed: casse.autos still resolves to OVH parking (C-O2); no unit, vhost, env or release directory exists on the host. Ten merged branches deleted; 0 open PRs; 0 open issues.",
       "evidence_status": "RECORDED"
+    },
+    {
+      "id": "EV-SESSION-GUARD-TURNIDLE-FIX",
+      "type": "vps",
+      "reference": "PR #308 (2ec7f2c) + live verification on vps-4722f0a9, 2026-09-17 21:49-22:10",
+      "date": "2026-09-17",
+      "note": "Root cause found and fixed: session-guard's CPU-based idle clock could never advance for a Claude session (idle ccd-cli still burns CPU), so ALL 17 live sessions read exactly 0 idle seconds regardless of threshold — the guard was structurally incapable of reclaiming anything. #308 lets the guard consult a PARTIAL lifecycle snapshot for its own turn-idle clock (previously withheld entirely if any home was denied). Safety property verified directly: a session absent from a partial snapshot gets turn_idle=null and falls back unchanged to the CPU-idle path, so it is never made MORE eligible for termination. Verified read-only under real CAP_KILL restriction with a genuinely partial snapshot (denied_homes=1): 3 sessions now correctly identified as idle 3+ days via the transcript-turn clock (pids 1073889, 2225584, 2225532), 9 more idle-eligible but capped by max_terminations_per_run, and 0 signals sent throughout verification. Merged and deployed as the NON-ENFORCING fix only; the enable marker was explicitly left OFF (removed if present) both before and after deployment. Confirmed live in production's own observe-mode ledger post-deploy: planned=3, applied=0.",
+      "evidence_status": "RECORDED"
     }
   ],
   "prs": [
@@ -6570,15 +6579,9 @@
       "authority": "historical evidence only — reconcile before trusting"
     }
   ],
-  "previous_review": "REVIEW-2026-09-17-003",
+  "previous_review": "REVIEW-2026-09-17-004",
   "changes": {
-    "added": [
-      {
-        "id": "TRACK-CASSE-RELEASE/STAGE-CASSE-ENGINEERING-CLOSED",
-        "what": "stage added",
-        "to": "DONE"
-      }
-    ],
+    "added": [],
     "completed": [],
     "unblocked": [],
     "blocked": [],
@@ -6588,13 +6591,7 @@
     "new_blockers": [],
     "removed_blockers": [],
     "new_owner_actions": [],
-    "percent_changes": [
-      {
-        "id": "TRACK-CASSE-RELEASE",
-        "from": 33,
-        "to": 43
-      }
-    ],
+    "percent_changes": [],
     "new_projects": []
   }
 }
