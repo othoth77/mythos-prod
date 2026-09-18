@@ -1109,6 +1109,13 @@
       "reference": "othoth77/casse.autos PR #14 (provider onboarding: candidate registry, Genac France and Autoparts24 paths) — CI run 35330826183; src/providers/candidates.ts, docs/PROVIDER_ONBOARDING.md, docs/PROVIDER_RUNBOOK.md, docs/SUPPLIER_REQUEST_TEMPLATE_FR.md, docs/SUPPLIER_REQUEST_TEMPLATE_EN.md",
       "date": "2026-09-18",
       "note": "A typed, fail-closed onboarding registry (src/providers/candidates.ts) now tracks candidate providers through a nine-state lifecycle (DISCOVERED..LIVE, BLOCKED, REJECTED), distinct from ProviderPolicy (needs a live adapter) and the consented supplier list (needs real, evidenced consent, lives outside the repo). It fails closed at module load if any entry claims a status presupposing contact/consent/code that has not happened. Genac France (confirmed manual NEW-parts wholesale channel to Tunisia) and Autoparts24 (ships USED parts to Tunisia on its own storefront, but NO wholesale/API channel is confirmed to exist — weaker evidence than Genac) are both CONTACT_REQUIRED, with an executable owner-action checklist each (docs/PROVIDER_ONBOARDING.md). AUTO10/eBay/TecAlliance carried over as REJECTED/BLOCKED with cited reasons. Two unsent, generic supplier-request templates (FR/EN) prepared. CI: typecheck 0, lint 0, vitest 583 passed / 20 skipped (58 files), Postgres suites idempotent, smoke OK, Playwright 37, audit 0, secret-scan clean. Nothing deployed, nothing enabled, nobody contacted, no credential anywhere."
+    },
+    {
+      "id": "EV-META-ADS-MONITOR-0",
+      "type": "pr",
+      "reference": "branch mythos/meta-ads-monitor-20260918 — projects/meta-ads-monitor/ (bin, lib, systemd, README), tests/meta-ads-monitor-test.js + fixtures",
+      "date": "2026-09-18",
+      "note": "Facebook Ads Monitor is READ-ONLY by design: daily systemd timer (06:40 UTC) on the VPS; GET-only Graph client with a read-path allowlist and verb-override/access_token params refused; ads_read token expected in ~deploy/.config/meta-ads-monitor/meta.env (absent = NOT_CONFIGURED report, zero Meta requests). Snapshots diffed day over day, Arabic plain-language report, 0600 atomic writes + secret scan, retention 60/90 days, duplicate-run lock, retries/timeouts. Offline suite 102/0. Claude Desktop Routines are not a dependency; connector write tools remain DENY in /root/.claude/settings.json."
     }
   ],
   "repositories": [
@@ -1737,7 +1744,7 @@
       "status": "READY",
       "maturity": "TESTED",
       "repository": "othoth77/mythos-prod",
-      "last_change": "2026-08-16 (INF-BACKUP-AUTO-0 O-BACKUP-6: first live gated backup_verify)",
+      "last_change": "2026-09-18 (META-ADS-MONITOR-0: Facebook Ads daily READ-ONLY monitor installed)",
       "blocker": "Every write path is gated shut by design: 0 of 40 DNS approval fields granted, write connectors disabled, zero live credentials in the repo or environment.",
       "next_action": "Owner grants specific approvals only when a migration/deploy/backup run is actually wanted.",
       "headline": "Reference implementations complete and mutation-tested (DNS-AUTO-2 97/97 with 25/25 mutations caught; BACKUP-AUTO 245/245 with a live gated backup_verify). The gates being shut is the designed state, not a defect.",
@@ -1754,10 +1761,12 @@
       },
       "evidence": [
         "EV-AUTOMATION-GATES",
-        "EV-CF-INVENTORY"
+        "EV-CF-INVENTORY",
+        "EV-META-ADS-MONITOR-0"
       ],
       "directories": [
-        "projects/automation"
+        "projects/automation",
+        "projects/meta-ads-monitor"
       ]
     },
     {
@@ -2837,6 +2846,14 @@
           "id": "INF-MONITOR-AUTO-0",
           "status": "NOT_STARTED",
           "what": "Planned"
+        },
+        {
+          "id": "META-ADS-MONITOR-0",
+          "status": "OWNER_ACTION",
+          "what": "Facebook Ads daily monitor — READ-ONLY by design (GET-only Graph client, systemd timer, snapshot diff, Arabic report). Installed and running; reads real data once the owner adds an ads_read token.",
+          "evidence": [
+            "EV-META-ADS-MONITOR-0"
+          ]
         }
       ]
     },
@@ -4238,6 +4255,14 @@
       "why": "C-O5' requires a real provider that answers customer requests; TecDoc and AutoPart are owner-only contacts.",
       "impact": "Turns the identification-capable storefront into a sourcing product.",
       "required_input": "Signed/sent AutoPart letter; permission to contact TecAlliance (or the reseller); supplier ids and channels (no numbers in repositories); the inbox operator's name."
+    },
+    {
+      "id": "ACTION-META-ADS-READ-TOKEN",
+      "status": "OWNER_ACTION",
+      "what": "Create a Meta token with the ads_read permission only (system user with view access to ad account 4176121335962594) and store it as META_ADS_READ_TOKEN in ~deploy/.config/meta-ads-monitor/meta.env (mode 600, owner deploy)",
+      "why": "The VPS has no other authenticated read path to Meta: the MCP connector exists only inside Claude sessions and the host Claude CLI session has expired.",
+      "impact": "The daily Facebook Ads monitor switches from NOT_CONFIGURED to real reports the next morning; nothing else changes.",
+      "required_input": "A token with ads_read only — never ads_management."
     }
   ],
   "next_actions": [

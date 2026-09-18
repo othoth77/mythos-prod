@@ -1,0 +1,117 @@
+{
+ "me/adaccounts": {
+  "data": [
+   {
+    "id": "act_111",
+    "account_id": "111",
+    "name": "Fixture Account",
+    "account_status": 1,
+    "currency": "USD",
+    "timezone_name": "Africa/Tunis",
+    "amount_spent": "18500",
+    "spend_cap": "20000"
+   }
+  ]
+ },
+ "act_111/campaigns": {
+  "data": [
+   {
+    "id": "901",
+    "name": "WhatsApp Leads",
+    "status": "ACTIVE",
+    "effective_status": "ACTIVE",
+    "objective": "OUTCOME_ENGAGEMENT",
+    "daily_budget": "500",
+    "budget_remaining": "300"
+   },
+   {
+    "id": "902",
+    "name": "Recrutement",
+    "status": "PAUSED",
+    "effective_status": "PAUSED",
+    "objective": "OUTCOME_TRAFFIC",
+    "daily_budget": "300"
+   }
+  ]
+ },
+ "act_111/adsets": {
+  "data": [
+   {
+    "id": "801",
+    "name": "TN 30-60",
+    "campaign_id": "901",
+    "status": "ACTIVE",
+    "effective_status": "ACTIVE"
+   }
+  ]
+ },
+ "act_111/ads": {
+  "data": [
+   {
+    "id": "701",
+    "name": "Image A",
+    "adset_id": "801",
+    "campaign_id": "901",
+    "status": "ACTIVE",
+    "effective_status": "ACTIVE"
+   }
+  ]
+ },
+ "act_111/insights?date_preset=yesterday&level=campaign": {
+  "data": [
+   {
+    "campaign_id": "901",
+    "campaign_name": "WhatsApp Leads",
+    "spend": "4.2",
+    "impressions": "1500",
+    "reach": "750",
+    "frequency": "1.3",
+    "clicks": "12",
+    "ctr": "1.2",
+    "cpc": "0.1",
+    "cpm": "3.5",
+    "actions": [
+     {
+      "action_type": "onsite_conversion.messaging_conversation_started_7d",
+      "value": "6"
+     }
+    ]
+   }
+  ]
+ },
+ "act_111/insights?date_preset=last_7d&level=campaign": {
+  "data": [
+   {
+    "campaign_id": "901",
+    "campaign_name": "WhatsApp Leads",
+    "spend": "25",
+    "impressions": "9000",
+    "reach": "4500",
+    "frequency": "2.1",
+    "clicks": "12",
+    "ctr": "1.2",
+    "cpc": "0.1",
+    "cpm": "3.5",
+    "actions": [
+     {
+      "action_type": "onsite_conversion.messaging_conversation_started_7d",
+      "value": "30"
+     }
+    ]
+   }
+  ]
+ },
+ "act_111/insights?date_preset=last_7d&level=ad": {
+  "data": [
+   {
+    "ad_id": "701",
+    "ad_name": "Image A",
+    "campaign_id": "901",
+    "spend": "25",
+    "impressions": "9000",
+    "clicks": "80",
+    "ctr": "0.9"
+   }
+  ]
+ }
+}
