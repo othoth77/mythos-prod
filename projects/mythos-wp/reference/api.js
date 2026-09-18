@@ -75,7 +75,8 @@ function crudCtx(req, r, resolved) {
   // a project-scoped session may list project-optional resources (audit) only inside one of its projects
   if (r.projectOptional && !resolved && req.session && req.session.projects !== null) throw fail('project_required', 400, 'select a project');
   return {
-    pool: db.wp(), auditPool: db.wp(),
+    // resolved on first use, so a refusal (403/400) never waits on — or fails with — the database
+    get pool() { return db.wp(); }, get auditPool() { return db.wp(); },
     project: resolved ? resolved.project : null,
     session: req.session, actor: req.session.username, hasRole: auth.hasRole,
     requestId: req.requestId, client: req.socket.remoteAddress
@@ -122,7 +123,8 @@ var ROUTES = [
   { method: 'POST', path: /^\/api\/logout$/, role: 'any', handler: function (req, res, ctx) {
     auth.destroySession(req.session.id);
     ctx.setCookie(auth.clearedCookie());
-    audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'logout', resource: 'session', request_id: req.requestId, client: req.socket.remoteAddress }).catch(function () {});
+    // signing out never depends on the database: the audit line is best-effort
+    Promise.resolve().then(function () { return audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'logout', resource: 'session', request_id: req.requestId, client: req.socket.remoteAddress }); }).catch(function () {});
     return { signed_out: true };
   } },
   { method: 'GET', path: /^\/api\/session$/, role: 'any', handler: function (req) {
@@ -131,9 +133,11 @@ var ROUTES = [
 
   // --- meta ------------------------------------------------------------
   { method: 'GET', path: /^\/api\/meta$/, role: 'any', handler: function (req) {
-    return apiUtil.accessibleProjects(req).then(function (rows) {
+    // the shell must still load when the database is unreachable: no project list, flagged as degraded
+    var degraded = false;
+    return Promise.resolve().then(function () { return apiUtil.accessibleProjects(req); }).catch(function () { degraded = true; return []; }).then(function (rows) {
       return {
-        version: VERSION, product: 'MYTHOS Control Center', unit: 'MYTHOS WP',
+        version: VERSION, product: 'MYTHOS Control Center', degraded: degraded, unit: 'MYTHOS WP',
         user: { username: req.session.username, role: req.session.role, projects: req.session.projects },
         roles: auth.ROLES, role_rank: auth.ROLE_RANK,
         resources: resources.publicAll(), groups: resources.GROUPS,
@@ -145,7 +149,7 @@ var ROUTES = [
   // --- health ----------------------------------------------------------
   { method: 'GET', path: /^\/api\/health$/, role: 'any', handler: function () {
     var fileUsers = users_state_of_file();
-    return db.wp().query('SELECT 1').then(function () { return true; }, function () { return false; }).then(function (wpOk) {
+    return Promise.resolve().then(function () { return db.wp().query('SELECT 1'); }).then(function () { return true; }, function () { return false; }).then(function (wpOk) {
       return (wpOk ? db.wp().query('SELECT count(*)::int AS n FROM wp_users WHERE status = \'active\'').then(function (r) { return r.rows[0].n; }, function () { return null; }) : Promise.resolve(null)).then(function (dbCount) {
         return {
           ok: wpOk, version: VERSION, node: process.version, uptime_s: Math.round(process.uptime()), rss_mb: Math.round(process.memoryUsage().rss / 1048576),

@@ -30,7 +30,8 @@ function missingEnv() {
 function wp() {
   if (wpPool) return wpPool;
   var missing = missingEnv();
-  if (missing.length) throw new Error('db.js: missing required environment variable(s): ' + missing.join(', '));
+  // Not configured is an availability problem (503), not an internal error; the variable names stay out of the response.
+  if (missing.length) throw Object.assign(new Error('db.js: missing required environment variable(s): ' + missing.join(', ')), { status: 503, code: 'db_unavailable', detail: 'database not configured' });
   wpPool = new Pool({
     host: process.env.MYTHOS_WP_DB_HOST,
     port: parseInt(process.env.MYTHOS_WP_DB_PORT, 10),
