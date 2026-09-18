@@ -1,6 +1,6 @@
 {
   "registry_version": "1.1.0",
-  "curated_at": "2026-09-17",
+  "curated_at": "2026-09-18",
   "curation_note": "Re-sync 2026-09-03 (gh-issue-140, completing the gh-issue-95 audit): fixed the stale PROJECT-AI-ORCHESTRATION entry, which had read \"v1 COMPLETE AND CLOSED 2026-08-19\" for ten days and roughly a dozen delivered bridge/executor stages without being touched (GitHub Issues intake, model-selection policy, Resource Guard, bridge retry/quota policy, the HostOps read-only boundary) — the entry now states both facts: v1 is still closed as scoped, AND the same component has kept evolving since, all on unmerged branches (EV-AI-ORCH-EVOLUTION-0903). Added four projects/* directories the account-level repository-discovery path structurally cannot see because they are inside this monorepo, not separate GitHub repositories: PROJECT-MYTHOS-GATEWAY, PROJECT-MYTHOS-ORCHESTRATOR, PROJECT-MYTHOS-VAULT, PROJECT-OTH-MCP — found by listing every projects/* directory and checking which ones no existing project purpose/evidence text actually covered (4 of 21 did not; the other 17 already did, confirmed against git log and each project's own purpose text, and now carry a new `directories` field recording that mapping explicitly instead of leaving it implicit). Added a matching monorepo project-discovery function to the review engine (lib/engine.js discoverMonorepoProjects) so a future undeclared projects/* directory surfaces as a discovery requiring classification, the same guarantee discoverRepositories already gives for GitHub account repositories — closing the \"monorepo discovery\" gap named in gh-issue-140. No percentage invented anywhere in this pass: two new dimensions are NOT_CALCULABLE with a stated reason, one is IN_PROGRESS with a status only. Also recorded 2026-08-26: NEXT-STATUS-DISCLOSURE-REVIEW — the public Status Center carries the same class of infrastructure detail that OTHMODE reports now mask, which is a consistency question for the owner rather than something to fix piecemeal. Re-sync 2026-08-26T15:17Z: recorded a genuine platform change — OTHMODE Command History and Task Reports became publicly readable at 7252de2, redacted for anonymous callers, with the write surface verified still closed. PROJECT-OTHMODE headline, last_change, production dimension and evidence updated (EV-OTHMODE-PUBLIC-HISTORY, EV-OTHMODE-PUBLIC-VERIFIED). No other project or action changed; NEXT-EXPORTS remains the sole open owner decision. Re-sync 2026-08-26T14:38Z: no status changed. The only genuine new fact is that the publish-wipes-monitor-state fix was exercised by a real publish and held — monitor runtime state and the apex Hub feed both survived intact, which is the regression check the fix existed for. Recorded against EV-PUBLISH-WIPES-MONITOR-STATE. The board is otherwise steady: every execution-layer action is closed and NEXT-EXPORTS remains the sole owner decision. Re-sync 2026-08-26 after the owner published: NEXT-STATUS-PUBLISH closed — the live Status Center now serves REVIEW-2026-08-26-004 and matches the repository on every counted dimension (EV-STATUS-PUBLISHED-0826). The publish also exposed a real defect, now fixed: rsync --delete wiped the monitor's runtime state out of the shared docroot, taking the live panel and — via an nginx alias — the apex Hub's /api/status.json to 404, and permanently destroying data/live-history/ (EV-PUBLISH-WIPES-MONITOR-STATE). NEXT-OTHMODE-MONITOR closed 2026-08-26 after production verification: othmode.mythosprod.xyz and its Task Reports API are now monitored components of the existing STC-2 monitor (14 components live, both OTHMODE probes LIVE). Reconciliation pass 2026-08-26 (later the same day): closed three next_actions whose blockers were already DONE and whose live criteria were re-verified first-hand — NEXT-OTHK-STORE, NEXT-MOS-DEPLOY, NEXT-HUB-DEPLOY (evidence EV-STALE-RECONCILE-0826) — and marked ACTION-MOS-DEPLOY and ACTION-HUB-DNS DONE to match their own blockers. Added othmode.mythosprod.xyz to the existing STC-2 probe registry rather than building a second monitor (EV-OTHMODE-MONITOR-PROBE). Nothing was closed to make the board look finished: NEXT-STATUS-PUBLISH stays open because the live site is still unpublished, and every remaining owner decision is untouched. Also refreshed 2026-08-26: data/pr-ledger.json re-captured from the GitHub API (56 -> 90 PRs, #1-#90; 8 open, 78 merged, 4 closed-unmerged), correcting six entries that the 2026-08-20 snapshot still recorded as open (#53-#56 merged, #23 and #52 closed unmerged) and carrying curator notes across by PR number. PROJECT-COMMAND-CENTER updated against host evidence: its 'latest merged revision pending redeploy' caveat is closed (service restarted 2026-08-26 at aa4ca2d, no command-center code change since), and its relationship to OTHMODE is now stated — one Node process on 127.0.0.1:3021 serving both hostnames. Updated 2026-08-26 on the production VPS (deploy@vps-4722f0a9): added PROJECT-OTHMODE with five evidence records after the OTHMODE Task Reports release was merged (aa4ca2d), deployed and operator-verified first-hand on the host — the registry had carried no OTHMODE entry at all, which is why earlier re-syncs reported zero content change. Closed ACTION-STC2-INSTALL / NEXT-STC2-INSTALL against their own stated criteria (timer active and refreshing; published app.js byte-identical to the repository copy, carrying the live panel and the Arabic layer). Two genuinely outstanding items found while curating were recorded rather than left implicit: NEXT-STATUS-PUBLISH (the repository holds two unpublished reviews; the live site is behind because nothing published them, not because nothing re-synced) and NEXT-OTHMODE-MONITOR (othmode.mythosprod.xyz is not a monitored component). No percentage was invented: every OTHMODE dimension is recorded as a status with a note. Updated 2026-08-22 from the production VPS (deploy@vps-4722f0a9) after the real on-host OTH-KNOWLEDGE acceptance run: node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed at ef91aa0a7083b9869b293a53030ce40ade4ad5a2. Only what that run actually proves was moved — the store/provisioning/deployment/production-verification dimensions and BLOCKER-OTHK-STORE. Track B real data remains OWNER_ACTION and PROJECT-OTH-KNOWLEDGE keeps status OWNER_ACTION for exactly that reason. Curated from a full audit on 2026-08-20: complete read of docs/AI_HANDOVER.md (15,892 lines), docs/ reconciliation, full git history (668 commits, repo born 2026-07-29), all 53 PRs, and the GitHub repository inventory. Every entry cites evidence; the review engine re-verifies what it can and marks the rest RECORDED.",
   "source_hierarchy": [
     {
@@ -1102,6 +1102,13 @@
       "reference": "othoth77/casse.autos PR #13 (provider integration readiness) — CI run 35286317113; docs/PROVIDERS.md, docs/PROVIDER_INTEGRATION.md",
       "date": "2026-09-17",
       "note": "Eight market segments researched read-only against the sources' own published terms. No third-party provider may be connected: TecAlliance's GTC v3.2 clause 2.1.2.3 forbids using the data for the trade in used parts and clause 1.6.6 (general section, so every product) prohibits AI/ML use; every verifiable used-parts marketplace API points inward (a dismantler pushes its own stock, no buyer-side search); eBay's Browse API is the only buyer-side fitment-aware candidate and its licence forbids the thing this search does — 8.1(b)(2) bars co-mingling eBay content with other sources, plus a 6 h freshness cap, delete-on-delisting and an AI ban; no open OEM/fitment dataset exists (RDW and Wikidata identify vehicles only, CC0 and keyless). AUTO10 (Tunisian used-parts store, public Shopify feed) is refused because the permission chain is Shopify's, not the merchant's: shopify.dev/docs/agents/catalog forbids caching search results and requires images to be rendered in real time, and the Agentic Storefronts Supplemental Terms (2026-07-07) run the reuse licence to Shopify 'Participating Channels'. Asking the merchant confers nothing. Code: every provider declares a ProviderPolicy and the gate fails closed (boot refusal, media rule against the CSP host allowlist, licensed-condition rule, outbound customer-data guard); it caught the Kitchen relaying autopart.tn image URLs (owner gate O8) into search results. CI: typecheck 0, lint 0, vitest 525 passed / 20 skipped (53 files), Postgres 19/19, smoke 71, Playwright 37, audit 0. Nothing deployed, nothing enabled (CASSE_SEARCH_PROVIDERS empty, /api/search 404), nobody contacted, no credential."
+    },
+    {
+      "id": "EV-CASSE-ONBOARDING-2026-09-18",
+      "type": "pr",
+      "reference": "othoth77/casse.autos PR #14 (provider onboarding: candidate registry, Genac France and Autoparts24 paths) — CI run 35330826183; src/providers/candidates.ts, docs/PROVIDER_ONBOARDING.md, docs/PROVIDER_RUNBOOK.md, docs/SUPPLIER_REQUEST_TEMPLATE_FR.md, docs/SUPPLIER_REQUEST_TEMPLATE_EN.md",
+      "date": "2026-09-18",
+      "note": "A typed, fail-closed onboarding registry (src/providers/candidates.ts) now tracks candidate providers through a nine-state lifecycle (DISCOVERED..LIVE, BLOCKED, REJECTED), distinct from ProviderPolicy (needs a live adapter) and the consented supplier list (needs real, evidenced consent, lives outside the repo). It fails closed at module load if any entry claims a status presupposing contact/consent/code that has not happened. Genac France (confirmed manual NEW-parts wholesale channel to Tunisia) and Autoparts24 (ships USED parts to Tunisia on its own storefront, but NO wholesale/API channel is confirmed to exist — weaker evidence than Genac) are both CONTACT_REQUIRED, with an executable owner-action checklist each (docs/PROVIDER_ONBOARDING.md). AUTO10/eBay/TecAlliance carried over as REJECTED/BLOCKED with cited reasons. Two unsent, generic supplier-request templates (FR/EN) prepared. CI: typecheck 0, lint 0, vitest 583 passed / 20 skipped (58 files), Postgres suites idempotent, smoke OK, Playwright 37, audit 0, secret-scan clean. Nothing deployed, nothing enabled, nobody contacted, no credential anywhere."
     }
   ],
   "repositories": [
@@ -2332,18 +2339,18 @@
       "status": "OWNER_ACTION",
       "maturity": "TESTED",
       "repository": "othoth77/casse.autos",
-      "last_change": "2026-09-17 (provider integration readiness: PR #13; engineering ready, no provider connectable)",
-      "blocker": "Every gate is the owner's. The first is unambiguously C-O5' — a consented supplier who answers — because NO parts source may be connected: TecDoc bars the used-parts trade and AI use, eBay's licence bars co-mingling its content with other sources, and AUTO10's permission chain belongs to Shopify rather than the merchant. Unchanged: C-O2 DNS (casse.autos on OVH parking), C-O3 WhatsApp number, C-O4 unit memory cap, C-O6 store/backup, C-O1 ratification, O8.",
-      "next_action": "Owner: pursue a consented supplier who answers (C-O5'; Genac France documents export to Tunisia for the NEW side, Autoparts24 ships used parts there, AD Tunisie / PREMA GROS / F.A.D are the local wholesalers); move DNS (C-O2). Engineering: none until a source may be called — the adapter, its policy, its credential handling and its tests are specified in docs/PROVIDER_INTEGRATION.md.",
-      "headline": "Engineering READY and provider-integration ready 2026-09-17: every source must declare what its terms permit and the code enforces it (boot refusal, image rights, licensed conditions, outbound customer-data guard). Provider research across eight segments found NO source that may be connected today — TecDoc forbids used-parts trade and AI use, no buyer-side used-parts API exists, eBay's licence forbids merging its content with other sources, and the one keyless Tunisian feed (AUTO10) is governed by Shopify's licence chain, not its merchant's. NOT deployed (C-O2) and NOT launch-ready: the first provider is still a consented supplier (C-O5′).",
+      "last_change": "2026-09-18 (supplier onboarding readiness: PR #14; Genac France + Autoparts24 paths prepared, still no provider live)",
+      "blocker": "Every gate is the owner's, and the onboarding process is now ready to execute them. First: contact Genac France (a confirmed channel) and, separately, establish whether Autoparts24 even offers a wholesale/API channel at all (unconfirmed). Checklists: docs/PROVIDER_ONBOARDING.md §5. Unchanged: C-O2 DNS (casse.autos on OVH parking), C-O3 WhatsApp number, C-O4 unit memory cap, C-O6 store/backup, C-O1 ratification, O8.",
+      "next_action": "Owner: work docs/PROVIDER_ONBOARDING.md §5's two checklists (Genac France, Autoparts24); use docs/SUPPLIER_REQUEST_TEMPLATE_FR.md / _EN.md as a starting point, filled in with real contact details before sending — nothing has been sent. Record any real consent as a supplier in src/sourcing/suppliers.ts (outside the repo) only once an evidence_ref actually exists. Engineering: none until a real channel is confirmed for either candidate.",
+      "headline": "Supplier-onboarding ready 2026-09-18: a typed registry tracks each candidate through DISCOVERED..LIVE and fails closed if anything claims contact/consent/code that has not happened. Two concrete paths prepared with executable owner-action checklists — Genac France (confirmed manual NEW-parts channel to Tunisia) and Autoparts24 (ships USED parts to Tunisia, but no wholesale channel confirmed to exist yet, honestly weaker than Genac's). AUTO10/eBay/TecAlliance stay closed with cited reasons. Still NOT deployed (C-O2) and NOT launch-ready: nobody has been contacted, no account exists, no credential exists.",
       "dimensions": {
         "implementation": {
           "status": "DONE",
-          "note": "provider policy gate, media rights, licensed conditions, outbound customer-data guard (PR #13); no provider connected"
+          "note": "provider onboarding candidate registry + fail-closed invariants + generic secret-file reader (PR #14); no provider connected, none live"
         },
         "tests": {
           "status": "DONE",
-          "note": "vitest 525 passed / 20 skipped (53 files), Postgres 19/19 (CI), smoke 71, Playwright 37, CI green"
+          "note": "vitest 583 passed / 20 skipped (58 files), Postgres suites idempotent, smoke OK, Playwright 37, CI green"
         },
         "deployment": {
           "status": "OWNER_ACTION",
@@ -2365,7 +2372,8 @@
         "EV-CASSE-UPS-PROTOTYPE",
         "EV-CASSE-MODEL-DECISION",
         "EV-CASSE-CLOSURE",
-        "EV-CASSE-PROVIDER-2026-09-17"
+        "EV-CASSE-PROVIDER-2026-09-17",
+        "EV-CASSE-ONBOARDING-2026-09-18"
       ]
     },
     {
@@ -3337,9 +3345,17 @@
           ]
         },
         {
+          "id": "STAGE-CASSE-SUPPLIER-ONBOARDING-READY",
+          "status": "DONE",
+          "what": "Supplier onboarding readiness 2026-09-18: typed candidate registry, two owner-action checklists (Genac France, Autoparts24), unsent request templates",
+          "evidence": [
+            "EV-CASSE-ONBOARDING-2026-09-18"
+          ]
+        },
+        {
           "id": "STAGE-CASSE-INVENTORY",
           "status": "OWNER_ACTION",
-          "what": "Launch gate C-O5′: a consented supplier who answers — no parts API may be connected (2026-09-17 research)",
+          "what": "Launch gate C-O5′: contact Genac France (confirmed channel) and verify whether Autoparts24 offers any channel at all — checklists ready, docs/PROVIDER_ONBOARDING.md §5",
           "evidence": [
             "EV-CASSE-NO-INVENTORY"
           ]
@@ -3771,6 +3787,16 @@
       "what": "Every source must declare what its terms permit and the code enforces it. Research across eight segments found no connectable parts source; the first provider remains a consented supplier.",
       "evidence": [
         "EV-CASSE-PROVIDER-2026-09-17"
+      ]
+    },
+    {
+      "id": "MS-2026-09-18-CASSE-SUPPLIER-ONBOARDING-READY",
+      "date": "2026-09-18",
+      "project": "PROJECT-CASSE-AUTOS",
+      "title": "Casse.Autos supplier-onboarding ready; Genac France and Autoparts24 paths prepared",
+      "what": "A typed, fail-closed candidate registry and two executable owner-action checklists exist. No provider is contacted, none is live.",
+      "evidence": [
+        "EV-CASSE-ONBOARDING-2026-09-18"
       ]
     }
   ],
@@ -4235,8 +4261,8 @@
       "id": "NEXT-CASSE-INVENTORY",
       "priority": "P0",
       "order": 0,
-      "title": "Casse.Autos: owner gates only — a source that can answer (AUTO10 permission, then a consented supplier), DNS, WhatsApp number",
-      "detail": "Provider research 2026-09-17 (PR #13): no parts source may be connected today. Cheapest opening is written permission from AUTO10 plus a per-part new/used statement; the launch gate stays C-O5′. eBay Partner Network and TecAlliance is a NEW-side negotiation. Engineering is ready and enforces what each source's terms permit.",
+      "title": "Casse.Autos: contact Genac France; verify Autoparts24 has any channel at all; then DNS, WhatsApp number",
+      "detail": "Onboarding readiness 2026-09-18 (PR #14): docs/PROVIDER_ONBOARDING.md §5 has an executable checklist for each path. Genac France's channel is confirmed to exist (manual, human-to-human); Autoparts24's is not confirmed to exist at all — verify that first. Templates: docs/SUPPLIER_REQUEST_TEMPLATE_FR.md / _EN.md, unsent.",
       "depends_on": null
     }
   ],
