@@ -16,9 +16,15 @@ var FIELDS = Object.freeze({
   campaign: ['id', 'name', 'status', 'effective_status', 'objective', 'daily_budget', 'lifetime_budget', 'budget_remaining', 'start_time', 'stop_time', 'updated_time'],
   adset: ['id', 'name', 'campaign_id', 'status', 'effective_status', 'daily_budget', 'lifetime_budget', 'budget_remaining', 'optimization_goal', 'start_time', 'end_time', 'updated_time'],
   ad: ['id', 'name', 'adset_id', 'campaign_id', 'status', 'effective_status', 'updated_time', 'issues_info'],
-  campaignInsights: ['campaign_id', 'campaign_name', 'spend', 'impressions', 'reach', 'frequency', 'clicks', 'ctr', 'cpc', 'cpm', 'actions', 'cost_per_action_type'],
-  adInsights: ['ad_id', 'ad_name', 'campaign_id', 'spend', 'impressions', 'clicks', 'ctr', 'actions']
+  campaignInsights: ['campaign_id', 'campaign_name', 'spend', 'impressions', 'reach', 'frequency', 'clicks', 'ctr', 'cpc', 'cpm', 'actions', 'cost_per_action_type', 'results', 'cost_per_result'],
+  adInsights: ['ad_id', 'ad_name', 'campaign_id', 'spend', 'impressions', 'clicks', 'ctr', 'actions'],
+  daily: ['campaign_id', 'campaign_name', 'date_start', 'spend', 'impressions', 'clicks', 'results']
 });
+
+// Days of per-campaign daily history fetched on every run (today included,
+// in the ad account's own timezone). Enough for "last 30 days vs the 30
+// before"; consumers keep longer history themselves.
+var DAILY_DAYS = 60;
 
 var ZERO_DECIMAL = ['BIF', 'CLP', 'COP', 'CRC', 'HUF', 'ISK', 'IDR', 'JPY', 'KRW', 'PYG', 'TWD', 'UGX', 'VND'];
 
@@ -48,6 +54,22 @@ function actionList(list) {
   }).filter(function (a) { return a.action_type; });
 }
 
+// Meta's `results` / `cost_per_result` = the Results column of Ads Manager:
+// [{ indicator: 'actions:<type>', values: [{ value }] }]. Normalised to one
+// number + the indicator it measures. Absent field = unknown (null), never 0;
+// an indicator with an empty values list = 0 results reported.
+function resultMetric(list) {
+  if (!Array.isArray(list)) return { value: null, indicator: null };
+  var total = 0, indicator = null;
+  list.forEach(function (x) {
+    if (!x) return;
+    indicator = indicator || (x.indicator ? String(x.indicator) : null);
+    var vals = Array.isArray(x.values) ? x.values : [];
+    vals.forEach(function (v) { var n = num(v && v.value); if (n !== null) total += n; });
+  });
+  return { value: total, indicator: indicator };
+}
+
 function normInsight(row, fields) {
   var r = pick(row, fields);
   ['spend', 'impressions', 'reach', 'frequency', 'clicks', 'ctr', 'cpc', 'cpm'].forEach(function (k) {
@@ -55,7 +77,23 @@ function normInsight(row, fields) {
   });
   if (r.actions !== undefined) r.actions = actionList(r.actions);
   if (r.cost_per_action_type !== undefined) r.cost_per_action_type = actionList(r.cost_per_action_type);
+  if (fields.indexOf('results') !== -1) {
+    var res = resultMetric(row && row.results);
+    r.results = res.value;
+    r.result_indicator = res.indicator;
+  }
+  if (fields.indexOf('cost_per_result') !== -1) r.cost_per_result = resultMetric(row && row.cost_per_result).value;
   return r;
+}
+
+// YYYY-MM-DD of `date` shifted by `offsetDays`, in the account's timezone.
+function localDate(timezone, date, offsetDays) {
+  var d = new Date(date.getTime() + (offsetDays || 0) * 86400000);
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: timezone || 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+  } catch (e) {
+    return d.toISOString().slice(0, 10);
+  }
 }
 
 function normIssues(list) {
@@ -75,7 +113,7 @@ async function section(errors, name, fn) {
 function unreadableAccount(raw) {
   return { id: String(raw.account_id), name: null, currency: null, timezone: null, account_status: null, disable_reason: null,
     amount_spent: null, spend_cap: null, campaigns: null, adsets: null, ads: null,
-    insights: { yesterday: null, last_7d: null, ads_last_7d: null },
+    insights: { yesterday: null, last_7d: null, ads_last_7d: null }, local_date: null, daily_range: null, daily: null,
     errors: [{ section: 'account', code: raw._error.code, message: raw._error.message }] };
 }
 
@@ -106,6 +144,13 @@ async function collectAccount(client, raw, opts) {
   var adIns7 = await section(errors, 'ad_insights_last_7d', function () {
     return client.getAll(node + '/insights', { level: 'ad', date_preset: 'last_7d', fields: FIELDS.adInsights.join(','), limit: 500 });
   });
+  var now = opts.now || new Date();
+  var today = localDate(acct.timezone_name, now, 0);
+  var since = localDate(acct.timezone_name, now, -(DAILY_DAYS - 1));
+  var daily = await section(errors, 'daily', function () {
+    return client.getAll(node + '/insights', { level: 'campaign', time_increment: 1,
+      time_range: JSON.stringify({ since: since, until: today }), fields: FIELDS.daily.join(','), limit: 500 });
+  });
 
   function budgets(o, fields) {
     var r = pick(o, fields);
@@ -132,6 +177,14 @@ async function collectAccount(client, raw, opts) {
       last_7d: ins7 ? ins7.map(function (r) { return normInsight(r, FIELDS.campaignInsights); }) : null,
       ads_last_7d: adIns7 ? adIns7.map(function (r) { return normInsight(r, FIELDS.adInsights); }) : null
     },
+    local_date: today,
+    daily_range: { since: since, until: today },
+    daily: daily ? daily.map(function (r) {
+      var n = normInsight(r, FIELDS.daily);
+      return { campaign_id: n.campaign_id, campaign_name: n.campaign_name, date: n.date_start, spend: n.spend === undefined ? null : n.spend,
+        impressions: n.impressions === undefined ? null : n.impressions, clicks: n.clicks === undefined ? null : n.clicks,
+        results: n.results, result_indicator: n.result_indicator };
+    }) : null,
     errors: errors
   };
 }
@@ -164,4 +217,4 @@ async function collect(client, opts) {
   };
 }
 
-module.exports = { FIELDS: FIELDS, minorToMajor: minorToMajor, collect: collect };
+module.exports = { FIELDS: FIELDS, DAILY_DAYS: DAILY_DAYS, minorToMajor: minorToMajor, resultMetric: resultMetric, localDate: localDate, collect: collect };

@@ -40,7 +40,7 @@ function fixtureFetch(file) {
     var u = new URL(url);
     var p = u.pathname.replace(/^\/v\d+\.\d\//, '');
     var keep = [];
-    u.searchParams.forEach(function (v, k) { if (['fields', 'limit', 'after'].indexOf(k) === -1) keep.push(k + '=' + v); });
+    u.searchParams.forEach(function (v, k) { if (['fields', 'limit', 'after', 'time_range'].indexOf(k) === -1) keep.push(k + '=' + v); });
     var key = p + (keep.length ? '?' + keep.sort().join('&') : '');
     var body = Object.prototype.hasOwnProperty.call(map, key) ? map[key] : { data: [] };
     return { ok: true, status: 200, text: async function () { return JSON.stringify(body); } };

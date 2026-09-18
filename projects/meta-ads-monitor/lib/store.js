@@ -15,7 +15,7 @@ var fs = require('fs');
 var path = require('path');
 
 var RETENTION = Object.freeze({
-  snapshots: { maxAgeDays: 60, maxFiles: 120 },
+  snapshots: { maxAgeDays: 60, maxFiles: 200 },   // hourly runs → ~8 days; Ads Mythos keeps long history
   reports: { maxAgeDays: 90, maxFiles: 120 }
 });
 

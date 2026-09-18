@@ -2,10 +2,18 @@
 
 **Facebook Ads Monitor is READ-ONLY by design.**
 
-A daily, unattended report on the owner's Meta (Facebook) ad accounts, running
+An unattended, hourly read of the owner's Meta (Facebook) ad accounts, running
 on the VPS as a systemd timer. It reads accounts, campaigns, ad sets, ads,
-status, spend, budgets, reported results and cost metrics, compares them with
-the previous run, and writes a plain-language report. It never creates,
+status, spend, budgets, results and cost metrics, plus 60 days of per-campaign
+daily history (spend, impressions, clicks, results — today included, in the
+account's timezone), compares them with the previous run, and writes a
+plain-language report. Its snapshots are the data source of the Ads Mythos
+dashboard (othoth77/ads-mythos), which never holds a Meta credential itself.
+
+**Results** are Meta's own `results` metric — the Results column of Ads
+Manager (the campaign's optimisation event, e.g. messaging conversations
+started) — never the sum of every action type (engagement, message depth and
+link clicks would be counted several times over). It never creates,
 edits, pauses, activates or deletes anything, and it performs no optimisation.
 
 ## Why a separate VPS monitor
@@ -45,7 +53,7 @@ lib/report.js                Arabic Markdown report for the owner
 lib/store.js                 state, atomic 0600 writes, secret scan, retention, duplicate-run lock
 lib/config.js                secret file loading (mode 600 enforced)
 systemd/meta-ads-monitor.service|timer
-tests/meta-ads-monitor-test.js  (repo root) — offline, 111 assertions
+tests/meta-ads-monitor-test.js  (repo root) — offline, 118 assertions
 ```
 
 ## Secret (owner step)
@@ -68,7 +76,7 @@ A file readable by group/others is refused (`CONFIG_INSECURE`).
 ```
 ~deploy/.local/state/meta-ads-monitor/
   reports/YYYY-MM-DD.md        the daily report (keep 90 days / max 120)
-  snapshots/<UTC stamp>.json   previous-run memory, allowlisted fields only (keep 60 days / max 120)
+  snapshots/<UTC stamp>.json   previous-run memory + daily history, allowlisted fields only (keep 60 days / max 200)
   status.json                  state OK | NOT_CONFIGURED | CONFIG_INSECURE | CONFIG_INVALID | FAILED,
                                last_success_at, consecutive_failures, last_error (redacted)
   run.lock                     duplicate-run protection (stale after 2 h or dead pid)
@@ -81,8 +89,9 @@ Claude sessions (connector), not from the VPS — recorded limitation.
 
 ## Schedule and failure handling
 
-- Timer: daily `06:40 UTC` (07:40 Africa/Tunis) + up to 10 min jitter,
-  `Persistent=true` (a run missed while the host was down runs at boot).
+- Timer: hourly at `:40 UTC` + up to 5 min jitter (≈ 8 GET requests per run),
+  `Persistent=true` (a run missed while the host was down runs at boot). The
+  report file is per day and rewritten by each run of that day.
 - Per request: 30 s timeout, 3 retries on 5xx / 429 / Graph throttling codes.
   Whole run: 10 min deadline inside the process, `TimeoutStartSec=15min`.
 - A section that still fails is listed as "data not available" in the report;

@@ -75,6 +75,19 @@
       "action_type": "onsite_conversion.messaging_conversation_started_7d",
       "value": "6"
      }
+    ],
+    "results": [
+     {
+      "indicator": "actions:onsite_conversion.messaging_conversation_started_7d",
+      "values": [
+       {
+        "value": "6",
+        "attribution_windows": [
+         "default"
+        ]
+       }
+      ]
+     }
     ]
    }
   ]
@@ -97,6 +110,19 @@
       "action_type": "onsite_conversion.messaging_conversation_started_7d",
       "value": "30"
      }
+    ],
+    "results": [
+     {
+      "indicator": "actions:onsite_conversion.messaging_conversation_started_7d",
+      "values": [
+       {
+        "value": "30",
+        "attribution_windows": [
+         "default"
+        ]
+       }
+      ]
+     }
     ]
    }
   ]
@@ -111,6 +137,67 @@
     "impressions": "9000",
     "clicks": "80",
     "ctr": "0.9"
+   }
+  ]
+ },
+ "act_111/insights?level=campaign&time_increment=1": {
+  "data": [
+   {
+    "campaign_id": "901",
+    "campaign_name": "WhatsApp Leads",
+    "date_start": "2026-09-15",
+    "date_stop": "2026-09-15",
+    "spend": "3",
+    "impressions": "1000",
+    "clicks": "20",
+    "results": [
+     {
+      "indicator": "actions:onsite_conversion.messaging_conversation_started_7d",
+      "values": [
+       {
+        "value": "4"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "campaign_id": "901",
+    "campaign_name": "WhatsApp Leads",
+    "date_start": "2026-09-16",
+    "date_stop": "2026-09-16",
+    "spend": "4",
+    "impressions": "1100",
+    "clicks": "21",
+    "results": [
+     {
+      "indicator": "actions:onsite_conversion.messaging_conversation_started_7d",
+      "values": [
+       {
+        "value": "5"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "campaign_id": "901",
+    "campaign_name": "WhatsApp Leads",
+    "date_start": "2026-09-17",
+    "date_stop": "2026-09-17",
+    "spend": "5",
+    "impressions": "1200",
+    "clicks": "22",
+    "results": [
+     {
+      "indicator": "actions:onsite_conversion.messaging_conversation_started_7d",
+      "values": [
+       {
+        "value": "6"
+       }
+      ]
+     }
+    ]
    }
   ]
  }
