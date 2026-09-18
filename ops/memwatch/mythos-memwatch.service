@@ -1,0 +1,41 @@
+# MYTHOS host memory telemetry — system-level, read-only.
+#
+# Records host memory, swap, PSI and the top consumers every 120s so the next
+# memory incident can be diagnosed from data instead of reconstructed from
+# kernel messages after the fact. It reads /proc and /sys only and writes one
+# log file.
+#
+# Deliberately system-scoped (not a deploy user unit): it observes the WHOLE
+# host, including root's sessions and Docker, which a user-scoped unit has no
+# business owning.
+
+[Unit]
+Description=MYTHOS host memory telemetry (read-only sampler)
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/mythos-memwatch/memwatch.py
+Restart=always
+RestartSec=30s
+
+# It samples the host, so it must not be a memory risk itself.
+MemoryMax=64M
+TasksMax=8
+Nice=10
+IOSchedulingClass=idle
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/mythos-memwatch
+ProtectControlGroups=no
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+UMask=0022
+
+[Install]
+WantedBy=multi-user.target
