@@ -1,10 +1,10 @@
-# Facebook Ads Monitor — once a day, after Meta has closed "yesterday" in Africa/Tunis (UTC+1)
+# Facebook Ads Monitor — every hour at :40 UTC, so "today" stays fresh for the Ads Mythos dashboard
 [Unit]
-Description=Run the MYTHOS Facebook Ads READ-ONLY monitor daily
+Description=Run the MYTHOS Facebook Ads READ-ONLY monitor hourly
 
 [Timer]
-OnCalendar=*-*-* 06:40:00 UTC
-RandomizedDelaySec=10min
+OnCalendar=*-*-* *:40:00 UTC
+RandomizedDelaySec=5min
 Persistent=true
 Unit=meta-ads-monitor.service
 

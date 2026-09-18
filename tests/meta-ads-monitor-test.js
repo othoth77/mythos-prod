@@ -141,12 +141,14 @@ function runBin(args, env) {
 
   // ---------- 4. collect + findings ----------
   ok(collect.minorToMajor('750', 'USD') === 7.5 && collect.minorToMajor('750', 'JPY') === 750 && collect.minorToMajor(null, 'USD') === null, 'minor→major currency units');
+  var dailyUrls = [];
   function fixtureClient(file) {
     var map = JSON.parse(fs.readFileSync(file, 'utf8'));
     return graph.createClient({ token: TOKEN, sleep: async function () {}, fetch: async function (url) {
       var u = new URL(url); var p = u.pathname.replace(/^\/v\d+\.\d\//, ''); var keep = [];
-      u.searchParams.forEach(function (v, k) { if (['fields', 'limit', 'after'].indexOf(k) === -1) keep.push(k + '=' + v); });
+      u.searchParams.forEach(function (v, k) { if (['fields', 'limit', 'after', 'time_range'].indexOf(k) === -1) keep.push(k + '=' + v); });
       var key = p + (keep.length ? '?' + keep.sort().join('&') : '');
+      dailyUrls.push(url);
       return { ok: true, status: 200, text: async function () { return JSON.stringify(map[key] || { data: [] }); } };
     } });
   }
@@ -182,6 +184,20 @@ function runBin(args, env) {
   var zero = JSON.parse(JSON.stringify(s2)); zero.accounts[0].insights.yesterday = zero.accounts[0].insights.yesterday.filter(function (r) { return r.campaign_id !== '901'; });
   var zk = diff.analyse(zero, s2).accounts[0].changes.filter(function (x) { return x.kind === 'daily_spend' && x.id === '901'; });
   ok(zk.length === 1 && zk[0].after === 0 && zk[0].before === 9.9 && zk[0].name === 'WhatsApp Leads', 'spend drop to zero detected');
+  // official results metric, daily history, account timezone
+  var rm = collect.resultMetric;
+  ok(rm(undefined).value === null && rm([]).value === 0 && rm([{ indicator: 'actions:x', values: [{ value: '2' }, { value: '3' }] }]).value === 5 &&
+     rm([{ indicator: 'actions:x', values: [] }]).value === 0 && rm([{ indicator: 'actions:x', values: [] }]).indicator === 'actions:x', 'results metric: absent=null, empty=0, values summed');
+  ok(collect.localDate('Africa/Tunis', new Date('2026-09-18T23:30:00Z'), 0) === '2026-09-19' && collect.localDate('Africa/Tunis', new Date('2026-09-18T10:00:00Z'), -59) === '2026-07-21', 'dates computed in the account timezone');
+  var d2 = a2.daily;
+  ok(Array.isArray(d2) && d2.length === 3 && d2[2].date === '2026-09-18' && d2[2].spend === 5 && d2[2].clicks === 22 && d2[2].results === 6, 'daily history collected and normalised');
+  ok(a2.local_date === '2026-09-18' && a2.daily_range.since === '2026-07-21' && a2.daily_range.until === '2026-09-18', 'daily range = 60 days up to today (account timezone)');
+  var tr = dailyUrls.filter(function (u) { return /time_increment=1/.test(u); });
+  ok(tr.length >= 1 && tr.every(function (u) { return /time_range=/.test(u) && u.indexOf(TOKEN) === -1; }), 'daily request is a plain GET with time_range, no token in URL');
+  var y902 = a2.insights.yesterday.filter(function (r) { return r.campaign_id === '902'; })[0];
+  ok(y902.results === 0 && y902.result_indicator === 'actions:link_click', 'engagement actions are never counted as results');
+  var w902 = diff.analyse(s2, s1).accounts[0].working.filter(function (w) { return w.id === '902'; })[0];
+  ok(w902 && w902.results_yesterday === 0, 'report results come from the results metric, not the sum of actions');
   var first = diff.analyse(s1, null);
   ok(first.compared === false && first.accounts[0].changes.length === 0, 'first run: no invented changes');
   var partial = JSON.parse(JSON.stringify(s2)); partial.accounts[0].insights.yesterday = null;
@@ -254,7 +270,7 @@ function runBin(args, env) {
   ok(/^User=deploy$/m.test(svc) && /^Type=oneshot$/m.test(svc), 'service: oneshot as deploy');
   ok(/^TimeoutStartSec=/m.test(svc) && /^SuccessExitStatus=75$/m.test(svc) && /^MemoryMax=/m.test(svc), 'service: timeout, lock exit, memory cap');
   ok(/^ProtectSystem=strict$/m.test(svc) && /^NoNewPrivileges=yes$/m.test(svc) && /^ReadWritePaths=\/home\/deploy\/\.local\/state\/meta-ads-monitor$/m.test(svc), 'service: sandboxed, writes only its state dir');
-  ok(/^OnCalendar=\*-\*-\* \d\d:\d\d:00 UTC$/m.test(tmr) && /^Persistent=true$/m.test(tmr), 'timer: daily, catches up after downtime');
+  ok(/^OnCalendar=\*-\*-\* \*:40:00 UTC$/m.test(tmr) && /^Persistent=true$/m.test(tmr), 'timer: hourly at :40, catches up after downtime');
 
   fs.rmSync(TMP, { recursive: true, force: true });
   console.log('meta-ads-monitor-test: ' + pass + ' passed, ' + fail + ' failed');

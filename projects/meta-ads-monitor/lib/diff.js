@@ -29,12 +29,14 @@ function byId(list, key) {
   return m;
 }
 
-// Meta omits `actions` from an insights row when nothing was reported, so a
-// present row without the field means 0 reported actions; no row = unknown.
-function actionsTotal(row) {
+// "Results" = Meta's own `results` metric (the Results column of Ads
+// Manager: the campaign's optimisation event, e.g. messaging conversations
+// started). Never the sum of every action type — that counts engagement,
+// message depth, link clicks... several times over. No row, or a snapshot
+// taken before the field was collected = unknown (null).
+function resultsOf(row) {
   if (!row) return null;
-  if (!Array.isArray(row.actions)) return 0;
-  return row.actions.reduce(function (s, a) { return s + (typeof a.value === 'number' ? a.value : 0); }, 0);
+  return typeof row.results === 'number' ? row.results : null;
 }
 
 function isActive(o) { return o && o.effective_status === 'ACTIVE'; }
@@ -96,14 +98,14 @@ function analyse(cur, prev) {
       var ry = y[c.id], rw = w[c.id];
       if (isActive(c)) {
         if (ry && ry.impressions > 0) {
-          f.working.push({ id: c.id, name: c.name, spend_yesterday: ry.spend, impressions_yesterday: ry.impressions, actions_yesterday: actionsTotal(ry) });
+          f.working.push({ id: c.id, name: c.name, spend_yesterday: ry.spend, impressions_yesterday: ry.impressions, results_yesterday: resultsOf(ry) });
         } else if (insY) {
           f.delivery.push({ id: c.id, name: c.name, text: 'الحملة نشطة لكن لم تُعرض أمس (لا ظهور)' });
         }
         if (rw && typeof rw.frequency === 'number' && rw.frequency > THRESHOLDS.frequencyHigh) {
           f.review.push({ id: c.id, name: c.name, text: 'نفس الأشخاص يرون الإعلان كثيراً (التكرار ' + rw.frequency.toFixed(1) + ' خلال 7 أيام)' });
         }
-        if (rw && rw.spend >= THRESHOLDS.spendNoResultsMin && actionsTotal(rw) === 0) {
+        if (rw && rw.spend >= THRESHOLDS.spendNoResultsMin && resultsOf(rw) === 0) {
           f.review.push({ id: c.id, name: c.name, text: 'إنفاق ' + rw.spend + ' ' + acct.currency + ' خلال 7 أيام بدون أي نتيجة مُبلَّغة' });
         }
       }

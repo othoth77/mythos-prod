@@ -46,7 +46,7 @@ function renderAccount(a) {
   lines.push('### ما يعمل');
   lines.push(bullets(a.working.map(function (w) {
     return '«' + w.name + '»: ظهر ' + w.impressions_yesterday + ' مرة أمس، إنفاق ' + money(w.spend_yesterday, cur) +
-      (w.actions_yesterday !== null ? '، نتائج مُبلَّغة: ' + w.actions_yesterday : '');
+      (w.results_yesterday !== null ? '، النتائج: ' + w.results_yesterday : '');
   }), 'لا توجد حملة نشطة ظهرت أمس.'));
   lines.push('');
   lines.push('### ما تغيّر منذ الفحص السابق');
