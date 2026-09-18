@@ -32,8 +32,13 @@
 Description=Mythos ERP API — authenticated multi-tenant boundary over PostgreSQL (erp_app runtime)
 Documentation=https://github.com/othoth77/mythos-prod
 After=network-online.target
-StartLimitIntervalSec=300
-StartLimitBurst=5
+# Boot-order retries (2026-09-18). The ExecStartPre guard below normally makes
+# a database wait unnecessary, but if Postgres is slower to appear than that
+# guard's timeout, the unit must be able to keep retrying for several minutes
+# instead of giving up after 5 attempts in 300 s. 20 starts / 600 s still
+# bounds a genuine restart loop rather than letting one run forever.
+StartLimitIntervalSec=600
+StartLimitBurst=20
 
 [Service]
 Type=simple
@@ -43,13 +48,28 @@ WorkingDirectory=/home/deploy/projects/mythos-prod/sites/erp.mythosprod.xyz/api
 EnvironmentFile=/home/deploy/deployments/erp-api/.env
 Environment=NODE_ENV=production
 
+# Boot-order guard (2026-09-18). This is a user unit; PostgreSQL is the
+# idauto-postgres Docker container owned by the SYSTEM manager, and a user unit
+# cannot order itself After= a system unit. So the wait is expressed here
+# instead: block until the database accepts TCP, then start. Host and port come
+# from ERP_DATABASE_URL above, so this cannot drift from the real target.
+# Exit 1 (timeout) is transient and is deliberately NOT in
+# RestartPreventExitStatus, so Restart=on-failure retries the whole unit.
+ExecStartPre=/home/deploy/projects/mythos-prod/sites/erp.mythosprod.xyz/deploy/wait-for-db.sh
 ExecStart=/usr/bin/node /home/deploy/projects/mythos-prod/sites/erp.mythosprod.xyz/api/server.js
 
 Restart=on-failure
 RestartSec=5s
-# A refused start (wrong role / no database) exits 2 or 3 on purpose; do not
-# loop forever on a configuration error.
-RestartPreventExitStatus=2 3
+# Exit 3 = the runtime role is not erp_app: a configuration error that no
+# retry can fix, so it is never restarted.
+# Exit 2 = "database not reachable at start" is NOT prevented (2026-09-18).
+# server.js exits 2 on ANY failure of its start query, which includes Postgres
+# accepting TCP but still in crash recovery ("the database system is starting
+# up") after an unclean shutdown. wait-for-db.sh only proves TCP, and the port
+# is published through docker-proxy, so that window is real. With 2 prevented
+# the unit stayed dead after the 15:28 reboot; now it retries, still bounded
+# by StartLimitBurst/StartLimitIntervalSec above.
+RestartPreventExitStatus=3
 
 # Resource ceiling: idle RSS is ~60 MiB; scrypt login hashing peaks at ~128 MiB
 # per concurrent attempt (N=2^17). 384 MiB caps a burst without starving the host.
