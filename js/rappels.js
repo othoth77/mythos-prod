@@ -481,7 +481,7 @@ window.docPrint = function(id) {
       +'<style>body{margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff;}'
       +'img{max-width:100%;}</style>'
       +'<script>window.onload=function(){window.print();}<\/script></head>'
-      +'<body><img src="'+photo+'"></body></html>'
+      +'<body><img alt="Photo du rappel" src="'+photo+'"></body></html>'
     );
     w.document.close();
   } else if (ft === 'pdf' || photo.indexOf('data:application/pdf') === 0) {

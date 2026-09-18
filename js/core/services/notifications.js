@@ -22,8 +22,39 @@ var MythosNotifications = (function () {
     return 'notif-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
   }
 
+  // A single persistent live region announces every toast to screen readers
+  // (WCAG 4.1.3 Status Messages). It is visually hidden; the visual toast is
+  // unchanged. Pre-existing live regions announce far more reliably than a
+  // region inserted together with its text.
+  function _liveRegion() {
+    var id = 'mythos-live-region';
+    var lr = document.getElementById(id);
+    if (!lr) {
+      lr = document.createElement('div');
+      lr.id = id;
+      lr.setAttribute('role', 'status');
+      lr.setAttribute('aria-live', 'polite');
+      lr.setAttribute('aria-atomic', 'true');
+      lr.style.cssText = 'position:absolute;width:1px;height:1px;margin:-1px;' +
+        'padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;';
+      document.body.appendChild(lr);
+    }
+    return lr;
+  }
+  function _announce(text, assertive) {
+    if (typeof document === 'undefined' || !document.body) return;
+    var lr = _liveRegion();
+    lr.setAttribute('aria-live', assertive ? 'assertive' : 'polite');
+    // Clear then set on the next frame so repeated identical messages re-announce.
+    lr.textContent = '';
+    var set = function () { lr.textContent = text; };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(set);
+    else set();
+  }
+
   function _showDOMToast(entry) {
     if (typeof document === 'undefined' || !document.body) return;
+    _announce((entry.title ? entry.title + ' : ' : '') + entry.message, entry.type === 'error');
     var accent = {
       success: '#22c55e', error: '#ef4444',
       warning: '#d4af37', info:  '#06b6d4'
