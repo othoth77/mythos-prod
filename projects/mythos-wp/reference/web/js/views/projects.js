@@ -235,7 +235,7 @@ function aiTab(ctx, row) {
       h('div', { class: 'field' }, h('label', { for: 'ai-status' }, 'Status'), statusSel),
       h('div', { class: 'view-actions' }, save), roleNote(ctx, 'admin', 'Changing the AI settings') || '');
     // test
-    const text = h('textarea', { class: 'textarea', id: 'ai-test', rows: 3, placeholder: 'Type a customer message, e.g. "Bonjour, prix du filtre à huile ?"' });
+    const text = h('textarea', { class: 'textarea', id: 'ai-test', rows: 3, placeholder: 'Type a customer message, e.g. ' + (row.kind === 'automotive' ? '"Bonjour, prix du filtre à huile ?"' : '"Bonjour, quels sont vos horaires ?"') });
     const out = h('div', {});
     const run = h('button', { class: 'btn btn-secondary', type: 'button', disabled: !manager || undefined, onClick: async () => {
       const t = text.value.trim(); if (!t) return;
