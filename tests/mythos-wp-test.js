@@ -223,6 +223,10 @@ async function httpSection(port) {
   eq(r.json.error, 'csrf', 'http: csrf error code');
   r = await request(port, 'POST', '/api/logout', {}, { Cookie: ownerCookie, 'X-Requested-With': 'MythosWP', Origin: 'https://evil.example' }); eq(r.status, 403, 'http: cross-origin mutation refused');
   r = await request(port, 'GET', '/api/nope', undefined, { Cookie: ownerCookie }); eq(r.status, 404, 'http: unknown api 404');
+  r = await request(port, 'GET', '/wp.css'); var etag = r.headers.etag;
+  ok(r.status === 200 && /no-cache/.test(r.headers['cache-control']) && !/max-age=3600/.test(r.headers['cache-control']) && !!etag, 'http: assets revalidate (ETag, no-cache)');
+  r = await request(port, 'GET', '/wp.css', undefined, { 'If-None-Match': etag }); eq(r.status, 304, 'http: unchanged asset → 304');
+  r = await request(port, 'GET', '/js/app.js', undefined, { Cookie: ownerCookie }); ok(r.status === 200 && /^private, no-cache/.test(r.headers['cache-control']), 'http: signed-in scripts are private');
   r = await request(port, 'PUT', '/api/meta', {}, Object.assign({ Cookie: ownerCookie }, H)); eq(r.status, 405, 'http: wrong method 405');
   r = await request(port, 'GET', '/api/r/rules', undefined, { Cookie: opCookie }); ok(r.status === 400 || r.status === 200 || r.status === 503, 'http: operator may read rules (' + r.status + ')');
   r = await request(port, 'POST', '/api/r/rules?project=x', { rule_key: 'a' }, Object.assign({ Cookie: opCookie }, H)); ok(r.status === 403 || r.status === 404, 'http: operator cannot write rules (' + r.status + ')');

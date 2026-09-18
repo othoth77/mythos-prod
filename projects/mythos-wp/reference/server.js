@@ -74,7 +74,8 @@ var FONT_RE = /^\/(?:brand\/)?fonts\/([a-z0-9-]+\.woff2)$/;
 var JS_RE = /^\/js\/((?:views\/)?[a-z0-9-]+\.js)$/;
 
 function head(res, code, type, length, extra, cache) {
-  var h = { 'Content-Type': type, 'Cache-Control': cache ? 'public, max-age=3600' : 'no-store' };
+  // Assets revalidate on every load (ETag → 304): unversioned URLs must never serve last deploy's CSS/JS with this deploy's HTML.
+  var h = { 'Content-Type': type, 'Cache-Control': cache ? (cache === 'private' ? 'private, no-cache' : 'public, no-cache') : 'no-store' };
   Object.keys(SECURITY_HEADERS).forEach(function (k) { h[k] = SECURITY_HEADERS[k]; });
   if (length !== undefined) h['Content-Length'] = length;
   if (extra) Object.keys(extra).forEach(function (k) { if (extra[k] !== undefined) h[k] = extra[k]; });
@@ -87,10 +88,12 @@ function sendJSON(res, code, obj, extra) {
   res.end(body);
 }
 
-function serveFile(file, res, method, cache) {
+function serveFile(file, res, method, cache, req) {
   fs.readFile(file, function (err, buf) {
     if (err) { sendJSON(res, 404, { ok: false, error: 'not_found', detail: 'not found' }); return; }
-    head(res, 200, TYPES[path.extname(file)] || 'application/octet-stream', buf.length, undefined, cache);
+    var etag = cache ? '"' + crypto.createHash('sha1').update(buf).digest('hex').slice(0, 20) + '"' : undefined;
+    if (etag && req && req.headers['if-none-match'] === etag) { head(res, 304, TYPES[path.extname(file)] || 'application/octet-stream', undefined, { ETag: etag }, cache); res.end(); return; }
+    head(res, 200, TYPES[path.extname(file)] || 'application/octet-stream', buf.length, { ETag: etag }, cache);
     if (method === 'HEAD') { res.end(); return; }
     res.end(buf);
   });
@@ -156,7 +159,7 @@ function handle(req, res) {
       return sendJSON(res, 401, { ok: false, error: 'unauthenticated', detail: 'sign in' }, extra);
     }
     if ((pathname === '/login' || pathname === '/login.html') && session) { head(res, 302, 'text/plain', 0, { Location: '/' }); return res.end(); }
-    return serveFile(st.file, res, method, st.cache);
+    return serveFile(st.file, res, method, st.cache ? (st.auth ? 'private' : 'public') : false, req);
   }
 
   if (pathname.indexOf('/api/') !== 0) return sendJSON(res, 404, { ok: false, error: 'not_found', detail: 'not found' });
