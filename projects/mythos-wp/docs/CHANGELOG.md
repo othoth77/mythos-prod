@@ -4,6 +4,7 @@
 
 - AI wording for projects that are not Auto: the fact-free reply templates of the shared engine ask for a vehicle model and a VIN. For a service or internal project, the suggestion now uses a neutral greeting, clarification or acknowledgement in the same language (fr, ar, en). The reply or handoff decision is unchanged, and the shared engine is not modified.
 - The LLM system prompt keeps its vehicle/VIN data rule for Auto projects only.
+- Security: the integrations list (internal URLs, credential variable names) is manager+ like the health center; the Settings → Integrations tab is hidden below manager.
 - Database unreachable or not configured: logout, `/api/health` and `/api/meta` keep working (meta reports `degraded: true`), refusals (403/400) are decided before any database access, and the remaining routes answer 503 `db_unavailable` instead of a 500 that named environment variables.
 
 ## V2.1 — 2026-09-17 (simplification)

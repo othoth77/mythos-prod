@@ -7,7 +7,7 @@ import { dataTable, stateFromQuery, apiQuery } from '../table.js';
 import { runsPanel } from './ai.js';
 import { mcpPanel } from './whatsapp.js';
 
-const SECTIONS = [{ key: 'general', label: 'General' }, { key: 'users', label: 'Users' }, { key: 'integrations', label: 'Integrations' }, { key: 'automations', label: 'Automations', role: 'admin' }, { key: 'system', label: 'System' }];
+const SECTIONS = [{ key: 'general', label: 'General' }, { key: 'users', label: 'Users' }, { key: 'integrations', label: 'Integrations', role: 'manager' }, { key: 'automations', label: 'Automations', role: 'admin' }, { key: 'system', label: 'System' }];
 const ROLES = ['viewer', 'agent', 'manager', 'admin', 'owner'];
 
 export async function render(main, params, query, ctx) {

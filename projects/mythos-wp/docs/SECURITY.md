@@ -22,9 +22,9 @@ Companion: `ARCHITECTURE.md`, `ENVIRONMENT.md`, `WHATSAPP_SETUP.md` §5–6, `MC
 
 | Action | Minimum role |
 |---|---|
-| read conversations, contacts, numbers (masked), agents, integrations, health, dashboard | viewer (`any`) |
+| read conversations, contacts, numbers (masked), agents, dashboard | viewer (`any`) |
 | work a conversation: reply, notes, tags, handoff, suggest / decide, mark read | agent |
-| routing simulate, number check, health run, templates create/edit, agent test, notes delete (or author) | manager |
+| integrations list, health center, WhatsApp accounts, routing simulate, number check, health run, templates create/edit, agent test, notes delete (or author) | manager |
 | numbers, accounts, links, inbox switches, routing rules, integrations, automations, agents config, Meta/MCP config, users' passwords & project grants, projects | admin |
 | delete accounts / numbers / agents / integrations, create an owner, reset an owner password | owner |
 

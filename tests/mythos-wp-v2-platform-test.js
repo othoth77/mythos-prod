@@ -217,17 +217,19 @@ migrate.up(pool).then(wipe)
   .then(function () { return integrations.ensureDefaults(pool).then(function () { return integrations.ensureDefaults(pool); }); })
   .then(function () { return q('SELECT key, count(*)::int AS n FROM wp_integrations WHERE key = ANY($1) GROUP BY key', [integrations.DEFAULTS.map(function (d) { return d.key; })]); })
   .then(function (r) { ok(r.rows.length === integrations.DEFAULTS.length && r.rows.every(function (x) { return x.n === 1; }), 'defaults seeded once (' + r.rows.length + ' keys)'); return q("SELECT status, credentials_state, config FROM wp_integrations WHERE key = 'meta-whatsapp-business-mcp'"); })
-  .then(function (r) { ok(r.rows[0] && r.rows[0].status === 'disabled' && r.rows[0].credentials_state === 'missing' && r.rows[0].config.tool_namespace === 'whatsapp_biz_' && Array.isArray(r.rows[0].config.tools) && r.rows[0].config.tools.length >= 18, 'meta MCP row: disabled, credentials missing, tool list'); return req('GET', '/api/integrations', undefined, VIEWER); })
+  .then(function (r) { ok(r.rows[0] && r.rows[0].status === 'disabled' && r.rows[0].credentials_state === 'missing' && r.rows[0].config.tool_namespace === 'whatsapp_biz_' && Array.isArray(r.rows[0].config.tools) && r.rows[0].config.tools.length >= 18, 'meta MCP row: disabled, credentials missing, tool list'); return req('GET', '/api/integrations', undefined, ADMIN); })
   .then(function (x) {
-    ok(x.status === 200 && x.data.items.some(function (i) { return i.key === 'v2pf-kitchen'; }), 'viewer lists integrations');
+    ok(x.status === 200 && x.data.items.some(function (i) { return i.key === 'v2pf-kitchen'; }), 'admin lists integrations');
     var leak = false; walk(x.data, function (k, v) { if (/^(token|secret|password|api_?key|apikey|credential)$/i.test(String(k || ''))) leak = true; if (typeof v === 'string' && v.indexOf(EVO_KEY) !== -1) leak = true; });
     ok(!leak, 'no secret field or value in the integrations list');
     var evo = x.data.items.filter(function (i) { return i.key === 'v2pf-evolution'; })[0];
     ok(evo && evo.credential_env === 'V2PF_EVO_KEY_FILE' && evo.credentials_state === 'present', 'credential referenced by env NAME; state present with a 0600 file');
-    fs.chmodSync(keyFile, 0o644); return req('GET', '/api/integrations', undefined, VIEWER);
+    fs.chmodSync(keyFile, 0o644); return req('GET', '/api/integrations', undefined, ADMIN);
   })
   .then(function (x) { var evo = x.data.items.filter(function (i) { return i.key === 'v2pf-evolution'; })[0]; ok(evo.credentials_state === 'missing', 'a group-readable key file counts as missing'); fs.chmodSync(keyFile, 0o600); return req('POST', '/api/integrations', { key: 'v2pf-created', kind: 'api', name: 'Created', base_url: 'https://example.invalid/api' }, VIEWER); })
-  .then(function (x) { ok(x.status === 403, 'viewer cannot create an integration'); return req('POST', '/api/integrations', { key: 'v2pf-created', kind: 'api', name: 'Created', base_url: 'http://10.0.0.1/api' }); })
+  .then(function (x) { ok(x.status === 403, 'viewer cannot create an integration'); return req('GET', '/api/integrations', undefined, VIEWER); })
+  .then(function (x) { ok(x.status === 403, 'viewer cannot list integrations (internal URLs, credential names)'); return req('GET', '/api/integrations', undefined, AGENT); })
+  .then(function (x) { ok(x.status === 403, 'agent cannot list integrations'); return req('POST', '/api/integrations', { key: 'v2pf-created', kind: 'api', name: 'Created', base_url: 'http://10.0.0.1/api' }); })
   .then(function (x) { ok(x.status === 400 && x.body.errors && x.body.errors.base_url, 'plain http off loopback refused'); return req('POST', '/api/integrations', { key: 'v2pf-created', kind: 'api', name: 'Created', base_url: 'https://example.invalid/api', config: { api_key: 'nope' } }); })
   .then(function (x) { ok(x.status === 400 && x.body.errors && x.body.errors.config, 'a credential-looking config key is refused'); return req('POST', '/api/integrations', { key: 'v2pf-created', kind: 'api', name: 'Created', base_url: 'https://example.invalid/api', credential_env: 'MYTHOS_WP_INTEGRATION_V2PF_CREATED_TOKEN' }); })
   .then(function (x) { ok(x.status === 201 && x.data.key === 'v2pf-created' && x.data.credentials_state === 'missing', 'admin creates → 201, env unset → missing'); return q("SELECT count(*)::int AS n FROM wp_audit_events WHERE resource = 'integrations' AND record_id = 'v2pf-created' AND action = 'create'"); })

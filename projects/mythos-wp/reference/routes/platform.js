@@ -66,7 +66,7 @@ module.exports = [
   } },
 
   // --- integrations ----------------------------------------------------------
-  { method: 'GET', path: /^\/api\/integrations$/, role: 'any', handler: function (req) {
+  { method: 'GET', path: /^\/api\/integrations$/, role: 'manager', handler: function (req) {
     return accessibleProjects(req).then(function (rows) { return integrations.list(db.wp(), { kind: q(req).kind, status: q(req).status, projects: req.session.projects === null ? undefined : rows.map(function (r) { return r.id; }) }).then(function (items) { return { items: items }; }); });
   } },
   { method: 'POST', path: /^\/api\/integrations$/, role: 'admin', handler: function (req, res, ctx) {
