@@ -106,30 +106,33 @@
     function group(labelKey, items) {
       return el('div.sidebar-group', {}, [el('div.sidebar-label', { text: t(labelKey) })].concat(items));
     }
-    sidebar.appendChild(group('oth.group.overview', [
-      item('nav.dashboard', '#/', 'dashboard')
-    ]));
-    sidebar.appendChild(group('oth.group.library', [
+    // OTHMODE V2: five things a user actually does, then "More". Every V1
+    // screen stays reachable; only the grouping changed.
+    sidebar.appendChild(group('oth.group.command', [
+      item('nav.dashboard', '#/', 'dashboard'),
       item('nav.library', '#/library', 'library'),
-      item('oth.nav.saved', '#/saved', 'saved'),
-      item('nav.workflows', '#/workflows', 'workflows')
+      item('oth.nav.saved', '#/saved', 'saved')
     ]));
-    sidebar.appendChild(group('oth.group.capabilities', [
-      item('oth.nav.skills', '#/skills', 'skills'),
-      item('oth.nav.tools', '#/tools', 'tools'),
-      item('oth.nav.providers', '#/providers', 'providers')
-    ]));
-    sidebar.appendChild(group('oth.group.operations', [
-      item('oth.nav.projects', '#/projects', 'projects'),
-      item('oth.nav.health', '#/health', 'health'),
-      item('oth.nav.status', '#/status', 'status'),
+    sidebar.appendChild(group('oth.group.tasks', [
+      item('oth.nav.runs', '#/runs', 'runs'),
       item('oth.nav.history', '#/history', 'history')
     ]));
-    sidebar.appendChild(group('oth.group.intelligence', [
-      item('oth.nav.memory', '#/memory', 'memory'),
-      item('oth.nav.evolution', '#/evolution', 'evolution')
+    sidebar.appendChild(group('oth.group.projects', [
+      item('oth.nav.projects', '#/projects', 'projects')
     ]));
-    sidebar.appendChild(group('oth.group.system', [
+    sidebar.appendChild(group('oth.group.ai', [
+      item('oth.nav.providers', '#/providers', 'providers'),
+      item('oth.nav.skills', '#/skills', 'skills'),
+      item('oth.nav.tools', '#/tools', 'tools')
+    ]));
+    sidebar.appendChild(group('oth.group.status', [
+      item('oth.nav.health', '#/health', 'health'),
+      item('oth.nav.status', '#/status', 'status')
+    ]));
+    sidebar.appendChild(group('oth.group.more', [
+      item('nav.workflows', '#/workflows', 'workflows'),
+      item('oth.nav.memory', '#/memory', 'memory'),
+      item('oth.nav.evolution', '#/evolution', 'evolution'),
       item('nav.statistics', '#/stats', 'statistics'),
       item('oth.nav.settings', '#/settings', 'settings')
     ]));
@@ -144,48 +147,62 @@
   // ── Dashboard extras: OthMode pill + health strip + open reviews ──────
 
   A.registerDashboardExtras(function () {
+    // OTHMODE V2 overview: four answers in plain words — is the AI ready,
+    // does anything need me, what did the last run do, is the system
+    // healthy. Each card opens the screen that explains it.
     var strip = el('div.oth-dash-strip');
+    function card(labelKey, hash) {
+      var c = el('button.oth-dash-card', { type: 'button', onclick: function () { A.navigate(hash); } }, [
+        el('span.oth-dash-label', { text: t(labelKey) }),
+        el('span.oth-dash-value', { text: '…' }),
+        el('span.oth-dash-note', { text: '' })
+      ]);
+      strip.appendChild(c);
+      return c;
+    }
+    function set(c, value, cls, note) {
+      c.children[1].textContent = value;
+      c.children[2].textContent = note || '';
+      c.classList.remove('is-on', 'is-warn', 'is-bad');
+      if (cls) c.classList.add(cls);
+    }
+    var aiCard = card('oth.ov.ai', '#/providers');
+    var attentionCard = card('oth.ov.attention', '#/health');
+    var runCard = card('oth.ov.last_run', '#/runs');
+    var healthCard = card('oth.dash.health', '#/health');
 
-    var modeCard = el('button.oth-dash-card', {
-      type: 'button', onclick: function () { A.navigate('#/settings'); }
-    }, [el('span.oth-dash-label', { text: t('oth.dash.mode') }), el('span.oth-dash-value', { text: '…' })]);
-    var healthCard = el('button.oth-dash-card', {
-      type: 'button', onclick: function () { A.navigate('#/health'); }
-    }, [el('span.oth-dash-label', { text: t('oth.dash.health') }), el('span.oth-dash-value', { text: '…' })]);
-    var reviewCard = el('button.oth-dash-card', {
-      type: 'button', onclick: function () { A.navigate('#/evolution'); }
-    }, [el('span.oth-dash-label', { text: t('oth.dash.reviews') }), el('span.oth-dash-value', { text: '…' })]);
-
-    strip.appendChild(modeCard);
-    strip.appendChild(healthCard);
-    strip.appendChild(reviewCard);
-
-    A.api('/othmode/mode').then(function (m) {
-      // Availability report, not a state: always READY by design.
-      modeCard.lastChild.textContent = m.status === 'READY' ? t('oth.mode.ready') : '—';
-      modeCard.classList.add('is-on');
-    }).catch(function () { modeCard.lastChild.textContent = '—'; });
+    A.api('/othmode/providers').then(function (p) {
+      var ready = (p.providers || []).filter(function (r) { return r.enabled && r.credential_present === true; });
+      var names = ready.map(function (r) {
+        return r.id === 'free-llm-pool' ? t('oth.ov.free_pool') + ' (' + (r.pool ? r.pool.active : 0) + ')' : r.id;
+      });
+      if (ready.length) set(aiCard, t('oth.ov.ready'), 'is-on', names.join(' · '));
+      else set(aiCard, t('oth.ov.not_ready'), 'is-bad', t('oth.ov.key_missing'));
+    }).catch(function () { set(aiCard, '—'); });
 
     A.api('/othmode/health').then(function (hv) {
       var act = hv.counts.ACTIVE || 0;
-      modeCardNoop();
-      healthCard.lastChild.textContent = act + ' / ' + hv.total + ' ' + t('oth.state.ACTIVE');
-      if ((hv.counts.FAILED || 0) > 0) healthCard.classList.add('is-bad');
-      else if ((hv.counts.DEGRADED || 0) > 0 || (hv.counts.BLOCKED || 0) > 0) healthCard.classList.add('is-warn');
-    }).catch(function () { healthCard.lastChild.textContent = '—'; });
+      var cls = (hv.counts.FAILED || 0) > 0 ? 'is-bad'
+        : ((hv.counts.DEGRADED || 0) > 0 || (hv.counts.BLOCKED || 0) > 0) ? 'is-warn' : 'is-on';
+      set(healthCard, act + ' / ' + hv.total + ' ' + t('oth.state.ACTIVE'), cls);
+      var bad = (hv.components || []).filter(function (c) {
+        return c.state === 'FAILED' || c.state === 'DEGRADED' || (c.state === 'BLOCKED' && c.kind === 'provider');
+      });
+      if (!bad.length) { set(attentionCard, t('oth.ov.none'), 'is-on'); return; }
+      var first = bad[0];
+      var note = /credential|key|unconfigured|invalid/i.test(String(first.detail || '') + first.state)
+        ? first.name + ': ' + t('oth.ov.key_missing')
+        : first.name + ': ' + (t('oth.state.' + first.state) === 'oth.state.' + first.state ? first.state : t('oth.state.' + first.state));
+      set(attentionCard, String(bad.length), bad.some(function (c) { return c.state === 'FAILED'; }) ? 'is-bad' : 'is-warn', note);
+    }).catch(function () { set(healthCard, '—'); set(attentionCard, '—'); });
 
-    function modeCardNoop() { /* layout hook kept deliberately inert */ }
-
-    if (A.state.identity) {
-      A.api('/othmode/evolution/events').then(function (ev) {
-        var open = (ev.events || []).filter(function (e) {
-          return !e.terminal && (e.risk_tier !== 'LOW') && e.review_decision !== 'APPROVED' && e.review_decision !== 'REJECTED';
-        }).length;
-        reviewCard.lastChild.textContent = String(open);
-      }).catch(function () { reviewCard.lastChild.textContent = '—'; });
-    } else {
-      reviewCard.lastChild.textContent = '—';
-    }
+    A.api('/othmode/runs?limit=1').then(function (r) {
+      var last = r.runs && r.runs[0];
+      if (!last) { set(runCard, t('oth.ov.no_runs'), null, t('oth.ov.run_hint')); return; }
+      var s = last.lifecycle.status;
+      var cls = s === 'completed' ? 'is-on' : (s === 'failed' ? 'is-bad' : 'is-warn');
+      set(runCard, runLabel(s), cls, last.command_title || last.command_slug);
+    }).catch(function () { set(runCard, '—'); });
 
     return strip;
   });
@@ -329,7 +346,7 @@
   // would bury the two numbers that matter (configured, active).
   var FREE_LLM_CHIP = {
     active: 'ACTIVE', degraded: 'DEGRADED', quota_exhausted: 'DEGRADED',
-    unavailable: 'FAILED', expired: 'FAILED', unknown: 'BLOCKED', unconfigured: 'BLOCKED'
+    unavailable: 'FAILED', expired: 'FAILED', invalid_credentials: 'BLOCKED', unknown: 'BLOCKED', unconfigured: 'BLOCKED'
   };
 
   function renderFreeLlm(fl) {
@@ -797,10 +814,137 @@
     }).catch(function (err) { errorView('oth.settings.title', 'oth.settings.sub', err); });
   }
 
+  // ── OTHMODE V2: command runs (Command → Task → Provider → Result) ─────
+  // Reads are public like Command History; starting a run needs a session
+  // and only ACTIVE SAFE/READ_ONLY commands get the button at all.
+
+  var RUN_STATE = {
+    queued: 'BLOCKED', running: 'ACTIVE', retrying: 'DEGRADED', waiting_for_quota: 'DEGRADED',
+    completed: 'VALIDATED', failed: 'FAILED', cancelled: 'DISABLED', unknown: 'BLOCKED'
+  };
+  function runLabel(status) {
+    var key = 'oth.run.status.' + status;
+    return t(key) === key ? String(status) : t(key);
+  }
+  function runChip(status) {
+    return el('span.badge.oth-state.oth-state-' + String(RUN_STATE[status] || 'BLOCKED').toLowerCase(), { text: runLabel(status) });
+  }
+
+  function renderRuns() {
+    loadingView('oth.runs.title', 'oth.runs.sub');
+    A.api('/othmode/runs?limit=100').then(function (data) {
+      var runs = data.runs || [];
+      A.mount(el('div', {}, [
+        pageHead('oth.runs.title', 'oth.runs.sub'),
+        !data.provisioned ? el('div.callout.callout-warn', {}, [el('span', { text: t('oth.run.disabled') })]) : null,
+        runs.length ? table(
+          [t('oth.runs.col.when'), t('oth.runs.col.command'), t('oth.runs.col.status'), t('oth.runs.col.provider'), t('oth.runs.col.duration'), ''],
+          runs.map(function (r) {
+            var l = r.lifecycle || {};
+            return [
+              l.started_at || r.ts ? A.formatDateTime(l.started_at || r.ts) : '—',
+              el('span.oth-cell-wrap', { text: r.command_title || r.command_slug }),
+              runChip(l.status),
+              el('span.mono', { text: (l.provider_used || r.provider || '—') + (l.fallback ? ' ↩' : '') }),
+              fmtDuration(l.duration_ms),
+              el('button.btn.btn-sm', { type: 'button', text: t('oth.dash.open'), onclick: function () { A.navigate('#/run/' + encodeURIComponent(r.task_id)); } })
+            ];
+          })
+        ) : emptyState('oth.runs.empty')
+      ]));
+    }).catch(function () { publicErrorView('oth.runs.title', 'oth.runs.sub'); });
+  }
+
+  var runPoll = null;
+  function renderRun(taskId) {
+    if (runPoll) { clearTimeout(runPoll); runPoll = null; }
+    loadingView('oth.run.title', null);
+    var polls = 0;
+    function paint(data) {
+      var r = data.run || {};
+      var l = data.lifecycle || {};
+      var rows = [
+        [t('oth.runs.col.status'), runChip(l.status)],
+        [t('oth.run.provider_used'), el('span.mono', { text: l.provider_used || l.provider || r.provider || '—' })],
+        [t('oth.run.model'), el('span.mono', { text: l.model_used || '—' })],
+        [t('oth.run.attempts'), (l.attempts === null || l.attempts === undefined ? '—' : String(l.attempts)) + (l.fallback ? ' — ' + t('oth.run.fallback') : '')],
+        [t('oth.runs.col.duration'), fmtDuration(l.duration_ms)],
+        [t('oth.runs.col.when'), l.started_at ? A.formatDateTime(l.started_at) : (r.ts ? A.formatDateTime(r.ts) : '—')]
+      ];
+      A.mount(el('div.detail', {}, [
+        el('button.btn.btn-sm.btn-ghost', { type: 'button', text: '← ' + t('action.back'), onclick: function () { A.navigate('#/runs'); } }),
+        el('div.detail-head', {}, [
+          el('h1.detail-title', { text: r.command_title || t('oth.run.title') }),
+          el('div.detail-badges', {}, [
+            runChip(l.status),
+            el('span.badge.mono', { text: taskId }),
+            r.project ? el('span.badge.mono', { text: r.project }) : null
+          ])
+        ]),
+        table([t('oth.common.reason'), ''], rows),
+        !l.terminal ? el('div.callout', {}, [el('span', { text: t('oth.run.waiting') })]) : null,
+        l.result && l.result.summary ? el('div', {}, [
+          el('h3.block-title', { text: t('oth.run.result') }),
+          el('pre.command-body', { text: l.result.summary })
+        ]) : null,
+        l.error ? el('div.callout.callout-danger', {}, [el('span', { text: t('oth.run.error') + ': ' + l.error })]) : null,
+        l.next_action ? el('p.field-hint', { text: t('oth.run.next') + ': ' + l.next_action }) : null,
+        r.command_slug ? el('button.btn', { type: 'button', text: t('oth.runs.col.command'), onclick: function () { A.navigate('#/command/' + encodeURIComponent(r.command_slug)); } }) : null
+      ]));
+    }
+    function load() {
+      A.api('/othmode/runs/' + encodeURIComponent(taskId)).then(function (data) {
+        if (A.state.route.name !== 'run') return;
+        paint(data);
+        if (!data.lifecycle.terminal && polls++ < 150) runPoll = setTimeout(load, 4000);
+      }).catch(function () { if (A.state.route.name === 'run') publicErrorView('oth.run.title', null); });
+    }
+    load();
+  }
+
+  function openRunDialog(command) {
+    var inputs = {};
+    var rows = (command.variables || []).map(function (variable) {
+      var input = el('input', { type: 'text', value: variable.default || '' });
+      inputs[variable.name] = input;
+      return el('div.var-row', {}, [el('span.var-name', { text: '{{' + variable.name + '}}' }), input]);
+    });
+    var providerSel = el('select', {}, [
+      el('option', { value: 'auto', text: t('oth.run.provider_auto') }),
+      el('option', { value: 'free-llm-pool', text: 'free-llm-pool' }),
+      el('option', { value: 'openai-compat', text: 'openai-compat' })
+    ]);
+    A.openDialog({
+      title: t('oth.run.button') + ' — ' + command.title,
+      subtitle: t('oth.run.intro'),
+      body: rows.concat([el('div.var-row', {}, [el('span.var-name', { text: t('oth.run.provider') }), providerSel])]),
+      confirmLabel: t('oth.run.start'),
+      onConfirm: function () {
+        var values = {};
+        Object.keys(inputs).forEach(function (name) { values[name] = inputs[name].value; });
+        A.api('/othmode/commands/' + encodeURIComponent(command.slug) + '/run', {
+          method: 'POST', body: { values: values, provider: providerSel.value }
+        }).then(function (started) {
+          A.closeDialog();
+          A.toast(t('oth.run.started'));
+          A.navigate('#/run/' + encodeURIComponent(started.task_id));
+        }).catch(A.reportError);
+      }
+    });
+  }
+
+  A.registerCommandActions(function (command) {
+    if (!A.state.identity) return null;
+    if (command.status !== 'ACTIVE' || ['SAFE', 'READ_ONLY'].indexOf(command.safety_level) === -1) return null;
+    return el('button.btn.btn-primary', { type: 'button', text: t('oth.run.button'), onclick: function () { openRunDialog(command); } });
+  });
+
   // ── Registration ──────────────────────────────────────────────────────
 
   A.registerRoutes({
     'saved': function () { renderSaved(); },
+    'runs': function () { renderRuns(); },
+    'run': function (segments) { segments[1] ? renderRun(decodeURIComponent(segments[1])) : renderRuns(); },
     'skills': function (segments) { segments[1] ? renderSkillDetail(decodeURIComponent(segments[1])) : renderSkills(); },
     'tools': function () { renderTools(); },
     'providers': function () { renderProviders(); },

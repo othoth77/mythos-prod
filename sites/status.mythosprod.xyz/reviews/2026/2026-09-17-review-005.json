@@ -1,6 +1,6 @@
 {
   "review_id": "REVIEW-2026-09-17-005",
-  "timestamp": "2026-09-17T23:40:16.914Z",
+  "timestamp": "2026-09-17T22:12:33.392Z",
   "engine_version": "1.0.0",
   "audited_sources": {
     "repository": "https://github.com/othoth77/mythos-prod.git",
@@ -8,65 +8,25 @@
     "pr_ledger_captured_at": "2026-08-26T13:58:00Z",
     "repo_snapshot_captured_at": "2026-09-02T19:32:00Z",
     "documents_checked": 24,
-    "evidence_checked": 156
+    "evidence_checked": 149
   },
   "git": {
     "collected": true,
-    "head": "04c4f55248ed83fc0f8c4a71b1eaf2314f390428",
-    "branch": "mythos/wp-whatsapp-status-fix-20260917",
-    "origin_main": "0306cd7391b6557c936f17a408250536ccc2b2f8",
+    "head": "2ec7f2c260a9eb98e154108f0af73b59e16336c3",
+    "branch": "mythos/session-guard-turn-clock-status-20260917",
+    "origin_main": "2ec7f2c260a9eb98e154108f0af73b59e16336c3",
     "remote_url": "https://github.com/othoth77/mythos-prod.git",
     "worktree_clean": false,
     "last_commit": {
-      "hash": "0306cd7391b6557c936f17a408250536ccc2b2f8",
-      "date": "2026-09-17T23:34:28Z",
-      "subject": "status-center: session-guard #308 fix soak-verified over 6 real production cycles (#317)"
+      "hash": "2ec7f2c260a9eb98e154108f0af73b59e16336c3",
+      "date": "2026-09-17T22:06:45Z",
+      "subject": "fix(session-guard): the idle clock never advanced, so no threshold could work (#308)"
     },
     "recent_commits": [
-      {
-        "hash": "0306cd73",
-        "date": "2026-09-17",
-        "subject": "status-center: session-guard #308 fix soak-verified over 6 real production cycles (#317)"
-      },
-      {
-        "hash": "9128dafc",
-        "date": "2026-09-17",
-        "subject": "Merge pull request #314 from othoth77/mythos/othmode-v2-production-20260917"
-      },
-      {
-        "hash": "2c4791e5",
-        "date": "2026-09-17",
-        "subject": "status-center: OTHMODE V2 DEPLOYED and PRODUCTION-VERIFIED (main@4c2f7d7a)"
-      },
-      {
-        "hash": "4c2f7d7a",
-        "date": "2026-09-17",
-        "subject": "Merge pull request #307 from othoth77/mythos/othmode-v2-20260917"
-      },
-      {
-        "hash": "5852418b",
-        "date": "2026-09-17",
-        "subject": "Merge origin/main + OTHMODE V2 verification: front-end runtime suite, evidence, docs"
-      },
-      {
-        "hash": "488e068d",
-        "date": "2026-09-17",
-        "subject": "executor: record provider_used/model_used/attempts/fallback on EVERY failure outcome"
-      },
-      {
-        "hash": "0bb04e53",
-        "date": "2026-09-17",
-        "subject": "status-center: session-guard idle-clock fix (#308) deployed, enforcement stays OFF (#312)"
-      },
       {
         "hash": "2ec7f2c2",
         "date": "2026-09-17",
         "subject": "fix(session-guard): the idle clock never advanced, so no threshold could work (#308)"
-      },
-      {
-        "hash": "88067cfb",
-        "date": "2026-09-17",
-        "subject": "Merge origin/main (#311 Casse closure) into mythos/othmode-v2-20260917 — Status Center review regenerated"
       },
       {
         "hash": "baf7cd30",
@@ -77,26 +37,6 @@
         "hash": "4d44a272",
         "date": "2026-09-17",
         "subject": "status-center: Casse.Autos engineering closure 2026-09-17 (main 89c636d) — stays OWNER_ACTION / TESTED, not deployed"
-      },
-      {
-        "hash": "a1b59ad0",
-        "date": "2026-09-17",
-        "subject": "OTHMODE V2: pre-merge smoke findings fixed — Groq preferred model, 413/429 as quota, retryable pool exhaustion, per-attempt reasons"
-      },
-      {
-        "hash": "b6c146ab",
-        "date": "2026-09-17",
-        "subject": "OTHMODE V2 review fixes: anonymous run reads redacted (actor removed, endpoints/paths masked), full executor status mapping, outcome guard on the failure path"
-      },
-      {
-        "hash": "4817ad9d",
-        "date": "2026-09-17",
-        "subject": "Merge origin/main into mythos/othmode-v2-20260917 (Status Center review regenerated after #306)"
-      },
-      {
-        "hash": "6e925f75",
-        "date": "2026-09-17",
-        "subject": "OTHMODE V2: command runs edge, provider observability, invalid_credentials, simplified UI"
       },
       {
         "hash": "96150e09",
@@ -1022,6 +962,66 @@
         "hash": "4671bd21",
         "date": "2026-09-05",
         "subject": "Merge pull request #206 from othoth77/mythos/comms-3-provider-20260905"
+      },
+      {
+        "hash": "f21875be",
+        "date": "2026-09-05",
+        "subject": "feat(comms): customer WhatsApp instance provisioning + inbox registry + receiver status (MYTHOS-COMMS-3, #205)"
+      },
+      {
+        "hash": "1275ccf1",
+        "date": "2026-09-05",
+        "subject": "Merge pull request #204 from othoth77/mythos/comms-2-receiver-20260905"
+      },
+      {
+        "hash": "128b12b6",
+        "date": "2026-09-05",
+        "subject": "docs(handover): MYTHOS-COMMS-2 deployed OFF (receiver 404 in production, migration 0002 applied)"
+      },
+      {
+        "hash": "6631b6ef",
+        "date": "2026-09-05",
+        "subject": "Merge pull request #203 from othoth77/mythos/comms-2-receiver-20260905"
+      },
+      {
+        "hash": "885c28ef",
+        "date": "2026-09-05",
+        "subject": "feat(mythos-wp): Communication Receiver — Evolution webhook → Core persistence, dry-run by default (MYTHOS-COMMS-2, #202)"
+      },
+      {
+        "hash": "8f688483",
+        "date": "2026-09-05",
+        "subject": "Merge pull request #201 from othoth77/mythos/comms-1-foundation-20260905"
+      },
+      {
+        "hash": "81529750",
+        "date": "2026-09-05",
+        "subject": "docs(handover): MYTHOS-COMMS-1 deployed — migration 0001 on production, mythos-wp served from the main worktree"
+      },
+      {
+        "hash": "e92042df",
+        "date": "2026-09-05",
+        "subject": "Merge pull request #200 from othoth77/mythos/comms-1-foundation-20260905"
+      },
+      {
+        "hash": "b25d26c6",
+        "date": "2026-09-05",
+        "subject": "feat(mythos-wp): Communication Core foundation — schema migration 0001, runner, tests (MYTHOS-COMMS-1, #197)"
+      },
+      {
+        "hash": "35b148d2",
+        "date": "2026-09-05",
+        "subject": "docs(handover): Phase 3 delivery result — branch on origin, main ff is the owner step"
+      },
+      {
+        "hash": "a4bd6034",
+        "date": "2026-09-05",
+        "subject": "docs(handover): Phase 3 repository governance entry (secret scan, cage check, delivery plan)"
+      },
+      {
+        "hash": "2ac47fb7",
+        "date": "2026-09-05",
+        "subject": "erp: Phase 0–2 gates (STATE LOCK, BACKUP=PASS, DATABASE=PASS) — evidence, grant-matrix alignment"
       }
     ],
     "commit_count": null,
@@ -2055,32 +2055,32 @@
     },
     {
       "id": "PROJECT-CASSE-AUTOS",
-      "name": "Casse.Autos (MYTHOS AUTO salvage channel)",
+      "name": "Casse.Autos (MYTHOS AUTO parts sourcing channel — NEW + USED)",
       "executive": false,
       "purpose": "casse.autos: universal parts search + WhatsApp sourcing (business model corrected 2026-09-14): identify vehicle + part, search composed catalogue/supplier sources, verify fitment/OEM, hand off to WhatsApp; own salvage inventory becomes an optional provider.",
       "status": "OWNER_ACTION",
       "maturity": "TESTED",
       "repository": "othoth77/casse.autos",
-      "last_change": "2026-09-14 (owner decision: NEW + USED parts, universal search + sourcing; C-O5' adopted)",
-      "blocker": "C-O5': no consented supplier answers yet (launch = a real answering provider, not code); DNS on OVH parking (C-O2); WhatsApp number/inbox operator absent (C-O3); C-O4/C-O6/C-O1 open; O8 and TecDoc contact awaiting the owner sending the prepared briefs.",
-      "next_action": "Owner sends the AutoPart brief and authorises the TecAlliance contact; names consented suppliers and the sourcing-inbox operator; moves DNS. Engineering: review/merge casse.autos #8 and the stacked NEW+USED branch; enable CASSE_SEARCH_PROVIDERS only when a supplier exists.",
-      "headline": "Engineering complete for the honest empty storefront (main 4a65955; 311 tests, smoke 60, Playwright 37). Product redefined 2026-09-14 as universal parts search: research found no open OEM/fitment data (TecDoc only, licence-gated), vehicle identification composable from open data, no Tunisian supplier API; prototype search core on PR #8 (374 tests, feature off). NOT launch-ready until the model decision and a first consented supplier.",
+      "last_change": "2026-09-17 (engineering closure: PR #11 reviewed+merged, PR #12 merged; main 89c636d)",
+      "blocker": "Engineering closed; every remaining gate is the owner's: C-O2 DNS (casse.autos on OVH parking — no certificate, no public deployment possible), C-O3 WhatsApp number + sourcing-inbox operator, C-O4 unit memory cap, C-O5′ a consented supplier who answers (the launch gate), C-O6 store/backup, C-O1 ratification (incl. public wording for NEW + USED), O8 / TecDoc briefs to send.",
+      "next_action": "Owner: move DNS (C-O2), then run the Casse execution pack with the CI artifact + scripts/release.sh; provide CASSE_WHATSAPP_NUMBER and the consented supplier list. Engineering: none — V1 closed on the code side; releases via CI artifact + release.sh (proven on piece.autos).",
+      "headline": "Engineering CLOSED 2026-09-17 (main 89c636d): sourcing hardening reviewed and merged (consent verified at selection and in file order, no phone in listing URLs, images refused by value, listing freshness vs the snapshot), CI-built release artifact + release.sh with rollback, rehearsed from the artifact against the real Kitchen. NOT deployed and NOT launch-ready: DNS still parked (C-O2) and no consented supplier answers yet (C-O5′).",
       "dimensions": {
         "implementation": {
           "status": "DONE",
-          "note": "main ad9d340"
+          "note": "main 89c636d; V1 engineering closed"
         },
         "tests": {
           "status": "DONE",
-          "note": "311 passed / 19 skipped (Postgres-gated), smoke 54 both passes, Playwright 34/34"
+          "note": "vitest 480 + 20 Postgres (500), Postgres 19/19 (CI), smoke 71, Playwright 37, CI green (Node 22)"
         },
         "deployment": {
           "status": "OWNER_ACTION",
-          "note": "templates ready; not installed; C-O2/C-O4 first"
+          "note": "artifact + release.sh ready and rehearsed on loopback; not installed — C-O2 (DNS) first"
         },
         "inventory": {
           "status": "OWNER_ACTION",
-          "note": "no real inventory anywhere; fixture refused in production"
+          "note": "no inventory sold by design (NEW + USED sourcing); launch gate is C-O5′ (a consented supplier who answers)"
         }
       },
       "evidence": [
@@ -2088,7 +2088,8 @@
         "EV-CASSE-NO-INVENTORY",
         "EV-CASSE-UPS-RESEARCH",
         "EV-CASSE-UPS-PROTOTYPE",
-        "EV-CASSE-MODEL-DECISION"
+        "EV-CASSE-MODEL-DECISION",
+        "EV-CASSE-CLOSURE"
       ]
     },
     {
@@ -2099,10 +2100,10 @@
       "status": "DONE",
       "maturity": "PRODUCTION_VERIFIED",
       "repository": "othoth77/mythos-prod",
-      "last_change": "2026-09-17 (remediation V1 live; #294, #297-#303 merged at a7c0685)",
+      "last_change": "2026-09-17 (session-guard idle-clock fix #308 deployed, enforcement still OFF by owner decision)",
       "blocker": null,
-      "next_action": "Owner decisions, both deliberate holds: session-guard enforcement stays OFF because its marker is all-or-nothing and would authorise terminating live agent sessions; and Guardian services.restartable is empty because choosing an auto-restartable support unit belongs to whoever owns it.",
-      "headline": "Installed and enabled: timer every 2 min, guardian OK observing 5/5 domains, remediation ON for disk and the admission advisory with on_schedule true. The scheduled tick has acted and verified. No kill and no delete path at any level. Seven defects were found by deploying it that code review could not have found.",
+      "next_action": "Owner decision: re-enable session-guard enforcement now that its idle clock actually works (verified plan: 3 sessions idle 3+ days would SIGTERM, 9 more idle-eligible but capped at 3/run, 0 false positives found). Also open: whether Guardian services.restartable should name a support unit, and the ongoing live memory CRITICAL incident on the host.",
+      "headline": "Installed and enabled: timer every 2 min, guardian OK/DEGRADED observing 5/5 domains (currently tracking a live host memory CRITICAL incident), remediation ON for disk and the admission advisory with on_schedule true. Session-guard's idle clock was found structurally broken (0 idle seconds forever) and fixed in #308 (deployed, non-enforcing). Enforcement marker remains OFF by explicit owner decision; the guard now correctly identifies 3 sessions idle 3+ days via the transcript-turn clock but signals nothing.",
       "dimensions": {
         "roadmap": {
           "percent": 100,
@@ -2136,53 +2137,9 @@
         "EV-GUARDIAN-LIVE",
         "EV-GUARDIAN-INCIDENT-0916",
         "EV-GUARDIAN-TESTS",
-        "EV-GUARDIAN-DOCS"
-      ]
-    },
-    {
-      "id": "PROJECT-MYTHOS-WP",
-      "name": "MYTHOS WP — Control Center (wp.mythosprod.xyz)",
-      "executive": true,
-      "purpose": "The central control platform for MYTHOS projects: projects, WhatsApp accounts and phone numbers (one number ↔ several projects with deterministic routing), unified inbox, contacts 360, MYTHOS AI agents with least-privilege tools, AI↔human handoff, templates, automations, integrations (Evolution, Cloud API provider, official Meta WhatsApp Business Tools MCP, Kitchen Mythos Auto, n8n, MYTHOS MCP), health center, audit and RBAC. It owns no product data: the automotive catalogue is read from Kitchen Mythos Auto over HTTP.",
-      "status": "OWNER_ACTION",
-      "maturity": "PRODUCTION_VERIFIED",
-      "repository": "othoth77/mythos-prod",
-      "last_change": "2026-09-17 (WhatsApp connection status fixed and verified in production — EV-WP-WA-STATUS-PRODUCTION; PR #313)",
-      "blocker": null,
-      "next_action": "Owner: pair the SsangYong customer number (QR from the phone) or leave it as Action required; enable the mythos-bridge instance webhook if the shared number should receive customer traffic (identity routing rules only); merge PRs #305, #309, #313 (review gate); Meta MCP OAuth; Cloud API credentials if wanted; rotate the initial owner password; schedule a mythos_wp backup unit.",
-      "headline": "Live at https://wp.mythosprod.xyz/ as the MYTHOS Control Center (five sections, simplified V2.1). 2026-09-17 23:17 UTC: fixed the WhatsApp status model — a health check that cannot reach the gateway is no longer written as the number's device status, every project link follows its number, and the panel shows one model: Connected / Action required / Disconnected / Error with a plain reason. Production now reads WhatsApp 1 / 2 (owner number ••••9660 connected and serving SsangYong Parts, Dar Hijama and Pub; the SsangYong customer instance is Action required — never paired, an owner step). Multi-project, multi-number, one number → several projects, routing privacy guard, Kitchen connector (read-only, independent), MCP descriptor, n8n, RBAC, audit, health and backups unchanged. No 'Asfour' identity anywhere.",
-      "dimensions": {
-        "implementation": {
-          "status": "DONE",
-          "note": "V2.1: 5-section UI, short project form (POST /api/projects), Project → AI (GET/PUT /api/projects/:p/ai), search limited to projects/conversations/contacts, legacy catalogue code removed"
-        },
-        "tests": {
-          "status": "DONE",
-          "note": "15 suites green (1,224 assertions incl. the new WhatsApp status suite, 27); check.sh GREEN; production screenshots of the dashboard and WhatsApp page"
-        },
-        "deployment": {
-          "status": "DONE",
-          "note": "v2-rollout.sh 2026-09-17 23:17 UTC from commit efbc174, then 04c4f55 (no migration); backup mythos_wp-v2-pre-20260917T231738Z.dump; rollback = checkout 372c39de + restart"
-        },
-        "production": {
-          "status": "DONE",
-          "note": "verified 2026-09-17 23:39 UTC: dashboard WhatsApp 1 / 2, no ERROR row, health center 9 ok / 1 disconnected; the unpaired customer number reads Action required"
-        }
-      },
-      "evidence": [
-        "EV-WP-V2-PR",
-        "EV-WP-V2-TESTS",
-        "EV-WP-V2-SECURITY",
-        "EV-WP-V2-DEPLOY",
-        "EV-WP-V2-PRODUCTION",
-        "EV-WP-V21-PR",
-        "EV-WP-V21-PRODUCTION",
-        "EV-WP-WA-STATUS-INCIDENT",
-        "EV-WP-WA-STATUS-FIX",
-        "EV-WP-WA-STATUS-PRODUCTION"
-      ],
-      "directories": [
-        "projects/mythos-wp"
+        "EV-GUARDIAN-DOCS",
+        "EV-SESSION-GUARD-ENFORCE",
+        "EV-SESSION-GUARD-TURNIDLE-FIX"
       ]
     }
   ],
@@ -3189,9 +3146,17 @@
           ]
         },
         {
+          "id": "STAGE-CASSE-ENGINEERING-CLOSED",
+          "status": "DONE",
+          "what": "Engineering closure 2026-09-17: sourcing hardening reviewed + merged, CI release artifact, release.sh, rehearsal from the artifact",
+          "evidence": [
+            "EV-CASSE-CLOSURE"
+          ]
+        },
+        {
           "id": "STAGE-CASSE-INVENTORY",
           "status": "OWNER_ACTION",
-          "what": "First real inventory (C-O5)",
+          "what": "Launch gate C-O5′: a consented supplier who answers (own inventory is an optional provider)",
           "evidence": [
             "EV-CASSE-NO-INVENTORY"
           ]
@@ -3216,11 +3181,11 @@
         }
       ],
       "progress": {
-        "done_stages": 2,
-        "total_stages": 6,
-        "percent": 33,
+        "done_stages": 3,
+        "total_stages": 7,
+        "percent": 43,
         "basis": "CALCULATED",
-        "explanation": "2 of 6 recorded stages DONE (superseded counted as closed)"
+        "explanation": "3 of 7 recorded stages DONE (superseded counted as closed)"
       }
     }
   ],
@@ -3610,6 +3575,16 @@
       "what": "Closure release d92a46a live and verified; only owner gates (WhatsApp number, O8) remain.",
       "evidence": [
         "EV-PIECE-CLOSURE"
+      ]
+    },
+    {
+      "id": "MS-2026-09-17-CASSE-ENGINEERING-CLOSED",
+      "date": "2026-09-17",
+      "project": "PROJECT-CASSE-AUTOS",
+      "title": "Casse.Autos engineering closed (not deployed)",
+      "what": "main 89c636d; deployment and launch remain owner gates (C-O2 DNS, C-O5′ supplier).",
+      "evidence": [
+        "EV-CASSE-CLOSURE"
       ]
     }
   ],
@@ -4074,8 +4049,8 @@
       "id": "NEXT-CASSE-INVENTORY",
       "priority": "P0",
       "order": 0,
-      "title": "Casse.Autos: owner business-model decision, then inquiry/WhatsApp adaptation on the prototype",
-      "detail": "C-O5 superseded by C-O5' (first live provider answers). After the decision: adapt OrderItem.sourced + state-driven WhatsApp wording on top of casse.autos PR #8; draft the AutoPart letter and TecAlliance brief; deployment pack stays valid for the honest empty storefront.",
+      "title": "Casse.Autos: owner gates only — DNS (C-O2), WhatsApp number (C-O3), consented supplier list (C-O5′)",
+      "detail": "Engineering closed 2026-09-17 (main 89c636d). When DNS moves: run the othkm execution pack with the CI artifact (`gh run download … -n casse-autos-standalone`) and `scripts/release.sh artifact`; certbot; TLS vhost. Launch only when a consented supplier answers.",
       "depends_on": null
     }
   ],
@@ -4545,7 +4520,12 @@
   "monorepo_discovery": {
     "checked": true,
     "directories_checked": 23,
-    "new_discoveries": []
+    "new_discoveries": [
+      {
+        "directory": "projects/mythos-wp",
+        "note": "Directory present under projects/ but not claimed by any registry project's \"directories\" list. Requires classification (existing project or a new one)."
+      }
+    ]
   },
   "evidence": [
     {
@@ -5748,92 +5728,28 @@
       "evidence_note": "file not found at docs/MYTHOS_GUARDIAN{,_ARCHITECTURE,_DECISIONS,_RUNBOOK,_SECURITY,_CLEANUP_POLICY,_INCIDENTS}.md"
     },
     {
-      "id": "EV-WP-V2-PR",
-      "type": "pr",
-      "reference": "othoth77/mythos-prod#305",
+      "id": "EV-SESSION-GUARD-ENFORCE",
+      "type": "vps",
+      "reference": "/var/lib/mythos-session-guard/session-guard.enabled on vps-4722f0a9, 2026-09-17 16:53",
       "date": "2026-09-17",
-      "note": "MYTHOS WP V2 — Central Control Center (commit 721d2e0). Merge = owner review action; production runs this commit from the detached checkout.",
-      "evidence_status": "NOT_VERIFIED",
-      "evidence_note": "PR not present in the recorded ledger"
+      "note": "Enforcement enabled by owner decision. mode=enforce, enforcement_reason=marker. Two ticks observed: planned [] and applied [] both times, 18 then 17 sessions all vetoed (recent_activity, has_child_processes, below_min_age). Lifetime ledger: 20,954 veto events and 0 termination events. Thresholds: min_age 900 s, idle 3600 s, orphan_grace 300 s, max_sessions 6. lifecycle.consulted=false, so idle is judged on the CPU clock alone and an idle ccd-cli still burns CPU — enforcement is conservative by construction. Rollback: rm the marker. Kill switch: MYTHOS_SESSION_GUARD=off.",
+      "evidence_status": "RECORDED"
     },
     {
-      "id": "EV-WP-V2-TESTS",
-      "type": "test",
-      "reference": "tests/mythos-wp-test.js, tests/mythos-wp-comms-*-test.js, tests/mythos-wp-v2-{whatsapp,platform,ai}-test.js",
+      "id": "EV-CASSE-CLOSURE",
+      "type": "ci",
+      "reference": "othoth77/casse.autos main 89c636d — PR #11 (sourcing hardening; reviewed: 10 findings confirmed by independent verification, all fixed in 4546db2) merged 22a8b71; PR #12 (closure: CI release artifact after every gate, scripts/release.sh artifact|build|rollback, icons, /api/health without infrastructure names, docs to the real state); CI run 35262142115",
       "date": "2026-09-17",
-      "note": "14 suites, 1,281 assertions, 0 failures on mythos_wp_test; projects/mythos-wp/tools/check.sh GREEN.",
-      "evidence_status": "NOT_VERIFIED"
+      "note": "typecheck 0 · lint 0 · vitest 480 + 20 Postgres (500) · Postgres suites in CI · smoke 71 · Playwright 37 · audit 0. Rehearsed on loopback from the CI artifact against the real Kitchen with empty jsonl stores: every route 200/404 as documented, honest empty state, 'Canal WhatsApp non configuré', security headers, sitemap 8 URLs. NOT deployed: casse.autos still resolves to OVH parking (C-O2); no unit, vhost, env or release directory exists on the host. Ten merged branches deleted; 0 open PRs; 0 open issues.",
+      "evidence_status": "RECORDED"
     },
     {
-      "id": "EV-WP-V2-SECURITY",
-      "type": "document",
-      "reference": "projects/mythos-wp/docs/SECURITY.md + PR #305 commit message",
+      "id": "EV-SESSION-GUARD-TURNIDLE-FIX",
+      "type": "vps",
+      "reference": "PR #308 (2ec7f2c) + live verification on vps-4722f0a9, 2026-09-17 21:49-22:10",
       "date": "2026-09-17",
-      "note": "Independent security review (auth, RBAC, tenant isolation, secrets, webhooks, CSRF, injection, SSRF, rate limits, sessions, audit, AI tools, MCP): 3 HIGH + 9 MEDIUM findings, all fixed before release.",
-      "evidence_status": "NOT_VERIFIED",
-      "evidence_note": "file not found at projects/mythos-wp/docs/SECURITY.md + PR #305 commit message"
-    },
-    {
-      "id": "EV-WP-V2-DEPLOY",
-      "type": "file",
-      "reference": "projects/mythos-wp/deploy/v2-rollout.sh",
-      "date": "2026-09-17",
-      "note": "Production rollout 12:35 UTC: backup /var/backups/mythos-db/mythos_wp-v2-pre-20260917T123551Z.dump, migrations 0006_shared_account_routing + 0007_control_center applied, owner imported into wp_users, mythos-wp.service restarted (ExecMainStart 12:35:55 UTC).",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-WP-V2-PRODUCTION",
-      "type": "document",
-      "reference": "https://wp.mythosprod.xyz/ — smoke run 2026-09-17 13:29–13:35 UTC (audit actor mythos-smoke)",
-      "date": "2026-09-17",
-      "note": "Live checks through the public URL: login, meta (5 projects), health center 8 ok / 1 disconnected (unpaired ssangyong-autos instance), Kitchen 346 products via connector, n8n + MYTHOS MCP reachable, Meta MCP endpoint reachable (405 without OAuth), Evolution sync discovered 2 instances, owner number linked as SHARED to ssangyong-autos + dar-hijama with identity routing simulated to two projects, agents bound and tested, template preview, Cloud API sync 412 (not configured), receiver dry-run ledgered without persisting.",
-      "evidence_status": "NOT_VERIFIED",
-      "evidence_note": "file not found at https://wp.mythosprod.xyz/ — smoke run 2026-09-17 13:29–13:35 UTC (audit actor mythos-smoke)"
-    },
-    {
-      "id": "EV-WP-V21-PR",
-      "type": "pr",
-      "reference": "othoth77/mythos-prod#309",
-      "date": "2026-09-17",
-      "note": "MYTHOS WP V2.1 simplification (commit 372c39d, stacked on #305). Merge = owner review action; production runs this commit.",
-      "evidence_status": "NOT_VERIFIED",
-      "evidence_note": "PR not present in the recorded ledger"
-    },
-    {
-      "id": "EV-WP-V21-PRODUCTION",
-      "type": "document",
-      "reference": "https://wp.mythosprod.xyz/ — smoke run 2026-09-17 18:50 UTC (audit actor mythos-smoke, removed)",
-      "date": "2026-09-17",
-      "note": "Sidebar = Dashboard/Inbox/Projects/WhatsApp/Settings; short New project form creates smoke-v2-1-service and smoke-v2-1-auto (slug generated, Kitchen attached, shared owner number linked, agent bound); Project → AI get/put/test; routing owner-excluded; Kitchen 346 products; health 9 ok / 1 disconnected; search = projects only; served assets contain no legacy/Asfour strings. Backup mythos_wp-v2-pre-20260917T184728Z.dump; rollback sha 3452d6f5.",
-      "evidence_status": "NOT_VERIFIED",
-      "evidence_note": "file not found at https://wp.mythosprod.xyz/ — smoke run 2026-09-17 18:50 UTC (audit actor mythos-smoke, removed)"
-    },
-    {
-      "id": "EV-WP-WA-STATUS-INCIDENT",
-      "type": "document",
-      "reference": "wp_health_checks + wp_audit_events (mythos_wp), 2026-09-17 22:07 UTC",
-      "date": "2026-09-17",
-      "note": "Incident: the Evolution probe timed out under host load (whatsapp:evolution → {\"reason\":\"TIMEOUT\"}); health.js wrote that failure as the DEVICE status of both numbers (status='error'), so the dashboard read 'WhatsApp 0 / 2' with ERROR on four project rows while the owner session was open. The 'pub' link created in that window kept status='error', which also blocks outbound for that project.",
-      "evidence_status": "NOT_VERIFIED",
-      "evidence_note": "file not found at wp_health_checks + wp_audit_events (mythos_wp), 2026-09-17 22:07 UTC"
-    },
-    {
-      "id": "EV-WP-WA-STATUS-FIX",
-      "type": "pr",
-      "reference": "othoth77/mythos-prod#313 (efbc174 + 04c4f55)",
-      "date": "2026-09-17",
-      "note": "Fix: only a state the provider really reported may change wp_phone_numbers.status; a failed check records health_state='error' and keeps the last known status; numbers.connectionOf() gives one model (Connected / Action required / Disconnected / Error) with a plain detail; numbers.syncInboxStatus() makes every project link follow its number; dashboard counts connected numbers and regained the waiting_human figure; MYTHOS_WP_DB_CONNECT_TIMEOUT_MS added. New suite mythos-wp-v21-whatsapp-status-test.js (27 assertions); 15 suites green; check.sh GREEN.",
-      "evidence_status": "NOT_VERIFIED",
-      "evidence_note": "PR not present in the recorded ledger"
-    },
-    {
-      "id": "EV-WP-WA-STATUS-PRODUCTION",
-      "type": "document",
-      "reference": "https://wp.mythosprod.xyz/ — verified 2026-09-17 23:39 UTC (screenshots /home/deploy/wpv2-ui-test/shots-prod/)",
-      "date": "2026-09-17",
-      "note": "Deployed 23:17 UTC (backup mythos_wp-v2-pre-20260917T231738Z.dump). Dashboard now reads WhatsApp 1 / 2; Dar Hijama and Pub → ••••9660 Connected; SsangYong Parts → *** Action required (never paired) + ••••9660 Connected; no ERROR. Stale link status self-healed at the first health run. Health center 9 ok / 1 disconnected (the unpaired customer instance). Routing unchanged: owner number OWNER_EXCLUDED, unknown sender UNROUTED, one number still serves three projects.",
-      "evidence_status": "NOT_VERIFIED",
-      "evidence_note": "file not found at https://wp.mythosprod.xyz/ — verified 2026-09-17 23:39 UTC (screenshots /home/deploy/wpv2-ui-test/shots-prod/)"
+      "note": "Root cause found and fixed: session-guard's CPU-based idle clock could never advance for a Claude session (idle ccd-cli still burns CPU), so ALL 17 live sessions read exactly 0 idle seconds regardless of threshold — the guard was structurally incapable of reclaiming anything. #308 lets the guard consult a PARTIAL lifecycle snapshot for its own turn-idle clock (previously withheld entirely if any home was denied). Safety property verified directly: a session absent from a partial snapshot gets turn_idle=null and falls back unchanged to the CPU-idle path, so it is never made MORE eligible for termination. Verified read-only under real CAP_KILL restriction with a genuinely partial snapshot (denied_homes=1): 3 sessions now correctly identified as idle 3+ days via the transcript-turn clock (pids 1073889, 2225584, 2225532), 9 more idle-eligible but capped by max_terminations_per_run, and 0 signals sent throughout verification. Merged and deployed as the NON-ENFORCING fix only; the enable marker was explicitly left OFF (removed if present) both before and after deployment. Confirmed live in production's own observe-mode ledger post-deploy: planned=3, applied=0.",
+      "evidence_status": "RECORDED"
     }
   ],
   "prs": [

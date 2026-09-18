@@ -78,6 +78,26 @@ var chain = poolProvider.run({ timeout_seconds: 5 }, 'ping', null, null, {
   ok(outcome.exit_code === 1 && outcome.parsed.is_error === true && /FREE_LLM_POOL_EXHAUSTED/.test(outcome.stderr),
     'run() with zero configured providers resolves a normal FAILED-shaped outcome, never throws');
   ok(outcome.attempts.length === 0, 'no HTTP attempt is made when there is nothing to call');
+}).then(function () {
+  // ---------------------------------------------------------------- 6. OTHMODE V2: exhaustion explains itself and classifies as retryable
+  fs.mkdirSync(process.env.MYTHOS_FREE_LLM_KEY_DIR, { recursive: true });
+  fs.writeFileSync(path.join(process.env.MYTHOS_FREE_LLM_KEY_DIR, 'groq.env'), 'MYTHOS_FREE_LLM_GROQ_API_KEY=sk-fixture-not-real\n', { mode: 0o600 });
+  var quota = require(path.join(EXEC, 'lib', 'quota'));
+  var budget = function () { return Promise.resolve({ status: 413, body: JSON.stringify({ error: { message: 'Request too large for model on tokens per minute (TPM): Limit 30000, Requested 15086' } }) }); };
+  return poolProvider.run({ timeout_seconds: 5 }, 'ping', null, null, { transport: budget }).then(function (o) {
+    ok(o.exit_code === 1 && /groq=quota_exhausted \(HTTP 413/.test(o.stderr), 'exhaustion names each candidate, its status and the provider\'s reason (' + o.stderr.slice(0, 80) + ')');
+    var cls = quota.classifyOutcome(o.parsed.result, { timed_out: !!o.timed_out });
+    ok(cls.retryable === true, 'a pool exhausted by per-minute budgets classifies as retryable (' + cls.category + '), never PROVIDER_FAILED');
+    var hard = function () { return Promise.resolve({ status: 500, body: JSON.stringify({ error: { message: 'internal error' } }) }); };
+    return poolProvider.run({ timeout_seconds: 5 }, 'ping', null, null, { transport: hard });
+  }).then(function (o2) {
+    ok(/groq=degraded/.test(o2.stderr) && quota.classifyOutcome(o2.parsed.result, {}).retryable === true, 'a 500 on every candidate is transient (degraded), retryable');
+    var timeout = function () { return Promise.reject(new Error('request timed out')); };
+    return poolProvider.run({ timeout_seconds: 5 }, 'ping', null, null, { transport: timeout });
+  }).then(function (o3) {
+    ok(o3.timed_out === true && quota.classifyOutcome(o3.parsed.result, { timed_out: o3.timed_out }).retryable === true, 'a timeout on every candidate surfaces timed_out:true (retryable)');
+    ok(/FREE_LLM_POOL_EXHAUSTED/.test(o3.stderr) && o3.attempts.length === 1 && o3.attempts[0].timed_out === true, 'attempts carry timed_out per candidate');
+  });
 });
 
 chain.then(function () {

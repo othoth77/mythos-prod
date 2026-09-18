@@ -1,6 +1,6 @@
 {
-  "review_id": "REVIEW-2026-09-17-004",
-  "timestamp": "2026-09-17T19:00:05.801Z",
+  "review_id": "REVIEW-2026-09-17-009",
+  "timestamp": "2026-09-17T23:33:44.243Z",
   "engine_version": "1.0.0",
   "audited_sources": {
     "repository": "https://github.com/othoth77/mythos-prod.git",
@@ -8,21 +8,91 @@
     "pr_ledger_captured_at": "2026-08-26T13:58:00Z",
     "repo_snapshot_captured_at": "2026-09-02T19:32:00Z",
     "documents_checked": 24,
-    "evidence_checked": 148
+    "evidence_checked": 153
   },
   "git": {
     "collected": true,
-    "head": "96150e099dfe19561ba4726b6e67a11adeffaa6a",
-    "branch": "mythos/casse-closure-20260917",
-    "origin_main": "96150e099dfe19561ba4726b6e67a11adeffaa6a",
+    "head": "9128dafc5d489d8ce334b9c20d1e60ec3d95dcc2",
+    "branch": "mythos/session-guard-soak-20260917-v2",
+    "origin_main": "9128dafc5d489d8ce334b9c20d1e60ec3d95dcc2",
     "remote_url": "https://github.com/othoth77/mythos-prod.git",
     "worktree_clean": false,
     "last_commit": {
-      "hash": "96150e099dfe19561ba4726b6e67a11adeffaa6a",
-      "date": "2026-09-17T17:00:32Z",
-      "subject": "status-center: session-guard enforcement ENABLED — and it has signalled nothing (#306)"
+      "hash": "9128dafc5d489d8ce334b9c20d1e60ec3d95dcc2",
+      "date": "2026-09-17T23:32:06Z",
+      "subject": "Merge pull request #314 from othoth77/mythos/othmode-v2-production-20260917"
     },
     "recent_commits": [
+      {
+        "hash": "9128dafc",
+        "date": "2026-09-17",
+        "subject": "Merge pull request #314 from othoth77/mythos/othmode-v2-production-20260917"
+      },
+      {
+        "hash": "2c4791e5",
+        "date": "2026-09-17",
+        "subject": "status-center: OTHMODE V2 DEPLOYED and PRODUCTION-VERIFIED (main@4c2f7d7a)"
+      },
+      {
+        "hash": "4c2f7d7a",
+        "date": "2026-09-17",
+        "subject": "Merge pull request #307 from othoth77/mythos/othmode-v2-20260917"
+      },
+      {
+        "hash": "5852418b",
+        "date": "2026-09-17",
+        "subject": "Merge origin/main + OTHMODE V2 verification: front-end runtime suite, evidence, docs"
+      },
+      {
+        "hash": "488e068d",
+        "date": "2026-09-17",
+        "subject": "executor: record provider_used/model_used/attempts/fallback on EVERY failure outcome"
+      },
+      {
+        "hash": "0bb04e53",
+        "date": "2026-09-17",
+        "subject": "status-center: session-guard idle-clock fix (#308) deployed, enforcement stays OFF (#312)"
+      },
+      {
+        "hash": "2ec7f2c2",
+        "date": "2026-09-17",
+        "subject": "fix(session-guard): the idle clock never advanced, so no threshold could work (#308)"
+      },
+      {
+        "hash": "88067cfb",
+        "date": "2026-09-17",
+        "subject": "Merge origin/main (#311 Casse closure) into mythos/othmode-v2-20260917 — Status Center review regenerated"
+      },
+      {
+        "hash": "baf7cd30",
+        "date": "2026-09-17",
+        "subject": "Merge pull request #311 from othoth77/mythos/casse-closure-20260917"
+      },
+      {
+        "hash": "4d44a272",
+        "date": "2026-09-17",
+        "subject": "status-center: Casse.Autos engineering closure 2026-09-17 (main 89c636d) — stays OWNER_ACTION / TESTED, not deployed"
+      },
+      {
+        "hash": "a1b59ad0",
+        "date": "2026-09-17",
+        "subject": "OTHMODE V2: pre-merge smoke findings fixed — Groq preferred model, 413/429 as quota, retryable pool exhaustion, per-attempt reasons"
+      },
+      {
+        "hash": "b6c146ab",
+        "date": "2026-09-17",
+        "subject": "OTHMODE V2 review fixes: anonymous run reads redacted (actor removed, endpoints/paths masked), full executor status mapping, outcome guard on the failure path"
+      },
+      {
+        "hash": "4817ad9d",
+        "date": "2026-09-17",
+        "subject": "Merge origin/main into mythos/othmode-v2-20260917 (Status Center review regenerated after #306)"
+      },
+      {
+        "hash": "6e925f75",
+        "date": "2026-09-17",
+        "subject": "OTHMODE V2: command runs edge, provider observability, invalid_credentials, simplified UI"
+      },
       {
         "hash": "96150e09",
         "date": "2026-09-17",
@@ -952,76 +1022,6 @@
         "hash": "f21875be",
         "date": "2026-09-05",
         "subject": "feat(comms): customer WhatsApp instance provisioning + inbox registry + receiver status (MYTHOS-COMMS-3, #205)"
-      },
-      {
-        "hash": "1275ccf1",
-        "date": "2026-09-05",
-        "subject": "Merge pull request #204 from othoth77/mythos/comms-2-receiver-20260905"
-      },
-      {
-        "hash": "128b12b6",
-        "date": "2026-09-05",
-        "subject": "docs(handover): MYTHOS-COMMS-2 deployed OFF (receiver 404 in production, migration 0002 applied)"
-      },
-      {
-        "hash": "6631b6ef",
-        "date": "2026-09-05",
-        "subject": "Merge pull request #203 from othoth77/mythos/comms-2-receiver-20260905"
-      },
-      {
-        "hash": "885c28ef",
-        "date": "2026-09-05",
-        "subject": "feat(mythos-wp): Communication Receiver — Evolution webhook → Core persistence, dry-run by default (MYTHOS-COMMS-2, #202)"
-      },
-      {
-        "hash": "8f688483",
-        "date": "2026-09-05",
-        "subject": "Merge pull request #201 from othoth77/mythos/comms-1-foundation-20260905"
-      },
-      {
-        "hash": "81529750",
-        "date": "2026-09-05",
-        "subject": "docs(handover): MYTHOS-COMMS-1 deployed — migration 0001 on production, mythos-wp served from the main worktree"
-      },
-      {
-        "hash": "e92042df",
-        "date": "2026-09-05",
-        "subject": "Merge pull request #200 from othoth77/mythos/comms-1-foundation-20260905"
-      },
-      {
-        "hash": "b25d26c6",
-        "date": "2026-09-05",
-        "subject": "feat(mythos-wp): Communication Core foundation — schema migration 0001, runner, tests (MYTHOS-COMMS-1, #197)"
-      },
-      {
-        "hash": "35b148d2",
-        "date": "2026-09-05",
-        "subject": "docs(handover): Phase 3 delivery result — branch on origin, main ff is the owner step"
-      },
-      {
-        "hash": "a4bd6034",
-        "date": "2026-09-05",
-        "subject": "docs(handover): Phase 3 repository governance entry (secret scan, cage check, delivery plan)"
-      },
-      {
-        "hash": "2ac47fb7",
-        "date": "2026-09-05",
-        "subject": "erp: Phase 0–2 gates (STATE LOCK, BACKUP=PASS, DATABASE=PASS) — evidence, grant-matrix alignment"
-      },
-      {
-        "hash": "34af9dc6",
-        "date": "2026-09-05",
-        "subject": "Merge pull request #199 from othoth77/mythos/wp-20260905"
-      },
-      {
-        "hash": "d5a6ff57",
-        "date": "2026-09-05",
-        "subject": "Merge remote-tracking branch 'origin/main' into mythos/wp-20260905"
-      },
-      {
-        "hash": "52c449e2",
-        "date": "2026-09-05",
-        "subject": "docs: reconcile GitHub Telegram bridge and close PR 188"
       }
     ],
     "commit_count": null,
@@ -1161,26 +1161,26 @@
       "status": "DONE",
       "maturity": "PRODUCTION_VERIFIED",
       "repository": "othoth77/mythos-prod",
-      "last_change": "2026-09-16 (OTHMODE V1 closure merged #292 + follow-up #293; production verified — EV-OTHMODE-V1-PRODUCTION)",
+      "last_change": "2026-09-17 (OTHMODE V2 DEPLOYED and production-verified: command runs edge live, provider/model/fallback observability, invalid_credentials state, Groq preferred model openai/gpt-oss-120b, simplified UI — EV-OTHMODE-V2-PRODUCTION)",
       "blocker": null,
-      "next_action": "None required for V1. Around it: othmode.mythosprod.xyz still not a monitored STC-2 component (NEXT-OTHMODE-MONITOR); projects/mythos-wp unclaimed (needs a Comms project entry); host memory pressure (swap 100 %) is a host matter, not OTHMODE's.",
-      "headline": "Live at https://othmode.mythosprod.xyz since 2026-08-26. Built over the MCC-1 runtime rather than as a second system: one process on a single loopback port, same auth, CSRF and secret gate, no new event store. Task Reports add an append-only tasks/records.jsonl stream to the existing OTHMODE store and a fourth source to the existing Command History. As of 7252de2 the Command History and every Task Report are PUBLIC READS — no session, login link or token — while every write stays authenticated and secret-gated; anonymous readers get the full narrative with infrastructure detail masked by a read-side projection, since the append-only store cannot be rewritten to be publishable. Suites othmode-3 94/0 and othmode-2 157/0 on the production host. Per-command activation replaced the global switch in PR #87; the keyword confers no privilege. V1 CLOSURE 2026-09-16: the platform is live and every V1 surface is verified (commands CRUD via the MCC library, skills/tools/providers/projects read models, health, status, unified history, Task Reports, work intake → GitHub Issue → executor, memory, evolution, trust). Providers now include the free-LLM pool (catalog 26/205, 9 wired, Groq ACTIVE) with presence-only credentials; the executor accepts free-llm-pool tasks; the executor suite no longer depends on real host credentials.",
+      "next_action": "None for OTHMODE V2: merged (4c2f7d7a), deployed, production-verified. Around it and outside OTHMODE scope: NEXT-OTHMODE-MONITOR (add the /runs surface to the STC-2 probe registry); projects/mythos-wp and projects/idauto unclaimed in stc-1; host memory pressure keeps the executor Resource Guard latched CRITICAL (swap 100 %, unrelated long-running sessions), which defers automatic dispatch of any new task until the host frees ~300 MiB.",
+      "headline": "Live at https://othmode.mythosprod.xyz since 2026-08-26. Built over the MCC-1 runtime rather than as a second system: one process on a single loopback port, same auth, CSRF and secret gate, no new event store. Task Reports add an append-only tasks/records.jsonl stream to the existing OTHMODE store and a fourth source to the existing Command History. As of 7252de2 the Command History and every Task Report are PUBLIC READS — no session, login link or token — while every write stays authenticated and secret-gated; anonymous readers get the full narrative with infrastructure detail masked by a read-side projection, since the append-only store cannot be rewritten to be publishable. Suites othmode-3 94/0 and othmode-2 157/0 on the production host. Per-command activation replaced the global switch in PR #87; the keyword confers no privilege. V1 CLOSURE 2026-09-16: the platform is live and every V1 surface is verified (commands CRUD via the MCC library, skills/tools/providers/projects read models, health, status, unified history, Task Reports, work intake → GitHub Issue → executor, memory, evolution, trust). Providers now include the free-LLM pool (catalog 26/205, 9 wired, Groq ACTIVE) with presence-only credentials; the executor accepts free-llm-pool tasks; the executor suite no longer depends on real host credentials. V2 (2026-09-17): the missing edge exists — a command runs from OTHMODE as an advisory executor task (router-selected provider, pool fallback, no Git report), with a run record, a self-refreshing status page (provider used, model, fallback, duration, result) and runs as the fifth source of Command History; the executor persists which provider/model answered; the free-LLM registry distinguishes invalid credentials from outages and honours an officially verified preferred chat model per provider (Groq: openai/gpt-oss-120b, after groq/compound exhausted the 30k-tokens-per-minute budget on real prompts); navigation reduced to COMMAND/TASKS/PROJECTS/AI/STATUS/MORE and the dashboard answers \"AI ready? needs attention? last run? health?\" in plain words. Nothing rebuilt, nothing migrated, nothing deleted.",
       "dimensions": {
         "implementation": {
           "status": "DONE",
-          "note": "tasks.js writer/read model, 4 authenticated API routes, CLI task show/create/update/import, Command History integration, EN/FR/AR UI with zero key gaps"
+          "note": "tasks.js writer/read model, 4 authenticated API routes, CLI task show/create/update/import, Command History integration, EN/FR/AR UI with zero key gaps · V2 2026-09-17: run.js + 4 run routes, runs store stream, history source run, executor provider_used/model_used/attempts/fallback, free-LLM invalid_credentials + 429/413 quota + preferred_chat_model + per-attempt reasons, Run button + Overview + #/runs UI (EN/FR/AR)"
         },
         "tests": {
           "status": "DONE",
-          "note": "othmode-3 68/0 · othmode-2 152/0 · governance 99/0 (host, 2026-08-26); no existing test modified by the change"
+          "note": "othmode-3 68/0 · othmode-2 152/0 · governance 99/0 (host, 2026-08-26); no existing test modified by the change · V2 2026-09-17: othmode-4-run 60/0 (new), othmode-3 94/0, othmode-2 173/0, executor 393/0, mcc-1 506/0, free-llm 30/36/10/17/11, skill-trust 130/0, governance 111/0 · V2 pre-merge full-stack: executor 395/0, othmode-4 60/0, mcc-1 506/0, othmode-2 173/0, othmode-3 94/0, free-llm 30/36/10/17/11, skill-trust 130/0, othk-3 63/0, othk-2w 42/0, hostops 36/0, governance 111/0, compression 16/0, stc-2 86/0, stc-ar 50/0 · othmode-5 ui 19/0 (new front-end runtime suite)"
         },
         "deployment": {
           "status": "DONE",
-          "note": "deployed via the audited mythos-deploy othmode target at aa4ca2d; the app is a systemd --user unit, so the service restart is a separate deploy-user step that mythos-deploy deliberately cannot perform"
+          "note": "deployed via the audited mythos-deploy othmode target at aa4ca2d; the app is a systemd --user unit, so the service restart is a separate deploy-user step that mythos-deploy deliberately cannot perform · V2 2026-09-17: deployed at main@4c2f7d7a via /home/deploy/othmode-v2-deploy.sh (drop-in executor-link.conf installed, command-center restarted, executor restarted with zero RUNNING tasks)"
         },
         "production": {
           "status": "DONE",
-          "note": "operator-verified 2026-08-26: health 200, Task Reports live, and the public read path verified anonymously end to end with the write surface confirmed still closed (401)"
+          "note": "operator-verified 2026-08-26: health 200, Task Reports live, and the public read path verified anonymously end to end with the write surface confirmed still closed (401) · V2 2026-09-17: run edge live (run-config enabled, /runs public), real production run through Command -> Router -> free-llm-pool -> Groq openai/gpt-oss-120b -> Command History"
         }
       },
       "evidence": [
@@ -1192,7 +1192,10 @@
         "EV-OTHMODE-PUBLIC-HISTORY",
         "EV-OTHMODE-PUBLIC-VERIFIED",
         "EV-OTHMODE-V1-CLOSURE",
-        "EV-OTHMODE-V1-PRODUCTION"
+        "EV-OTHMODE-V1-PRODUCTION",
+        "EV-OTHMODE-V2-BUILD",
+        "EV-OTHMODE-V2-PREMERGE-E2E",
+        "EV-OTHMODE-V2-PRODUCTION"
       ],
       "directories": [
         "projects/othmode",
@@ -2100,10 +2103,10 @@
       "status": "DONE",
       "maturity": "PRODUCTION_VERIFIED",
       "repository": "othoth77/mythos-prod",
-      "last_change": "2026-09-17 (remediation V1 live; session-guard enforcement enabled 16:53)",
+      "last_change": "2026-09-17 (session-guard #308 fix soak-verified over 6 real production cycles; enforcement still OFF)",
       "blocker": null,
-      "next_action": "Watch the session guard now that enforcement is on: it has planned and applied nothing so far, and the first real termination will be its first ever. Remaining owner decision: Guardian services.restartable is empty, because choosing whether oth-knowledge-http or spy-monitor should auto-restart belongs to whoever owns them.",
-      "headline": "Installed and enabled: timer every 2 min, guardian OK observing 5/5 domains, remediation ON for disk and the admission advisory with on_schedule true. Session-guard ENFORCEMENT also enabled 2026-09-17 16:53 and has signalled nothing — every session vetoed by the fence chain. Guardian itself has no kill and no delete path at any level.",
+      "next_action": "Owner decision: the evidence base for re-enabling session-guard enforcement is now as strong as read-only verification can make it — root cause fixed (#308), plan stable across 6 independent real cycles, identities consistent, zero false positives found, zero signals sent. Remaining open items: whether to enable enforcement now or wait out the current memory incident first; whether Guardian services.restartable should name a support unit.",
+      "headline": "Installed and enabled: timer every 2 min, guardian OK observing 5/5 domains (host is mid an active memory CRITICAL/OOM incident, tracked not remediated). Session-guard's idle-clock fix (#308) is deployed and SOAK-VERIFIED: 6 consecutive real production cycles over ~25 minutes produced an IDENTICAL, stable plan every time (3 sessions eligible, same PIDs/session UUIDs, no flapping) with zero terminations, zero false positives, and the guard confirmed observe-only throughout. Enforcement marker remains OFF by explicit owner decision.",
       "dimensions": {
         "roadmap": {
           "percent": 100,
@@ -2138,7 +2141,9 @@
         "EV-GUARDIAN-INCIDENT-0916",
         "EV-GUARDIAN-TESTS",
         "EV-GUARDIAN-DOCS",
-        "EV-SESSION-GUARD-ENFORCE"
+        "EV-SESSION-GUARD-ENFORCE",
+        "EV-SESSION-GUARD-TURNIDLE-FIX",
+        "EV-SESSION-GUARD-SOAK-6CYCLE"
       ]
     }
   ],
@@ -2731,14 +2736,24 @@
             "EV-OTHMODE-V1-CLOSURE",
             "EV-OTHMODE-V1-PRODUCTION"
           ]
+        },
+        {
+          "id": "OTHMODE-V2",
+          "status": "DONE",
+          "what": "OTHMODE V2 DONE: command runs edge (Command -> executor task -> provider -> result -> history), provider/model/attempts/fallback observability on every executor outcome, invalid_credentials and 429/413 provider states, officially preferred chat model per provider (Groq openai/gpt-oss-120b), simplified plain-language UI, new front-end runtime suite. Merged as 4c2f7d7a (PR #307), deployed and production-verified (EV-OTHMODE-V2-PRODUCTION) after a full-stack pre-merge verification (EV-OTHMODE-V2-PREMERGE-E2E).",
+          "evidence": [
+            "EV-OTHMODE-V2-BUILD",
+            "EV-OTHMODE-V2-PREMERGE-E2E",
+            "EV-OTHMODE-V2-PRODUCTION"
+          ]
         }
       ],
       "progress": {
-        "done_stages": 10,
-        "total_stages": 11,
-        "percent": 91,
+        "done_stages": 11,
+        "total_stages": 12,
+        "percent": 92,
         "basis": "CALCULATED",
-        "explanation": "10 of 11 recorded stages DONE (superseded counted as closed)"
+        "explanation": "11 of 12 recorded stages DONE (superseded counted as closed)"
       }
     },
     {
@@ -5741,6 +5756,47 @@
       "date": "2026-09-17",
       "note": "typecheck 0 · lint 0 · vitest 480 + 20 Postgres (500) · Postgres suites in CI · smoke 71 · Playwright 37 · audit 0. Rehearsed on loopback from the CI artifact against the real Kitchen with empty jsonl stores: every route 200/404 as documented, honest empty state, 'Canal WhatsApp non configuré', security headers, sitemap 8 URLs. NOT deployed: casse.autos still resolves to OVH parking (C-O2); no unit, vhost, env or release directory exists on the host. Ten merged branches deleted; 0 open PRs; 0 open issues.",
       "evidence_status": "RECORDED"
+    },
+    {
+      "id": "EV-SESSION-GUARD-TURNIDLE-FIX",
+      "type": "vps",
+      "reference": "PR #308 (2ec7f2c) + live verification on vps-4722f0a9, 2026-09-17 21:49-22:10",
+      "date": "2026-09-17",
+      "note": "Root cause found and fixed: session-guard's CPU-based idle clock could never advance for a Claude session (idle ccd-cli still burns CPU), so ALL 17 live sessions read exactly 0 idle seconds regardless of threshold — the guard was structurally incapable of reclaiming anything. #308 lets the guard consult a PARTIAL lifecycle snapshot for its own turn-idle clock (previously withheld entirely if any home was denied). Safety property verified directly: a session absent from a partial snapshot gets turn_idle=null and falls back unchanged to the CPU-idle path, so it is never made MORE eligible for termination. Verified read-only under real CAP_KILL restriction with a genuinely partial snapshot (denied_homes=1): 3 sessions now correctly identified as idle 3+ days via the transcript-turn clock (pids 1073889, 2225584, 2225532), 9 more idle-eligible but capped by max_terminations_per_run, and 0 signals sent throughout verification. Merged and deployed as the NON-ENFORCING fix only; the enable marker was explicitly left OFF (removed if present) both before and after deployment. Confirmed live in production's own observe-mode ledger post-deploy: planned=3, applied=0.",
+      "evidence_status": "RECORDED"
+    },
+    {
+      "id": "EV-OTHMODE-V2-BUILD",
+      "type": "commit",
+      "reference": "branch mythos/othmode-v2-20260917 (PR #307)",
+      "date": "2026-09-17",
+      "note": "OTHMODE V2 build pass — no rebuild, no migration, no deletion. Reality first: both deploy user units active, live providers truthful (claude/omniroute present, gemini absent, pool 1/1 active), executor router answering advisory research routes with free-llm-pool. Added the ONE edge V1 lacked: run.js — a library command becomes an executor task from OTHMODE (POST /api/othmode/commands/:slug/run): placeholders rendered by the library renderer, provider chosen by the executor router (repo-read; only routes without execution authority are accepted, everything else falls back to free-llm-pool; explicit free-llm-pool/openai-compat allowed), task created through the executor API with report_to_git=false, requested_by=othmode:<who>, max_retries 1, timeout 30-1800 s; the link recorded in a new append-only runs stream of the OTHMODE store; lifecycle read from the executor own status.json/report.json on disk (queued/running/retrying/waiting_for_quota/completed/failed/cancelled) with provider used, model used, attempts, fallback, duration, failure reason (paths blanked), next action; runs are the fifth source of Command History (source=run); GET /runs, /runs/:id, /run-config public like History, with anonymous reads redacted (actor removed, host paths and loopback endpoints masked). Safety: ACTIVE + SAFE/READ_ONLY commands only, secret gate on placeholder values, the executor bearer file read at call time and used only as a loopback header (drop-in deploy/executor-link.conf; disabled with a stated reason when unset). Executor: every task now persists provider_used/model_used/attempts/fallback in status.json and report.json. Free-LLM: new state invalid_credentials for HTTP 401/403 (distinct from unavailable; never selected; Health BLOCKED \"API key invalid\"). UI simplified: navigation COMMAND/TASKS/PROJECTS/AI/STATUS/MORE (every V1 screen kept), plain-language Overview (AI ready?, needs attention?, last run?, health), Run button on command detail through a backward-compatible extension point (MccApp.registerCommandActions), #/runs and #/run/:taskId with self-refreshing status; EN/FR/AR, no innerHTML, no eval. PRE-MERGE SMOKE (real path, live executor, before the merge): two real runs FAILED with PROVIDER_FAILED \"free LLM pool exhausted\" while the health probe said Groq ACTIVE. Root cause reproduced with the live key and the executor own 6 KB prompt: the pool picked groq/compound (first confirmed chat model in README order), an agentic model spending ~15k tokens per request against a 30k tokens-per-minute free budget -> HTTP 413/429 on real prompts, and the pool reported only ALL_CANDIDATES_FAILED, which the executor classifies as permanent. Fixed on the branch: official-overrides.json preferred_chat_model (Groq -> openai/gpt-oss-120b, verified via GET /models and a real completion: ~1.5k tokens, ~1.6 s), honoured by registry probe/listing only when the catalog confirms the id as a chat model; 429/413 -> quota_exhausted; per-attempt reason/http_status/timed_out on selector attempts; pool exhaustion text names each candidate and classifies as retryable when every attempt was a budget/transient failure; health record keeps last_failure_reason across a later success; run.js reads the provider from task.json. Proof with the V2 pool code against real Groq and the same prompt: openai/gpt-oss-120b ACTIVE, 2.0 s, structured report present. Tests on the host as deploy: othmode-4-run 60/0 (new, offline stub executor); othmode-3 94/0; othmode-2 173/0; work-intake 35/0; free-llm parser 30/0, registry 36/0, selector 10/0, pool 17/0, groq-activation 11/0; skill-trust 130/0; governance-invariant 111/0; redact-governance 199/0; stc-2 86/0; stc-ar 50/0; mcc-1 506/0 on mythos_command_center_test; mythos-ai-executor 393/0 (run inside an isolated network namespace because another session test servers held 127.0.0.1:8198/8199 on the host — 17 http-section listen failures outside the namespace were EADDRINUSE, not code). stc-1 80/1: the pre-existing projects/mythos-wp classification gap, outside OTHMODE scope. Secrets: diff scanned, zero credential shapes beyond the documented synthetic vectors.",
+      "evidence_status": "NOT_VERIFIED",
+      "evidence_note": "commit not in local object database"
+    },
+    {
+      "id": "EV-OTHMODE-V2-PREMERGE-E2E",
+      "type": "vps",
+      "reference": "temporary command-center (127.0.0.1:3099) + temporary executor (127.0.0.1:8131) running the PR #307 branch code on vps-4722f0a9, 2026-09-17 22:16-22:29 UTC",
+      "date": "2026-09-17",
+      "note": "FULL-STACK VERIFICATION OF THE MERGED BRANCH CODE, run before the merge because merging PR #307 is owner-gated (the auto-mode classifier refuses gh pr merge: the same identity authored and reviewed the PR — separation of duties, not bypassed). Both services were started from the branch worktree against an ISOLATED executor home and the mythos_command_center_test database, with the real Groq credential read through a symlink (never copied): production services and production data were not touched, and the temporary listeners were stopped afterwards (ports 3099/8131/8141 free, both production units still active). (1) REAL END TO END: POST /api/othmode/commands/v2-e2e-smoke/run (READ_ONLY command, session token) -> router answered free-llm-pool (authority false) -> POST /tasks -> the executor daemon dispatched it -> COMPLETED in 1.275 s with provider_used=groq, model_used=openai/gpt-oss-120b, attempts=1, fallback=false and a genuine structured summary; the run appeared in Command History as source=run with status COMPLETED, the provider and the duration. The anonymous read carried no actor, no host path, no loopback endpoint and no hostname, while the authenticated read carried the actor verbatim. (2) CONTROLLED FALLBACK: a stub provider returning HTTP 503 was ranked ahead of Groq (fixture catalog + seeded health, both tracked files restored from Git afterwards) -> provider failure -> fallback -> success: COMPLETED in 1.302 s, attempts=2, fallback=true, provider_used=groq, and status.json/report.json carried the per-candidate list (aaa-fallback-probe degraded \"HTTP 503 ...\" 51 ms, then groq active 200 1203 ms). (3) RETRY POLICY: with only the failing stub keyed, the pool exhausted by transient failures took the task QUEUED -> WAITING_RETRY -> FAILED (retry budget spent, transition_reason names it) instead of the pre-fix immediate permanent PROVIDER_FAILED. That run also exposed a real gap, fixed in the same pass: the retry-exhausted and waiting branches wrote no provider fields, so the four observability fields are now computed once next to the single failure classification and merged into all four outcomes (verified live: the terminal record now carries provider_used=free-llm-pool with the attempt list; executor suite 395/0). (4) PROVIDER STATES against real HTTP responses from a stub: 503 -> degraded with the reason persisted; 401 -> invalid_credentials AND excluded from selection; 413 -> quota_exhausted; 429 -> quota_exhausted; 200 -> active with consecutive_failures cleared while the last_failure timestamp keeps its reason; quota_exhausted stays selectable (last resort). All eight assertions true. (5) LIVE PRODUCTION (still V1, as expected until the merge): both deploy user units active, https://othmode.mythosprod.xyz 200, /api/othmode/history 200, /api/othmode/evolution/events 401 (auth wall intact), /api/othmode/runs and /run-config 404 (V2 not deployed yet), TLS valid to 2026-11-24, providers truthful (claude-code present EXECUTION_AUTHORITY, omniroute present, gemini absent, free-llm-pool 1 configured / 1 active), Groq health active (last_success 22:25:09, 1359 ms), mythos-free-llm-health.timer 30 min and mythos-free-llm-sync.timer daily 04:24 both ticking, Claude CLI 2.1.251 present, Resource Guard enabled and latched CRITICAL by its own hysteresis (avail 1082 MiB < the 1100 MiB exit threshold, PSI 0.97, swap 100 %) so dispatch is deferred until it de-escalates — designed behaviour, not bypassed. DISCLOSURE: while stopping the temporary executor I used an over-broad pkill pattern that also stopped the PRODUCTION mythos-ai-executor.service for about 25 seconds (22:26-22:27 UTC). It was restarted immediately, health ok:true, and no task was in flight (queue had no RUNNING entry) so nothing was interrupted or lost; NRestarts stayed 0 because the unit was stopped, not crashed. Pre-existing suite failures re-baselined against unmodified origin/main and NOT caused by V2: mpi-0-finalization-governance 33/3 (skill registry count 20 vs 26 on-disk directories) and stc-1 80/1 (projects/mythos-wp unclaimed) fail identically on main. (6) FRONT END: a new suite tests/othmode-5-ui-test.js (19/0) loads the real front-end modules under a minimal DOM shim, boots them as a browser does and drives the V2 screens through the hash router: the six-group navigation with every V1 screen still reachable, the plain-language Overview (\"AI Ready — claude-code / free pool (1)\", \"Needs attention 1 — free-llm/groq: Action needed: API key missing or invalid\", \"Last run Completed\", \"System health 10 / 12 Active\"), the Runs list, and the run detail in its completed, running and failed states, each re-rendered in Arabic and French, with every call going to the /api surface and any unhandled front-end rejection failing the suite. This replaces the browser check that is not available to agent sessions on this host. (7) SECURITY: the branch diff and every file it touches scanned for credential shapes (only the documented synthetic vectors); the real Groq key and the executor bearer appear zero times in the tree and zero times in the full history; no session log, output file or helper script written during this verification contains either value; the drop-in template carries a file PATH, never a value; live production API responses (history, providers, free-llm, tasks) carry no host path, no loopback endpoint, no hostname, no token and no key field.",
+      "evidence_status": "RECORDED"
+    },
+    {
+      "id": "EV-OTHMODE-V2-PRODUCTION",
+      "type": "vps",
+      "reference": "main@4c2f7d7a (PR #307 merged 2026-09-17) deployed on vps-4722f0a9; mythos-command-center.service and mythos-ai-executor.service restarted 2026-09-17 22:57-22:58 UTC",
+      "date": "2026-09-17",
+      "note": "OTHMODE V2 DEPLOYED AND PRODUCTION-VERIFIED. PR #307 merged as 4c2f7d7a; the main checkout pulled to it (local == remote, tracked tree clean, the daily free-LLM sync timer catalog drift discarded, four untracked files belonging to other sessions left untouched). Deployed with the recorded procedure /home/deploy/othmode-v2-deploy.sh: it installed projects/command-center/deploy/executor-link.conf as the command-center drop-in, reloaded the user manager, restarted the command-center, and restarted the executor only after confirming zero RUNNING tasks. LIVE AFTERWARDS: both deploy user units active; the executor reports code identity 4c2f7d7a; https://othmode.mythosprod.xyz 200; GET /api/othmode/run-config 200 enabled:true; GET /api/othmode/runs 200; GET /api/othmode/history 200; GET /api/othmode/evolution/events still 401 (the auth wall is unchanged); the served othmode.js carries the runs routes and app.js the command-action extension point; the command library answers with 24 commands; TLS valid to 2026-11-24. FREE-LLM: the health timer probe now uses the officially preferred chat model openai/gpt-oss-120b (611 ms, status active) instead of groq/compound, which is the fix that made real prompts work; sync timer daily 04:24 and health timer every 30 min both active. PROVIDERS: claude-code present as EXECUTION_AUTHORITY (Claude CLI 2.1.251), omniroute present, gemini absent, free-llm-pool 1 configured / 1 active. REAL PRODUCTION RUN through the new edge (Command -> OTHMODE -> Task -> Router -> Provider -> Executor -> AI -> Result -> History): POST /api/othmode/commands/blocker-handling/run -> task t-20260917232010-xlsdp0, router answered free-llm-pool (advisory, authority false) -> COMPLETED in 1.207 s (23:20:11.977 -> 23:20:13.184) with provider_used=groq, model_used=openai/gpt-oss-120b, attempts=1, fallback=false, next_action ai-self-check-complete and a genuine structured summary from the model; read back over public HTTPS at GET /api/othmode/runs/t-20260917232010-xlsdp0 with the actor masked for anonymous callers. The run record is readable at GET /api/othmode/runs and GET /api/othmode/runs/t-20260917232010-xlsdp0, and appears in the unified Command History as source=run. Two honest details about this run. FIRST: the first production run used the existing SAFE command blocker-handling and ended BLOCKED, not COMPLETED — correct behaviour of the whole chain, because that command asks for a BLOCKER REPORT and an advisory provider has no repository access by design, so the model reported exactly that; it is visible in Command History as FAILED with its reason and next_action, which also verified the failure display path in production. A purpose-built command was therefore added to the library through the authenticated API (POST /api/commands, never raw SQL): ai-self-check (id 25, SAFE, BEGINNER, variable SUBJECT) — the shortest prompt that still exercises the whole run path without needing repository access, so it is now the canonical \"is the AI working?\" command for this platform. Nothing existing was modified. SECOND: the Resource Guard held dispatch at CRITICAL for about 20 minutes (dispatch_deferred logged at 22:59:14 and 23:09:16, the daemon retrying on its own cadence). The cause was host memory, not OTHMODE: PSI fell to ~5 but MemAvailable stayed near 800 MiB against the guard's 1100 MiB exit threshold, held by unrelated Claude sessions resident for 13 hours (~1.25 GB) and omniroute (~610 MB). Nothing was killed and no threshold was changed. The queued task was completed through the documented operator entry point mythos-ai-executor run <task-id>, which by design is NOT capacity-gated (executor.js states the guard gates fresh admissions through dispatchTask/drainQueue and the daemon tick; quota/retry resumes and explicit operator runs are continuations or direct actions). MemAvailable before and after was 888 and 895 MiB: the task is a single HTTPS request to a free provider, not a Claude Code execution, so it consumed no measurable headroom. TESTS ON THE DEPLOYED CHECKOUT: on the deployed main@4c2f7d7a checkout, as deploy: othmode-4-run 60/0, othmode-5-ui 19/0 (new front-end runtime suite), othmode-3 94/0, othmode-2 173/0, work-intake 35/0, compression 16/0, free-llm parser 30/0 registry 36/0 selector 10/0 pool 17/0 groq-activation 11/0, othk-3 63/0, governance-invariant 111/0, redact-governance 199 checks, stc-2 86/0, stc-ar 50/0, othk-2w 42/0, hostops 36/0, mcc-1 506/0, and mythos-ai-executor 395/0 (run under unshare -n because another session holds the ports the suite hard-codes). skill-trust first reported 117/13 while four suites ran in parallel on a memory-starved host (scanner timeouts); re-run alone on the same deployed checkout it is 130/0, so those 13 were load, not a regression — stated here rather than hidden. Pre-existing and NOT caused by V2 (both fail identically on the previous main): stc-1 80/1 (projects/mythos-wp unclaimed) and mpi-0-finalization-governance 33/3 (skill registry count). SECURITY: the merged diff and every file it touches scanned for credential shapes (only documented synthetic vectors); the real Groq key and the executor bearer appear zero times in the tree and zero times in the full history; live API responses (history, providers, free-llm, tasks, runs) carry no host path, no loopback endpoint, no hostname, no token and no key; the drop-in carries a file path, never a value; anonymous run reads drop the actor and mask host detail while authenticated reads keep it. DISCLOSURE (also recorded in EV-OTHMODE-V2-PREMERGE-E2E): during the pre-merge verification an over-broad pkill stopped the production executor for about 25 seconds with no task in flight; it was restarted immediately and nothing was lost.",
+      "evidence_status": "RECORDED"
+    },
+    {
+      "id": "EV-SESSION-GUARD-SOAK-6CYCLE",
+      "type": "vps",
+      "reference": "6-cycle read-only observation soak on vps-4722f0a9, 2026-09-17 22:55-23:20 UTC (~25 min, natural 5-min production timer)",
+      "date": "2026-09-17",
+      "note": "Controlled observation soak of the corrected session-guard (#308) across 6 REAL production timer cycles, enforcement OFF throughout (marker absent before/during/after, verified every cycle by a hard-abort safety check). The eligible set was IDENTICAL and STABLE across all 6 cycles: pid 1073889 (session 23b11ae2, idle 3d14h), pid 2225584 (session efbbe439, idle 3d), pid 2225532 (session 986e4f9e, idle 3d) — same 3 pids, same session UUIDs, no flapping, no identity changes. 9-11 more sessions were idle-eligible each cycle but correctly capped by max_terminations_per_run (3/run); 0-6 sessions were vetoed earlier in the fence chain (recent_activity, has_child_processes) without reaching the idle tier at all. Zero sessions were ever unscored-yet-eligible. One session (pid 254495, 854s idle) surfaced in cycle 5 via the SEPARATE, pre-existing, lower-priority concurrency_limit rule (threshold 600s, distinct from the 900s pressure-lowered idle_timeout threshold) and was itself capped out by max_terminations_per_run — confirmed NOT among the 3 that would actually terminate. Zero terminate_signalled/terminate_failed events found anywhere in the ledger's full history. The live host memory/OOM incident (oom_kill counter climbing 6938->6952 during the soak window, Guardian reporting host CRITICAL throughout) was observed but NOT acted on: enforcement was not enabled and no remediation was attempted via session-guard. Post-soak: session-guard 366/0 (root, incl. CAP_KILL boundary proof), 352/0 (unprivileged), lifecycle 254/0, guardian 597/0. All dirty production files (5, another session's work) preserved byte-for-byte across the entire soak, verified by sha256 before and after.",
+      "evidence_status": "RECORDED"
     }
   ],
   "prs": [
@@ -6570,15 +6626,9 @@
       "authority": "historical evidence only — reconcile before trusting"
     }
   ],
-  "previous_review": "REVIEW-2026-09-17-003",
+  "previous_review": "REVIEW-2026-09-17-008",
   "changes": {
-    "added": [
-      {
-        "id": "TRACK-CASSE-RELEASE/STAGE-CASSE-ENGINEERING-CLOSED",
-        "what": "stage added",
-        "to": "DONE"
-      }
-    ],
+    "added": [],
     "completed": [],
     "unblocked": [],
     "blocked": [],
@@ -6588,13 +6638,7 @@
     "new_blockers": [],
     "removed_blockers": [],
     "new_owner_actions": [],
-    "percent_changes": [
-      {
-        "id": "TRACK-CASSE-RELEASE",
-        "from": 33,
-        "to": 43
-      }
-    ],
+    "percent_changes": [],
     "new_projects": []
   }
 }

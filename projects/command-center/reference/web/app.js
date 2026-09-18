@@ -54,7 +54,7 @@
   // file). The core library screens stay exactly as they were; extensions
   // can only ADD screens and re-render chrome — they cannot reach into a
   // command's rendering path, so the XSS/no-exec guarantees are unchanged.
-  var extensions = { routes: {}, sidebar: null, dashboardExtras: null };
+  var extensions = { routes: {}, sidebar: null, dashboardExtras: null, commandActions: [] };
 
   // ── DOM helpers ───────────────────────────────────────────────────────
 
@@ -711,7 +711,7 @@
                 type: 'button', text: t('action.archive'),
                 onclick: function () { confirmArchive(command); }
               })
-        ]),
+        ].concat(extensions.commandActions.map(function (fn) { return fn(command); }))),
 
         command.safety_level === 'DESTRUCTIVE'
           ? el('div.callout.callout-danger', {}, [
@@ -1610,6 +1610,9 @@
     },
     registerSidebar: function (fn) { extensions.sidebar = fn; },
     registerDashboardExtras: function (fn) { extensions.dashboardExtras = fn; },
+    // OTHMODE V2: extra buttons on the command detail action row
+    // (fn(command) -> element | null).
+    registerCommandActions: function (fn) { extensions.commandActions.push(fn); },
     rerender: function () { renderRoute(); }
   };
 

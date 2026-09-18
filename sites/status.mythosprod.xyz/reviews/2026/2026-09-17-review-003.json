@@ -1,6 +1,6 @@
 {
   "review_id": "REVIEW-2026-09-17-003",
-  "timestamp": "2026-09-17T13:33:14.283Z",
+  "timestamp": "2026-09-17T17:00:25.637Z",
   "engine_version": "1.0.0",
   "audited_sources": {
     "repository": "https://github.com/othoth77/mythos-prod.git",
@@ -8,12 +8,12 @@
     "pr_ledger_captured_at": "2026-08-26T13:58:00Z",
     "repo_snapshot_captured_at": "2026-09-02T19:32:00Z",
     "documents_checked": 24,
-    "evidence_checked": 151
+    "evidence_checked": 147
   },
   "git": {
     "collected": true,
-    "head": "721d2e07ef86383acc3a037d8af8009c29d07b65",
-    "branch": "mythos/wp-v2-control-center-20260917",
+    "head": "d772c952b4e2a4079521904e4070ce6856bdab47",
+    "branch": "mythos/session-guard-enforcement-20260917",
     "origin_main": "d772c952b4e2a4079521904e4070ce6856bdab47",
     "remote_url": "https://github.com/othoth77/mythos-prod.git",
     "worktree_clean": false,
@@ -2099,10 +2099,10 @@
       "status": "DONE",
       "maturity": "PRODUCTION_VERIFIED",
       "repository": "othoth77/mythos-prod",
-      "last_change": "2026-09-17 (remediation V1 live; #294, #297-#303 merged at a7c0685)",
+      "last_change": "2026-09-17 (remediation V1 live; session-guard enforcement enabled 16:53)",
       "blocker": null,
-      "next_action": "Owner decisions, both deliberate holds: session-guard enforcement stays OFF because its marker is all-or-nothing and would authorise terminating live agent sessions; and Guardian services.restartable is empty because choosing an auto-restartable support unit belongs to whoever owns it.",
-      "headline": "Installed and enabled: timer every 2 min, guardian OK observing 5/5 domains, remediation ON for disk and the admission advisory with on_schedule true. The scheduled tick has acted and verified. No kill and no delete path at any level. Seven defects were found by deploying it that code review could not have found.",
+      "next_action": "Watch the session guard now that enforcement is on: it has planned and applied nothing so far, and the first real termination will be its first ever. Remaining owner decision: Guardian services.restartable is empty, because choosing whether oth-knowledge-http or spy-monitor should auto-restart belongs to whoever owns them.",
+      "headline": "Installed and enabled: timer every 2 min, guardian OK observing 5/5 domains, remediation ON for disk and the admission advisory with on_schedule true. Session-guard ENFORCEMENT also enabled 2026-09-17 16:53 and has signalled nothing — every session vetoed by the fence chain. Guardian itself has no kill and no delete path at any level.",
       "dimensions": {
         "roadmap": {
           "percent": 100,
@@ -2136,48 +2136,8 @@
         "EV-GUARDIAN-LIVE",
         "EV-GUARDIAN-INCIDENT-0916",
         "EV-GUARDIAN-TESTS",
-        "EV-GUARDIAN-DOCS"
-      ]
-    },
-    {
-      "id": "PROJECT-MYTHOS-WP",
-      "name": "MYTHOS WP — Control Center (wp.mythosprod.xyz)",
-      "executive": true,
-      "purpose": "The central control platform for MYTHOS projects: projects, WhatsApp accounts and phone numbers (one number ↔ several projects with deterministic routing), unified inbox, contacts 360, MYTHOS AI agents with least-privilege tools, AI↔human handoff, templates, automations, integrations (Evolution, Cloud API provider, official Meta WhatsApp Business Tools MCP, Kitchen Mythos Auto, n8n, MYTHOS MCP), health center, audit and RBAC. It owns no product data: the automotive catalogue is read from Kitchen Mythos Auto over HTTP.",
-      "status": "OWNER_ACTION",
-      "maturity": "PRODUCTION_VERIFIED",
-      "repository": "othoth77/mythos-prod",
-      "last_change": "2026-09-17 (V2 Control Center deployed from PR #305 commit 721d2e0; production smoke verified — EV-WP-V2-PRODUCTION)",
-      "blocker": null,
-      "next_action": "Owner: merge PR #305 into main (review gate) so the production checkout can return to origin/main; enable the mythos-bridge instance webhook + inbound on the two shared inboxes when ready to receive customers on the owner number (identity routing rules only — privacy guard); connect the official Meta WhatsApp Business Tools MCP with `claude mcp add --transport http whatsapp_business_tools https://mcp.facebook.com/whatsapp_business_tools` (OAuth); provide Cloud API credentials (MYTHOS_WP_META_* files) if the official transport is wanted; rotate the initial owner password; schedule a mythos_wp backup unit.",
-      "headline": "Live at https://wp.mythosprod.xyz/ as the MYTHOS Control Center since 2026-09-17 12:35 UTC. V2 replaces the SsangYong data panel: five projects registered (SsangYong Parts, Dar Hijama, Mythos Prod, Piece.Autos, Casse.Autos), phone numbers discovered from Evolution, the owner number linked as a shared inbox to two projects with routing proven by simulation (identity rule → project A / project B, unknown sender → drop, owner excluded), three AI agents bound (engine-173, suggest-only), Kitchen Mythos Auto connected read-only (346 products), health center green except the unpaired customer instance. Security review applied before release. No 'Asfour' identity exists anywhere (verified).",
-      "dimensions": {
-        "implementation": {
-          "status": "DONE",
-          "note": "migration 0007 + 30 WhatsApp routes, 12 AI routes, platform routes (dashboard, search, integrations, health, automations, notes, Kitchen passthrough), users/RBAC, 11-item web UI"
-        },
-        "tests": {
-          "status": "DONE",
-          "note": "14 suites / 1,281 assertions green; check.sh GREEN; headless UI with zero console errors (EV-WP-V2-TESTS)"
-        },
-        "deployment": {
-          "status": "DONE",
-          "note": "v2-rollout.sh executed 2026-09-17 12:35 UTC from commit 721d2e0; rollback = checkout b028affa + restart (schema additive) (EV-WP-V2-DEPLOY)"
-        },
-        "production": {
-          "status": "DONE",
-          "note": "public-URL smoke 2026-09-17 13:29–13:35 UTC (EV-WP-V2-PRODUCTION); owner gates remain for live customer traffic on the shared number"
-        }
-      },
-      "evidence": [
-        "EV-WP-V2-PR",
-        "EV-WP-V2-TESTS",
-        "EV-WP-V2-SECURITY",
-        "EV-WP-V2-DEPLOY",
-        "EV-WP-V2-PRODUCTION"
-      ],
-      "directories": [
-        "projects/mythos-wp"
+        "EV-GUARDIAN-DOCS",
+        "EV-SESSION-GUARD-ENFORCE"
       ]
     }
   ],
@@ -4540,7 +4500,12 @@
   "monorepo_discovery": {
     "checked": true,
     "directories_checked": 23,
-    "new_discoveries": []
+    "new_discoveries": [
+      {
+        "directory": "projects/mythos-wp",
+        "note": "Directory present under projects/ but not claimed by any registry project's \"directories\" list. Requires classification (existing project or a new one)."
+      }
+    ]
   },
   "evidence": [
     {
@@ -5743,47 +5708,12 @@
       "evidence_note": "file not found at docs/MYTHOS_GUARDIAN{,_ARCHITECTURE,_DECISIONS,_RUNBOOK,_SECURITY,_CLEANUP_POLICY,_INCIDENTS}.md"
     },
     {
-      "id": "EV-WP-V2-PR",
-      "type": "pr",
-      "reference": "othoth77/mythos-prod#305",
+      "id": "EV-SESSION-GUARD-ENFORCE",
+      "type": "vps",
+      "reference": "/var/lib/mythos-session-guard/session-guard.enabled on vps-4722f0a9, 2026-09-17 16:53",
       "date": "2026-09-17",
-      "note": "MYTHOS WP V2 — Central Control Center (commit 721d2e0). Merge = owner review action; production runs this commit from the detached checkout.",
-      "evidence_status": "NOT_VERIFIED",
-      "evidence_note": "PR not present in the recorded ledger"
-    },
-    {
-      "id": "EV-WP-V2-TESTS",
-      "type": "test",
-      "reference": "tests/mythos-wp-test.js, tests/mythos-wp-comms-*-test.js, tests/mythos-wp-v2-{whatsapp,platform,ai}-test.js",
-      "date": "2026-09-17",
-      "note": "14 suites, 1,281 assertions, 0 failures on mythos_wp_test; projects/mythos-wp/tools/check.sh GREEN.",
-      "evidence_status": "NOT_VERIFIED"
-    },
-    {
-      "id": "EV-WP-V2-SECURITY",
-      "type": "document",
-      "reference": "projects/mythos-wp/docs/SECURITY.md + PR #305 commit message",
-      "date": "2026-09-17",
-      "note": "Independent security review (auth, RBAC, tenant isolation, secrets, webhooks, CSRF, injection, SSRF, rate limits, sessions, audit, AI tools, MCP): 3 HIGH + 9 MEDIUM findings, all fixed before release.",
-      "evidence_status": "NOT_VERIFIED",
-      "evidence_note": "file not found at projects/mythos-wp/docs/SECURITY.md + PR #305 commit message"
-    },
-    {
-      "id": "EV-WP-V2-DEPLOY",
-      "type": "file",
-      "reference": "projects/mythos-wp/deploy/v2-rollout.sh",
-      "date": "2026-09-17",
-      "note": "Production rollout 12:35 UTC: backup /var/backups/mythos-db/mythos_wp-v2-pre-20260917T123551Z.dump, migrations 0006_shared_account_routing + 0007_control_center applied, owner imported into wp_users, mythos-wp.service restarted (ExecMainStart 12:35:55 UTC).",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-WP-V2-PRODUCTION",
-      "type": "document",
-      "reference": "https://wp.mythosprod.xyz/ — smoke run 2026-09-17 13:29–13:35 UTC (audit actor mythos-smoke)",
-      "date": "2026-09-17",
-      "note": "Live checks through the public URL: login, meta (5 projects), health center 8 ok / 1 disconnected (unpaired ssangyong-autos instance), Kitchen 346 products via connector, n8n + MYTHOS MCP reachable, Meta MCP endpoint reachable (405 without OAuth), Evolution sync discovered 2 instances, owner number linked as SHARED to ssangyong-autos + dar-hijama with identity routing simulated to two projects, agents bound and tested, template preview, Cloud API sync 412 (not configured), receiver dry-run ledgered without persisting.",
-      "evidence_status": "NOT_VERIFIED",
-      "evidence_note": "file not found at https://wp.mythosprod.xyz/ — smoke run 2026-09-17 13:29–13:35 UTC (audit actor mythos-smoke)"
+      "note": "Enforcement enabled by owner decision. mode=enforce, enforcement_reason=marker. Two ticks observed: planned [] and applied [] both times, 18 then 17 sessions all vetoed (recent_activity, has_child_processes, below_min_age). Lifetime ledger: 20,954 veto events and 0 termination events. Thresholds: min_age 900 s, idle 3600 s, orphan_grace 300 s, max_sessions 6. lifecycle.consulted=false, so idle is judged on the CPU clock alone and an idle ccd-cli still burns CPU — enforcement is conservative by construction. Rollback: rm the marker. Kill switch: MYTHOS_SESSION_GUARD=off.",
+      "evidence_status": "RECORDED"
     }
   ],
   "prs": [
@@ -6615,13 +6545,7 @@
   ],
   "previous_review": "REVIEW-2026-09-17-002",
   "changes": {
-    "added": [
-      {
-        "id": "PROJECT-MYTHOS-WP",
-        "what": "project added",
-        "to": "OWNER_ACTION"
-      }
-    ],
+    "added": [],
     "completed": [],
     "unblocked": [],
     "blocked": [],
@@ -6632,11 +6556,6 @@
     "removed_blockers": [],
     "new_owner_actions": [],
     "percent_changes": [],
-    "new_projects": [
-      {
-        "id": "PROJECT-MYTHOS-WP",
-        "status": "OWNER_ACTION"
-      }
-    ]
+    "new_projects": []
   }
 }

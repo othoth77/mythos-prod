@@ -106,6 +106,8 @@ var chain = selector.complete('ping', opts({ transport: transport })).then(funct
   ok(result.attempts.length === 3 &&
     result.attempts[0].status === 'quota_exhausted' && result.attempts[1].status === 'degraded' && result.attempts[2].status === 'active',
     'each attempt records the exact failure/success reason, in order');
+  ok(result.attempts[0].http_status === 429 && /usage limit reached/.test(result.attempts[0].reason) && result.attempts[1].http_status === 503 && result.attempts[2].reason === null,
+    'attempts carry the HTTP status and the provider\'s own reason text (OTHMODE V2)');
 
   var health = registry.loadHealth(HEALTH_PATH);
   ok(health.alpha.status === 'quota_exhausted' && health.bravo.status === 'degraded' && health.charlie.status === 'active',

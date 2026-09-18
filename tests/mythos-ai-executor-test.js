@@ -357,6 +357,7 @@ chain = chain.then(function () {
   return executor.runTask(t.task_id).then(function (st) {
     ok(st.status === 'COMPLETED', 'run: success → COMPLETED');
     var rep = state.readJSON(t.task_id, 'report.json');
+    ok(st.provider_used === 'mock' && st.fallback === false && rep.provider_used === 'mock', 'run: provider_used/fallback persisted in status + report (OTHMODE V2 observability)');
     ok(rep && rep.report && rep.report.summary === 'normal path', 'run: report persisted');
     ok(state.readText(t.task_id, 'report.md').indexOf('normal path') !== -1, 'run: markdown report rendered');
     var cp1 = state.readJSON(t.task_id, 'checkpoint.json');
@@ -408,6 +409,7 @@ chain = chain.then(function () {
   var t = mkTask({ stage: 'RETRY-FLOW' });
   return executor.runTask(t.task_id).then(function (st) {
     ok(st.status === 'WAITING_RETRY', 'retry-flow: transient → WAITING_RETRY');
+    ok(st.provider_used === 'mock' && st.attempts === null, 'retry-flow: the waiting state already names the provider that failed (V2); a single-provider adapter has no attempts list');
     ok(st.retry_count === 1, 'retry-flow: retry counted');
     ok(Date.parse(st.retry_at) > Date.now() + 50000, 'retry-flow: backoff is real (≈1m)');
     st.retry_at = new Date(Date.now() - 1000).toISOString();
@@ -1735,6 +1737,11 @@ chain = chain.then(function () {
       var rep = state.readJSON(te.task_id, 'report.json');
       ok(st.status === 'FAILED' && rep.blocker && rep.blocker.category === 'transient' && /exhausted|max_retries|retries/.test(rep.blocker.reason + ' ' + st.transition_reason),
         'retry-policy: retries exhausted → FAILED with the transient category and the exhaustion reason');
+      // OTHMODE V2: the run page must name the provider on EVERY outcome, not
+      // only on success and the single-shot terminal path. Verified live on
+      // 2026-09-17: the retry-exhausted branch had been writing no provider.
+      ok(st.provider_used === 'mock' && st.fallback === false,
+        'retry-policy: retries exhausted still records provider_used/fallback (OTHMODE V2 observability on every failure outcome)');
     });
   });
 });
