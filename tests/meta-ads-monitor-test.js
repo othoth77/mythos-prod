@@ -56,7 +56,7 @@ function runBin(args, env) {
 (async function main() {
   // ---------- 1. READ-ONLY by construction ----------
   var exported = Object.keys(graph.createClient({ token: 't', fetch: async function () {} }));
-  ok(exported.sort().join(',') === 'get,getAll,requestCount', 'client exports only get/getAll/requestCount');
+  ok(exported.sort().join(',') === 'cancel,get,getAll,requestCount', 'client exports only get/getAll/cancel/requestCount (no write function)');
   ['me/adaccounts', 'act_1', 'act_1/campaigns', 'act_1/adsets', 'act_1/ads', 'act_1/insights'].forEach(function (p) {
     ok(graph.isAllowedPath(p), 'allowlisted read path ' + p);
   });
@@ -72,6 +72,7 @@ function runBin(args, env) {
   ok(calls.length === 0, 'refused requests never reach the network');
   await c.get('act_1/campaigns', { fields: 'id,name' });
   ok(calls.length === 1 && calls[0].init.method === 'GET', 'request method is GET');
+  ok(calls[0].init.redirect === 'error', 'redirects refused (no server-chosen destination)');
   ok(calls[0].url.indexOf(TOKEN) === -1 && !/access_token/.test(calls[0].url), 'token never in URL');
   ok(calls[0].init.headers.Authorization === 'Bearer ' + TOKEN, 'token sent in Authorization header');
 
@@ -111,6 +112,17 @@ function runBin(args, env) {
   var all = await c6.getAll('act_1/campaigns', {});
   ok(all.length === 3 && calls.length === 2, 'cursor pagination collected every page');
   ok(calls[1].url.indexOf('after=A') !== -1 && calls[1].url.indexOf(TOKEN) === -1, 'server-supplied next URL never followed');
+
+  calls = [];
+  var c7 = graph.createClient({ token: TOKEN, sleep: async function () {}, fetch: fakeFetch([
+    { status: 200, body: { data: [1], paging: { cursors: { after: 'A' }, next: 'x' } } }], calls) });
+  await rejects(function () { return c7.getAll('act_1/ads', {}, 3); }, 'META_TRUNCATED', 'page limit reached → error, never silent partial data');
+  ok(calls.length === 3, 'truncation stops at maxPages');
+  calls = [];
+  var c8 = graph.createClient({ token: TOKEN, sleep: async function () {}, fetch: fakeFetch([{ status: 200, body: { data: [] } }], calls) });
+  c8.cancel();
+  await rejects(function () { return c8.get('act_1/ads', {}); }, 'META_CANCELLED', 'after deadline cancel no further request');
+  ok(calls.length === 0, 'cancelled client makes no request');
 
   // ---------- 3. config / secrets ----------
   process.env.META_ADS_MONITOR_SECRET_FILE = path.join(TMP, 'absent.env');
@@ -156,6 +168,20 @@ function runBin(args, env) {
   ok(fnd.review.some(function (x) { return x.id === '902' && /بدون أي نتيجة/.test(x.text); }), 'spend with no reported results → review');
   ok(fnd.attention.some(function (x) { return x.kind === 'spend_cap'; }), 'spend cap ≥ 90 % → attention');
   ok(fnd.spend.yesterday === 12.4 && fnd.spend.last_7d === 46, 'spend totals summed only from returned insights');
+  // one unreadable configured account does not hide the others
+  var isoCalls = [];
+  var isoClient = graph.createClient({ token: TOKEN, sleep: async function () {}, retries: 0, fetch: async function (url) {
+    isoCalls.push(url);
+    if (/\/act_222\?/.test(url)) return { ok: false, status: 400, text: async function () { return JSON.stringify({ error: { code: 200, message: 'no access' } }); } };
+    return { ok: true, status: 200, text: async function () { return JSON.stringify(/\/act_111\?/.test(url) ? { id: 'act_111', account_id: '111', name: 'Good', currency: 'USD', account_status: 1 } : { data: [] }); } };
+  } });
+  var iso = await collect.collect(isoClient, { accountIds: ['222', '111'] });
+  ok(iso.accounts.length === 2 && iso.accounts[0].errors[0].section === 'account' && iso.accounts[1].name === 'Good', 'unreadable account isolated, healthy account still collected');
+  ok(require(path.join(ROOT, 'lib', 'report.js')).render({ date: 'd', findings: diff.analyse(iso, null) }).indexOf('account') !== -1, 'report lists the unreadable account section');
+  // spend falling to zero (Meta omits the row) is a significant change
+  var zero = JSON.parse(JSON.stringify(s2)); zero.accounts[0].insights.yesterday = zero.accounts[0].insights.yesterday.filter(function (r) { return r.campaign_id !== '901'; });
+  var zk = diff.analyse(zero, s2).accounts[0].changes.filter(function (x) { return x.kind === 'daily_spend' && x.id === '901'; });
+  ok(zk.length === 1 && zk[0].after === 0 && zk[0].before === 9.9 && zk[0].name === 'WhatsApp Leads', 'spend drop to zero detected');
   var first = diff.analyse(s1, null);
   ok(first.compared === false && first.accounts[0].changes.length === 0, 'first run: no invented changes');
   var partial = JSON.parse(JSON.stringify(s2)); partial.accounts[0].insights.yesterday = null;
@@ -164,6 +190,8 @@ function runBin(args, env) {
   // ---------- 5. end to end (offline fixtures, real CLI) ----------
   var state = path.join(TMP, 'state');
   var env = { META_ADS_MONITOR_STATE_DIR: state, META_ADS_MONITOR_SECRET_FILE: path.join(TMP, 'none.env') };
+  var guard = runBin(['run', '--fixture', FIX1], { META_ADS_MONITOR_STATE_DIR: '' });
+  ok(guard.status === 1 && /FIXTURE_NEEDS_STATE_DIR/.test(guard.stdout), '--fixture refused without an explicit test state dir');
   var nc = runBin(['run', '--now', '2026-09-16T06:40:00Z'], env);
   ok(nc.status === 0 && /NOT_CONFIGURED/.test(nc.stdout) && /no Meta request made/.test(nc.stdout), 'not configured → exit 0, setup report, no request');
   ok(fs.readFileSync(path.join(state, 'reports', '2026-09-16.md'), 'utf8').indexOf('META_ADS_READ_TOKEN') !== -1, 'setup report names the exact variable');

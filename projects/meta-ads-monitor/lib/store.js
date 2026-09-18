@@ -122,7 +122,17 @@ function acquireLock(root, now) {
       try { holder = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (x) { /* unreadable = stale */ }
       var stale = !holder || !pidAlive(holder.pid) || (now.getTime() - Date.parse(holder.at) > LOCK_STALE_MS);
       if (!stale) return null;
-      try { fs.unlinkSync(file); } catch (x) { /* raced */ }
+      // Reclaim by atomic rename: of two racing reclaimers only one rename
+      // succeeds, so a fresh lock created meanwhile is never deleted.
+      var grave = file + '.stale-' + process.pid;
+      try { fs.renameSync(file, grave); } catch (x) { return null; }
+      var moved = null;
+      try { moved = JSON.parse(fs.readFileSync(grave, 'utf8')); } catch (x) { /* unreadable = was stale */ }
+      if (moved && holder && moved.pid !== holder.pid) {
+        try { fs.renameSync(grave, file); } catch (x) { /* ignore */ }
+        return null;
+      }
+      try { fs.unlinkSync(grave); } catch (x) { /* ignore */ }
     }
   }
   return null;

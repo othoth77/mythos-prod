@@ -1115,7 +1115,7 @@
       "type": "pr",
       "reference": "branch mythos/meta-ads-monitor-20260918 — projects/meta-ads-monitor/ (bin, lib, systemd, README), tests/meta-ads-monitor-test.js + fixtures",
       "date": "2026-09-18",
-      "note": "Facebook Ads Monitor is READ-ONLY by design: daily systemd timer (06:40 UTC) on the VPS; GET-only Graph client with a read-path allowlist and verb-override/access_token params refused; ads_read token expected in ~deploy/.config/meta-ads-monitor/meta.env (absent = NOT_CONFIGURED report, zero Meta requests). Snapshots diffed day over day, Arabic plain-language report, 0600 atomic writes + secret scan, retention 60/90 days, duplicate-run lock, retries/timeouts. Offline suite 102/0. Claude Desktop Routines are not a dependency; connector write tools remain DENY in /root/.claude/settings.json."
+      "note": "Facebook Ads Monitor is READ-ONLY by design: daily systemd timer (06:40 UTC) on the VPS; GET-only Graph client with a read-path allowlist and verb-override/access_token params refused; ads_read token expected in ~deploy/.config/meta-ads-monitor/meta.env (absent = NOT_CONFIGURED report, zero Meta requests). Snapshots diffed day over day, Arabic plain-language report, 0600 atomic writes + secret scan, retention 60/90 days, duplicate-run lock, retries/timeouts. Offline suite 111/0 (incl. review fixes: redirects refused, page-limit truncation surfaced, deadline cancels requests, per-account isolation, fixture runs never touch production state, spend-to-zero detected, race-free stale-lock reclaim). Claude Desktop Routines are not a dependency; connector write tools remain DENY in /root/.claude/settings.json."
     }
   ],
   "repositories": [

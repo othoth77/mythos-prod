@@ -63,6 +63,7 @@ function createClient(opts) {
   var retries = typeof opts.retries === 'number' ? opts.retries : 3;
   var sleep = opts.sleep || defaultSleep;
   var requests = 0;
+  var cancelled = false;
 
   function buildUrl(p, params) {
     if (!isAllowedPath(p)) throw monitorError('META_PATH_REFUSED', 'read-only allowlist refused path: ' + String(p).slice(0, 80));
@@ -77,6 +78,7 @@ function createClient(opts) {
   }
 
   async function get(p, params) {
+    if (cancelled) throw monitorError('META_CANCELLED', 'run deadline reached — no further requests');
     var url = buildUrl(p, params);
     var lastErr = null;
     for (var attempt = 0; attempt <= retries; attempt++) {
@@ -87,6 +89,7 @@ function createClient(opts) {
         requests++;
         res = await fetchImpl(url, {
           method: 'GET',
+          redirect: 'error',
           headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
           signal: controller ? controller.signal : undefined
         });
@@ -128,12 +131,14 @@ function createClient(opts) {
       after = paging.next && paging.cursors && paging.cursors.after ? paging.cursors.after : null;
       pages++;
     } while (after && pages < maxPages);
+    if (after) throw monitorError('META_TRUNCATED', 'more than ' + maxPages + ' pages for ' + p + ' — section reported as unavailable, not partial');
     return out;
   }
 
   return Object.freeze({
     get: get,
     getAll: getAll,
+    cancel: function () { cancelled = true; },
     requestCount: function () { return requests; }
   });
 }

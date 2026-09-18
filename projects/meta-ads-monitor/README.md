@@ -45,7 +45,7 @@ lib/report.js                Arabic Markdown report for the owner
 lib/store.js                 state, atomic 0600 writes, secret scan, retention, duplicate-run lock
 lib/config.js                secret file loading (mode 600 enforced)
 systemd/meta-ads-monitor.service|timer
-tests/meta-ads-monitor-test.js  (repo root) — offline, 102 assertions
+tests/meta-ads-monitor-test.js  (repo root) — offline, 111 assertions
 ```
 
 ## Secret (owner step)

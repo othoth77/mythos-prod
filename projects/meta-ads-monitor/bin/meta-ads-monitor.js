@@ -47,10 +47,10 @@ function fixtureFetch(file) {
   };
 }
 
-function withDeadline(promise, ms) {
+function withDeadline(promise, ms, onTimeout) {
   var t;
   return Promise.race([promise, new Promise(function (_, rej) {
-    t = setTimeout(function () { var e = new Error('run exceeded ' + ms + ' ms deadline'); e.code = 'DEADLINE'; rej(e); }, ms);
+    t = setTimeout(function () { if (onTimeout) onTimeout(); var e = new Error('run exceeded ' + ms + ' ms deadline'); e.code = 'DEADLINE'; rej(e); }, ms);
   })]).finally(function () { clearTimeout(t); });
 }
 
@@ -68,6 +68,9 @@ async function run(argv) {
   var token = null;
   try {
     var fixIdx = argv.indexOf('--fixture');
+    if (fixIdx !== -1 && !process.env.META_ADS_MONITOR_STATE_DIR) {
+      var fx = new Error('--fixture requires an explicit META_ADS_MONITOR_STATE_DIR (never the production state)'); fx.code = 'FIXTURE_NEEDS_STATE_DIR'; throw fx;
+    }
     var cfg = fixIdx !== -1 ? { state: 'CONFIGURED', token: 'fixture-token-not-a-secret', accountIds: [], version: null } : config.load();
     if (cfg.state !== 'CONFIGURED') {
       var md0 = report.renderNotConfigured({ date: now.toISOString().slice(0, 10), reason: cfg.reason, file: cfg.file });
@@ -82,7 +85,7 @@ async function run(argv) {
     token = cfg.token;
     var client = graph.createClient({ token: token, version: cfg.version || undefined,
       fetch: fixIdx !== -1 ? fixtureFetch(argv[fixIdx + 1]) : undefined });
-    var snap = await withDeadline(collect.collect(client, { accountIds: cfg.accountIds, now: now, version: cfg.version || graph.DEFAULT_VERSION }), RUN_DEADLINE_MS);
+    var snap = await withDeadline(collect.collect(client, { accountIds: cfg.accountIds, now: now, version: cfg.version || graph.DEFAULT_VERSION }), RUN_DEADLINE_MS, client.cancel);
     var failedAll = snap.accounts.length > 0 && snap.accounts.every(function (a) { return a.campaigns === null && a.insights.yesterday === null; });
     if (failedAll) { var fe = new Error('every data section failed for every account'); fe.code = 'NO_DATA'; throw fe; }
     var prev = store.latestSnapshot(root);

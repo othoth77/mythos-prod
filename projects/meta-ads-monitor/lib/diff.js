@@ -135,12 +135,18 @@ function analyse(cur, prev) {
           before: ACCOUNT_STATUS[pa.account_status] || pa.account_status, after: f.account_status, significant: true });
       }
       var py = byId(pa.insights && pa.insights.yesterday, 'campaign_id');
-      Object.keys(y).forEach(function (id) {
-        var now = y[id].spend, before = py[id] ? py[id].spend : null;
+      var names = byId(acct.campaigns);
+      // Meta omits insights rows with no delivery: when both runs have insights,
+      // a campaign present only in the previous run spent 0 yesterday.
+      var ids = insY && pa.insights && pa.insights.yesterday
+        ? Object.keys(y).concat(Object.keys(py).filter(function (k) { return !y[k]; })) : Object.keys(y);
+      ids.forEach(function (id) {
+        var now = y[id] ? y[id].spend : (py[id] ? 0 : null), before = py[id] ? py[id].spend : null;
         if (typeof now !== 'number' || typeof before !== 'number') return;
         var delta = now - before;
         if (Math.abs(delta) >= THRESHOLDS.spendChangeMin && Math.abs(delta) >= Math.max(before, 0.01) * THRESHOLDS.spendChangeRatio) {
-          f.changes.push({ account: acct.id, type: 'campaign', id: id, name: y[id].campaign_name, kind: 'daily_spend',
+          f.changes.push({ account: acct.id, type: 'campaign', id: id,
+            name: (y[id] && y[id].campaign_name) || (names[id] && names[id].name) || (py[id] && py[id].campaign_name) || id, kind: 'daily_spend',
             before: before, after: now, significant: true });
         }
       });

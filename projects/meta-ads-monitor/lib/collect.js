@@ -66,12 +66,21 @@ function normIssues(list) {
 
 async function section(errors, name, fn) {
   try { return await fn(); } catch (e) {
+    if (e.code === 'META_CANCELLED') throw e;
     errors.push({ section: name, code: e.code || 'ERROR', message: String(e.message || e).slice(0, 300) });
     return null;
   }
 }
 
+function unreadableAccount(raw) {
+  return { id: String(raw.account_id), name: null, currency: null, timezone: null, account_status: null, disable_reason: null,
+    amount_spent: null, spend_cap: null, campaigns: null, adsets: null, ads: null,
+    insights: { yesterday: null, last_7d: null, ads_last_7d: null },
+    errors: [{ section: 'account', code: raw._error.code, message: raw._error.message }] };
+}
+
 async function collectAccount(client, raw, opts) {
+  if (raw && raw._error) return unreadableAccount(raw);
   var acct = pick(raw, FIELDS.account);
   var cur = acct.currency;
   var id = String(acct.account_id || String(acct.id || '').replace(/^act_/, ''));
@@ -134,7 +143,13 @@ async function collect(client, opts) {
   if (opts.accountIds && opts.accountIds.length) {
     rawAccounts = [];
     for (var i = 0; i < opts.accountIds.length; i++) {
-      rawAccounts.push(await client.get('act_' + opts.accountIds[i], { fields: FIELDS.account.join(',') }));
+      try {
+        rawAccounts.push(await client.get('act_' + opts.accountIds[i], { fields: FIELDS.account.join(',') }));
+      } catch (e) {
+        if (e.code === 'META_CANCELLED') throw e;
+        // one unreadable account must not hide the others
+        rawAccounts.push({ id: 'act_' + opts.accountIds[i], account_id: opts.accountIds[i], _error: { code: e.code || 'ERROR', message: String(e.message || e).slice(0, 300) } });
+      }
     }
   } else {
     rawAccounts = await client.getAll('me/adaccounts', { fields: FIELDS.account.join(','), limit: 50 });

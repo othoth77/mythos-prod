@@ -377,6 +377,13 @@
       "file": "reviews/2026/2026-09-18-review-002.json",
       "head": "776b6f9131acf720240e0869ea60a5ebf20aff0b",
       "blockers": 6
+    },
+    {
+      "review_id": "REVIEW-2026-09-18-003",
+      "timestamp": "2026-09-18T17:44:06.659Z",
+      "file": "reviews/2026/2026-09-18-review-003.json",
+      "head": "776b6f9131acf720240e0869ea60a5ebf20aff0b",
+      "blockers": 6
     }
   ]
 }
