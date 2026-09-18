@@ -186,6 +186,19 @@
       "enabled": true
     },
     {
+      "id": "omniroute-loopback",
+      "name": "OmniRoute LLM gateway (loopback, memory-capped container)",
+      "type": "https",
+      "url": "http://127.0.0.1:20128/api/monitoring/health",
+      "expect_status": [
+        200
+      ],
+      "expect_body_substring": "\"status\":\"healthy\"",
+      "expect_content_type": "application/json",
+      "enabled": true,
+      "note": "ADDED 2026-09-18 (VPS OOM hardening). The omniroute container now carries a hard cgroup cap (mem_limit 1536m, memswap 2560m; Node heap 1024 MB via NODE_OPTIONS). A leak therefore ends as a container-local OOM kill plus Docker restart instead of a global host OOM, and this probe is what makes that visible here: it reads DOWN while the container restarts and the transition is written to the alert log. It had no probe before. Loopback only (the port is bound to 127.0.0.1); /api/monitoring/health is the container's own unauthenticated healthcheck endpoint."
+    },
+    {
       "id": "backup-system",
       "name": "Off-host backup system",
       "type": "backup-health",

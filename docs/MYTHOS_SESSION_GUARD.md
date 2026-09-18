@@ -169,6 +169,10 @@ Three independent layers, none of which can OOM-kill anything:
    applies reclaim pressure to that slice first. `MemoryMax` is deliberately
    **not** set — a hard cap there would OOM-kill a root process at an
    arbitrary moment, exactly the uncontrolled outcome this issue forbids.
+   **Superseded 2026-09-18:** the slice now runs `MemoryHigh=3584M`,
+   `MemoryMax=4608M`, `MemorySwapMax=1G` after that day's global OOM storm
+   showed the soft cap alone let the slice fill host swap. See
+   `docs/audits/VPS_MEMORY_PROTECTION_2026-09-18.md`.
 3. **The guard's own unit is capped** (`MemoryMax=192M`, `CPUQuota=25%`,
    `OOMScoreAdjust=500`) so it can never be the cause of pressure and is an
    early victim if it ever is.
