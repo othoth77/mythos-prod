@@ -1,0 +1,38 @@
+== PHASE 4 ==
+Mon Sep 14 00:19:10 UTC 2026
+/dev/sda1        72G   47G   25G  66% /
+/dev/sda1        8.9M  1.1M  7.8M   13% /
+DISK_BEFORE used 50.35 GB avail 26.51 GB 66% | DISK_AFTER used 50.09 GB avail 26.77 GB 66% | df delta 262 MB
+Mem:            7746        4600         441         338        3348        3145
+Swap:           4095        4095           0
+some avg10=0.00 avg60=0.02 avg300=0.00 total=62306689413
+oom_kill 6812
+-- ERP --
+public=200 "ok":true "db":"ready" "head":"de8c996
+checkout=3e427b5
+15 migrations
+ActiveState=active MainPID=4069289 NRestarts=0
+b4372777594172d637d98618405db8d78b82e309bbf7a5e5c22404cf61e6cd82  -
+7d03434e143ab74bf82eca2ccdb731346b19c7a682fa567608cc2c2c723cbb2a  -
+-- DB --
+pg=running/healthy restarts=0
+214348	/var/lib/docker/volumes/idauto-postgres-data
+1
+-- RUNNER --
+ActiveState=active MainPID=3956454 NRestarts=0 KillMode=control-group
+listeners=1 workers=0 conflicts_since_fix=0
+mythos-vps-runner status=online busy=false
+-- CONTEXTFORGE --
+health=healthy restarts=0
+GUNICORN_MAX_REQUESTS_JITTER=200 GUNICORN_MAX_REQUESTS=2000
+mem=328MB swap=144MB oom 0 oom_kill 0
+-- DAR HIJAMA --
+status=running health=healthy restarts=0 err=""
+-- OTHER SERVICES --
+active active active active active active
+active active active active active active
+10
+15   Done    yesterday at 20:06 UTC  yesterday at 20:06 UTC  Remove "snapd" snap
+
+== PHASE 5 fingerprints ==
+ALL FINGERPRINTS IDENTICAL (units, drop-ins, nginx, compose/env, containers, volumes)
