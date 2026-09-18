@@ -394,6 +394,12 @@ async function dbSection(port, opCookie) {
   // --- engine through the simulator (no Kitchen configured: greeting answers, business questions hand off)
   var sim = await autoreply.simulate(resolved, 'Bonjour');
   ok(sim.outcome === 'DECIDED' && sim.intent === 'greeting' && sim.action === 'reply' && sim.sent === false && sim.proposed_text, 'sim: greeting → template reply, nothing sent');
+  var nonAuto = Object.assign({}, resolved, { project: Object.assign({}, resolved.project, { kind: 'service', display_name: 'Cabinet Test' }) });
+  var simN = await autoreply.simulate(nonAuto, 'Bonjour');
+  ok(simN.intent === 'greeting' && simN.action === 'reply' && /Cabinet Test/.test(simN.proposed_text) && !/v[ée]hicule|VIN|mod[èe]le/i.test(simN.proposed_text), 'sim: a non-Auto project greets in neutral wording (no vehicle question)');
+  ok(!/vehicle|VIN/i.test(autoreply.neutralText({ display_name: 'X' }, 'part_ack', 'en')) && /X/.test(autoreply.neutralText({ id: 'x', display_name: 'X' }, 'ambiguous', 'ar') + autoreply.neutralText({ display_name: 'X' }, 'greeting', 'ar')), 'neutral wording: every intent and language');
+  var llmLib = require(path.join(WP, 'reference/ai/llm'));
+  if (typeof llmLib.systemPrompt === 'function') ok(!/VIN/.test(llmLib.systemPrompt({ name: 'a' }, { id: 'x', display_name: 'X', kind: 'service' }, 'fr')) && /VIN/.test(llmLib.systemPrompt({ name: 'a' }, { id: 'x', display_name: 'X', kind: 'automotive' }, 'fr')), 'llm prompt: vehicle/VIN rule only for Auto projects');
   sim = await autoreply.simulate(resolved, 'Prix des plaquettes pour Rexton 2012 ?');
   ok(sim.intent === 'price_availability' && sim.action === 'handoff' && sim.requires_human, 'sim: no Kitchen → REQUIRES_HUMAN handoff, never a guess');
   r = await request(port, 'POST', '/api/projects/test-core/autoreply/simulate', { text: 'Bonjour' }, OP); ok(r.status === 200 && r.json.data.sent === false, 'sim: API');

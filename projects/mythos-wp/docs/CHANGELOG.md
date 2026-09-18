@@ -1,5 +1,10 @@
 # MYTHOS WP — Changelog
 
+## V2.1.3 — 2026-09-18
+
+- AI wording for projects that are not Auto: the fact-free reply templates of the shared engine ask for a vehicle model and a VIN. For a service or internal project, the suggestion now uses a neutral greeting, clarification or acknowledgement in the same language (fr, ar, en). The reply or handoff decision is unchanged, and the shared engine is not modified.
+- The LLM system prompt keeps its vehicle/VIN data rule for Auto projects only.
+
 ## V2.1 — 2026-09-17 (simplification)
 
 The operator screens were reduced to five sections; every technical surface moved under an **Advanced** fold. No API route, table or migration was removed.

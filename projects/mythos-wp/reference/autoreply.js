@@ -192,6 +192,21 @@ function webhookBody(instance, text) {
 // simulate(resolved, text) → the engine's redacted outcome record + the
 // facts each port answered (names and verified data), so the operator sees
 // VERIFIED vs UNKNOWN per kind.
+// The #173 engine is an AUTOMOTIVE engine: its reply templates ask for a vehicle model, a VIN and a part.
+// WP runs it for every project (its intent classifier and its "never state an unverified fact" policy are
+// what we want everywhere), so for a project that is not Auto the wording of the fact-free templates is
+// replaced by a neutral one in the same language. Decisions (reply / handoff) are unchanged.
+var NEUTRAL = {
+  fr: { greeting: 'Bonjour et bienvenue chez {name}. Comment pouvons-nous vous aider ?', ambiguous: 'Merci pour votre message. Pouvez-vous préciser votre demande ?', ack: 'Merci, bien noté. Un conseiller {name} vous répond dès que possible.' },
+  ar: { greeting: 'مرحبا بيك في {name}. كيفاش نجموا نعاونوك؟', ambiguous: 'شكرا على الرسالة. تنجم توضّح طلبك؟', ack: 'شكرا، سجلنا طلبك. مسؤول {name} يجاوبك في أقرب وقت.' },
+  en: { greeting: 'Hello and welcome to {name}. How can we help you?', ambiguous: 'Thank you for your message. Could you tell us a little more about your request?', ack: 'Thank you, noted. A {name} advisor will get back to you as soon as possible.' }
+};
+function neutralText(project, intent, language) {
+  var t = NEUTRAL[language] || NEUTRAL.fr;
+  var key = intent === 'greeting' ? 'greeting' : intent === 'ambiguous' || intent === 'unsupported' ? 'ambiguous' : 'ack';
+  return t[key].replace('{name}', project.display_name || project.id);
+}
+
 function simulate(resolved, text) {
   text = String(text || '').slice(0, 2000);
   var loaded = loadConfig();
@@ -224,7 +239,7 @@ function simulate(resolved, text) {
         intent: d.intent || null, language: d.language || null, entities: d.entities || null,
         action: d.action || null, decision_reason: d.reason || null, requires_human: d.requires_human === true,
         facts: { required: facts.required, verified: facts.available, unknown: facts.missing },
-        proposed_text: rec.proposed ? rec.proposed.text : null,
+        proposed_text: rec.proposed ? ((resolved.project.kind || 'automotive') === 'automotive' ? rec.proposed.text : neutralText(resolved.project, d.intent, ['fr', 'ar', 'en'].indexOf(d.language) !== -1 ? d.language : 'fr')) : null,
         policy: rec.policy || null,
         would_send_live: !!(rec.policy && rec.policy.rejections && rec.policy.rejections.filter(function (x) { return x !== 'MODE_DRY_RUN' && x !== 'AUTO_REPLY_DISABLED' && x !== 'CREDENTIAL_MISSING'; }).length === 0 && d.action === 'reply')
       };
@@ -232,4 +247,4 @@ function simulate(resolved, text) {
   });
 }
 
-module.exports = { loadConfig: loadConfig, probe: probe, ledgerSummary: ledgerSummary, status: status, simulate: simulate, syntheticConfig: syntheticConfig, webhookBody: webhookBody };
+module.exports = { neutralText: neutralText, loadConfig: loadConfig, probe: probe, ledgerSummary: ledgerSummary, status: status, simulate: simulate, syntheticConfig: syntheticConfig, webhookBody: webhookBody };
