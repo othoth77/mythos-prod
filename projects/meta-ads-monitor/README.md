@@ -27,7 +27,7 @@ edits, pauses, activates or deletes anything, and it performs no optimisation.
    constant `GET`; paths must match an allowlist (`me/adaccounts`, `act_<id>`,
    `act_<id>/{campaigns,adsets,ads,insights}`); the verb-override parameters
    Graph honours (`method`, `_method`) and `access_token`/`batch` are refused
-   before any request; the client exports only `get`/`getAll`. The test suite
+   before any request; redirects are refused; the client exports only `get`/`getAll`/`cancel`. The test suite
    statically scans every file for non-GET methods and write verbs.
 2. **Token** — the owner creates a token with the `ads_read` permission only;
    Meta itself rejects writes made with it.
