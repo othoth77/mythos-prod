@@ -1,6 +1,6 @@
 {
-  "review_id": "REVIEW-2026-09-18-003",
-  "timestamp": "2026-09-18T17:44:06.659Z",
+  "review_id": "REVIEW-2026-09-18-002",
+  "timestamp": "2026-09-18T17:39:21.320Z",
   "engine_version": "1.0.0",
   "audited_sources": {
     "repository": "https://github.com/othoth77/mythos-prod.git",
@@ -12,7 +12,7 @@
   },
   "git": {
     "collected": true,
-    "head": "5c62aecf78efc26a5a1750d280098786b5184598",
+    "head": "776b6f9131acf720240e0869ea60a5ebf20aff0b",
     "branch": "mythos/meta-ads-monitor-20260918",
     "origin_main": "776b6f9131acf720240e0869ea60a5ebf20aff0b",
     "remote_url": "https://github.com/othoth77/mythos-prod.git",
@@ -5881,7 +5881,7 @@
       "type": "pr",
       "reference": "branch mythos/meta-ads-monitor-20260918 — projects/meta-ads-monitor/ (bin, lib, systemd, README), tests/meta-ads-monitor-test.js + fixtures",
       "date": "2026-09-18",
-      "note": "Facebook Ads Monitor is READ-ONLY by design: daily systemd timer (06:40 UTC) on the VPS; GET-only Graph client with a read-path allowlist and verb-override/access_token params refused; ads_read token expected in ~deploy/.config/meta-ads-monitor/meta.env (absent = NOT_CONFIGURED report, zero Meta requests). Snapshots diffed day over day, Arabic plain-language report, 0600 atomic writes + secret scan, retention 60/90 days, duplicate-run lock, retries/timeouts. Offline suite 111/0 (incl. review fixes: redirects refused, page-limit truncation surfaced, deadline cancels requests, per-account isolation, fixture runs never touch production state, spend-to-zero detected, race-free stale-lock reclaim). Claude Desktop Routines are not a dependency; connector write tools remain DENY in /root/.claude/settings.json.",
+      "note": "Facebook Ads Monitor is READ-ONLY by design: daily systemd timer (06:40 UTC) on the VPS; GET-only Graph client with a read-path allowlist and verb-override/access_token params refused; ads_read token expected in ~deploy/.config/meta-ads-monitor/meta.env (absent = NOT_CONFIGURED report, zero Meta requests). Snapshots diffed day over day, Arabic plain-language report, 0600 atomic writes + secret scan, retention 60/90 days, duplicate-run lock, retries/timeouts. Offline suite 102/0. Claude Desktop Routines are not a dependency; connector write tools remain DENY in /root/.claude/settings.json.",
       "evidence_status": "NOT_VERIFIED",
       "evidence_note": "PR not present in the recorded ledger"
     }
@@ -6713,19 +6713,42 @@
       "authority": "historical evidence only — reconcile before trusting"
     }
   ],
-  "previous_review": "REVIEW-2026-09-18-002",
+  "previous_review": "REVIEW-2026-09-18-001",
   "changes": {
-    "added": [],
+    "added": [
+      {
+        "id": "TRACK-AUTOMATION/META-ADS-MONITOR-0",
+        "what": "stage added",
+        "to": "OWNER_ACTION"
+      }
+    ],
     "completed": [],
     "unblocked": [],
     "blocked": [],
     "changed": [],
-    "regressed": [],
+    "regressed": [
+      {
+        "id": "TRACK-AUTOMATION",
+        "from": "50%",
+        "to": "44%"
+      }
+    ],
     "superseded": [],
     "new_blockers": [],
     "removed_blockers": [],
-    "new_owner_actions": [],
-    "percent_changes": [],
+    "new_owner_actions": [
+      {
+        "id": "ACTION-META-ADS-READ-TOKEN",
+        "what": "Create a Meta token with the ads_read permission only (system user with view access to ad account 4176121335962594) and store it as META_ADS_READ_TOKEN in ~deploy/.config/meta-ads-monitor/meta.env (mode 600, owner deploy)"
+      }
+    ],
+    "percent_changes": [
+      {
+        "id": "TRACK-AUTOMATION",
+        "from": 50,
+        "to": 44
+      }
+    ],
     "new_projects": []
   }
 }

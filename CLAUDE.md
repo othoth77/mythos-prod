@@ -23,3 +23,8 @@ When instructions conflict, follow this priority:
 3. `AGENTS.md`
 4. `docs/AI_HANDOVER.md`
 5. Stage documentation and roadmap
+
+## Facebook Ads — READ-ONLY by design
+
+- **Facebook Ads Monitor is READ-ONLY by design** (`projects/meta-ads-monitor/`): it may only read through its GET-only Graph client; never add a write path, a non-GET method, or an `ads_management` token to it.
+- Meta Ads MCP write tools (create/update/activate/delete/upload/audience/pixel/catalog/experiment) are denied in `/root/.claude/settings.json`. Do not remove or bypass those `deny` rules, and do not test write protection with real or fake write requests to Meta — verify it from the rules and the code.
