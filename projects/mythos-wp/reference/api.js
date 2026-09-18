@@ -37,6 +37,10 @@ var commsBus = require('./comms/bus');
 
 var VERSION = require('../package.json').version;
 function users_state_of_file() { return auth.usersState(); }
+// audited(req, entry, out) — record a mutation that has no crud.js behind it, then return its result
+function audited(req, entry, out) {
+  return audit.record(db.wp(), Object.assign(apiUtil.auditFor(req), entry)).then(function () { return out; }, function () { return out; });
+}
 // usersGuard(req, target, body) — an account may only be changed by a caller who outranks it, and a caller may
 // never grant a role at or above their own (owner excepted). The last active owner cannot be demoted/disabled/deleted.
 function usersGuard(req, target, body) {
@@ -194,7 +198,17 @@ var ROUTES = [
         if (!auth.hasRole(req.session, r.permissions.write)) throw fail('forbidden', 403, 'requires role ' + r.permissions.write);
         var body = ctx.body || {};
         if (body.role === 'owner' && req.session.role !== 'owner') throw fail('forbidden', 403, 'only an owner may create an owner');
-        return users.upsert(db.wp(), { username: String(body.username || '').toLowerCase(), role: body.role, password: body.password, display_name: body.display_name, status: body.status, all_projects: body.all_projects === true }, req.session.username).then(function (row) {
+        var uname = String(body.username || '').toLowerCase();
+        // CREATE IS CREATE. users.upsert would otherwise let this route overwrite an existing account's
+        // password, role and status — bypassing usersGuard, the rank rule and session revocation.
+        // The name must be free in BOTH stores: a database row shadows a file-provisioned account at
+        // login (auth.verifyCredentials checks the table first), so creating "owner" here would be a
+        // takeover of the break-glass account.
+        var inFile = auth.loadUsers().users.some(function (u) { return u.username === uname; });
+        return db.wp().query('SELECT username FROM wp_users WHERE username = $1', [uname]).then(function (ex) {
+          if (ex.rows[0] || inFile) throw fail('conflict', 409, 'this account already exists' + (inFile && !ex.rows[0] ? ' in the credentials file' : '') + '; change it with PATCH and rotate its password through /api/users/' + uname + '/password');
+          return users.upsert(db.wp(), { username: uname, role: body.role, password: body.password, display_name: body.display_name, status: body.status, all_projects: body.all_projects === true }, req.session.username);
+        }).then(function (row) {
           ctx.status(201);
           return audit.record(db.wp(), Object.assign(apiUtil.auditFor(req), { action: 'create', resource: 'users', record_id: row.username, next: { role: row.role, status: row.status, all_projects: row.all_projects } })).then(function (audited) { return { row: row, audited: audited }; });
         });
@@ -208,7 +222,7 @@ var ROUTES = [
       var body = ctx.body || {};
       if (r.key === 'users') return usersGuard(req, ctx.params[2], body).then(function () {
         return crud.update(r, crudCtx(req, r, resolved), ctx.params[2], body).then(function (o) {
-          if (body.role !== undefined || body.status !== undefined) auth.revokeUser(ctx.params[2]);
+          if (body.role !== undefined || body.status !== undefined || body.all_projects !== undefined) auth.revokeUser(ctx.params[2]);
           return o;
         });
       });
@@ -288,7 +302,7 @@ var ROUTES = [
     });
   } },
   { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)$/, role: 'any', handler: function (req, res, ctx) {
-    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.scope(db.wp(), req.session.username).then(function (scope) { return inbox.getConversation(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), scope); }); });
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.scope(db.wp(), req.session.username).then(function (scope) { return inbox.getConversation(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), scope, { admin: auth.hasRole(req.session, 'admin') }); }); });
   } },
   { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/messages$/, role: 'any', handler: function (req, res, ctx) {
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { var qq = q(req); return inbox.scope(db.wp(), req.session.username).then(function (scope) { return inbox.getConversation(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), scope).then(function () { return inbox.listMessages(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), { before_id: qq.before_id, limit: qq.limit }); }); }); });
@@ -320,7 +334,7 @@ var ROUTES = [
   { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/messages$/, role: 'operator', handler: function (req, res, ctx) {
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
       var cid = parseInt(ctx.params[2], 10);
-      return outbound.send(db.wp(), resolved.project.id, cid, req.session.username, ctx.body || {}).then(function (r) {
+      return inbox.scope(db.wp(), req.session.username).then(function (scope) { return outbound.send(db.wp(), resolved.project.id, cid, req.session.username, ctx.body || {}, scope); }).then(function (r) {
         ctx.status(r.duplicate ? 200 : 201);
         audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'create', resource: 'messages', record_id: String(r.message_id), project_id: resolved.project.id, next: { conversation_id: cid, status: r.status, duplicate: r.duplicate, length: String((ctx.body || {}).text || '').length }, request_id: req.requestId, client: req.socket.remoteAddress }).catch(function () {});
         return r;
@@ -329,43 +343,43 @@ var ROUTES = [
   } },
   { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/messages\/([0-9]+)\/retry$/, role: 'operator', handler: function (req, res, ctx) {
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
-      return outbound.retry(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username).then(function (r) {
+      return inbox.scope(db.wp(), req.session.username).then(function (scope) { return inbox.inScope(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), scope); }).then(function () { return outbound.retry(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username); }).then(function (r) {
         audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'update', resource: 'messages', record_id: String(r.message_id), project_id: resolved.project.id, next: { retry: true, status: r.status }, request_id: req.requestId, client: req.socket.remoteAddress }).catch(function () {});
         return r;
       });
     });
   } },
   { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/read$/, role: 'operator', handler: function (req, res, ctx) {
-    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.markRead(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), req.session.username); });
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.scope(db.wp(), req.session.username).then(function (scope) { return inbox.markRead(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), req.session.username, scope); }); });
   } },
   { method: 'PATCH', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)$/, role: 'operator', handler: function (req, res, ctx) {
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
-      return inbox.updateConversation(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), req.session.username, ctx.body || {}).then(function (row) {
+      return inbox.scope(db.wp(), req.session.username).then(function (scope) { return inbox.updateConversation(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), req.session.username, ctx.body || {}, scope); }).then(function (row) {
         audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'update', resource: 'conversations', record_id: String(row.id), project_id: resolved.project.id, next: ctx.body, request_id: req.requestId, client: req.socket.remoteAddress }).catch(function () {});
         return row;
       });
     });
   } },
   { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/notes$/, role: 'operator', handler: function (req, res, ctx) {
-    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { ctx.status(201); return inbox.addNote(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), req.session.username, ctx.body && ctx.body.text); });
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { ctx.status(201); return inbox.scope(db.wp(), req.session.username).then(function (scope) { return inbox.addNote(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), req.session.username, ctx.body && ctx.body.text, scope); }); });
   } },
   { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/tags\/([0-9]+)$/, role: 'operator', handler: function (req, res, ctx) {
-    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.tagConversation(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username, false); });
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.scope(db.wp(), req.session.username).then(function (scope) { return inbox.tagConversation(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username, false, scope); }).then(function (out) { return audited(req, { action: 'update', resource: 'conversations', record_id: ctx.params[2], project_id: resolved.project.id, next: { tag: out.tag, removed: false } }, out); }); });
   } },
   { method: 'DELETE', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/tags\/([0-9]+)$/, role: 'operator', handler: function (req, res, ctx) {
-    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.tagConversation(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username, true); });
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.scope(db.wp(), req.session.username).then(function (scope) { return inbox.tagConversation(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username, true, scope); }).then(function (out) { return audited(req, { action: 'update', resource: 'conversations', record_id: ctx.params[2], project_id: resolved.project.id, next: { tag: out.tag, removed: true } }, out); }); });
   } },
   { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/tags$/, role: 'any', handler: function (req, res, ctx) {
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.listTags(db.wp(), resolved.project.id); });
   } },
   { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/tags$/, role: 'operator', handler: function (req, res, ctx) {
-    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { ctx.status(201); return inbox.createTag(db.wp(), resolved.project.id, req.session.username, ctx.body || {}); });
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { ctx.status(201); return inbox.createTag(db.wp(), resolved.project.id, req.session.username, ctx.body || {}).then(function (out) { return audited(req, { action: 'create', resource: 'tags', record_id: String(out.id), project_id: resolved.project.id, next: { name: out.name } }, out); }); });
   } },
   { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/contacts$/, role: 'any', handler: function (req, res, ctx) {
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { var qq = q(req); return inbox.scope(db.wp(), req.session.username).then(function (scope) { return inbox.listContacts(db.wp(), resolved.project.id, { q: qq.q, status: qq.status, tag: qq.tag, limit: qq.limit, scope: scope }); }); });
   } },
   { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/contacts\/([0-9]+)$/, role: 'any', handler: function (req, res, ctx) {
-    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.getContact(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10)); });
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.scope(db.wp(), req.session.username).then(function (scope) { return inbox.getContact(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), { admin: auth.hasRole(req.session, 'admin'), scope: scope }); }); });
   } },
   { method: 'PATCH', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/contacts\/([0-9]+)$/, role: 'operator', handler: function (req, res, ctx) {
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
@@ -376,10 +390,10 @@ var ROUTES = [
     });
   } },
   { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/contacts\/([0-9]+)\/tags\/([0-9]+)$/, role: 'operator', handler: function (req, res, ctx) {
-    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.tagContact(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username, false); });
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.tagContact(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username, false).then(function (out) { return audited(req, { action: 'update', resource: 'contacts', record_id: ctx.params[2], project_id: resolved.project.id, next: { tag: out.tag, removed: false } }, out); }); });
   } },
   { method: 'DELETE', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/contacts\/([0-9]+)\/tags\/([0-9]+)$/, role: 'operator', handler: function (req, res, ctx) {
-    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.tagContact(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username, true); });
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.tagContact(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username, true).then(function (out) { return audited(req, { action: 'update', resource: 'contacts', record_id: ctx.params[2], project_id: resolved.project.id, next: { tag: out.tag, removed: true } }, out); }); });
   } },
   // SSE: per-project change feed (types + ids only; never message text). Heartbeat every 25 s.
   { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/events$/, role: 'any', stream: true, handler: function (req, res, ctx) {

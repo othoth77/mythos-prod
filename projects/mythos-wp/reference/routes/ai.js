@@ -59,7 +59,12 @@ module.exports = [
     });
   } },
   { method: 'GET', path: /^\/api\/ai\/agents\/([0-9]+)$/, role: 'any', handler: function (req, res, ctx) {
-    return agents.get(db.wp(), ctx.params[1]).then(function (a) { if (!a) throw fail('not_found', 404, 'no such agent'); return publicAgent(a, req); });
+    return agents.get(db.wp(), ctx.params[1]).then(function (a) {
+      if (!a) throw fail('not_found', 404, 'no such agent');
+      a = publicAgent(a, req);
+      if (req.session.projects !== null && Array.isArray(a.projects)) a.projects = a.projects.filter(function (l) { return auth.canSeeProject(req.session, l.project_id); });
+      return a;
+    });
   } },
   { method: 'PATCH', path: /^\/api\/ai\/agents\/([0-9]+)$/, role: 'admin', handler: function (req, res, ctx) {
     return agents.get(db.wp(), ctx.params[1]).then(function (before) {

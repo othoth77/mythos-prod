@@ -38,6 +38,10 @@ var kitchenLib = require('../kitchen');
 
 var TIMEOUT_MS = 3000;
 var MAX_CANDIDATES = 5;
+// slugify(text) — the accent-free, lower-case form the Kitchen's category slugs use ('Filtre à Huile' → 'filtre-a-huile')
+function slugify(t) { return String(t || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+var MAX_CATEGORIES = 2;    // the customer's words may match a couple of catalogue families; never more
+var MAX_MODELS = 3;        // a name may map to several generations; never more than this many narrowing queries per word
 var MAX_WORDS = 4;
 
 function reason(code) { return { ok: false, reason: code }; }
@@ -83,20 +87,57 @@ function create(deps) {
     var words = Array.isArray(entities.parts) ? entities.parts.map(function (w) { return String(w).trim(); }).filter(function (w) { return w.length >= 3; }).slice(0, MAX_WORDS) : [];
     if (!words.length) return Promise.resolve({ by: 'none', rows: [] });
     var vehicle = entities.vehicle_model ? String(entities.vehicle_model) : null;
-    var modelP = vehicle ? client.listVehicleModels().then(function (r) {
-      if (!r.ok) return null;
-      var hits = r.data.vehicle_models.filter(function (m) { return String(m.model_name || '').toUpperCase().indexOf(vehicle.toUpperCase()) === 0; });
-      return hits.length === 1 && /^\d+$/.test(String(hits[0].id)) ? hits[0].id : null; // one model → narrow by fitment; several → do not guess
-    }) : Promise.resolve(null);
-    return modelP.then(function (modelId) {
-      // One query per word (the Kitchen matches one phrase); union by uid, like the previous OR over words.
-      return Promise.all(words.map(function (w) { return client.searchProducts({ q: w, model_id: modelId || undefined, limit: MAX_CANDIDATES + 1 }); })).then(function (results) {
+    // A catalogue may hold SEVERAL rows with the SAME model name (the SsangYong Kitchen has three
+    // "KORANDO" generations). Narrowing by one of them would be a guess, and refusing to narrow at all
+    // buries the customer's answer under every generation — so we narrow by ALL rows carrying that name
+    // and union the results: still exactly what the customer said, just not resolved to one generation.
+    var modelsP = vehicle ? client.listVehicleModels().then(function (r) {
+      if (!r.ok) return [];
+      var want = vehicle.toUpperCase();
+      var hits = r.data.vehicle_models.filter(function (m) { return String(m.model_name || '').toUpperCase().indexOf(want) === 0 && /^\d+$/.test(String(m.id)); });
+      var exact = hits.filter(function (m) { return String(m.model_name || '').toUpperCase() === want; });
+      return (exact.length ? exact : hits).slice(0, MAX_MODELS).map(function (m) { return m.id; });
+    }) : Promise.resolve([]);
+    // The Kitchen's title match is literal, so a customer who types "filtre a huile" without accents finds
+    // nothing while "filtre à huile" finds twenty. Its category facet is accent-free by construction
+    // (slugs like `filtre-a-huile`), so the customer's own words are matched against the slug list first
+    // and become a `category=` filter — same contract, no guessing, and it narrows far better than a
+    // phrase match. The word search stays as the fallback when no category matches.
+    var catsP = client.listPartCategories().then(function (r) { return r.ok && Array.isArray(r.data.part_categories) ? r.data.part_categories : []; }, function () { return []; });
+    return Promise.all([modelsP, catsP]).then(function (both) {
+      var modelIds = both[0], cats = both[1];
+      var slug = slugify(words.join(' '));
+      var tokens = slug.split('-').filter(function (t) { return t.length >= 3; });
+      var exact = cats.filter(function (c) { return slugify(c.category_slug || c.slug || c) === slug; });
+      var loose = cats.filter(function (c) { var cs = slugify(c.category_slug || c.slug || c); return tokens.length && tokens.every(function (t) { return cs.indexOf(t) !== -1; }); });
+      var picked = (exact.length ? exact : loose).slice(0, MAX_CATEGORIES).map(function (c) { return c.category_slug || c.slug || c; });
+      var queries = [];
+      picked.forEach(function (cat) {
+        if (!modelIds.length) queries.push({ category: cat, limit: MAX_CANDIDATES + 1 });
+        else modelIds.forEach(function (id) { queries.push({ category: cat, model_id: id, limit: MAX_CANDIDATES + 1 }); });
+      });
+      if (!queries.length) words.forEach(function (w) {
+        if (!modelIds.length) queries.push({ q: w, limit: MAX_CANDIDATES + 1 });
+        else modelIds.forEach(function (id) { queries.push({ q: w, model_id: id, limit: MAX_CANDIDATES + 1 }); });
+      });
+      return Promise.all(queries.map(function (query) { return client.searchProducts(query); })).then(function (results) {
         var failed = results.filter(function (r) { return !r.ok; })[0];
         if (failed && results.every(function (r) { return !r.ok; })) return { error: kitchenReason(failed) };
         var seen = {}, rows = [];
         results.forEach(function (r) { if (!r.ok) return; r.data.products.forEach(function (p) { if (!seen[p.product_uid]) { seen[p.product_uid] = true; rows.push(candidate(p)); } }); });
         rows.sort(function (a, b) { return String(a.canonical_reference || '').localeCompare(String(b.canonical_reference || '')); });
-        return { by: 'words', rows: rows.slice(0, MAX_CANDIDATES + 1) };
+        if (!rows.length && picked.length) {
+          // the category matched the words but holds nothing for this vehicle — try the plain word search
+          var wordQueries = [];
+          words.forEach(function (w) { if (!modelIds.length) wordQueries.push({ q: w, limit: MAX_CANDIDATES + 1 }); else modelIds.forEach(function (id) { wordQueries.push({ q: w, model_id: id, limit: MAX_CANDIDATES + 1 }); }); });
+          return Promise.all(wordQueries.map(function (query) { return client.searchProducts(query); })).then(function (rs) {
+            var seen2 = {}, rows2 = [];
+            rs.forEach(function (r) { if (!r.ok) return; r.data.products.forEach(function (pp) { if (!seen2[pp.product_uid]) { seen2[pp.product_uid] = true; rows2.push(candidate(pp)); } }); });
+            rows2.sort(function (a, b) { return String(a.canonical_reference || '').localeCompare(String(b.canonical_reference || '')); });
+            return { by: 'words', rows: rows2.slice(0, MAX_CANDIDATES + 1) };
+          });
+        }
+        return { by: picked.length ? 'category' : 'words', rows: rows.slice(0, MAX_CANDIDATES + 1) };
       });
     });
   }

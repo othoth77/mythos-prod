@@ -127,13 +127,13 @@ function cleanup() {
     ["DELETE FROM wp_templates WHERE project_id = ANY($1) OR name LIKE 'v2wa_%'", [mine]],
     ['DELETE FROM wp_inbound_events WHERE instance LIKE $1', ['v2wa-%']],
     ['DELETE FROM wp_routing_drops WHERE instance LIKE $1', ['v2wa-%']],
-    ['DELETE FROM wp_inboxes WHERE project_id = ANY($1) OR instance LIKE $2', [mine, 'v2wa-%']],
+    ["DELETE FROM wp_inboxes WHERE project_id = ANY($1) OR instance LIKE $2 OR project_id LIKE 'v2wa-%'", [mine, 'v2wa-%']],
     ['DELETE FROM wp_phone_numbers WHERE instance LIKE $1', ['v2wa-%']],
     ["DELETE FROM wp_wa_accounts WHERE display_name LIKE 'v2wa-%'", []],
     ["DELETE FROM wp_health_checks WHERE component LIKE 'number:v2wa-%'", []],
-    ["DELETE FROM wp_audit_events WHERE project_id = ANY($1) OR actor LIKE 'v2wa-%'", [mine]],
+    ["DELETE FROM wp_audit_events WHERE project_id = ANY($1) OR actor LIKE 'v2wa-%' OR project_id LIKE 'v2wa-%'", [mine]],
     ['DELETE FROM wp_reserved_accounts WHERE account_ref = $1', [PERSONAL_PHONE]],
-    ['DELETE FROM wp_projects WHERE id = ANY($1)', [mine]]
+    ["DELETE FROM wp_projects WHERE id = ANY($1) OR id LIKE 'v2wa-%'", [mine]]
   ];
   var chain = Promise.resolve(); steps.forEach(function (s) { chain = chain.then(function () { return q(s[0], s[1]); }); }); return chain;
 }
@@ -155,7 +155,8 @@ migrate.up(pool).then(cleanup)
   .then(function (x) { ok(x.status === 201 && x.data.id, 'accounts: created (201)'); ids.acc = x.data.id; return req('POST', '/api/whatsapp/accounts', { provider: 'evolution', display_name: 'v2wa-dup', external_ref: 'evolution:v2wa-host' }, 'adm'); })
   .then(function (x) { ok(x.status === 409, 'accounts: duplicate external_ref → 409'); return req('PATCH', '/api/whatsapp/accounts/' + ids.acc, { business_name: 'V2WA SARL' }, 'adm'); })
   .then(function (x) { ok(x.status === 200 && x.data.business_name === 'V2WA SARL', 'accounts: patched'); return req('GET', '/api/whatsapp/accounts', undefined, 'agt'); })
-  .then(function (x) { ok(x.status === 200 && x.data.items.some(function (a) { return a.id === ids.acc; }), 'accounts: listed for any role'); return req('DELETE', '/api/whatsapp/accounts/' + ids.acc, undefined, 'adm'); })
+  .then(function (x) { ok(x.status === 403, 'accounts: the WhatsApp business inventory is manager+ (403 for an agent)'); return req('GET', '/api/whatsapp/accounts', undefined, 'adm'); })
+  .then(function (x) { ok(x.status === 200 && x.data.items.some(function (a) { return a.id === ids.acc; }), 'accounts: listed for an admin'); return req('DELETE', '/api/whatsapp/accounts/' + ids.acc, undefined, 'adm'); })
   .then(function (x) { ok(x.status === 403, 'accounts: delete is owner-only (403 for admin)'); })
   // ---------- numbers CRUD + masking
   .then(function () { return req('POST', '/api/whatsapp/numbers', { provider: 'evolution', instance: 'v2wa-manual', phone_ref: '21655551234', display_name: 'Manual number', account_id: ids.acc }, 'adm'); })
@@ -353,6 +354,21 @@ migrate.up(pool).then(cleanup)
   .then(function (r) { ok(r.reachable === false && r.http_status === null, 'mcp: probe reports an unreachable endpoint'); return metaMcp.probe({ url: 'http://example.invalid/x' }); })
   .then(function (r) { ok(r.reachable === false && /https only/.test(r.detail), 'mcp: probe refuses plain http off loopback'); return req('POST', '/api/whatsapp/mcp/probe', {}, 'agt'); })
   .then(function (x) { ok(x.status === 403, 'mcp: probe endpoint is admin-only (not executed in tests)'); })
+  // ---------- Connect (pairing QR) is admin-only and refused on a connected number
+  .then(function () { return req('POST', '/api/whatsapp/numbers/' + ids.personal + '/connect', {}, 'agt'); })
+  .then(function (x) { ok(x.status === 403, 'connect: agents cannot request a pairing QR (' + x.status + ')'); return q("UPDATE wp_phone_numbers SET status = 'open' WHERE id = $1", [ids.personal]); })
+  .then(function () { return req('POST', '/api/whatsapp/numbers/' + ids.personal + '/connect', {}, 'adm'); })
+  .then(function (x) { ok(x.status === 409, 'connect: refused on a connected number, the live session is never touched (' + x.status + ')'); })
+
+  // ---------- a PERSONAL number is never shared by implication (the short project form must not opt in for you)
+  .then(function () { return req('POST', '/api/projects', { name: 'V2WA Implied Optin', kind: 'service', phone_number_id: ids.personal }, 'adm'); })
+  .then(function (x) {
+    ok(x.status === 201 && x.data.inbox === null && (x.data.warnings || []).length === 1, 'new project + personal number WITHOUT the opt-in: project created, link refused with a warning (' + JSON.stringify(x.data && x.data.warnings) + ')');
+    return q("SELECT count(*)::int AS n FROM wp_inboxes WHERE project_id = 'v2wa-implied-optin'");
+  })
+  .then(function (r) { ok(r.rows[0].n === 0, 'no inbox row was written for the refused link'); return req('POST', '/api/projects', { name: 'V2WA Explicit Optin', kind: 'service', phone_number_id: ids.personal, allow_personal_account: true }, 'adm'); })
+  .then(function (x) { ok(x.status === 201 && x.data.inbox && x.data.inbox.account_mode === 'shared', 'the same form WITH the explicit opt-in links it (audited, shared)'); })
+
   // ---------- contacts 360
   .then(function () { return req('GET', '/api/contacts?project=all', undefined, 'adm'); })
   .then(function (x) {

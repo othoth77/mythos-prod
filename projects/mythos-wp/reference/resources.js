@@ -162,6 +162,9 @@ var RESOURCES = {
         if (typeof st !== 'object' || Array.isArray(st)) errs.settings = 'settings must be an object';
         else ['ai_suggest', 'auto_reply', 'allow_personal_account'].forEach(function (k) { if (st[k] !== undefined && typeof st[k] !== 'boolean') errs.settings = k + ' must be true or false'; });
         if (!errs.settings && require('./audit').hasSecretKey(st)) errs.settings = 'settings must not carry a credential';
+        // the personal-account sharing opt-in is an audited decision taken when the link is created
+        // (comms/numbers.link → routing.createSharedInbox); it is never toggled through this form.
+        if (!errs.settings && v.settings !== undefined && existing && st && st.allow_personal_account !== (existing.settings || {}).allow_personal_account) errs.settings = 'allow_personal_account is set when the number is linked to the project, not here';
       }
       if (v.account_ref !== undefined && v.account_ref !== null && v.phone_masked === undefined && !(existing && existing.phone_masked)) { /* derive display */ }
       return errs;

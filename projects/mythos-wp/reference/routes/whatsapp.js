@@ -42,7 +42,7 @@ function simulateEvent(body) {
 
 module.exports = [
   // --- business accounts -----------------------------------------------------
-  { method: 'GET', path: /^\/api\/whatsapp\/accounts$/, role: 'any', handler: function () { return numbers.listAccounts(db.wp()).then(function (rows) { return { items: rows }; }); } },
+  { method: 'GET', path: /^\/api\/whatsapp\/accounts$/, role: 'manager', handler: function () { return numbers.listAccounts(db.wp()).then(function (rows) { return { items: rows }; }); } },
   { method: 'POST', path: /^\/api\/whatsapp\/accounts$/, role: 'admin', handler: function (req, res, ctx) {
     return numbers.createAccount(db.wp(), ctx.body || {}).then(function (row) { ctx.status(201); return rec(req, { action: 'create', resource: 'wa_accounts', record_id: row.id, next: { provider: row.provider, display_name: row.display_name, external_ref: row.external_ref } }).then(function () { return row; }); });
   } },
@@ -81,6 +81,17 @@ module.exports = [
   { method: 'DELETE', path: /^\/api\/whatsapp\/numbers\/(\d+)$/, role: 'owner', handler: function (req, res, ctx) {
     var id = idOf(ctx.params[1]);
     return numbers.deleteNumber(db.wp(), id).then(function (out) { return rec(req, { action: 'delete', resource: 'phone_numbers', record_id: id }).then(function () { return out; }); });
+  } },
+  // Pairing QR for a number that is not connected (admin). The QR is a secret with a 20–45 s life: it is
+  // only returned, never logged or stored. One audit row per pairing session; the UI's periodic refreshes
+  // pass ?refresh=1 so they do not flood the log.
+  { method: 'POST', path: /^\/api\/whatsapp\/numbers\/(\d+)\/connect$/, role: 'admin', handler: function (req, res, ctx) {
+    var id = idOf(ctx.params[1]);
+    var refresh = /(^|&)refresh=1(&|$)/.test(String(req.url.split('?')[1] || ''));
+    return numbers.connect(db.wp(), id).then(function (out) {
+      if (refresh && out.state !== 'open') return out;
+      return rec(req, { action: 'check', resource: 'phone_numbers', record_id: id, next: { pairing: out.state === 'open' ? 'connected' : 'qr_issued' } }).then(function () { return out; });
+    });
   } },
   { method: 'POST', path: /^\/api\/whatsapp\/numbers\/(\d+)\/check$/, role: 'manager', handler: function (req, res, ctx) {
     var id = idOf(ctx.params[1]);

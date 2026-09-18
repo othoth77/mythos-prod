@@ -120,3 +120,23 @@ Retention windows are business rules (`wp_business_rules` key `comms.retention`)
 | before enabling Auto on a project | Test AI, one real Suggest cycle, the agent's minimum confidence reviewed, hourly cap set |
 | before sharing a number | rules added and simulated; personal numbers have identity rules only |
 | weekly | `pg_dump` of `mythos_wp` (`DEPLOYMENT.md` §5); `comms reconcile`, `comms heartbeat`, `replay-list` |
+
+## Backups (scheduled since 2026-09-18)
+
+`mythos-backup-db-wp.timer` runs daily at 05:20 UTC: root capture (`docker exec … pg_dump -Fc mythos_wp`) →
+deploy stage → manifest → verify-local → push to R2 (`mythos-wp/daily`) → verify-remote.
+`mythos-backup-db-verify-wp.timer` re-verifies the remote set daily at 16:19 UTC. Health record:
+`/home/deploy/mythos-backups/health/backup-health-db-wp.json`, watched by the Status Center probe `wp-backup`
+(fresh < 26 h). Config: `/home/deploy/.config/mythos/backup-schedule-db-wp.env` (0600). Same pipeline as the
+ERP and ssangyong_autos instances (`ops/backup/mythos-backup-run-db.sh`).
+
+```bash
+sudo systemctl start mythos-backup-db-wp.service                      # run a backup now
+sudo -u deploy bash -c 'cd /home/deploy/projects/mythos-prod && MYTHOS_BACKUP_DB_CONFIG=/home/deploy/.config/mythos/backup-schedule-db-wp.env MYTHOS_BACKUP_HEALTH_FILE=/home/deploy/mythos-backups/health/backup-health-db-wp.json bash ops/backup/mythos-backup-run-db.sh restore-test'
+```
+
+## Connecting a WhatsApp number
+
+WhatsApp → Numbers → **Connect** (admin) shows the live pairing QR. The terminal equivalent is
+`ops/whatsapp/evolution/qr-live.sh <instance>`. Both refuse nothing on their own; the panel refuses a number
+that is already connected so a click can never disturb a live session.

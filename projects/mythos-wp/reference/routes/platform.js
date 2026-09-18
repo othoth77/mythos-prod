@@ -93,7 +93,7 @@ module.exports = [
   } },
 
   // --- health center ---------------------------------------------------------
-  { method: 'GET', path: /^\/api\/health\/center$/, role: 'any', handler: function () { return health.center(db.wp()); } },
+  { method: 'GET', path: /^\/api\/health\/center$/, role: 'manager', handler: function () { return health.center(db.wp()); } },
   { method: 'POST', path: /^\/api\/health\/run$/, role: 'manager', handler: function (req) {
     // manual runs are rate-limited (one per minute) and never overlap the scheduler
     if (health.isRunning && health.isRunning()) throw fail('precondition', 412, 'a health run is already in progress');

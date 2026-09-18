@@ -59,6 +59,7 @@ function numbersPanel(ctx) {
         h('td', { class: 'dim' }, relTime(n.last_event_at)),
         h('td', { class: 'actions' }, h('div', { class: 'row-actions' },
           h('button', { class: 'btn btn-ghost btn-sm', type: 'button', disabled: !manager || undefined, onClick: async (e) => { e.target.disabled = true; try { const c = await ctx.api.post('/api/whatsapp/numbers/' + n.id + '/check', {}); toast('Checked: ' + ({ open: 'connected', pairing: 'connecting', closed: 'disconnected' }[c.status] || c.status || '') + (c.detail ? ' · ' + c.detail : ''), c.health_state === 'ok' ? 'ok' : 'warn', 5000); load(); } catch (err) { toast(err.detail || 'Check failed.', 'danger'); e.target.disabled = false; } } }, 'Check'),
+          n.connection !== 'connected' && n.provider === 'evolution' && admin ? h('button', { class: 'btn btn-primary btn-sm', type: 'button', onClick: () => connectDialog(ctx, n).then(() => load()) }, 'Connect') : null,
           h('button', { class: 'btn btn-ghost btn-sm', type: 'button', disabled: !admin || undefined, onClick: () => linkDialog(ctx, n, null).then((ok) => { if (ok) load(); }) }, 'Link to project'),
           toggle))), exp);
     });
@@ -343,12 +344,56 @@ export function mcpPanel(ctx) {
     const reach = d.reachable;
     const reachable = reach === undefined || reach === null ? null : (typeof reach === 'object' ? reach.reachable : !!reach);
     box.append(
-      kv([['Status', h('span', {}, badge(integ ? integ.status : (d.status || 'beta')), ' ', reachable === null ? badge('not probed', 'mock') : badge(reachable ? 'reachable' : 'unreachable', reachable ? 'ok' : 'danger'))], ['Last check', integ && integ.last_checked_at ? relTime(integ.last_checked_at) : '—']]),
-      h('h4', {}, 'Connect'), h('p', { class: 'dim' }, d.owner_step || 'The owner signs in with Facebook Login for Business from the AI tool; the panel never holds the token.'),
+      // Plain words. Meta authorises this MCP inside the owner's AI tool (Facebook Login for Business); this
+      // panel never holds that token, so it can only say whether the endpoint answers — never that you are signed in.
+      kv([['Status', h('span', {}, badge('Not connected here', 'warn'), ' ', h('span', { class: 'dim' }, 'Meta signs you in from your AI tool, not from this panel.'))],
+          ['Meta endpoint', reachable === null ? badge('Not checked yet', 'mock') : badge(reachable ? 'Answering' : 'Not answering', reachable ? 'ok' : 'danger')],
+          ['Last check', fmtDate(d.checked_at || (integ && integ.last_checked_at) || (typeof reach === 'object' && reach ? reach.checked_at : null))]]),
+      h('h4', {}, 'Connect Meta'), h('p', { class: 'dim' }, '1. Add the server to your AI tool with the command below.  2. In the tool, open /mcp and sign in with Facebook Login for Business.  It is used to set up numbers, templates and webhooks — customer messages never go through it.'),
       codeBlock(d.claude_code_command || 'claude mcp add --transport http whatsapp_business_tools https://mcp.facebook.com/whatsapp_business_tools', 'command'),
       h('div', { class: 'view-actions' }, h('button', { class: 'btn btn-secondary btn-sm', type: 'button', disabled: !ctx.can('admin') || undefined, onClick: async (e) => { e.target.disabled = true; try { const r = await ctx.api.post('/api/whatsapp/mcp/probe', {}); toast('Probe: ' + (r.reachable ? 'reachable' : 'unreachable') + (r.status ? ' (HTTP ' + r.status + ')' : ''), r.reachable ? 'ok' : 'warn', 5000); load(); } catch (err) { toast(err.detail || 'Probe failed.', 'danger'); e.target.disabled = false; } } }, 'Probe'), h('a', { class: 'btn btn-ghost btn-sm', href: d.docs || 'https://developers.facebook.com/documentation/mcp/whatsapp-business-tools-mcp', target: '_blank', rel: 'noopener noreferrer' }, 'Meta docs')),
       details('Advanced', [kv([['Endpoint', h('code', {}, d.endpoint || '—')], ['Transport', d.transport], ['Auth', d.auth], ['Scopes', h('div', { class: 'chips' }, (d.scopes || []).map((s) => chip(s)))]]), h('h4', {}, 'Tools (' + (d.tools || []).length + ')'), (d.tools || []).length ? h('div', { class: 'chips' }, d.tools.map((t) => chip(typeof t === 'string' ? t : t.name, 'mono'))) : h('p', { class: 'dim' }, 'Tool list unavailable.')]));
   }
   load();
   return box;
+}
+
+/* Connect a number by QR. The gateway's pairing ref rotates every 20–45 s, so a still image goes stale
+   before the phone scans it (docs/MYTHOS_WHATSAPP_QR_PAIRING_DIAGNOSIS_2026-09-05.md): the dialog asks for
+   a fresh QR every 15 s and stops by itself once the number is connected, or after three minutes.
+   The QR is a short-lived secret — it lives in this dialog only and is never stored. */
+function connectDialog(ctx, n) {
+  return new Promise((resolve) => {
+    const dlg = document.getElementById('dialog');
+    clear(dlg);
+    const img = h('img', { class: 'qr', alt: 'WhatsApp pairing QR code', width: '264', height: '264' });
+    const status = h('p', { class: 'dim', role: 'status', 'aria-live': 'polite' }, 'Asking WhatsApp for a pairing code…');
+    const steps = h('ol', { class: 'steps' },
+      h('li', {}, 'Open WhatsApp on the phone that owns this number.'),
+      h('li', {}, 'Settings → Linked devices → Link a device.'),
+      h('li', {}, 'Scan this code. It refreshes on its own.'));
+    let timer = null, stopped = false, first = true;
+    const started = Date.now();
+    const stop = (done) => { stopped = true; if (timer) clearTimeout(timer); if (dlg.open) dlg.close(); resolve(done); };
+    const close = h('button', { class: 'btn btn-secondary', type: 'button', onClick: () => stop(false) }, 'Close');
+    dlg.appendChild(h('div', { class: 'dialog-body' }, h('h3', {}, 'Connect ' + (n.display_name || 'this number')), steps, h('div', { class: 'qr-box' }, img), status, h('div', { class: 'dialog-foot' }, close)));
+    dlg.addEventListener('cancel', () => stop(false), { once: true });
+    dlg.showModal();
+    async function tick() {
+      if (stopped) return;
+      if (Date.now() - started > 180000) { status.textContent = 'No scan in three minutes. Close and press Connect to try again.'; img.removeAttribute('src'); return; }
+      try {
+        const r = await ctx.api.post('/api/whatsapp/numbers/' + n.id + '/connect' + (first ? '' : '?refresh=1'), {});
+        first = false;
+        if (stopped) return;
+        if (r.state === 'open') { status.textContent = 'Connected.'; toast('Number connected', 'ok'); setTimeout(() => stop(true), 900); return; }
+        img.src = r.qr; status.textContent = 'Waiting for the scan…';
+      } catch (err) {
+        if (err.status === 409) { status.textContent = 'This number is already connected.'; setTimeout(() => stop(true), 900); return; }
+        status.textContent = err.detail || 'WhatsApp did not answer. Retrying…';
+      }
+      timer = setTimeout(tick, 15000);
+    }
+    tick();
+  });
 }

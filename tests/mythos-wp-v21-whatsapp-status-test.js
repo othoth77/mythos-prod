@@ -59,11 +59,14 @@ fs.writeFileSync(process.env.MYTHOS_WP_USERS_FILE, JSON.stringify({ users: [{ us
 
 // --- fake Evolution: `mode` decides what the gateway does on the next probe ------------------
 var mode = 'open';                       // open | close | connecting | hang | 500
+var QR = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+var connectCalls = 0;
 var evo = http.createServer(function (rq, rs) {
   if (mode === 'hang') return;           // never answers → the provider times out
   if (mode === '500') { rs.writeHead(500, { 'Content-Type': 'application/json' }); return rs.end('{"error":"boom"}'); }
   var state = mode === 'close' ? 'close' : mode === 'connecting' ? 'connecting' : 'open';
   rs.writeHead(200, { 'Content-Type': 'application/json' });
+  if (/^\/instance\/connect\//.test(rq.url)) { connectCalls++; return rs.end(JSON.stringify(state === 'open' ? { instance: { instanceName: 'x', state: 'open' } } : { base64: QR, code: '2@ref', count: connectCalls, pairingCode: null })); }
   rs.end(JSON.stringify({ instance: { instanceName: 'x', state: state } }));
 });
 
@@ -167,6 +170,21 @@ migrate.up(pool)
   })
   .then(function () { return projectsOps.numbersOf(pool, 'v21s-b'); })
   .then(function (rows) { ok(rows.length === 1 && rows[0].connection === 'connected' && rows[0].inbox_id === ids.inboxB, 'project numbers: connection + link id'); })
+
+  // ---- 6. WhatsApp → Number → Connect: the pairing QR, only for a number that is not connected ----
+  .then(function () { mode = 'open'; return numbers.check(pool, ids.num); })
+  .then(function () { return numbers.connect(pool, ids.num).then(function () { ok(false, 'connect on a CONNECTED number must be refused'); }, function (e) { ok(e.status === 409, 'connect refused on a connected number — the live session is never touched (' + e.status + ')'); }); })
+  .then(function () { mode = 'close'; return numbers.check(pool, ids.num); })
+  .then(function () { var before = connectCalls; return numbers.connect(pool, ids.num).then(function (out) {
+    ok(out.state === 'pairing' && out.qr === QR && out.refresh_s === 15 && connectCalls === before + 1, 'connect on a disconnected number returns the gateway QR + refresh hint');
+    return q('SELECT status FROM wp_phone_numbers WHERE id = $1', [ids.num]); }); })
+  .then(function (r) { ok(r.rows[0].status === 'pairing', 'the number reads pairing while the QR is shown'); return q('SELECT status FROM wp_inboxes WHERE id IN ($1,$2)', [ids.inboxA, ids.inboxB]); })
+  .then(function (r) { ok(r.rows.every(function (x) { return x.status === 'pairing'; }), 'its project links follow'); mode = 'open'; return numbers.connect(pool, ids.num); })
+  .then(function (out) { ok(out.state === 'open' && out.qr === undefined, 'once scanned the gateway says open: no QR, status connected'); return q('SELECT status FROM wp_phone_numbers WHERE id = $1', [ids.num]); })
+  .then(function (r) { ok(r.rows[0].status === 'open', 'device status is open after the scan'); mode = 'close'; return numbers.check(pool, ids.num); })
+  .then(function () { mode = '500'; return numbers.connect(pool, ids.num).then(function () { ok(false, 'a failing gateway must not produce a QR'); }, function (e) { ok(e.status === 503, 'gateway failure → 503, never a fake QR'); }); })
+  .then(function () { return q("SELECT count(*)::int AS n FROM wp_audit_events WHERE next::text LIKE '%base64%' OR next::text LIKE '%iVBOR%'"); })
+  .then(function (r) { ok(r.rows[0].n === 0, 'the QR never reaches the audit log'); })
 
   // ---- 5. a never-paired number reads as ACTION REQUIRED, not ERROR ----------------------
   .then(function () { return q("INSERT INTO wp_phone_numbers (provider, instance, phone_ref, display_name, status, health_state) VALUES ('evolution','v21s-unpaired',NULL,'V21S unpaired','closed','disconnected') RETURNING id"); })

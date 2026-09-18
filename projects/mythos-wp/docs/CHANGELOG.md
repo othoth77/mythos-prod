@@ -73,3 +73,31 @@ blocked replies for that project.
 - Dashboard, project pages and the Numbers table use that model; the dashboard counts connected numbers.
 - `MYTHOS_WP_DB_CONNECT_TIMEOUT_MS` makes the pool connect timeout configurable for a loaded host.
 - New suite `tests/mythos-wp-v21-whatsapp-status-test.js` (26 assertions) locks the behaviour down.
+
+## V2.1.2 — 2026-09-18 (final production pass)
+
+**Security (independent audit, all fixed):**
+- CRITICAL — `POST /api/r/users` could overwrite an existing account (password, role, status) because it
+  upserted; it now refuses any name that exists in the database **or** in the 0600 credentials file
+  (a database row would shadow the break-glass file account at login).
+- HIGH — the short *New project* form implied the personal-number sharing opt-in; it now links a personal
+  number only when the caller passes `allow_personal_account: true`, otherwise it reports a warning.
+- Full customer digits (`contact_wa_id`, contact `wa_id`/`lid`) are returned to admins only.
+- Inbox membership now scopes WRITES too (read, patch, note, tag, reply, retry), not only reads.
+- Clearing a user's "every project" access ends their live sessions.
+- Single-agent reads filter project bindings to the caller's projects.
+- The WhatsApp business-account list and the Health Center are manager+.
+- The sharing opt-in can no longer be toggled through the generic inbox PATCH.
+- Tag and contact-tag mutations are audited; a prototype key can no longer reach the project INSERT.
+
+**WhatsApp:** WhatsApp → Numbers → **Connect** shows the pairing QR for a number that is not connected,
+refreshes it every 15 s (the pairing ref rotates every 20–45 s) and closes by itself once the number is
+connected. Refused on a connected number; the QR is never logged or stored.
+
+**Kitchen search (no Kitchen change):** customer words are matched against the Kitchen's accent-free
+category facet first (`filtre a huile` → `category=filtre-a-huile`), and a model name shared by several
+generations (three `KORANDO` rows) narrows by all of them. When the catalogue still cannot single out a
+product the answer is a human handoff — never a guess.
+
+**Operations:** scheduled off-host backup of `mythos_wp` (daily 05:20 UTC, verify 16:19 UTC, restore
+tested); MYTHOS WP probes on the Status Center (loopback health, auth wall, backup freshness).

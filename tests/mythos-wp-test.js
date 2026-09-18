@@ -169,7 +169,17 @@ fs.writeFileSync(usersFile, JSON.stringify({ users: [
 }());
 
 // ================================================================ HTTP boundary (no DB needed for these)
-function request(port, method, p, body, headers) {
+// One retry on a transient loopback socket error. This host runs other heavy sessions; when the CPU is
+// starved the kernel can reset an accept()ing socket before the server touches it. That is not a product
+// behaviour and must not be read as one — an assertion never gets retried, only a connection failure.
+function request(port, method, p, body, headers, attempt) {
+  return rawRequest(port, method, p, body, headers).catch(function (e) {
+    var transient = e && /ECONNRESET|ECONNREFUSED|EPIPE|ETIMEDOUT|socket hang up/.test(String(e.message || e));
+    if (!transient || (attempt || 0) >= 3) throw e;
+    return new Promise(function (r) { setTimeout(r, 150 * ((attempt || 0) + 1)); }).then(function () { return request(port, method, p, body, headers, (attempt || 0) + 1); });
+  });
+}
+function rawRequest(port, method, p, body, headers) {
   return new Promise(function (resolve, reject) {
     var data = body === undefined ? null : JSON.stringify(body);
     var h = Object.assign({}, headers || {});
@@ -235,7 +245,7 @@ async function httpSection(port) {
 // ================================================================ DB section
 async function dbSection(port, opCookie) {
   var pool = db.wp();
-  await pool.query("UPDATE wp_messages SET ai_run_id = NULL WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_inbound_events WHERE inbox_id IN (SELECT id FROM wp_inboxes WHERE project_id IN ('test-core','test-core-2')); DELETE FROM wp_conversation_events WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_ai_suggestions WHERE conversation_id IN (SELECT id FROM wp_conversations WHERE project_id IN ('test-core','test-core-2')); DELETE FROM wp_ai_runs WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_messages WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_handoffs WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_conversations WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_contacts WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_tags WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_knowledge WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_business_rules WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_inboxes WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_notes WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_audit_events WHERE project_id IN ('test-core','test-core-2') OR actor IN ('core-agent','core-admin','core-viewer') OR (resource = 'users' AND record_id IN ('core-agent','core-admin','core-viewer','core-owner2')); DELETE FROM wp_users WHERE username IN ('core-agent','core-admin','core-viewer','core-owner2'); DELETE FROM wp_projects WHERE id IN ('test-core','test-core-2');");
+  await pool.query("UPDATE wp_messages SET ai_run_id = NULL WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_inbound_events WHERE inbox_id IN (SELECT id FROM wp_inboxes WHERE project_id IN ('test-core','test-core-2')); DELETE FROM wp_conversation_events WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_ai_suggestions WHERE conversation_id IN (SELECT id FROM wp_conversations WHERE project_id IN ('test-core','test-core-2')); DELETE FROM wp_ai_runs WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_messages WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_handoffs WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_conversations WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_contacts WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_tags WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_knowledge WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_business_rules WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_inboxes WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_notes WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_audit_events WHERE project_id IN ('test-core','test-core-2') OR actor IN ('core-agent','core-admin','core-viewer') OR (resource = 'users' AND record_id IN ('core-agent','core-admin','core-viewer','core-owner2')); DELETE FROM wp_users WHERE username IN ('core-agent','core-admin','core-viewer','core-owner2','owner','op'); DELETE FROM wp_projects WHERE id IN ('test-core','test-core-2');");
   await pool.query("INSERT INTO wp_projects (id, display_name, domain, kind, status, description, settings) VALUES ('test-core','Core Test','core.test','service','active','A service project', '{}'), ('test-core-2','Core Test 2',NULL,'internal','active',NULL,'{}')");
   store.invalidate();
   var resolved = await store.resolve('test-core');
@@ -278,6 +288,20 @@ async function dbSection(port, opCookie) {
   r = await request(port, 'POST', '/api/login', { username: 'core-viewer', password: 'test-viewer-pw-not-a-real-1' }, H); eq(r.status, 401, 'users: disabled account cannot log in');
   r = await request(port, 'DELETE', '/api/r/users/core-admin', undefined, AD); eq(r.status, 403, 'users: cannot delete own account');
   r = await request(port, 'DELETE', '/api/r/users/core-viewer', undefined, AD); eq(r.status, 403, 'users: admin cannot delete accounts (owner only)');
+  // create is CREATE: POSTing an existing name must never overwrite its password, role or status
+  r = await request(port, 'POST', '/api/r/users', { username: 'owner', role: 'admin', password: 'test-takeover-pw-not-a-real', all_projects: true }, AD);
+  eq(r.status, 409, 'users: creating an existing account is refused (no silent overwrite)');
+  var ownerRow = (await pool.query("SELECT role, status FROM wp_users WHERE username = 'core-admin'")).rows[0];
+  r = await request(port, 'POST', '/api/r/users', { username: 'core-admin', role: 'viewer', password: 'test-takeover-pw-not-a-real' }, AD); eq(r.status, 409, 'users: an admin cannot re-create another admin');
+  var afterRow = (await pool.query("SELECT role, status FROM wp_users WHERE username = 'core-admin'")).rows[0];
+  eq(afterRow, ownerRow, 'users: the refused create changed nothing');
+  r = await request(port, 'POST', '/api/login', { username: 'core-admin', password: 'test-admin-pw-not-a-real-1' }, H); eq(r.status, 200, 'users: the original password still works after the refused create');
+  AD = { Cookie: cookieOf(r), 'X-Requested-With': 'MythosWP' };
+  // losing "every project" must end the live session, not wait for the 8 h TTL
+  r = await request(port, 'GET', '/api/meta', undefined, AD); ok(r.status === 200 && r.json.data.user.projects === null, 'access: admin session sees every project');
+  r = await request(port, 'PATCH', '/api/r/users/core-admin', { all_projects: false }, C); eq(r.status, 200, 'users: owner clears the all-projects flag');
+  r = await request(port, 'GET', '/api/meta', undefined, AD); eq(r.status, 401, 'access: the session ended the moment the grant was removed');
+  r = await request(port, 'POST', '/api/login', { username: 'core-admin', password: 'test-admin-pw-not-a-real-1' }, H); AD = { Cookie: cookieOf(r), 'X-Requested-With': 'MythosWP' };
 
   // --- wp resources: knowledge, rules, tags, handoffs; roles; audit
   r = await request(port, 'POST', '/api/r/knowledge' + P, { kind: 'faq', title: 'Horaires', customer_text: 'Ouvert du lundi au samedi.', language: 'fr', allowed_for_auto_reply: true, status: 'active', tags: ['horaires'] }, AG); eq(r.status, 403, 'authz: agent cannot write knowledge');

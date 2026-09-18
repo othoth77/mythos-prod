@@ -252,6 +252,25 @@ function check(pool, id) {
   });
 }
 
+// connect(pool, id) → { state, qr? } — the pairing QR for a number that is NOT connected.
+// Refused for a connected number (it would only risk the live session) and for providers that are not
+// paired by QR (a Cloud API number is registered through Meta). The device status follows what the
+// gateway reported (pairing / open) and the project links follow the number.
+function connect(pool, id) {
+  return rawNumber(pool, id).then(function (row) {
+    if (row.status === 'open') throw fail('conflict', 409, 'this number is already connected');
+    var p = registry.get(row.provider);
+    if (!p || typeof p.connect !== 'function') throw fail('precondition', 412, 'this number is not paired with a QR code (' + row.provider + ')');
+    return p.connect({ instance: row.instance }).then(function (r) {
+      if (!r.ok) throw fail('unavailable', 503, 'the WhatsApp gateway did not return a QR code (' + String(r.reason || 'unknown').slice(0, 60) + ')');
+      var status = r.state === 'open' ? 'open' : 'pairing';
+      return pool.query('UPDATE wp_phone_numbers SET status = $2, health_state = $3, last_health_at = now(), updated_at = now() WHERE id = $1 RETURNING id, provider, instance, status', [id, status, status === 'open' ? 'ok' : 'warning'])
+        .then(function (u) { return syncInboxStatus(pool, u.rows[0]); })
+        .then(function () { return r.state === 'open' ? { state: 'open' } : { state: 'pairing', qr: r.qr, refresh_s: 15 }; });
+    });
+  });
+}
+
 // ---- project links (wp_inboxes) --------------------------------------------------------
 // link(pool, id, { project_id, display_name?, account_mode, allow_personal_account? }, actor) → inbox row
 function link(pool, id, body, actor) {
@@ -311,4 +330,4 @@ function updateInbox(pool, projectId, inboxId, patch) {
   return pool.query('UPDATE wp_inboxes SET ' + sets.join(', ') + ' WHERE project_id = $1 AND id = $2 RETURNING id, project_id, provider, instance, display_name, account_mode, inbound_enabled, outbound_enabled, ai_mode, status, settings, phone_number_id', params)
     .then(function (r) { if (!r.rows[0]) throw fail('not_found', 404, 'no such inbox in this project'); return { inbox: r.rows[0], changed: changed }; }, function (e) { if (/wp_inboxes_/.test(e.message + (e.constraint || ''))) throw fail('precondition', 412, e.message); throw e; });
 }
-module.exports = { mask: mask, rawNumber: rawNumber, inboxesOfNumber: inboxesOfNumber, connectionOf: connectionOf, syncInboxStatus: syncInboxStatus, INBOX_STATUS: INBOX_STATUS, listAccounts: listAccounts, createAccount: createAccount, updateAccount: updateAccount, deleteAccount: deleteAccount, listNumbers: listNumbers, getNumber: getNumber, createNumber: createNumber, updateNumber: updateNumber, deleteNumber: deleteNumber, sync: sync, check: check, link: link, unlink: unlink, updateInbox: updateInbox, webhookState: webhookState, instanceOf: instanceOf, receiverBase: receiverBase };
+module.exports = { connect: connect, mask: mask, rawNumber: rawNumber, inboxesOfNumber: inboxesOfNumber, connectionOf: connectionOf, syncInboxStatus: syncInboxStatus, INBOX_STATUS: INBOX_STATUS, listAccounts: listAccounts, createAccount: createAccount, updateAccount: updateAccount, deleteAccount: deleteAccount, listNumbers: listNumbers, getNumber: getNumber, createNumber: createNumber, updateNumber: updateNumber, deleteNumber: deleteNumber, sync: sync, check: check, link: link, unlink: unlink, updateInbox: updateInbox, webhookState: webhookState, instanceOf: instanceOf, receiverBase: receiverBase };

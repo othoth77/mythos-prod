@@ -38,7 +38,8 @@ function createSimple(pool, body, actor) {
   body = body || {};
   var name = String(body.name || body.display_name || '').trim();
   if (!name || name.length > 128) throw fail('validation', 400, 'project name required (1–128)', { errors: { name: 'required' } });
-  var kind = KINDS[String(body.kind || body.type || 'service').toLowerCase()];
+  var kindKey = String(body.kind || body.type || 'service').toLowerCase();
+  var kind = Object.prototype.hasOwnProperty.call(KINDS, kindKey) ? KINDS[kindKey] : null;   // never a prototype key
   if (!kind) throw fail('validation', 400, 'type must be service, auto or internal', { errors: { kind: 'not_in_enum' } });
   var domain = body.domain ? String(body.domain).trim().toLowerCase().slice(0, 128) : null;
   if (domain && !/^[a-z0-9.-]{3,128}$/.test(domain)) throw fail('validation', 400, 'domain shape', { errors: { domain: 'pattern' } });
@@ -63,8 +64,11 @@ function createSimple(pool, body, actor) {
         // a number already linked elsewhere (or a personal number) can only be shared; a free business number is dedicated
         return numbers.inboxesOfNumber(pool, n).then(function (links) {
           var shared = links.length > 0 || n.is_personal === true;
+          // A PERSONAL / reserved number is shared only when the CALLER said so (numbers.link enforces it
+          // too). This form never implies that opt-in: without it the project is created and the link is
+          // reported as a warning, exactly like any other refused link.
           var linkBody = { project_id: project.id, display_name: project.display_name, account_mode: shared ? 'shared' : 'dedicated' };
-          if (n.is_personal === true) linkBody.allow_personal_account = true;
+          if (body.allow_personal_account === true) linkBody.allow_personal_account = true;
           return numbers.link(pool, numberId, linkBody, actor).then(function (ib) { out.inbox = ib && ib.inbox ? ib.inbox : ib; }, function (e) { out.warnings.push('whatsapp: ' + (e.detail || e.message)); });
         });
       }, function () { out.warnings.push('whatsapp: unknown number'); });
