@@ -15,6 +15,7 @@
 var bus = require('./bus');
 var registry = require('./provider');
 try { registry.register(require('./providers/evolution')); } catch (e) { /* already registered by the receiver */ }
+try { registry.register(require('./providers/meta_cloud')); } catch (e) { /* already registered by the receiver */ }
 var providers = { get: function (id) { return registry.get(id); } };
 var assistant = require('./assistant');
 var CAP_PER_HOUR = Math.max(1, parseInt(process.env.MYTHOS_WP_OUTBOUND_CAP_PER_HOUR || '30', 10) || 30);
@@ -26,15 +27,19 @@ function attempt(provider, inbox, to, text) {
   if (!key.present) return Promise.resolve({ ok: false, status: null, provider_message_id: null, error: 'CONFIG: ' + key.reason });
   return provider.sendText({ baseUrl: provider.baseUrl(), instance: inbox.instance, apiKey: key.value, to: to, text: text, timeoutMs: 15000 });
 }
-function send(pool, projectId, convId, actor, body) {
+// send(pool, projectId, convId, actor, body, scope) — `scope` is the caller's inbox membership list
+// (null = every inbox): a member-scoped agent may only reply inside their own inboxes.
+function send(pool, projectId, convId, actor, body, scope) {
   body = body || {};
   var text = String(body.text || '').trim();
   var ref = body.client_ref;
   if (!text || text.length > 4096) throw fail('validation', 400, 'text must be 1–4096 characters');
   if (!CLIENT_REF_RE.test(String(ref || ''))) throw fail('validation', 400, 'client_ref required (8–64 chars)');
+  if (scope && scope.indexOf === undefined) scope = null;
   return pool.query('SELECT c.id, c.contact_id, c.inbox_id, c.status AS conv_status, i.instance, i.provider, i.status AS inbox_status, i.outbound_enabled, k.wa_id FROM wp_conversations c JOIN wp_inboxes i ON i.id = c.inbox_id JOIN wp_contacts k ON k.id = c.contact_id WHERE c.project_id = $1 AND c.id = $2', [projectId, convId]).then(function (r) {
     var c = r.rows[0];
     if (!c) throw fail('not_found', 404, 'no such conversation');
+    if (scope && scope.indexOf(c.inbox_id) === -1) throw fail('not_found', 404, 'no such conversation');
     var provider = providers.get(c.provider);
     if (!provider) throw fail('precondition', 412, 'provider not supported');
     if (!provider.capabilities().text) throw fail('precondition', 412, 'provider cannot send text');

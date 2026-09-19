@@ -16,6 +16,7 @@
 // =====================================================
 var registry = require('./provider');
 var core = require('./core');
+var routing = require('./routing');
 var bus = require('./bus');
 try { registry.register(require('./providers/evolution')); } catch (e) { /* already registered */ }
 function fail(code, status, detail) { var e = new Error(detail || code); e.code = code; e.status = status; return e; }
@@ -88,11 +89,12 @@ function replay(pool, eventId, actor, o) {
     };
     if (!parsed.ok) return (o.dryRun ? Promise.resolve() : mark('PARSE:' + parsed.reason)).then(function () { return { id: id, dry_run: !!o.dryRun, result: 'PARSE:' + parsed.reason }; });
     if (parsed.kind !== 'message') return (o.dryRun ? Promise.resolve() : mark('NOT_A_MESSAGE:' + parsed.kind)).then(function () { return { id: id, dry_run: !!o.dryRun, result: 'NOT_A_MESSAGE:' + parsed.kind }; });
-    return core.findInbox(pool, p.id, parsed.event.instance).then(function (inbox) {
-      if (!inbox) return (o.dryRun ? Promise.resolve() : mark('INBOX_UNKNOWN')).then(function () { return { id: id, dry_run: !!o.dryRun, result: 'INBOX_UNKNOWN' }; });
+    return routing.resolve(pool, p.id, parsed.event.instance, parsed.event).then(function (d) {
+      if (!d.routed) return (o.dryRun ? Promise.resolve() : mark(d.reason)).then(function () { return { id: id, dry_run: !!o.dryRun, result: d.reason }; });
+      var inbox = d.inbox;
       if (!inbox.inbound_enabled) return (o.dryRun ? Promise.resolve() : mark('INBOX_INBOUND_DISABLED')).then(function () { return { id: id, dry_run: !!o.dryRun, result: 'INBOX_INBOUND_DISABLED' }; });
       if (o.dryRun) return { id: id, dry_run: true, result: 'WOULD_INGEST', instance: inbox.instance, provider_message_id: parsed.event.provider_message_id };
-      return core.ingest(pool, inbox, parsed.event).then(function (res) {
+      return core.ingest(pool, inbox, parsed.event, { routed_by: d.mode, rule_id: d.rule ? d.rule.id : null }).then(function (res) {
         var result = res.duplicate ? 'DUPLICATE' : 'PERSISTED';
         return pool.query("INSERT INTO wp_conversation_events (project_id, conversation_id, kind, event_name, actor, payload) VALUES ($1,$2,'replay','event.replayed',$3,$4)", [inbox.project_id, res.conversation_id, actor || 'cli', JSON.stringify({ inbound_event_id: id, result: result, message_id: res.message_id || null })])
           .then(function () { return mark(result, res.message_id); })

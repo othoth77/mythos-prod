@@ -22,7 +22,7 @@
 
 var redact = require('../../mythos-orchestrator/lib/redact');
 
-var ACTIONS = ['create', 'update', 'delete', 'login', 'login_failed', 'logout', 'status', 'setting', 'upsert', 'simulate'];
+var ACTIONS = ['create', 'update', 'delete', 'login', 'login_failed', 'logout', 'status', 'setting', 'upsert', 'simulate', 'send', 'handoff', 'route', 'run', 'sync', 'test', 'execute', 'check', 'import', 'link', 'unlink'];
 var SECRET_KEY_RE = /(password|passwd|secret|token|api_?key|credential|scrypt|dsn|connection)/i;
 var MAX_STRING = 2000;
 var MAX_JSON = 16 * 1024;
@@ -44,6 +44,14 @@ function clean(v, depth) {
     return out;
   }
   return String(v).slice(0, MAX_STRING);
+}
+
+// hasSecretKey(obj) → true when any key (at any depth) looks like a credential — JSON settings columns refuse those
+function hasSecretKey(v, depth) {
+  depth = depth || 0;
+  if (!v || typeof v !== 'object' || depth > 6) return false;
+  if (Array.isArray(v)) return v.some(function (x) { return hasSecretKey(x, depth + 1); });
+  return Object.keys(v).some(function (k) { return SECRET_KEY_RE.test(k) || hasSecretKey(v[k], depth + 1); });
 }
 
 function bounded(obj) {
@@ -96,11 +104,15 @@ function record(pool, e) {
 }
 
 // History of one record, newest first.
-function history(pool, resource, recordId, limit) {
+// history(pool, resource, recordId, limit, projectId?) — with projectId only that project's rows are returned
+function history(pool, resource, recordId, limit, projectId) {
+  var params = [resource, String(recordId), Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200)];
+  var extra = '';
+  if (projectId) { params.push(String(projectId)); extra = ' AND project_id = $4'; }
   return pool.query(
-    'SELECT id, at, actor, actor_role, action, changed_fields, previous, next FROM wp_audit_events WHERE resource = $1 AND record_id = $2 ORDER BY at DESC, id DESC LIMIT $3',
-    [resource, String(recordId), Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200)]
+    'SELECT id, at, actor, actor_role, action, changed_fields, previous, next FROM wp_audit_events WHERE resource = $1 AND record_id = $2' + extra + ' ORDER BY at DESC, id DESC LIMIT $3',
+    params
   ).then(function (r) { return r.rows; });
 }
 
-module.exports = { ACTIONS: ACTIONS, clean: clean, changedFields: changedFields, diff: diff, record: record, history: history };
+module.exports = { ACTIONS: ACTIONS, SECRET_KEY_RE: SECRET_KEY_RE, hasSecretKey: hasSecretKey, clean: clean, changedFields: changedFields, diff: diff, record: record, history: history };

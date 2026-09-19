@@ -4,19 +4,26 @@
 // MYTHOS WP — operator CLI (never prints a secret)
 // projects/mythos-wp/bin/mythos-wp
 //
-//   mythos-wp set-password <users.json> <username> <owner|operator>
+//   mythos-wp set-password <users.json> <username> <owner|admin|manager|agent|viewer>
 //       Reads the password from stdin (or MYTHOS_WP_NEW_PASSWORD), hashes it
-//       with scrypt and creates/updates the user in the 0600 users file.
+//       with scrypt and creates/updates the user in the 0600 users file
+//       (bootstrap / break-glass source; V2 accounts live in wp_users).
+//   mythos-wp users import            Imports the users file into wp_users (existing names untouched)
+//   mythos-wp users add <username> <role> [--display "Name"] [--all-projects]
+//       Creates/updates a wp_users account; password from stdin or MYTHOS_WP_NEW_PASSWORD.
+//   mythos-wp users list | users grant <username> <project_id> | users revoke <username> <project_id>
 //   mythos-wp remove-user <users.json> <username>
 //   mythos-wp list-users <users.json>
-//   mythos-wp seed-project <id> <display_name> <domain> <brand_car> <catalog_dsn_env> [catalog_schema]
-//       Inserts a registry row (needs MYTHOS_WP_DB_* in the environment).
+//   mythos-wp seed-project <display_name> [service|auto|internal] [domain]
+//       Creates a project the way the New project form does (slug generated; needs MYTHOS_WP_DB_*).
 //   mythos-wp check-env
 //       Reports which environment variables and files are present (names only).
 //   mythos-wp reserve-account <digits> [reason]
 //       Marks a WhatsApp account as reserved (no inbox may claim it) — e.g. the
 //       MYTHOS notification account. Needs MYTHOS_WP_DB_*.
 //   mythos-wp comms reconcile [--threshold-min N] | heartbeat | replay-list | replay <event_id> [--apply] [--actor name]
+//   mythos-wp comms route list <project> [--inbox ID] | add <project> --inbox ID --kind allowlist|opt_in --identity phone|lid|bsuid|provider_user:<value> [--code C] [--ttl-hours H] [--priority N] [--note ...]
+//   mythos-wp comms route enable|disable <project> <rule_id> | drops [--limit N] | shared-inbox <project> --instance I --account-ref DIGITS --display-name NAME --allow-personal-account   (COMMS-11; refused without the explicit opt-in flag)
 //       Delivery reconciliation alarm, inbox heartbeat, controlled dead-letter replay (dry-run unless --apply).
 //   mythos-wp migrate status | up | down <version>
 //       Additive SQL migrations (database/migrations, ledger wp_schema_migrations);
@@ -53,8 +60,9 @@ function readPassword() {
 
 if (cmd === 'set-password') {
   var file = args[1], username = String(args[2] || '').toLowerCase(), role = args[3] || 'operator';
-  if (!file || !auth.USERNAME_RE.test(username)) die('usage: set-password <users.json> <username> <owner|operator>');
-  if (auth.ROLES.indexOf(role) === -1) die('role must be owner or operator');
+  if (!file || !auth.USERNAME_RE.test(username)) die('usage: set-password <users.json> <username> <' + auth.ROLES.join('|') + '>');
+  role = auth.normalizeRole(role);
+  if (auth.ROLES.indexOf(role) === -1) die('role must be one of ' + auth.ROLES.join('|'));
   readPassword().then(function (pw) {
     if (!pw || pw.length < 12) die('password must be at least 12 characters');
     var doc = readUsers(file);
@@ -64,6 +72,25 @@ if (cmd === 'set-password') {
     writeUsers(path.resolve(file), doc);
     process.stdout.write((existing ? 'updated' : 'created') + ' user ' + username + ' (' + role + ') in ' + file + '\n');
   });
+} else if (cmd === 'users') {
+  var usersMod = require('../reference/users');
+  var udb = require('../reference/db');
+  var usub = args[1];
+  var upool = udb.wp();
+  var done = function (out) { process.stdout.write(JSON.stringify(out) + '\n'); return udb.closeAll(); };
+  if (usub === 'import') {
+    usersMod.importFile(upool, 'cli').then(done).catch(function (e) { die(e.message); });
+  } else if (usub === 'add') {
+    var uname = String(args[2] || '').toLowerCase(), urole = args[3];
+    var display = null, all = false;
+    for (var ai = 4; ai < args.length; ai++) { if (args[ai] === '--display') display = args[++ai]; else if (args[ai] === '--all-projects') all = true; }
+    readPassword().then(function (pw) { return usersMod.upsert(upool, { username: uname, role: urole, password: pw, display_name: display, all_projects: all }, 'cli'); }).then(done).catch(function (e) { die(e.message); });
+  } else if (usub === 'list') {
+    usersMod.list(upool).then(done).catch(function (e) { die(e.message); });
+  } else if (usub === 'grant' || usub === 'revoke') {
+    var patch = {}; patch[usub === 'grant' ? 'add' : 'remove'] = [args[3]];
+    usersMod.setProjects(upool, String(args[2] || '').toLowerCase(), patch, 'cli').then(done).catch(function (e) { die(e.message); });
+  } else die('usage: users import | add <username> <role> [--display "Name"] [--all-projects] | list | grant <user> <project> | revoke <user> <project>');
 } else if (cmd === 'remove-user') {
   var f2 = args[1], u2 = String(args[2] || '').toLowerCase();
   if (!f2 || !u2) die('usage: remove-user <users.json> <username>');
@@ -76,12 +103,13 @@ if (cmd === 'set-password') {
   var d3 = readUsers(args[1] || '');
   d3.users.forEach(function (u) { process.stdout.write(u.username + '\t' + u.role + '\n'); });
 } else if (cmd === 'seed-project') {
-  var id = args[1], name = args[2], domain = args[3] || null, brand = args[4] || null, envName = args[5], schema = args[6] || 'ssangyong_autos';
-  if (!id || !name || !envName) die('usage: seed-project <id> <display_name> <domain> <brand_car> <catalog_dsn_env> [catalog_schema]');
-  var db = require('../reference/db');
-  db.wp().query("INSERT INTO wp_projects (id, display_name, domain, brand_car, catalog_dsn_env, catalog_schema, status) VALUES ($1,$2,$3,$4,$5,$6,'active') ON CONFLICT (id) DO UPDATE SET display_name = EXCLUDED.display_name, domain = EXCLUDED.domain, brand_car = EXCLUDED.brand_car, catalog_dsn_env = EXCLUDED.catalog_dsn_env, catalog_schema = EXCLUDED.catalog_schema, updated_at = now() RETURNING id", [id, name, domain, brand, envName, schema])
-    .then(function (r) { process.stdout.write('project ' + r.rows[0].id + ' upserted\n'); return db.closeAll(); })
-    .catch(function (e) { die('seed failed: ' + (e.code || e.message)); });
+  // V2.1: the short form — name + type; the slug is generated (same code path as POST /api/projects)
+  var spName = args[1], spKind = args[2] || 'service', spDomain = args[3] && args[3] !== '-' ? args[3] : null;
+  if (!spName) die('usage: seed-project <display_name> [service|auto|internal] [domain]');
+  var spDb = require('../reference/db');
+  require('../reference/projects').createSimple(spDb.wp(), { name: spName, kind: spKind, domain: spDomain }, 'cli')
+    .then(function (out) { process.stdout.write('project ' + out.project.id + ' created (' + out.project.kind + ')\n'); return spDb.closeAll(); })
+    .catch(function (e) { die('seed failed: ' + (e.detail || e.code || e.message)); });
 } else if (cmd === 'check-env') {
   var dbm = require('../reference/db');
   var missing = dbm.missingEnv();
@@ -106,7 +134,17 @@ if (cmd === 'set-password') {
     : sub2 === 'heartbeat' ? rec.heartbeat(cpool, {})
     : sub2 === 'replay-list' ? rec.listReplayable(cpool, 50)
     : sub2 === 'replay' ? Promise.resolve().then(function () { return rec.replay(cpool, args[2], actor, { dryRun: args.indexOf('--apply') === -1 }); })
-    : Promise.reject(new Error('usage: comms reconcile|heartbeat|replay-list|replay <event_id> [--apply]'));
+    : sub2 === 'route' ? Promise.resolve().then(function () {
+      var routing = require('../reference/comms/routing'); var op = args[2]; var project = args[3];
+      if (op === 'drops') return routing.listDrops(cpool, { limit: flag('--limit') });
+      if (op === 'shared-inbox') return routing.createSharedInbox(cpool, project, { instance: flag('--instance'), account_ref: flag('--account-ref'), display_name: flag('--display-name'), provider: flag('--provider') || 'evolution', allow_personal_account: args.indexOf('--allow-personal-account') !== -1 }, actor);
+      if (!project) throw new Error('usage: comms route list|add|enable|disable <project> …');
+      if (op === 'list') return routing.listRules(cpool, project, { inbox_id: flag('--inbox') });
+      if (op === 'enable' || op === 'disable') return routing.setRuleEnabled(cpool, project, args[4], op === 'enable', actor);
+      if (op === 'add') { var idn = String(flag('--identity') || ''); var i = idn.indexOf(':'); if (i < 1) throw new Error('--identity <kind>:<value> required'); return routing.addRule(cpool, project, { inbox_id: flag('--inbox'), kind: flag('--kind'), identity_kind: idn.slice(0, i), identity_value: idn.slice(i + 1), opt_in_code: flag('--code'), ttl_hours: flag('--ttl-hours'), priority: flag('--priority'), note: flag('--note') }, actor); }
+      throw new Error('usage: comms route list|add|enable|disable|drops');
+    })
+    : Promise.reject(new Error('usage: comms reconcile|heartbeat|replay-list|replay <event_id> [--apply]|route …'));
   run2.then(function (r) { process.stdout.write(JSON.stringify(r) + '\n'); return cpool.end(); })
     .catch(function (e) { cpool.end().catch(function () {}); die(e.message); });
 } else if (cmd === 'migrate') {

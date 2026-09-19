@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  MYTHOS WP — application shell
+  MYTHOS Control Center — application shell
   projects/mythos-wp/reference/web/index.html
   Served only to an authenticated session. No inline script/style (CSP).
   Views are rendered by /js/app.js (ES modules) into <main>.
@@ -11,7 +11,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <meta name="robots" content="noindex, nofollow">
-  <title>MYTHOS WP</title>
+  <title>MYTHOS Control Center</title>
   <link rel="stylesheet" href="/brand/tokens.css">
   <link rel="stylesheet" href="/brand/fonts.css">
   <link rel="stylesheet" href="/wp.css">
@@ -21,7 +21,7 @@
   <a class="skip-link" href="#view">Skip to content</a>
   <div class="app" id="app">
     <nav class="rail" id="rail" aria-label="Main">
-      <div class="rail-brand"><a class="wordmark" href="#/dashboard">MYTHOS</a><span class="unit">WP</span></div>
+      <div class="rail-brand"><a class="wordmark" href="#/dashboard">MYTHOS</a><span class="unit">Control Center</span><button class="btn btn-ghost btn-icon rail-toggle" id="rail-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="nav">☰</button></div>
       <div class="rail-nav" id="nav"></div>
       <div class="rail-foot" id="rail-foot"></div>
     </nav>
@@ -31,7 +31,7 @@
       </div>
       <div class="topbar-tools">
         <label class="project-switch"><span class="sr-only">Project</span><select class="select" id="project-select" aria-label="Project"></select></label>
-        <button class="search-btn" id="search-btn" type="button" aria-label="Search and commands"><span class="label">Search parts, vehicles, knowledge…</span><kbd>Ctrl K</kbd></button>
+        <button class="search-btn" id="search-btn" type="button" aria-label="Search everything and commands"><span class="label">Search everything…</span><span class="label-short">Search</span><kbd>Ctrl K</kbd></button>
         <button class="btn btn-ghost btn-icon" id="theme-btn" type="button" aria-label="Toggle theme" title="Toggle theme">◐</button>
       </div>
     </header>
@@ -39,6 +39,7 @@
   </div>
   <div class="toasts" id="toasts" aria-live="polite"></div>
   <dialog id="dialog"></dialog>
+  <dialog id="drawer" class="drawer"></dialog>
   <dialog id="cmd" class="cmd"></dialog>
   <script src="/js/validate.js"></script>
   <script type="module" src="/js/app.js"></script>

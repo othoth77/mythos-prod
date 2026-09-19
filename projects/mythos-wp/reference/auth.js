@@ -37,8 +37,13 @@ var fs = require('fs');
 var SESSION_COOKIE = 'mythos_wp_session';
 var SESSION_ID_RE = /^[0-9a-f]{64}$/;
 var USERNAME_RE = /^[a-z][a-z0-9._-]{1,31}$/;
-var ROLES = ['owner', 'operator'];
-var ROLE_RANK = { operator: 1, owner: 2 };
+// V2 roles (lowest → highest). `operator` (legacy users-file role) is read as `manager`; route
+// declarations may still say 'operator' and get the `agent` rank (any role that may work a conversation).
+var ROLES = ['viewer', 'agent', 'manager', 'admin', 'owner'];
+var ROLE_RANK = { viewer: 1, agent: 2, manager: 3, admin: 4, owner: 5 };
+var ROLE_ALIAS = { operator: 'manager' };
+var REQUIRED_ALIAS = { operator: 'agent' };
+function normalizeRole(role) { role = String(role || ''); return ROLE_ALIAS[role] || role; }
 var CSRF_HEADER = 'x-requested-with';
 var CSRF_VALUE = 'MythosWP';
 
@@ -101,8 +106,8 @@ function loadUsers() {
   var list = parsed && Array.isArray(parsed.users) ? parsed.users : null;
   if (!list) return { ok: false, reason: 'invalid', users: [] };
   var users = list.filter(function (u) {
-    return u && USERNAME_RE.test(String(u.username || '')) && ROLES.indexOf(u.role) !== -1 && parseHash(u.scrypt);
-  }).map(function (u) { return { username: u.username, role: u.role, scrypt: u.scrypt }; });
+    return u && USERNAME_RE.test(String(u.username || '')) && ROLES.indexOf(normalizeRole(u.role)) !== -1 && parseHash(u.scrypt);
+  }).map(function (u) { return { username: u.username, role: normalizeRole(u.role), scrypt: u.scrypt }; });
   if (!users.length) return { ok: false, reason: 'no_users', users: [] };
   return { ok: true, reason: null, users: users };
 }
@@ -112,17 +117,22 @@ function usersState() {
   return { provisioned: l.ok, reason: l.reason, count: l.users.length };
 }
 
-// verifyCredentials(username, password) → { ok, user: { username, role } } | { ok: false, reason }
-function verifyCredentials(username, password) {
+// verifyCredentials(username, password, dbUsers?) → { ok, user: { username, role, projects } } | { ok: false, reason }
+//   dbUsers = the wp_users rows (users.js) — checked FIRST; the 0600 users file remains the bootstrap /
+//   break-glass source. A DB user that is `disabled` is refused even if the file still lists the name.
+function verifyCredentials(username, password, dbUsers) {
   var loaded = loadUsers();
-  if (!loaded.ok) return { ok: false, reason: loaded.reason };
+  var fromDb = Array.isArray(dbUsers) ? dbUsers : [];
+  if (!loaded.ok && !fromDb.length) return { ok: false, reason: loaded.reason };
   if (typeof username !== 'string' || typeof password !== 'string' || !password) return { ok: false, reason: 'invalid' };
   var uname = username.trim().toLowerCase();
-  var user = null;
-  for (var i = 0; i < loaded.users.length; i++) if (loaded.users[i].username === uname) user = loaded.users[i];
+  var user = null, i;
+  for (i = 0; i < fromDb.length; i++) if (fromDb[i].username === uname) user = { username: fromDb[i].username, role: normalizeRole(fromDb[i].role), scrypt: fromDb[i].scrypt, status: fromDb[i].status, source: 'db', all_projects: fromDb[i].all_projects === true };
+  if (!user) for (i = 0; i < loaded.users.length; i++) if (loaded.users[i].username === uname) user = { username: loaded.users[i].username, role: loaded.users[i].role, scrypt: loaded.users[i].scrypt, status: 'active', source: 'file', all_projects: true };
   var good = verifyHash(password, user ? user.scrypt : DECOY);
   if (!user || !good) return { ok: false, reason: 'invalid' };
-  return { ok: true, user: { username: user.username, role: user.role } };
+  if (user.status !== 'active') return { ok: false, reason: 'disabled' };
+  return { ok: true, user: { username: user.username, role: user.role, source: user.source, all_projects: user.all_projects } };
 }
 
 // --- sessions ------------------------------------------------------------
@@ -142,7 +152,9 @@ function createSession(user) {
   }
   var id = crypto.randomBytes(32).toString('hex');
   var expiresAt = now + ttlMs();
-  sessions[id] = { username: user.username, role: user.role, expiresAt: expiresAt, createdAt: now };
+  // projects: null = every project (owner/admin or file-provisioned users); array = explicit access list
+  var projects = (ROLE_RANK[user.role] >= ROLE_RANK.admin || user.all_projects === true || user.source === 'file') ? null : (Array.isArray(user.projects) ? user.projects.slice() : []);
+  sessions[id] = { username: user.username, role: user.role, projects: projects, expiresAt: expiresAt, createdAt: now };
   return { id: id, expiresAt: expiresAt };
 }
 
@@ -152,7 +164,19 @@ function sessionFor(req) {
   var e = sessions[id];
   if (!e) return null;
   if (e.expiresAt <= Date.now()) { delete sessions[id]; return null; }
-  return { id: id, username: e.username, role: e.role, expiresAt: e.expiresAt };
+  return { id: id, username: e.username, role: e.role, projects: e.projects === undefined ? null : e.projects, expiresAt: e.expiresAt };
+}
+// revokeUser(username) → number of sessions ended (role/status/password changes take effect immediately)
+function revokeUser(username) { var n = 0; Object.keys(sessions).forEach(function (id) { if (sessions[id].username === username) { delete sessions[id]; n++; } }); return n; }
+// refreshUserProjects(username, projects|null) — live sessions pick up a changed access list without re-login
+function refreshUserProjects(username, projects) { Object.keys(sessions).forEach(function (id) { if (sessions[id].username === username && sessions[id].projects !== null) sessions[id].projects = projects === null ? null : (projects || []).slice(); }); }
+// setSessionProjects(id, projects|null) — refresh a live session's access list after an admin change
+function setSessionProjects(id, projects) { if (sessions[id]) sessions[id].projects = projects === null ? null : (projects || []).slice(); }
+// canSeeProject(session, projectId) — owner/admin (projects === null) see everything
+function canSeeProject(session, projectId) {
+  if (!session) return false;
+  if (session.projects === null || session.projects === undefined) return true;
+  return session.projects.indexOf(String(projectId)) !== -1;
 }
 
 function destroySession(id) {
@@ -193,10 +217,11 @@ function clearedCookie() { return SESSION_COOKIE + '=' + cookieFlags() + '; Max-
 
 // --- authorisation -----------------------------------------------------
 
-// hasRole(session, 'operator') is true for operator AND owner.
+// hasRole(session, 'agent') is true for agent, manager, admin AND owner ('operator' = alias of 'agent').
 function hasRole(session, required) {
   if (!session || !ROLE_RANK[session.role]) return false;
   if (!required || required === 'any') return true;
+  required = REQUIRED_ALIAS[required] || required;
   return (ROLE_RANK[session.role] || 0) >= (ROLE_RANK[required] || 99);
 }
 
@@ -219,28 +244,44 @@ function csrfCheck(req) {
 
 // --- login throttle ------------------------------------------------------
 
-function clientKey(req) { return (req && req.socket && req.socket.remoteAddress) || 'unknown'; }
-
-function loginAllowed(req) {
-  var rec = failures[clientKey(req)];
+// Behind nginx every socket is loopback, so the throttle key is the client address nginx forwards (X-Real-IP,
+// trusted ONLY when the socket itself is loopback); a second counter per username stops one client from locking
+// everybody out while still bounding guesses against one account.
+var IP_RE = /^[0-9a-fA-F:.]{3,45}$/;
+function clientKey(req) {
+  var addr = (req && req.socket && req.socket.remoteAddress) || 'unknown';
+  var real = req && req.headers ? String(req.headers['x-real-ip'] || '').trim() : '';
+  if (/^(127\.|::1$|::ffff:127\.)/.test(addr) && IP_RE.test(real)) return real;
+  return addr;
+}
+function userKey(req, username) { return username ? 'user:' + String(username).trim().toLowerCase().slice(0, 32) : null; }
+function allowedFor(key) {
+  var rec = failures[key];
   if (!rec) return true;
   if (Date.now() - rec.first > LOGIN_WINDOW_MS) return true;
   return rec.count < LOGIN_MAX_FAILURES;
 }
-
-function recordLoginFailure(req) {
-  var key = clientKey(req);
+function bump(key) {
   var now = Date.now();
   var keys = Object.keys(failures);
-  if (keys.length >= MAX_TRACKED_CLIENTS && !failures[key]) {
-    keys.forEach(function (k) { if (now - failures[k].first > LOGIN_WINDOW_MS) delete failures[k]; });
-  }
+  if (keys.length >= MAX_TRACKED_CLIENTS && !failures[key]) keys.forEach(function (k) { if (now - failures[k].first > LOGIN_WINDOW_MS) delete failures[k]; });
   var rec = failures[key];
   if (!rec || now - rec.first > LOGIN_WINDOW_MS) failures[key] = { count: 1, first: now };
   else rec.count++;
 }
 
-function clearLoginFailures(req) { delete failures[clientKey(req)]; }
+function loginAllowed(req, username) {
+  if (!allowedFor(clientKey(req))) return false;
+  var uk = userKey(req, username);
+  return uk ? allowedFor(uk) : true;
+}
+
+function recordLoginFailure(req, username) {
+  bump(clientKey(req));
+  var uk = userKey(req, username); if (uk) bump(uk);
+}
+
+function clearLoginFailures(req, username) { delete failures[clientKey(req)]; var uk = userKey(req, username); if (uk) delete failures[uk]; }
 function resetThrottle() { failures = Object.create(null); }
 function resetSessions() { sessions = Object.create(null); }
 
@@ -248,6 +289,13 @@ module.exports = {
   SESSION_COOKIE: SESSION_COOKIE,
   USERNAME_RE: USERNAME_RE,
   ROLES: ROLES,
+  ROLE_RANK: ROLE_RANK,
+  normalizeRole: normalizeRole,
+  setSessionProjects: setSessionProjects,
+  revokeUser: revokeUser,
+  refreshUserProjects: refreshUserProjects,
+  clientKey: clientKey,
+  canSeeProject: canSeeProject,
   CSRF_HEADER: CSRF_HEADER,
   CSRF_VALUE: CSRF_VALUE,
   LOGIN_MAX_FAILURES: LOGIN_MAX_FAILURES,

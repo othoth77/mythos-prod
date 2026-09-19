@@ -3,16 +3,17 @@ import { h, icon, toast, confirmDialog, empty } from '../ui.js';
 import { dataTable, stateFromQuery, queryFromState, apiQuery } from '../table.js';
 import { navigate } from '../router.js';
 
+export const GENERIC = ['knowledge', 'rules', 'handoffs', 'users', 'tags'];
 export async function render(main, params, query, ctx) {
-  const r = ctx.resources()[params.resource];
+  const r = GENERIC.includes(params.resource) ? ctx.resources()[params.resource] : null;
   if (!r) { main.appendChild(empty('Unknown resource')); return; }
-  const project = ctx.project();
+  const project = ctx.projectId();
   const needsProject = r.scope === 'catalog' || (r.scope === 'wp' && !r.global && !r.projectOptional);
   ctx.crumbs([{ label: r.label }]);
   main.appendChild(h('div', { class: 'view-head' },
     h('div', {}, h('div', { class: 'view-kicker' }, groupLabel(ctx, r.group)), h('h2', {}, r.label), h('p', {}, describe(r))),
     h('div', { class: 'view-actions' }, r.permissions.write && ctx.can(r.permissions.write) ? h('a', { class: 'btn btn-primary', href: '#/r/' + r.key + '/new' }, icon('plus'), 'New ' + (r.singular || 'record').toLowerCase()) : null)));
-  if (needsProject && !project) { main.appendChild(empty('Select a project', 'This resource belongs to a project.')); return; }
+  if (needsProject && !project) { main.appendChild(projectPicker(ctx, r)); return; }
   const state = stateFromQuery(query);
   const canDelete = r.delete && r.permissions.delete && ctx.can(r.permissions.delete);
   const table = dataTable({
@@ -35,24 +36,17 @@ export async function render(main, params, query, ctx) {
   main.appendChild(table.el);
 }
 
-export function rowRoute(r, row) {
-  if (r.key === 'products' && row.product_uid) return '#/part/' + encodeURIComponent(row.product_uid);
-  return '#/r/' + r.key + '/' + encodeURIComponent(row[r.idColumn]);
+export function rowRoute(r, row) { return '#/r/' + r.key + '/' + encodeURIComponent(row[r.idColumn]); }
+function projectPicker(ctx, r) {
+  return h('div', { class: 'card' }, h('h3', {}, 'Pick a project'), h('p', {}, (r.label || 'This resource') + ' belongs to one project. Choose which one to work on:'), h('div', { class: 'view-actions wrap' }, ctx.projects().map((p) => h('button', { class: 'btn btn-secondary', type: 'button', onClick: () => { ctx.setProject(p.id); location.hash = '#/r/' + r.key; window.dispatchEvent(new HashChangeEvent('hashchange')); } }, p.display_name))));
 }
 function groupLabel(ctx, g) { const grp = (ctx.state.meta.groups || []).find((x) => x.key === g); return grp ? grp.label : g; }
 function describe(r) {
   return {
-    products: 'Every part of the catalogue: identity, references, brand, catalogue price and status. Open a part for its fitments, images, verified price and stock.',
-    vehicle_models: 'Vehicle models the catalogue knows; compatibility and motorizations hang off them.',
-    motorizations: 'Engine variants per vehicle model, with year ranges.',
-    compatibility: 'Which part fits which vehicle model and motorization. The only source the auto-reply may use for a compatibility claim.',
-    images: 'Product images (https URLs) by part and position.',
-    commercial: 'Verified commercial layer per part. Only a selling price recorded here can ever be quoted automatically.',
-    stock: 'Verified stock layer per part. "unknown" is never quoted.',
-    knowledge: 'Customer-facing knowledge the auto-reply may use verbatim, when active and explicitly allowed.',
+    knowledge: 'Customer-facing knowledge an agent may use verbatim, when active and explicitly allowed for auto-reply.',
     rules: 'Per-project business configuration as JSON values (opening hours, delivery zones, …). Owner only.',
-    handoffs: 'Conversations the auto-reply handed to a human: NEW → REQUIRES_HUMAN → IN_PROGRESS → RESOLVED. Numbers are masked; no message text is stored.',
-    audit: 'Who changed what and when. Read-only.',
-    projects: 'MYTHOS AUTO projects and the catalogue connection each one uses.'
+    handoffs: 'Conversations handed between the AI and humans: NEW → REQUIRES_HUMAN → IN_PROGRESS → RESOLVED. Numbers are masked; no message text is stored.',
+    users: 'Panel accounts, roles and project access.',
+    tags: 'Labels for conversations and contacts.'
   }[r.key] || '';
 }

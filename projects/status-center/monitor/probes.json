@@ -282,6 +282,41 @@
       "expect_content_type": "application/json",
       "enabled": true,
       "note": "ADDED 2026-09-01 (MCP-ECOSYSTEM-1). The gateway binds loopback only and its public path (/gateway/) is deliberately not open, so the origin is the only place it can be observed. /health is the container's own healthcheck endpoint and is unauthenticated by ContextForge's design. Federation state (peers reachable, tools discovered) is not probed here — that is the registry check's job — so a healthy gateway with an unreachable peer shows LIVE here and DEGRADED in OTHMODE's MCP view, which is the honest split."
+    },
+    {
+      "id": "wp-loopback",
+      "name": "MYTHOS WP / Control Center (loopback origin)",
+      "type": "https",
+      "url": "http://127.0.0.1:8170/healthz",
+      "expect_status": [
+        200
+      ],
+      "expect_body_substring": "\"ok\":true",
+      "expect_content_type": "application/json",
+      "enabled": true,
+      "note": "ADDED 2026-09-18 (WP FINAL). The panel had no probe at all: an outage of mythos-wp.service was invisible to the Status Center. /healthz is public by design and says only that the process is up."
+    },
+    {
+      "id": "wp-authwall",
+      "name": "wp.mythosprod.xyz (auth wall)",
+      "type": "https",
+      "url": "https://wp.mythosprod.xyz/api/meta",
+      "expect_status": [
+        401
+      ],
+      "expect_content_type": "application/json",
+      "enabled": true,
+      "note": "ADDED 2026-09-18 (WP FINAL). 401 IS the healthy state (same precedent as idauto-authwall/othmode-authwall): it proves nginx, TLS and the session gate are all working without holding a credential."
+    },
+    {
+      "id": "wp-backup",
+      "name": "MYTHOS WP database backup (off-host)",
+      "type": "backup-health",
+      "file": "/home/deploy/mythos-backups/health/backup-health-db-wp.json",
+      "fresh_hours": 26,
+      "degraded_hours": 50,
+      "enabled": true,
+      "note": "ADDED 2026-09-18 (WP FINAL). Health record of mythos-backup-db-wp.service (daily 05:20 UTC, verify 16:19 UTC): dump -> stage -> manifest -> verify-local -> push (R2 mythos-wp/daily) -> verify-remote. A missing record is DOWN, never unknown-green."
     }
   ]
 }

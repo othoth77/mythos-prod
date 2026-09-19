@@ -21,8 +21,10 @@ var fs = require('fs');
 var url = require('url');
 var providerRegistry = require('./provider');
 providerRegistry.register(require('./providers/evolution'));
+providerRegistry.register(require('./providers/meta_cloud'));
 var events = require('./events');
 var core = require('./core');
+var routing = require('./routing');
 var bus = require('./bus');
 var TOKEN_HEADER = 'x-mythos-webhook-token';
 
@@ -71,8 +73,15 @@ function handle(req, res, deps) {
   var m = /^\/hooks\/([a-z_]+)$/.exec(u.pathname || '');
   var provider = m ? providerRegistry.get(m[1]) : null;
   if (!provider) return send(res, 404, { ok: false, error: 'not_found', detail: 'not found' });
-  if (req.method !== 'POST') return send(res, 405, { ok: false, error: 'method_not_allowed' });
   var caps = provider.capabilities();
+  if (req.method === 'GET' && caps.signed_webhooks) {
+    // signed providers (Meta Cloud API): subscription verification — hub.mode=subscribe + hub.verify_token → echo hub.challenge as text
+    var g = provider.verifyWebhook(req, { query: u.query, method: 'GET' });
+    if (!g.ok || typeof g.challenge !== 'string') { log({ level: 'warn', receiver: 'verify_refused', reason: g.reason || 'CHALLENGE_MISSING', provider: provider.id, request_id: deps.requestId }); res.writeHead(403, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' }); return res.end('forbidden'); }
+    log({ level: 'info', receiver: 'verified', provider: provider.id, request_id: deps.requestId });
+    res.writeHead(200, { 'Content-Type': 'text/plain', 'Content-Length': Buffer.byteLength(g.challenge), 'Cache-Control': 'no-store' }); return res.end(g.challenge);
+  }
+  if (req.method !== 'POST') return send(res, 405, { ok: false, error: 'method_not_allowed' });
   var token = readToken(c.tokenFile);
   if (!caps.signed_webhooks) {
     // unsigned providers (Evolution): the shared MYTHOS token is the only proof, checked before the body is read
@@ -91,33 +100,49 @@ function handle(req, res, deps) {
     var sha = provider.payloadHash(raw);
     var parsed = provider.parseInbound(body);
     var instance = parsed.instance || (parsed.event && parsed.event.instance) || null;
-    var eventName = typeof body.event === 'string' ? body.event : 'unknown';
-    var pmid = body && body.data && body.data.key && typeof body.data.key.id === 'string' ? body.data.key.id.slice(0, 128) : null;
+    var eventName = typeof body.event === 'string' ? body.event : (parsed.label ? String(parsed.label).slice(0, 48) : 'unknown');
+    var pmid = body && body.data && body.data.key && typeof body.data.key.id === 'string' ? body.data.key.id.slice(0, 128) : (parsed.ok && parsed.kind === 'message' && parsed.event.provider_message_id ? String(parsed.event.provider_message_id).slice(0, 128) : null);
     var pool = deps.pool;
     if (!parsed.ok) {
       var ignorable = /^(EVENT_IGNORED|OWN_MESSAGE|GROUP_IGNORED|STATUS_IGNORED|SELF_CHAT_IGNORED)/.test(parsed.reason);
-      return core.recordInbound(pool, { provider: provider.id, instance: instance, event: eventName, provider_message_id: pmid, status: ignorable ? 'ignored' : 'rejected', reason: parsed.reason, event_name: 'event.rejected', payload_sha256: sha, payload: ignorable ? null : provider.redactDeep(body) })
+      // PRIVACY GUARD (COMMS-11): redactDeep strips secrets/media, not text or numbers. A rejected event on an instance
+      // hosting a shared inbox (personal account) keeps NO payload — hash + reason only — like a routing drop.
+      var keepPayload = ignorable ? Promise.resolve(false) : (instance ? routing.inboxesOn(pool, provider.id, instance).then(function (ibs) { return !ibs.some(function (i) { return i.account_mode === 'shared'; }); }) : Promise.resolve(true));
+      return keepPayload.then(function (keep) { return core.recordInbound(pool, { provider: provider.id, instance: instance, event: eventName, provider_message_id: pmid, status: ignorable ? 'ignored' : 'rejected', reason: parsed.reason, event_name: 'event.rejected', payload_sha256: sha, payload: keep ? provider.redactDeep(body) : null }); })
         .then(function () { log({ level: ignorable ? 'info' : 'warn', receiver: ignorable ? 'ignored' : 'rejected', reason: parsed.reason, instance: instance, event: eventName, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: false, reason: parsed.reason }); });
     }
-    return core.findInbox(pool, provider.ID, parsed.event.instance).then(function (inbox) {
-      if (!inbox) {
-        return core.recordInbound(pool, { provider: provider.id, instance: instance, event: eventName, provider_message_id: pmid, status: 'rejected', reason: 'INBOX_UNKNOWN', event_name: 'event.rejected', payload_sha256: sha, payload: provider.redactDeep(body) })
+    // ---- PRIVACY GUARD (COMMS-11): instance → inboxes → routing decision BEFORE any ledger row.
+    // connection/status events never carry customer content: they go to the instance's inboxes.
+    // message events on a shared instance are routed by explicit rule or DROPPED (hashes only).
+    return routing.inboxesOn(pool, provider.id, parsed.event.instance).then(function (inboxes) {
+      if (!inboxes.length) {
+        // unknown instance: only for message events, keep the dead-letter (content redacted) — a dedicated instance being set up
+        return core.recordInbound(pool, { provider: provider.id, instance: instance, event: eventName, provider_message_id: pmid, status: 'rejected', reason: 'INBOX_UNKNOWN', event_name: 'event.rejected', payload_sha256: sha, payload: parsed.kind === 'message' ? provider.redactDeep(body) : null })
           .then(function () { log({ level: 'warn', receiver: 'rejected', reason: 'INBOX_UNKNOWN', instance: instance, request_id: deps.requestId }); return send(res, 202, { ok: true, accepted: false, reason: 'INBOX_UNKNOWN' }); });
       }
       if (parsed.kind === 'connection') {
-        return core.setInboxState(pool, inbox.id, parsed.event.status, null)
-          .then(function () { return core.recordInbound(pool, { provider: provider.id, instance: instance, inbox_id: inbox.id, event: eventName, status: 'persisted', reason: 'CONNECTION:' + parsed.event.status, event_name: 'inbox.status', payload_sha256: sha }); })
-          .then(function () { bus.publish({ type: 'inbox.status', project_id: inbox.project_id, inbox_id: inbox.id, status: parsed.event.status }); log({ level: 'info', receiver: 'connection', instance: instance, status: parsed.event.status, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: true, kind: 'connection', status: parsed.event.status }); });
+        return Promise.all(inboxes.map(function (ib) { return core.setInboxState(pool, ib.id, parsed.event.status, null); }))
+          .then(function () { return core.recordInbound(pool, { provider: provider.id, instance: instance, inbox_id: inboxes[0].id, event: eventName, status: 'persisted', reason: 'CONNECTION:' + parsed.event.status, event_name: 'inbox.status', payload_sha256: sha }); })
+          .then(function () { inboxes.forEach(function (ib) { bus.publish({ type: 'inbox.status', project_id: ib.project_id, inbox_id: ib.id, status: parsed.event.status }); }); log({ level: 'info', receiver: 'connection', instance: instance, status: parsed.event.status, inboxes: inboxes.length, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: true, kind: 'connection', status: parsed.event.status }); });
       }
       if (parsed.kind === 'status') {
-        return core.updateStatus(pool, inbox, parsed.event)
-          .then(function (r) { return core.recordInbound(pool, { provider: provider.id, instance: instance, inbox_id: inbox.id, event: eventName, provider_message_id: parsed.event.provider_message_id, status: r.updated ? 'persisted' : 'ignored', reason: r.updated ? 'STATUS:' + r.status : r.reason, event_name: r.updated ? events.forStatus(r.status) : 'message.status', message_id: r.message_id || null, payload_sha256: sha }).then(function () { log({ level: 'info', receiver: 'status', instance: instance, updated: r.updated, status: parsed.event.status, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: true, kind: 'status', updated: r.updated, status: parsed.event.status }); }); });
+        // delivery state for OUR outbound rows only (looked up by instance); the bridge's own notifications match nothing → ignored, hash only
+        return core.updateStatusOnInstance(pool, provider.id, parsed.event.instance, parsed.event)
+          .then(function (r) { return core.recordInbound(pool, { provider: provider.id, instance: instance, inbox_id: r.inbox_id || null, event: eventName, provider_message_id: parsed.event.provider_message_id, status: r.updated ? 'persisted' : 'ignored', reason: r.updated ? 'STATUS:' + r.status : r.reason, event_name: r.updated ? events.forStatus(r.status) : 'message.status', message_id: r.message_id || null, payload_sha256: sha }).then(function () { log({ level: 'info', receiver: 'status', instance: instance, updated: r.updated, status: parsed.event.status, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: true, kind: 'status', updated: r.updated, status: parsed.event.status }); }); });
       }
+      return routing.resolve(pool, provider.id, parsed.event.instance, parsed.event).then(function (d) {
+        if (!d.routed) {
+          // DROP BEFORE LEDGER: no contact, no conversation, no message, no payload, no wp_inbound_events row.
+          return routing.dropAudit(pool, { provider: provider.id, instance: instance, reason: d.reason, identity_sha256: d.identity_sha256, payload_sha256: sha })
+            .then(function (dropId) { log({ level: 'info', receiver: 'dropped', reason: d.reason, instance: instance, drop_id: dropId, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: false, dropped: true, reason: d.reason }); });
+        }
+        var inbox = d.inbox;
+        if (d.mode !== 'dedicated') log({ level: 'info', receiver: 'routed', instance: instance, inbox_id: inbox.id, mode: d.mode, rule_id: d.rule ? d.rule.id : null, kind: d.rule ? d.rule.kind : null, activated: d.activated, request_id: deps.requestId });
       if (!inbox.inbound_enabled) {
         return core.recordInbound(pool, { provider: provider.id, instance: instance, inbox_id: inbox.id, event: eventName, provider_message_id: pmid, status: 'dry_run', reason: 'INBOX_INBOUND_DISABLED', event_name: 'message.dry_run', payload_sha256: sha })
           .then(function () { log({ level: 'info', receiver: 'dry_run', instance: instance, message_type: parsed.event.message_type, request_id: deps.requestId }); return send(res, 200, { ok: true, accepted: true, mode: 'dry_run', persisted: false }); });
       }
-      return core.ingest(pool, inbox, parsed.event).then(function (r) {
+      return core.ingest(pool, inbox, parsed.event, { routed_by: d.mode, rule_id: d.rule ? d.rule.id : null }).then(function (r) {
         return core.recordInbound(pool, { provider: provider.id, instance: instance, inbox_id: inbox.id, event: eventName, provider_message_id: pmid, status: r.duplicate ? 'duplicate' : 'persisted', reason: r.duplicate ? 'DUPLICATE' : null, event_name: r.duplicate ? 'message.duplicate' : 'message.received', message_id: r.message_id || null, payload_sha256: sha })
           .then(function () {
             log({ level: 'info', receiver: r.duplicate ? 'duplicate' : 'persisted', instance: instance, message_type: parsed.event.message_type, message_id: r.message_id || null, conversation_id: r.conversation_id, opened: r.opened, request_id: deps.requestId });
@@ -126,6 +151,7 @@ function handle(req, res, deps) {
       }, function (e) {
         return core.recordInbound(pool, { provider: provider.id, instance: instance, inbox_id: inbox.id, event: eventName, provider_message_id: pmid, status: 'failed', reason: 'INGEST:' + String(e && e.code || e && e.message || 'error').slice(0, 60), event_name: 'event.rejected', payload_sha256: sha, payload: provider.redactDeep(body) })
           .then(function () { log({ level: 'error', receiver: 'failed', instance: instance, reason: String(e && e.message || e).slice(0, 120), request_id: deps.requestId }); return send(res, 500, { ok: false, error: 'ingest_failed' }); });
+      });
       });
     });
   }).catch(function (e) {

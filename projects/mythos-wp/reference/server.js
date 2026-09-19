@@ -74,7 +74,8 @@ var FONT_RE = /^\/(?:brand\/)?fonts\/([a-z0-9-]+\.woff2)$/;
 var JS_RE = /^\/js\/((?:views\/)?[a-z0-9-]+\.js)$/;
 
 function head(res, code, type, length, extra, cache) {
-  var h = { 'Content-Type': type, 'Cache-Control': cache ? 'public, max-age=3600' : 'no-store' };
+  // Assets revalidate on every load (ETag → 304): unversioned URLs must never serve last deploy's CSS/JS with this deploy's HTML.
+  var h = { 'Content-Type': type, 'Cache-Control': cache ? (cache === 'private' ? 'private, no-cache' : 'public, no-cache') : 'no-store' };
   Object.keys(SECURITY_HEADERS).forEach(function (k) { h[k] = SECURITY_HEADERS[k]; });
   if (length !== undefined) h['Content-Length'] = length;
   if (extra) Object.keys(extra).forEach(function (k) { if (extra[k] !== undefined) h[k] = extra[k]; });
@@ -87,10 +88,12 @@ function sendJSON(res, code, obj, extra) {
   res.end(body);
 }
 
-function serveFile(file, res, method, cache) {
+function serveFile(file, res, method, cache, req) {
   fs.readFile(file, function (err, buf) {
     if (err) { sendJSON(res, 404, { ok: false, error: 'not_found', detail: 'not found' }); return; }
-    head(res, 200, TYPES[path.extname(file)] || 'application/octet-stream', buf.length, undefined, cache);
+    var etag = cache ? '"' + crypto.createHash('sha1').update(buf).digest('hex').slice(0, 20) + '"' : undefined;
+    if (etag && req && req.headers['if-none-match'] === etag) { head(res, 304, TYPES[path.extname(file)] || 'application/octet-stream', undefined, { ETag: etag }, cache); res.end(); return; }
+    head(res, 200, TYPES[path.extname(file)] || 'application/octet-stream', buf.length, { ETag: etag }, cache);
     if (method === 'HEAD') { res.end(); return; }
     res.end(buf);
   });
@@ -156,7 +159,7 @@ function handle(req, res) {
       return sendJSON(res, 401, { ok: false, error: 'unauthenticated', detail: 'sign in' }, extra);
     }
     if ((pathname === '/login' || pathname === '/login.html') && session) { head(res, 302, 'text/plain', 0, { Location: '/' }); return res.end(); }
-    return serveFile(st.file, res, method, st.cache);
+    return serveFile(st.file, res, method, st.cache ? (st.auth ? 'private' : 'public') : false, req);
   }
 
   if (pathname.indexOf('/api/') !== 0) return sendJSON(res, 404, { ok: false, error: 'not_found', detail: 'not found' });
@@ -206,6 +209,25 @@ function handle(req, res) {
 
 function createServer() { return http.createServer(handle); }
 
+// V2 platform services: seeded defaults + background workers. Each module is optional at
+// load time (guarded require) so a partial tree still serves the panel; failures are logged, never fatal.
+function optional(name) { try { return require(name); } catch (e) { log({ level: 'warn', module: name, reason: 'unavailable: ' + String(e && e.message || e).slice(0, 120) }); return null; } }
+function bootPlatform(pool) {
+  var integrations = optional('./integrations'), agents = optional('./ai/agents'), automations = optional('./automations'), health = optional('./health');
+  var chain = Promise.resolve();
+  if (integrations && typeof integrations.ensureDefaults === 'function') chain = chain.then(function () { return integrations.ensureDefaults(pool); }).catch(function (e) { log({ level: 'warn', boot: 'integrations', reason: String(e && e.message || e).slice(0, 160) }); });
+  if (agents && typeof agents.ensureDefaults === 'function') chain = chain.then(function () { return agents.ensureDefaults(pool); }).catch(function (e) { log({ level: 'warn', boot: 'agents', reason: String(e && e.message || e).slice(0, 160) }); });
+  if (automations && typeof automations.ensureDefaults === 'function') chain = chain.then(function () { return automations.ensureDefaults(pool); }).catch(function (e) { log({ level: 'warn', boot: 'automations', reason: String(e && e.message || e).slice(0, 160) }); });
+  chain = chain.then(function () {
+    if (automations && typeof automations.attach === 'function') { try { automations.attach(pool, log); } catch (e) { log({ level: 'warn', boot: 'automations.attach', reason: String(e && e.message || e).slice(0, 160) }); } }
+    if (automations && typeof automations.start === 'function' && process.env.MYTHOS_WP_AUTOMATIONS_SWEEP_MS !== '0') { try { automations.start({ pool: pool, log: log, intervalMs: parseInt(process.env.MYTHOS_WP_AUTOMATIONS_SWEEP_MS || '600000', 10) }); } catch (e) { log({ level: 'warn', boot: 'automations.start', reason: String(e && e.message || e).slice(0, 160) }); } }
+    var hi = parseInt(process.env.MYTHOS_WP_HEALTH_INTERVAL_MS || '300000', 10);
+    if (health && typeof health.start === 'function' && hi !== 0) { try { health.start({ pool: pool, log: log, intervalMs: hi }); } catch (e) { log({ level: 'warn', boot: 'health.start', reason: String(e && e.message || e).slice(0, 160) }); } }
+    log({ level: 'info', boot: 'platform', integrations: !!integrations, agents: !!agents, automations: !!automations, health: !!health });
+  });
+  return chain;
+}
+
 function start(opts) {
   try { assistant.attach(db.wp(), log); } catch (e) { log({ level: 'warn', assistant: 'attach_failed', reason: String(e && e.message || e) }); }
   opts = opts || {};
@@ -217,7 +239,8 @@ function start(opts) {
   var users = auth.usersState();
   var server = createServer();
   server.listen(port, bind, function () {
-    log({ level: 'info', service: 'mythos-wp', version: api.VERSION, listening: bind + ':' + port, users_provisioned: users.provisioned, users_reason: users.reason, comms_config: process.env.MYTHOS_WP_COMMS_CONFIG ? 'set' : 'absent' });
+    log({ level: 'info', service: 'mythos-wp', product: 'MYTHOS Control Center', version: api.VERSION, listening: bind + ':' + port, users_file_provisioned: users.provisioned, users_reason: users.reason, comms_config: process.env.MYTHOS_WP_COMMS_CONFIG ? 'set' : 'absent' });
+    bootPlatform(db.wp());
   });
   function stop() { server.close(function () { db.closeAll().then(function () { process.exit(0); }); }); setTimeout(function () { process.exit(0); }, 3000).unref(); }
   process.on('SIGTERM', stop);
@@ -227,4 +250,4 @@ function start(opts) {
 
 if (require.main === module) start();
 
-module.exports = { createServer: createServer, start: start, handle: handle, CSP: CSP, SECURITY_HEADERS: SECURITY_HEADERS, STATIC: STATIC };
+module.exports = { createServer: createServer, start: start, bootPlatform: bootPlatform, handle: handle, CSP: CSP, SECURITY_HEADERS: SECURITY_HEADERS, STATIC: STATIC };

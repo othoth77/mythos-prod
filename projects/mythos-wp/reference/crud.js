@@ -12,9 +12,8 @@
 // sort or filter name that is not in the registry is refused, not escaped.
 //
 // SCOPE. `wp` resources carry project_id and every statement is fenced by
-// it (or, for `global` resources such as projects, not at all). `catalog`
-// resources are fenced by the connection itself: the pool is the project's
-// catalogue database with search_path pinned to its schema.
+// it (or, for `global` resources such as projects, not at all). Since V2
+// there is no catalogue scope: product data lives in the Kitchen (kitchen.js).
 //
 // AUDIT. create / update / remove record a wp_audit_events row (audit.js)
 // with the actor from the session. Reads are not audited.
@@ -48,6 +47,15 @@ function columnExpr(r, name) {
   if (!f) return null;
   if (f.virtual) return f.sql || null;
   return 't."' + f.name + '"';
+}
+
+// Hidden fields (password hashes) never leave the database layer; a field with readRole (full phone digits)
+// leaves it only for a session holding that role.
+function unreadable(f, ctx) { return f.hidden || (f.readRole && !(ctx && ctx.session && ctx.hasRole && ctx.hasRole(ctx.session, f.readRole))); }
+function stripHidden(r, row, ctx) {
+  if (!row) return row;
+  r.fields.forEach(function (f) { if (unreadable(f, ctx) && Object.prototype.hasOwnProperty.call(row, f.name)) delete row[f.name]; });
+  return row;
 }
 
 function selectList(r) {
@@ -115,7 +123,7 @@ function list(r, ctx, q) {
   var countSql = 'SELECT count(*)::int AS n FROM ' + fromClause(r) + whereSql;
   var rowsSql = 'SELECT ' + selectList(r) + ' FROM ' + fromClause(r) + whereSql + ' ORDER BY ' + order + ' LIMIT ' + limit + ' OFFSET ' + ((page - 1) * limit);
   return Promise.all([ctx.pool.query(countSql, params), ctx.pool.query(rowsSql, params)]).then(function (res) {
-    return { rows: res[1].rows, total: res[0].rows[0].n, page: page, limit: limit, sort: sortName, dir: dir.toLowerCase() };
+    return { rows: res[1].rows.map(function (row) { return stripHidden(r, row, ctx); }), total: res[0].rows[0].n, page: page, limit: limit, sort: sortName, dir: dir.toLowerCase() };
   });
 }
 
@@ -134,7 +142,7 @@ function get(r, ctx, id) {
   var where = ['t."' + r.idColumn + '" = $1'].concat(scopeWhere(r, ctx, params));
   return ctx.pool.query('SELECT ' + selectList(r) + ' FROM ' + fromClause(r) + ' WHERE ' + where.join(' AND '), params).then(function (res) {
     if (!res.rows.length) throw fail('not_found', 404, 'no such record');
-    return res.rows[0];
+    return stripHidden(r, res.rows[0], ctx);
   });
 }
 
@@ -199,6 +207,7 @@ function create(r, ctx, payload) {
   var missing = {};
   r.fields.forEach(function (f) { if (f.required && !f.readonly && !f.virtual && (value[f.name] === undefined || value[f.name] === null)) missing[f.name] = 'required'; });
   if (Object.keys(missing).length) return Promise.reject(fail('validation', 400, 'invalid data', { errors: missing }));
+  if (typeof r.beforeCreate === 'function') { var pre = r.beforeCreate(value, ctx); if (pre && pre.errors) return Promise.reject(fail('validation', 400, 'invalid data', { errors: pre.errors })); }
 
   var cols = [], vals = [], params = [];
   Object.keys(value).forEach(function (k) {
@@ -208,9 +217,10 @@ function create(r, ctx, payload) {
   if (r.scope === 'wp' && !r.global) { cols.push('project_id'); params.push(ctx.project.id); vals.push('$' + params.length); }
   if (r.managed && r.managed.updated_by === 'actor') { cols.push('updated_by'); params.push(ctx.actor); vals.push('$' + params.length); }
   if (r.managed && r.managed.added_by === 'actor') { cols.push('added_by'); params.push(ctx.actor); vals.push('$' + params.length); }
+  if (r.managed && r.managed.created_by === 'actor') { cols.push('created_by'); params.push(ctx.actor); vals.push('$' + params.length); }
   var sql = 'INSERT INTO ' + r.table + ' (' + cols.join(', ') + ') VALUES (' + vals.join(', ') + ') RETURNING *';
   return ctx.pool.query(sql, params).then(function (res) {
-    var row = res.rows[0];
+    var row = stripHidden(r, res.rows[0], ctx);
     return audit.record(ctx.auditPool, { actor: ctx.actor, role: ctx.session.role, action: 'create', resource: r.key, record_id: row[r.idColumn], project_id: ctx.project ? ctx.project.id : null, changed_fields: Object.keys(value), previous: null, next: row, request_id: ctx.requestId, client: ctx.client })
       .then(function (audited) { return { row: row, audited: audited }; });
   }, function (e) { throw mapPgError(e); });
@@ -240,7 +250,7 @@ function update(r, ctx, id, payload) {
     if (r.scope === 'wp' && !r.global) { params.push(ctx.project.id); where.push('project_id = $' + params.length); }
     var sql = 'UPDATE ' + r.table + ' SET ' + sets.join(', ') + ' WHERE ' + where.join(' AND ') + ' RETURNING *';
     return ctx.pool.query(sql, params).then(function (res) {
-      var row = res.rows[0];
+      var row = stripHidden(r, res.rows[0], ctx);
       var d = audit.diff(existing, row);
       // Server-managed columns are not a change the actor made.
       Object.keys(r.managed || {}).forEach(function (k) { d.fields = d.fields.filter(function (x) { return x !== k; }); if (d.previous) delete d.previous[k]; if (d.next) delete d.next[k]; });
@@ -265,7 +275,7 @@ function remove(r, ctx, id) {
       sql = 'DELETE FROM ' + r.table + ' WHERE ' + where.join(' AND ') + ' RETURNING *';
     }
     return ctx.pool.query(sql, params).then(function (res) {
-      var row = res.rows[0] || null;
+      var row = stripHidden(r, res.rows[0] || null, ctx);
       var soft = r.delete && r.delete.kind === 'soft';
       return audit.record(ctx.auditPool, { actor: ctx.actor, role: ctx.session.role, action: action, resource: r.key, record_id: existing[r.idColumn], project_id: ctx.project ? ctx.project.id : null, changed_fields: soft ? [r.delete.field] : Object.keys(existing), previous: existing, next: soft ? { status: r.delete.value } : null, request_id: ctx.requestId, client: ctx.client })
         .then(function (audited) { return { row: row, audited: audited, soft: soft }; });
@@ -288,8 +298,9 @@ function upsertByUid(r, ctx, uid, payload) {
 // Small lookup for reference selects: [{ id, label }], by search text or ids.
 function lookup(r, ctx, q) {
   var display = q.display || r.titleField;
-  if (!fieldByName(r, display) || fieldByName(r, display).virtual) display = r.titleField;
-  var by = q.by && fieldByName(r, q.by) && !fieldByName(r, q.by).virtual ? q.by : r.idColumn;
+  // hidden fields (password hashes, legacy DSNs) are never a label or a match key
+  if (!fieldByName(r, display) || fieldByName(r, display).virtual || unreadable(fieldByName(r, display), ctx)) display = r.titleField;
+  var by = q.by && fieldByName(r, q.by) && !fieldByName(r, q.by).virtual && !unreadable(fieldByName(r, q.by), ctx) ? q.by : r.idColumn;
   var params = [];
   var where = scopeWhere(r, ctx, params);
   if (q.ids && q.ids.length) {
@@ -300,8 +311,7 @@ function lookup(r, ctx, q) {
     var n = params.length;
     where.push('(' + r.search.map(function (c) { return searchExpr(c) + '::text ILIKE $' + n; }).join(' OR ') + ')');
   }
-  var extra = r.key === 'products' ? ', t.product_title AS title, t.product_brand AS brand' : '';
-  var sql = 'SELECT t."' + by + '" AS id, t."' + display + '" AS label' + extra + ' FROM ' + fromClause(r) + (where.length ? ' WHERE ' + where.join(' AND ') : '') + ' ORDER BY 2 ASC LIMIT 25';
+  var sql = 'SELECT t."' + by + '" AS id, t."' + display + '" AS label FROM ' + fromClause(r) + (where.length ? ' WHERE ' + where.join(' AND ') : '') + ' ORDER BY 2 ASC LIMIT 25';
   return ctx.pool.query(sql, params).then(function (res) { return res.rows; }, function (e) { throw mapPgError(e); });
 }
 
@@ -318,5 +328,6 @@ module.exports = {
   update: update,
   remove: remove,
   upsertByUid: upsertByUid,
-  lookup: lookup
+  lookup: lookup,
+  stripHidden: stripHidden
 };

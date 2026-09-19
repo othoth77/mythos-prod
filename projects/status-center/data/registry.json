@@ -1,6 +1,6 @@
 {
   "registry_version": "1.1.0",
-  "curated_at": "2026-09-18",
+  "curated_at": "2026-09-19",
   "curation_note": "Re-sync 2026-09-03 (gh-issue-140, completing the gh-issue-95 audit): fixed the stale PROJECT-AI-ORCHESTRATION entry, which had read \"v1 COMPLETE AND CLOSED 2026-08-19\" for ten days and roughly a dozen delivered bridge/executor stages without being touched (GitHub Issues intake, model-selection policy, Resource Guard, bridge retry/quota policy, the HostOps read-only boundary) — the entry now states both facts: v1 is still closed as scoped, AND the same component has kept evolving since, all on unmerged branches (EV-AI-ORCH-EVOLUTION-0903). Added four projects/* directories the account-level repository-discovery path structurally cannot see because they are inside this monorepo, not separate GitHub repositories: PROJECT-MYTHOS-GATEWAY, PROJECT-MYTHOS-ORCHESTRATOR, PROJECT-MYTHOS-VAULT, PROJECT-OTH-MCP — found by listing every projects/* directory and checking which ones no existing project purpose/evidence text actually covered (4 of 21 did not; the other 17 already did, confirmed against git log and each project's own purpose text, and now carry a new `directories` field recording that mapping explicitly instead of leaving it implicit). Added a matching monorepo project-discovery function to the review engine (lib/engine.js discoverMonorepoProjects) so a future undeclared projects/* directory surfaces as a discovery requiring classification, the same guarantee discoverRepositories already gives for GitHub account repositories — closing the \"monorepo discovery\" gap named in gh-issue-140. No percentage invented anywhere in this pass: two new dimensions are NOT_CALCULABLE with a stated reason, one is IN_PROGRESS with a status only. Also recorded 2026-08-26: NEXT-STATUS-DISCLOSURE-REVIEW — the public Status Center carries the same class of infrastructure detail that OTHMODE reports now mask, which is a consistency question for the owner rather than something to fix piecemeal. Re-sync 2026-08-26T15:17Z: recorded a genuine platform change — OTHMODE Command History and Task Reports became publicly readable at 7252de2, redacted for anonymous callers, with the write surface verified still closed. PROJECT-OTHMODE headline, last_change, production dimension and evidence updated (EV-OTHMODE-PUBLIC-HISTORY, EV-OTHMODE-PUBLIC-VERIFIED). No other project or action changed; NEXT-EXPORTS remains the sole open owner decision. Re-sync 2026-08-26T14:38Z: no status changed. The only genuine new fact is that the publish-wipes-monitor-state fix was exercised by a real publish and held — monitor runtime state and the apex Hub feed both survived intact, which is the regression check the fix existed for. Recorded against EV-PUBLISH-WIPES-MONITOR-STATE. The board is otherwise steady: every execution-layer action is closed and NEXT-EXPORTS remains the sole owner decision. Re-sync 2026-08-26 after the owner published: NEXT-STATUS-PUBLISH closed — the live Status Center now serves REVIEW-2026-08-26-004 and matches the repository on every counted dimension (EV-STATUS-PUBLISHED-0826). The publish also exposed a real defect, now fixed: rsync --delete wiped the monitor's runtime state out of the shared docroot, taking the live panel and — via an nginx alias — the apex Hub's /api/status.json to 404, and permanently destroying data/live-history/ (EV-PUBLISH-WIPES-MONITOR-STATE). NEXT-OTHMODE-MONITOR closed 2026-08-26 after production verification: othmode.mythosprod.xyz and its Task Reports API are now monitored components of the existing STC-2 monitor (14 components live, both OTHMODE probes LIVE). Reconciliation pass 2026-08-26 (later the same day): closed three next_actions whose blockers were already DONE and whose live criteria were re-verified first-hand — NEXT-OTHK-STORE, NEXT-MOS-DEPLOY, NEXT-HUB-DEPLOY (evidence EV-STALE-RECONCILE-0826) — and marked ACTION-MOS-DEPLOY and ACTION-HUB-DNS DONE to match their own blockers. Added othmode.mythosprod.xyz to the existing STC-2 probe registry rather than building a second monitor (EV-OTHMODE-MONITOR-PROBE). Nothing was closed to make the board look finished: NEXT-STATUS-PUBLISH stays open because the live site is still unpublished, and every remaining owner decision is untouched. Also refreshed 2026-08-26: data/pr-ledger.json re-captured from the GitHub API (56 -> 90 PRs, #1-#90; 8 open, 78 merged, 4 closed-unmerged), correcting six entries that the 2026-08-20 snapshot still recorded as open (#53-#56 merged, #23 and #52 closed unmerged) and carrying curator notes across by PR number. PROJECT-COMMAND-CENTER updated against host evidence: its 'latest merged revision pending redeploy' caveat is closed (service restarted 2026-08-26 at aa4ca2d, no command-center code change since), and its relationship to OTHMODE is now stated — one Node process on 127.0.0.1:3021 serving both hostnames. Updated 2026-08-26 on the production VPS (deploy@vps-4722f0a9): added PROJECT-OTHMODE with five evidence records after the OTHMODE Task Reports release was merged (aa4ca2d), deployed and operator-verified first-hand on the host — the registry had carried no OTHMODE entry at all, which is why earlier re-syncs reported zero content change. Closed ACTION-STC2-INSTALL / NEXT-STC2-INSTALL against their own stated criteria (timer active and refreshing; published app.js byte-identical to the repository copy, carrying the live panel and the Arabic layer). Two genuinely outstanding items found while curating were recorded rather than left implicit: NEXT-STATUS-PUBLISH (the repository holds two unpublished reviews; the live site is behind because nothing published them, not because nothing re-synced) and NEXT-OTHMODE-MONITOR (othmode.mythosprod.xyz is not a monitored component). No percentage was invented: every OTHMODE dimension is recorded as a status with a note. Updated 2026-08-22 from the production VPS (deploy@vps-4722f0a9) after the real on-host OTH-KNOWLEDGE acceptance run: node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed at ef91aa0a7083b9869b293a53030ce40ade4ad5a2. Only what that run actually proves was moved — the store/provisioning/deployment/production-verification dimensions and BLOCKER-OTHK-STORE. Track B real data remains OWNER_ACTION and PROJECT-OTH-KNOWLEDGE keeps status OWNER_ACTION for exactly that reason. Curated from a full audit on 2026-08-20: complete read of docs/AI_HANDOVER.md (15,892 lines), docs/ reconciliation, full git history (668 commits, repo born 2026-07-29), all 53 PRs, and the GitHub repository inventory. Every entry cites evidence; the review engine re-verifies what it can and marks the rest RECORDED.",
   "source_hierarchy": [
     {
@@ -1116,6 +1116,111 @@
       "reference": "branch mythos/meta-ads-monitor-20260918 — projects/meta-ads-monitor/ (bin, lib, systemd, README), tests/meta-ads-monitor-test.js + fixtures",
       "date": "2026-09-18",
       "note": "Facebook Ads Monitor is READ-ONLY by design: daily systemd timer (06:40 UTC) on the VPS; GET-only Graph client with a read-path allowlist and verb-override/access_token params refused; ads_read token expected in ~deploy/.config/meta-ads-monitor/meta.env (absent = NOT_CONFIGURED report, zero Meta requests). Snapshots diffed day over day, Arabic plain-language report, 0600 atomic writes + secret scan, retention 60/90 days, duplicate-run lock, retries/timeouts. Offline suite 111/0 (incl. review fixes: redirects refused, page-limit truncation surfaced, deadline cancels requests, per-account isolation, fixture runs never touch production state, spend-to-zero detected, race-free stale-lock reclaim). Claude Desktop Routines are not a dependency; connector write tools remain DENY in /root/.claude/settings.json."
+    },
+    {
+      "id": "EV-WP-V2-PR",
+      "type": "pr",
+      "reference": "othoth77/mythos-prod#305",
+      "date": "2026-09-17",
+      "note": "MYTHOS WP V2 — Central Control Center (commit 721d2e0). Merge = owner review action; production runs this commit from the detached checkout."
+    },
+    {
+      "id": "EV-WP-V2-TESTS",
+      "type": "test",
+      "reference": "tests/mythos-wp-test.js, tests/mythos-wp-comms-*-test.js, tests/mythos-wp-v2-{whatsapp,platform,ai}-test.js",
+      "date": "2026-09-17",
+      "note": "14 suites, 1,281 assertions, 0 failures on mythos_wp_test; projects/mythos-wp/tools/check.sh GREEN."
+    },
+    {
+      "id": "EV-WP-V2-SECURITY",
+      "type": "document",
+      "reference": "projects/mythos-wp/docs/SECURITY.md + PR #305 commit message",
+      "date": "2026-09-17",
+      "note": "Independent security review (auth, RBAC, tenant isolation, secrets, webhooks, CSRF, injection, SSRF, rate limits, sessions, audit, AI tools, MCP): 3 HIGH + 9 MEDIUM findings, all fixed before release."
+    },
+    {
+      "id": "EV-WP-V2-DEPLOY",
+      "type": "file",
+      "reference": "projects/mythos-wp/deploy/v2-rollout.sh",
+      "date": "2026-09-17",
+      "note": "Production rollout 12:35 UTC: backup /var/backups/mythos-db/mythos_wp-v2-pre-20260917T123551Z.dump, migrations 0006_shared_account_routing + 0007_control_center applied, owner imported into wp_users, mythos-wp.service restarted (ExecMainStart 12:35:55 UTC)."
+    },
+    {
+      "id": "EV-WP-V2-PRODUCTION",
+      "type": "document",
+      "reference": "https://wp.mythosprod.xyz/ — smoke run 2026-09-17 13:29–13:35 UTC (audit actor mythos-smoke)",
+      "date": "2026-09-17",
+      "note": "Live checks through the public URL: login, meta (5 projects), health center 8 ok / 1 disconnected (unpaired ssangyong-autos instance), Kitchen 346 products via connector, n8n + MYTHOS MCP reachable, Meta MCP endpoint reachable (405 without OAuth), Evolution sync discovered 2 instances, owner number linked as SHARED to ssangyong-autos + dar-hijama with identity routing simulated to two projects, agents bound and tested, template preview, Cloud API sync 412 (not configured), receiver dry-run ledgered without persisting."
+    },
+    {
+      "id": "EV-WP-V21-PR",
+      "type": "pr",
+      "reference": "othoth77/mythos-prod#309",
+      "date": "2026-09-17",
+      "note": "MYTHOS WP V2.1 simplification (commit 372c39d, stacked on #305). Merge = owner review action; production runs this commit."
+    },
+    {
+      "id": "EV-WP-V21-PRODUCTION",
+      "type": "document",
+      "reference": "https://wp.mythosprod.xyz/ — smoke run 2026-09-17 18:50 UTC (audit actor mythos-smoke, removed)",
+      "date": "2026-09-17",
+      "note": "Sidebar = Dashboard/Inbox/Projects/WhatsApp/Settings; short New project form creates smoke-v2-1-service and smoke-v2-1-auto (slug generated, Kitchen attached, shared owner number linked, agent bound); Project → AI get/put/test; routing owner-excluded; Kitchen 346 products; health 9 ok / 1 disconnected; search = projects only; served assets contain no legacy/Asfour strings. Backup mythos_wp-v2-pre-20260917T184728Z.dump; rollback sha 3452d6f5."
+    },
+    {
+      "id": "EV-WP-WA-STATUS-INCIDENT",
+      "type": "document",
+      "reference": "wp_health_checks + wp_audit_events (mythos_wp), 2026-09-17 22:07 UTC",
+      "date": "2026-09-17",
+      "note": "Incident: the Evolution probe timed out under host load (whatsapp:evolution → {\"reason\":\"TIMEOUT\"}); health.js wrote that failure as the DEVICE status of both numbers (status='error'), so the dashboard read 'WhatsApp 0 / 2' with ERROR on four project rows while the owner session was open. The 'pub' link created in that window kept status='error', which also blocks outbound for that project."
+    },
+    {
+      "id": "EV-WP-WA-STATUS-FIX",
+      "type": "pr",
+      "reference": "othoth77/mythos-prod#313 (efbc174 + 04c4f55)",
+      "date": "2026-09-17",
+      "note": "Fix: only a state the provider really reported may change wp_phone_numbers.status; a failed check records health_state='error' and keeps the last known status; numbers.connectionOf() gives one model (Connected / Action required / Disconnected / Error) with a plain detail; numbers.syncInboxStatus() makes every project link follow its number; dashboard counts connected numbers and regained the waiting_human figure; MYTHOS_WP_DB_CONNECT_TIMEOUT_MS added. New suite mythos-wp-v21-whatsapp-status-test.js (27 assertions); 15 suites green; check.sh GREEN."
+    },
+    {
+      "id": "EV-WP-WA-STATUS-PRODUCTION",
+      "type": "document",
+      "reference": "https://wp.mythosprod.xyz/ — verified 2026-09-17 23:39 UTC (screenshots /home/deploy/wpv2-ui-test/shots-prod/)",
+      "date": "2026-09-17",
+      "note": "Deployed 23:17 UTC (backup mythos_wp-v2-pre-20260917T231738Z.dump). Dashboard now reads WhatsApp 1 / 2; Dar Hijama and Pub → ••••9660 Connected; SsangYong Parts → *** Action required (never paired) + ••••9660 Connected; no ERROR. Stale link status self-healed at the first health run. Health center 9 ok / 1 disconnected (the unpaired customer instance). Routing unchanged: owner number OWNER_EXCLUDED, unknown sender UNROUTED, one number still serves three projects."
+    },
+    {
+      "id": "EV-WP-FINAL-CODE",
+      "type": "pr",
+      "reference": "https://github.com/othoth77/mythos-prod/pull/313",
+      "date": "2026-09-18",
+      "note": "Final completion pass on PR #313 (contains #305 and #309): security fixes (break-glass takeover 409 incl. the users file, project fencing on every inbox write, digits masked below admin, system prompts admin-only, integrations list and health center manager+), WhatsApp Connect (QR under WhatsApp → Number → Connect, 409 on a connected number), accent-free Kitchen search (part words + vehicle model inside contract 1.3.0), neutral AI wording for non-Auto projects, logout/health/meta survive a database outage (503 instead of 500), assets revalidate by ETag."
+    },
+    {
+      "id": "EV-WP-FINAL-TESTS",
+      "type": "test",
+      "reference": "tests/mythos-wp*test.js + projects/mythos-wp/tools/check.sh",
+      "date": "2026-09-18",
+      "note": "16 suites, 1,278 assertions, 0 failures; check.sh GREEN (syntax, module graph, lint, design-system rules, secret scan, tests); core suite without a database: 154 passed, 0 failed, database section skipped. Load-induced failures fixed at the cause (DB connect timeout setting, transient-only retry), not hidden."
+    },
+    {
+      "id": "EV-WP-FINAL-PRODUCTION",
+      "type": "document",
+      "reference": "https://wp.mythosprod.xyz/ — verified 2026-09-18 10:10 UTC (screenshots /home/deploy/wpv2-ui-test/shots-final/)",
+      "date": "2026-09-18",
+      "note": "Deployed 6cd62f6e with v2-rollout.sh (backups mythos_wp-v2-pre-20260918T093855Z and T095134Z). Public-URL smoke 55/55: sessions, dashboard, inbox, contacts, numbers (owner ••••9660 Connected, SsangYong customer number Action required), Connect 409 on the owner number, routing (owner excluded, unknown sender unrouted), AI (reference → verified Kitchen facts, 'alternateur korando' → verified, unknown part → handoff, Dar Hijama greeting neutral), MCP not connected + Meta endpoint answering 405, n8n ok, search scope, health, audit, viewer/agent RBAC, CSRF/Origin, security headers, asset revalidation 304. Smoke project and accounts removed (audited)."
+    },
+    {
+      "id": "EV-WP-FINAL-BACKUP",
+      "type": "document",
+      "reference": "systemd mythos-backup-db-wp.timer (05:20 UTC) + mythos-backup-db-verify-wp.timer; ops/backup/mythos-backup-run-db.sh",
+      "date": "2026-09-18",
+      "note": "mythos_wp is in the scheduled off-host backup: stage, manifest, verify-local, push to R2, verify-remote — completed clean 2026-09-18 05:45 UTC; daily restore-verify timer; Status Center probe wp-backup LIVE."
+    },
+    {
+      "id": "EV-WP-REVIEW-313",
+      "type": "pr",
+      "reference": "https://github.com/othoth77/mythos-prod/pull/313#pullrequestreview-5253675044",
+      "date": "2026-09-19",
+      "note": "Recorded code review of PR #313 (commit 965305dd): 19 verified defects (password-hash leak via lookup, admin rank escalation on create and password reset, inbox-scope gaps on handoff/template test/search/contact, inbox digits below admin, dashboard platform health for viewers, AI fact credit without data, unresolved vehicle dropping the filter, plus UI/sync issues). All fixed in e0bb2a68 with regression tests (16 suites, 1,296 / 0); deployed with a backup; public-URL smoke 63 / 63."
     }
   ],
   "repositories": [
@@ -2434,6 +2539,57 @@
         "EV-SESSION-GUARD-ENFORCE",
         "EV-SESSION-GUARD-TURNIDLE-FIX",
         "EV-SESSION-GUARD-SOAK-6CYCLE"
+      ]
+    },
+    {
+      "id": "PROJECT-MYTHOS-WP",
+      "name": "MYTHOS WP — Control Center (wp.mythosprod.xyz)",
+      "executive": true,
+      "purpose": "The central control platform for MYTHOS projects: projects, WhatsApp accounts and phone numbers (one number ↔ several projects with deterministic routing), unified inbox, contacts 360, MYTHOS AI agents with least-privilege tools, AI↔human handoff, templates, automations, integrations (Evolution, Cloud API provider, official Meta WhatsApp Business Tools MCP, Kitchen Mythos Auto, n8n, MYTHOS MCP), health center, audit and RBAC. It owns no product data: the automotive catalogue is read from Kitchen Mythos Auto over HTTP.",
+      "status": "OWNER_ACTION",
+      "maturity": "PRODUCTION_VERIFIED",
+      "repository": "othoth77/mythos-prod",
+      "last_change": "2026-09-19 (code-review fixes deployed and verified — EV-WP-REVIEW-313; production e0bb2a68; PR #313 merge)",
+      "blocker": null,
+      "next_action": "Owner: scan the QR for the owner number (••••9660) and, if wanted, the SsangYong customer number (WhatsApp → Number → Connect); decide on customer traffic for the shared number; Meta MCP OAuth; rotate the initial owner password.",
+      "headline": "Live at https://wp.mythosprod.xyz/ as the MYTHOS Control Center. 2026-09-19: PR #313 code review recorded; 19 defects fixed (security, inbox scope, AI fact policy) and deployed — 1,296 tests / 0 failures, 63/63 public-URL smoke. WhatsApp: both numbers currently Action required — the owner session closed after the 2026-09-18 host reboot and the owner started re-pairing (QR under WhatsApp → Number → Connect); the SsangYong customer number was never paired. AI answers only from verified Kitchen facts (346 products, contract 1.3.0, read-only) and hands off otherwise; no Asfour, no legacy catalogue.",
+      "dimensions": {
+        "implementation": {
+          "status": "DONE",
+          "note": "Final pass: security fixes, WhatsApp Connect, accent-free Kitchen search, neutral non-Auto AI wording, DB-outage resilience, asset revalidation"
+        },
+        "tests": {
+          "status": "DONE",
+          "note": "16 suites, 1,296 assertions, 0 failures; check.sh GREEN"
+        },
+        "deployment": {
+          "status": "DONE",
+          "note": "v2-rollout.sh 2026-09-19 00:10 UTC, production e0bb2a68, backup taken; rollback = checkout 6cd62f6e + restart"
+        },
+        "production": {
+          "status": "DONE",
+          "note": "verified 2026-09-19 00:20 UTC: 63/63 public-URL smoke"
+        }
+      },
+      "evidence": [
+        "EV-WP-V2-PR",
+        "EV-WP-V2-TESTS",
+        "EV-WP-V2-SECURITY",
+        "EV-WP-V2-DEPLOY",
+        "EV-WP-V2-PRODUCTION",
+        "EV-WP-V21-PR",
+        "EV-WP-V21-PRODUCTION",
+        "EV-WP-WA-STATUS-INCIDENT",
+        "EV-WP-WA-STATUS-FIX",
+        "EV-WP-WA-STATUS-PRODUCTION",
+        "EV-WP-FINAL-CODE",
+        "EV-WP-FINAL-TESTS",
+        "EV-WP-FINAL-PRODUCTION",
+        "EV-WP-FINAL-BACKUP",
+        "EV-WP-REVIEW-313"
+      ],
+      "directories": [
+        "projects/mythos-wp"
       ]
     }
   ],

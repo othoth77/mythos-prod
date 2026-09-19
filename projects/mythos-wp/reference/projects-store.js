@@ -4,8 +4,7 @@
 // projects/mythos-wp/reference/projects-store.js
 //
 // Reads wp_projects and hands out, per project, the pair of pools the rest
-// of the panel needs: the project's catalogue pool (db.catalog) and the
-// panel pool (db.wp). Rows are cached for a short time so a request does
+// of the panel needs: the panel pool (db.wp). Rows are cached for a short time so a request does
 // not hit the registry table twice; a write through the `projects`
 // resource calls invalidate().
 // =====================================================
@@ -34,14 +33,9 @@ function get(id) {
   });
 }
 
-// resolve(id) → { project, catalogPool | null, wpPool, catalogError } | null
+// resolve(id) → { project, wpPool } | null   (V2: no catalogue pool — the Kitchen is reached over HTTP)
 function resolve(id) {
-  return get(id).then(function (project) {
-    if (!project) return null;
-    var out = { project: project, wpPool: db.wp(), catalogPool: null, catalogError: null };
-    try { out.catalogPool = db.catalog(project); } catch (e) { out.catalogError = e.code || 'CATALOG_ERROR'; }
-    return out;
-  });
+  return get(id).then(function (project) { return project ? { project: project, wpPool: db.wp() } : null; });
 }
 
 module.exports = { all: all, get: get, resolve: resolve, invalidate: invalidate };

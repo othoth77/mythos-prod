@@ -245,5 +245,34 @@ function health(o) {
     req.end();
   });
 }
+// connect(o) → { ok, state, qr?, reason? } — GET /instance/connect/{instance}: the gateway opens (or keeps)
+// a pairing session and answers the CURRENT QR as a data-URL PNG. The QR is a short-lived pairing secret:
+// it is returned to the caller only, never logged, never stored. The pairing ref rotates every 20–45 s,
+// so a caller must refresh it (see ops/whatsapp/evolution/qr-live.sh and the 2026-09-05 pairing diagnosis).
+function connect(o) {
+  o = o || {};
+  if (!INSTANCE_RE.test(String(o.instance || ''))) return Promise.resolve({ ok: false, reason: 'CONFIG: instance' });
+  var key = readApiKey();
+  if (!key.present) return Promise.resolve({ ok: false, reason: 'CONFIG: ' + key.reason });
+  var u = new URL(baseUrl() + '/instance/connect/' + encodeURIComponent(o.instance));
+  var mod = u.protocol === 'https:' ? https : http;
+  return new Promise(function (resolve) {
+    var done = false; var finish = function (r) { if (!done) { done = true; resolve(r); } };
+    var req = mod.request({ host: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname, method: 'GET', headers: { apikey: key.value }, timeout: o.timeoutMs || 15000 }, function (res) {
+      var b = ''; res.on('data', function (c) { if (b.length < 262144) b += c; });
+      res.on('end', function () {
+        var j = null; try { j = JSON.parse(b); } catch (e) { j = null; }
+        if (res.statusCode >= 400 || !j) return finish({ ok: false, reason: 'HTTP_' + res.statusCode });
+        var st = j.instance && typeof j.instance.state === 'string' ? j.instance.state : null;
+        if (st === 'open') return finish({ ok: true, state: 'open' });
+        var qr = typeof j.base64 === 'string' && /^data:image\/png;base64,[A-Za-z0-9+\/=]+$/.test(j.base64) ? j.base64 : null;
+        finish(qr ? { ok: true, state: 'pairing', qr: qr } : { ok: false, reason: 'NO_QR' });
+      });
+    });
+    req.on('timeout', function () { req.destroy(new Error('timeout')); });
+    req.on('error', function (e) { finish({ ok: false, reason: 'TRANSPORT: ' + String(e && e.message || e).slice(0, 80) }); });
+    req.end();
+  });
+}
 function payloadHash(rawBody) { return crypto.createHash('sha256').update(String(rawBody)).digest('hex'); }
-module.exports = { id: ID, ID: ID, channel: CHANNEL, describe: describe, capabilities: capabilities, verifyWebhook: verifyWebhook, fetchMedia: fetchMedia, health: health, TOKEN_HEADER: TOKEN_HEADER, parseInbound: parseInbound, sendText: sendText, readApiKey: readApiKey, baseUrl: baseUrl, redactDeep: redactDeep, payloadHash: payloadHash, content: content, STRIP_KEYS: STRIP_KEYS };
+module.exports = { id: ID, ID: ID, channel: CHANNEL, connect: connect, describe: describe, capabilities: capabilities, verifyWebhook: verifyWebhook, fetchMedia: fetchMedia, health: health, TOKEN_HEADER: TOKEN_HEADER, parseInbound: parseInbound, sendText: sendText, readApiKey: readApiKey, baseUrl: baseUrl, redactDeep: redactDeep, payloadHash: payloadHash, content: content, STRIP_KEYS: STRIP_KEYS };

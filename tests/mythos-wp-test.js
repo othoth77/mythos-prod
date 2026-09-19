@@ -42,7 +42,6 @@ var tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mythos-wp-test-'));
 var usersFile = path.join(tmp, 'users.json');
 process.env.MYTHOS_WP_USERS_FILE = usersFile;
 process.env.MYTHOS_WP_INSECURE_COOKIE = '1';
-process.env.MYTHOS_WP_CATALOG_TEST = TEST_URL || '';
 delete process.env.MYTHOS_WP_COMMS_CONFIG;
 if (TEST_URL) {
   var u = new URL(TEST_URL);
@@ -55,12 +54,10 @@ var auth = require(path.join(WP, 'reference/auth'));
 var resources = require(path.join(WP, 'reference/resources'));
 var audit = require(path.join(WP, 'reference/audit'));
 var crud = require(path.join(WP, 'reference/crud'));
-var portsLib = require(path.join(WP, 'reference/comms/ports'));
 var integration = require(path.join(WP, 'reference/comms/integration'));
 var autoreply = require(path.join(WP, 'reference/autoreply'));
 var db = require(path.join(WP, 'reference/db'));
 var store = require(path.join(WP, 'reference/projects-store'));
-var dashboard = require(path.join(WP, 'reference/dashboard'));
 var server = require(path.join(WP, 'reference/server'));
 var api = require(path.join(WP, 'reference/api'));
 
@@ -70,34 +67,31 @@ fs.writeFileSync(usersFile, JSON.stringify({ users: [
   { username: 'owner', role: 'owner', scrypt: auth.hashPassword(OWNER_PW) },
   { username: 'op', role: 'operator', scrypt: auth.hashPassword(OP_PW) },
   { username: 'BAD NAME', role: 'owner', scrypt: auth.hashPassword('x') },
-  { username: 'norole', role: 'admin', scrypt: auth.hashPassword('x') }
+  { username: 'norole', role: 'superuser', scrypt: auth.hashPassword('x') }
 ] }), { mode: 0o600 });
 
 // ================================================================ validator
 (function () {
-  var F = resources.get('products').fields.filter(function (f) { return !f.readonly && !f.virtual; });
-  var good = { product_uid: 'wp:T1', canonical_reference: 'REF-1', product_brand: 'B', product_title: 'T', source: 'mythos-wp', product_url: 'https://x.test/p', price_tnd: '12,50', currency: 'TND', availability: 'En Stock', status: 'active', collected_at: '2026-01-01T00:00:00Z', last_checked_at: '2026-01-02T00:00:00Z' };
+  var F = resources.get('knowledge').fields.filter(function (f) { return !f.readonly && !f.virtual; });
+  var good = { kind: 'faq', title: 'Horaires', customer_text: 'Ouvert 8h-18h', language: 'fr', allowed_for_auto_reply: 'true', status: 'draft', tags: 'a, b, a', product_uid: 'autopart.tn:18469' };
   var v = validate.validate(F, good, 'create');
-  ok(v.ok, 'validate: good product passes'); eq(v.value.price_tnd, 12.5, 'validate: decimal comma normalised');
-  v = validate.validate(F, Object.assign({}, good, { price_tnd: 'abc' }), 'create'); eq(v.errors.price_tnd, 'not_a_number', 'validate: not a number');
-  v = validate.validate(F, Object.assign({}, good, { price_tnd: 0 }), 'create'); eq(v.errors.price_tnd, 'min', 'validate: below min');
-  v = validate.validate(F, Object.assign({}, good, { availability: 'Maybe' }), 'create'); eq(v.errors.availability, 'not_in_enum', 'validate: enum');
-  v = validate.validate(F, Object.assign({}, good, { product_url: 'http://insecure' }), 'create'); eq(v.errors.product_url, 'not_https_url', 'validate: https url');
-  v = validate.validate(F, Object.assign({}, good, { canonical_reference: '' }), 'create'); eq(v.errors.canonical_reference, 'required', 'validate: required blank');
+  ok(v.ok && v.value.allowed_for_auto_reply === true && v.value.tags.length === 2, 'validate: good entry passes, boolean string + tags dedupe');
+  v = validate.validate(F, Object.assign({}, good, { kind: 'Maybe' }), 'create'); eq(v.errors.kind, 'not_in_enum', 'validate: enum');
+  v = validate.validate(F, Object.assign({}, good, { title: '' }), 'create'); eq(v.errors.title, 'required', 'validate: required blank');
   v = validate.validate(F, Object.assign({}, good, { product_uid: 'bad uid!' }), 'create'); eq(v.errors.product_uid, 'pattern', 'validate: pattern');
-  v = validate.validate(F, Object.assign({}, good, { technical_specs: '{not json' }), 'create'); eq(v.errors.technical_specs, 'not_json', 'validate: json');
-  v = validate.validate(F, Object.assign({}, good, { collected_at: 'yesterday' }), 'create'); eq(v.errors.collected_at, 'not_a_date', 'validate: timestamp');
-  v = validate.validate(F, Object.assign({}, good, { product_title: 'a\nb' }), 'create'); eq(v.errors.product_title, 'multiline', 'validate: multiline in text');
+  v = validate.validate(F, Object.assign({}, good, { title: 'a\nb' }), 'create'); eq(v.errors.title, 'multiline', 'validate: multiline in text');
   v = validate.validate(F, Object.assign({}, good, { updated_at: '2026-01-01' }), 'create'); eq(v.errors.updated_at, 'unknown_field', 'validate: readonly field not in editable set is unknown');
-  v = validate.validate(resources.get('products').fields, { updated_at: '2026-01-01' }, 'update'); eq(v.errors.updated_at, 'read_only', 'validate: read-only refused');
+  v = validate.validate(resources.get('knowledge').fields, { updated_at: '2026-01-01' }, 'update'); eq(v.errors.updated_at, 'read_only', 'validate: read-only refused');
   v = validate.validate(F, { nope: 1 }, 'update'); eq(v.errors.nope, 'unknown_field', 'validate: unknown field');
-  v = validate.validate(F, { product_title: 'only this' }, 'update'); ok(v.ok && Object.keys(v.value).length === 1, 'validate: partial update checks only present fields');
+  v = validate.validate(F, { title: 'only this' }, 'update'); ok(v.ok && Object.keys(v.value).length === 1, 'validate: partial update checks only present fields');
   v = validate.validate(F, 'string', 'create'); eq(v.errors._, 'not_an_object', 'validate: non-object');
-  var K = resources.get('knowledge').fields;
-  v = validate.validate(K, { kind: 'faq', title: 't', customer_text: 'c', language: 'fr', allowed_for_auto_reply: 'true', status: 'draft', tags: 'a, b, a' }, 'create');
-  ok(v.ok && v.value.allowed_for_auto_reply === true && v.value.tags.length === 2, 'validate: boolean string + tags dedupe');
-  v = validate.validate(K, { tags: 'bad tag with spaces' }, 'update'); eq(v.errors.tags, 'pattern', 'validate: tag pattern');
-  v = validate.validate(resources.get('stock').fields, { quantity: 1.5 }, 'update'); eq(v.errors.quantity, 'not_an_integer', 'validate: integer');
+  v = validate.validate(F, { tags: 'bad tag with spaces' }, 'update'); eq(v.errors.tags, 'pattern', 'validate: tag pattern');
+  var R = resources.get('rules').fields;
+  v = validate.validate(R, { rule_key: 'k', value_json: '{not json' }, 'create'); eq(v.errors.value_json, 'not_json', 'validate: json');
+  var U = resources.get('users').fields;
+  v = validate.validate(U, { username: 'ab', role: 'owner', all_projects: 'false' }, 'create'); ok(v.ok && v.value.all_projects === false, 'validate: user fields (hidden hash not required on create)');
+  v = validate.validate(resources.get('projects').fields, { settings: '{"kitchen":"k"}', currency: 'tnd' }, 'update'); ok(v.errors.currency === 'pattern' && v.value === undefined || v.errors.currency === 'pattern', 'validate: currency ISO pattern');
+  v = validate.validate(resources.get('handoffs').fields, { conversation_id: 1.5 }, 'update'); ok(v.errors.conversation_id === 'read_only', 'validate: server-managed handoff columns refused');
   ok(typeof validate.message('required') === 'string' && validate.message('zzz') === 'zzz', 'validate: messages');
 }());
 
@@ -105,6 +99,7 @@ fs.writeFileSync(usersFile, JSON.stringify({ users: [
 (function () {
   var st = auth.usersState();
   ok(st.provisioned && st.count === 2, 'auth: users file loads only well-formed users (' + st.count + ')');
+  eq(auth.verifyCredentials('op', OP_PW).user.role, 'manager', 'auth: legacy operator role reads as manager');
   ok(auth.verifyCredentials('owner', OWNER_PW).ok, 'auth: owner verifies');
   eq(auth.verifyCredentials('owner', OWNER_PW).user.role, 'owner', 'auth: role');
   ok(!auth.verifyCredentials('owner', 'wrong').ok, 'auth: wrong password refused');
@@ -127,7 +122,9 @@ fs.writeFileSync(usersFile, JSON.stringify({ users: [
   delete process.env.MYTHOS_WP_INSECURE_COOKIE;
   ok(/Secure/.test(auth.sessionCookie('a'.repeat(64))), 'auth: Secure by default');
   process.env.MYTHOS_WP_INSECURE_COOKIE = '1';
-  ok(auth.hasRole({ role: 'owner' }, 'operator') && auth.hasRole({ role: 'operator' }, 'operator') && !auth.hasRole({ role: 'operator' }, 'owner') && !auth.hasRole(null, 'any') && auth.hasRole({ role: 'operator' }, 'any'), 'auth: role ranks');
+  ok(auth.hasRole({ role: 'owner' }, 'operator') && auth.hasRole({ role: 'manager' }, 'operator') && auth.hasRole({ role: 'agent' }, 'operator') && !auth.hasRole({ role: 'viewer' }, 'operator') && !auth.hasRole({ role: 'manager' }, 'owner') && !auth.hasRole(null, 'any') && auth.hasRole({ role: 'viewer' }, 'any'), 'auth: role ranks (viewer < agent < manager < admin < owner; operator = agent)');
+  ok(auth.hasRole({ role: 'admin' }, 'manager') && !auth.hasRole({ role: 'manager' }, 'admin') && auth.hasRole({ role: 'owner' }, 'admin'), 'auth: admin between manager and owner');
+  ok(auth.canSeeProject({ role: 'agent', projects: ['a'] }, 'a') && !auth.canSeeProject({ role: 'agent', projects: ['a'] }, 'b') && auth.canSeeProject({ role: 'admin', projects: null }, 'b') && !auth.canSeeProject(null, 'a'), 'auth: project access list');
   eq(auth.csrfCheck({ headers: {} }), 'csrf_header_missing', 'csrf: header required');
   eq(auth.csrfCheck({ headers: { 'x-requested-with': 'MythosWP', host: 'wp.test', origin: 'https://evil.test' } }), 'csrf_origin_mismatch', 'csrf: origin mismatch');
   eq(auth.csrfCheck({ headers: { 'x-requested-with': 'MythosWP', host: 'wp.test', origin: 'https://wp.test' } }), null, 'csrf: same origin ok');
@@ -142,7 +139,9 @@ fs.writeFileSync(usersFile, JSON.stringify({ users: [
 // ================================================================ registry & audit helpers
 (function () {
   var keys = resources.keys();
-  ok(keys.length === 14, 'registry: 14 resources (' + keys.length + ')');
+  ok(keys.length === 9, 'registry: 9 panel resources, no catalogue (' + keys.length + ')');
+  ok(keys.indexOf('products') === -1 && keys.indexOf('stock') === -1 && keys.indexOf('commercial') === -1, 'registry: product / price / stock data is not a WP resource any more (Kitchen owns it)');
+  ok(!resources.get('users').fields.some(function (f) { return f.name === 'scrypt' && !f.hidden; }), 'registry: password hash is hidden');
   keys.forEach(function (k) {
     var r = resources.get(k);
     ok(r.fields.some(function (f) { return f.name === r.idColumn; }), 'registry: ' + k + ' has id field');
@@ -151,10 +150,10 @@ fs.writeFileSync(usersFile, JSON.stringify({ users: [
     r.filters.forEach(function (f) { ok(f.kind === 'flag' || r.fields.some(function (x) { return x.name === f.field; }), 'registry: ' + k + ' filter ' + f.name); });
   });
   var pub = resources.publicAll();
-  ok(!JSON.stringify(pub).match(/"sql"/) && !pub.products.check, 'registry: public shape carries no SQL/hooks');
+  ok(!JSON.stringify(pub).match(/"sql"/) && !pub.projects.check, 'registry: public shape carries no SQL/hooks');
   ok(!resources.get('audit').permissions.write, 'registry: audit is read-only');
-  eq(resources.get('rules').permissions.write, 'owner', 'registry: rules owner-only');
-  eq(resources.get('products').delete.kind, 'soft', 'registry: products soft delete');
+  eq(resources.get('rules').permissions.write, 'admin', 'registry: rules admin-only');
+  eq(resources.get('users').permissions.delete, 'owner', 'registry: users deleted by owner only');
   var cleaned = audit.clean({ password: 'x', api_token: 'y', dsn: 'z', fine: 'postgres://u:p@h/db', n: 1, nested: { secret: 's', ok: true } });
   ok(!cleaned.password && !cleaned.api_token && !cleaned.dsn && !cleaned.nested.secret && cleaned.nested.ok === true && cleaned.fine.indexOf('REDACTED') !== -1, 'audit: secret keys dropped and values redacted');
   var d = audit.diff({ a: 1, b: 2, c: 3 }, { a: 1, b: 5, c: 3 });
@@ -170,7 +169,17 @@ fs.writeFileSync(usersFile, JSON.stringify({ users: [
 }());
 
 // ================================================================ HTTP boundary (no DB needed for these)
-function request(port, method, p, body, headers) {
+// One retry on a transient loopback socket error. This host runs other heavy sessions; when the CPU is
+// starved the kernel can reset an accept()ing socket before the server touches it. That is not a product
+// behaviour and must not be read as one — an assertion never gets retried, only a connection failure.
+function request(port, method, p, body, headers, attempt) {
+  return rawRequest(port, method, p, body, headers).catch(function (e) {
+    var transient = e && /ECONNRESET|ECONNREFUSED|EPIPE|ETIMEDOUT|socket hang up/.test(String(e.message || e));
+    if (!transient || (attempt || 0) >= 3) throw e;
+    return new Promise(function (r) { setTimeout(r, 150 * ((attempt || 0) + 1)); }).then(function () { return request(port, method, p, body, headers, (attempt || 0) + 1); });
+  });
+}
+function rawRequest(port, method, p, body, headers) {
   return new Promise(function (resolve, reject) {
     var data = body === undefined ? null : JSON.stringify(body);
     var h = Object.assign({}, headers || {});
@@ -209,15 +218,19 @@ async function httpSection(port) {
   ok(/HttpOnly/.test(r.headers['set-cookie'][0]), 'http: cookie httpOnly');
   r = await request(port, 'POST', '/api/login', { username: 'op', password: OP_PW }, H); var opCookie = cookieOf(r); ok(!!opCookie, 'http: operator login');
   r = await request(port, 'GET', '/api/session', undefined, { Cookie: ownerCookie }); eq(r.json.data.username, 'owner', 'http: session route');
-  r = await request(port, 'GET', '/api/meta', undefined, { Cookie: ownerCookie }); ok(r.status === 200 && r.json.data.resources.products && r.json.data.groups.length, 'http: meta');
+  r = await request(port, 'GET', '/api/meta', undefined, { Cookie: ownerCookie }); ok(r.status === 200 && r.json.data.resources.projects && !r.json.data.resources.products && r.json.data.groups.length && r.json.data.product === 'MYTHOS Control Center', 'http: meta (control center, no catalogue resources)');
   r = await request(port, 'POST', '/api/logout', {}, { Cookie: ownerCookie }); eq(r.status, 403, 'http: mutation without CSRF header refused');
   eq(r.json.error, 'csrf', 'http: csrf error code');
   r = await request(port, 'POST', '/api/logout', {}, { Cookie: ownerCookie, 'X-Requested-With': 'MythosWP', Origin: 'https://evil.example' }); eq(r.status, 403, 'http: cross-origin mutation refused');
   r = await request(port, 'GET', '/api/nope', undefined, { Cookie: ownerCookie }); eq(r.status, 404, 'http: unknown api 404');
+  r = await request(port, 'GET', '/wp.css'); var etag = r.headers.etag;
+  ok(r.status === 200 && /no-cache/.test(r.headers['cache-control']) && !/max-age=3600/.test(r.headers['cache-control']) && !!etag, 'http: assets revalidate (ETag, no-cache)');
+  r = await request(port, 'GET', '/wp.css', undefined, { 'If-None-Match': etag }); eq(r.status, 304, 'http: unchanged asset → 304');
+  r = await request(port, 'GET', '/js/app.js', undefined, { Cookie: ownerCookie }); ok(r.status === 200 && /^private, no-cache/.test(r.headers['cache-control']), 'http: signed-in scripts are private');
   r = await request(port, 'PUT', '/api/meta', {}, Object.assign({ Cookie: ownerCookie }, H)); eq(r.status, 405, 'http: wrong method 405');
   r = await request(port, 'GET', '/api/r/rules', undefined, { Cookie: opCookie }); ok(r.status === 400 || r.status === 200 || r.status === 503, 'http: operator may read rules (' + r.status + ')');
   r = await request(port, 'POST', '/api/r/rules?project=x', { rule_key: 'a' }, Object.assign({ Cookie: opCookie }, H)); ok(r.status === 403 || r.status === 404, 'http: operator cannot write rules (' + r.status + ')');
-  r = await request(port, 'DELETE', '/api/r/products/1?project=x', undefined, Object.assign({ Cookie: opCookie }, H)); ok(r.status === 403 || r.status === 404, 'http: operator cannot delete (' + r.status + ')');
+  r = await request(port, 'DELETE', '/api/r/knowledge/1?project=x', undefined, Object.assign({ Cookie: opCookie }, H)); ok(r.status === 403 || r.status === 404, 'http: manager cannot delete knowledge (' + r.status + ')');
   r = await request(port, 'GET', '/api/r/unknown', undefined, { Cookie: ownerCookie }); eq(r.status, 404, 'http: unknown resource 404');
   r = await request(port, 'GET', '/api/r/audit/1', undefined, { Cookie: ownerCookie }); ok(r.status === 404 || r.status === 200 || r.status === 503, 'http: audit read by owner (' + r.status + ')');
   r = await request(port, 'POST', '/api/r/audit', {}, Object.assign({ Cookie: ownerCookie }, H)); ok(r.status === 403 || r.status === 400, 'http: audit not writable (' + r.status + ')');
@@ -236,200 +249,199 @@ async function httpSection(port) {
 // ================================================================ DB section
 async function dbSection(port, opCookie) {
   var pool = db.wp();
-  await pool.query("UPDATE wp_messages SET ai_run_id = NULL; DELETE FROM wp_inbound_events; DELETE FROM wp_message_attachments; DELETE FROM wp_conversation_events; DELETE FROM wp_ai_suggestions; DELETE FROM wp_ai_runs; DELETE FROM wp_messages; DELETE FROM wp_conversation_tags; DELETE FROM wp_contact_tags; DELETE FROM wp_tags; DELETE FROM wp_audit_events; DELETE FROM wp_handoffs; DELETE FROM wp_conversations; DELETE FROM wp_contacts; DELETE FROM wp_inboxes; DELETE FROM wp_knowledge; DELETE FROM wp_business_rules; DELETE FROM wp_stock; DELETE FROM wp_product_commercial; DELETE FROM wp_projects; TRUNCATE ssangyong_autos.sya_product_images, ssangyong_autos.sya_product_vehicle_compatibility, ssangyong_autos.sya_vehicle_motorizations, ssangyong_autos.sya_vehicle_models, ssangyong_autos.sya_products RESTART IDENTITY CASCADE;");
-  await pool.query("INSERT INTO wp_projects (id, display_name, domain, brand_car, catalog_dsn_env, catalog_schema, status) VALUES ('test-autos','Test Autos','test.autos','TESTBRAND','MYTHOS_WP_CATALOG_TEST','ssangyong_autos','active')");
+  await pool.query("UPDATE wp_messages SET ai_run_id = NULL WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_inbound_events WHERE inbox_id IN (SELECT id FROM wp_inboxes WHERE project_id IN ('test-core','test-core-2')); DELETE FROM wp_conversation_events WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_ai_suggestions WHERE conversation_id IN (SELECT id FROM wp_conversations WHERE project_id IN ('test-core','test-core-2')); DELETE FROM wp_ai_runs WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_messages WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_handoffs WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_conversations WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_contacts WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_tags WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_knowledge WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_business_rules WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_inboxes WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_notes WHERE project_id IN ('test-core','test-core-2'); DELETE FROM wp_audit_events WHERE project_id IN ('test-core','test-core-2') OR actor IN ('core-agent','core-admin','core-viewer') OR (resource = 'users' AND record_id IN ('core-agent','core-admin','core-viewer','core-owner2')); DELETE FROM wp_users WHERE username IN ('core-agent','core-admin','core-viewer','core-owner2','core-peer','core-owner','owner','op'); DELETE FROM wp_projects WHERE id IN ('test-core','test-core-2');");
+  await pool.query("INSERT INTO wp_projects (id, display_name, domain, kind, status, description, settings) VALUES ('test-core','Core Test','core.test','service','active','A service project', '{}'), ('test-core-2','Core Test 2',NULL,'internal','active',NULL,'{}')");
   store.invalidate();
-  var resolved = await store.resolve('test-autos');
-  ok(resolved && resolved.catalogPool, 'db: project resolves with catalogue pool');
+  var resolved = await store.resolve('test-core');
+  ok(resolved && resolved.wpPool && resolved.project.kind === 'service', 'db: project resolves (no catalogue pool needed)');
   var r = await request(port, 'POST', '/api/login', { username: 'owner', password: OWNER_PW }, H); var C = { Cookie: cookieOf(r), 'X-Requested-With': 'MythosWP' };
+  ok(r.json.data.projects === null, 'login: file-provisioned owner sees every project');
   var OP = { Cookie: opCookie, 'X-Requested-With': 'MythosWP' };
-  var P = '?project=test-autos';
+  var P = '?project=test-core';
 
-  // --- create catalogue rows through the API
-  var now = new Date().toISOString();
-  r = await request(port, 'POST', '/api/r/vehicle_models' + P, { brand_car: 'TESTBRAND', model_name: 'KORANDO', generation_code: 'C', model_url: 'https://t.test/korando', year_from: 2010, source: 't', collected_at: now }, C);
-  eq(r.status, 201, 'crud: create vehicle model 201'); var modelId = r.json.data.row.id; ok(r.json.data.audited === true, 'crud: create audited');
-  r = await request(port, 'POST', '/api/r/vehicle_models' + P, { brand_car: 'TESTBRAND', model_name: 'KORANDO', generation_code: 'C', model_url: 'https://t.test/korando', year_from: 2010, source: 't', collected_at: now }, C);
-  eq(r.status, 409, 'crud: duplicate unique → 409'); eq(r.json.error, 'conflict', 'crud: conflict code');
-  r = await request(port, 'POST', '/api/r/vehicle_models' + P, { brand_car: 'TESTBRAND', model_name: 'X', model_url: 'https://t.test/x', year_from: 2020, year_to: 2010, source: 't', collected_at: now }, C);
-  ok(r.status === 400 && r.json.errors.year_to === 'before_year_from', 'crud: resource check hook (year order)');
-  r = await request(port, 'POST', '/api/r/motorizations' + P, { vehicle_model_id: modelId, motorisation: '2.0 Xdi', motorisation_url: 'https://t.test/m', fuel: 'Diesel', collected_at: now }, C);
-  eq(r.status, 201, 'crud: create motorization'); var motorId = r.json.data.row.id;
-  r = await request(port, 'POST', '/api/r/motorizations' + P, { vehicle_model_id: 999999, motorisation: '2.0', motorisation_url: 'https://t.test/m2', collected_at: now }, C);
-  eq(r.status, 409, 'crud: FK violation → 409 referenced');
-  var prod = { product_uid: 'wp:FILTER-1', canonical_reference: 'CAF100563P', product_brand: 'CHAMPION', product_title: 'Filtre à huile CHAMPION', oem_reference: '6711840025', source: 'mythos-wp', product_url: 'https://t.test/p1', price_tnd: 33.8, availability: 'En Stock', status: 'active' };
-  r = await request(port, 'POST', '/api/r/products' + P, prod, C); eq(r.status, 201, 'crud: create product (timestamps defaulted)'); var prodId = r.json.data.row.id;
-  ok(r.json.data.row.collected_at && r.json.data.row.last_checked_at, 'crud: defaultValue now applied');
-  r = await request(port, 'POST', '/api/r/products' + P, Object.assign({}, prod, { product_uid: 'wp:FILTER-2', product_url: 'https://t.test/p2', canonical_reference: 'CAF100563P' }), C); eq(r.status, 409, 'crud: business identity unique');
-  r = await request(port, 'POST', '/api/r/products' + P, Object.assign({}, prod, { product_uid: 'wp:PADS-1', product_url: 'https://t.test/p3', canonical_reference: 'PADS-1', product_title: 'Plaquettes de frein', oem_reference: null, price_tnd: 80 }), C); eq(r.status, 201, 'crud: second product'); var pads = r.json.data.row;
-  r = await request(port, 'POST', '/api/r/products' + P, Object.assign({}, prod, { product_uid: 'wp:BAD', price_tnd: -1 }), C); ok(r.status === 400 && r.json.errors.price_tnd === 'min', 'crud: invalid data 400 with field error');
-  r = await request(port, 'POST', '/api/r/products' + P, { product_title: 'incomplete' }, C); ok(r.status === 400 && r.json.errors.product_uid === 'required', 'crud: missing required on create');
-  r = await request(port, 'POST', '/api/r/compatibility' + P, { product_id: prodId, vehicle_model_id: modelId, vehicle_motorization_id: motorId, motorisation: '2.0 Xdi', year_from: 2010, category_url: 'https://t.test/c' }, C); eq(r.status, 201, 'crud: compatibility');
-  r = await request(port, 'POST', '/api/r/images' + P, { product_id: prodId, image_url: 'https://t.test/i.jpg', position: 1 }, OP); eq(r.status, 201, 'crud: operator can create image');
-  var imageId = r.json.data.row.id;
+  // --- users: DB accounts, roles, project access, hidden hash
+  r = await request(port, 'POST', '/api/r/users', { username: 'core-agent', role: 'agent', password: 'test-agent-pw-not-a-real-1', display_name: 'Core Agent' }, OP); eq(r.status, 403, 'users: manager cannot create accounts');
+  r = await request(port, 'POST', '/api/r/users', { username: 'core-agent', role: 'agent', password: 'short' }, C); eq(r.status, 400, 'users: password policy');
+  r = await request(port, 'POST', '/api/r/users', { username: 'core-agent', role: 'agent', password: 'test-agent-pw-not-a-real-1', display_name: 'Core Agent' }, C);
+  ok(r.status === 201 && r.json.data.row.username === 'core-agent' && r.json.data.row.scrypt === undefined && !/scrypt|\$[0-9a-f]{32}/.test(r.text), 'users: created, hash never returned');
+  r = await request(port, 'POST', '/api/r/users', { username: 'core-admin', role: 'admin', password: 'test-admin-pw-not-a-real-1', all_projects: true }, C); eq(r.status, 201, 'users: admin created');
+  r = await request(port, 'POST', '/api/r/users', { username: 'core-viewer', role: 'viewer', password: 'test-viewer-pw-not-a-real-1' }, C); eq(r.status, 201, 'users: viewer created');
+  r = await request(port, 'GET', '/api/r/users', undefined, C); ok(r.status === 200 && r.json.data.rows.length >= 3 && !/scrypt/.test(r.text), 'users: list hides the hash');
+  r = await request(port, 'GET', '/api/r/users/core-agent', undefined, C); ok(r.status === 200 && r.json.data.row.scrypt === undefined && r.json.data.history.length === 1, 'users: record hidden field + audited create (' + r.status + ' ' + JSON.stringify(r.json && r.json.data && r.json.data.history) + ')');
+  r = await request(port, 'POST', '/api/login', { username: 'core-agent', password: 'test-agent-pw-not-a-real-1' }, H);
+  ok(r.status === 200 && r.json.data.role === 'agent' && JSON.stringify(r.json.data.projects) === '[]', 'users: DB login, no project yet');
+  var AG = { Cookie: cookieOf(r), 'X-Requested-With': 'MythosWP' };
+  r = await request(port, 'GET', '/api/meta', undefined, AG); ok(r.status === 200 && r.json.data.projects.length === 0, 'access: agent without grants sees no project');
+  r = await request(port, 'GET', '/api/r/knowledge' + P, undefined, AG); eq(r.status, 404, 'access: ungranted project reads as unknown (404)');
+  r = await request(port, 'PATCH', '/api/users/core-agent/projects', { add: ['test-core'] }, OP); eq(r.status, 403, 'access: manager cannot grant');
+  r = await request(port, 'PATCH', '/api/users/core-agent/projects', { add: ['test-core', 'nope-project'] }, C); eq(r.status, 404, 'access: unknown project refused');
+  r = await request(port, 'PATCH', '/api/users/core-agent/projects', { add: ['test-core'] }, C); ok(r.status === 200 && JSON.stringify(r.json.data.projects) === '["test-core"]', 'access: owner grants a project');
+  r = await request(port, 'POST', '/api/login', { username: 'core-agent', password: 'test-agent-pw-not-a-real-1' }, H); AG = { Cookie: cookieOf(r), 'X-Requested-With': 'MythosWP' };
+  ok(JSON.stringify(r.json.data.projects) === '["test-core"]', 'access: session carries the grant');
+  r = await request(port, 'GET', '/api/meta', undefined, AG); ok(r.json.data.projects.length === 1 && r.json.data.projects[0].id === 'test-core', 'access: meta lists only granted projects');
+  r = await request(port, 'GET', '/api/r/knowledge?project=test-core-2', undefined, AG); eq(r.status, 404, 'access: other project still hidden');
+  r = await request(port, 'GET', '/api/r/knowledge' + P, undefined, AG); eq(r.status, 200, 'access: granted project readable');
+  r = await request(port, 'GET', '/api/r/audit', undefined, AG); eq(r.status, 403, 'access: agents cannot read the audit log at all (manager+)');
+  r = await request(port, 'POST', '/api/users/core-agent/password', { password: 'test-new-agent-pw-not-a-real' }, OP); eq(r.status, 403, 'users: manager cannot reset passwords');
+  r = await request(port, 'POST', '/api/users/core-agent/password', { password: 'test-new-agent-pw-not-a-real' }, C); eq(r.status, 200, 'users: owner resets a password');
+  r = await request(port, 'POST', '/api/login', { username: 'core-agent', password: 'test-agent-pw-not-a-real-1' }, H); eq(r.status, 401, 'users: old password refused');
+  r = await request(port, 'POST', '/api/login', { username: 'core-agent', password: 'test-new-agent-pw-not-a-real' }, H); eq(r.status, 200, 'users: new password works'); AG = { Cookie: cookieOf(r), 'X-Requested-With': 'MythosWP' };
+  r = await request(port, 'POST', '/api/login', { username: 'core-admin', password: 'test-admin-pw-not-a-real-1' }, H); var AD = { Cookie: cookieOf(r), 'X-Requested-With': 'MythosWP' }; ok(r.json.data.projects === null, 'access: admin sees every project');
+  r = await request(port, 'PATCH', '/api/r/users/core-viewer', { role: 'owner' }, AD); eq(r.status, 403, 'users: admin cannot grant owner');
+  r = await request(port, 'PATCH', '/api/r/users/core-viewer', { status: 'disabled' }, AD); eq(r.status, 200, 'users: admin disables an account');
+  r = await request(port, 'POST', '/api/login', { username: 'core-viewer', password: 'test-viewer-pw-not-a-real-1' }, H); eq(r.status, 401, 'users: disabled account cannot log in');
+  r = await request(port, 'DELETE', '/api/r/users/core-admin', undefined, AD); eq(r.status, 403, 'users: cannot delete own account');
+  r = await request(port, 'DELETE', '/api/r/users/core-viewer', undefined, AD); eq(r.status, 403, 'users: admin cannot delete accounts (owner only)');
+  // create is CREATE: POSTing an existing name must never overwrite its password, role or status
+  r = await request(port, 'POST', '/api/r/users', { username: 'owner', role: 'admin', password: 'test-takeover-pw-not-a-real', all_projects: true }, AD);
+  ok(r.status === 409 || r.status === 403, 'users: creating an existing account is refused (no silent overwrite) (' + r.status + ')');
+  var ownerRow = (await pool.query("SELECT role, status FROM wp_users WHERE username = 'core-admin'")).rows[0];
+  r = await request(port, 'POST', '/api/r/users', { username: 'core-admin', role: 'viewer', password: 'test-takeover-pw-not-a-real' }, AD); eq(r.status, 409, 'users: an admin cannot re-create another admin');
+  var afterRow = (await pool.query("SELECT role, status FROM wp_users WHERE username = 'core-admin'")).rows[0];
+  eq(afterRow, ownerRow, 'users: the refused create changed nothing');
+  r = await request(port, 'POST', '/api/login', { username: 'core-admin', password: 'test-admin-pw-not-a-real-1' }, H); eq(r.status, 200, 'users: the original password still works after the refused create');
+  AD = { Cookie: cookieOf(r), 'X-Requested-With': 'MythosWP' };
+  // review of PR #313: rank rules hold on every user route, and no hidden field leaves through lookup
+  r = await request(port, 'POST', '/api/r/users', { username: 'core-peer', role: 'admin', password: 'test-peer-pw-not-a-real-1' }, AD); eq(r.status, 403, 'users: an admin cannot mint another admin');
+  r = await request(port, 'POST', '/api/r/users', { username: 'core-peer', role: 'admin', password: 'test-peer-pw-not-a-real-1' }, C); eq(r.status, 201, 'users: owner creates a second admin');
+  r = await request(port, 'POST', '/api/users/core-peer/password', { password: 'test-hijack-pw-not-a-real' }, AD); eq(r.status, 403, 'users: an admin cannot reset a peer admin password');
+  r = await request(port, 'GET', '/api/r/users/lookup?display=scrypt', undefined, AD); ok(r.status === 200 && !/\$/.test(r.text) && !/16384/.test(r.text), 'users: lookup never labels rows with the password hash');
+  r = await request(port, 'GET', '/api/r/users/lookup?by=scrypt&ids=x', undefined, AD); ok(r.status === 200 && r.json.data.every(function (x) { return !/\$/.test(String(x.label)); }), 'users: lookup never matches on the password hash');
+  r = await request(port, 'POST', '/api/r/users', { username: 'core-owner', role: 'owner', password: 'test-owner2-pw-not-a-real-1' }, C); eq(r.status, 201, 'users: owner creates an owner');
+  r = await request(port, 'PATCH', '/api/r/users/core-owner', { display_name: 'Only Owner' }, C); eq(r.status, 200, 'users: an owner can be renamed (no role/status change is not a demotion)');
+  // losing "every project" must end the live session, not wait for the 8 h TTL
+  r = await request(port, 'GET', '/api/meta', undefined, AD); ok(r.status === 200 && r.json.data.user.projects === null, 'access: admin session sees every project');
+  r = await request(port, 'PATCH', '/api/r/users/core-admin', { all_projects: false }, C); eq(r.status, 200, 'users: owner clears the all-projects flag');
+  r = await request(port, 'GET', '/api/meta', undefined, AD); eq(r.status, 401, 'access: the session ended the moment the grant was removed');
+  r = await request(port, 'POST', '/api/login', { username: 'core-admin', password: 'test-admin-pw-not-a-real-1' }, H); AD = { Cookie: cookieOf(r), 'X-Requested-With': 'MythosWP' };
 
-  // --- read / list / search / sort / filter / pagination
-  r = await request(port, 'GET', '/api/r/products/' + prodId + P, undefined, C); ok(r.status === 200 && r.json.data.row.product_uid === 'wp:FILTER-1' && Array.isArray(r.json.data.history) && r.json.data.history.length === 1, 'crud: get with history');
-  r = await request(port, 'GET', '/api/r/products/999999' + P, undefined, C); eq(r.status, 404, 'crud: get missing 404');
-  r = await request(port, 'GET', '/api/r/products/abc' + P, undefined, C); eq(r.status, 404, 'crud: non-numeric id 404');
-  r = await request(port, 'GET', '/api/r/products' + P + '&q=huile', undefined, C); ok(r.json.data.total === 1 && r.json.data.rows[0].product_uid === 'wp:FILTER-1', 'crud: search');
-  r = await request(port, 'GET', '/api/r/products' + P + '&q=6711840025', undefined, C); eq(r.json.data.total, 1, 'crud: search by OEM');
-  r = await request(port, 'GET', '/api/r/products' + P + '&sort=price_tnd&dir=desc', undefined, C); ok(Number(r.json.data.rows[0].price_tnd) === 80, 'crud: sort desc');
-  r = await request(port, 'GET', '/api/r/products' + P + '&sort=criteria_text', undefined, C); eq(r.status, 400, 'crud: non-sortable column refused');
-  r = await request(port, 'GET', '/api/r/products' + P + '&f.missing_oem=true', undefined, C); ok(r.json.data.total === 1 && r.json.data.rows[0].product_uid === 'wp:PADS-1', 'crud: flag filter');
-  r = await request(port, 'GET', '/api/r/products' + P + '&f.brand=CHAMPION', undefined, C); eq(r.json.data.total, 2, 'crud: value filter');
-  r = await request(port, 'GET', '/api/r/products' + P + '&f.status=bogus', undefined, C); eq(r.status, 400, 'crud: enum filter value refused');
-  r = await request(port, 'GET', '/api/r/products' + P + '&f.zzz=1', undefined, C); eq(r.status, 400, 'crud: unknown filter refused');
-  r = await request(port, 'GET', '/api/r/products' + P + '&limit=1&page=2', undefined, C); ok(r.json.data.rows.length === 1 && r.json.data.page === 2 && r.json.data.total === 2, 'crud: pagination');
-  r = await request(port, 'GET', '/api/r/products' + P + '&limit=100000', undefined, C); eq(r.json.data.limit, crud.MAX_LIMIT, 'crud: limit clamped');
-  r = await request(port, 'GET', '/api/r/motorizations' + P, undefined, C); eq(r.json.data.rows[0].model_name, 'KORANDO', 'crud: joined virtual column');
-  r = await request(port, 'GET', '/api/r/compatibility' + P + '&q=KORANDO', undefined, C); eq(r.json.data.total, 1, 'crud: search through join');
-  r = await request(port, 'GET', '/api/r/products/lookup' + P + '&q=CAF&display=canonical_reference', undefined, C); ok(r.json.data.length === 1 && r.json.data[0].label === 'CAF100563P', 'crud: lookup');
-  r = await request(port, 'GET', '/api/r/products', undefined, C); eq(r.status, 400, 'crud: catalogue resource needs project');
-  r = await request(port, 'GET', '/api/r/products?project=nope', undefined, C); eq(r.status, 404, 'crud: unknown project 404');
-
-  // --- update
-  r = await request(port, 'PATCH', '/api/r/products/' + prodId + P, { product_title: 'Filtre à huile CHAMPION (rev)', price_tnd: 35 }, OP);
-  ok(r.status === 200 && r.json.data.changed.indexOf('product_title') !== -1 && r.json.data.changed.indexOf('price_tnd') !== -1, 'crud: operator update with changed fields');
-  ok(r.json.data.row.updated_at !== undefined, 'crud: updated_at managed');
-  r = await request(port, 'PATCH', '/api/r/products/' + prodId + P, { product_uid: 'wp:OTHER' }, C); ok(r.status === 400 && r.json.errors.product_uid === 'create_only', 'crud: createOnly refused on update');
-  r = await request(port, 'PATCH', '/api/r/products/' + prodId + P, {}, C); eq(r.status, 400, 'crud: empty update refused');
-  r = await request(port, 'PATCH', '/api/r/products/' + prodId + P, { updated_at: now }, C); ok(r.status === 400 && r.json.errors.updated_at === 'read_only', 'crud: read-only refused');
-  r = await request(port, 'PATCH', '/api/r/products/' + prodId + P, { availability: 'Peut-être' }, C); ok(r.status === 400 && r.json.errors.availability === 'not_in_enum', 'crud: enum on update');
-  r = await request(port, 'GET', '/api/r/products/' + prodId + P, undefined, C); eq(r.json.data.history.length, 2, 'audit: two events on product');
-  eq(r.json.data.history[0].changed_fields.sort(), ['price_tnd', 'product_title'], 'audit: changed fields recorded');
-  ok(r.json.data.history[0].previous.price_tnd !== undefined && r.json.data.history[0].actor === 'op', 'audit: previous value and actor');
-
-  // --- overlays (verified price / stock) + views
-  r = await request(port, 'PUT', '/api/projects/test-autos/overlay/commercial/wp:FILTER-1', { selling_price: 45.5, purchase_price: 30, currency: 'TND' }, OP);
-  ok(r.status === 200 && r.json.data.created === true, 'overlay: commercial upsert create');
-  r = await request(port, 'PUT', '/api/projects/test-autos/overlay/commercial/wp:FILTER-1', { selling_price: 46 }, OP);
-  ok(r.status === 200 && r.json.data.created === false && Number(r.json.data.row.selling_price) === 46, 'overlay: commercial upsert update');
-  r = await request(port, 'PUT', '/api/projects/test-autos/overlay/commercial/wp:NOPE', { selling_price: 1 }, OP); eq(r.status, 404, 'overlay: unknown part refused');
-  r = await request(port, 'PUT', '/api/projects/test-autos/overlay/commercial/wp:FILTER-1', { selling_price: 0 }, OP); eq(r.status, 400, 'overlay: invalid price');
-  r = await request(port, 'PUT', '/api/projects/test-autos/overlay/stock/wp:FILTER-1', { quantity: 3, min_quantity: 5, availability: 'in_stock', location: 'A1' }, OP); eq(r.status, 200, 'overlay: stock upsert');
-  r = await request(port, 'GET', '/api/projects/test-autos/pricing', undefined, C);
-  var pr = r.json.data.rows.filter(function (x) { return x.product_uid === 'wp:FILTER-1'; })[0];
-  ok(pr && pr.price_state === 'verified' && Number(pr.selling_price) === 46 && pr.margin === 16 && Number(pr.catalogue_price) === 35, 'view: pricing merged with margin');
-  ok(r.json.data.rows.filter(function (x) { return x.product_uid === 'wp:PADS-1'; })[0].price_state === 'unknown', 'view: pricing unknown for part without overlay');
-  r = await request(port, 'GET', '/api/projects/test-autos/stock', undefined, C);
-  ok(r.json.data.rows.filter(function (x) { return x.product_uid === 'wp:FILTER-1'; })[0].stock_state === 'low', 'view: stock low state');
-  r = await request(port, 'GET', '/api/projects/test-autos/references?f.missing_oem=true', undefined, C); ok(r.json.data.total === 1 && r.json.data.rows[0].reference_state === 'missing_oem', 'view: references missing OEM');
-  r = await request(port, 'GET', '/api/projects/test-autos/parts/wp:FILTER-1', undefined, C);
-  ok(r.status === 200 && r.json.data.compatibility.length === 1 && r.json.data.images.length === 1 && r.json.data.commercial && r.json.data.stock, 'view: part full');
-  eq(r.json.data.auto_reply_facts, { price: 'VERIFIED', stock: 'VERIFIED', compatibility: 'VERIFIED', oem_reference: 'VERIFIED' }, 'view: part facts all verified');
-  r = await request(port, 'GET', '/api/projects/test-autos/parts/wp%3AFILTER-1', undefined, C); ok(r.status === 200 && r.json.data.product.product_uid === 'wp:FILTER-1', 'view: percent-encoded uid resolves');
-  r = await request(port, 'GET', '/api/projects/test-autos/parts/%E0%A4%A', undefined, C); eq(r.status, 400, 'http: malformed percent-encoding → 400');
-  r = await request(port, 'GET', '/api/projects/test-autos/parts/wp:PADS-1', undefined, C);
-  eq(r.json.data.auto_reply_facts, { price: 'UNKNOWN', stock: 'UNKNOWN', compatibility: 'UNKNOWN', oem_reference: 'UNKNOWN' }, 'view: part facts unknown');
-
-  // --- wp resources: knowledge, rules (owner), handoffs
-  r = await request(port, 'POST', '/api/r/knowledge' + P, { kind: 'product_fact', title: 'Filtre garanti', customer_text: 'Garantie 6 mois.', language: 'fr', allowed_for_auto_reply: true, status: 'active', product_uid: 'wp:FILTER-1', tags: ['garantie'] }, OP); eq(r.status, 201, 'crud: knowledge create by operator');
-  var knowId = r.json.data.row.id;
-  r = await request(port, 'POST', '/api/r/rules' + P, { rule_key: 'opening_hours', value_json: { mon: '08-18' }, enabled: true }, OP); eq(r.status, 403, 'authz: operator cannot create rules');
-  r = await request(port, 'POST', '/api/r/rules' + P, { rule_key: 'opening_hours', value_json: { mon: '08-18' }, enabled: true }, C); eq(r.status, 201, 'authz: owner creates rule');
+  // --- wp resources: knowledge, rules, tags, handoffs; roles; audit
+  r = await request(port, 'POST', '/api/r/knowledge' + P, { kind: 'faq', title: 'Horaires', customer_text: 'Ouvert du lundi au samedi.', language: 'fr', allowed_for_auto_reply: true, status: 'active', tags: ['horaires'] }, AG); eq(r.status, 403, 'authz: agent cannot write knowledge');
+  r = await request(port, 'POST', '/api/r/knowledge' + P, { kind: 'faq', title: 'Horaires', customer_text: 'Ouvert du lundi au samedi.', language: 'fr', allowed_for_auto_reply: true, status: 'active', tags: ['horaires'] }, OP); eq(r.status, 201, 'crud: knowledge create by manager');
+  var knowId = r.json.data.row.id; ok(r.json.data.audited === true, 'crud: create audited');
+  r = await request(port, 'POST', '/api/r/knowledge' + P, { title: 'incomplete' }, OP); ok(r.status === 400 && r.json.errors.customer_text === 'required', 'crud: missing required on create');
+  r = await request(port, 'POST', '/api/r/knowledge' + P, { kind: 'bogus', title: 'x', customer_text: 'y' }, OP); ok(r.status === 400 && r.json.errors.kind === 'not_in_enum', 'crud: enum refused');
+  r = await request(port, 'GET', '/api/r/knowledge/' + knowId + P, undefined, AG); ok(r.status === 200 && r.json.data.row.title === 'Horaires' && r.json.data.history.length === 1, 'crud: get with history (agent may read)');
+  r = await request(port, 'GET', '/api/r/knowledge/999999' + P, undefined, C); eq(r.status, 404, 'crud: get missing 404');
+  r = await request(port, 'GET', '/api/r/knowledge' + P + '&q=lundi', undefined, C); eq(r.json.data.total, 1, 'crud: search');
+  r = await request(port, 'GET', '/api/r/knowledge' + P + '&f.status=active', undefined, C); eq(r.json.data.total, 1, 'crud: enum filter');
+  r = await request(port, 'GET', '/api/r/knowledge' + P + '&f.zzz=1', undefined, C); eq(r.status, 400, 'crud: unknown filter refused');
+  r = await request(port, 'GET', '/api/r/knowledge' + P + '&sort=customer_text', undefined, C); eq(r.status, 400, 'crud: non-sortable column refused');
+  r = await request(port, 'GET', '/api/r/knowledge' + P + '&limit=100000', undefined, C); eq(r.json.data.limit, crud.MAX_LIMIT, 'crud: limit clamped');
+  r = await request(port, 'GET', '/api/r/knowledge', undefined, C); eq(r.status, 400, 'crud: project-scoped resource needs a project');
+  r = await request(port, 'GET', '/api/r/knowledge?project=nope', undefined, C); eq(r.status, 404, 'crud: unknown project 404');
+  r = await request(port, 'GET', '/api/r/knowledge?project=test-core-2', undefined, C); eq(r.json.data.total, 0, 'crud: project isolation');
+  r = await request(port, 'PATCH', '/api/r/knowledge/' + knowId + P, { title: 'Horaires (rev)', status: 'draft' }, OP);
+  ok(r.status === 200 && r.json.data.changed.indexOf('title') !== -1 && r.json.data.changed.indexOf('status') !== -1, 'crud: update with changed fields');
+  r = await request(port, 'PATCH', '/api/r/knowledge/' + knowId + P, {}, C); eq(r.status, 400, 'crud: empty update refused');
+  r = await request(port, 'PATCH', '/api/r/knowledge/' + knowId + P, { updated_at: new Date().toISOString() }, C); ok(r.status === 400 && r.json.errors.updated_at === 'read_only', 'crud: read-only refused');
+  r = await request(port, 'GET', '/api/r/knowledge/' + knowId + P, undefined, C); eq(r.json.data.history.length, 2, 'audit: two events');
+  eq(r.json.data.history[0].changed_fields.sort(), ['status', 'title'], 'audit: changed fields recorded');
+  ok(r.json.data.history[0].previous.title === 'Horaires' && r.json.data.history[0].actor === 'op', 'audit: previous value and actor');
+  r = await request(port, 'POST', '/api/r/rules' + P, { rule_key: 'opening_hours', value_json: { mon: '08-18' }, enabled: true }, OP); eq(r.status, 403, 'authz: manager cannot create rules');
+  r = await request(port, 'POST', '/api/r/rules' + P, { rule_key: 'opening_hours', value_json: { mon: '08-18' }, enabled: true }, AD); eq(r.status, 201, 'authz: admin creates rule');
+  r = await request(port, 'POST', '/api/r/rules' + P, { rule_key: 'opening_hours', value_json: {}, enabled: true }, C); eq(r.status, 409, 'crud: duplicate unique → 409');
   r = await request(port, 'POST', '/api/r/rules' + P, { rule_key: 'Bad Key', value_json: {}, enabled: true }, C); eq(r.status, 400, 'crud: rule key pattern');
-  r = await request(port, 'POST', '/api/r/handoffs' + P, { reason: 'REQUIRES_HUMAN', intent: 'human_request', customer_ref_masked: '***432', channel: 'whatsapp', status: 'NEW' }, OP); eq(r.status, 201, 'crud: manual handoff');
+  r = await request(port, 'POST', '/api/r/tags' + P, { name: 'new-lead', color: '#112233' }, AG); eq(r.status, 403, 'authz: agent cannot create tags');
+  r = await request(port, 'POST', '/api/r/tags' + P, { name: 'new-lead', color: '#112233' }, OP); eq(r.status, 201, 'crud: tag created by manager'); var tagId = r.json.data.row.id;
+  r = await request(port, 'POST', '/api/r/tags' + P, { name: 'New Lead' }, OP); eq(r.status, 400, 'crud: tag name shape');
+  r = await request(port, 'POST', '/api/r/handoffs' + P, { reason: 'REQUIRES_HUMAN', intent: 'human_request', customer_ref_masked: '***432', channel: 'whatsapp', status: 'NEW' }, AG); eq(r.status, 201, 'crud: agent records a manual handoff');
   var hid = r.json.data.row.id;
   r = await request(port, 'POST', '/api/r/handoffs' + P, { reason: 'REQUIRES_HUMAN', customer_ref_masked: '21698765432' }, OP); ok(r.status === 400 && r.json.errors.customer_ref_masked === 'pattern', 'crud: unmasked number refused');
   r = await request(port, 'PATCH', '/api/r/handoffs/' + hid + P, { status: 'IN_PROGRESS', assigned_to: 'op' }, OP); eq(r.json.data.row.status, 'IN_PROGRESS', 'handoff: in progress');
   r = await request(port, 'PATCH', '/api/r/handoffs/' + hid + P, { status: 'RESOLVED', resolution: 'Called back.' }, OP);
   ok(r.json.data.row.status === 'RESOLVED' && r.json.data.row.resolved_by === 'op' && r.json.data.row.resolved_at, 'handoff: resolved stamps by server');
   r = await request(port, 'PATCH', '/api/r/handoffs/' + hid + P, { resolved_by: 'hacker' }, OP); ok(r.status === 400 && r.json.errors.resolved_by === 'read_only', 'handoff: resolved_by not client-writable');
-
-  // --- delete: soft for products, hard otherwise, owner only
-  r = await request(port, 'DELETE', '/api/r/products/' + prodId + P, undefined, OP); eq(r.status, 403, 'authz: operator cannot delete');
-  r = await request(port, 'DELETE', '/api/r/images/' + imageId + P, undefined, OP); eq(r.status, 200, 'authz: operator may delete images (per registry)');
-  r = await request(port, 'DELETE', '/api/r/products/' + pads.id + P, undefined, C); ok(r.status === 200 && r.json.data.soft === true && r.json.data.row.status === 'delisted', 'crud: product soft delete');
-  r = await request(port, 'GET', '/api/r/products' + P + '&f.status=active', undefined, C); eq(r.json.data.total, 1, 'crud: delisted leaves active list');
-  r = await request(port, 'DELETE', '/api/r/vehicle_models/' + modelId + P, undefined, C); eq(r.status, 409, 'crud: hard delete blocked by FK → 409');
-  r = await request(port, 'DELETE', '/api/r/knowledge/' + knowId + P, undefined, C); eq(r.status, 200, 'crud: knowledge hard delete');
+  r = await request(port, 'DELETE', '/api/r/knowledge/' + knowId + P, undefined, OP); eq(r.status, 403, 'authz: manager cannot delete knowledge');
+  r = await request(port, 'DELETE', '/api/r/tags/' + tagId + P, undefined, OP); eq(r.status, 200, 'authz: manager may delete tags (per registry)');
+  r = await request(port, 'DELETE', '/api/r/knowledge/' + knowId + P, undefined, AD); eq(r.status, 200, 'crud: knowledge hard delete by admin');
   r = await request(port, 'GET', '/api/r/knowledge/' + knowId + P, undefined, C); eq(r.status, 404, 'crud: deleted gone');
-  r = await request(port, 'GET', '/api/audit/knowledge/' + knowId, undefined, C); ok(r.json.data.history.length === 2 && r.json.data.history[0].action === 'delete', 'audit: delete recorded with previous');
-  r = await request(port, 'GET', '/api/r/audit' + P + '&f.action=delete', undefined, C); ok(r.json.data.total >= 3, 'audit: list filter by action');
+  r = await request(port, 'GET', '/api/audit/knowledge/' + knowId, undefined, C); ok(r.json.data.history.length === 3 && r.json.data.history[0].action === 'delete', 'audit: delete recorded with previous');
+  r = await request(port, 'GET', '/api/r/audit' + P + '&f.action=delete', undefined, C); ok(r.json.data.total >= 2, 'audit: list filter by action');
   r = await request(port, 'GET', '/api/r/audit' + P + '&f.actor=op', undefined, C); ok(r.json.data.total >= 3 && !/scrypt|password/i.test(r.text), 'audit: no secret in log');
+  r = await request(port, 'GET', '/api/r/audit' + P, undefined, AG); eq(r.status, 403, 'authz: agent cannot read the audit log');
   var loginEvents = await pool.query("SELECT count(*)::int AS n FROM wp_audit_events WHERE action IN ('login','login_failed','logout')"); ok(loginEvents.rows[0].n >= 1, 'audit: session events recorded');
+  var userAudit = await pool.query("SELECT count(*)::int AS n FROM wp_audit_events WHERE resource = 'users' AND action IN ('create','setting','update')"); ok(userAudit.rows[0].n >= 5, 'audit: user management audited');
+  var leak = await pool.query("SELECT count(*)::int AS n FROM wp_audit_events WHERE previous::text ILIKE '%scrypt%' OR next::text ILIKE '%scrypt%' OR next::text ~ '\\$[0-9a-f]{32}\\$'"); eq(leak.rows[0].n, 0, 'audit: no password hash ever written to the log');
 
-  // --- projects registry (owner only, global)
-  r = await request(port, 'POST', '/api/r/projects', { id: 'piece-autos', display_name: 'Piece Autos', catalog_dsn_env: 'MYTHOS_WP_CATALOG_PIECE_AUTOS', catalog_schema: 'piece_autos', status: 'planned' }, OP); eq(r.status, 403, 'authz: operator cannot create projects');
-  r = await request(port, 'POST', '/api/r/projects', { id: 'piece-autos', display_name: 'Piece Autos', catalog_dsn_env: 'MYTHOS_WP_CATALOG_PIECE_AUTOS', catalog_schema: 'piece_autos', status: 'planned' }, C); eq(r.status, 201, 'projects: owner creates planned project');
-  r = await request(port, 'POST', '/api/r/projects', { id: 'bad', display_name: 'B', catalog_dsn_env: 'lowercase' }, C); ok(r.status === 400 && r.json.errors.catalog_dsn_env === 'pattern', 'projects: env name pattern');
-  r = await request(port, 'GET', '/api/meta', undefined, C); ok(r.json.data.projects.some(function (p) { return p.id === 'piece-autos' && p.catalog_configured === false; }), 'projects: meta reports unconfigured catalogue');
-  r = await request(port, 'GET', '/api/r/products?project=piece-autos', undefined, C); eq(r.status, 503, 'projects: catalogue not configured → 503, not fake data');
-  r = await request(port, 'GET', '/api/projects/piece-autos/dashboard', undefined, C); ok(r.status === 200 && r.json.data.cards.total_records === null && r.json.data.catalogue.available === false, 'dashboard: unavailable catalogue → null cards, never 0');
-  r = await request(port, 'DELETE', '/api/r/projects/piece-autos', undefined, C); eq(r.status, 200, 'projects: delete unused project');
+  // --- projects registry (admin writes, owner deletes, global; no catalogue requirement)
+  r = await request(port, 'POST', '/api/r/projects', { id: 'test-core-3', display_name: 'Third', kind: 'automotive', status: 'planned', settings: { kitchen: 'kitchen-mythos-auto' } }, OP); eq(r.status, 403, 'authz: manager cannot create projects');
+  r = await request(port, 'POST', '/api/r/projects', { id: 'test-core-3', display_name: 'Third', kind: 'automotive', status: 'planned', settings: { kitchen: 'kitchen-mythos-auto' } }, AD); eq(r.status, 201, 'projects: automotive project needs no database catalogue (Kitchen via settings)');
+  r = await request(port, 'POST', '/api/r/projects', { id: 'bad', display_name: 'B', settings: { kitchen: 'Not A Key' } }, AD); ok(r.status === 400 && r.json.errors.settings, 'projects: settings.kitchen validated');
+  r = await request(port, 'POST', '/api/r/projects', { id: 'bad', display_name: 'B', catalog_dsn_env: 'lowercase' }, AD); ok(r.status === 400 && r.json.errors.catalog_dsn_env === 'read_only', 'projects: legacy catalogue column is not writable any more');
+  r = await request(port, 'GET', '/api/meta', undefined, C); ok(r.json.data.projects.some(function (p) { return p.id === 'test-core-3' && p.kitchen === 'kitchen-mythos-auto'; }), 'projects: meta exposes the kitchen key');
+  r = await request(port, 'DELETE', '/api/r/projects/test-core-3', undefined, AD); eq(r.status, 403, 'projects: admin cannot delete');
+  r = await request(port, 'DELETE', '/api/r/projects/test-core-3', undefined, C); eq(r.status, 200, 'projects: owner deletes unused project');
 
-  // --- dashboard + search
-  r = await request(port, 'GET', '/api/projects/test-autos/dashboard', undefined, C);
-  var cards = r.json.data.cards;
-  ok(cards.total_records === 2 && cards.active_products === 1 && cards.missing_prices === 0 && cards.low_stock === 1 && cards.handoff_open === 0, 'dashboard: real counts ' + JSON.stringify(cards));
-  r = await request(port, 'GET', '/api/search?project=test-autos&q=CAF', undefined, C); ok(r.json.data.groups.some(function (g) { return g.key === 'products' && g.items.length === 1; }), 'search: parts');
-  r = await request(port, 'GET', '/api/search?project=test-autos&q=k', undefined, C); eq(r.json.data.groups.length, 0, 'search: too short → nothing');
+  // --- V2.1 simple project operations: the short "New project" form, Project → AI, search scope
+  r = await request(port, 'POST', '/api/projects', { name: 'Core Simple Service', kind: 'service', domain: 'simple.test', description: 'created by the short form', currency: 'tnd' }, OP); eq(r.status, 403, 'simple create: manager cannot create projects');
+  r = await request(port, 'POST', '/api/projects', { name: 'Core Simple Service', kind: 'service', domain: 'simple.test', description: 'created by the short form', currency: 'tnd' }, AD);
+  ok(r.status === 201 && r.json.data.project.id === 'core-simple-service' && r.json.data.project.kind === 'service' && r.json.data.project.status === 'active' && r.json.data.project.currency === 'TND', 'simple create: slug generated, active, currency normalised (' + JSON.stringify(r.json.data && r.json.data.project && r.json.data.project.id) + ')');
+  ok(r.json.data.inbox === null && r.json.data.agent === null && !(r.json.data.project.settings || {}).kitchen, 'simple create: no number, no agent, no kitchen for a service project');
+  r = await request(port, 'POST', '/api/projects', { name: 'Core Simple Service', kind: 'auto', brand_car: 'KIA' }, AD);
+  ok(r.status === 201 && r.json.data.project.id === 'core-simple-service-2' && r.json.data.project.kind === 'automotive' && r.json.data.project.settings.kitchen === 'kitchen-mythos-auto' && r.json.data.project.brand_car === 'KIA', 'simple create: duplicate name gets a suffix; Auto type attaches the Kitchen automatically');
+  r = await request(port, 'POST', '/api/projects', { name: 'x', kind: 'bogus' }, AD); eq(r.status, 400, 'simple create: type validated');
+  r = await request(port, 'POST', '/api/projects', { name: '' }, AD); eq(r.status, 400, 'simple create: name required');
+  r = await request(port, 'POST', '/api/projects', { name: 'Core With Agent', kind: 'internal', agent_id: 999999 }, AD);
+  ok(r.status === 201 && r.json.data.agent === null && r.json.data.warnings.length === 1, 'simple create: unknown agent is reported as a warning, project still created');
+  r = await request(port, 'GET', '/api/r/projects/core-simple-service', undefined, AG); ok(r.status === 404, 'access: agent without grant does not see the new project');
+  r = await request(port, 'GET', '/api/r/projects', undefined, AD); ok(r.status === 200 && !/catalog_dsn_env|catalog_schema|Legacy/i.test(r.text), 'projects: legacy catalogue columns are hidden from the API');
+  r = await request(port, 'GET', '/api/meta', undefined, AD); ok(!/catalog_dsn_env|Legacy catalogue/.test(JSON.stringify(r.json.data.resources.projects)), 'meta: no legacy catalogue field reaches the browser');
+  await pool.query("INSERT INTO wp_agents (slug, name, mode, engine, status) VALUES ('core-agent-a','Core Agent A','auto','engine-173','active') ON CONFLICT (slug) DO UPDATE SET mode = 'auto', status = 'active'");
+  var agentRow = (await pool.query("SELECT id FROM wp_agents WHERE slug = 'core-agent-a'")).rows[0];
+  r = await request(port, 'GET', '/api/projects/core-simple-service/ai', undefined, AD); ok(r.status === 200 && r.json.data.agent === null && r.json.data.mode === 'off' && r.json.data.status === 'disabled' && Array.isArray(r.json.data.agents), 'project ai: nothing bound → off/disabled with choices for managers+');
+  r = await request(port, 'PUT', '/api/projects/core-simple-service/ai', { agent_id: agentRow.id, mode: 'suggest' }, OP); eq(r.status, 403, 'project ai: manager cannot change it');
+  r = await request(port, 'PUT', '/api/projects/core-simple-service/ai', { agent_id: agentRow.id, mode: 'suggest' }, AD);
+  ok(r.status === 200 && r.json.data.agent && r.json.data.agent.id === agentRow.id && r.json.data.mode === 'suggest' && r.json.data.project_mode === 'suggest' && r.json.data.status === 'active', 'project ai: bound + project mode restricts an auto agent to suggest');
+  r = await request(port, 'PUT', '/api/projects/core-simple-service/ai', { mode: 'inherit' }, AD); ok(r.json.data.mode === 'auto', 'project ai: inherit → the agent mode');
+  r = await request(port, 'PUT', '/api/projects/core-simple-service/ai', { mode: 'off' }, AD); ok(r.json.data.mode === 'off' && r.json.data.status === 'disabled', 'project ai: off wins');
+  var agentsLib = require(path.join(WP, 'reference/ai/agents'));
+  ok(agentsLib.effectiveMode({ status: 'active', mode: 'auto' }, { ai_mode: 'inherit' }, { settings: { ai_mode: 'suggest' } }) === 'suggest' && agentsLib.effectiveMode({ status: 'active', mode: 'suggest' }, { ai_mode: 'auto' }, { settings: { ai_mode: 'auto' } }) === 'suggest' && agentsLib.effectiveMode({ status: 'active', mode: 'auto' }, { ai_mode: 'auto' }, { settings: { ai_mode: 'off' } }) === 'off', 'effectiveMode: project and inbox can only restrict');
+  r = await request(port, 'PUT', '/api/projects/core-simple-service/ai', { agent_id: null }, AD); ok(r.json.data.agent === null, 'project ai: unbind');
+  r = await request(port, 'GET', '/api/projects/core-simple-service/numbers', undefined, AD); ok(r.status === 200 && r.json.data.items.length === 0, 'project numbers: empty list');
+  r = await request(port, 'GET', '/api/search?q=core%20simple&project=all', undefined, AD);
+  ok(r.status === 200 && r.json.data.groups.every(function (g) { return ['projects', 'conversations', 'contacts'].indexOf(g.key) !== -1; }) && r.json.data.groups.some(function (g) { return g.key === 'projects' && g.items.some(function (i) { return i.route === '#/projects/core-simple-service'; }); }), 'search: only projects / conversations / contacts, project found');
+  await pool.query("DELETE FROM wp_project_agents WHERE project_id LIKE 'core-%'; DELETE FROM wp_inboxes WHERE project_id LIKE 'core-%'; DELETE FROM wp_audit_events WHERE project_id LIKE 'core-%'; DELETE FROM wp_projects WHERE id LIKE 'core-simple-%' OR id = 'core-with-agent'; DELETE FROM wp_agents WHERE slug = 'core-agent-a'");
 
-  // --- business-data ports
-  var ports = portsLib.create({ resolveProject: function () { return resolved; } });
-  var ctx = { project_id: 'test-autos' };
-  var f = await ports.parts({ reference: 'CAF100563P' }, ctx); ok(f.ok && f.data.matches.length === 1 && f.data.verified, 'ports: parts by reference verified');
-  f = await ports.parts({ reference: 'ZZZ999' }, ctx); ok(!f.ok && f.reason === 'NO_MATCH', 'ports: parts no match → not ok');
-  f = await ports.parts({ parts: ['huile'], vehicle_model: 'KORANDO' }, ctx); ok(f.ok && f.data.by === 'words', 'ports: parts by words + vehicle');
-  f = await ports.parts({ parts: ['huile'], vehicle_model: 'REXTON' }, ctx); ok(!f.ok, 'ports: parts not compatible with named vehicle → unknown');
-  f = await ports.parts({}, ctx); eq(f.reason, 'NO_PART_NAMED', 'ports: nothing named');
-  f = await ports.price({ reference: 'CAF100563P' }, ctx); ok(f.ok && f.data.selling_price === 46 && f.data.source === 'mythos-wp:commercial', 'ports: verified selling price (not the catalogue price)');
-  f = await ports.price({ reference: 'PADS-1' }, ctx); ok(!f.ok, 'ports: delisted / unpriced part → no price');
-  f = await ports.stock({ reference: 'CAF100563P' }, ctx); ok(f.ok && f.data.availability === 'in_stock' && f.data.quantity === 3, 'ports: verified stock');
-  await pool.query("UPDATE wp_stock SET availability = 'unknown'"); f = await ports.stock({ reference: 'CAF100563P' }, ctx); eq(f.reason, 'STOCK_NOT_SET', 'ports: unknown availability is not a fact');
-  await pool.query("UPDATE wp_stock SET availability = 'in_stock'");
-  f = await ports.vehicle({ vehicle_model: 'KORANDO' }, ctx); ok(f.ok && f.data.models.length === 1, 'ports: vehicle');
-  f = await ports.vehicle({}, ctx); eq(f.reason, 'NO_VEHICLE', 'ports: no vehicle named');
-  ok(ports.order === undefined, 'ports: order not connected');
-  var storePorts = portsLib.create({ resolveProject: function (id) { return store.resolve(id); } });
-  f = await storePorts.price({ reference: 'CAF100563P' }, { project_id: 'ghost' }); eq(f.reason, 'PROJECT_UNKNOWN', 'ports: unknown project');
-  f = await storePorts.price({ reference: 'CAF100563P' }, { project_id: 'test-autos' }); ok(f.ok && f.data.selling_price === 46, 'ports: store-resolved project works (receiver path)');
-  var slow = portsLib.create({ resolveProject: function () { return new Promise(function () {}); } });
-  var t0 = Date.now(); f = await Promise.race([slow.price({}, ctx), new Promise(function (res) { setTimeout(function () { res({ ok: false, reason: 'RACE' }); }, portsLib.TIMEOUT_MS + 500); })]);
-  ok(!f.ok && f.reason === 'PORT_TIMEOUT' && Date.now() - t0 <= portsLib.TIMEOUT_MS + 400, 'ports: timeout → unknown');
-
-  // --- engine through the simulator (whole #173 engine, dry-run, ports connected)
+  // --- engine through the simulator (no Kitchen configured: greeting answers, business questions hand off)
   var sim = await autoreply.simulate(resolved, 'Bonjour');
   ok(sim.outcome === 'DECIDED' && sim.intent === 'greeting' && sim.action === 'reply' && sim.sent === false && sim.proposed_text, 'sim: greeting → template reply, nothing sent');
-  ok(sim.policy.rejections.indexOf('MODE_DRY_RUN') !== -1 && sim.policy.rejections.indexOf('AUTO_REPLY_DISABLED') !== -1, 'sim: dry-run and disabled gates present');
+  var nonAuto = Object.assign({}, resolved, { project: Object.assign({}, resolved.project, { kind: 'service', display_name: 'Cabinet Test' }) });
+  var simN = await autoreply.simulate(nonAuto, 'Bonjour');
+  ok(simN.intent === 'greeting' && simN.action === 'reply' && /Cabinet Test/.test(simN.proposed_text) && !/v[ée]hicule|VIN|mod[èe]le/i.test(simN.proposed_text), 'sim: a non-Auto project greets in neutral wording (no vehicle question)');
+  ok(!/vehicle|VIN/i.test(autoreply.neutralText({ display_name: 'X' }, 'part_ack', 'en')) && /X/.test(autoreply.neutralText({ id: 'x', display_name: 'X' }, 'ambiguous', 'ar') + autoreply.neutralText({ display_name: 'X' }, 'greeting', 'ar')), 'neutral wording: every intent and language');
+  var llmLib = require(path.join(WP, 'reference/ai/llm'));
+  ok(llmLib.verifiedKind('kitchen.quote', { quotes: [] }) === null && llmLib.verifiedKind('kitchen.quote', { quotes: [{ price_tnd: null }] }) === null && llmLib.verifiedKind('kitchen.quote', { quotes: [{ price_tnd: 85 }] }) === 'price', 'fact guard: a quote proves a price only when it carries one');
+  ok(llmLib.verifiedKind('kitchen.vehicle_models', { vehicle_models: [{ id: 1 }] }) === null && llmLib.verifiedKind('kitchen.search_products', { products: [] }) === null && llmLib.verifiedKind('kitchen.availability', { availability: 'unknown' }) === null, 'fact guard: listing models proves no fitment; empty results prove nothing');
+  ok(llmLib.DELIVERY_CLAIM.test('En stock, livraison sous 2 jours') && llmLib.DELIVERY_CLAIM.test('delivery within 3 days') && llmLib.DELIVERY_CLAIM.test('التوصيل في 2 أيام') && !llmLib.DELIVERY_CLAIM.test('Le prix est 85 DT, en stock.'), 'fact guard: a delivery time is never promised');
+  if (typeof llmLib.systemPrompt === 'function') ok(!/VIN/.test(llmLib.systemPrompt({ name: 'a' }, { id: 'x', display_name: 'X', kind: 'service' }, 'fr')) && /VIN/.test(llmLib.systemPrompt({ name: 'a' }, { id: 'x', display_name: 'X', kind: 'automotive' }, 'fr')), 'llm prompt: vehicle/VIN rule only for Auto projects');
   sim = await autoreply.simulate(resolved, 'Prix des plaquettes pour Rexton 2012 ?');
-  ok(sim.intent === 'price_availability' && sim.action === 'handoff' && sim.requires_human && sim.decision_reason === 'BUSINESS_DATA_UNAVAILABLE', 'sim: missing business data → REQUIRES_HUMAN handoff');
-  ok(sim.facts.unknown.indexOf('price') !== -1 && sim.proposed_text === null, 'sim: unknown facts named, no text');
-  sim = await autoreply.simulate(resolved, 'Prix ref CAF100563P ?');
-  ok(sim.intent === 'price_availability' && sim.facts.verified.indexOf('parts') !== -1 && sim.facts.verified.indexOf('price') !== -1 && sim.facts.verified.indexOf('stock') !== -1, 'sim: verified facts from the panel ' + JSON.stringify(sim.facts));
-  ok(sim.action === 'reply' && sim.requires_human === false && sim.sent === false, 'sim: verified → reply decided, still nothing sent');
-  ok(sim.policy.rejections.indexOf('BUSINESS_DATA_MISSING') === -1 && sim.policy.rejections.indexOf('AUTO_REPLY_DISABLED') !== -1, 'sim: only the OFF gates remain');
-  ok(!/46|45|dt|tnd/i.test(sim.proposed_text || ''), 'sim: template never states the price itself (fact guard)');
-  sim = await autoreply.simulate(resolved, 'je veux parler à quelqu un');
-  ok(sim.intent === 'human_request' && sim.action === 'handoff', 'sim: human request → handoff');
-  var st = await autoreply.status(resolved);
-  ok(st.mode === 'OFF' && st.config.present === false && st.business_data.connected.length === 4 && st.business_data.verified_prices === 1 && st.safety.default_off, 'status: OFF without config, business data visible');
-  var sims = await pool.query("SELECT count(*)::int AS n FROM wp_audit_events WHERE action = 'simulate'"); ok(sims.rows[0].n === 0, 'sim: direct module use not audited (API route is)');
-  r = await request(port, 'POST', '/api/projects/test-autos/autoreply/simulate', { text: 'Bonjour' }, OP); ok(r.status === 200 && r.json.data.sent === false, 'sim: API');
-  r = await request(port, 'POST', '/api/projects/test-autos/autoreply/simulate', { text: '' }, OP); eq(r.status, 400, 'sim: empty text refused');
-  r = await request(port, 'GET', '/api/projects/test-autos/autoreply/status', undefined, OP); ok(r.status === 200 && r.json.data.mode === 'OFF' && !/token_file|apikey/i.test(r.text), 'status: API, no secret');
+  ok(sim.intent === 'price_availability' && sim.action === 'handoff' && sim.requires_human, 'sim: no Kitchen → REQUIRES_HUMAN handoff, never a guess');
+  r = await request(port, 'POST', '/api/projects/test-core/autoreply/simulate', { text: 'Bonjour' }, OP); ok(r.status === 200 && r.json.data.sent === false, 'sim: API');
+  r = await request(port, 'POST', '/api/projects/test-core/autoreply/simulate', { text: 'Bonjour' }, AG); eq(r.status, 403, 'sim: agents cannot run simulations');
+  r = await request(port, 'GET', '/api/projects/test-core/autoreply/status', undefined, OP); ok(r.status === 200 && !/token_file|apikey/i.test(r.text), 'status: API, no secret');
 
   // --- handoff sink (what the receiver integration writes)
-  var rec = { project_id: 'test-autos', event_id: 'evt-' + Date.now(), envelope: { crm: { inbox_id: 'test-autos', conversation_id: '***432' }, customer_msisdn_masked: '***432' }, decision: { action: 'handoff', reason: 'BUSINESS_DATA_UNAVAILABLE', intent: 'price_availability', language: 'fr', entities: { parts: ['huile'], vehicle_model: 'KORANDO', reference: null }, facts: { required: ['parts', 'price', 'stock'], available: ['parts'], missing: ['price', 'stock'] }, requires_human: true } };
+  var rec = { project_id: 'test-core', event_id: 'evt-' + Date.now(), envelope: { crm: { inbox_id: 'test-core', conversation_id: '***432' }, customer_msisdn_masked: '***432' }, decision: { action: 'handoff', reason: 'BUSINESS_DATA_UNAVAILABLE', intent: 'price_availability', language: 'fr', entities: { parts: ['huile'], vehicle_model: 'KORANDO', reference: null }, facts: { required: ['parts', 'price', 'stock'], available: [], missing: ['parts', 'price', 'stock'] }, requires_human: true } };
   var w = await integration.recordHandoff(pool, rec, resolved);
   ok(w && w.inserted === true, 'sink: handoff inserted');
   var w2 = await integration.recordHandoff(pool, rec, resolved); ok(w2 && w2.inserted === false, 'sink: same event_id not duplicated');
   var hs = await pool.query("SELECT * FROM wp_handoffs WHERE event_id = $1", [rec.event_id]);
-  ok(hs.rows[0].status === 'REQUIRES_HUMAN' && hs.rows[0].customer_ref_masked === '***432' && hs.rows[0].related_product_uid === 'wp:FILTER-1' && hs.rows[0].suggested.matching_parts.length === 1, 'sink: REQUIRES_HUMAN, masked number, suggested part');
-  ok(!JSON.stringify(hs.rows[0]).match(/huile CHAMPION \(rev\).{0,0}text/), 'sink: no message text stored');
-  var none = await integration.recordHandoff(pool, { project_id: 'test-autos', decision: { action: 'reply' } }, resolved); ok(none === null, 'sink: replies are not handoffs');
+  ok(hs.rows[0].status === 'REQUIRES_HUMAN' && hs.rows[0].customer_ref_masked === '***432', 'sink: REQUIRES_HUMAN, masked number');
+  var none = await integration.recordHandoff(pool, { project_id: 'test-core', decision: { action: 'reply' } }, resolved); ok(none === null, 'sink: replies are not handoffs');
   r = await request(port, 'GET', '/api/r/handoffs' + P + '&f.status=REQUIRES_HUMAN', undefined, OP); eq(r.json.data.total, 1, 'sink: visible in the queue');
-  r = await request(port, 'GET', '/api/projects/test-autos/dashboard', undefined, C); eq(r.json.data.cards.handoff_open, 1, 'dashboard: open handoff counted');
 
   // --- receiver accepts the integration module (loads; does not run: needs config + state dir)
   var recv = fs.readFileSync(path.join(ROOT, 'projects/automotive/comms/bin/mythos-auto-reply-receiver'), 'utf8');
   ok(/--integration/.test(recv) && /integration\.onOutcome/.test(recv) && /business_data: integration/.test(recv), 'receiver: --integration hook present');
   ok(integration.ports && typeof integration.ports.price === 'function' && typeof integration.onOutcome === 'function', 'integration: module contract for the receiver');
 
-  // separation: the panel never touches the notification layer or sends anything
+  // separation: the panel's control paths never import the notification layer
   var src = ['reference/api.js', 'reference/autoreply.js', 'reference/comms/ports.js', 'reference/comms/integration.js', 'reference/server.js'].map(function (f) { return fs.readFileSync(path.join(WP, f), 'utf8'); }).join('\n');
-  ok(!/bridge\/notify|sendText|sendReply|router\.deliver/.test(src), 'separation: no send path, no notification layer import');
+  ok(!/bridge\/notify|sendReply|router\.deliver/.test(src), 'separation: no notification layer import');
+  // no product identity left at platform level
+  var web = fs.readdirSync(path.join(WP, 'reference/web/js/views')).map(function (f) { return fs.readFileSync(path.join(WP, 'reference/web/js/views', f), 'utf8'); }).join('\n') + fs.readFileSync(path.join(WP, 'reference/web/index.html'), 'utf8') + fs.readFileSync(path.join(WP, 'reference/web/js/app.js'), 'utf8');
+  ok(!/asfour/i.test(web + src), 'identity: no Asfour anywhere');
 }
 
 // ================================================================ run

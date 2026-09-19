@@ -37,18 +37,20 @@ function listConversations(pool, projectId, o) {
   else if (o.assigned === 'none') where.push('c.assigned_to IS NULL');
   if (o.inbox) { params.push(parseInt(o.inbox, 10) || 0); where.push('c.inbox_id = $' + params.length); }
   if (o.tag) { params.push(String(o.tag)); where.push('EXISTS (SELECT 1 FROM wp_conversation_tags ct JOIN wp_tags t ON t.id = ct.tag_id WHERE ct.conversation_id = c.id AND t.name = $' + params.length + ')'); }
+  if (o.handler === 'ai' || o.handler === 'human') { params.push(o.handler); where.push('c.handler = $' + params.length); }
+  if (o.agent) { params.push(parseInt(o.agent, 10) || 0); where.push('c.agent_id = $' + params.length); }
   if (o.q) { params.push('%' + String(o.q).slice(0, 80) + '%'); where.push('(k.display_name ILIKE $' + params.length + ' OR k.wa_id LIKE $' + params.length + ' OR c.summary ILIKE $' + params.length + ' OR EXISTS (SELECT 1 FROM wp_messages mm WHERE mm.conversation_id = c.id AND mm.text ILIKE $' + params.length + '))'); }
   if (o.before) { params.push(String(o.before)); where.push('c.last_message_at < $' + params.length + '::timestamptz'); }
   var limit = clampInt(o.limit, LIMIT, 1, 200);
   params.push(limit);
-  var sql = 'SELECT c.id, c.status, c.priority, c.assigned_to, c.team, c.unread_count, c.language, c.last_intent, c.summary, c.last_message_at, c.last_inbound_at, c.last_outbound_at, c.waiting_since, c.created_at, c.inbox_id, i.instance AS inbox_instance, ' +
+  var sql = 'SELECT c.id, c.status, c.priority, c.assigned_to, c.team, c.unread_count, c.language, c.last_intent, c.summary, c.last_message_at, c.last_inbound_at, c.last_outbound_at, c.waiting_since, c.created_at, c.inbox_id, c.project_id, c.handler, c.agent_id, c.routed_by, i.instance AS inbox_instance, i.display_name AS inbox_name, i.phone_number_id, ag.name AS agent_name, ' +
     'k.id AS contact_id, k.display_name AS contact_name, k.wa_id AS contact_wa_id, ' +
     "(SELECT m.text FROM wp_messages m WHERE m.conversation_id = c.id AND m.direction <> 'activity' ORDER BY COALESCE(m.provider_timestamp, m.created_at) DESC, m.created_at DESC, m.id DESC LIMIT 1) AS last_text, " +
     "(SELECT m.message_type FROM wp_messages m WHERE m.conversation_id = c.id AND m.direction <> 'activity' ORDER BY COALESCE(m.provider_timestamp, m.created_at) DESC, m.created_at DESC, m.id DESC LIMIT 1) AS last_type, " +
     "(SELECT m.direction FROM wp_messages m WHERE m.conversation_id = c.id AND m.direction <> 'activity' ORDER BY COALESCE(m.provider_timestamp, m.created_at) DESC, m.created_at DESC, m.id DESC LIMIT 1) AS last_direction, " +
     "COALESCE((SELECT array_agg(t.name ORDER BY t.name) FROM wp_conversation_tags ct JOIN wp_tags t ON t.id = ct.tag_id WHERE ct.conversation_id = c.id), '{}') AS tags, " +
     "EXISTS (SELECT 1 FROM wp_handoffs hf WHERE hf.conversation_id = c.id AND hf.status IN ('NEW','REQUIRES_HUMAN','IN_PROGRESS')) AS handoff_open " +
-    'FROM wp_conversations c JOIN wp_contacts k ON k.id = c.contact_id JOIN wp_inboxes i ON i.id = c.inbox_id WHERE ' + where.join(' AND ') +
+    'FROM wp_conversations c JOIN wp_contacts k ON k.id = c.contact_id JOIN wp_inboxes i ON i.id = c.inbox_id LEFT JOIN wp_agents ag ON ag.id = c.agent_id WHERE ' + where.join(' AND ') +
     ' ORDER BY c.last_message_at DESC NULLS LAST, c.id DESC LIMIT $' + params.length;
   return pool.query(sql, params).then(function (r) {
     return { items: r.rows.map(function (x) { x.contact_masked = mask(x.contact_wa_id); delete x.contact_wa_id; x.last_text = x.last_text ? String(x.last_text).slice(0, 140) : null; return x; }), next_before: r.rows.length === limit ? r.rows[r.rows.length - 1].last_message_at : null };
@@ -63,8 +65,9 @@ function counts(pool, projectId, scope) {
     return out;
   });
 }
-function getConversation(pool, projectId, id, scope) {
-  return pool.query('SELECT c.*, i.instance AS inbox_instance, i.provider, i.outbound_enabled, k.display_name AS contact_name, k.wa_id AS contact_wa_id, k.lid AS contact_lid, k.language AS contact_language, k.notes AS contact_notes, k.memory AS contact_memory, k.status AS contact_status, k.first_seen_at, k.last_seen_at FROM wp_conversations c JOIN wp_contacts k ON k.id = c.contact_id JOIN wp_inboxes i ON i.id = c.inbox_id WHERE c.project_id = $1 AND c.id = $2', [projectId, id])
+function getConversation(pool, projectId, id, scope, o) {
+  o = o || {};
+  return pool.query('SELECT c.*, i.instance AS inbox_instance, i.display_name AS inbox_name, i.phone_number_id, i.provider, i.outbound_enabled, i.ai_mode, ag.name AS agent_name, ag.mode AS agent_mode, k.display_name AS contact_name, k.wa_id AS contact_wa_id, k.lid AS contact_lid, k.language AS contact_language, k.notes AS contact_notes, k.memory AS contact_memory, k.status AS contact_status, k.first_seen_at, k.last_seen_at FROM wp_conversations c JOIN wp_contacts k ON k.id = c.contact_id JOIN wp_inboxes i ON i.id = c.inbox_id LEFT JOIN wp_agents ag ON ag.id = c.agent_id WHERE c.project_id = $1 AND c.id = $2', [projectId, id])
     .then(function (r) {
       if (!r.rows[0]) throw fail('not_found', 404, 'no such conversation');
       if (scope && scope.indexOf(r.rows[0].inbox_id) === -1) throw fail('not_found', 404, 'no such conversation');
@@ -76,6 +79,8 @@ function getConversation(pool, projectId, id, scope) {
       ]).then(function (x) {
         c.tags = x[0].rows; c.handoffs = x[1].rows; c.contact_conversations = x[2].rows[0].n;
         c.contact_masked = mask(c.contact_wa_id);
+        // full digits are an admin fact (same rule as the contact list, search and contacts 360)
+        if (o.admin !== true) { delete c.contact_wa_id; delete c.contact_lid; }
         return c;
       });
     });
@@ -90,8 +95,13 @@ function listMessages(pool, projectId, convId, o) {
     'FROM wp_messages m WHERE m.project_id = $1 AND m.conversation_id = $2' + extra + ' ORDER BY COALESCE(m.provider_timestamp, m.created_at) DESC, m.created_at DESC, m.id DESC LIMIT $3', params)
     .then(function (r) { var rows = r.rows.reverse(); return { items: rows, next_before_id: r.rows.length === limit ? rows[0].id : null }; });
 }
-function markRead(pool, projectId, convId, actor) {
-  return pool.query('UPDATE wp_conversations SET unread_count = 0, updated_at = now() WHERE project_id = $1 AND id = $2 RETURNING id', [projectId, convId]).then(function (r) {
+function inScope(pool, projectId, convId, scope) {
+  if (!scope) return Promise.resolve();
+  return pool.query('SELECT 1 FROM wp_conversations WHERE project_id = $1 AND id = $2 AND inbox_id = ANY($3::bigint[])', [projectId, convId, scope.length ? scope : [-1]])
+    .then(function (r) { if (!r.rows[0]) throw fail('not_found', 404, 'no such conversation'); });
+}
+function markRead(pool, projectId, convId, actor, scope) {
+  return inScope(pool, projectId, convId, scope).then(function () { return pool.query('UPDATE wp_conversations SET unread_count = 0, updated_at = now() WHERE project_id = $1 AND id = $2 RETURNING id', [projectId, convId]); }).then(function (r) {
     if (!r.rows[0]) throw fail('not_found', 404, 'no such conversation');
     bus.publish({ type: 'conversation.read', project_id: projectId, conversation_id: convId, actor: actor });
     return { id: convId, unread_count: 0 };
@@ -101,7 +111,7 @@ var events = require('./events');
 function event(pool, projectId, convId, kind, actor, payload, eventName) {
   return pool.query('INSERT INTO wp_conversation_events (project_id, conversation_id, kind, event_name, actor, payload) VALUES ($1,$2,$3,$6,$4,$5)', [projectId, convId, kind, actor, JSON.stringify(payload || {}), eventName || events.forKind(kind)]);
 }
-function updateConversation(pool, projectId, convId, actor, patch) {
+function updateConversation(pool, projectId, convId, actor, patch, scope) {
   patch = patch || {};
   var sets = [], params = [projectId, convId], changed = {};
   if (patch.status !== undefined) { if (STATUSES.indexOf(patch.status) === -1) throw fail('validation', 400, 'unknown status'); params.push(patch.status); sets.push('status = $' + params.length); changed.status = patch.status; if (patch.status === 'resolved') { params.push(actor); sets.push('resolved_at = now(), resolved_by = $' + params.length); } if (patch.status === 'waiting_customer') sets.push('waiting_since = now()'); }
@@ -111,7 +121,7 @@ function updateConversation(pool, projectId, convId, actor, patch) {
   if (patch.summary !== undefined) { var s = patch.summary ? String(patch.summary).slice(0, 2000) : null; params.push(s); sets.push('summary = $' + params.length); changed.summary = !!s; }
   if (!sets.length) throw fail('validation', 400, 'nothing to change');
   sets.push('updated_at = now()');
-  return pool.query('UPDATE wp_conversations SET ' + sets.join(', ') + ' WHERE project_id = $1 AND id = $2 RETURNING id, status, assigned_to, priority, team', params).then(function (r) {
+  return inScope(pool, projectId, convId, scope).then(function () { return pool.query('UPDATE wp_conversations SET ' + sets.join(', ') + ' WHERE project_id = $1 AND id = $2 RETURNING id, status, assigned_to, priority, team', params); }).then(function (r) {
     if (!r.rows[0]) throw fail('not_found', 404, 'no such conversation');
     var en = changed.status === 'resolved' ? 'conversation.resolved' : changed.status === 'open' ? 'conversation.reopened' : changed.assigned_to !== undefined ? 'conversation.assigned' : 'conversation.updated';
     return event(pool, projectId, convId, 'status', actor, changed, en).then(function () {
@@ -120,10 +130,10 @@ function updateConversation(pool, projectId, convId, actor, patch) {
     });
   });
 }
-function addNote(pool, projectId, convId, actor, text) {
+function addNote(pool, projectId, convId, actor, text, scope) {
   text = String(text || '').trim();
   if (!text || text.length > 4000) throw fail('validation', 400, 'note must be 1–4000 characters');
-  return pool.query('SELECT contact_id, inbox_id FROM wp_conversations WHERE project_id = $1 AND id = $2', [projectId, convId]).then(function (r) {
+  return inScope(pool, projectId, convId, scope).then(function () { return pool.query('SELECT contact_id, inbox_id FROM wp_conversations WHERE project_id = $1 AND id = $2', [projectId, convId]); }).then(function (r) {
     if (!r.rows[0]) throw fail('not_found', 404, 'no such conversation');
     return pool.query("INSERT INTO wp_messages (project_id, conversation_id, contact_id, inbox_id, direction, message_type, text, sender_kind, sender_ref, status) VALUES ($1,$2,$3,$4,'activity','text',$5,'user',$6,'received') RETURNING id, created_at", [projectId, convId, r.rows[0].contact_id, r.rows[0].inbox_id, text, actor])
       .then(function (m) { return event(pool, projectId, convId, 'note', actor, { message_id: m.rows[0].id }).then(function () { bus.publish({ type: 'message.note', project_id: projectId, conversation_id: convId, actor: actor, message_id: m.rows[0].id }); return { id: m.rows[0].id, created_at: m.rows[0].created_at }; }); });
@@ -137,8 +147,8 @@ function createTag(pool, projectId, actor, body) {
   var applies = ['contact', 'conversation', 'both'].indexOf(body && body.applies_to) !== -1 ? body.applies_to : 'both';
   return pool.query('INSERT INTO wp_tags (project_id, name, color, applies_to) VALUES ($1,$2,$3,$4) ON CONFLICT (project_id, name) DO UPDATE SET color = COALESCE(EXCLUDED.color, wp_tags.color) RETURNING id, name, color, applies_to', [projectId, name, color, applies]).then(function (r) { return r.rows[0]; });
 }
-function tagConversation(pool, projectId, convId, tagId, actor, remove) {
-  return pool.query('SELECT 1 FROM wp_conversations WHERE project_id = $1 AND id = $2', [projectId, convId]).then(function (r) {
+function tagConversation(pool, projectId, convId, tagId, actor, remove, scope) {
+  return inScope(pool, projectId, convId, scope).then(function () { return pool.query('SELECT 1 FROM wp_conversations WHERE project_id = $1 AND id = $2', [projectId, convId]); }).then(function (r) {
     if (!r.rows[0]) throw fail('not_found', 404, 'no such conversation');
     return pool.query('SELECT id, name FROM wp_tags WHERE project_id = $1 AND id = $2', [projectId, tagId]);
   }).then(function (t) {
@@ -160,14 +170,17 @@ function listContacts(pool, projectId, o) {
     'FROM wp_contacts k WHERE ' + where.join(' AND ') + ' ORDER BY k.last_seen_at DESC NULLS LAST, k.id DESC LIMIT $' + params.length, params)
     .then(function (r) { return { items: r.rows.map(function (x) { x.wa_masked = mask(x.wa_id); delete x.wa_id; return x; }) }; });
 }
-function getContact(pool, projectId, id) {
-  return pool.query('SELECT * FROM wp_contacts WHERE project_id = $1 AND id = $2', [projectId, id]).then(function (r) {
+function getContact(pool, projectId, id, o) {
+  o = o || {};
+  return pool.query('SELECT id, project_id, wa_id, lid, display_name, language, status, source, notes, memory, first_seen_at, last_seen_at, last_inbound_at, last_outbound_at, created_at, updated_at FROM wp_contacts WHERE project_id = $1 AND id = $2', [projectId, id]).then(function (r) {
     if (!r.rows[0]) throw fail('not_found', 404, 'no such contact');
     var k = r.rows[0];
-    return Promise.all([
-      pool.query('SELECT id, status, inbox_id, last_message_at, unread_count, created_at, resolved_at FROM wp_conversations WHERE contact_id = $1 AND project_id = $2 ORDER BY created_at DESC LIMIT 50', [id, projectId]),
+    // a member-scoped user only reads contacts that talk to one of their inboxes
+    var scoped = o.scope ? pool.query('SELECT 1 FROM wp_conversations c WHERE c.contact_id = $1 AND c.inbox_id = ANY($2::bigint[]) LIMIT 1', [id, o.scope.length ? o.scope : [-1]]).then(function (x) { if (!x.rows[0]) throw fail('not_found', 404, 'no such contact'); }) : Promise.resolve();
+    return scoped.then(function () { return Promise.all([
+      pool.query('SELECT id, status, inbox_id, last_message_at, unread_count, created_at, resolved_at FROM wp_conversations WHERE contact_id = $1 AND project_id = $2' + (o.scope ? ' AND inbox_id = ANY($3::bigint[])' : '') + ' ORDER BY created_at DESC LIMIT 50', o.scope ? [id, projectId, o.scope.length ? o.scope : [-1]] : [id, projectId]),
       pool.query('SELECT t.id, t.name, t.color FROM wp_contact_tags ct JOIN wp_tags t ON t.id = ct.tag_id WHERE ct.contact_id = $1 ORDER BY t.name', [id])
-    ]).then(function (x) { k.conversations = x[0].rows; k.tags = x[1].rows; k.wa_masked = mask(k.wa_id); return k; });
+    ]).then(function (x) { k.conversations = x[0].rows; k.tags = x[1].rows; k.wa_masked = mask(k.wa_id); if (o.admin !== true) { delete k.wa_id; delete k.lid; } return k; }); });
   });
 }
 function updateContact(pool, projectId, id, actor, patch) {
@@ -190,4 +203,4 @@ function tagContact(pool, projectId, contactId, tagId, actor, remove) {
     return (remove ? pool.query('DELETE FROM wp_contact_tags WHERE contact_id = $1 AND tag_id = $2', [contactId, tagId]) : pool.query('INSERT INTO wp_contact_tags (contact_id, tag_id, added_by) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [contactId, tagId, actor])).then(function () { return { contact_id: contactId, tag: t.rows[0].name, removed: !!remove }; });
   });
 }
-module.exports = { STATUSES: STATUSES, mask: mask, scope: scope, memberships: memberships, listConversations: listConversations, counts: counts, getConversation: getConversation, listMessages: listMessages, markRead: markRead, updateConversation: updateConversation, addNote: addNote, listTags: listTags, createTag: createTag, tagConversation: tagConversation, listContacts: listContacts, getContact: getContact, updateContact: updateContact, tagContact: tagContact, event: event };
+module.exports = { STATUSES: STATUSES, mask: mask, scope: scope, inScope: inScope, memberships: memberships, listConversations: listConversations, counts: counts, getConversation: getConversation, listMessages: listMessages, markRead: markRead, updateConversation: updateConversation, addNote: addNote, listTags: listTags, createTag: createTag, tagConversation: tagConversation, listContacts: listContacts, getContact: getContact, updateContact: updateContact, tagContact: tagContact, event: event };

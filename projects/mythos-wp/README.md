@@ -1,136 +1,137 @@
-# MYTHOS WP — MYTHOS Web Panel
+# MYTHOS WP — MYTHOS Control Center
 
-**Product:** MYTHOS WP · **Domain:** https://wp.mythosprod.xyz/ · **Repository:** othoth77/mythos-prod (`projects/mythos-wp/`)
-**First project:** ssangyong.autos · **Reusable for:** piece.autos, casse.autos, any MYTHOS AUTO project
-**Authoritative state record:** `docs/AI_HANDOVER.md` (entry MYTHOS-WP-0)
+**Product:** MYTHOS WP · **URL:** https://wp.mythosprod.xyz/ · **Repository:** othoth77/mythos-prod (`projects/mythos-wp/`)
+**Runtime:** Node `http` + `pg`, no framework, no bundler · **Unit:** `mythos-wp.service` (deploy user manager) · **Port:** loopback `127.0.0.1:8170` behind nginx + certbot
+**Database:** `mythos_wp` in the `idauto-postgres` container (PostgreSQL 15) · **Env:** `/home/deploy/deployments/mythos-wp/.env` (0600)
+**Version:** V2.1 (2026-09-17, simplification) — history in `docs/CHANGELOG.md`
 
-MYTHOS WP is the owner/operator back-office for MYTHOS AUTO business data: the
-automotive catalogue (parts, references, vehicles, motorizations, fitments,
-media), the **verified** commercial and stock layers, Auto-Reply knowledge,
-business rules, the human-handoff queue, and a full audit log. It is also the
-business-data layer the MYTHOS AUTO auto-reply engine (Issue #173) reads from.
+MYTHOS WP is the operator control center of the MYTHOS group: one panel where
+an operator sees every project, answers its WhatsApp conversations and decides
+which AI agent helps on which number. It owns the communication data
+(contacts, conversations, messages, handoffs, audit) and reads everything else
+from the systems that own it — product, price and stock come from the MYTHOS
+AUTO Shared Kitchen, automations run through n8n, models come from the
+free-LLM pool. It never duplicates a catalogue and never stores a secret.
 
-## What it is built on (nothing duplicated)
+## The five sections
 
-| Concern | Reused | Where |
+The sidebar is exactly **Dashboard, Inbox, Projects, WhatsApp, Settings**.
+Everything technical sits behind an **Advanced** fold on the page it belongs
+to; nothing was removed from the server, only from the first screen.
+
+| Section | What you do there | Detail |
 |---|---|---|
-| Catalogue source of truth | PostgreSQL `ssangyong_autos`, tables `sya_*` (projects/ssangyong-autos) | written to directly, per project, audited |
-| Design system | canonical tokens `assets/brand/tokens/tokens.css` + self-hosted faces `assets/brand/fonts/` (served as-is), ERP component layer (`sites/erp.mythosprod.xyz/app/assets/erp.css`) carried into `reference/web/wp.css` | dark-first, light theme, reduced motion, print |
-| Auth pattern | `projects/mythos-os-console/reference/auth.js` (server-side sessions, 0600 secret file, throttle) + roles, scrypt, CSRF | `reference/auth.js` |
-| Auto-Reply engine | `projects/automotive/comms` (#173): business-data port contract, engine, policy, templates, fact guard | consumed via `reference/comms/ports.js`, `comms/integration.js`, `reference/autoreply.js` |
-| WhatsApp gateway | existing private Evolution gateway `127.0.0.1:8080` | probed read-only; never called to send |
-| Service conventions | Node `http` + `pg`, loopback port, deploy user unit, certbot nginx vhost, 0600 env in `/home/deploy/deployments/<name>/` | `deploy/` |
-| Redaction | `projects/mythos-orchestrator/lib/redact.js` | logs and audit values |
+| **Dashboard** | today's figures and one table of projects (WhatsApp numbers with their connection state, AI agent + mode) for the selected project or for all of them | — |
+| **Inbox** | conversations (All / Unread / Human / Waiting / Closed), the chat, AI suggestions, **Take over (AI → Human)** / **Hand back to AI**, the customer panel; **Contacts** are the second tab of the Inbox (cross-project list + contact 360) | `docs/OPERATIONS.md` §6 |
+| **Projects** | the list (Name, Type, Status, WhatsApp, AI); **New project** = Name, Type (Service / Auto / Internal), Domain, WhatsApp, AI agent, Description, Currency — the slug is generated; a project page with **Overview · WhatsApp · AI · Catalogue (Auto only) · Members · Advanced** | `docs/PROJECTS.md` |
+| **WhatsApp** | one table of numbers (Number, Status, Projects, Connection, AI, Last message) with **Sync all**, **Check**, **Link to project**; **Templates**; **Advanced** (admin: accounts, add a number manually, routing rules + simulate + drops, receiver and providers, Meta WhatsApp MCP) | `docs/WHATSAPP_SETUP.md` |
+| **Settings** | **General** (account, language, appearance) · **Users** · **Integrations** (cards: Meta / WhatsApp, Kitchen Mythos Auto, n8n, AI provider, Meta WhatsApp MCP) · **Automations** (admin) · **System** (Health, Audit, Backup, AI runs) | `docs/INTEGRATIONS.md`, `docs/MCP.md`, `docs/OPERATIONS.md`, `docs/SECURITY.md` |
 
-**Open-source patterns adopted, not cloned:** Refine's `resources` + `dataProvider`
-split (one declarative registry → generic list/create/edit/delete API and UI,
-`reference/resources.js` + `reference/crud.js`), shadcn/Kiranism dashboard IA
-(rail + topbar + command menu + data table with column visibility + record
-detail/edit). No React/Next.js: the repository has no React anywhere, the design
-system is CSS-token based, and a Next build on this host (2.8 GiB available,
-OOM history) is a production risk for no functional gain.
+AI is decided per project: **Project → AI** holds the Agent, the Mode
+(Off / Suggest / Auto), the Status and a **Test AI** box. The agent editor
+itself (engine, tools, instructions) lives under **Project → Advanced → AI
+agents** — `docs/AI_AGENTS.md`. Global search (Ctrl / ⌘ K) returns projects,
+conversations and contacts only.
+
+Old links keep working: `#/ai`, `#/automations`, `#/integrations`,
+`#/health`, `#/audit`, `#/r/projects`, `#/r/inboxes` redirect to where the
+feature now lives.
 
 ## Architecture
 
 ```
-browser (ES modules, CSP script-src 'self')          reference/web/
-  app.js · router · command menu · table.js · form.js · views/*
-      │  same-origin JSON, X-Requested-With: MythosWP, httpOnly cookie
-server.js (127.0.0.1:8170)  ── static (shell, /brand/* from assets/brand) ── api.js route table
-      │  session + role + CSRF per route (auth.js)
-crud.js  ← resources.js (registry: fields · validation · permissions · joins · filters)
-      │  validate.js (shared with the browser)          audit.js → wp_audit_events
-      ├── db.wp()       mythos_wp        (registry, commercial, stock, knowledge, rules, handoffs, audit)
-      └── db.catalog(p) <project DB>     (sya_* catalogue; search_path pinned per project)
-autoreply.js ── status (config · gateway probe · receiver probe · ledger · business data)
-             ── simulate: engine.process (forceDryRun, memory ledger) with comms/ports.js connected
-comms/ports.js       vehicle · parts · price · stock  (order not connected)   → #173 lib/business-data.js
-comms/integration.js { ports, onOutcome }  → receiver --integration  → wp_handoffs (REQUIRES_HUMAN)
+                         Internet
+                            │ https (certbot)
+                    nginx  wp.mythosprod.xyz
+                            │ proxy_pass 127.0.0.1:8170
+┌───────────────────────────▼──────────────────────────────────────────────┐
+│ mythos-wp.service  (deploy user unit, MemoryMax=256M, loopback only)     │
+│                                                                          │
+│  reference/server.js  ── static shell (CSP script-src 'self')            │
+│        │                ── /hooks/<provider>  → comms/receiver.js        │
+│        └── api.js route table  (+ routes/whatsapp | ai | platform)       │
+│              session · role · CSRF per route   (auth.js, users.js)       │
+│              audit.js → wp_audit_events (never a secret)                 │
+│                                                                          │
+│  comms/   receiver → provider.parseInbound → routing.resolve → core      │
+│           outbound (human / AI replies) · handoff · reconcile · numbers  │
+│           providers/evolution.js (production)  providers/meta_cloud.js   │
+│  ai/      agents · tools (read-only registry) · llm (free-LLM pool)      │
+│  kitchen.js  read-only client, contract 1.3.0                            │
+│  projects.js (simple create, Project → AI) · integrations.js · health.js │
+│  automations.js · notes.js · search.js · dashboard.js                    │
+└───────┬──────────────┬───────────────┬──────────────┬────────────────────┘
+        │ pg           │ http          │ http         │ http
+   mythos_wp      Evolution API    Kitchen        n8n            free-LLM pool
+ (idauto-postgres) 127.0.0.1:8080  127.0.0.1:3011 127.0.0.1:5678 (Groq active)
+   PG 15           instance/number  ssangyong-autos webhooks      projects/mythos-ai-executor
 ```
 
-### Data model
+Detail: `docs/ARCHITECTURE.md`.
 
-`database/schema.sql` (database `mythos_wp`, role `mythos_wp_owner`, same cluster
-as the catalogue — no new server): `wp_projects` (registry → catalogue connection
-by env-var **name**), `wp_product_commercial` (verified selling price), `wp_stock`,
-`wp_knowledge`, `wp_business_rules`, `wp_handoffs`, `wp_audit_events`. Catalogue
-rows are referenced by `product_uid`, never by serial id.
-
-The catalogue itself is unchanged: `sya_products` (with `price_tnd` = the collected
-market price), `sya_vehicle_models`, `sya_vehicle_motorizations`,
-`sya_product_vehicle_compatibility`, `sya_product_images`.
-
-### Verified vs unknown (the Auto-Reply contract)
-
-The engine may only state a fact a port returns `{ ok: true }` for. The ports answer
-`ok` only for an unambiguous, verified record: one matching part, a **selling price
-set in this panel** (never the scraped catalogue price), a stock record whose
-availability is not `unknown`, a fitment row. Anything else → the kind is missing →
-the engine decides `REQUIRES_HUMAN`. `order` is not connected (no order system).
-
-## Operating it
-
-```
-node projects/mythos-wp/bin/mythos-wp set-password <users.json> <user> <owner|operator>   # password on stdin
-node projects/mythos-wp/bin/mythos-wp seed-project <id> <name> <domain> <brand> <ENV_VAR> [schema]
-node projects/mythos-wp/bin/mythos-wp check-env
-bash projects/mythos-wp/tools/check.sh          # syntax · module graph · eslint · design rules · secret scan · tests
-node tests/mythos-wp-test.js                    # needs MYTHOS_WP_TEST_DB_URL (mythos_wp_test)
-```
-
-Roles: `owner` (everything) · `operator` (read, create/update business data, handoff
-work; no delete, no rules, no projects). Sessions: 8 h absolute, in memory.
-
-Environment (`/home/deploy/deployments/mythos-wp/.env`, 0600): `MYTHOS_WP_DB_*`,
-`MYTHOS_WP_USERS_FILE`, one `MYTHOS_WP_CATALOG_<PROJECT>` URL per project (named by
-`wp_projects.catalog_dsn_env`), optional `MYTHOS_WP_COMMS_CONFIG` (the real #173
-configuration file; absent = Auto-Reply shows OFF / not configured).
-
-## Deployment (done 2026-09-05; see handover)
-
-`deploy/provision-db.sh` (root, idempotent) · `deploy/mythos-wp.user.service`
-(deploy user manager, `MemoryMax=256M`) · `deploy/nginx-wp.mythosprod.xyz.conf` +
-certbot. The unit runs from the implementation worktree until the branch is merged.
-
-## Turning the auto-reply on is NOT done here
-
-The panel has no switch by design. Owner steps (comms README §Turning a reply on):
-customer Evolution instance, 0600 token files, `state_dir`, webhook to the loopback
-receiver started with `--integration projects/mythos-wp/reference/comms/integration.js`,
-dry-run first, then `mode: live` + `business.auto_reply: true` per project.
-
-## Migrations (Communication Core, since MYTHOS-COMMS-1)
-
-`database/schema.sql` is the base; everything after it is an additive migration in
-`database/migrations/<version>.up.sql` + `.down.sql`, applied by `reference/migrate.js`:
+## Quick start (operator)
 
 ```bash
-node projects/mythos-wp/bin/mythos-wp migrate status          # applied / pending
-node projects/mythos-wp/bin/mythos-wp migrate up               # apply pending, one transaction each
-node projects/mythos-wp/bin/mythos-wp migrate down 0001_comms_core   # roll back ONE version
-node tests/mythos-wp-comms-schema-test.js                      # apply → fixtures → rollback → re-apply on mythos_wp_test
+# as deploy, with the production environment loaded
+set -a; . /home/deploy/deployments/mythos-wp/.env; set +a
+cd /home/deploy/worktrees/mythos-wp-main/projects/mythos-wp
+
+node bin/mythos-wp check-env                   # names only, never values
+node bin/mythos-wp migrate status              # applied / pending
+node bin/mythos-wp users list                  # wp_users accounts
+node bin/mythos-wp users add <name> admin --display "Name"   # password on stdin
+node bin/mythos-wp users grant <name> <project-id>
+
+curl -s http://127.0.0.1:8170/healthz          # { "ok": true }
+systemctl --user status mythos-wp.service
+journalctl --user -u mythos-wp.service -n 100 --no-pager
 ```
 
-Data model and retention rules: `docs/MYTHOS_COMMUNICATION_OS_ARCHITECTURE.md`.
+Sign in at https://wp.mythosprod.xyz/login with a `wp_users` account (the
+0600 users file is the bootstrap / break-glass source). Then, in the panel:
 
-## Communication Receiver (webhook endpoint)
+1. **Settings → System → Health** — every component, **Run checks**.
+2. **WhatsApp → Sync all** — discovers the Evolution instances and their connection / webhook state.
+3. **Projects → New project** — Name, Type, Domain, pick the WhatsApp number and the AI agent, Create. Or, on an existing project, **Project → WhatsApp → Link a number** and switch **Receiving** on.
+4. **Project → AI** — choose the Agent, set the Mode to **Suggest**, **Test AI** with a customer sentence; move to **Auto** only after reviewing real suggestions.
 
-Disabled by default. To enable on a host: a 0600 token file (`openssl rand -hex 32 > …/webhook.token`),
-`MYTHOS_WP_WEBHOOK_TOKEN_FILE=<path>` and `MYTHOS_WP_RECEIVER_ENABLED=1` in the 0600 env file, restart.
-Evolution then posts per-instance webhooks to `http://127.0.0.1:8170/hooks/evolution?token=…` (loopback only).
-An inbox persists traffic only when its `wp_inboxes.inbound_enabled` is true; otherwise deliveries are validated
-and ledgered as `dry_run`. Tests: `node tests/mythos-wp-comms-receiver-test.js`.
+Production rollout of V2: `deploy/v2-rollout.sh` — see `docs/DEPLOYMENT.md`.
 
-## Human replies (outbound)
+## Documentation
 
-`MYTHOS_WP_EVOLUTION_API_KEY_FILE=<0600 file holding the Evolution API key>` (the same credential file the
-notification bridge uses) and optionally `MYTHOS_WP_EVOLUTION_BASE_URL` (default `http://127.0.0.1:8080`).
-Replies are refused (412) until the inbox is `open` **and** an owner sets `Allow human replies` on it.
-Tests: `node tests/mythos-wp-comms-outbound-test.js` (fake Evolution on loopback; nothing real is sent).
+| File | Content |
+|---|---|
+| `docs/CHANGELOG.md` | V2 and V2.1: what was removed, hidden, simplified, kept |
+| `docs/PROJECTS.md` | the New project form, the project page tabs, Project → AI, Kitchen access, onboarding |
+| `docs/WHATSAPP_SETUP.md` | the numbers table, links (dedicated / shared), switches, routing rules, personal numbers, receiver, Evolution vs Cloud API — technical parts under WhatsApp → Advanced |
+| `docs/AI_AGENTS.md` | where AI is configured, mode precedence (agent → project → number link), engines, tools, handoff |
+| `docs/INTEGRATIONS.md` | Settings → Integrations cards, integration rows, probes, n8n, Kitchen, LLM pool |
+| `docs/MCP.md` | Meta WhatsApp Business Tools MCP and MYTHOS MCP: what they are and are not |
+| `docs/OPERATIONS.md` | CLI, Settings → System (Health, Audit, Backup), Automations, reconcile / heartbeat / replay, users |
+| `docs/ARCHITECTURE.md` | components, data model, request path, event bus |
+| `docs/DEPLOYMENT.md` | rollout script, worktree model, rollback, backup |
+| `docs/ENVIRONMENT.md` | every `MYTHOS_WP_*` variable: purpose, default, secret or not; legacy variables |
+| `docs/SECURITY.md` | sessions, CSRF, roles, webhooks, audit, secrets |
+| `docs/TROUBLESHOOTING.md` | symptom → check → fix |
+| `docs/V2_BUILD_CONTRACT.md` | the internal build contract the V2 code implements (API paths, module ownership; the V2 navigation it describes was simplified in V2.1) |
+| `../../docs/MYTHOS_COMMUNICATION_OS_ARCHITECTURE.md` | repo-level Communication OS record (COMMS-1 … 11) |
+| `../../docs/MYTHOS_COMMUNICATION_OS_OPERATIONS.md` | repo-level runbook (onboarding, pairing, shared routing) |
 
-## Communication providers (contract)
+## Checks and tests
 
-`reference/comms/provider.js` is the contract every transport must satisfy (`describe`, `capabilities`, `parseInbound`,
-`sendText`, `fetchMedia`, `verifyWebhook`, `health`, …). `GET /api/comms/providers` shows the registry and capabilities.
-Contract tests: `node tests/mythos-wp-comms-contract-test.js`; hardening tests (identities, ordering, assistant gate,
-reconciliation, replay): `node tests/mythos-wp-comms-hardening-test.js`. Ops: `mythos-wp comms reconcile|heartbeat|replay`.
+```bash
+bash projects/mythos-wp/tools/check.sh                 # syntax · module graph · eslint · design rules · secret scan · tests
+node tests/mythos-wp-test.js                           # needs MYTHOS_WP_TEST_DB_URL (mythos_wp_test)
+node tests/mythos-wp-comms-*-test.js                   # receiver, outbound, routing, contract, hardening, …
+node tests/mythos-wp-v2-whatsapp-test.js               # V2 suites: whatsapp, platform, ai
+node tests/mythos-wp-v2-platform-test.js
+node tests/mythos-wp-v2-ai-test.js
+```
+
+## Naming
+
+The product is **MYTHOS WP**, the panel is the **MYTHOS Control Center**, the
+AI layer is **MYTHOS AI**. No other product identity exists in the code, the
+git history or GitHub. The deterministic reply engine is
+`projects/automotive/comms` (Issue #173) and remains the fallback generator of
+every agent.
