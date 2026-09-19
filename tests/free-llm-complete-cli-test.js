@@ -103,6 +103,13 @@ var OK = function (t) { return { status: 200, body: JSON.stringify({ model: 'x',
   var rel = cp.spawnSync(process.execPath, [BIN, '--state-dir', 'relative/dir'], { input: '{"prompt":"x"}', encoding: 'utf8', timeout: 20000 });
   ok(rel.status === 2, 'relative --state-dir refused');
 
+  var noDir = cp.spawnSync(process.execPath, [BIN], { input: '{"prompt":"x"}', encoding: 'utf8', timeout: 20000 });
+  ok(noDir.status === 2 && JSON.parse(noDir.stdout).ok === false, 'missing --state-dir refused (never falls back to the shared store)');
+
+  // 7. a synchronous selector failure still resolves to JSON
+  var broken = await cli.run({ prompt: 'p', only: ['groq'] }, Object.assign({ transport: transportWith({}, []) }, base, { catalogPath: path.join(FIXTURES, 'missing-catalog.json') }));
+  ok(broken && broken.ok === false && typeof broken.reason === 'string', 'internal failure → ok:false JSON, no throw');
+
   fs.rmSync(FIXTURES, { recursive: true, force: true });
   console.log('free-llm-complete-cli-test: ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);

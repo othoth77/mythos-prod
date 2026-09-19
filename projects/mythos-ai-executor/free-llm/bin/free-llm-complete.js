@@ -10,17 +10,20 @@
 // dashboard's short read-only explanations. It adds no provider logic of
 // its own; it is to selector.js what free-llm-health.js is to registry.js.
 //
-//   echo '{"system":"…","prompt":"…","only":["groq"],"exclude":[],"timeout_ms":20000}' \
-//     | node free-llm-complete.js [--state-dir <dir>]
+//   echo '{"system":"…","prompt":"…","only":["groq"],"exclude":[],"timeout_ms":10000,"deadline_ms":20000}' \
+//     | node free-llm-complete.js --state-dir <absolute dir>
 //
 // stdout: ONE JSON line
 //   { ok, text?, provider_id?, model_id?, reason?, attempts: [{provider_id, status, timed_out, http_status}] }
 // Never prints a key, a request header or a provider's raw error text.
 // Exit 0 whenever a JSON answer was written (ok true or false); 2 = bad input.
+// timeout_ms bounds each provider attempt; deadline_ms bounds the whole
+// call (the CLI answers {ok:false, reason:"DEADLINE"} itself, so a caller's
+// kill never lands mid-write).
 //
-// --state-dir <dir>: private health + reputation ledgers for the consumer
-// (seeded from the shared health file, which is only READ) — so a
-// sandboxed consumer never writes into the executor's own store.
+// --state-dir <dir> (REQUIRED): private health + reputation ledgers for the
+// consumer, seeded from the executor's shared health file, which is only
+// READ — so a consumer never writes into the executor's own store.
 // =====================================================
 
 var fs = require('fs');
@@ -30,6 +33,10 @@ var path = require('path');
 var MAX_PROMPT = 6000;
 var MAX_SYSTEM = 3000;
 var DEFAULT_TIMEOUT_MS = 25000;
+var MAX_DEADLINE_MS = 120000;
+// Captured before --state-dir redirects MYTHOS_EXECUTOR_HOME: the executor's
+// own store, same resolution as registry.js / core/store.js.
+var SHARED_HOME = process.env.MYTHOS_EXECUTOR_HOME || path.join(os.homedir(), 'mythos-ai-executor');
 
 function fail(code, message) {
   process.stdout.write(JSON.stringify({ ok: false, reason: message, attempts: [] }) + '\n');
@@ -37,7 +44,7 @@ function fail(code, message) {
 }
 
 function sharedHealthFile() {
-  return path.join(os.homedir(), 'mythos-ai-executor', 'free-llm', 'health.json');
+  return path.join(SHARED_HOME, 'free-llm', 'health.json');
 }
 
 function readJson(file, fallback) {
@@ -78,7 +85,12 @@ function validate(req) {
 // run(request, opts) -> Promise<answer>. Exported for tests (transport /
 // secretsOpts / healthPath injection); the CLI below is a wrapper.
 function run(req, opts) {
-  opts = opts || {};
+  return Promise.resolve().then(function () { return runInner(req, opts || {}); }).catch(function (err) {
+    return { ok: false, reason: 'FREE_LLM_INTERNAL: ' + (err && err.code ? err.code : 'error'), attempts: [] };
+  });
+}
+
+function runInner(req, opts) {
   var selector = require('../selector');
   var common = { healthPath: opts.healthPath, catalogPath: opts.catalogPath, endpointsPath: opts.endpointsPath, secretsOpts: opts.secretsOpts };
   var exclude = Array.isArray(req.exclude) ? req.exclude.slice() : [];
@@ -111,14 +123,12 @@ if (require.main === module) {
   var argv = process.argv.slice(2);
   var i = argv.indexOf('--state-dir');
   var opts = {};
-  if (i !== -1) {
-    var dir = argv[i + 1];
-    if (!dir || !path.isAbsolute(dir)) fail(2, '--state-dir needs an absolute path');
-    // reputation (core/store.js root) and health both go to the private dir
-    process.env.MYTHOS_EXECUTOR_HOME = dir;
-    opts.healthPath = path.join(dir, 'free-llm', 'health.json');
-    try { seedHealth(opts.healthPath); } catch (e) { fail(2, 'state dir not writable'); }
-  }
+  var dir = i === -1 ? null : argv[i + 1];
+  if (!dir || !path.isAbsolute(dir)) fail(2, '--state-dir <absolute path> is required');
+  // reputation (core/store.js root) and health both go to the private dir
+  process.env.MYTHOS_EXECUTOR_HOME = dir;
+  opts.healthPath = path.join(dir, 'free-llm', 'health.json');
+  try { seedHealth(opts.healthPath); } catch (e) { fail(2, 'state dir not writable'); }
   var input = '';
   process.stdin.setEncoding('utf8');
   process.stdin.on('data', function (c) { input += c; if (input.length > 64 * 1024) fail(2, 'request too large'); });
@@ -127,9 +137,15 @@ if (require.main === module) {
     try { req = JSON.parse(input); } catch (e) { fail(2, 'request is not JSON'); }
     var bad = validate(req);
     if (bad) fail(2, bad);
-    run(req, opts).then(function (answer) {
-      process.stdout.write(JSON.stringify(answer) + '\n');
+    var deadline = Math.max(1000, Math.min(Number(req.deadline_ms) || MAX_DEADLINE_MS, MAX_DEADLINE_MS));
+    var done = false;
+    function answer(a) {
+      if (done) return;
+      done = true;
+      process.stdout.write(JSON.stringify(a) + '\n');
       process.exit(0);
-    });
+    }
+    setTimeout(function () { answer({ ok: false, reason: 'DEADLINE', attempts: [] }); }, deadline).unref();
+    run(req, opts).then(answer);
   });
 }

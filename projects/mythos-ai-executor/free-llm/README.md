@@ -20,14 +20,16 @@ A → B → C fallback) for consumers that are not part of this Node process.
 First consumer: the Ads Mythos dashboard (short read-only explanations).
 
 ```bash
-echo '{"system":"…","prompt":"…","exclude":["groq"],"timeout_ms":20000}' \
+echo '{"system":"…","prompt":"…","exclude":["groq"],"timeout_ms":10000,"deadline_ms":20000}' \
   | node free-llm/bin/free-llm-complete.js --state-dir /abs/private/dir
 # → {"ok":true,"text":"…","provider_id":"…","model_id":"…","attempts":[{provider_id,status,timed_out,http_status}]}
 ```
 
 - `only` / `exclude` restrict the candidates (e.g. "pool without groq", then
   "groq only" as an explicit fallback step).
-- `--state-dir` keeps the consumer's health + reputation ledgers private
+- `timeout_ms` bounds each provider attempt, `deadline_ms` the whole call
+  (answered by the CLI itself as `{"ok":false,"reason":"DEADLINE"}`).
+- `--state-dir` is REQUIRED: it keeps the consumer's health + reputation ledgers private
   (seeded from the shared health file, which is only read) — a sandboxed
   consumer never writes into the executor store.
 - Output never contains a key, a request header or a provider's error text;
