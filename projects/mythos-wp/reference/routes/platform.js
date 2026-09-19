@@ -16,6 +16,7 @@ var audit = require('../audit');
 var apiUtil = require('../api-util');
 var dashboard = require('../dashboard');
 var search = require('../search');
+var inboxLib = require('../comms/inbox');
 var integrations = require('../integrations');
 var health = require('../health');
 var automations = require('../automations');
@@ -59,10 +60,10 @@ function automationAccess(req, row) {
 module.exports = [
   // --- dashboard / search --------------------------------------------------
   { method: 'GET', path: /^\/api\/dashboard$/, role: 'any', handler: function (req) {
-    return scope(req).then(function (s) { return dashboard.build(db.wp(), s); });
+    return scope(req).then(function (s) { return dashboard.build(db.wp(), Object.assign({}, s, { platform: auth.hasRole(req.session, 'manager') })); });
   } },
   { method: 'GET', path: /^\/api\/search$/, role: 'any', handler: function (req) {
-    return scope(req).then(function (s) { return search.search(db.wp(), { q: q(req).q, projects: s.projects, project: s.project, admin: auth.hasRole(req.session, 'admin') }); });
+    return scope(req).then(function (s) { return inboxLib.scope(db.wp(), req.session.username).then(function (ib) { return search.search(db.wp(), { q: q(req).q, projects: s.projects, project: s.project, admin: auth.hasRole(req.session, 'admin'), inboxScope: ib }); }); });
   } },
 
   // --- integrations ----------------------------------------------------------

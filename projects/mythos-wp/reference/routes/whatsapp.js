@@ -16,6 +16,7 @@ var apiUtil = require('../api-util');
 var routing = require('../comms/routing');
 var numbers = require('../comms/numbers');
 var handoff = require('../comms/handoff');
+var inbox = require('../comms/inbox');
 var templates = require('../comms/templates');
 var metaMcp = require('../comms/meta-mcp');
 var contacts360 = require('../comms/contacts360');
@@ -140,12 +141,13 @@ module.exports = [
     if (body.direction !== 'ai_to_human' && body.direction !== 'human_to_ai') throw fail('validation', 400, 'direction ai_to_human|human_to_ai');
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
       var cid = idOf(ctx.params[2]);
-      var p = body.direction === 'ai_to_human' ? handoff.toHuman(db.wp(), resolved.project.id, cid, req.session.username, { reason: body.reason, assign_to: body.assign_to }) : handoff.toAI(db.wp(), resolved.project.id, cid, req.session.username, { reason: body.reason });
+      // inbox membership fences handoffs like every other conversation write
+      var p = inbox.scope(db.wp(), req.session.username).then(function (scope) { return inbox.inScope(db.wp(), resolved.project.id, cid, scope); }).then(function () { return body.direction === 'ai_to_human' ? handoff.toHuman(db.wp(), resolved.project.id, cid, req.session.username, { reason: body.reason, assign_to: body.assign_to }) : handoff.toAI(db.wp(), resolved.project.id, cid, req.session.username, { reason: body.reason }); });
       return p.then(function (out) { return rec(req, { action: 'handoff', resource: 'conversations', record_id: cid, project_id: resolved.project.id, next: { direction: body.direction, handoff_id: out.handoff_id, handler: out.handler, status: out.status, reason: body.reason || null, assign_to: body.assign_to || null } }).then(function () { return out; }); });
     });
   } },
   { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/(\d+)\/handoffs$/, role: 'any', handler: function (req, res, ctx) {
-    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return handoff.history(db.wp(), resolved.project.id, idOf(ctx.params[2])).then(function (rows) { return { items: rows }; }); });
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { var cid = idOf(ctx.params[2]); return inbox.scope(db.wp(), req.session.username).then(function (scope) { return inbox.inScope(db.wp(), resolved.project.id, cid, scope); }).then(function () { return handoff.history(db.wp(), resolved.project.id, cid); }).then(function (rows) { return { items: rows }; }); });
   } },
 
   // --- templates ------------------------------------------------------------------------
@@ -195,7 +197,7 @@ module.exports = [
       var pid = body.project_id || t.project_id;
       if (!pid) throw fail('validation', 400, 'project_id required for a shared template');
       return projectFrom(req, { project: pid }).then(function (resolved) {
-        return templates.testSend(db.wp(), resolved.project.id, id, req.session.username, body).then(function (r) {
+        return inbox.scope(db.wp(), req.session.username).then(function (scope) { return templates.testSend(db.wp(), resolved.project.id, id, req.session.username, body, scope); }).then(function (r) {
           ctx.status(r.duplicate ? 200 : 201);
           return rec(req, { action: 'test', resource: 'templates', record_id: id, project_id: resolved.project.id, next: { conversation_id: body.conversation_id, message_id: r.message_id, status: r.status, length: r.length } }).then(function () { return r; });
         });

@@ -251,10 +251,10 @@ export function automationsPanel(ctx, opts) {
       const extra = h('label', { class: 'check' }, h('input', { type: 'checkbox' }), 'include text');
       function refresh() { const p = ACTION_PARAM[type.value]; param.hidden = !p; param.placeholder = p ? p[1] : ''; extra.hidden = type.value !== 'n8n_webhook'; }
       type.onchange = refresh;
-      if (x) { const p = ACTION_PARAM[x.type]; if (p) param.value = x[p[0]] !== undefined ? x[p[0]] : (x.params && x.params[p[0]]) || ''; if (x.include_text) extra.querySelector('input').checked = true; }
+      if (x) { const p = ACTION_PARAM[x.type]; if (p) param.value = x.type === 'assign_agent' && x.agent === 'project_default' ? 'project_default' : (x[p[0]] !== undefined ? x[p[0]] : (x.params && x.params[p[0]]) || ''); if (x.include_text) extra.querySelector('input').checked = true; }
       refresh();
       const row = h('div', { class: 'action-row' }, type, param, extra, h('button', { class: 'btn btn-ghost btn-sm', type: 'button', 'aria-label': 'Remove action', onClick: () => { actionsEl.removeChild(row); rows.splice(rows.indexOf(entry), 1); } }, '×'));
-      const entry = { type, param, extra };
+      const entry = { type, param, extra, original: x || null };
       rows.push(entry); actionsEl.appendChild(row);
     }
     ((a && a.actions) || []).forEach(addAction);
@@ -268,7 +268,15 @@ export function automationsPanel(ctx, opts) {
       if (inactive.value) conditions.inactive_minutes = parseInt(inactive.value, 10);
       if (handler.value) conditions.handler = handler.value;
       if (status.value.trim()) conditions.status = status.value.trim();
-      const actions = rows.map((r) => { const o = { type: r.type.value }; const p = ACTION_PARAM[o.type]; if (p && r.param.value.trim()) o[p[0]] = r.param.value.trim(); if (o.type === 'n8n_webhook' && r.extra.querySelector('input').checked) o.include_text = true; return o; });
+      const actions = rows.map((r) => {
+        const o = { type: r.type.value }; const p = ACTION_PARAM[o.type];
+        if (p && r.param.value.trim()) o[p[0]] = r.param.value.trim();
+        if (o.type === 'assign_agent' && o.agent_id === 'project_default') { delete o.agent_id; o.agent = 'project_default'; }
+        if (o.type === 'n8n_webhook' && r.extra.querySelector('input').checked) o.include_text = true;
+        // fields this editor has no input for (e.g. the n8n integration key) survive a re-save unchanged
+        if (o.type === 'n8n_webhook' && r.original && r.original.type === 'n8n_webhook' && r.original.integration) o.integration = r.original.integration;
+        return o;
+      });
       if (!actions.length) { err.textContent = 'At least one action.'; err.hidden = false; return; }
       const body = { name: name.value.trim(), project_id: scope.value || null, trigger: trig.value, conditions, actions, enabled: enabled.checked, position: parseInt(position.value, 10) || 100 };
       save.disabled = true;

@@ -68,7 +68,7 @@ function validateAction(a) {
   var out = { type: a.type };
   switch (a.type) {
     case 'assign_agent':
-      if (a.agent === 'project_default') out.agent = 'project_default';
+      if (a.agent === 'project_default' || a.agent_id === 'project_default') out.agent = 'project_default';
       else { var ag = parseInt(a.agent_id, 10); if (!ag || ag < 1) return { error: 'assign_agent needs agent_id or agent:"project_default"' }; out.agent_id = ag; }
       break;
     case 'assign_user':

@@ -139,7 +139,7 @@ function syncAll(pool, actor) {
   });
 }
 // testSend(pool, projectId, id, actor, { conversation_id, variables }) → outbound.send result (+ rendered length)
-function testSend(pool, projectId, id, actor, body) {
+function testSend(pool, projectId, id, actor, body, scope) {
   body = body || {};
   var convId = parseInt(body.conversation_id, 10);
   if (!convId) throw fail('validation', 400, 'conversation_id required');
@@ -147,7 +147,7 @@ function testSend(pool, projectId, id, actor, body) {
     if (t.project_id && t.project_id !== projectId) throw fail('not_found', 404, 'template not available for this project');
     var out = render(t, body.variables);
     if (out.missing.length) { var e = fail('validation', 400, 'missing variables: ' + out.missing.join(', ')); e.errors = { missing: out.missing }; throw e; }
-    return outbound.send(pool, projectId, convId, actor, { text: out.text, client_ref: 'tpl-' + t.id + '-' + Date.now() }).then(function (r) { r.template_id = t.id; r.length = out.text.length; return r; });
+    return outbound.send(pool, projectId, convId, actor, { text: out.text, client_ref: 'tpl-' + t.id + '-' + Date.now() }, scope).then(function (r) { r.template_id = t.id; r.length = out.text.length; return r; });
   });
 }
 module.exports = { render: render, placeholders: placeholders, list: list, get: get, create: create, update: update, remove: remove, preview: preview, sync: sync, syncAll: syncAll, testSend: testSend, wabaFor: wabaFor, NAME_RE: NAME_RE };

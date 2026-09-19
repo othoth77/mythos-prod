@@ -178,7 +178,7 @@ function getContact(pool, projectId, id, o) {
     // a member-scoped user only reads contacts that talk to one of their inboxes
     var scoped = o.scope ? pool.query('SELECT 1 FROM wp_conversations c WHERE c.contact_id = $1 AND c.inbox_id = ANY($2::bigint[]) LIMIT 1', [id, o.scope.length ? o.scope : [-1]]).then(function (x) { if (!x.rows[0]) throw fail('not_found', 404, 'no such contact'); }) : Promise.resolve();
     return scoped.then(function () { return Promise.all([
-      pool.query('SELECT id, status, inbox_id, last_message_at, unread_count, created_at, resolved_at FROM wp_conversations WHERE contact_id = $1 AND project_id = $2 ORDER BY created_at DESC LIMIT 50', [id, projectId]),
+      pool.query('SELECT id, status, inbox_id, last_message_at, unread_count, created_at, resolved_at FROM wp_conversations WHERE contact_id = $1 AND project_id = $2' + (o.scope ? ' AND inbox_id = ANY($3::bigint[])' : '') + ' ORDER BY created_at DESC LIMIT 50', o.scope ? [id, projectId, o.scope.length ? o.scope : [-1]] : [id, projectId]),
       pool.query('SELECT t.id, t.name, t.color FROM wp_contact_tags ct JOIN wp_tags t ON t.id = ct.tag_id WHERE ct.contact_id = $1 ORDER BY t.name', [id])
     ]).then(function (x) { k.conversations = x[0].rows; k.tags = x[1].rows; k.wa_masked = mask(k.wa_id); if (o.admin !== true) { delete k.wa_id; delete k.lid; } return k; }); });
   });

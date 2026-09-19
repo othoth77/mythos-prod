@@ -261,7 +261,7 @@ function catalogueTab(ctx, row) {
   const root = h('div', { class: 'stack' });
   const base = '/api/projects/' + encodeURIComponent(row.id) + '/kitchen';
   const status = h('span', {}, badge('checking', 'mock'));
-  ctx.api.get(base + '/describe').then((d) => { clear(status); status.appendChild(badge(d.configured === false ? 'not configured' : (d.ok === false ? 'unreachable' : 'connected'), d.configured === false ? 'warn' : d.ok === false ? 'danger' : 'ok')); }, () => { clear(status); status.appendChild(badge('unavailable', 'warn')); });
+  ctx.api.get(base + '/describe').then((d) => { clear(status); status.appendChild(badge(d.configured === false ? 'not configured' : (d.reachable === false || d.ok === false ? 'unreachable' : 'connected'), d.configured === false ? 'warn' : (d.reachable === false || d.ok === false) ? 'danger' : 'ok')); }, () => { clear(status); status.appendChild(badge('unavailable', 'warn')); });
   const q = h('input', { class: 'input', type: 'search', placeholder: 'Search parts (reference, title, brand)…', 'aria-label': 'Search products' });
   const list = h('div', {});
   root.appendChild(h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, 'Catalogue (Kitchen Mythos Auto)'), status), h('p', {}, 'Read-only: products, vehicles and prices come from the Kitchen.'), h('div', { class: 'toolbar' }, h('div', { class: 'search' }, q)), list));
@@ -277,7 +277,7 @@ function catalogueTab(ctx, row) {
       { label: 'Title', cell: (p) => p.title || p.product_title || p.name },
       { label: 'Brand', cell: (p) => p.brand || p.product_brand },
       { label: 'Category', cell: (p) => p.category },
-      { label: 'Price', cell: (p) => p.price !== undefined && p.price !== null ? String(p.price) + ' ' + (p.currency || row.currency || '') : null, cls: 'num' },
+      { label: 'Price', cell: (p) => { const v = p.price_tnd !== undefined && p.price_tnd !== null ? p.price_tnd : p.price; return v !== undefined && v !== null ? String(v) + ' ' + (p.currency || row.currency || '') : null; }, cls: 'num' },
       { label: 'Availability', cell: (p) => p.availability ? badge(p.availability) : null }
     ], items, { onRow: (p) => detail(p.uid || p.product_uid || p.id) }));
     list.appendChild(h('p', { class: 'dim' }, h('small', {}, items.length + ' shown' + (r.total !== undefined ? ' of ' + r.total : ''))));

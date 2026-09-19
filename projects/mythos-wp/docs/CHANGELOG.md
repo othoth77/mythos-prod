@@ -1,5 +1,15 @@
 # MYTHOS WP — Changelog
 
+## V2.1.4 — 2026-09-19 (fixes from the PR #313 code review)
+
+- Security: the lookup route no longer labels or matches rows by hidden fields (the users password hash was readable by an admin). An admin can no longer create another admin or reset a peer admin's password. Renaming an owner is no longer refused as a "demotion".
+- Inbox membership now fences handoffs, handoff history, template test sends, global search and a contact's conversation list.
+- Full phone digits of an inbox (`account_ref`) are returned to admins only. The dashboard's platform health and integration errors are manager+.
+- AI facts: a Kitchen tool call counts as proof only when its result carries the fact (a quote with a price, an availability state, at least one product). Listing vehicle models proves no fitment. A delivery time is never promised.
+- Kitchen search: a vehicle the customer names but the Kitchen cannot resolve gives no match (or an error when the model list is down), never the part for any vehicle.
+- A number sync updates its project links; shared links accept the same instance names as numbers.
+- UI: the automation editor keeps "project_default" and an n8n action's integration key; the Catalogue tab shows an unreachable Kitchen and the Kitchen price; the AI tab shows the mode that really applies; a bad agent id no longer unbinds the project's agent.
+
 ## V2.1.3 — 2026-09-18
 
 - AI wording for projects that are not Auto: the fact-free reply templates of the shared engine ask for a vehicle model and a VIN. For a service or internal project, the suggestion now uses a neutral greeting, clarification or acknowledgement in the same language (fr, ar, en). The reply or handoff decision is unchanged, and the shared engine is not modified.

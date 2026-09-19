@@ -43,7 +43,7 @@ function audited(req, entry, out) {
 }
 // usersGuard(req, target, body) — an account may only be changed by a caller who outranks it, and a caller may
 // never grant a role at or above their own (owner excepted). The last active owner cannot be demoted/disabled/deleted.
-function usersGuard(req, target, body) {
+function usersGuard(req, target, body, isDelete) {
   var callerRank = auth.ROLE_RANK[req.session.role] || 0;
   return db.wp().query('SELECT role, status FROM wp_users WHERE username = $1', [target]).then(function (r) {
     var t = r.rows[0]; if (!t) throw fail('not_found', 404, 'no such user');
@@ -51,7 +51,7 @@ function usersGuard(req, target, body) {
     if (req.session.role !== 'owner' && targetRank >= callerRank) throw fail('forbidden', 403, 'you cannot change an account of equal or higher rank');
     if (body.role !== undefined && req.session.role !== 'owner' && (auth.ROLE_RANK[body.role] || 0) >= callerRank) throw fail('forbidden', 403, 'you cannot grant a role at or above your own');
     if (target === req.session.username && (body.role !== undefined || body.status === 'disabled')) throw fail('forbidden', 403, 'you cannot change your own role or disable yourself');
-    var demotes = t.role === 'owner' && ((body.role !== undefined && body.role !== 'owner') || body.status === 'disabled' || (body.role === undefined && body.status === undefined));
+    var demotes = t.role === 'owner' && (isDelete === true || (body.role !== undefined && body.role !== 'owner') || body.status === 'disabled');
     if (!demotes) return null;
     return db.wp().query("SELECT count(*)::int AS n FROM wp_users WHERE role = 'owner' AND status = 'active'").then(function (c) { if (c.rows[0].n <= 1) throw fail('forbidden', 403, 'the last active owner cannot be demoted, disabled or deleted'); });
   });
@@ -202,6 +202,8 @@ var ROUTES = [
         if (!auth.hasRole(req.session, r.permissions.write)) throw fail('forbidden', 403, 'requires role ' + r.permissions.write);
         var body = ctx.body || {};
         if (body.role === 'owner' && req.session.role !== 'owner') throw fail('forbidden', 403, 'only an owner may create an owner');
+        // same rule as usersGuard: nobody but an owner mints an account at or above their own rank
+        if (req.session.role !== 'owner' && (auth.ROLE_RANK[body.role] || 0) >= (auth.ROLE_RANK[req.session.role] || 0)) throw fail('forbidden', 403, 'you cannot grant a role at or above your own');
         var uname = String(body.username || '').toLowerCase();
         // CREATE IS CREATE. users.upsert would otherwise let this route overwrite an existing account's
         // password, role and status — bypassing usersGuard, the rank rule and session revocation.
@@ -243,7 +245,7 @@ var ROUTES = [
     var r = resourceOr404(ctx.params[1]);
     return projectFrom(req).then(function (resolved) {
       if (r.key === 'users' && ctx.params[2] === req.session.username) throw fail('forbidden', 403, 'you cannot delete your own account');
-      if (r.key === 'users') return usersGuard(req, ctx.params[2], {}).then(function () { return crud.remove(r, crudCtx(req, r, resolved), ctx.params[2]).then(function (o) { auth.revokeUser(ctx.params[2]); return o; }); });
+      if (r.key === 'users') return usersGuard(req, ctx.params[2], {}, true).then(function () { return crud.remove(r, crudCtx(req, r, resolved), ctx.params[2]).then(function (o) { auth.revokeUser(ctx.params[2]); return o; }); });
       return crud.remove(r, crudCtx(req, r, resolved), ctx.params[2]).then(function (o) { if (r.key === 'projects') store.invalidate(); return o; });
     });
   } },
@@ -275,6 +277,8 @@ var ROUTES = [
     return db.wp().query('SELECT role FROM wp_users WHERE username = $1', [ctx.params[1]]).then(function (r) {
       if (!r.rows[0]) throw fail('not_found', 404, 'no such user');
       if (r.rows[0].role === 'owner' && req.session.role !== 'owner') throw fail('forbidden', 403, 'only an owner may reset an owner password');
+      // an admin resets their own password or accounts below their rank, never a peer admin's
+      if (req.session.role !== 'owner' && ctx.params[1] !== req.session.username && (auth.ROLE_RANK[r.rows[0].role] || 0) >= (auth.ROLE_RANK[req.session.role] || 0)) throw fail('forbidden', 403, 'you cannot change an account of equal or higher rank');
       return users.setPassword(db.wp(), ctx.params[1], body.password, req.session.username).then(function (out) {
         if (ctx.params[1] !== req.session.username) auth.revokeUser(ctx.params[1]);
         return audit.record(db.wp(), Object.assign(apiUtil.auditFor(req), { action: 'setting', resource: 'users', record_id: out.username, next: { password: 'rotated' } })).then(function () { return out; });

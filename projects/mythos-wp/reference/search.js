@@ -34,8 +34,10 @@ function search(pool, o) {
   var digits = term.replace(/\D/g, '');
   var digitsLike = digits.length >= 3 ? '%' + digits : null;
   var tasks = [];
+  // a member-scoped user (wp_inbox_members) finds only conversations — and contacts — of their own inboxes
+  var inboxes = Array.isArray(o.inboxScope) ? (o.inboxScope.length ? o.inboxScope : [-1]) : null;
 
-  tasks.push(safe(ids.length ? pool.query('SELECT DISTINCT ON (k.wa_id) k.id, k.wa_id, k.display_name, k.project_id, k.last_seen_at, (SELECT count(*)::int FROM wp_contacts k2 WHERE k2.wa_id = k.wa_id AND k2.project_id = ANY($1::text[])) AS projects FROM wp_contacts k WHERE k.project_id = ANY($1::text[]) AND k.wa_id IS NOT NULL AND (k.display_name ILIKE $2' + (digitsLike ? ' OR k.wa_id LIKE $4' : '') + ') ORDER BY k.wa_id, k.last_seen_at DESC NULLS LAST LIMIT $3', digitsLike ? [ids, like, LIMIT, digitsLike] : [ids, like, LIMIT]).then(function (r) {
+  tasks.push(safe(ids.length ? pool.query('SELECT DISTINCT ON (k.wa_id) k.id, k.wa_id, k.display_name, k.project_id, k.last_seen_at, (SELECT count(*)::int FROM wp_contacts k2 WHERE k2.wa_id = k.wa_id AND k2.project_id = ANY($1::text[])) AS projects FROM wp_contacts k WHERE k.project_id = ANY($1::text[]) AND k.wa_id IS NOT NULL AND (k.display_name ILIKE $2' + (digitsLike ? ' OR k.wa_id LIKE $4' : '') + ')' + (inboxes ? ' AND EXISTS (SELECT 1 FROM wp_conversations cc WHERE cc.contact_id = k.id AND cc.inbox_id = ANY($' + (digitsLike ? 5 : 4) + '::bigint[]))' : '') + ' ORDER BY k.wa_id, k.last_seen_at DESC NULLS LAST LIMIT $3', (digitsLike ? [ids, like, LIMIT, digitsLike] : [ids, like, LIMIT]).concat(inboxes ? [inboxes] : [])).then(function (r) {
     return r.rows.map(function (x) { return { id: x.id, title: x.display_name || mask(x.wa_id), sub: mask(x.wa_id) + ' · ' + (x.projects > 1 ? x.projects + ' projects' : (names[x.project_id] || x.project_id)), route: '#/contacts/360/' + (o.admin === true ? x.wa_id : x.project_id + ':' + x.id) }; });
   }) : Promise.resolve([]), 'contacts', 'Contacts'));
 
@@ -43,7 +45,7 @@ function search(pool, o) {
     return r.rows.map(function (x) { return { id: x.id, title: x.display_name, sub: x.provider + ' · ' + x.instance + ' · ' + (x.phone_ref ? mask(x.phone_ref) : '—') + ' · ' + x.status, route: '#/whatsapp?tab=numbers&id=' + x.id }; });
   }), 'numbers', 'Phone numbers'));
 
-  tasks.push(safe(ids.length ? pool.query("SELECT c.id, c.project_id, c.status, c.handler, c.summary, k.display_name, k.wa_id, (SELECT m.text FROM wp_messages m WHERE m.conversation_id = c.id AND m.direction <> 'activity' ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS last_text FROM wp_conversations c JOIN wp_contacts k ON k.id = c.contact_id WHERE c.project_id = ANY($1::text[]) AND (c.summary ILIKE $2 OR k.display_name ILIKE $2 OR EXISTS (SELECT 1 FROM wp_messages m WHERE m.conversation_id = c.id AND m.direction <> 'activity' AND m.text ILIKE $2)) ORDER BY c.last_message_at DESC NULLS LAST, c.id DESC LIMIT $3", [ids, like, LIMIT]).then(function (r) {
+  tasks.push(safe(ids.length ? pool.query("SELECT c.id, c.project_id, c.status, c.handler, c.summary, k.display_name, k.wa_id, (SELECT m.text FROM wp_messages m WHERE m.conversation_id = c.id AND m.direction <> 'activity' ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS last_text FROM wp_conversations c JOIN wp_contacts k ON k.id = c.contact_id WHERE c.project_id = ANY($1::text[]) AND (c.summary ILIKE $2 OR k.display_name ILIKE $2 OR EXISTS (SELECT 1 FROM wp_messages m WHERE m.conversation_id = c.id AND m.direction <> 'activity' AND m.text ILIKE $2))" + (inboxes ? ' AND c.inbox_id = ANY($4::bigint[])' : '') + " ORDER BY c.last_message_at DESC NULLS LAST, c.id DESC LIMIT $3", inboxes ? [ids, like, LIMIT, inboxes] : [ids, like, LIMIT]).then(function (r) {
     return r.rows.map(function (x) { return { id: x.id, title: (x.display_name || mask(x.wa_id)) + ' · ' + (names[x.project_id] || x.project_id), sub: x.status + ' · ' + x.handler + (x.summary ? ' · ' + String(x.summary).slice(0, 80) : (x.last_text ? ' · ' + String(x.last_text).slice(0, 80) : '')), route: '#/inbox/' + x.id }; });
   }) : Promise.resolve([]), 'conversations', 'Conversations'));
 

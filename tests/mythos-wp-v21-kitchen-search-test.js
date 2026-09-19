@@ -88,6 +88,10 @@ kit.listen(0, '127.0.0.1', function () {
     })
     .then(function () { return parts({ parts: ['filtre a huile'], vehicle_model: 'Rexton' }); })
     .then(function (r) { ok(!r.ok && r.reason === 'NO_MATCH', 'a model that carries none of the family → NO_MATCH, never a substitute'); })
+    // a vehicle the Kitchen does not know is a hard filter too: no part "for any vehicle"
+    .then(function () { return parts({ parts: ['filtre a huile'], vehicle_model: 'Tivoli' }); })
+    .then(function (r) { ok(!r.ok && r.reason === 'NO_MATCH', 'an unknown vehicle → NO_MATCH, the vehicle filter is never dropped (' + (r.ok ? 'OK — WRONG' : r.reason) + ')'); return P.price({ parts: ['alternateur'], vehicle_model: 'Tivoli' }, CTX); })
+    .then(function (r) { ok(!r.ok, 'no price for a part on an unknown vehicle'); })
     // 4. a single match is a fact: price and stock follow
     .then(function () { return parts({ parts: ['alternateur'] }); })
     .then(function (r) { ok(r.ok && r.data.matches.length === 1 && r.data.matches[0].canonical_reference === 'ALT-3', 'a narrow family resolves to one product'); return P.price({ parts: ['alternateur'] }, CTX); })

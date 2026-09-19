@@ -91,8 +91,10 @@ function create(deps) {
     // "KORANDO" generations). Narrowing by one of them would be a guess, and refusing to narrow at all
     // buries the customer's answer under every generation — so we narrow by ALL rows carrying that name
     // and union the results: still exactly what the customer said, just not resolved to one generation.
+    // a vehicle the customer NAMED is a hard filter: if the Kitchen cannot resolve it (model list down, or no such
+    // model), the answer is an error / no match — never the same part for any vehicle.
     var modelsP = vehicle ? client.listVehicleModels().then(function (r) {
-      if (!r.ok) return [];
+      if (!r.ok) return { error: kitchenReason(r) };
       var want = vehicle.toUpperCase();
       var hits = r.data.vehicle_models.filter(function (m) { return String(m.model_name || '').toUpperCase().indexOf(want) === 0 && /^\d+$/.test(String(m.id)); });
       var exact = hits.filter(function (m) { return String(m.model_name || '').toUpperCase() === want; });
@@ -105,6 +107,8 @@ function create(deps) {
     // phrase match. The word search stays as the fallback when no category matches.
     var catsP = client.listPartCategories().then(function (r) { return r.ok && Array.isArray(r.data.part_categories) ? r.data.part_categories : []; }, function () { return []; });
     return Promise.all([modelsP, catsP]).then(function (both) {
+      if (both[0] && both[0].error) return { error: both[0].error };
+      if (vehicle && !both[0].length) return { by: 'vehicle', rows: [] };
       var modelIds = both[0], cats = both[1];
       var slug = slugify(words.join(' '));
       var tokens = slug.split('-').filter(function (t) { return t.length >= 3; });

@@ -270,7 +270,8 @@ function listDrops(pool, o) {
 // --allow-personal-account). Without it — including a value smuggled in through o.settings — nothing is written.
 function createSharedInbox(pool, projectId, o, actor) {
   o = o || {};
-  if (!/^[a-z0-9][a-z0-9_-]{1,62}$/.test(String(o.instance || ''))) throw fail('validation', 400, 'instance shape');
+  // same shape as wp_phone_numbers.instance (0007 CHECK): a number that can be linked dedicated can be linked shared
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(String(o.instance || ''))) throw fail('validation', 400, 'instance shape');
   if (!/^[0-9]{6,32}$/.test(String(o.account_ref || ''))) throw fail('validation', 400, 'account_ref (digits) required for a shared inbox');
   if (!o.display_name) throw fail('validation', 400, 'display_name required');
   if (o.allow_personal_account !== true) throw fail('precondition', 412, 'a shared-account inbox requires the explicit allow_personal_account opt-in (--allow-personal-account)');

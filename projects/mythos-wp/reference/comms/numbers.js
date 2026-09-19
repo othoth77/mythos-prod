@@ -222,9 +222,10 @@ function sync(pool, deps) {
             var ws = w.status === 404 || !w.ok ? (w.status === null ? { state: 'unknown', detail: 'webhook lookup unreachable' } : { state: 'missing', detail: 'no webhook configured on the instance' }) : webhookState(w.json, expected);
             var personal = f.phone !== null && reserved[f.phone] === true;
             return pool.query("INSERT INTO wp_phone_numbers (provider, instance, phone_ref, display_name, status, is_personal, health_state, health_detail, last_health_at, webhook_state, webhook_detail) VALUES ('evolution', $1, $2, $3, $4, $5, $6, $7, now(), $8, $9) " +
-              'ON CONFLICT (provider, instance) DO UPDATE SET phone_ref = COALESCE(EXCLUDED.phone_ref, wp_phone_numbers.phone_ref), status = EXCLUDED.status, is_personal = wp_phone_numbers.is_personal OR EXCLUDED.is_personal, health_state = EXCLUDED.health_state, health_detail = EXCLUDED.health_detail, last_health_at = now(), webhook_state = EXCLUDED.webhook_state, webhook_detail = EXCLUDED.webhook_detail, updated_at = now() RETURNING (xmax = 0) AS inserted',
+              'ON CONFLICT (provider, instance) DO UPDATE SET phone_ref = COALESCE(EXCLUDED.phone_ref, wp_phone_numbers.phone_ref), status = EXCLUDED.status, is_personal = wp_phone_numbers.is_personal OR EXCLUDED.is_personal, health_state = EXCLUDED.health_state, health_detail = EXCLUDED.health_detail, last_health_at = now(), webhook_state = EXCLUDED.webhook_state, webhook_detail = EXCLUDED.webhook_detail, updated_at = now() RETURNING (xmax = 0) AS inserted, id, provider, instance, status',
               [f.instance, f.phone, f.profile || f.instance, f.status, personal, f.status === 'open' ? 'ok' : (f.status === 'pairing' ? 'warning' : 'disconnected'), 'connectionStatus ' + f.status, ws.state, String(ws.detail).slice(0, 200)])
-              .then(function (x) { if (x.rows[0] && x.rows[0].inserted) created++; else updated++; });
+              // the provider listed this state itself, so the project links follow it (same rule as check/connect)
+              .then(function (x) { if (x.rows[0] && x.rows[0].inserted) created++; else updated++; return syncInboxStatus(pool, x.rows[0]); });
           });
         });
       });

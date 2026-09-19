@@ -40,7 +40,20 @@ var MAX_TOOL_RESULT = 1500;
 var DEFAULT_TIMEOUT_MS = 20000;
 var PROMPT_VERSION = 'wp-llm-tools/v1';
 // which fact KIND (of the #173 fact guard) a successful tool call verifies
-var TOOL_FACT_KIND = { 'kitchen.quote': 'price', 'kitchen.availability': 'stock', 'kitchen.search_products': 'parts', 'kitchen.get_product': 'parts', 'kitchen.vehicle_models': 'vehicle' };
+// (listing vehicle models verifies no fitment, so it unlocks no fact kind)
+var TOOL_FACT_KIND = { 'kitchen.quote': 'price', 'kitchen.availability': 'stock', 'kitchen.search_products': 'parts', 'kitchen.get_product': 'parts' };
+// A successful call is not a fact: the kind is credited only when the result actually carries it
+// (a quote with a price, an availability state, at least one product) — an empty or degraded answer proves nothing.
+function verifiedKind(tool, data) {
+  var kind = TOOL_FACT_KIND[tool]; if (!kind || !data) return null;
+  if (tool === 'kitchen.quote') return Array.isArray(data.quotes) && data.quotes.some(function (x) { return x && x.price_tnd !== null && x.price_tnd !== undefined; }) ? kind : null;
+  if (tool === 'kitchen.availability') return data.availability && data.availability !== 'unknown' ? kind : null;
+  if (tool === 'kitchen.search_products') return Array.isArray(data.products) && data.products.length ? kind : null;
+  if (tool === 'kitchen.get_product') return data.product_uid ? kind : null;
+  return null;
+}
+// No tool returns a delivery time, so a reply may never promise one (the shared guard files these under 'stock').
+var DELIVERY_CLAIM = /(livr[ée]\w*|livraison|d[ée]lai)\s+(sous|en|dans|de)\s+\d+|deliver\w*\s+(within|in)\s+\d+|\d+\s*(jours?|days?|h(eures?)?|hours?)\s+(de\s+)?(livraison|delivery)|(توصيل|التوصيل)[^\n]{0,20}\d+|\d+\s*(أيام|ايام|يوم)/i;
 
 function pool() {
   try { return { selector: require(path.join(FREE, 'selector')), secrets: require(path.join(FREE, 'secrets')), adapter: require(path.join(FREE, 'adapter')), registry: require(path.join(FREE, 'registry')) }; } catch (e) { return null; }
@@ -229,7 +242,8 @@ function runAgent(o) {
         if (rounds >= MAX_ROUNDS) return finish({ reason: 'TOOL_ROUNDS_EXCEEDED' });
         rounds++;
         return tools.run(act.tool, ctx, act.args).then(function (res) {
-          if (res.ok && TOOL_FACT_KIND[act.tool] && facts.available.indexOf(TOOL_FACT_KIND[act.tool]) === -1) { facts.available.push(TOOL_FACT_KIND[act.tool]); facts.data[TOOL_FACT_KIND[act.tool]] = res.data; }
+          var vk = res.ok ? verifiedKind(act.tool, res.data) : null;
+          if (vk && facts.available.indexOf(vk) === -1) { facts.available.push(vk); facts.data[vk] = res.data; }
           if (res.ok && act.tool === 'knowledge.lookup' && res.data && Array.isArray(res.data.items)) res.data.items.forEach(function (k) { if (k && k.customer_text) knowledge.push(String(k.customer_text).trim()); });
           if (res.ok && act.tool === 'handoff.request') return finish({ ok: true, decision: 'handoff', reason: res.data && res.data.reason ? res.data.reason : 'AGENT_REQUESTED', confidence: act.confidence, intent: act.intent });
           transcript.push('TOOL_RESULT ' + act.tool + ': ' + JSON.stringify(res.ok ? { ok: true, data: res.data } : { ok: false, reason: res.reason }).slice(0, MAX_TOOL_RESULT));
@@ -239,6 +253,7 @@ function runAgent(o) {
       if (act.action === 'handoff') return finish({ ok: true, decision: 'handoff', reason: act.reason || 'AGENT_REQUESTED', confidence: act.confidence, intent: act.intent });
       var text = act.text.replace(/\s+/g, ' ').trim().slice(0, MAX_REPLY);
       if (!text) return finish({ reason: 'EMPTY_REPLY', confidence: act.confidence, intent: act.intent });
+      if (DELIVERY_CLAIM.test(text)) return finish({ reason: 'FACT_GUARD_VIOLATION', guard: { ok: false, violations: [{ kind: 'delivery', claim: 'DELIVERY_TIME_UNVERIFIED' }] }, confidence: act.confidence, intent: act.intent });
       var guard = factGuard(guardText(text, knowledge), { available: facts.available });
       if (!guard.ok) return finish({ reason: 'FACT_GUARD_VIOLATION', guard: guard, confidence: act.confidence, intent: act.intent });
       return finish({ ok: true, decision: 'reply', text: text, confidence: act.confidence, intent: act.intent, guard: guard });
@@ -247,4 +262,4 @@ function runAgent(o) {
   return step().catch(function () { return finish({ reason: 'LLM_ERROR' }); });
 }
 
-module.exports = { MAX_PROVIDERS: MAX_PROVIDERS, MAX_ROUNDS: MAX_ROUNDS, MAX_REPLY: MAX_REPLY, PROMPT_VERSION: PROMPT_VERSION, TOOL_FACT_KIND: TOOL_FACT_KIND, complete: complete, status: status, systemPrompt: systemPrompt, userPrompt: userPrompt, parseAction: parseAction, factGuard: factGuard, runAgent: runAgent };
+module.exports = { MAX_PROVIDERS: MAX_PROVIDERS, MAX_ROUNDS: MAX_ROUNDS, MAX_REPLY: MAX_REPLY, PROMPT_VERSION: PROMPT_VERSION, TOOL_FACT_KIND: TOOL_FACT_KIND, verifiedKind: verifiedKind, DELIVERY_CLAIM: DELIVERY_CLAIM, complete: complete, status: status, systemPrompt: systemPrompt, userPrompt: userPrompt, parseAction: parseAction, factGuard: factGuard, runAgent: runAgent };

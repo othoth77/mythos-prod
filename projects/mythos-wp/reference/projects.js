@@ -92,7 +92,8 @@ function aiGet(pool, projectId, opts) {
     var settings = x[0].rows[0].settings || {};
     var a = x[1].rows[0] || null;
     var projectMode = AI_MODES.indexOf(settings.ai_mode) !== -1 ? settings.ai_mode : 'inherit';
-    var effective = !a || a.status !== 'active' ? 'off' : (projectMode === 'inherit' ? a.mode : (projectMode === 'off' || a.mode === 'off' ? 'off' : projectMode));
+    // exactly the runtime rule (agents.effectiveMode): a project can restrict its agent, never raise it
+    var effective = require('./ai/agents').effectiveMode(a, null, { settings: settings });
     return { agent: a ? { id: a.id, name: a.name, slug: a.slug, mode: a.mode, engine: a.engine, link_id: a.link_id } : null, mode: effective, project_mode: projectMode, status: a && a.status === 'active' && effective !== 'off' ? 'active' : 'disabled', agents: x[2].rows };
   });
 }
@@ -104,10 +105,12 @@ function aiPut(pool, projectId, body, actor) {
   else if (body.status === 'active' && mode === undefined) mode = 'inherit';
   if (mode !== undefined && AI_MODES.indexOf(mode) === -1) throw fail('validation', 400, 'mode off|suggest|auto|inherit', { errors: { mode: 'not_in_enum' } });
   var agentId = body.agent_id === undefined ? undefined : (body.agent_id === null || body.agent_id === '' ? null : parseInt(body.agent_id, 10));
+  if (agentId !== undefined && agentId !== null && !(agentId > 0)) throw fail('validation', 400, 'agent_id must be an agent id or null', { errors: { agent_id: 'invalid' } });
   var agents = require('./ai/agents');
   var chain = Promise.resolve();
   if (agentId !== undefined) chain = chain.then(function () {
-    return pool.query('DELETE FROM wp_project_agents WHERE project_id = $1 AND inbox_id IS NULL', [projectId]).then(function () {
+    // the new agent is checked BEFORE the current binding is removed: a bad id never leaves the project unbound
+    return (agentId ? pool.query("SELECT 1 FROM wp_agents WHERE id = $1 AND status <> 'archived'", [agentId]).then(function (r) { if (!r.rows[0]) throw fail('not_found', 404, 'no such agent'); }) : Promise.resolve()).then(function () { return pool.query('DELETE FROM wp_project_agents WHERE project_id = $1 AND inbox_id IS NULL', [projectId]); }).then(function () {
       if (!agentId) return null;
       return agents.link(pool, agentId, { project_id: projectId }, actor);
     });

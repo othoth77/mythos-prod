@@ -346,8 +346,13 @@ migrate.up(pool).then(wipe)
     var act = d.projects.activity.filter(function (p) { return p.id === 'v2pf-c'; })[0];
     ok(d.projects.total === 1 && d.projects.active === 1 && act && act.conversations_24h === 4, 'project activity ' + JSON.stringify(d.projects));
     ok(d.ai.handled_24h === 0 && d.ai.handoffs_24h === 0 && d.ai.errors_24h === 0 && typeof d.ai.active_agents === 'number', 'ai stats');
-    ok(d.infrastructure.some(function (c) { return c.component === 'database'; }), 'infrastructure from health checks');
-    ok(d.alerts.some(function (a) { return a.component === 'integration:v2pf-broken'; }), 'alerts include the disconnected integration');
+    ok(d.infrastructure.length === 0 && !d.alerts.some(function (a) { return /^integration:/.test(a.component); }), 'viewer dashboard carries no platform health or integration errors (manager+ only)');
+    return req('GET', '/api/dashboard?project=v2pf-c', undefined, ADMIN);
+  })
+  .then(function (x) {
+    var d = x.data || {};
+    ok(d.infrastructure.some(function (c) { return c.component === 'database'; }), 'infrastructure from health checks (admin)');
+    ok(d.alerts.some(function (a) { return a.component === 'integration:v2pf-broken'; }), 'alerts include the disconnected integration (admin)');
     return req('GET', '/api/dashboard?project=all', undefined, VIEWER);
   })
   .then(function (x) { ok(x.status === 200 && x.data.whatsapp.conversations >= 3 && x.data.projects.total >= 3 && x.data.scope.project === 'all', 'all projects → aggregated'); return req('GET', '/api/dashboard?project=nope-v2pf', undefined, VIEWER); })

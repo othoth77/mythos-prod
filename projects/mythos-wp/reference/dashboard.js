@@ -101,8 +101,9 @@ function build(pool, o) {
     whatsappCounts(pool, ids),
     projectActivity(pool, rows, ids),
     aiStats(pool, ids, all),
-    health.center(pool).catch(function () { return { components: [] }; }),
-    integrationAlerts(pool),
+    // platform health and integration errors span every project: shown to manager+ only (same gate as /api/health/center)
+    o.platform ? health.center(pool).catch(function () { return { components: [] }; }) : Promise.resolve({ components: [] }),
+    o.platform ? integrationAlerts(pool) : Promise.resolve([]),
     numberAlerts(pool, ids)
   ]).then(function (x) {
     var infra = x[3].components.map(function (c) { return { component: c.component, status: c.status, detail: c.detail || {}, checked_at: c.checked_at }; });
