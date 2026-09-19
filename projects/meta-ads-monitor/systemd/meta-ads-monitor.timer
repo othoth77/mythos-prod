@@ -1,0 +1,12 @@
+# Facebook Ads Monitor — every hour at :40 UTC, so "today" stays fresh for the Ads Mythos dashboard
+[Unit]
+Description=Run the MYTHOS Facebook Ads READ-ONLY monitor hourly
+
+[Timer]
+OnCalendar=*-*-* *:40:00 UTC
+RandomizedDelaySec=5min
+Persistent=true
+Unit=meta-ads-monitor.service
+
+[Install]
+WantedBy=timers.target

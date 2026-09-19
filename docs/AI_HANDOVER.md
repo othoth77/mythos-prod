@@ -2,6 +2,34 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-18 — META-ADS-MONITOR-0: Facebook Ads daily monitor on the VPS — READ-ONLY by design (Opus 5)
+
+**Facebook Ads Monitor is READ-ONLY by design.** New `projects/meta-ads-monitor/`
+(see its README): a systemd timer (`meta-ads-monitor.timer`, daily 06:40 UTC,
+`Persistent=true`) runs `bin/meta-ads-monitor.js run` as `deploy` in a sandboxed
+oneshot unit. It reads ad accounts, campaigns, ad sets, ads, statuses, budgets,
+spend, reported results and cost metrics through a **GET-only** Graph client
+(`lib/graph.js`: read-path allowlist, `method`/`_method`/`access_token`/`batch`
+parameters refused, token only in the Authorization header), diffs today against
+the previous snapshot, and writes an Arabic plain-language report to
+`~deploy/.local/state/meta-ads-monitor/reports/YYYY-MM-DD.md`. Snapshots keep
+allowlisted fields only; every write is atomic, 0600 and secret-scanned;
+retention 60 days (snapshots) / 90 days (reports); lock against duplicate runs;
+30 s request timeout, 3 retries, 10 min run deadline.
+
+Why not the existing paths (Search First, all verified 2026-09-17/18): Claude
+Desktop Routines run on the owner's Windows machine and never started a session
+for this job; the Meta Ads MCP connector exists only inside Claude sessions and
+its 41 write tools stay **DENY** in `/root/.claude/settings.json` (`ask` rules do
+not gate connector tools — `deny` does); the host Claude CLI (`~deploy/.local/bin/claude`)
+answers "OAuth session expired". Google Drive is equally session-only, so reports
+stay local (recorded limitation).
+
+**Owner step (the only blocker):** a token with `ads_read` only, stored as
+`META_ADS_READ_TOKEN` in `~deploy/.config/meta-ads-monitor/meta.env` (mode 600,
+owner deploy). Until then every run writes a short `NOT_CONFIGURED` report and
+makes zero Meta requests. Tests: `node tests/meta-ads-monitor-test.js` (offline).
+
 ## 2026-09-13 — VPS DISK P2 DEEP AUDIT — read-only audit + 24 MB controlled cleanup (Fable 5.1)
 
 After the P1 cleanup (57 G / 79 %, 16 G free), every P2 candidate was

@@ -1,0 +1,272 @@
+{
+ "me/adaccounts": {
+  "data": [
+   {
+    "id": "act_111",
+    "account_id": "111",
+    "name": "Fixture Account",
+    "account_status": 1,
+    "currency": "USD",
+    "timezone_name": "Africa/Tunis",
+    "amount_spent": "18500",
+    "spend_cap": "20000"
+   }
+  ]
+ },
+ "act_111/campaigns": {
+  "data": [
+   {
+    "id": "901",
+    "name": "WhatsApp Leads",
+    "status": "ACTIVE",
+    "effective_status": "ACTIVE",
+    "objective": "OUTCOME_ENGAGEMENT",
+    "daily_budget": "750",
+    "budget_remaining": "600"
+   },
+   {
+    "id": "902",
+    "name": "Recrutement",
+    "status": "ACTIVE",
+    "effective_status": "ACTIVE",
+    "objective": "OUTCOME_TRAFFIC",
+    "daily_budget": "300"
+   },
+   {
+    "id": "903",
+    "name": "Nouvelle offre",
+    "status": "ACTIVE",
+    "effective_status": "ACTIVE",
+    "objective": "OUTCOME_ENGAGEMENT",
+    "lifetime_budget": "2000"
+   }
+  ]
+ },
+ "act_111/adsets": {
+  "data": [
+   {
+    "id": "801",
+    "name": "TN 30-60",
+    "campaign_id": "901",
+    "status": "ACTIVE",
+    "effective_status": "ACTIVE"
+   }
+  ]
+ },
+ "act_111/ads": {
+  "data": [
+   {
+    "id": "701",
+    "name": "Image A",
+    "adset_id": "801",
+    "campaign_id": "901",
+    "status": "ACTIVE",
+    "effective_status": "ACTIVE"
+   },
+   {
+    "id": "702",
+    "name": "Video B",
+    "adset_id": "801",
+    "campaign_id": "901",
+    "status": "ACTIVE",
+    "effective_status": "DISAPPROVED",
+    "issues_info": [
+     {
+      "level": "AD",
+      "error_summary": "Ad rejected: policy"
+     }
+    ]
+   }
+  ]
+ },
+ "act_111/insights?date_preset=yesterday&level=campaign": {
+  "data": [
+   {
+    "campaign_id": "901",
+    "campaign_name": "WhatsApp Leads",
+    "spend": "9.9",
+    "impressions": "3000",
+    "reach": "1500",
+    "frequency": "1.6",
+    "clicks": "12",
+    "ctr": "1.2",
+    "cpc": "0.1",
+    "cpm": "3.5",
+    "actions": [
+     {
+      "action_type": "onsite_conversion.messaging_conversation_started_7d",
+      "value": "4"
+     }
+    ],
+    "results": [
+     {
+      "indicator": "actions:onsite_conversion.messaging_conversation_started_7d",
+      "values": [
+       {
+        "value": "4",
+        "attribution_windows": [
+         "default"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "campaign_id": "902",
+    "campaign_name": "Recrutement",
+    "spend": "2.5",
+    "impressions": "700",
+    "reach": "350",
+    "frequency": "1.1",
+    "clicks": "12",
+    "ctr": "1.2",
+    "cpc": "0.1",
+    "cpm": "3.5",
+    "results": [
+     {
+      "indicator": "actions:link_click",
+      "values": []
+     }
+    ],
+    "actions": [
+     {
+      "action_type": "post_engagement",
+      "value": "40"
+     },
+     {
+      "action_type": "page_engagement",
+      "value": "41"
+     }
+    ]
+   }
+  ]
+ },
+ "act_111/insights?date_preset=last_7d&level=campaign": {
+  "data": [
+   {
+    "campaign_id": "901",
+    "campaign_name": "WhatsApp Leads",
+    "spend": "40",
+    "impressions": "12000",
+    "reach": "6000",
+    "frequency": "3.4",
+    "clicks": "12",
+    "ctr": "1.2",
+    "cpc": "0.1",
+    "cpm": "3.5",
+    "actions": [
+     {
+      "action_type": "onsite_conversion.messaging_conversation_started_7d",
+      "value": "35"
+     }
+    ],
+    "results": [
+     {
+      "indicator": "actions:onsite_conversion.messaging_conversation_started_7d",
+      "values": [
+       {
+        "value": "35",
+        "attribution_windows": [
+         "default"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "campaign_id": "902",
+    "campaign_name": "Recrutement",
+    "spend": "6",
+    "impressions": "1500",
+    "reach": "750",
+    "frequency": "1.2",
+    "clicks": "12",
+    "ctr": "1.2",
+    "cpc": "0.1",
+    "cpm": "3.5",
+    "results": [
+     {
+      "indicator": "actions:link_click",
+      "values": []
+     }
+    ],
+    "actions": [
+     {
+      "action_type": "post_engagement",
+      "value": "40"
+     },
+     {
+      "action_type": "page_engagement",
+      "value": "41"
+     }
+    ]
+   }
+  ]
+ },
+ "act_111/insights?date_preset=last_7d&level=ad": {
+  "data": []
+ },
+ "act_111/insights?level=campaign&time_increment=1": {
+  "data": [
+   {
+    "campaign_id": "901",
+    "campaign_name": "WhatsApp Leads",
+    "date_start": "2026-09-16",
+    "date_stop": "2026-09-16",
+    "spend": "3",
+    "impressions": "1000",
+    "clicks": "20",
+    "results": [
+     {
+      "indicator": "actions:onsite_conversion.messaging_conversation_started_7d",
+      "values": [
+       {
+        "value": "4"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "campaign_id": "901",
+    "campaign_name": "WhatsApp Leads",
+    "date_start": "2026-09-17",
+    "date_stop": "2026-09-17",
+    "spend": "4",
+    "impressions": "1100",
+    "clicks": "21",
+    "results": [
+     {
+      "indicator": "actions:onsite_conversion.messaging_conversation_started_7d",
+      "values": [
+       {
+        "value": "5"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "campaign_id": "901",
+    "campaign_name": "WhatsApp Leads",
+    "date_start": "2026-09-18",
+    "date_stop": "2026-09-18",
+    "spend": "5",
+    "impressions": "1200",
+    "clicks": "22",
+    "results": [
+     {
+      "indicator": "actions:onsite_conversion.messaging_conversation_started_7d",
+      "values": [
+       {
+        "value": "6"
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ }
+}
