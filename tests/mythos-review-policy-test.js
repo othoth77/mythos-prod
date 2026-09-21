@@ -605,14 +605,107 @@ chain = chain.then(function () {
 });
 
 // ===========================================================================
-// H — provenance: the review requirement cannot be injected from outside
+// H — E2E through the PRODUCTION orchestrator wiring
+// (orchestrator.advanceMission → scheduler → validation), mock agent
+// runner, no quota consumed, no production endpoint added.
+// ===========================================================================
+var orchestrator = require(path.join(EXEC, 'core', 'orchestrator'));
+
+function submitWorkMission(project) {
+  return orchestrator.submitGoal('E2E review gate for ' + project, {
+    project: project,
+    spec: {
+      title: 'E2E mission',
+      tasks: [{ key: 'implement', title: 'Implement', task_type: 'integration',
+        capabilities_required: ['coding'], policy_classes: ['READ', 'PROJECT_WRITE'], depends_on: [] }]
+    }
+  });
+}
+
+// H1 — the only review-capable agent is the AUTHOR: the mission waits.
+chain = chain.then(function () {
+  availableAgents(['claude-code']);
+  var s = submitWorkMission('e2e-park');
+  var runs = { n: 0 };
+  return orchestrator.advanceMission(s.mission.id, {
+    agent_runner: function (agentName, task) {
+      runs.n += 1;
+      return Promise.resolve({ status: 'completed', summary: task.title + ' done' });
+    },
+    review_fn: function () { return { verdict: 'pass', findings: [] }; }
+  }).then(function (mission) {
+    var t = store.load('task', s.tasks[0].id);
+    ok(mission.status === 'WAITING' && t.status === 'REVIEW_REQUIRED',
+      'H1 E2E: production wiring parks unreviewed work instead of completing it');
+    ok(t.metadata.review_block_reason === 'no_reviewer_available',
+      'H1 E2E: the author cannot be their own reviewer, and the reason says so');
+    ok(t.result && t.result.summary === 'Implement done', 'H1 E2E: the evidence is kept for the reviewer');
+
+    validation.resolveReview(t.id, { verdict: 'pass', reviewer: 'othman', decided_by: 'othman' });
+    return orchestrator.advanceMission(s.mission.id, {
+      agent_runner: function () { runs.n += 1; return Promise.resolve({ status: 'completed' }); },
+      review_fn: function () { return { verdict: 'pass', findings: [] }; }
+    }).then(function (mission2) {
+      ok(mission2.status === 'COMPLETED' && runs.n === 1,
+        'H1 E2E: an owner verdict finishes the mission with the work executed exactly ONCE');
+    });
+  });
+});
+
+// H2 — with an independent reviewer available the review REALLY runs, once.
+chain = chain.then(function () {
+  availableAgents(['claude-code', 'omniroute-advisory']);
+  var s = submitWorkMission('e2e-reviewed');
+  var seen = { reviewer: null, calls: 0 };
+  return orchestrator.advanceMission(s.mission.id, {
+    agent_runner: function (agentName, task) {
+      return Promise.resolve({ status: 'completed', summary: task.title + ' done' });
+    },
+    review_fn: function (reviewer) {
+      seen.reviewer = reviewer; seen.calls += 1;
+      return { verdict: 'pass', findings: [] };
+    }
+  }).then(function (mission) {
+    var t = store.load('task', s.tasks[0].id);
+    ok(mission.status === 'COMPLETED' && t.status === 'COMPLETED',
+      'H2 E2E: with an independent reviewer the mission completes');
+    ok(seen.calls === 1, 'H2 E2E: review_fn was invoked EXACTLY ONCE (before this policy it was never called)');
+    ok(seen.reviewer === 'omniroute-advisory' && t.agent_id !== seen.reviewer,
+      'H2 E2E: the reviewer is a real agent and is not the author');
+  });
+});
+
+// H3 — a rejecting reviewer repairs through the existing loop, not the gate.
+chain = chain.then(function () {
+  availableAgents(['claude-code', 'omniroute-advisory']);
+  var s = submitWorkMission('e2e-repair');
+  var attempts = { n: 0 };
+  return orchestrator.advanceMission(s.mission.id, {
+    agent_runner: function (agentName, task) {
+      attempts.n += 1;
+      return Promise.resolve({ status: 'completed', summary: task.title + ' attempt ' + attempts.n });
+    },
+    review_fn: function () {
+      return attempts.n < 2
+        ? { verdict: 'reject', findings: ['the failure path is untested'] }
+        : { verdict: 'pass', findings: [] };
+    }
+  }).then(function (mission) {
+    var t = store.load('task', s.tasks[0].id);
+    ok(mission.status === 'COMPLETED' && t.status === 'COMPLETED' && attempts.n === 2,
+      'H3 E2E: a rejected review repairs once and then completes — the repair loop is unchanged');
+  });
+});
+
+// ===========================================================================
+// I — provenance: the review requirement cannot be injected from outside
 // ===========================================================================
 chain = chain.then(function () {
   var bad = coreWiring.validateGoalPayload({
     text: 'do something useful in the repository', metadata: { review_required: false }
   });
   ok(bad.valid === false && bad.errors.join(' ').indexOf('unexpected field: metadata') !== -1,
-    'H SECURITY: POST /goals cannot carry metadata at all, so review_required cannot be injected');
+    'I SECURITY: POST /goals cannot carry metadata at all, so review_required cannot be injected');
 
   var goal = domain.createGoal({ text: 'injection attempt', project: 'core-test' });
   store.create(goal);
@@ -622,7 +715,7 @@ chain = chain.then(function () {
       metadata: { review_required: false } }]
   });
   ok(plan.valid === false && plan.errors.join(' ').indexOf('SPEC_UNKNOWN_FIELD') !== -1,
-    'H SECURITY: a generated plan cannot set task metadata either — the waiver has no path in from data');
+    'I SECURITY: a generated plan cannot set task metadata either — the waiver has no path in from data');
 });
 
 // ===========================================================================
