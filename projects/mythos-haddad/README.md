@@ -1,11 +1,13 @@
-# Mythos Haddad — V0 base AI server
+# Mythos Haddad — on-premises AI server
 
 Mythos Haddad is the on-premises AI server of the Mythos ecosystem: a single Ubuntu machine with a GPU,
-reachable only over Tailscale, that Claude Code and later AI runtimes work on. **V0 is the verified,
-reproducible base** — access, toolchain, GPU, health checks, logs, documentation. It deliberately contains
-no Othmode integration, agents, GPU orchestration or model serving; those are V1+.
+reachable only over Tailscale, that Claude Code and local AI runtimes work on. **V0** delivered the
+verified, reproducible base — access, toolchain, GPU, health checks, logs, documentation. **HAD-2** (V1)
+adds the first local AI runtime: llama.cpp on the Vulkan backend serving one pinned Qwen2.5-7B-Instruct
+model, advisory only — see [docs/AI_RUNTIME.md](docs/AI_RUNTIME.md) for install, measurements and rollback.
 
-Current verified state: [STATUS.md](STATUS.md). Tracking: issues #328 (V0) and #329 (Tailscale remote SSH).
+Current verified state: [STATUS.md](STATUS.md). Tracking: issues #328 (V0) and #329 (Tailscale remote SSH);
+V1 scope in `docs/MYTHOS_HADDAD_V1_SCOPE.md`.
 
 | | |
 |---|---|
@@ -20,20 +22,28 @@ Current verified state: [STATUS.md](STATUS.md). Tracking: issues #328 (V0) and #
 ```
 projects/mythos-haddad/
   README.md                      setup, operation, recovery (this file)
-  STATUS.md                      last verified V0 state, blockers, next action
-  bin/haddad-health.js           V0 health check -> JSON report + log (no deps, no root, read-only)
+  STATUS.md                      last verified state, blockers, next action
+  docs/AI_RUNTIME.md             HAD-2: what's installed, commands, endpoint, measurements, rollback
+  bin/haddad-health.js           health check -> JSON report + log (no deps, no root, read-only)
   bin/gpu-vulkan-test.py         basic GPU test on real VRAM (ctypes + libvulkan, no deps)
+  bin/haddad-gpu-vram.py         live VRAM heap query (Vulkan VK_EXT_memory_budget; known limit, see AI_RUNTIME.md)
   bin/haddad-diagnostics.sh      hardware / system snapshot
   bin/haddad-setup.sh            idempotent user-level setup (dirs, Claude Code, known_hosts, health timer)
-  systemd/                       user units for the scheduled health check
-tests/mythos-haddad-v0-test.js   machine-independent invariants of the tooling
+  bin/haddad-runtime-install.sh  HAD-2: installs the llama.cpp Vulkan backend (no root, no source build)
+  bin/haddad-model-install.sh    HAD-2: downloads + sha256-pins the one Qwen model
+  bin/haddad-runtime-setup.sh    HAD-2: runs the two installers above + the systemd unit, end to end
+  src/backend-loader-shim.c      HAD-2: the one small workaround this install needed (see AI_RUNTIME.md)
+  systemd/                       user units for the health timer and the AI runtime service
+tests/mythos-haddad-v0-test.js       machine-independent invariants of the V0 tooling
+tests/mythos-haddad-runtime-test.js  machine-independent invariants of the HAD-2 tooling
 ```
 
-On the machine (outside Git, created by `haddad-setup.sh`):
+On the machine (outside Git, created by `haddad-setup.sh` / `haddad-runtime-setup.sh`):
 
 ```
-~/.local/share/mythos-haddad/models     model files (V1+; empty in V0)
-~/.local/share/mythos-haddad/runtime    AI runtime installs (V1+; empty in V0)
+~/.local/share/mythos-haddad/models/qwen2.5-7b-instruct-q4_k_m   the one pinned model (~4.4 GiB)
+~/.local/share/mythos-haddad/runtime/llama.cpp                   llama.cpp Vulkan backend + loader shim
+~/.config/mythos-haddad/runtime.key                               local API key (0600, never logged)
 ~/.local/state/mythos-haddad/           health-latest.json
 ~/.local/state/mythos-haddad/logs/      health.log, health-*.json (last 200), diagnostics-*.txt (last 20)
 ```
@@ -88,6 +98,10 @@ On each client (e.g. the Windows PC): install Tailscale, sign in to the same tai
 | Claude Code | `claude` (interactive) · `claude -p "…"` (headless) · `claude auth status` |
 | Update Claude Code | `npm install -g --prefix ~/.local @anthropic-ai/claude-code` |
 | Update the repo | `git -C ~/projects/mythos-prod pull --ff-only` |
+| AI runtime setup (HAD-2, once) | `bash projects/mythos-haddad/bin/haddad-runtime-setup.sh` |
+| AI runtime status / restart | `systemctl --user status mythos-haddad-runtime` · `systemctl --user restart mythos-haddad-runtime` |
+| AI runtime logs | `journalctl --user -u mythos-haddad-runtime -n 50` |
+| Chat with the local model | `curl -H "Authorization: Bearer $(cat ~/.config/mythos-haddad/runtime.key)" -H 'Content-Type: application/json' http://127.0.0.1:8600/v1/chat/completions -d '{"model":"qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf","messages":[{"role":"user","content":"…"}]}'` |
 
 The health check runs every 30 minutes (and 3 minutes after boot) as a systemd **user** timer with lingering
 enabled, so it runs without a login session. It is read-only. Result semantics: `PASS`; `WARN` (degraded, exit
@@ -106,7 +120,8 @@ enabled, so it runs without a login session. It is read-only. Result semantics: 
 | `gpu_test` FAIL / no hardware Vulkan device | `lsmod | grep nouveau`; `journalctl -k -b | grep -i -E 'nouveau|gsp'` must show `gsp: RM version`; packages `mesa-vulkan-drivers libvulkan1 linux-firmware-nvidia-graphics`; access to `/dev/dri/renderD128`. Reboot after a kernel/firmware update. |
 | Health timer not running | `systemctl --user status mythos-haddad-health.timer`; re-run `haddad-setup.sh`; `loginctl show-user $USER -p Linger` must be `yes`. |
 | Repo moved | Re-run `haddad-setup.sh` from the new path: the unit is regenerated with the new location. |
-| Full rebuild | Follow [Setup](#setup) top to bottom. Nothing in V0 lives only on the machine except the Claude Code login, the Tailscale node key, `~/.ssh` and the logs. |
+| `ai_runtime` FAIL / `mythos-haddad-runtime` won't start | `journalctl --user -u mythos-haddad-runtime -n 50`. `status=31/SYS` (core-dump) means a seccomp filter is too tight — see the unit file's header, `SystemCallFilter`. `no CPU backend found` means the loader shim didn't run — see `docs/AI_RUNTIME.md`, "Why a loader shim exists". |
+| Full rebuild | Follow [Setup](#setup) top to bottom, then `haddad-runtime-setup.sh`. Nothing lives only on the machine except the Claude Code login, the Tailscale node key, `~/.ssh`, the AI runtime API key and the logs — the model and engine are both re-downloadable/reproducible from `docs/AI_RUNTIME.md`. |
 
 ## Verification
 
