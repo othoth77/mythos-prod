@@ -2,6 +2,25 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-21 — MYTHOS-HADDAD-V1a: local tool runner, read/test only — built, NOT activated (Opus 5)
+
+**Objective:** the smallest possible tool runner so Qwen can execute real local read/test work on
+Haddad, reusing the existing permission model rather than inventing one.
+
+| Item | State |
+|---|---|
+| New | `providers/haddad-agent.js` — the first provider in this repo that executes a tool call itself; every other path hands argv to a CLI that owns its own sandbox. Three tools: `read_file`, `list_files`, `run_command`. **No write tool exists** — absent, not disabled. |
+| Permission source | `lib/policy.js` gained `toolsForProfile()`, a SECOND renderer of the same fields `claudeArgsForProfile` turns into CLI flags. No second dictionary, so `repo-read` cannot drift into a write grant. `Bash(npm test:*)` parses to program+argv-prefix; disallowed entries subtract, so `repo-test`'s `git commit` denial survives. |
+| Code ceiling below policy ceiling | The profile permits `git`/`ls`/`cat`/`rg`; the runner executes only `node` and `npm`, resolved to absolute paths at load. `sh`/`bash`/`sudo` are absent by construction. A command must clear both ceilings. |
+| Confinement | One primitive, testing the RESOLVED path: resolve → realpath → require containment. Traversal, absolute escape, symlink escape and symlinked directories are the same failure. `run_command` never builds a command string, so no argument has anything to escape out of. |
+| VPS isolation | `available()` false without a host enable marker AND a readable runtime key. The bridge keeps gates SEPARATE: `MYTHOS_BRIDGE_WORKER_PROVIDER` stays advisory-only (its guarantee is "nothing here can act"), execution-capable providers use `MYTHOS_BRIDGE_EXEC_PROVIDER`, and setting both refuses. Neither set = byte-identical production behaviour. |
+| Adapter change | `free-llm/adapter.js` additively: `opts.tools` is sent only when asked, `prompt` may be a message array (a string still takes the identical old path), and the raw `message` rides alongside `parsed` rather than replacing it. All four free-llm suites pass unchanged. |
+| Live verification (real model, real worktree) | Tool loop works: `list_files` → `read_file` → correct answer derived from real file content, `exit_code 0`, 2 tool calls, no refusals. |
+| **Measured limits** | Context at 4096 is **not** a bottleneck (`n_past = 483` after a full loop) — no runtime or model change needed, as instructed. **But the `mythos_report` block appeared in only 1 of 3 runs**, and `executor.js` maps "no structured report" to BLOCKED. On today''s evidence a fair share of GitHub tasks would land BLOCKED with the work done but unreported. That is a 7B capability limit, not a defect here, and it is the thing to weigh before activation. |
+| **NOT activated** | The step that arms the unattended GitHub loop to use this provider was refused by the environment''s safety classifier ("Create Unsafe Agents") — the right default for arming an autonomous code-executing agent. Left as a documented owner step in `projects/mythos-haddad/docs/TOOL_RUNNER.md`; the real GitHub E2E is therefore NOT done. |
+| Tests | `tests/mythos-haddad-tool-runner-test.js` **34/0** — positives plus every required negative (traversal, absolute escape, symlink escape, symlinked dir, null bytes, sh/bash/sudo, arbitrary executables, code ceiling vs profile, argv injection, profile-bounded args, malformed args, missing workspace, invalid profile, unknown tool, ungranted tool, iteration/tool-call/deadline/output budgets, both VPS gates). Regression: executor 395, bridge 150, issues 208, action-resolution 88, free-llm 83, Haddad 44, health 14/14 — all unchanged. |
+| Delivery | Branch `mythos-haddad/had-4-tool-runner`, based on `main` (`996c61b1`). PR open, not merged. |
+
 ## 2026-09-21 — MYTHOS-HADDAD-HAD-3: GitHub worker on Haddad — isolated bridge instance (Opus 5)
 
 **Objective:** continuous unattended execution — GitHub Issue → bridge → Haddad → Qwen → validation

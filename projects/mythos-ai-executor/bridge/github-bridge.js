@@ -261,6 +261,29 @@ var WORKER_PROVIDER = (function () {
   return v;
 })();
 
+// F5 — execution worker provider. SEPARATE from F4 on purpose: F4's whole
+// guarantee is "nothing selectable there can act", and an execution-capable
+// provider added to that list would quietly void it. A provider chosen here
+// does execute, so it gets its own variable, its own list, and its own
+// sentence in the log. Both unset is the production case and changes nothing.
+// Naming one here still does not make it reachable: the executor asks the
+// provider's own available(), which stays false without its host-side
+// enable marker.
+var EXEC_WORKER_PROVIDER_ALLOWED = ['haddad-agent'];
+var EXEC_WORKER_PROVIDER = (function () {
+  var v = process.env.MYTHOS_BRIDGE_EXEC_PROVIDER;
+  if (!v) return null;
+  if (EXEC_WORKER_PROVIDER_ALLOWED.indexOf(v) === -1) {
+    throw new Error('BRIDGE_EXEC_PROVIDER_NOT_ALLOWED: "' + v + '" is not one of ' +
+      EXEC_WORKER_PROVIDER_ALLOWED.join(', '));
+  }
+  if (process.env.MYTHOS_BRIDGE_WORKER_PROVIDER) {
+    throw new Error('BRIDGE_PROVIDER_CONFLICT: MYTHOS_BRIDGE_WORKER_PROVIDER and ' +
+      'MYTHOS_BRIDGE_EXEC_PROVIDER are both set — one bridge instance routes to one worker');
+  }
+  return v;
+})();
+
 function userGuard() {
   var expected = process.env.MYTHOS_BRIDGE_USER || EXPECTED_USER_DEFAULT;
   var actual;
@@ -985,7 +1008,7 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
     var chosenProvider =
       process.env.MYTHOS_EXECUTOR_ALLOW_MOCK === '1' && process.env.MYTHOS_BRIDGE_PROVIDER === 'mock'
         ? 'mock'
-        : (WORKER_PROVIDER || (task.lane ? 'delegate' : 'claude-code'));
+        : (EXEC_WORKER_PROVIDER || WORKER_PROVIDER || (task.lane ? 'delegate' : 'claude-code'));
     var created = executor.createTask({
       project: task.project,
       stage: 'github:' + id,
