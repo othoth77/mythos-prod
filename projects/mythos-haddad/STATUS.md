@@ -1,6 +1,6 @@
 # Mythos Haddad — V0 status
 
-**V0: COMPLETE on the machine — verified 2026-09-21 (issue #328). Delivery state: see `docs/AI_HANDOVER.md`.**
+**V0: COMPLETE — verified 2026-09-21 (issue #328). Delivered as PR #330 (commit `eb2d7efc` + this status update); merge state: see the PR.**
 
 | V0 acceptance item | State | Evidence (2026-09-21, on `haddad`) |
 |---|---|---|
@@ -14,7 +14,8 @@
 | Runtime dependencies | DONE | Python 3.14.4, libvulkan1, mesa-vulkan-drivers, render node access, `~/.local/share/mythos-haddad/{models,runtime}` |
 | Structure / documentation | DONE | `projects/mythos-haddad/` — README (setup, operation, recovery, verification) |
 | Health checks + logs | DONE | `haddad-health.js` 13/13 PASS; systemd user timer every 30 min, linger on; logs in `~/.local/state/mythos-haddad/logs/` |
-| Reproducible verification | DONE | README → Verification; `tests/mythos-haddad-v0-test.js` 8/8 |
+| Reproducible verification | DONE | README → Verification; `tests/mythos-haddad-v0-test.js` 8/8; re-verified from a fresh clone of the pushed branch |
+| Committed / pushed | DONE | branch `mythos-haddad/v0-base-server`, PR #330; remote HEAD checked against the local commit |
 
 ## Fixes made while completing V0
 

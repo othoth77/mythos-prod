@@ -15,7 +15,7 @@ production was touched.
 | #329 | Closed as completed: `ssh othman@100.78.7.10` verified, incl. a real login from the Windows peer in the sshd log. Root cause of `ssh haddad` failing = own names missing from `known_hosts`; fixed from the local host key file, host key checking never disabled. |
 | Tests | `node tests/mythos-haddad-v0-test.js` **8/0**. Full suite not run: no shared code changed (new directory + one new test + this entry). |
 | Not done / risks | No root was available: no CUDA (open driver stack only — V1 decision), sshd still accepts passwords (LAN + tailnet only), no SMART/fan sensors. Correctable PCIe AER errors from the GPU in the kernel log (GPU test passes). |
-| Delivery | Branch `mythos-haddad/v0-base-server`. **Check `git ls-remote origin mythos-haddad/v0-base-server` before treating this as delivered** — at the time of writing `haddad` had no GitHub push credential (`gh` not logged in, the machine's SSH key is not registered on GitHub). |
+| Delivery | **Pushed**: commit `eb2d7efc` on `mythos-haddad/v0-base-server`, remote HEAD verified equal; **PR #330** open against `main` (mergeable, clean), **not merged**. CI: no workflow applies (Guardian suite is path-filtered to `ops/guardian/**` etc., VPS Final Gate is `workflow_dispatch` only) — instead the pushed commit was verified from a fresh clone of GitHub: tests 8/0, health 13 PASS. Push credential on `haddad`: `gh` logged in by the owner (HTTPS credential helper). |
 | Deployment / migration | None. Machine-side state (timer, dirs, Claude Code install) is applied on `haddad` by `haddad-setup.sh`. |
 | Next | V1 scoping: first AI runtime on the Vulkan stack vs. proprietary driver for CUDA (owner decision); add the Windows client key, then `PasswordAuthentication no`. |
 
