@@ -2,6 +2,24 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-21 — MYTHOS-HADDAD-HAD-3: GitHub worker on Haddad — isolated bridge instance (Opus 5)
+
+**Objective:** continuous unattended execution — GitHub Issue → bridge → Haddad → Qwen → validation
+→ GitHub result → next task — reusing the existing bridge/executor, isolated from the production VPS.
+
+| Item | State |
+|---|---|
+| Audit first | The GitHub Bridge is already a complete production task controller: Issue discovery, an Issue grammar (incl. Arabic), the PENDING/CLAIMED/IN_PROGRESS/COMPLETED/FAILED/BLOCKED vocabulary, GitHub status labels, report comments, and **six** idempotency layers incl. fenced locks. The executor already provides the queue, 8-state machine, retry backoff, timeouts and dead-pid recovery. Nothing of that was rebuilt. |
+| Isolation (config only) | label `mythos:haddad`, status prefix `haddad:`, control branch `mythos/control-haddad` (local — `syncControl` treats "not on origin yet" as healthy), `MYTHOS_EXECUTOR_HOME=~/mythos-ai-executor-haddad`, provider `openai-compat` → `127.0.0.1:8600`. Verified both directions: the VPS `task` filter does not return the Haddad issue and vice versa. |
+| Invariant found before it bit | With the default `mythos:` status prefix, `setStatusLabel` deletes every other `mythos:*` label — it would have deleted the `mythos:haddad` intake label, and the next tick would have read that as "cancelled from the Issue side". Reproduced against the real logic; `haddad:` keeps the namespaces disjoint. |
+| One code change | `bridge/github-bridge.js` provider selection behind `MYTHOS_BRIDGE_WORKER_PROVIDER`, allow-listed to advisory providers only. **Unset = the previous behaviour character-for-character**; all 485 bridge tests pass unchanged. `config/projects.json` gains one additive entry. |
+| systemd (user, `othman`, no root) | `mythos-haddad-worker.service` (executor daemon, `Restart=on-failure`, `MemoryMax=1G`), `mythos-haddad-bridge.service` (oneshot tick) + `.timer` (`OnUnitInactiveSec=1min`, `Persistent=` deliberately absent per the VPS post-mortem). |
+| Real end-to-end | Issue #335, label `mythos:haddad` → claimed by the timer with **no manual tick** → executor task `t-20260921102118-y0rvkw` → report comment + status label, ~2 min. Duplicate prevention, worker restart and state persistence all verified. |
+| **BLOCKER — not worked around** | A task ends `BLOCKED` with `ACTION_PROFILE_MISMATCH`. Two existing invariants contradict structurally: `executor.js:126-128` forces `execution_profile = null` **because** an advisory provider cannot act (mission §9), and `action-resolution.js:321-341` (asserted at `github-bridge.js:854`) refuses any attempt whose profile is not the one its action requires — `null` included. Each guard is correct; together they make "a bridge task run by an advisory provider" impossible. Resolving it changes a security assert or an executor invariant, which is an owner decision. Options in `projects/mythos-haddad/docs/GITHUB_WORKER.md`. |
+| Tests | 515 passed, 0 failed across 8 suites (V0 8, HAD-2 8, HAD-2b 14, action-resolution 88, bridge 150, issues 208, timer 16, push-guard 23). Health 14/14. |
+| Delivery | Branch `mythos-haddad/had-3-github-worker`, based on `main` (`7e09328b`). PR open, not merged. |
+| Next | The owner decides the profile/advisory-provider conflict; everything else in the chain is verified working. |
+
 ## 2026-09-21 — MYTHOS-HADDAD-HAD-2b: Qwen usable by FABLE as a local worker (Opus 5)
 
 **Objective:** make the HAD-2 runtime usable by FABLE as a local execution worker —

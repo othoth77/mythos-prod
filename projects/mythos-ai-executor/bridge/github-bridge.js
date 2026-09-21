@@ -241,6 +241,21 @@ function runtimeIdentity(cfg) {
 // worktrees, claims cache, lock) by running as the executor's user. Run as
 // anyone else it would queue tasks in a store the daemon never reads and
 // commit claims that can only degrade to BLOCKED. Refuse, loudly.
+// An isolated bridge instance may route its tasks to a non-default provider.
+// Allow-listed on purpose: only advisory providers (no execution authority)
+// are reachable this way, so a mis-set variable can never hand a GitHub Issue
+// shell access. Unset (the production case) means: change nothing.
+var WORKER_PROVIDER_ALLOWED = ['openai-compat', 'free-llm-pool'];
+var WORKER_PROVIDER = (function () {
+  var v = process.env.MYTHOS_BRIDGE_WORKER_PROVIDER;
+  if (!v) return null;
+  if (WORKER_PROVIDER_ALLOWED.indexOf(v) === -1) {
+    throw new Error('BRIDGE_WORKER_PROVIDER_NOT_ALLOWED: "' + v + '" is not one of ' +
+      WORKER_PROVIDER_ALLOWED.join(', ') + ' — only advisory providers may be selected this way');
+  }
+  return v;
+})();
+
 var EXPECTED_USER_DEFAULT = 'deploy';
 
 function userGuard() {
@@ -927,10 +942,19 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
     // process. Throws ACTION_PROFILE_MISMATCH — it cannot be caught into a
     // provider start.
     engine.assertActionProfile(task.requested_action, exec.execution_profile, { task_id: id, attempt_id: attemptId });
+    // Provider selection. PRODUCTION DEFAULT IS UNCHANGED: with neither env
+    // var set this is exactly `task.lane ? 'delegate' : 'claude-code'`, which
+    // is what the VPS bridge has always done and still does.
+    //
+    // MYTHOS_BRIDGE_WORKER_PROVIDER lets a SEPARATE, isolated bridge instance
+    // (its own label, control branch and executor home — see
+    // projects/mythos-haddad/docs/GITHUB_WORKER.md) send its tasks to a local
+    // model instead. It is opt-in, allow-listed, and never consulted unless
+    // the operator sets it, so no production path can reach it by accident.
     var chosenProvider =
       process.env.MYTHOS_EXECUTOR_ALLOW_MOCK === '1' && process.env.MYTHOS_BRIDGE_PROVIDER === 'mock'
         ? 'mock'
-        : (task.lane ? 'delegate' : 'claude-code');
+        : (WORKER_PROVIDER || (task.lane ? 'delegate' : 'claude-code'));
     var created = executor.createTask({
       project: task.project,
       stage: 'github:' + id,

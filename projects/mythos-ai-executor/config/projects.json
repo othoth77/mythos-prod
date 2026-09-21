@@ -8,5 +8,11 @@
     "repository": null,
     "path": "/home/ubuntu/mythos-ai-executor/selftest",
     "default_branch": null
+  },
+  "mythos-haddad": {
+    "repository": "git@github.com:othoth77/mythos-prod.git",
+    "path": "/home/othman/projects/mythos-prod",
+    "default_branch": "main",
+    "note": "Haddad-only. Used exclusively by the isolated Haddad bridge instance (label mythos:haddad, control branch mythos/control-haddad, its own MYTHOS_EXECUTOR_HOME). The VPS never creates a task for this project: its bridge filters on the `task` label, which Haddad issues do not carry. The path is Haddad's checkout and does not exist on the VPS, which is harmless because nothing there resolves it."
   }
 }

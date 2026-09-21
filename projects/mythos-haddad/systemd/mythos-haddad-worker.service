@@ -1,0 +1,53 @@
+# MYTHOS HADDAD — HAD-3: the EXISTING mythos-ai-executor daemon, run on this
+# machine as `othman` against an isolated MYTHOS_EXECUTOR_HOME.
+# Installed by bin/haddad-worker-setup.sh (@REPO@ replaced at install time).
+#
+# This is not a new executor. It is `bin/mythos-ai-executor serve` — the same
+# queue, the same 8-state machine, the same retry backoff, the same
+# INTERRUPTED-on-dead-pid recovery, the same daemon.lock — pointed at a
+# separate store so it can never collide with the VPS instance.
+#
+# Deliberately NOT set (each verified on this host, not assumed):
+#   PrivateDevices=yes  — would hide /dev/dri/renderD128 from anything this
+#                         spawns; the model behind it is the whole point.
+#   MemoryDenyWriteExecute=yes — incompatible with V8's JIT.
+#   ProtectKernelTunables/-Modules/-ControlGroups/-Clock, RestrictNamespaces
+#                       — each implies a capability-bounding-set change an
+#                         unprivileged user manager cannot make; the unit
+#                         then fails at step CAPABILITIES (status=218) and
+#                         never spawns.
+[Unit]
+Description=MYTHOS Haddad — executor daemon (isolated store, local Qwen provider)
+Documentation=file:@HADDAD_DIR@/docs/GITHUB_WORKER.md
+After=network.target mythos-haddad-runtime.service
+Wants=mythos-haddad-runtime.service
+
+[Service]
+Type=simple
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=%h/.config/mythos-haddad/worker.env
+EnvironmentFile=%h/.config/mythos-haddad/advisory.env
+WorkingDirectory=@REPO@
+ExecStart=/usr/bin/node @REPO@/projects/mythos-ai-executor/bin/mythos-ai-executor serve
+Restart=on-failure
+RestartSec=15
+# A configuration error must not spin: 2/3 are the CLI's usage/config exits.
+RestartPreventExitStatus=2 3
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=%h/mythos-ai-executor-haddad %h/.local/state/mythos-haddad
+
+# 7.5 GB machine already holding a 4.4 GB model resident on the GPU.
+MemoryMax=1G
+OOMScoreAdjust=200
+
+[Install]
+WantedBy=default.target
