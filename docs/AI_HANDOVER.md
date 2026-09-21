@@ -2,6 +2,26 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-21 — MYTHOS-HADDAD-V1-SCOPE: V1 scope proposal — documentation only, nothing implemented (Opus 5)
+
+**Objective:** scope Mythos Haddad V1 against the existing codebase and produce a reviewable
+scope document. **No V1 code was written and none should be until the stages are authorised.**
+
+| Item | State |
+|---|---|
+| Deliverable | `docs/MYTHOS_HADDAD_V1_SCOPE.md` — six components (HAD-1…HAD-6), each with purpose, reuse target, minimal implementation, dependencies, security, tests, and an implementation order. |
+| Method | Five parallel read-only investigations (OTHKM, MCP estate, OTHMODE/Command Center, orchestration/FABLE, infrastructure/security) plus direct measurement on `haddad`. |
+| Governing finding | V1 is overwhelmingly **wiring and exposure, not engine-building**. Of six requested components, one must genuinely be built (AI Runtime — nothing in the repo does local inference), four are integrations of existing tested systems, and one must **not** be built: `lib/state.js` and `core/` are two working queues, one running in production. |
+| Key safety finding | The free-LLM layer is advisory-only by explicit design (`providers/free-llm-pool.js:84` `executionAuthority: false`; `core/provider-router.js` — *"an execution task can only fall back to another execution-authority agent, and by default it cannot fall back at all"*). Registering Haddad's local model as a free-LLM provider would quietly grant execution authority through an advisory path. V1 registers it as its own agent with `execution_authority: false`. |
+| Feasibility resolved | Ubuntu 26.04 ships `llama.cpp-tools` **and** `libggml0-backend-vulkan` (depends on `libvulkan1`). GPU inference needs **no source build** — the largest anticipated V1 risk is retired. Measured ceiling: one 7–8B Q4_K_M model in 6144 MiB VRAM. |
+| Required step found | `projects/mythos-haddad` is the **only** unclaimed project directory (25 dirs, 24 claimed); the next `status-center/bin/review.js` run will surface it as a NEW_DISCOVERY. Registering `PROJECT-MYTHOS-HADDAD` is a required V1 step. |
+| Blocker (external, owner) | `haddad` reaches the VPS on :22 but the VPS is **not** a tailnet node and `haddad` holds no credential for it; the executor (:8130) and OTHKM facade (:8150) are loopback-only there. HAD-1…HAD-5 are designed to need no VPS link; **HAD-6 (queue join) is deferred behind an owner decision**: tailnet, or a registered Haddad key. |
+| Order | HAD-1 OTHKM → HAD-2 AI Runtime → HAD-3 MCP → HAD-4 Agent Core → HAD-5 GPU Manager → HAD-6 queue join. Two deliberate deviations from the requested priority: AI Runtime moves ahead of MCP (so MCP is built once against a stable surface), and Task Queue is descoped to "join, not build" and moved last. |
+| Verification | 43 checks against the working tree and the machine, 43 passed, incl. the V0 suite still 8/0. One-off, deliberately not committed. |
+| Tests | No new tests — documentation-only change. `node tests/mythos-haddad-v0-test.js` 8/0 unchanged. |
+| Deployment / migration | None. |
+| Next | Owner: approve or amend the order; decide the VPS link (R1), the backup destination for Haddad knowledge (R3), and the HAD-2 model. Then HAD-1 begins, one stage at a time. |
+
 ## 2026-09-21 — MYTHOS-HADDAD-V0: on-premises base AI server verified end to end (Fable 5.1)
 
 **Objective (issues #328, #329):** complete Mythos Haddad V0 — a verified, reproducible base AI server
