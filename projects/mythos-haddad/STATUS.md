@@ -1,6 +1,24 @@
-# Mythos Haddad — V0 status
+# Mythos Haddad — status
 
 **V0: COMPLETE — verified 2026-09-21 (issue #328). Delivered: PR #330 merged into `main` as `670b4268`; issues #328 and #329 closed.**
+
+**HAD-2 (first local AI runtime, V1): COMPLETE — verified 2026-09-21.** llama.cpp on the Vulkan backend,
+one pinned Qwen2.5-7B-Instruct-Q4_K_M model, OpenAI-compatible endpoint on `127.0.0.1:8600`, systemd user
+service. Full detail, measurements and rollback: [docs/AI_RUNTIME.md](docs/AI_RUNTIME.md).
+
+| HAD-2 item | State | Evidence |
+|---|---|---|
+| Vulkan backend installed | DONE | `llama.cpp-tools`/`libggml0-backend-vulkan` 0.9.11-1 (Ubuntu 26.04 universe), unpacked to a user prefix — no root, no source build |
+| GPU acceleration verified | DONE | `llama-cli --list-devices` → `Vulkan0: NVIDIA GeForce GTX 1660 SUPER`; 29/29 model layers offloaded to GPU |
+| Model selected + installed | DONE | Qwen2.5-7B-Instruct-Q4_K_M, official Qwen org, sha256-pinned, 4.36 GiB, fits 6 GB VRAM with headroom |
+| Real inference test | DONE | Three chat-completion requests through the OpenAI-compatible endpoint, all factually correct |
+| VRAM/RAM measured | DONE | VRAM 4696 MiB (runtime's own accounting — the OS-level Vulkan budget query is unreliable on this driver, documented); RAM ~430–505 MiB steady-state RSS |
+| Performance measured | DONE | ~20–25 tok/s generation once warm, ~19–81 tok/s prompt processing |
+| OpenAI-compatible API exposed | DONE | `http://127.0.0.1:8600/v1`, loopback only, API-key required |
+| Free-LLM catalog untouched | DONE | `git diff` confined to `projects/mythos-haddad/` and `docs/` |
+| Not wired to production orchestration | DONE | No file under `mythos-ai-executor/{core,lib,providers,config}` changed — that is HAD-4, later |
+| One model only | DONE | `haddad-model-install.sh` names exactly one |
+| Tests, V0 still healthy | DONE | `tests/mythos-haddad-runtime-test.js` 8/8; `tests/mythos-haddad-v0-test.js` still 8/8; `haddad-health.js` 14/14 PASS |
 
 | V0 acceptance item | State | Evidence (2026-09-21, on `haddad`) |
 |---|---|---|
@@ -32,8 +50,22 @@ No root was used; no sshd, firewall, router or driver change was made.
 See README → Known limits: no CUDA on the open driver stack (V1 decision), 8 GB RAM / HDD, correctable PCIe AER
 errors from the GPU, sshd still accepts passwords, no SMART / fan sensors without extra packages.
 
+## Fixes / workarounds made while completing HAD-2
+
+- No root was available for `apt install`; the four `.deb` packages were fetched with
+  `apt-get download` (no root, same GPG-verified archive) and unpacked into a user prefix.
+- ggml's backend-plugin loader hardcodes one root-owned absolute path and its only override loads
+  a single file, not enough for CPU + Vulkan together. A ~15-line loader shim (`src/backend-loader-shim.c`)
+  closes that gap by calling ggml's own public `ggml_backend_load()` twice; it contains no
+  llama.cpp/ggml code. Full account, including the three unprivileged approaches tried first and
+  why each failed, is in `docs/AI_RUNTIME.md`.
+- A `SystemCallFilter=~@privileged @resources` negation in the first draft of the systemd unit
+  killed the Vulkan driver with SIGSYS; removed, documented in the unit's own header.
+
+No root was used to run anything in this stage; no system file outside the user's home was created or modified.
+
 ## Next action
 
-V1 scoping: choose the first AI runtime. The V0 stack already supports Vulkan backends (e.g. llama.cpp Vulkan);
-switching to the proprietary NVIDIA driver for CUDA is a separate owner decision because it replaces the verified
-stack. Before V1: add the Windows client's SSH key and set `PasswordAuthentication no`.
+HAD-3 (Haddad MCP), per the V1 order in `docs/MYTHOS_HADDAD_V1_SCOPE.md` — expose health/GPU/runtime/knowledge
+as read-only MCP tools over SSH-stdio. Before that: add the Windows client's SSH key and set
+`PasswordAuthentication no` (still pending from V0).

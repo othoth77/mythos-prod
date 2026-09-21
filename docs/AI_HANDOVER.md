@@ -2,6 +2,25 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-21 — MYTHOS-HADDAD-HAD-2: first local AI runtime, GPU-accelerated (Sonnet 5)
+
+**Objective:** HAD-2 of the Mythos Haddad V1 scope (`docs/MYTHOS_HADDAD_V1_SCOPE.md` on the
+unmerged `mythos-haddad/v1-scope` branch, PR #332) — install and validate the first local AI
+runtime: llama.cpp on the Vulkan backend, one pinned Qwen 7–8B Q4_K_M model, real GPU inference,
+OpenAI-compatible endpoint. Not wired into production orchestration; free-LLM catalog untouched.
+
+| Item | State |
+|---|---|
+| Installed | `llama.cpp-tools`/`libggml0-backend-vulkan` 0.9.11-1 (Ubuntu 26.04 universe) via `apt-get download` (no root) + user-prefix unpack — no source build. Model: Qwen2.5-7B-Instruct-Q4_K_M, official Qwen org, sha256-pinned, 4.36 GiB. |
+| Real constraint found + fixed | ggml's backend loader hardcodes one root-owned path and its one override loads a single file, not enough for CPU+Vulkan together. Three unprivileged workarounds were tried and failed (`unshare --user --map-root-user`, `bwrap`, `LD_PRELOAD`), each confirmed by direct testing, not assumed. Fixed with a ~15-line loader shim (`projects/mythos-haddad/src/backend-loader-shim.c`) that calls ggml's own public `ggml_backend_load()` twice — no llama.cpp/ggml code vendored. Full account in `docs/AI_RUNTIME.md`. |
+| Second bug found + fixed | `SystemCallFilter=~@privileged @resources` in the first systemd unit draft killed the Vulkan driver with SIGSYS (status=31/SYS); removed, documented in the unit's own header next to the other known user-scope traps. |
+| Verified on `haddad` | 29/29 model layers offloaded to GPU; three real chat-completion requests via `http://127.0.0.1:8600/v1`, all factually correct; VRAM 4696 MiB (runtime's own accounting — `VK_EXT_memory_budget` heap-usage tracking is confirmed unreliable on this NVK driver, documented, not trusted); RAM ~430–505 MiB steady-state RSS; ~20–25 tok/s generation once warm. |
+| Tests | `node tests/mythos-haddad-runtime-test.js` → 8 passed, 0 failed (mutation-checked: reintroducing the seccomp regression fails the suite). `node tests/mythos-haddad-v0-test.js` unchanged, still 8/0. `haddad-health.js` → 14 PASS / 0 WARN / 0 FAIL (new `ai_runtime` check; the misleading 0 %% VRAM reading was removed from its output, not shipped). |
+| Files | New: `projects/mythos-haddad/{docs/AI_RUNTIME.md,src/backend-loader-shim.c,bin/haddad-runtime-install.sh,bin/haddad-model-install.sh,bin/haddad-runtime-setup.sh,bin/haddad-gpu-vram.py,systemd/mythos-haddad-runtime.service}`, `tests/mythos-haddad-runtime-test.js`. Changed: `projects/mythos-haddad/{README.md,STATUS.md,bin/haddad-health.js}`. |
+| Not done (by design, per the task) | HAD-4 (registering the runtime as an executor agent, `execution_authority: false`) is a separate, later stage — nothing under `mythos-ai-executor/{core,lib,providers,config}` was touched. Exactly one model installed. |
+| Delivery | Branch `mythos-haddad/had-2-ai-runtime`, based on `main` (`b3d91328`) — independent of the still-unmerged `mythos-haddad/v1-scope` (PR #332). |
+| Next | HAD-3 (Haddad MCP), per the V1 order — once #332 merges. |
+
 ## 2026-09-21 — MYTHOS-HADDAD-V0: on-premises base AI server verified end to end (Fable 5.1)
 
 **Objective (issues #328, #329):** complete Mythos Haddad V0 — a verified, reproducible base AI server

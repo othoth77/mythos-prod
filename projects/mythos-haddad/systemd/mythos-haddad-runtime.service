@@ -1,0 +1,88 @@
+# MYTHOS HADDAD — HAD-2 AI runtime (llama-server, Vulkan GPU inference).
+# Installed by bin/haddad-runtime-setup.sh into ~/.config/systemd/user/
+# (@HADDAD_DIR@ and @RUNTIME_PREFIX@ are replaced at install time).
+#
+# User unit under `othman` (this machine has one interactive user; there is
+# no separate `deploy`-style service account, unlike the VPS). No root, no
+# system unit — matches the repo-wide rule that anything the AI layer runs
+# through is a systemd *user* service.
+#
+# Loopback-bound (--host 127.0.0.1, the llama-server default — never
+# overridden to 0.0.0.0), token-protected (LLAMA_API_KEY from the 0600 env
+# file below; llama-server itself refuses unauthenticated requests once a
+# key is set). advisory only: this unit runs a chat-completions server, it
+# has no execution authority of any kind and is never given repository or
+# host write access.
+#
+# Deliberately DOES NOT SET (see docs/AI_RUNTIME.md for why each one would
+# break this specific unit, verified on this host, not assumed from docs):
+#   PrivateDevices=yes           — hides /dev/dri/renderD128; the GPU
+#                                   silently disappears and inference falls
+#                                   back to (very slow) CPU-only.
+#   MemoryDenyWriteExecute=yes   — the Vulkan JIT (shader compilation) needs
+#                                   W^X-toggling pages; sibling units in this
+#                                   repo (mythos-command-center, the GitHub
+#                                   runner, the MCP bridge) all disable this
+#                                   for the same class of reason.
+#   ProtectKernelTunables/-Modules/-ControlGroups/-Clock,
+#   RestrictNamespaces           — each implies a capability-bounding-set
+#                                   change an unprivileged *user* systemd
+#                                   manager cannot make; the unit fails at
+#                                   step CAPABILITIES (status=218) and never
+#                                   spawns. Documented from a real on-host
+#                                   failure in ops/guardian's unit and (the
+#                                   cautionary tale) ssangyong-storefront.service,
+#                                   which still carries them and has 2830+
+#                                   restarts as a result.
+#   SystemCallFilter=~@privileged
+#     @resources                 — found on THIS host, not assumed: adding
+#                                   `~@resources` to the negation killed the
+#                                   process with SIGSYS (status=31/SYS,
+#                                   "core-dump") the instant the Vulkan
+#                                   driver initialized — it needs at least
+#                                   one syscall from that group (plausibly
+#                                   sched_setaffinity/mbind for NUMA-aware
+#                                   buffer placement; not narrowed further).
+#                                   @system-service alone, with no negation,
+#                                   is the filter that actually starts.
+[Unit]
+Description=MYTHOS Haddad — local AI runtime (llama-server, Vulkan GPU)
+Documentation=file:@HADDAD_DIR@/docs/AI_RUNTIME.md
+After=network.target
+
+[Service]
+Type=simple
+Environment=PATH=%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+EnvironmentFile=%h/.config/mythos-haddad/runtime.env
+ExecStart=@RUNTIME_PREFIX@/bin/llama-server \
+  --host 127.0.0.1 --port 8600 \
+  --model @MODEL_PATH@ \
+  --ctx-size 4096 \
+  --n-gpu-layers auto \
+  --api-key-file %h/.config/mythos-haddad/runtime.key
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=120
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=%h/.local/state/mythos-haddad
+
+# 8 GB machine, shared with interactive Claude Code sessions: never let
+# inference be the reason the host is short of memory. Sized above the
+# model's resident set (~4.4 GB) plus KV cache and process overhead;
+# revisit if haddad-health.js's runtime check ever reports pressure.
+MemoryMax=6G
+OOMScoreAdjust=100
+
+[Install]
+WantedBy=default.target

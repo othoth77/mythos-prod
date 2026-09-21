@@ -155,6 +155,34 @@ check('runtime', function () {
   add('runtime', missing.length ? 'FAIL' : 'PASS', missing.length ? 'missing: ' + missing.join(', ') : py.out + ', Vulkan loader, GPU render node and ' + DATA_DIR + '/{models,runtime} ready');
 });
 
+// ---------- HAD-2: local AI runtime (llama-server, optional) ----------
+check('ai_runtime', function () {
+  var unitFile = path.join(HOME, '.config', 'systemd', 'user', 'mythos-haddad-runtime.service');
+  if (!fs.existsSync(unitFile)) return add('ai_runtime', 'WARN', 'not installed (optional, HAD-2: run bin/haddad-runtime-setup.sh)');
+
+  var active = sh('systemctl', ['--user', 'is-active', 'mythos-haddad-runtime.service']).out;
+  if (active !== 'active') return add('ai_runtime', 'FAIL', 'unit installed but not active (' + active + '): journalctl --user -u mythos-haddad-runtime');
+
+  var keyFile = path.join(HOME, '.config', 'mythos-haddad', 'runtime.key');
+  var key = '';
+  try { key = fs.readFileSync(keyFile, 'utf8').trim(); } catch (e) { return add('ai_runtime', 'FAIL', 'unit active but ' + keyFile + ' is unreadable'); }
+
+  var curlArgs = ['-s', '-m', '10', '-H', 'Authorization: Bearer ' + key, 'http://127.0.0.1:8600/v1/models'];
+  var r = sh('curl', curlArgs, { timeout: 15000 });
+  if (!r.ok) return add('ai_runtime', 'FAIL', 'active but /v1/models did not answer: ' + firstLine(r.err || r.out));
+  var models = null; try { models = JSON.parse(r.out); } catch (e) { /* reported below */ }
+  var modelId = models && models.data && models.data[0] && models.data[0].id;
+  if (!modelId) return add('ai_runtime', 'FAIL', 'active but /v1/models returned no model: ' + firstLine(r.out));
+
+  // haddad-gpu-vram.py (VK_EXT_memory_budget) is NOT used here: verified on
+  // this host to report 0 MiB used even with ~4.4 GB genuinely resident on
+  // the GPU (NVK does not track heapUsage yet) — showing it would be a
+  // confidently wrong number, worse than no number. See docs/AI_RUNTIME.md,
+  // Measurements, for how VRAM was actually measured (the runtime's own
+  // memory-fit log line, cross-checked against low process RSS).
+  add('ai_runtime', 'PASS', 'llama-server active, model "' + modelId + '" loaded, http://127.0.0.1:8600/v1 answers', { model: modelId });
+});
+
 check('logs', function () {
   fs.mkdirSync(LOG_DIR, { recursive: true });
   fs.accessSync(LOG_DIR, fs.constants.W_OK);
