@@ -1,6 +1,6 @@
 # Mythos Haddad — V0 status
 
-**V0: COMPLETE — verified 2026-09-21 (issue #328). Delivered as PR #330 (commit `eb2d7efc` + this status update); merge state: see the PR.**
+**V0: COMPLETE — verified 2026-09-21 (issue #328). Delivered: PR #330 merged into `main` as `670b4268`; issues #328 and #329 closed.**
 
 | V0 acceptance item | State | Evidence (2026-09-21, on `haddad`) |
 |---|---|---|
