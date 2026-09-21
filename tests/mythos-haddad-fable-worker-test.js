@@ -25,7 +25,7 @@ var path = require('path');
 
 var DIR = path.join(__dirname, '..', 'projects', 'mythos-haddad');
 var runtime = require(path.join(DIR, 'lib', 'haddad-runtime.js'));
-var pass = 0, fail = 0;
+var pass = 0, fail = 0, skipped = 0;
 // Async-aware runner: several bodies return a Promise, and a plain
 // try/catch would return before such a body settled — silently turning a
 // failed assertion into a pass. Each test is queued and awaited in order.
@@ -179,8 +179,82 @@ t('this integration modifies nothing under mythos-ai-executor/', function () {
   });
 });
 
+// ---------------------------------------------------------------------
+// LIVE section. Everything above is offline with an injected transport,
+// which proves the wiring but cannot prove that Haddad actually executes a
+// task. These hit the real loopback runtime when it is up, and SKIP loudly
+// (never silently pass) when it is not, so the suite stays runnable on a
+// host with no GPU or no model while still being a real end-to-end check
+// on `haddad` itself.
+// ---------------------------------------------------------------------
+function liveAvailable() {
+  return runtime.runTask({ instruction: 'ping', timeout_ms: 8000 }, {})
+    .then(function (r) { return r.ok || (r.reason !== 'RUNTIME_UNAVAILABLE' && r.reason !== 'RUNTIME_UNCONFIGURED'); })
+    .catch(function () { return false; });
+}
+
+function live(name, fn) {
+  queue.push(function () {
+    return liveAvailable().then(function (up) {
+      if (!up) { skipped++; console.log('SKIP - ' + name + ' (local runtime not available on this host)'); return; }
+      return Promise.resolve().then(fn).then(
+        function () { pass++; console.log('ok - ' + name + ' [LIVE]'); },
+        function (e) { fail++; console.log('not ok - ' + name + ' [LIVE]\n  ' + (e && e.message)); }
+      );
+    });
+  });
+}
+
+live('LIVE: Haddad really executes a task through the OpenAI-compatible endpoint', function () {
+  return runtime.runTask({
+    instruction: 'Reply with exactly this token and nothing else: HADDAD-LIVE-OK',
+    timeout_ms: 120000
+  }, {}).then(function (res) {
+    assert.strictEqual(res.ok, true, 'live task failed: ' + res.reason + ' ' + (res.detail || ''));
+    assert.ok(typeof res.text === 'string' && res.text.length, 'a real answer came back');
+    assert.ok(res.text.indexOf('HADDAD-LIVE-OK') !== -1, 'the model followed the instruction, got: ' + JSON.stringify(res.text.slice(0, 120)));
+    assert.ok(res.model && /qwen/i.test(res.model), 'served by the pinned Qwen model, got: ' + res.model);
+    assert.ok(res.usage && res.usage.total_tokens > 0, 'real token usage reported');
+    assert.ok(res.duration_ms > 0, 'real elapsed time');
+  });
+});
+
+// Behavioural evidence that the loop works end to end on a real model —
+// NOT the deterministic guarantee. That belongs to the offline test above
+// ("findings actually travel over the wire"), which inspects the request
+// body and fails if the repair block is ever dropped. This one can only
+// observe what the model did with it; measured 83->8, 93->10, 101->8 words
+// across three runs, so the margin is wide rather than marginal.
+live('LIVE: a correction round actually changes the worker output', function () {
+  var task = { instruction: 'Describe what a CPU is.', timeout_ms: 120000 };
+  return runtime.runTask(task, {}).then(function (first) {
+    assert.strictEqual(first.ok, true, 'attempt 1 failed: ' + first.reason);
+    var firstWords = first.text.trim().split(/\s+/).length;
+    // FABLE reviews and rejects: too long. Re-send with findings.
+    return runtime.runTask({
+      instruction: task.instruction, timeout_ms: 120000, attempt: 2,
+      findings: ['Answer was too long; reply with a single sentence of at most 12 words', 'No bullet points, no headings']
+    }, {}).then(function (second) {
+      assert.strictEqual(second.ok, true, 'attempt 2 failed: ' + second.reason);
+      assert.strictEqual(second.attempt, 2, 'attempt number round-trips');
+      var secondWords = second.text.trim().split(/\s+/).length;
+      assert.ok(secondWords < firstWords,
+        'the correction must measurably shorten the answer (' + firstWords + ' -> ' + secondWords + ' words)');
+    });
+  });
+});
+
+live('LIVE: the real API key never reaches the result object', function () {
+  var key = null;
+  try { key = fs.readFileSync(runtime.DEFAULT_KEY_FILE, 'utf8').trim(); } catch (e) { /* covered by the skip */ }
+  if (!key) { throw new Error('expected a readable key file for this live check'); }
+  return runtime.runTask({ instruction: 'Say OK', timeout_ms: 60000 }, {}).then(function (res) {
+    assert.ok(JSON.stringify(res).indexOf(key) === -1, 'the live key must never appear in a result');
+  });
+});
+
 queue.reduce(function (chain, step) { return chain.then(step); }, Promise.resolve())
   .then(function () {
-    console.log('\n' + pass + ' passed, ' + fail + ' failed');
+    console.log('\n' + pass + ' passed, ' + fail + ' failed' + (skipped ? ', ' + skipped + ' skipped (runtime not available)' : ''));
     process.exit(fail ? 1 : 0);
   });

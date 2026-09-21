@@ -50,6 +50,9 @@ echo '{"instruction":"Explain what a GPU is.","attempt":2,
 
 **Request**: `instruction` (required, ≤6000 chars) · `acceptance_criteria[]` · `attempt` ·
 `findings[]` · `system` · `model` · `timeout_ms` (default 120 s, max 600 s).
+Every wait is bounded, including the wait for stdin: if a caller opens the pipe and never closes
+it, the command answers `{"reason":"DEADLINE"}` and exits 2 rather than hanging
+(`HADDAD_TASK_STDIN_DEADLINE_MS`, default 15 s).
 **Response** (one JSON line): `{ok, text?, reason?, detail?, attempt, model?, usage?, duration_ms, timed_out}`.
 **Exit codes**: `0` whenever a JSON answer was written (`ok` true *or* false), `2` for bad input —
 the same contract as the existing `free-llm-complete.js`.
@@ -135,7 +138,7 @@ executor, where `127.0.0.1:8600` does not exist. It belongs with the stage that 
 | **Correction measurably works** | Same task, then rejected with two findings → answer went from **103 words to 13** (`"A GPU is a specialized processor for rendering graphics and parallel computing tasks."`) |
 | Fail-closed paths | missing key → `RUNTIME_UNCONFIGURED`; wrong port → `RUNTIME_UNAVAILABLE`; bad JSON → exit 2 |
 | Key safety | the live key never appears in any output |
-| Tests | `node tests/mythos-haddad-fable-worker-test.js` → 11/0, mutation-checked (breaking the repair format or loosening the success oracle both fail the suite) |
+| Tests | `node tests/mythos-haddad-fable-worker-test.js` → **14/0**, of which **3 are live** against the real endpoint (they SKIP loudly, never silently pass, on a host with no runtime). Mutation-checked: breaking the repair format or loosening the success oracle both fail the suite. |
 
 ## Known limits
 
@@ -144,5 +147,8 @@ executor, where `127.0.0.1:8600` does not exist. It belongs with the stage that 
   need to be durable, that is the executor's task store, reached via the path above.
 - No attempt budget is enforced in code. FABLE decides when to stop; `core/validation.js`'s
   `max_attempts` (default 3) is the convention to adopt when this moves onto the executor.
+- The live tests depend on a real model's behaviour, so they are evidence rather than a strict
+  regression guard; the deterministic guarantee that findings reach the worker is the offline test
+  that inspects the outgoing request body.
 - Single-flight: the runtime serves one request at a time on a 6 GB GPU. Concurrent callers queue
   inside llama-server. A VRAM admission lock is HAD-5, not this stage.

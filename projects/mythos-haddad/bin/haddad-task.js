@@ -26,20 +26,38 @@
 var runtime = require('../lib/haddad-runtime.js');
 
 var MAX_STDIN = 64 * 1024;
+// Every wait is bounded, including the wait for stdin itself. A caller that
+// opens the pipe and never closes it must not hang this process forever —
+// free-llm-complete.js answers its own DEADLINE for the same reason, so that
+// "a caller's kill never lands mid-write".
+var STDIN_DEADLINE_MS = Math.max(1000, Number(process.env.HADDAD_TASK_STDIN_DEADLINE_MS) || 15000);
 
+var done = false;
 function out(obj, code) {
+  if (done) return;
+  done = true;
   process.stdout.write(JSON.stringify(obj) + '\n');
   process.exit(code);
 }
 
 function main() {
   var input = '';
+  var stdinTimer = setTimeout(function () {
+    out({ ok: false, reason: 'DEADLINE', detail: 'stdin did not close within ' + STDIN_DEADLINE_MS + 'ms', attempt: 1 }, 2);
+  }, STDIN_DEADLINE_MS);
+  if (stdinTimer.unref) stdinTimer.unref();
+
   process.stdin.setEncoding('utf8');
+  process.stdin.on('error', function (e) {
+    clearTimeout(stdinTimer);
+    out({ ok: false, reason: 'BAD_REQUEST', detail: 'stdin unreadable: ' + String(e && e.message).slice(0, 200), attempt: 1 }, 2);
+  });
   process.stdin.on('data', function (c) {
     input += c;
-    if (input.length > MAX_STDIN) out({ ok: false, reason: 'BAD_REQUEST', detail: 'request too large', attempt: 1 }, 2);
+    if (input.length > MAX_STDIN) { clearTimeout(stdinTimer); out({ ok: false, reason: 'BAD_REQUEST', detail: 'request too large', attempt: 1 }, 2); }
   });
   process.stdin.on('end', function () {
+    clearTimeout(stdinTimer);
     var req;
     try {
       req = JSON.parse(input);

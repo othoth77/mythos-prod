@@ -35,6 +35,7 @@
 
 var fs = require('fs');
 var http = require('http');
+var https = require('https');
 var os = require('os');
 var path = require('path');
 
@@ -75,8 +76,18 @@ function readKey(keyFile) {
 // The runtime serves one model and names it by GGUF filename; asking it
 // beats hardcoding a filename that changes when the pinned model changes.
 function discoverModel(baseUrl, apiKey, timeoutMs, cb) {
-  var u = new URL(String(baseUrl).replace(/\/$/, '') + '/models');
-  var req = http.request({
+  var u;
+  try {
+    u = new URL(String(baseUrl).replace(/\/$/, '') + '/models');
+  } catch (e) {
+    return cb(null);
+  }
+  // Pick the module from the scheme, exactly as adapter.js's defaultTransport
+  // does. The default endpoint is loopback http, but HADDAD_RUNTIME_BASE_URL
+  // can name any endpoint, and silently speaking http to an https port would
+  // look like "runtime unavailable" rather than a configuration mistake.
+  var mod = u.protocol === 'https:' ? https : http;
+  var req = mod.request({
     hostname: u.hostname, port: u.port, path: u.pathname, method: 'GET',
     headers: { Authorization: 'Bearer ' + apiKey }, timeout: timeoutMs
   }, function (res) {
