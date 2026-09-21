@@ -241,10 +241,15 @@ function runtimeIdentity(cfg) {
 // worktrees, claims cache, lock) by running as the executor's user. Run as
 // anyone else it would queue tasks in a store the daemon never reads and
 // commit claims that can only degrade to BLOCKED. Refuse, loudly.
-// An isolated bridge instance may route its tasks to a non-default provider.
-// Allow-listed on purpose: only advisory providers (no execution authority)
-// are reachable this way, so a mis-set variable can never hand a GitHub Issue
-// shell access. Unset (the production case) means: change nothing.
+var EXPECTED_USER_DEFAULT = 'deploy';
+
+// F4 — worker provider. An isolated bridge instance (its own label, control
+// branch and executor home) may route ITS tasks to a non-default provider.
+// Allow-listed on purpose: only advisory providers — those with no execution
+// authority and therefore no tool surface — are reachable this way, so a
+// mis-set variable can never hand a GitHub Issue shell access. An
+// out-of-list value refuses at load rather than mis-routing quietly.
+// Unset, which is the production case, means: change nothing.
 var WORKER_PROVIDER_ALLOWED = ['openai-compat', 'free-llm-pool'];
 var WORKER_PROVIDER = (function () {
   var v = process.env.MYTHOS_BRIDGE_WORKER_PROVIDER;
@@ -255,8 +260,6 @@ var WORKER_PROVIDER = (function () {
   }
   return v;
 })();
-
-var EXPECTED_USER_DEFAULT = 'deploy';
 
 function userGuard() {
   var expected = process.env.MYTHOS_BRIDGE_USER || EXPECTED_USER_DEFAULT;
