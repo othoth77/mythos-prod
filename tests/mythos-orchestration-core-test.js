@@ -1222,6 +1222,22 @@ chain2 = chain2.then(function () {
   var timeline = [];
   var grantsSeen = {};
 
+  // This mission commits code, so its tasks owe an INDEPENDENT review
+  // (core/validation.js). The reviewers registered earlier in this suite
+  // are author-independent but declare no review_scope, which means
+  // standard work only — correctly refused for commit-producing work. Give
+  // the acceptance run one reviewer that is trusted with sensitive work
+  // and is nobody's author: a different provider, no execution authority,
+  // capability 'review' alone so it can never be routed as an implementer.
+  // Without it the review_fn below is never reached and the mission parks
+  // unreviewed, which is the point of the gate, not a way around it.
+  agents.registerAgent('acceptance-reviewer', {
+    provider: 'accept-rev', capabilities: ['review'], task_types: ['review'],
+    execution_authority: false, risk_level: 'low', cost: { tier: 'free' },
+    review_scope: ['standard', 'sensitive']
+  });
+  agents.registerProbe('accept-rev', function () { return true; });
+
   // TEST A/B/C: goal → mission → DAG.
   var submitted = orchestrator.submitGoal('Build the acceptance feature across two components.', {
     project: 'core-accept',
