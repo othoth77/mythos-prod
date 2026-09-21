@@ -5,6 +5,8 @@ reachable only over Tailscale, that Claude Code and local AI runtimes work on. *
 verified, reproducible base — access, toolchain, GPU, health checks, logs, documentation. **HAD-2** (V1)
 adds the first local AI runtime: llama.cpp on the Vulkan backend serving one pinned Qwen2.5-7B-Instruct
 model, advisory only — see [docs/AI_RUNTIME.md](docs/AI_RUNTIME.md) for install, measurements and rollback.
+**HAD-2b** makes that runtime usable by FABLE as a local worker: FABLE sends a task, reviews the result,
+and issues a correction if it is inadequate — see [docs/FABLE_WORKER.md](docs/FABLE_WORKER.md).
 
 Current verified state: [STATUS.md](STATUS.md). Tracking: issues #328 (V0) and #329 (Tailscale remote SSH);
 V1 scope in `docs/MYTHOS_HADDAD_V1_SCOPE.md`.
@@ -24,6 +26,7 @@ projects/mythos-haddad/
   README.md                      setup, operation, recovery (this file)
   STATUS.md                      last verified state, blockers, next action
   docs/AI_RUNTIME.md             HAD-2: what's installed, commands, endpoint, measurements, rollback
+  docs/FABLE_WORKER.md           HAD-2b: FABLE sends a task to Qwen, reviews it, corrects it
   bin/haddad-health.js           health check -> JSON report + log (no deps, no root, read-only)
   bin/gpu-vulkan-test.py         basic GPU test on real VRAM (ctypes + libvulkan, no deps)
   bin/haddad-gpu-vram.py         live VRAM heap query (Vulkan VK_EXT_memory_budget; known limit, see AI_RUNTIME.md)
@@ -33,9 +36,12 @@ projects/mythos-haddad/
   bin/haddad-model-install.sh    HAD-2: downloads + sha256-pins the one Qwen model
   bin/haddad-runtime-setup.sh    HAD-2: runs the two installers above + the systemd unit, end to end
   src/backend-loader-shim.c      HAD-2: the one small workaround this install needed (see AI_RUNTIME.md)
+  lib/haddad-runtime.js          HAD-2b: binds the existing free-llm adapter to the local runtime
+  bin/haddad-task.js             HAD-2b: the command FABLE runs — one task in, one result out
   systemd/                       user units for the health timer and the AI runtime service
 tests/mythos-haddad-v0-test.js       machine-independent invariants of the V0 tooling
-tests/mythos-haddad-runtime-test.js  machine-independent invariants of the HAD-2 tooling
+tests/mythos-haddad-runtime-test.js      machine-independent invariants of the HAD-2 tooling
+tests/mythos-haddad-fable-worker-test.js FABLE local-worker invariants (offline, injected transport)
 ```
 
 On the machine (outside Git, created by `haddad-setup.sh` / `haddad-runtime-setup.sh`):
@@ -101,6 +107,7 @@ On each client (e.g. the Windows PC): install Tailscale, sign in to the same tai
 | AI runtime setup (HAD-2, once) | `bash projects/mythos-haddad/bin/haddad-runtime-setup.sh` |
 | AI runtime status / restart | `systemctl --user status mythos-haddad-runtime` · `systemctl --user restart mythos-haddad-runtime` |
 | AI runtime logs | `journalctl --user -u mythos-haddad-runtime -n 50` |
+| Send a task to the local worker (FABLE) | `echo '{"instruction":"…"}' \| node projects/mythos-haddad/bin/haddad-task.js` — see [docs/FABLE_WORKER.md](docs/FABLE_WORKER.md) |
 | Chat with the local model | `curl -H "Authorization: Bearer $(cat ~/.config/mythos-haddad/runtime.key)" -H 'Content-Type: application/json' http://127.0.0.1:8600/v1/chat/completions -d '{"model":"qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf","messages":[{"role":"user","content":"…"}]}'` |
 
 The health check runs every 30 minutes (and 3 minutes after boot) as a systemd **user** timer with lingering

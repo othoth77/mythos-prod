@@ -20,6 +20,22 @@ service. Full detail, measurements and rollback: [docs/AI_RUNTIME.md](docs/AI_RU
 | One model only | DONE | `haddad-model-install.sh` names exactly one |
 | Tests, V0 still healthy | DONE | `tests/mythos-haddad-runtime-test.js` 8/8; `tests/mythos-haddad-v0-test.js` still 8/8; `haddad-health.js` 14/14 PASS |
 
+**HAD-2b (Qwen as a FABLE local worker): COMPLETE — verified 2026-09-21.** FABLE sends a task to the
+local runtime, reads the result, reviews it, and issues a correction with findings if it is inadequate.
+Detail and the full reuse rationale: [docs/FABLE_WORKER.md](docs/FABLE_WORKER.md).
+
+| HAD-2b item | State | Evidence |
+|---|---|---|
+| FABLE sends a task | DONE | `bin/haddad-task.js`, one JSON object in / one JSON line out |
+| FABLE receives the result | DONE | `{ok, text, attempt, model, usage, duration_ms}`; live: 2.3 s, correct answer |
+| FABLE reviews before completing | DONE | FABLE judges in-session; the worker never reviews itself (reviewer-is-not-author, `core/validation.js:176-191`) |
+| Correction / retry works | DONE | Findings re-sent as the executor's own `## REPAIR REQUIRED (attempt N)` block; answer went from **103 words to 13** |
+| Reuses existing infrastructure | DONE | `free-llm/adapter.js` required unmodified; executor success oracle, repair format and verdict shape all adopted, not restated |
+| Nothing new built | DONE | No queue, orchestrator, executor, catalog or memory system; `free-llm/{catalog,endpoints}.json` untouched |
+| Executor path needs no new provider | DONE | Existing `providers/openai-compat.js` verified against Haddad via env config alone — `available()` true, real completion `exit_code: 0` |
+| Security model preserved | DONE | Still loopback-only on `127.0.0.1:8600`; key never in output; worker has no execution authority |
+| Tests | DONE | `tests/mythos-haddad-fable-worker-test.js` 11/0, mutation-checked; HAD-2 8/0 and V0 8/0 unchanged |
+
 | V0 acceptance item | State | Evidence (2026-09-21, on `haddad`) |
 |---|---|---|
 | Reachable remotely | DONE | Tailscale `Running`, `100.78.7.10`; sshd log: login from the Windows peer `100.112.129.59` over Tailscale at 00:41 UTC (#329, closed) |

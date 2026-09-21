@@ -2,6 +2,25 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-21 — MYTHOS-HADDAD-HAD-2b: Qwen usable by FABLE as a local worker (Opus 5)
+
+**Objective:** make the HAD-2 runtime usable by FABLE as a local execution worker —
+FABLE sends a task, gets a result, reviews it, and issues a correction if inadequate —
+without building a new orchestration system, queue, executor, model catalog or memory system.
+
+| Item | State |
+|---|---|
+| Merged first | PR #333 (HAD-2) squash-merged into `main` as `f34c9f31` after review: only `projects/mythos-haddad/` + docs touched, loopback-only binding confirmed at the socket level (tailnet address refuses), no key leak, 0 service restarts, tests 8/0 + 8/0, health 14/14. |
+| Research before code | Two parallel read-only sweeps of the executor and orchestrator. Two findings decided the design: (a) the review → reject → correction-retry loop **already exists**, fully wired, in `core/validation.js` + `core/orchestrator.js` + `core/scheduler.js` — only the LLM judge (`review_fn`) is missing, and in this phase FABLE *is* the judge; (b) `providers/openai-compat.js` **already** points anywhere via env, so the executor path needs no new provider module. |
+| Verified before building | `free-llm/adapter.js`, required unmodified, drives the Haddad runtime and returns the executor's own provider-outcome shape (`exit_code: 0`, `parsed.is_error: false`, no key in the outcome). Separately, unmodified `openai-compat.js` against Haddad via env config alone: `available()` true, `version()` `openai-compat/1`, `executionAuthority` false, real completion `exit_code: 0` — Qwen even emitted the `mythos_report` block `handleSuccess` looks for. |
+| Built (deliberately small) | `projects/mythos-haddad/lib/haddad-runtime.js` (binds the existing adapter; reuses the executor success oracle at `executor.js:680` and the repair format at `core/orchestrator.js:122-135`) and `bin/haddad-task.js` (thin CLI, same contract as the existing `free-llm-complete.js`: one JSON in, one JSON line out, exit 0 answered / 2 bad input). |
+| Live verification | Task → result in 2.3 s, correct. Acceptance criteria honored. **Correction measurably works: 103 words → 13** after FABLE's findings were fed back. Fail-closed paths named (`RUNTIME_UNCONFIGURED`, `RUNTIME_UNAVAILABLE`); the live key never appears in output. |
+| Tests | `tests/mythos-haddad-fable-worker-test.js` **11/0**, offline with injected transport, mutation-checked (breaking the repair format or loosening the success oracle each fail the suite). A flaw in the first draft — a synchronous runner that would have silently swallowed async assertion failures — was found and fixed before shipping. HAD-2 8/0 and V0 8/0 unchanged. |
+| Constraints honored | No new queue/orchestrator/executor/catalog/memory. `free-llm/{catalog,endpoints}.json` untouched. Nothing under `projects/mythos-ai-executor/` modified (enforced by a test against the branch diff). Runtime still loopback-only. One model. No Jev, no Compact. |
+| Not done, by design | No `config/agents.json` entry: it would activate on the production VPS executor, where `127.0.0.1:8600` does not exist. It belongs with the stage that puts an executor on `haddad` (HAD-6), and needs no new provider code when it comes. |
+| Delivery | Branch `mythos-haddad/had-2b-fable-worker`, based on `main` (`f34c9f31`). |
+| Next | HAD-3 (Haddad MCP) per the V1 order; PR #332 (V1 scope, docs only) still open. |
+
 ## 2026-09-21 — MYTHOS-HADDAD-HAD-2: first local AI runtime, GPU-accelerated (Sonnet 5)
 
 **Objective:** HAD-2 of the Mythos Haddad V1 scope (`docs/MYTHOS_HADDAD_V1_SCOPE.md` on the
