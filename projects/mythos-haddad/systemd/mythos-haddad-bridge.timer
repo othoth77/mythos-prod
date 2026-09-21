@@ -1,0 +1,19 @@
+# MYTHOS HADDAD — HAD-3: drive one bridge tick per minute.
+#
+# OnUnitInactiveSec (not OnUnitActiveSec): the next tick is armed only after
+# the previous one FINISHES, so ticks can never overlap — the same cadence
+# choice the VPS timer documents.
+#
+# Persistent= is deliberately ABSENT. The VPS timer carries a post-mortem for
+# exactly this: with Persistent=true a user-manager restart left the timer at
+# SubState=elapsed / NextElapse=infinity and polling silently stopped.
+[Unit]
+Description=MYTHOS Haddad — poll GitHub for mythos:haddad tasks every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=1min
+AccuracySec=15s
+
+[Install]
+WantedBy=timers.target

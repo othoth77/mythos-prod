@@ -243,6 +243,24 @@ function runtimeIdentity(cfg) {
 // commit claims that can only degrade to BLOCKED. Refuse, loudly.
 var EXPECTED_USER_DEFAULT = 'deploy';
 
+// F4 — worker provider. An isolated bridge instance (its own label, control
+// branch and executor home) may route ITS tasks to a non-default provider.
+// Allow-listed on purpose: only advisory providers — those with no execution
+// authority and therefore no tool surface — are reachable this way, so a
+// mis-set variable can never hand a GitHub Issue shell access. An
+// out-of-list value refuses at load rather than mis-routing quietly.
+// Unset, which is the production case, means: change nothing.
+var WORKER_PROVIDER_ALLOWED = ['openai-compat', 'free-llm-pool'];
+var WORKER_PROVIDER = (function () {
+  var v = process.env.MYTHOS_BRIDGE_WORKER_PROVIDER;
+  if (!v) return null;
+  if (WORKER_PROVIDER_ALLOWED.indexOf(v) === -1) {
+    throw new Error('BRIDGE_WORKER_PROVIDER_NOT_ALLOWED: "' + v + '" is not one of ' +
+      WORKER_PROVIDER_ALLOWED.join(', ') + ' — only advisory providers may be selected this way');
+  }
+  return v;
+})();
+
 function userGuard() {
   var expected = process.env.MYTHOS_BRIDGE_USER || EXPECTED_USER_DEFAULT;
   var actual;
@@ -833,10 +851,38 @@ function attemptIdOf(task) {
 //                            requested_action maps to;
 //   MODEL_UNAVAILABLE        the task names a model the catalog knows but
 //                            this host cannot run — it is never replaced.
-function preflight(cfg, task, existingExecTask) {
+function preflight(cfg, task, existingExecTask, executor) {
   var attemptId = attemptIdOf(task);
   var expected = engine.profileFor(task.requested_action);
-  var check = engine.checkActionProfile(task.requested_action, existingExecTask ? existingExecTask.execution_profile : expected);
+
+  // An execution profile is a TOOL GRANT: lib/policy.js turns it into
+  // claude-code's --allowedTools/--disallowedTools, and that is the only
+  // thing it has ever meant. A provider with no execution authority is
+  // given no tool surface at all — executor.js:126-128 nulls both the
+  // profile and the working directory precisely BECAUSE the provider
+  // cannot act ("they reason, they do not act", mission §9).
+  //
+  // So for such a provider a null profile is not a missing grant, it is
+  // the EMPTY grant — strictly stronger than any profile this check could
+  // demand. Requiring `repo-read` of something that cannot read a file at
+  // all would be demanding a weaker constraint than the one in force.
+  //
+  // Narrow and fail-closed at every step: the provider is resolved from
+  // the executor's own PROVIDERS map (never trusted from the task file),
+  // it must be a provider the executor actually knows, its
+  // executionAuthority must not be true, and the recorded profile must be
+  // exactly null. An unknown provider, an execution-authority provider, or
+  // any non-null profile falls through to the unchanged check below —
+  // which is every production claude-code / delegate task.
+  var advisoryNoTools = false;
+  if (existingExecTask && existingExecTask.execution_profile === null && executor && executor.PROVIDERS) {
+    var impl = executor.PROVIDERS[existingExecTask.provider];
+    advisoryNoTools = !!impl && impl.executionAuthority !== true;
+  }
+
+  var check = advisoryNoTools
+    ? { ok: true }
+    : engine.checkActionProfile(task.requested_action, existingExecTask ? existingExecTask.execution_profile : expected);
   if (!check.ok) {
     return engine.blocker(check.code, {
       reason: check.reason, requested_action: task.requested_action, action_raw: task.action_raw || null, action_source: task.action_source || 'task_file',
@@ -871,7 +917,7 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
 
   // Invariant gate — before a worktree, before an OTHMODE record, before the
   // executor: an attempt that cannot run under its own decision does not start.
-  var block = preflight(cfg, task, existingTask);
+  var block = preflight(cfg, task, existingTask, executor);
   if (block) return { blocked: block };
 
   var wt = ensureTaskWorktree(cfg, id);
@@ -927,10 +973,19 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
     // process. Throws ACTION_PROFILE_MISMATCH — it cannot be caught into a
     // provider start.
     engine.assertActionProfile(task.requested_action, exec.execution_profile, { task_id: id, attempt_id: attemptId });
+    // Provider selection. PRODUCTION DEFAULT IS UNCHANGED: with neither env
+    // var set this is exactly `task.lane ? 'delegate' : 'claude-code'`, which
+    // is what the VPS bridge has always done and still does.
+    //
+    // MYTHOS_BRIDGE_WORKER_PROVIDER lets a SEPARATE, isolated bridge instance
+    // (its own label, control branch and executor home — see
+    // projects/mythos-haddad/docs/GITHUB_WORKER.md) send its tasks to a local
+    // model instead. It is opt-in, allow-listed, and never consulted unless
+    // the operator sets it, so no production path can reach it by accident.
     var chosenProvider =
       process.env.MYTHOS_EXECUTOR_ALLOW_MOCK === '1' && process.env.MYTHOS_BRIDGE_PROVIDER === 'mock'
         ? 'mock'
-        : (task.lane ? 'delegate' : 'claude-code');
+        : (WORKER_PROVIDER || (task.lane ? 'delegate' : 'claude-code'));
     var created = executor.createTask({
       project: task.project,
       stage: 'github:' + id,

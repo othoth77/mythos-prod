@@ -80,6 +80,15 @@ errors from the GPU, sshd still accepts passwords, no SMART / fan sensors withou
 
 No root was used to run anything in this stage; no system file outside the user's home was created or modified.
 
+**HAD-3 (GitHub worker): infrastructure COMPLETE and verified; one owner decision outstanding.**
+The existing bridge + executor run on Haddad as `othman`, fully isolated from the VPS (label
+`mythos:haddad`, prefix `haddad:`, control branch `mythos/control-haddad`, own executor home),
+driving the local Qwen. Real Issue #335 was claimed, executed and reported unattended. The
+`ACTION_PROFILE_MISMATCH` conflict between the two preflight gates is resolved with an
+owner-approved, fail-closed exemption for providers that have no tool surface at all; Qwen gained
+no execution authority. Real E2E: Issue #338 → `haddad:completed`. Detail:
+[docs/GITHUB_WORKER.md](docs/GITHUB_WORKER.md).
+
 ## Next action
 
 HAD-3 (Haddad MCP), per the V1 order in `docs/MYTHOS_HADDAD_V1_SCOPE.md` — expose health/GPU/runtime/knowledge

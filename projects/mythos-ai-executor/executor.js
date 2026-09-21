@@ -340,7 +340,23 @@ function preflightBlocker(task) {
         requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
     }
   }
-  if (task.task_category && engine.PROFILE_BY_ACTION[task.task_category]) {
+  // An execution profile is a TOOL GRANT — lib/policy.js turns it into
+  // claude-code's --allowedTools/--disallowedTools and nothing else. This
+  // function runs AFTER createTask nulled the profile for a provider with no
+  // execution authority (see the `isExecution` branch above: "they reason,
+  // they do not act", mission §9). For such a provider the null is not a
+  // missing grant, it is the EMPTY grant: no tools at all, which is strictly
+  // stronger than the repo-read this check would otherwise demand.
+  //
+  // Fail-closed and narrow, matching the provider-conditioned checks already
+  // used below: the provider must be one this executor actually knows, its
+  // executionAuthority must not be true, and the profile must be exactly
+  // null. Anything else — an execution provider, an unknown provider, or any
+  // non-null profile — takes the unchanged path, which is every claude-code
+  // and delegate task in production.
+  var providerImpl = PROVIDERS[task.provider];
+  var advisoryNoTools = task.execution_profile === null && !!providerImpl && providerImpl.executionAuthority !== true;
+  if (!advisoryNoTools && task.task_category && engine.PROFILE_BY_ACTION[task.task_category]) {
     var c = engine.checkActionProfile(task.task_category, task.execution_profile);
     if (!c.ok) {
       return engine.blocker(c.code, { reason: c.reason, requested_action: task.task_category, action_raw: task.action_raw || null, action_source: task.action_source || null,

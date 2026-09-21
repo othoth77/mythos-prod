@@ -117,8 +117,15 @@ t('production orchestration and the free-LLM catalog are untouched', function ()
   var repoRoot = path.join(__dirname, '..');
   var diff = run('git', ['diff', '--name-only', 'origin/main...HEAD'], { cwd: repoRoot });
   if (diff.status !== 0 || !diff.stdout.trim()) return; // not in a git checkout with origin/main, or nothing to compare — skip
+  // HAD-3 legitimately adds ONE additive entry to config/projects.json (the
+  // Haddad project registration) with owner approval — see
+  // projects/mythos-haddad/docs/GITHUB_WORKER.md. It is named explicitly so
+  // the guard stays sharp: everything else under core/, lib/, providers/ and
+  // free-llm/ is still refused, which is what this test exists to protect.
+  var ALLOWED = ['projects/mythos-ai-executor/config/projects.json'];
   var files = diff.stdout.trim().split('\n');
   files.forEach(function (f) {
+    if (ALLOWED.indexOf(f) !== -1) return;
     assert.ok(!/^projects\/mythos-ai-executor\/(core|lib|providers|free-llm|config)\//.test(f), 'HAD-2 does not touch orchestration/provider code: ' + f);
   });
 });

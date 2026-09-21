@@ -173,7 +173,20 @@ t('this integration modifies nothing under mythos-ai-executor/', function () {
   var repoRoot = path.join(__dirname, '..');
   var diff = cp.spawnSync('git', ['diff', '--name-only', 'origin/main...HEAD'], { cwd: repoRoot, encoding: 'utf8', timeout: 30000 });
   if (diff.status !== 0 || !diff.stdout.trim()) return; // no origin/main to compare against — skip
+  // HAD-2b itself modifies nothing here, and that still holds. HAD-3 later
+  // changes exactly three files under the executor tree, each with owner
+  // approval and its own coverage in tests/mythos-haddad-advisory-profile-test.js:
+  // the two preflight gates that reconcile "an advisory provider carries no
+  // execution profile" with "every action must carry its profile", plus one
+  // additive project registration. Naming them keeps this guard meaningful —
+  // any OTHER file under the executor tree still fails it.
+  var HAD3_ALLOWED = [
+    'projects/mythos-ai-executor/bridge/github-bridge.js',
+    'projects/mythos-ai-executor/executor.js',
+    'projects/mythos-ai-executor/config/projects.json'
+  ];
   diff.stdout.trim().split('\n').forEach(function (f) {
+    if (HAD3_ALLOWED.indexOf(f) !== -1) return;
     assert.ok(!/^projects\/mythos-ai-executor\//.test(f),
       'executor is reused, never modified: ' + f);
   });
