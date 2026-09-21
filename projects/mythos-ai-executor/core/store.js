@@ -145,6 +145,7 @@ function inferTaskEvent(from, to) {
   if (to === 'FAILED') return 'TASK_FAILED';
   if (to === 'RETRYING') return 'TASK_RETRYING';
   if (to === 'WAITING_FOR_QUOTA') return 'QUOTA_EXHAUSTED';
+  if (to === 'REVIEW_REQUIRED') return 'TASK_WAITING';
   if (to.indexOf('WAITING') === 0) return 'TASK_WAITING';
   return 'DECISION_MADE';
 }

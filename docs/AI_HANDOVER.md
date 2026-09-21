@@ -2,6 +2,25 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-21 — MYTHOS-CORE: fail-closed independent review (REVIEW_REQUIRED) (Opus 5)
+
+**Objective:** close the `review_fn` gap found in the FABLE completion audit — `core/validation.js`
+treated a review that never happened as a review that passed — without making Claude a dependency
+and without building any new queue, daemon, agent or reviewer.
+
+| Item | State |
+|---|---|
+| Audit first | Two review mechanisms already exist and both are real: the **DAG review task** that `planner.js`, `campaign.js` and `self-improve.js` put into every plan, and the in-process `review_fn`. Nothing was rebuilt. The missing piece was the REQUIREMENT tying "this task changed the repository" to "this task was reviewed". Design recorded in `docs/MYTHOS_REVIEW_POLICY.md`. |
+| Requirement | `validation.reviewRequirement(task, result)` — pure, from data the task already carries: coding/integration, commit-required, or a result claiming a commit owe a review; read-only work does not; a `review` task is never re-reviewed (not even by metadata); `metadata.review_required` overrides in both directions and the reason is recorded. |
+| Assurance, not completion | `validation.reviewAssured(task)` accepts a live downstream `review` task in the same mission (reverse `depends_on` edges + the existing DAG doom analysis). Requiring the review to have *completed* would deadlock every planner mission, since that review task depends on the task being settled. |
+| Fail closed | Otherwise `VALIDATING → REVIEW_REQUIRED` with a reason code (`no_reviewer_available`, `no_review_function`, `reviewer_not_trusted_for_sensitive`, `reviewer_equals_author_refused`), the result preserved, no repair attempt consumed, and a `REVIEW_REQUIRED` event. It is a wait, not a failure. |
+| Who may review | `review_scope` in `config/agents.json`, fail-closed: undeclared/malformed/unknown ⇒ standard only. `free-llm-pool` is `["standard"]`, so a free-tier model never reviews a commit. Claude needed no special case — the registry already ranks `risk: high` last, so it is a fallback, never a dependency (proved both ways in tests). |
+| Exit | `validation.resolveReview()` only: explicit `'pass'` completes, anything else rejects into the EXISTING repair loop with findings, author ≠ reviewer enforced, no timer, no "assume pass". |
+| Minimal surface | 7 files: `core/{validation,domain,store,scheduler,orchestrator,campaign-runner}.js` + `config/agents.json`. `checkActionProfile`, `executionAuthority`, `executor.js`, the Bridge and Haddad untouched. No HTTP endpoint, no async `review_fn`. |
+| Tests | `tests/mythos-review-policy-test.js` **91/0**, deterministic and offline. Regression: executor 395/0, campaign 365/0, core-wiring 86/0, lifecycle 254/0, budget 121/0, governance 111/0, n8n 80/0, unattended 53/0, bridge 150/0, issues 208/0, action-resolution 88/0, push-guard 23/0. Haddad 8/8/14/14 and health 14/14 unchanged. |
+| E2E | Through the production orchestrator wiring (mock agent runner, no quota): unreviewed commit → mission `WAITING` + task `REVIEW_REQUIRED` with the evidence kept → owner verdict → `COMPLETED` with **no re-execution**; with an independent reviewer available the review really runs and the mission completes; a rejecting review repairs and then completes. 12/12. |
+| Open | `tests/mythos-orchestration-core-test.js` acceptance block (6 checks) now depends on a reviewer existing: on a host where `claude-code` is the only available agent it is also the author, so the mission legitimately parks. The block passes a `review_fn` that, before this change, was never called. Owner decision pending — the behaviour is correct, the test's environment needs an independent reviewer. |
+
 ## 2026-09-21 — MYTHOS-HADDAD-HAD-3: GitHub worker on Haddad — isolated bridge instance (Opus 5)
 
 **Objective:** continuous unattended execution — GitHub Issue → bridge → Haddad → Qwen → validation
