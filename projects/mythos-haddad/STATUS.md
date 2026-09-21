@@ -83,9 +83,10 @@ No root was used to run anything in this stage; no system file outside the user'
 **HAD-3 (GitHub worker): infrastructure COMPLETE and verified; one owner decision outstanding.**
 The existing bridge + executor run on Haddad as `othman`, fully isolated from the VPS (label
 `mythos:haddad`, prefix `haddad:`, control branch `mythos/control-haddad`, own executor home),
-driving the local Qwen. Real Issue #335 was claimed, executed and reported unattended. A task
-currently ends `BLOCKED` on `ACTION_PROFILE_MISMATCH` — a structural conflict between two existing
-invariants, deliberately not worked around. Detail and options:
+driving the local Qwen. Real Issue #335 was claimed, executed and reported unattended. The
+`ACTION_PROFILE_MISMATCH` conflict between the two preflight gates is resolved with an
+owner-approved, fail-closed exemption for providers that have no tool surface at all; Qwen gained
+no execution authority. Real E2E: Issue #338 → `haddad:completed`. Detail:
 [docs/GITHUB_WORKER.md](docs/GITHUB_WORKER.md).
 
 ## Next action

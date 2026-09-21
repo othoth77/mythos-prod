@@ -1,8 +1,8 @@
 # Mythos Haddad — HAD-3: GitHub worker (isolated bridge instance)
 
-**Status: infrastructure working and verified end to end on `haddad`, 2026-09-21 — but one task
-status is blocked by a structural conflict between two existing invariants. See
-[The blocker](#the-blocker). Production VPS behaviour is unchanged and verified.**
+**Status: working end to end and verified on `haddad`, 2026-09-21.** A real GitHub Issue is
+claimed, executed by the local Qwen, validated and reported back as `COMPLETED`, unattended.
+Production VPS behaviour is unchanged and verified by its own full suite.
 
 ## What this is
 
@@ -72,36 +72,60 @@ All 485 existing bridge tests pass unchanged.
 
 `config/projects.json` gains one additive `mythos-haddad` entry (no existing entry modified).
 
-## The blocker
+## The invariant conflict, and the minimal change that resolved it
 
-**A Haddad task currently ends `BLOCKED` with `ACTION_PROFILE_MISMATCH`, not `COMPLETED`.** This is
-not a bug in this work — it is a direct, structural contradiction between two existing invariants,
-each correct on its own:
+The first live run ended `BLOCKED` with `ACTION_PROFILE_MISMATCH`. Two existing guards contradicted
+each other, and **both were right**:
 
-| Invariant | Where | What it says |
-|---|---|---|
-| Advisory providers carry no profile | `executor.js:126-128` | *"Advisory providers NEVER get a working directory or an execution profile — they reason, they do not act (mission §9)."* So `execution_profile` is forced to `null` **because** `openai-compat` is safe. |
-| Every attempt must carry its action's profile | `action-resolution.js:321-341`, asserted at `github-bridge.js:854` | `investigate` requires `repo-read`; anything else — including `null` — is refused *before any provider starts*. |
+| Guard | Says |
+|---|---|
+| `executor.js` (`createTask`) | An advisory provider gets **no** working directory and **no** execution profile — *"they reason, they do not act"* (mission §9). So `execution_profile` becomes `null` **because** the provider is safe. |
+| `action-resolution.js:321-341`, asserted in **two** places — the bridge's `preflight()` and the executor's own `preflightBlocker()` | `investigate` requires `repo-read`; anything else, `null` included, is refused before a provider starts. |
 
-The bridge passes `repo-read` into `createTask` (the control task file records it correctly), the
-executor nulls it because the provider is advisory, and the next tick's preflight reads that `null`
-as a missing profile and refuses. Each guard is doing exactly its job; together they make "a bridge
-task executed by an advisory provider" impossible.
+### Why this was a real conflict and not a bug
 
-**Not worked around, by instruction.** Resolving it changes a security assert or an executor
-invariant, which is an owner decision. The options, with the trade-off in each:
+An **execution profile is a tool grant**. `lib/policy.js` turns it into claude-code's
+`--allowedTools` / `--disallowedTools` and nothing else — its own header says the profile layer
+*"only shapes claude-code invocations"* and that *"advisory providers get no tools at all"*.
+`providers/openai-compat.js` has no tools, no `tool_calls`, no `spawn`, no `child_process`: it
+*"can only turn a prompt into text"*. Verified by inspection, not assumed.
 
-1. **Teach the profile check that an advisory provider legitimately has no profile** — i.e. accept
-   `null` *only* when the executor task's provider has no execution authority. Arguably correct
-   rather than a weakening: a provider that cannot act has nothing for a profile to constrain. It
-   touches a security assert in shared production code.
-2. **Give advisory providers a nominal `repo-read` profile** in the executor. Smaller diff, but it
-   contradicts mission §9 and makes "has a profile" stop meaning "can act".
-3. **Give Haddad an execution-authority provider** — defeats the purpose; Haddad must run without
-   Claude.
+So for such a provider `null` is **not a missing grant — it is the empty grant**, which is strictly
+stronger than the `repo-read` the check demanded. The guard was requiring a *weaker* constraint
+than the one already in force.
 
-Everything else in the chain is verified working: claim, execution through Qwen, report, labels,
-idempotency, restart, isolation.
+### The change (two call sites, ~8 lines each)
+
+Both gates now skip the action↔profile check **only** when all of these hold, resolved from the
+executor's own `PROVIDERS` map and never trusted from the task file:
+
+1. the recorded `execution_profile` is exactly `null`, **and**
+2. the provider is one the executor actually knows, **and**
+3. that provider's `executionAuthority` is not `true`.
+
+Anything else takes the unchanged path. `checkActionProfile` itself — the shared pure function the
+VPS depends on — was **not** touched.
+
+### What is still enforced (each with a negative test)
+
+- an execution-authority provider with a `null` profile is **still refused** — the case the guard
+  exists for;
+- an **unknown** provider is never exempt (fail closed);
+- any **non-null** profile is always checked, advisory or not;
+- a wrong profile on an execution provider is still a mismatch;
+- the exemption is unreachable from the task file alone (an empty `PROVIDERS` map exempts nothing);
+- without the executor reference, nothing is exempted.
+
+### What this does *not* do
+
+It does **not** give Qwen execution authority. Qwen still cannot edit a file or run a command —
+not because a flag forbids it but because **nothing in the `openai-compat` path can execute
+anything**. Making `executionAuthority: true` would hand it a working directory and a profile that
+no code reads: a weakened invariant for zero capability. Real local execution would need a
+tool-execution loop that does not exist today; that remains a separate, deliberate decision.
+
+**Haddad therefore runs read-only actions** — `investigate`, `review`, `test` — end to end,
+unattended. `document` / `implement` expect a commit and would report a delivery problem.
 
 ## systemd (user units, `othman`, no root)
 
@@ -180,4 +204,5 @@ Nothing on the VPS is affected by any of this.
 | Worker restart | `systemctl --user restart` → active, state intact |
 | State persistence | task tree on disk survives restart |
 | Existing tests | 515 passed, 0 failed across 8 suites (incl. all 485 bridge tests) |
-| Terminal status | **BLOCKED** — see [The blocker](#the-blocker) |
+| Terminal status | **COMPLETED** — Issue #338, real answer from Qwen, no blocker |
+| Existing tests after the change | 924 passed, 0 failed across 10 suites, incl. the full 395-check executor suite and all 446 bridge checks |

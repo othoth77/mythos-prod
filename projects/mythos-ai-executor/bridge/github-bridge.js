@@ -848,10 +848,38 @@ function attemptIdOf(task) {
 //                            requested_action maps to;
 //   MODEL_UNAVAILABLE        the task names a model the catalog knows but
 //                            this host cannot run — it is never replaced.
-function preflight(cfg, task, existingExecTask) {
+function preflight(cfg, task, existingExecTask, executor) {
   var attemptId = attemptIdOf(task);
   var expected = engine.profileFor(task.requested_action);
-  var check = engine.checkActionProfile(task.requested_action, existingExecTask ? existingExecTask.execution_profile : expected);
+
+  // An execution profile is a TOOL GRANT: lib/policy.js turns it into
+  // claude-code's --allowedTools/--disallowedTools, and that is the only
+  // thing it has ever meant. A provider with no execution authority is
+  // given no tool surface at all — executor.js:126-128 nulls both the
+  // profile and the working directory precisely BECAUSE the provider
+  // cannot act ("they reason, they do not act", mission §9).
+  //
+  // So for such a provider a null profile is not a missing grant, it is
+  // the EMPTY grant — strictly stronger than any profile this check could
+  // demand. Requiring `repo-read` of something that cannot read a file at
+  // all would be demanding a weaker constraint than the one in force.
+  //
+  // Narrow and fail-closed at every step: the provider is resolved from
+  // the executor's own PROVIDERS map (never trusted from the task file),
+  // it must be a provider the executor actually knows, its
+  // executionAuthority must not be true, and the recorded profile must be
+  // exactly null. An unknown provider, an execution-authority provider, or
+  // any non-null profile falls through to the unchanged check below —
+  // which is every production claude-code / delegate task.
+  var advisoryNoTools = false;
+  if (existingExecTask && existingExecTask.execution_profile === null && executor && executor.PROVIDERS) {
+    var impl = executor.PROVIDERS[existingExecTask.provider];
+    advisoryNoTools = !!impl && impl.executionAuthority !== true;
+  }
+
+  var check = advisoryNoTools
+    ? { ok: true }
+    : engine.checkActionProfile(task.requested_action, existingExecTask ? existingExecTask.execution_profile : expected);
   if (!check.ok) {
     return engine.blocker(check.code, {
       reason: check.reason, requested_action: task.requested_action, action_raw: task.action_raw || null, action_source: task.action_source || 'task_file',
@@ -886,7 +914,7 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
 
   // Invariant gate — before a worktree, before an OTHMODE record, before the
   // executor: an attempt that cannot run under its own decision does not start.
-  var block = preflight(cfg, task, existingTask);
+  var block = preflight(cfg, task, existingTask, executor);
   if (block) return { blocked: block };
 
   var wt = ensureTaskWorktree(cfg, id);
