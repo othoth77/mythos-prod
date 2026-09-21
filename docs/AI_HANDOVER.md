@@ -2,6 +2,23 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-21 — MYTHOS-HADDAD-V0: on-premises base AI server verified end to end (Fable 5.1)
+
+**Objective (issues #328, #329):** complete Mythos Haddad V0 — a verified, reproducible base AI server
+(`haddad`: Ubuntu 26.04, Ryzen 5 1600, 8 GB, GTX 1660 SUPER, Tailscale-only access). Not the VPS; nothing in
+production was touched.
+
+| Item | State |
+|---|---|
+| New project | `projects/mythos-haddad/` — `README.md` (setup / operation / recovery / verification), `STATUS.md`, `bin/haddad-health.js` (13 read-only checks → JSON report + log), `bin/gpu-vulkan-test.py` (ctypes + libvulkan, refuses llvmpipe), `bin/haddad-diagnostics.sh`, `bin/haddad-setup.sh` (idempotent, user-level), `systemd/` user timer (30 min, linger on). Test: `tests/mythos-haddad-v0-test.js`. |
+| Machine result | `haddad-health.js` **13 PASS / 0 WARN / 0 FAIL**, also when run by the systemd user unit. GPU: TU116 on `nouveau` + GSP, Vulkan 1.4.335 via NVK; 64 MiB fill + host→VRAM→host round trip verified. Claude Code 2.1.278 in `~/.local`, authenticated, `claude -p` answers. |
+| #329 | Closed as completed: `ssh othman@100.78.7.10` verified, incl. a real login from the Windows peer in the sshd log. Root cause of `ssh haddad` failing = own names missing from `known_hosts`; fixed from the local host key file, host key checking never disabled. |
+| Tests | `node tests/mythos-haddad-v0-test.js` **8/0**. Full suite not run: no shared code changed (new directory + one new test + this entry). |
+| Not done / risks | No root was available: no CUDA (open driver stack only — V1 decision), sshd still accepts passwords (LAN + tailnet only), no SMART/fan sensors. Correctable PCIe AER errors from the GPU in the kernel log (GPU test passes). |
+| Delivery | **Pushed**: commit `eb2d7efc` on `mythos-haddad/v0-base-server`, remote HEAD verified equal; **PR #330** open against `main` (mergeable, clean), **not merged**. CI: no workflow applies (Guardian suite is path-filtered to `ops/guardian/**` etc., VPS Final Gate is `workflow_dispatch` only) — instead the pushed commit was verified from a fresh clone of GitHub: tests 8/0, health 13 PASS. Push credential on `haddad`: `gh` logged in by the owner (HTTPS credential helper). |
+| Deployment / migration | None. Machine-side state (timer, dirs, Claude Code install) is applied on `haddad` by `haddad-setup.sh`. |
+| Next | V1 scoping: first AI runtime on the Vulkan stack vs. proprietary driver for CUDA (owner decision); add the Windows client key, then `PasswordAuthentication no`. |
+
 ## 2026-09-18 — META-ADS-MONITOR-0: Facebook Ads daily monitor on the VPS — READ-ONLY by design (Opus 5)
 
 **Facebook Ads Monitor is READ-ONLY by design.** New `projects/meta-ads-monitor/`
