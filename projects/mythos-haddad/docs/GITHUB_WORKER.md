@@ -180,6 +180,55 @@ Task states on the Issue: `haddad:queued` → `haddad:in-progress` → `haddad:c
 `haddad:failed` / `haddad:blocked`. Nothing is retried automatically after a terminal state; add
 the `rerun` label to run again as a new attempt.
 
+## Several projects at once
+
+Haddad runs **one** task at a time (`MYTHOS_MAX_PARALLEL=1`, one Qwen inference on a 6 GB
+GPU) but it *manages* many. One project waiting never stops another:
+
+| Project | What it is doing | Effect on the others |
+|---|---|---|
+| A | step 2 waiting for step 1 (`Depends on:`) | none — only A's own next step waits |
+| B | running | unaffected |
+| C | stopped for a person (`haddad:blocked`, HUMAN APPROVAL) | none — it holds no worker |
+| D | finished | releases whatever depended on it |
+
+A waiting task holds **nothing**: dependencies are checked before a task is claimed, so a task
+whose turn has not come has no executor record, no worktree and no GPU. A task stopped for a
+person has already finished executing. That is why C can wait for a day while B, D and the rest
+of A keep moving.
+
+Dependencies are per chain, never global — write `Depends on: gh-issue-123` in the Issue (or
+`يعتمد على`). A task only waits for what it actually names.
+
+## A task that needs a person
+
+Some results should not count as done just because the work finished. The review policy in
+`core/validation.js` (see `docs/MYTHOS_REVIEW_POLICY.md`) decides which ones: a task that
+produces a commit owes an independent review, a read-only investigation does not, and an Issue
+can ask for one explicitly with `Review: required` (`مراجعة مطلوبة`). That field can only ask
+for **more** review — no spelling of it waives a review the policy requires.
+
+On Haddad there is no second model to act as an independent reviewer, so a task that owes one
+stops for **you**:
+
+```
+execution finished  →  review owed and not had  →  haddad:blocked (HUMAN APPROVAL)
+```
+
+The Issue then carries the worker's full result, why it stopped, and what to do next. Nothing
+that depends on that task has started, and nothing else has slowed down.
+
+**Resuming does not redo the work.** Add the `rerun` label. The new attempt keeps its own
+single-use task id (ids are never reused) but records the attempt it continues, and the previous
+attempt's report travels into its prompt: what was summarised, which files changed, which
+commits and checks exist, and an instruction to *verify that against the worktree and spend this
+run only on what is still missing*. Adding `rerun` to a task that stopped for review is also your
+approval of that review, and it is recorded by name on the continuing task.
+
+Switched on with `MYTHOS_BRIDGE_REVIEW_GATE=1` in `~/.config/mythos-haddad/worker.env`. With
+the variable unset — the production VPS default — the gate does not load, does not run, and the
+bridge behaves exactly as it did before.
+
 ## Rollback
 
 ```bash

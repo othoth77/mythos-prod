@@ -127,6 +127,44 @@ untrusted data. Two existing allow-lists already prevent it, and both are now co
 tests: `POST /goals` rejects any unexpected field (`core-wiring.js` `GOAL_FIELDS`), and a
 generated plan cannot set task metadata at all (`planner.js` `SPEC_TASK_FIELDS`).
 
+## The GitHub bridge path (Mythos Haddad)
+
+The bridge/executor path does not run through the orchestration core, so for a while this policy
+did not apply to it at all: a Haddad task reached `COMPLETED` — the status that releases its
+dependents — without the question of review ever being asked.
+
+`bridge/review-gate.js` is the connection, and it is an adapter, not a second engine. It
+translates a bridge task and its report into the shapes this module already reads and returns
+**this module's** verdict:
+
+| Bridge fact | Core shape | Consequence |
+|---|---|---|
+| `requested_action` delivers a `commit` (`implement`, `document`) | `task_type: 'coding'` | owes a review |
+| `requested_action` delivers a `report` (`investigate`, `review`, `test`) | `task_type: 'analysis'` | owes none |
+| execution profile is `repo-write` / `autonomous` / `deploy` | write policy classes | sensitive |
+| the report claims a commit | `result.commit` | owes a review |
+| `review_required: true` on the task (`Review: required` in the Issue) | `metadata.review_required` | owes a review |
+
+The field can only **escalate**: there is no value of `review_required`, and no spelling in an
+Issue, that waives a review the policy requires — a waiver arriving as data would be a privilege
+downgrade written by whoever opened the Issue.
+
+No automated reviewer is wired into that path, because whether one LLM may judge another's work
+is still an open owner decision. A task that owes a review therefore stops for a **person**,
+through the state the bridge already has for exactly that (`BLOCKED` + `human_approval`, shown on
+the Issue as HUMAN APPROVAL). The owner approves by adding the `rerun` label; the continuing
+attempt records which attempt it continues and why, and that record — `continues.reason ===
+'review_required'` — is the approval. Continuing a *failed* attempt is continuity only and
+approves nothing.
+
+The gate is off unless `MYTHOS_BRIDGE_REVIEW_GATE` is set, and when it is off the core is never
+even loaded, so the production VPS bridge is unchanged. When the policy module cannot be loaded
+at all, the gate fails closed: the task stops rather than completing unreviewed.
+
+Note that this consults the review *policy* — a pure decision function — and never starts the
+orchestration core; that is why it works on Haddad, where `MYTHOS_CORE_ENABLED=false` keeps the
+core's execution path deliberately switched off.
+
 ## What was deliberately NOT built
 
 No queue, no daemon, no agent, no reviewer implementation, no HTTP endpoint, no async

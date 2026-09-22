@@ -131,6 +131,38 @@
       "type": "string",
       "maxLength": 16000
     },
+    "review_required": {
+      "type": "boolean",
+      "description": "Optional. TRUE asks for an independent review of this task's result even when the review policy would not demand one (bridge/review-gate.js → core/validation.js). It can only ESCALATE: there is no value that waives a review the policy requires, so nothing written here can lower the bar. Absent means the policy decides alone."
+    },
+    "continues": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id"
+      ],
+      "description": "Optional. Written by an adapter when this task is a rerun of an earlier attempt of the same Issue. Task ids stay single-use — this is a REFERENCE, not a resurrection: the new attempt inherits the previous one's report so it can verify what already succeeded and continue from there instead of redoing it. When `reason` is `review_required`, it also carries the owner's approval of that earlier attempt forward.",
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{4,38}[a-z0-9]$"
+        },
+        "status": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 600
+        }
+      }
+    },
     "action_raw": {
       "type": [
         "string",
