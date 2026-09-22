@@ -190,10 +190,28 @@ Editing the Issue before rerunning deliberately does **not** carry the approval 
 attempt does different work, and work nobody has seen is not approved by a decision about work
 they had. The content hash recorded on every attempt is what distinguishes the two cases.
 
-**Known limit.** Dependencies name a task id, and an approved rerun completes under a *different*
-id, so a task written as `Depends on: gh-issue-12` keeps waiting even after `gh-issue-12-r2` has
-been approved and completed. Until that is decided, a review-stopping task should not sit in the
-middle of a dependency chain.
+### A dependency is satisfied by a trusted continuation
+
+Dependencies name a task id, and ids are single-use — so the approved work completes under a
+*different* id from the one a dependent was written against. A continuation therefore satisfies
+the dependency it continues, but only when it is provably the same work carried forward. All
+four must hold:
+
+1. it **names** the dependency (`continues.task_id`);
+2. it is a **later attempt of the same task** — same id stem, higher attempt number — so an
+   unrelated task cannot claim to continue anything;
+3. it really **completed**, a status only the bridge writes and only after an execution that
+   passed every gate;
+4. the **review is intact**: if the original owed a review, the continuation must carry an
+   approved one, and a continuation that owes one itself must have it too.
+
+Completion alone never releases a dependent whose work was supposed to be reviewed — that is the
+point of the fourth condition. A chain of continuations carries satisfaction through, and one
+unreviewed link breaks the whole chain. The walk is bounded, so a cycle cannot spin.
+
+So `B depends_on A` waits while A is stopped for a person, waits while `A-r2` is running or has
+failed, waits if something merely *claims* to continue A, waits if an edited rerun owes its own
+review — and becomes eligible the moment a trusted, approved `A-r2` completes.
 
 ## What was deliberately NOT built
 

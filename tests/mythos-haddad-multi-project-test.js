@@ -220,6 +220,107 @@ var EMPTY_REPORT = { summary: 'done', files_changed: [], commits: [], tests: [],
 })();
 
 // ===========================================================================
+// B2 — a dependency written against the ORIGINAL attempt, satisfied by a
+//      trusted continuation of it and by nothing else
+// ===========================================================================
+(function () {
+  function rec(id, fields) {
+    return Object.assign({ task_id: id, status: 'COMPLETED', execution: {} }, fields || {});
+  }
+  function index() {
+    var out = {};
+    Array.prototype.slice.call(arguments).forEach(function (t) { out[t.task_id] = t; });
+    return out;
+  }
+  var REVIEW_STOPPED = { execution: { review_gate: { required: true, reason: 'required_by_task_metadata' } } };
+  var APPROVED = { execution: { review_gate: { required: true, satisfied: true, approved_by: 'gh-issue-9' } } };
+
+  // 1 — the plain case is untouched.
+  ok(bridge.dependencySatisfied('gh-issue-9', index(rec('gh-issue-9'))) === true,
+    'B2-1: a COMPLETED original satisfies its dependency, exactly as before');
+
+  // 2 — stopped for a person: the dependent waits.
+  var stopped = rec('gh-issue-9', Object.assign({ status: 'BLOCKED' }, REVIEW_STOPPED));
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped)) === false,
+    'B2-2: an original stopped for HUMAN APPROVAL does not satisfy anything');
+
+  // 3 — a trusted, approved continuation does satisfy it.
+  var approved = rec('gh-issue-9-r2', Object.assign(
+    { continues: { task_id: 'gh-issue-9', reason: 'review_required' } }, APPROVED));
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, approved)) === true,
+    'B2-3: a trusted continuation that completed AND was approved satisfies the original');
+
+  // 4 — still running.
+  var running = rec('gh-issue-9-r2', { status: 'IN_PROGRESS',
+    continues: { task_id: 'gh-issue-9', reason: 'review_required' } });
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, running)) === false,
+    'B2-4: a continuation still running satisfies nothing');
+
+  // 5 — failed.
+  var failed = rec('gh-issue-9-r2', { status: 'FAILED',
+    continues: { task_id: 'gh-issue-9', reason: 'review_required' } });
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, failed)) === false,
+    'B2-5: a FAILED continuation satisfies nothing');
+
+  // 6 — a task that merely CLAIMS to continue it. This is the one that
+  //     would otherwise be a way to start dependent work without doing it.
+  var impostor = rec('t-unrelated-work', { continues: { task_id: 'gh-issue-9', reason: 'review_required' } });
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, impostor)) === false,
+    'B2-6 SECURITY: an unrelated task claiming to be the continuation is refused');
+  var wrongIssue = rec('gh-issue-77-r2', { continues: { task_id: 'gh-issue-9', reason: 'review_required' } });
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, wrongIssue)) === false,
+    'B2-6 SECURITY: a continuation of a DIFFERENT task is refused');
+  var notLater = rec('gh-issue-9-r1', { continues: { task_id: 'gh-issue-9', reason: 'review_required' } });
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, notLater)) === false,
+    'B2-6 SECURITY: a continuation that is not a LATER attempt of the same task is refused');
+
+  // 7 — the Issue changed, so the approval did not travel: still unreviewed.
+  var afterEdit = rec('gh-issue-9-r2', Object.assign(
+    { continues: { task_id: 'gh-issue-9', reason: 'review_required_after_edit' } },
+    { execution: { review_gate: { required: true, reason: 'required_by_task_metadata' } } }));
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, afterEdit)) === false,
+    'B2-7 SECURITY: an edited rerun that owes its own review does not satisfy the original');
+  var sneaky = rec('gh-issue-9-r2', { continues: { task_id: 'gh-issue-9', reason: 'review_required_after_edit' } });
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, sneaky)) === false,
+    'B2-7 SECURITY: completion alone never releases work whose original owed a review');
+
+  // 8 — reviewed and approved: covered by 3; here through a CHAIN, because a
+  //     second stop and a second approval must still add up.
+  var midway = rec('gh-issue-9-r2', Object.assign({ status: 'BLOCKED',
+    continues: { task_id: 'gh-issue-9', reason: 'review_required' } }, REVIEW_STOPPED));
+  var third = rec('gh-issue-9-r3', Object.assign(
+    { continues: { task_id: 'gh-issue-9-r2', reason: 'review_required' } }, APPROVED));
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, midway, third)) === true,
+    'B2-8: a chain of trusted continuations carries the satisfaction through');
+  var brokenChain = rec('gh-issue-9-r3', { continues: { task_id: 'gh-issue-9-r2', reason: 'review_required' },
+    execution: { review_gate: { required: true } } });
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, midway, brokenChain)) === false,
+    'B2-8 SECURITY: one unreviewed link breaks the whole chain');
+
+  // 9/10 — an original that owed NO review is satisfied by a plain
+  //        continuation, and a second continuation changes nothing.
+  var plainStop = rec('gh-issue-9', { status: 'FAILED' });
+  var plainCont = rec('gh-issue-9-r2', { continues: { task_id: 'gh-issue-9', reason: 'failed' } });
+  ok(bridge.dependencySatisfied('gh-issue-9', index(plainStop, plainCont)) === true,
+    'B2-9: a continuation of a task that owed no review satisfies it on completion alone');
+  var twin = rec('gh-issue-9-r3', { continues: { task_id: 'gh-issue-9', reason: 'failed' } });
+  ok(bridge.dependencySatisfied('gh-issue-9', index(plainStop, plainCont, twin)) === true,
+    'B2-10: two continuations of the same attempt still satisfy it exactly once — no duplicate effect');
+
+  // 12 — satisfaction reaches only the dependency it belongs to.
+  ok(bridge.dependencySatisfied('gh-issue-8', index(stopped, approved, rec('gh-issue-8', { status: 'BLOCKED' }))) === false,
+    'B2-12: a continuation releases ONLY what it actually continues');
+  ok(bridge.dependencySatisfied('gh-issue-9', {}) === false,
+    'B2: an unknown dependency is never satisfied');
+
+  // Lineage parsing, since everything above rests on it.
+  ok(bridge.attemptLineage('gh-issue-9').attempt === 1 && bridge.attemptLineage('gh-issue-9').stem === 'gh-issue-9',
+    'B2: a first attempt parses as attempt 1');
+  ok(bridge.attemptLineage('gh-issue-9-r3').attempt === 3 && bridge.attemptLineage('gh-issue-9-r3').stem === 'gh-issue-9',
+    'B2: a rerun parses to the same stem and a higher attempt');
+})();
+
+// ===========================================================================
 // C — the whole thing, through the REAL bridge and executor:
 //     four projects, one worker, one of them stopped for a person
 // ===========================================================================
@@ -344,23 +445,44 @@ turns(8).then(function () {
   ok(depDone && depClaim && Date.parse(depClaim.at) >= Date.parse(depDone.at),
     'C dependency: the dependent step was claimed only after its dependency completed');
 
-  // --- HUMAN INTERVENTION: the owner approves by asking for a rerun --------
-  // This is the one deliberate human step; nothing else is touched.
-  plannerWrite('t-beta-two.json', task('t-beta-two', {
-    review_required: true,
-    continues: { task_id: 't-beta-one', status: 'BLOCKED', reason: 'review_required' }
-  }));
-  return turns(4);
+  // --- a dependent of the stopped task waits, and keeps waiting -----------
+  plannerWrite('t-beta-dep.json', task('t-beta-dep', { depends_on: ['t-beta-one'] }));
+  return turns(2).then(function () {
+    ok(statusOf('t-beta-dep') === 'PENDING',
+      'C dependency: a dependent of the task stopped for a person waits');
+    ok(statusOf('t-gamma-one') === 'COMPLETED' && statusOf('t-delta-one') === 'COMPLETED',
+      'C dependency: …while the unrelated projects have finished');
+
+    // An impostor cannot open that door: it completes, but it is not a later
+    // attempt of t-beta-one, so the dependency is untouched.
+    plannerWrite('t-fake-cont.json', task('t-fake-cont', {
+      continues: { task_id: 't-beta-one', status: 'BLOCKED', reason: 'review_required' }
+    }));
+    return turns(3);
+  }).then(function () {
+    ok(statusOf('t-fake-cont') === 'COMPLETED',
+      'C dependency: the impostor task itself runs and completes normally');
+    ok(statusOf('t-beta-dep') === 'PENDING',
+      'C dependency SECURITY: …and releases nothing, because it is not a continuation of t-beta-one');
+
+    // --- HUMAN INTERVENTION: the owner approves by asking for a rerun -----
+    // This is the one deliberate human step; nothing else is touched.
+    plannerWrite('t-beta-one-r2.json', task('t-beta-one-r2', {
+      review_required: true,
+      continues: { task_id: 't-beta-one', status: 'BLOCKED', reason: 'review_required' }
+    }));
+    return turns(5);
+  });
 }).then(function () {
-  ok(statusOf('t-beta-two') === 'COMPLETED',
+  ok(statusOf('t-beta-one-r2') === 'COMPLETED',
     'C resume: after the owner approves, the continuation completes instead of stopping again');
-  var t = controlTask('t-beta-two');
+  var t = controlTask('t-beta-one-r2');
   ok(t.execution.review_gate && t.execution.review_gate.satisfied === true &&
      t.execution.review_gate.approved_by === 't-beta-one',
     'C resume: the approval is recorded and names the attempt it came from');
 
   // --- and it was told what already succeeded, rather than starting over ---
-  var eid = executorIdOf('t-beta-two');
+  var eid = executorIdOf('t-beta-one-r2');
   var prompt = eid ? state.readText(eid, 'prompt.md') : null;
   ok(prompt && /## Continuation — this task continues t-beta-one/.test(prompt),
     'C resume: the continuation prompt names the attempt it continues');
@@ -381,15 +503,14 @@ turns(8).then(function () {
   ok(t.execution.base_commit === prevTask.execution.base_commit,
     'C limits: both attempts start from the same base, so the second does not build on the first');
 
-  // --- and a dependent of the ORIGINAL is not released by the rerun -------
-  // A known gap, recorded here rather than hidden: dependencies name a task
-  // id, and the approved work completed under a different one.
-  plannerWrite('t-beta-dep.json', task('t-beta-dep', { depends_on: ['t-beta-one'] }));
-  return turns(3).then(function () {
-    ok(statusOf('t-beta-dep') === 'PENDING',
-      'C limits: a task depending on the STOPPED attempt still waits after the rerun completed');
-    ok(statusOf('t-beta-two') === 'COMPLETED',
-      'C limits: …even though the continuation itself is complete and approved');
+  // --- and NOW the dependent is released, by the continuation -------------
+  return turns(4).then(function () {
+    ok(statusOf('t-beta-dep') === 'COMPLETED',
+      'C dependency: the dependent runs and completes once the trusted continuation is approved');
+    var dep = controlTask('t-beta-dep');
+    var claims = (dep.history || []).filter(function (h) { return h.to === 'CLAIMED'; });
+    ok(claims.length === 1,
+      'C dependency: it was claimed exactly once — no duplicate execution across the ticks');
 
     // --- with the gate off, the same task would simply have completed ------
     gateOn(false);

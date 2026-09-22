@@ -538,6 +538,83 @@ function saveTask(cfg, task) {
   writeJsonRedacted(taskFile(cfg, task.task_id), task);
 }
 
+// --- Dependencies across a continuation ------------------------------------
+//
+// A dependency names a task id, and a task id is single-use. When an attempt
+// stops for a person and the owner approves by asking for a rerun, the
+// approved work completes under a DIFFERENT id — so a dependent written
+// against the original would wait for ever on work that is finished.
+//
+// A continuation therefore satisfies the dependency it continues, but ONLY
+// when it is provably the same work carried forward. Four things must hold,
+// and each one closes a way of getting a dependent started without doing the
+// work it was waiting for:
+//
+//   1. it NAMES the dependency (`continues.task_id`);
+//   2. it is a LATER ATTEMPT OF THE SAME TASK — same id stem, higher attempt
+//      number — so an unrelated task cannot claim to continue anything;
+//   3. it really COMPLETED, a status only this bridge writes and only after
+//      an execution that passed every gate;
+//   4. the review is intact: if the original owed a review, the continuation
+//      must carry an approved one, and a continuation that owes one itself
+//      must have it too. Completion alone never releases a dependent whose
+//      work was supposed to be reviewed.
+//
+// Anything else leaves the dependent waiting. Attempt ids are minted by the
+// adapters (bridge/github-issues.js) as `<stem>` then `<stem>-r<n>`; this
+// reads that shape, it does not define it.
+function attemptLineage(id) {
+  var m = /^(.+?)(?:-r(\d+))?$/.exec(String(id || ''));
+  if (!m) return null;
+  return { stem: m[1], attempt: m[2] ? parseInt(m[2], 10) : 1 };
+}
+
+function continuationSatisfies(original, candidate) {
+  if (!original || !candidate) return false;
+  if (!candidate.continues || candidate.continues.task_id !== original.task_id) return false;
+  if (candidate.status !== 'COMPLETED') return false;
+  var a = attemptLineage(original.task_id);
+  var b = attemptLineage(candidate.task_id);
+  if (!a || !b || a.stem !== b.stem || !(b.attempt > a.attempt)) return false;
+  var originalGate = original.execution && original.execution.review_gate;
+  var candidateGate = candidate.execution && candidate.execution.review_gate;
+  if (originalGate && originalGate.required === true &&
+      !(candidateGate && candidateGate.satisfied === true)) return false;
+  if (candidateGate && candidateGate.required === true && candidateGate.satisfied !== true) return false;
+  return true;
+}
+
+// Is this dependency satisfied — by the task itself, or by a trusted chain of
+// continuations from it? The walk is bounded: a cycle or a silly chain can
+// never spin here.
+var MAX_CONTINUATION_HOPS = 10;
+
+function dependencySatisfied(depId, tasksById) {
+  var dep = tasksById[depId];
+  if (!dep) return false;
+  if (dep.status === 'COMPLETED') return true;
+  var all = Object.keys(tasksById);
+  var frontier = [dep];
+  var seen = {};
+  seen[dep.task_id] = true;
+  for (var hop = 0; hop < MAX_CONTINUATION_HOPS && frontier.length; hop++) {
+    var next = [];
+    for (var i = 0; i < frontier.length; i++) {
+      var parent = frontier[i];
+      for (var j = 0; j < all.length; j++) {
+        var child = tasksById[all[j]];
+        if (!child || seen[child.task_id]) continue;
+        if (!child.continues || child.continues.task_id !== parent.task_id) continue;
+        if (continuationSatisfies(parent, child)) return true;
+        seen[child.task_id] = true;
+        next.push(child);   // it did not finish the job, but its own rerun might
+      }
+    }
+    frontier = next;
+  }
+  return false;
+}
+
 // Immutable part of a task, hashed at claim time so a later edit of a
 // claimed task is noticed (and ignored) rather than silently executed.
 function taskFingerprint(task) {
@@ -1571,7 +1648,7 @@ function tick(executor, opts) {
           actions.push({ action: 'defer', task_id: t.task_id, reason: 'claim limit' });
           return;
         }
-        var unmet = (t.depends_on || []).filter(function (d) { return !tasksById[d] || tasksById[d].status !== 'COMPLETED'; });
+        var unmet = (t.depends_on || []).filter(function (d) { return !dependencySatisfied(d, tasksById); });
         if (unmet.length) { actions.push({ action: 'wait_dependencies', task_id: t.task_id, unmet: unmet }); return; }
         try {
           var c = claimTask(cfg, executor, e, tasksById, runtime);
@@ -1974,6 +2051,9 @@ module.exports = {
   PROTOCOL: PROTOCOL,
   TASK_STATUSES: TASK_STATUSES,
   TERMINAL: TERMINAL,
+  dependencySatisfied: dependencySatisfied,
+  continuationSatisfies: continuationSatisfies,
+  attemptLineage: attemptLineage,
   PROFILE_BY_ACTION: PROFILE_BY_ACTION,
   DELIVERY_BY_ACTION: DELIVERY_BY_ACTION,
   STATUS_MAP: STATUS_MAP,
