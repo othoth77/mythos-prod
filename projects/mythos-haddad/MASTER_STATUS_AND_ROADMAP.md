@@ -655,9 +655,14 @@ device-memory projection, a different quantity).
 - rolling `tokens_per_s` source
 - fleet scheduling
 
-**KNOWN, REPORTED, NOT YET FIXED (cosmetic, does not affect security or correctness of state):**
-- `runtime.gpu_layers` / `runtime.vram_model_mib` — `null` due to the journal-window gap above
-- `gpu.model` — `null` due to the type bug above
+**RESOLVED same day (PR #392 `574e09a9`).** `runtime.gpu_layers`/`vram_model_mib` and
+`gpu.model`/`gpu.driver` all publish real values now — re-verified directly against the live
+public payload after a plain `git pull` on the primary checkout (no restart, no
+re-registration; the timer picked up the fix on its next beat): `27 / 29`, `3884`,
+`NVIDIA GeForce GTX 1660 SUPER (NVK TU116)`, `Vulkan 1.4.335 / nouveau`. A new
+`runtime.vram_projected_mib` (`4920`) field was added alongside `vram_model_mib`, labelled as
+an estimate rather than folded into the measured figure. Full account, including why both
+defects were invisible from reading the code, in `docs/TELEMETRY.md` §10b.
 
 **OWNER GATES:**
 1. ~~Haddad is not currently beating~~ **RESOLVED — Haddad is beating, activated 2026-09-22.**
