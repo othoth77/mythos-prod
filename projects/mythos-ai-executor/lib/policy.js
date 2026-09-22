@@ -131,10 +131,75 @@ function claudeArgsForProfile(name) {
   return args.concat(p.extraArgs);
 }
 
+// A SECOND renderer of the same profile, for a provider that executes tools
+// in-process instead of handing flags to a CLI. claudeArgsForProfile above
+// turns a profile into `--allowedTools`; this turns the identical fields into
+// the tool grant an in-process runner may act on. One source of truth, two
+// renderings — a separate permission dictionary is exactly what must not
+// exist, because the two would drift and the drift would be silent.
+//
+// A Bash() entry is parsed the way the CLI reads it: `Bash(npm test:*)` is
+// the program `npm` with the required argv prefix ['test'] and anything
+// after; `Bash(node --version)` with no `:*` is that exact argv and nothing
+// else. A disallowed Bash() entry subtracts, so `repo-test`'s
+// `Bash(git commit:*)` denial survives this translation.
+//
+// This function GRANTS, it does not execute. A caller is expected to
+// intersect the result with its own, narrower code ceiling: the grant says
+// what the policy permits, never what the runner is willing to do.
+function parseBashRule(entry) {
+  var m = /^Bash\(([^)]+)\)$/.exec(entry);
+  if (!m) return null;
+  var body = m[1].trim();
+  var prefixMatch = /:\*$/.test(body);
+  var words = body.replace(/:\*$/, '').trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return null;
+  return { program: words[0], args: words.slice(1), prefix: prefixMatch };
+}
+
+function toolsForProfile(name) {
+  var p = getProfile(name);
+  var allowed = {}, denied = {};
+  p.allowedTools.forEach(function (t) { allowed[t] = true; });
+  p.disallowedTools.forEach(function (t) { denied[t] = true; });
+  function granted(tool) { return allowed[tool] === true && denied[tool] !== true; }
+
+  var deniedCommands = [];
+  p.disallowedTools.forEach(function (t) {
+    var r = parseBashRule(t);
+    if (r) deniedCommands.push(r);
+  });
+  function isDenied(rule) {
+    return deniedCommands.some(function (d) {
+      if (d.program !== rule.program) return false;
+      return d.args.every(function (a, i) { return rule.args[i] === a; });
+    });
+  }
+
+  var commands = [];
+  p.allowedTools.forEach(function (t) {
+    var r = parseBashRule(t);
+    if (r && !isDenied(r)) commands.push(r);
+  });
+
+  return {
+    profile: name || DEFAULT_PROFILE,
+    read_file: granted('Read'),
+    list_files: granted('Glob') || granted('Grep'),
+    // Reported for completeness so a caller can SEE the policy's answer.
+    // No write tool exists in the V1a runner regardless of this flag — the
+    // runner's own ceiling is lower than the policy's, deliberately.
+    write_file: granted('Write') || granted('Edit'),
+    commands: commands
+  };
+}
+
 module.exports = {
   PROFILES: PROFILES,
   DEFAULT_PROFILE: DEFAULT_PROFILE,
   profileNames: profileNames,
   getProfile: getProfile,
-  claudeArgsForProfile: claudeArgsForProfile
+  claudeArgsForProfile: claudeArgsForProfile,
+  toolsForProfile: toolsForProfile,
+  parseBashRule: parseBashRule
 };

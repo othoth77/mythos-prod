@@ -180,6 +180,49 @@ Task states on the Issue: `haddad:queued` → `haddad:in-progress` → `haddad:c
 `haddad:failed` / `haddad:blocked`. Nothing is retried automatically after a terminal state; add
 the `rerun` label to run again as a new attempt.
 
+## Supervised execution (HAD-4, 2026-09-22)
+
+The worker no longer runs an advisory model that only *reports*: the `haddad-agent` provider runs
+Qwen with a small tool surface (`read_file`, `list_files`, `write_file`, `run_command`), every
+command confined by a per-command **bwrap** sandbox (the task worktree is the only writable
+mount; `$HOME`, `/etc` and every credential are unmounted, not merely denied), and a loop that
+does not believe the model:
+
+```
+GitHub Issue (mythos:haddad) → bridge tick → executor → haddad-agent
+  attempt: Qwen reads / writes / runs inside bwrap → reports
+  validation (lib/work-validation.js → core/validation.js): workspace diff measured,
+      every declared check RE-RUN by the validator in the same sandbox, check files intact,
+      scope respected, report shape
+  PASS  → COMPLETED → review gate → haddad:human-approval for an `implement` task
+  FAIL  → ## REPAIR REQUIRED brief (measured output, what changed, tool-call steps) → Qwen again
+          … at most 3 executions; the last brief may carry a diagnosis-only escalation
+          (HADDAD_AGENT_DIAGNOSER: Sonnet through the Claude CLI, no tools, writes nothing)
+  budget spent, a check still failing → BLOCKED as HUMAN_APPROVAL with the evidence + tool trace
+  budget spent, every check passing by the validator's own run → COMPLETED, report synthesized & flagged
+```
+
+Full rules and the live evidence: `docs/MYTHOS_REVIEW_POLICY.md`, "Supervised execution on
+Haddad". Suites: `tests/mythos-haddad-supervised-loop-test.js`, `tests/mythos-haddad-tool-runner-test.js`.
+
+**The worker unit** carries no mount-namespace option (`PrivateTmp`, `ProtectSystem`,
+`ProtectHome`, `ReadWritePaths`): with `kernel.apparmor_restrict_unprivileged_userns=1` any of
+them stops bwrap from starting under the daemon, so the boundary sits around each command the
+model runs, not around the daemon — an owner decision recorded in the unit file itself.
+`RestrictAddressFamilies` includes `AF_NETLINK` (bwrap's loopback setup).
+
+**Configuration on Haddad** (`~/.config/mythos-haddad/worker.env`, never committed):
+`MYTHOS_BRIDGE_EXEC_PROVIDER=haddad-agent`, `MYTHOS_BRIDGE_REVIEW_GATE=1`,
+`HADDAD_AGENT_DIAGNOSER=claude -p --model claude-sonnet-5 --max-turns 1 --disallowedTools …`,
+plus `~/.config/mythos-haddad/agent.enabled` (the provider is inert without it — the VPS case).
+A live E2E against a deliberately broken file needs that file on the bridge's base ref
+(`MYTHOS_BRIDGE_BASE_REF=<fixture branch>`, the working checkout on that branch) — see
+`docs/AI_HANDOVER.md`, 2026-09-22.
+
+**Crash recovery, measured:** the daemon SIGKILLed mid-task (15:00:22) → systemd restart
+(15:00:37) → `interrupted_recovered` → `WAITING_RETRY` → `RUNNING` with a new execution id;
+0 sandbox processes survived the crash (`--die-with-parent`).
+
 ## Rollback
 
 ```bash

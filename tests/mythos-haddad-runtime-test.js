@@ -127,7 +127,17 @@ t('systemd unit: loopback-bound, token-required, avoids known user-scope-fatal d
 // projects/mythos-haddad/docs/GITHUB_WORKER.md. It is named explicitly so
 // the guard stays sharp: everything else under core/, lib/, providers/ and
 // free-llm/ is still refused, which is what this test exists to protect.
-var ALLOWED = ['projects/mythos-ai-executor/config/projects.json'];
+var ALLOWED = [
+  'projects/mythos-ai-executor/config/projects.json',
+  // HAD-4 (PR #365): the Haddad-side provider and what it calls — the one
+  // stage whose purpose IS an executor provider. Each is covered by
+  // tests/mythos-haddad-tool-runner-test.js / -supervised-loop-test.js;
+  // anything else under the protected trees still fails this guard.
+  'projects/mythos-ai-executor/providers/haddad-agent.js',
+  'projects/mythos-ai-executor/lib/work-validation.js',
+  'projects/mythos-ai-executor/lib/policy.js',
+  'projects/mythos-ai-executor/free-llm/adapter.js'
+];
 var PROTECTED = /^projects\/mythos-ai-executor\/(core|lib|providers|free-llm|config)\//;
 
 function isHaddadBranch(files) {

@@ -32,7 +32,15 @@ function defaultTransport(options, body) {
     var mod = target.protocol === 'https:' ? https : http;
     var req = mod.request({
       hostname: target.hostname, port: target.port, path: target.path,
-      method: 'POST', headers: options.headers, timeout: options.timeoutMs || 60000
+      method: 'POST', headers: options.headers, timeout: options.timeoutMs || 60000,
+      // One connection per request, never a pooled one. Node's default agent
+      // keeps sockets alive, a local llama-server closes idle ones after a
+      // few seconds, and a caller that blocks the event loop between two
+      // requests (the tool runner: sandboxed checks, a diagnoser) never sees
+      // the close — the next request goes out on a dead socket and fails as
+      // "socket hang up" (gh-issue-375, gh-issue-377, live). A fresh
+      // connection costs nothing that matters at these call rates.
+      agent: false
     }, function (res) {
       var chunks = [];
       res.on('data', function (c) { chunks.push(c); });
@@ -77,6 +85,14 @@ function buildOutcome(statusCode, body, started, expectedModel) {
     parsed: { is_error: isError, result: text || '' },
     http_status: statusCode, model_reported: reportedModel, expected_model: expectedModel || null,
     usage: (function () { try { return JSON.parse(body).usage || null; } catch (e2) { return null; } })(),
+    // The raw assistant message, ADDED alongside everything above and never
+    // in place of it. A tool-calling caller needs `tool_calls`, which cannot
+    // survive being flattened into `parsed.result`; every existing caller
+    // reads `parsed` and is unaffected by an extra key. Absent on a parse
+    // failure, which is why callers must null-check it.
+    message: (function () {
+      try { return JSON.parse(body).choices[0].message || null; } catch (e3) { return null; }
+    })(),
     session_id: null, started_pid: null
   };
 }
@@ -94,14 +110,25 @@ function chatCompletion(spec, prompt, opts) {
   }
   var transport = opts.transport || defaultTransport;
   var systemPrompt = typeof opts.systemPrompt === 'string' && opts.systemPrompt.trim() ? opts.systemPrompt : DEFAULT_SYSTEM_PROMPT;
-  var payload = JSON.stringify({
+  // `prompt` stays a string for every existing caller, and that path is
+  // byte-identical to before. A caller running a tool loop passes the whole
+  // message array instead, because turn N+1 must carry the assistant's
+  // tool_calls and the tool results verbatim — a string cannot express that.
+  var body = {
     model: spec.model,
     stream: false,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: prompt }
-    ]
-  });
+    messages: Array.isArray(prompt)
+      ? prompt
+      : [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }]
+  };
+  // Only sent when a caller asks for it, so no existing request shape changes.
+  if (Array.isArray(opts.tools) && opts.tools.length) body.tools = opts.tools;
+  // Same rule: a caller that bounds one answer says so. Without it a small
+  // local model can run away for thousands of tokens on one turn (measured:
+  // ~3,800 tokens, past the request timeout) and the whole task is lost to
+  // a timeout instead of ending in a bounded, readable turn.
+  if (opts.maxTokens > 0) body.max_tokens = Math.floor(opts.maxTokens);
+  var payload = JSON.stringify(body);
   var headers = Object.assign({
     'Content-Type': 'application/json',
     'Content-Length': Buffer.byteLength(payload),
