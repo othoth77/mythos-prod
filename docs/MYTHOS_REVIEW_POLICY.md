@@ -241,7 +241,17 @@ criteria are legitimate and cannot be machine-checked, so such a task passes fla
 `mechanically_verified: false` rather than being dressed up as verified. A task that declared no
 criteria is recorded as unverified, not failed — the omission is its author's, not the worker's.
 
-**Known limit.** The local runtime runs with a 4096-token context. A bridge task instruction is
+**Known limit — the sandbox cannot start under the daemon.** `run_command` only ever runs inside
+a bwrap namespace and fails closed without one. Under the worker *service* it has none:
+`ProtectSystem=strict`, `ProtectHome=read-only` and `PrivateTmp=true` each put the unit in its
+own mount namespace, and with `kernel.apparmor_restrict_unprivileged_userns=1` the kernel then
+refuses bwrap's user namespace. (Bisected with transient units; `NoNewPrivileges` is *not* the
+cause.) So under the daemon the worker can read and write but cannot run a check, and any task
+whose acceptance criteria are runnable stops for a person rather than passing unverified — which
+is what gh-issue-370 did. Resolving it means choosing where the boundary sits: the daemon's own
+unit hardening, or a per-command sandbox. That is an owner decision and is not taken here.
+
+**Historic limit, resolved.** The local runtime ran with a 4096-token context. A bridge task instruction is
 ~1,900 tokens before any file is read, so a full read → change → re-read → repair cycle does not
 fit: a live run was observed producing a correct fix and then failing with
 `request (4590 tokens) exceeds the available context size`. The loop is proven against real
