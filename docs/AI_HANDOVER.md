@@ -2,6 +2,24 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-22 — MYTHOS-HADDAD: multi-project isolation — review gate + continuation (Opus 5)
+
+**Objective:** Haddad manages several independent projects at once; one project stopping — for a
+person, for a review, or for a dependency — must not stop the others, and resuming must not redo
+work that already succeeded.
+
+| Item | State |
+|---|---|
+| Audit first, and it changed the plan | Most of the goal ALREADY existed and was proven live before a line was written: the Issue grammar carries `depends_on` (incl. `يعتمد على`), the bridge gates each task on its own dependencies (`wait_dependencies`), intake takes 5 Issues per tick, `MYTHOS_MAX_PARALLEL=1` keeps exactly one Qwen inference, and only a RUNNING task blocks dispatch — so waiting tasks hold no worker. Real proof: #343/#345/#347 executed serially with non-overlapping windows while #344 waited for #343 and #346 sat invalid. |
+| The two real gaps | (1) `BLOCKED` is terminal on the bridge and `rerun` created a NEW task that inherited only the action — so a task stopped for a person redid its work; (2) the bridge path never called `core/validation.js`, so the review policy merged in #342 did not apply to Haddad at all. Both were reported as an architectural decision and the owner chose: continuation (C) + connect to the core policy (A). |
+| Review gate (A) — an adapter, not an engine | `bridge/review-gate.js` (~120 lines) translates a bridge task + report into the shapes `core/validation.js` already reads and returns THAT module's verdict. Mapping reuses the existing action table: delivery `commit` → owes a review, delivery `report` → does not. `Review: required` in an Issue escalates only — no spelling waives a review the policy demands. Off unless `MYTHOS_BRIDGE_REVIEW_GATE=1`; off means the core is never even loaded. |
+| Who reviews | Nobody automatic — that decision is still open. A task that owes a review stops for the OWNER through the state the bridge already had (`BLOCKED` + `human_approval`), and the wording carries the word the Issue adapter's own classifier looks for, so it shows as HUMAN APPROVAL with no new state, no new label and no change to `github-issues.js`. |
+| Continuation (C) | A rerun keeps its own single-use id but records `continues: {task_id, status, reason}`. `buildInstruction` renders a `## Continuation` section from the previous attempt's own report — summary, files, commits, checks, problems — and instructs the worker to VERIFY it against the worktree and spend the run only on what is missing. When the previous attempt stopped for a review, that record IS the owner's approval, carried by name; continuing a FAILED attempt approves nothing. |
+| Tests | `tests/mythos-haddad-multi-project-test.js` **43/0**, offline: adapter verdicts, escalation-only, fail-closed when the policy cannot load, grammar (en + ar), and a full four-project run through the REAL bridge + executor where one project stops for a person and the other three finish. Regression: bridge 150/208/88/23/16, executor 395, core 255/2 (pre-existing VPS checks), lifecycle 254, campaign 365, review-policy 99, Haddad 8/9/15/14 — all unchanged. |
+| Real 10-task E2E, unattended | Issues #348–#357, one manual step in the whole run. #348 ✓ → #349 waited for it then ✓; #350 and #352 stopped for review; #351, #353, #355, #357 finished while they waited; #354 still waits on the stopped #352 (dependency isolation); #356 stopped as **`haddad:human-approval`**. Then the one human step — `rerun` on #350 — produced `gh-issue-350-r2` carrying `approved_by: gh-issue-350`, a prompt containing the previous report and "Do NOT start from zero", and **COMPLETED**. |
+| Production safety | Gate default OFF ⇒ the VPS bridge is byte-identical; enabled only in `~/.config/mythos-haddad/worker.env` on Haddad. No change to `executionAuthority`, the provider allow-list, action-profile security, `checkActionProfile`, VPS defaults or Haddad isolation. The gate consults the review POLICY (a pure function) and never starts the core — which is why it works on Haddad, where `MYTHOS_CORE_ENABLED=false`. |
+| Note | The `haddad` host currently runs this branch's code (that is how the E2E was real). Rolling back is removing one line from `worker.env`. |
+
 ## 2026-09-21 — MYTHOS-CORE: fail-closed independent review (REVIEW_REQUIRED) (Opus 5)
 
 **Objective:** close the `review_fn` gap found in the FABLE completion audit — `core/validation.js`

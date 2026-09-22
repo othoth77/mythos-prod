@@ -341,9 +341,10 @@ var SECTION_ALIASES = {
   depends_on: ['depends on', 'depends_on', 'depends-on', 'dependencies', 'يعتمد على', 'الاعتماديات'],
   timeout: ['timeout', 'timeout seconds', 'timeout_seconds', 'المهلة'],
   max_turns: ['max turns', 'max_turns', 'max-turns'],
-  model: ['model', 'claude model', 'النموذج', 'نموذج']
+  model: ['model', 'claude model', 'النموذج', 'نموذج'],
+  review: ['review', 'review required', 'needs review', 'independent review', 'مراجعة مطلوبة', 'يتطلب مراجعة', 'تحتاج مراجعة']
 };
-var SCALAR_KEYS = ['action', 'priority', 'depends_on', 'timeout', 'max_turns', 'model', 'lane'];
+var SCALAR_KEYS = ['action', 'priority', 'depends_on', 'timeout', 'max_turns', 'model', 'lane', 'review'];
 
 // Size limits applied to Issue-derived text. They exist so a task file stays
 // a reviewable record and the executor prompt stays within its schema — NOT
@@ -478,6 +479,40 @@ function pickDepends(fields) {
   return out.filter(function (x, i) { return out.indexOf(x) === i; });
 }
 
+// `Review: required` — an ESCALATION ONLY. Every spelling here asks for MORE
+// review; there is deliberately no spelling that asks for less, because a
+// waiver written in an Issue would be a privilege downgrade arriving as
+// data. Anything unrecognised leaves the decision entirely to the policy.
+var REVIEW_YES = /^(required|require|yes|true|1|needed|need|مطلوبة|مطلوب|نعم|إلزامية|الزامية)$/i;
+
+function wantsReview(fields) {
+  return (fields.review || []).some(function (f) {
+    return String(f.raw || '').trim().split(/[\s,]+/).some(function (tok) {
+      return REVIEW_YES.test(tok.replace(/^[-*]\s*/, '').trim());
+    });
+  });
+}
+
+// Why the attempt being continued stopped. Only a review stop carries an
+// approval forward; every other stop is continuity context alone.
+//
+// And an approval is approval of THAT result, produced from THAT Issue text.
+// If the Issue has been edited since — which is exactly how a person says
+// "fix this and run it again" — the next attempt does DIFFERENT work, and
+// work nobody has seen must not inherit a decision about work they had.
+// The content hash the adapter already records on every attempt is what
+// tells the two cases apart.
+function continuationReason(previous, contentHash) {
+  var gate = previous && previous.execution && previous.execution.review_gate;
+  if (gate && gate.required === true) {
+    var prevHash = previous.source && previous.source.content_sha256;
+    return (prevHash && contentHash && prevHash === contentHash)
+      ? 'review_required'
+      : 'review_required_after_edit';
+  }
+  return previous && previous.status ? String(previous.status).toLowerCase() : null;
+}
+
 // Issue #100 — `Model: Sonnet` (or a `model:<x>` label) is OPTIONAL and, on a
 // rerun that names none, inherited from the previous attempt like every other
 // decision. A name the catalog does not know is an intake error listing the
@@ -605,6 +640,10 @@ function issueToTask(cfg, issue, attempt, previous) {
   };
   var deps = pickDepends(fields);
   if (deps.length) task.depends_on = deps.filter(function (d) { return d !== taskId; });
+  // An Issue may ASK for an independent review of a result the policy would
+  // otherwise let through. It can only escalate: there is no spelling of
+  // this field that waives a review, so an Issue can never lower the bar.
+  if (wantsReview(fields)) task.review_required = true;
   var timeout = pickInt(fields, 'timeout', 60, 21600);
   if (timeout) task.timeout_seconds = timeout;
   var turns = pickInt(fields, 'max_turns', 1, 500);
@@ -637,6 +676,18 @@ function issueToTask(cfg, issue, attempt, previous) {
     task.notes = task.notes.length + note.length + 2 <= LIMITS.notes ? task.notes + '\n\n' + note : task.notes.slice(0, LIMITS.notes - note.length - 3) + '…\n\n' + note;
   }
   var contentHash = sha256(String(issue.title || '') + '\n' + body);
+
+  // A rerun keeps its own single-use id but records the attempt it follows,
+  // so the worker can verify what already succeeded instead of redoing it —
+  // and, when the previous attempt stopped for a review, so that the owner's
+  // decision to rerun travels with it as the approval.
+  if (previous && previous.task_id) {
+    task.continues = {
+      task_id: previous.task_id,
+      status: previous.status || null,
+      reason: continuationReason(previous, contentHash)
+    };
+  }
   task.source = {
     kind: 'github-issue',
     repo: cfg.repo,

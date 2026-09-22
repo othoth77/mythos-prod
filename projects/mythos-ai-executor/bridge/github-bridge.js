@@ -68,6 +68,9 @@ var reporting = require(path.join(EXEC_ROOT, 'lib', 'report'));
 // the executor). PROFILE_BY_ACTION is re-exported from here for callers that
 // imported it from the bridge; the map itself has exactly one home.
 var engine = require('./action-resolution');
+// Adapter only — it loads the orchestration core lazily and ONLY when the
+// review gate is switched on, so the default bridge path is unchanged.
+var reviewGate = require('./review-gate');
 var schema = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'schema'));
 var redact = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'redact'));
 // Notification sink. It is enqueue-only inside the tick (synchronous, local,
@@ -535,12 +538,92 @@ function saveTask(cfg, task) {
   writeJsonRedacted(taskFile(cfg, task.task_id), task);
 }
 
+// --- Dependencies across a continuation ------------------------------------
+//
+// A dependency names a task id, and a task id is single-use. When an attempt
+// stops for a person and the owner approves by asking for a rerun, the
+// approved work completes under a DIFFERENT id — so a dependent written
+// against the original would wait for ever on work that is finished.
+//
+// A continuation therefore satisfies the dependency it continues, but ONLY
+// when it is provably the same work carried forward. Four things must hold,
+// and each one closes a way of getting a dependent started without doing the
+// work it was waiting for:
+//
+//   1. it NAMES the dependency (`continues.task_id`);
+//   2. it is a LATER ATTEMPT OF THE SAME TASK — same id stem, higher attempt
+//      number — so an unrelated task cannot claim to continue anything;
+//   3. it really COMPLETED, a status only this bridge writes and only after
+//      an execution that passed every gate;
+//   4. the review is intact: if the original owed a review, the continuation
+//      must carry an approved one, and a continuation that owes one itself
+//      must have it too. Completion alone never releases a dependent whose
+//      work was supposed to be reviewed.
+//
+// Anything else leaves the dependent waiting. Attempt ids are minted by the
+// adapters (bridge/github-issues.js) as `<stem>` then `<stem>-r<n>`; this
+// reads that shape, it does not define it.
+function attemptLineage(id) {
+  var m = /^(.+?)(?:-r(\d+))?$/.exec(String(id || ''));
+  if (!m) return null;
+  return { stem: m[1], attempt: m[2] ? parseInt(m[2], 10) : 1 };
+}
+
+function continuationSatisfies(original, candidate) {
+  if (!original || !candidate) return false;
+  if (!candidate.continues || candidate.continues.task_id !== original.task_id) return false;
+  if (candidate.status !== 'COMPLETED') return false;
+  var a = attemptLineage(original.task_id);
+  var b = attemptLineage(candidate.task_id);
+  if (!a || !b || a.stem !== b.stem || !(b.attempt > a.attempt)) return false;
+  var originalGate = original.execution && original.execution.review_gate;
+  var candidateGate = candidate.execution && candidate.execution.review_gate;
+  if (originalGate && originalGate.required === true &&
+      !(candidateGate && candidateGate.satisfied === true)) return false;
+  if (candidateGate && candidateGate.required === true && candidateGate.satisfied !== true) return false;
+  return true;
+}
+
+// Is this dependency satisfied — by the task itself, or by a trusted chain of
+// continuations from it? The walk is bounded: a cycle or a silly chain can
+// never spin here.
+var MAX_CONTINUATION_HOPS = 10;
+
+function dependencySatisfied(depId, tasksById) {
+  var dep = tasksById[depId];
+  if (!dep) return false;
+  if (dep.status === 'COMPLETED') return true;
+  var all = Object.keys(tasksById);
+  var frontier = [dep];
+  var seen = {};
+  seen[dep.task_id] = true;
+  for (var hop = 0; hop < MAX_CONTINUATION_HOPS && frontier.length; hop++) {
+    var next = [];
+    for (var i = 0; i < frontier.length; i++) {
+      var parent = frontier[i];
+      for (var j = 0; j < all.length; j++) {
+        var child = tasksById[all[j]];
+        if (!child || seen[child.task_id]) continue;
+        if (!child.continues || child.continues.task_id !== parent.task_id) continue;
+        if (continuationSatisfies(parent, child)) return true;
+        seen[child.task_id] = true;
+        next.push(child);   // it did not finish the job, but its own rerun might
+      }
+    }
+    frontier = next;
+  }
+  return false;
+}
+
 // Immutable part of a task, hashed at claim time so a later edit of a
 // claimed task is noticed (and ignored) rather than silently executed.
 function taskFingerprint(task) {
   var copy = {};
   ['task_id', 'project', 'objective', 'scope', 'constraints', 'priority', 'requested_action', 'action_raw', 'action_source',
-    'validation_requirements', 'created_at', 'created_by', 'depends_on', 'timeout_seconds', 'max_turns', 'notes', 'model', 'model_raw', 'model_source']
+    'validation_requirements', 'created_at', 'created_by', 'depends_on', 'timeout_seconds', 'max_turns', 'notes', 'model', 'model_raw', 'model_source',
+    // Both change what runs: one asks for a review, the other says which
+    // attempt this continues. An edit to either after the claim is drift.
+    'review_required', 'continues']
     .forEach(function (k) { if (task[k] !== undefined) copy[k] = task[k]; });
   return sha256(JSON.stringify(copy));
 }
@@ -624,8 +707,64 @@ function buildInstruction(cfg, task, exec) {
     '',
     bullets(task.validation_requirements, 'the targeted checks you judge necessary; report exactly what you ran'),
     '',
+    continuationSection(cfg, task),
     task.notes ? '## Notes from the creator\n\n' + task.notes + '\n' : ''
   ].join('\n');
+}
+
+// A rerun is a NEW task with a new single-use id, but it is not a fresh
+// start: the attempt it continues already did real work, and redoing that
+// work wastes a run and can undo it. The previous attempt's own report is
+// the record of what succeeded, so it travels into this prompt verbatim
+// (it is the bridge's own artefact, already redacted at write time).
+//
+// This states facts and an instruction, never a promise: the worker is
+// told to VERIFY each claim against the worktree before trusting it,
+// because a report describes what an earlier attempt said it did.
+function continuationSection(cfg, task) {
+  var c = task.continues;
+  if (!c || !c.task_id) return '';
+  var prev = readJsonFile(reportFile(cfg, c.task_id, 'json'));
+  var lines = [
+    '## Continuation — this task continues ' + c.task_id,
+    '',
+    'That attempt ended ' + (c.status || 'unfinished') +
+      (c.reason === 'review_required' ? ' because its result required an independent review, which the owner has since approved by asking for this rerun.' : '.') +
+      ' Do NOT start from zero and do NOT repeat work it already completed.',
+    ''
+  ];
+  if (!prev) {
+    lines.push('Its report is not readable on this host, so treat the repository itself as the only evidence: inspect it first and continue from what is actually there.', '');
+    return lines.join('\n');
+  }
+  lines.push('What the previous attempt reported:', '');
+  lines.push('- Summary: ' + String(prev.summary || '(none)').replace(/\s+/g, ' ').slice(0, 800));
+  if (Array.isArray(prev.files_changed) && prev.files_changed.length) {
+    lines.push('- Files it changed: ' + prev.files_changed.slice(0, 20).map(function (f) {
+      return typeof f === 'string' ? f : (f && f.path) || String(f);
+    }).join(', '));
+  }
+  if (Array.isArray(prev.commits) && prev.commits.length) {
+    lines.push('- Commits it made: ' + prev.commits.slice(0, 10).map(function (x) {
+      return String((x && (x.sha || x.commit)) || x).slice(0, 12);
+    }).join(', '));
+  }
+  if (Array.isArray(prev.tests) && prev.tests.length) {
+    lines.push('- Checks it ran: ' + prev.tests.slice(0, 10).map(function (t) {
+      return String((t && (t.name || t.command)) || t).slice(0, 80);
+    }).join('; '));
+  }
+  if (Array.isArray(prev.problems) && prev.problems.length) {
+    lines.push('- Problems it recorded: ' + prev.problems.slice(0, 10).map(function (p) { return String(p).slice(0, 200); }).join('; '));
+  }
+  if (prev.next_recommended_action) {
+    lines.push('- What it said should happen next: ' + String(prev.next_recommended_action).slice(0, 400));
+  }
+  lines.push('',
+    'First VERIFY the above against the worktree (git log/status, read the files). ' +
+    'Keep what is already correct, and spend this run only on what is still missing.',
+    '');
+  return lines.join('\n');
 }
 
 // --- OTHMODE Task record (the integration point with OTHMODE) ------------------------------------
@@ -1509,7 +1648,7 @@ function tick(executor, opts) {
           actions.push({ action: 'defer', task_id: t.task_id, reason: 'claim limit' });
           return;
         }
-        var unmet = (t.depends_on || []).filter(function (d) { return !tasksById[d] || tasksById[d].status !== 'COMPLETED'; });
+        var unmet = (t.depends_on || []).filter(function (d) { return !dependencySatisfied(d, tasksById); });
         if (unmet.length) { actions.push({ action: 'wait_dependencies', task_id: t.task_id, unmet: unmet }); return; }
         try {
           var c = claimTask(cfg, executor, e, tasksById, runtime);
@@ -1605,6 +1744,51 @@ function tick(executor, opts) {
       var eff = state.effectiveStatus(st) === 'INTERRUPTED' ? 'RUNNING' : st.status;
       var mapped = STATUS_MAP[eff] || 'IN_PROGRESS';
       if (TERMINAL.indexOf(mapped) !== -1) {
+        // REVIEW GATE (off unless MYTHOS_BRIDGE_REVIEW_GATE is set). COMPLETED
+        // is what releases this task's dependents, so it must mean "finished
+        // AND reviewed where a review is owed" — the policy in
+        // core/validation.js decides which tasks those are, not this file.
+        // A task that owes a review it has not had stops for a PERSON on its
+        // own Issue; every other task in every other project is untouched.
+        var review = { required: false, gate: 'off' };
+        if (mapped === 'COMPLETED') {
+          try {
+            review = reviewGate.evaluate(t, buildReport(cfg, t, 'COMPLETED', { executor_status: st.status }));
+          } catch (e) {
+            review = { required: true, satisfied: false, gate: 'error',
+              reason: 'review_gate_error: ' + String(e.message).slice(0, 160), sensitive: true, approved_by: null };
+          }
+        }
+        if (review.required && !review.satisfied) {
+          t.execution.review_gate = { required: true, reason: review.reason, sensitive: !!review.sensitive, at: nowIso() };
+          finishTask(cfg, t, 'BLOCKED', {
+            executor_status: st.status,
+            // The worker's own summary stays the summary — it is the evidence
+            // of what was done, and the person needs to read exactly that to
+            // decide. WHY the task stopped is recorded as a problem, which is
+            // where the Issue report already shows blocking reasons.
+            summary: 'The work finished and validated, but this task requires an INDEPENDENT REVIEW that has not happened (' +
+              review.reason + '). It is not failed and nothing was lost — it is unreviewed, and unreviewed work is never reported as done.',
+            // The wording carries the word the Issue adapter's own
+            // classifier looks for (APPROVAL_RE): this is an owner decision,
+            // not an infrastructure blocker, so the Issue shows HUMAN
+            // APPROVAL and its existing "what to do next" text — no new
+            // state, no new label, no change to github-issues.js.
+            problems: ['independent review required (' + review.reason + '): the result above is complete but ' +
+              'unreviewed. It needs your approval — an owner decision — before it counts as done, and nothing ' +
+              'that depends on it has started.'],
+            next: 'Read the result below. If it is correct, add the label `' + (process.env.MYTHOS_ISSUES_RERUN_LABEL || 'rerun') +
+              '` on the Issue: that records your approval and continues from this attempt instead of redoing it. If it is wrong, say what to fix in the Issue first, then add the same label.',
+            human_approval: true
+          }, changed);
+          actions.push({ action: 'review_required', task_id: t.task_id, reason: review.reason });
+          log('review_required', { task_id: t.task_id, reason: review.reason, sensitive: !!review.sensitive });
+          return;
+        }
+        if (review.approved_by) {
+          t.execution.review_gate = { required: true, satisfied: true, approved_by: review.approved_by,
+            reason: review.reason, at: nowIso() };
+        }
         finishTask(cfg, t, mapped, { executor_status: st.status }, changed);
         actions.push({ action: 'finish', task_id: t.task_id, status: mapped });
         return;
@@ -1867,6 +2051,9 @@ module.exports = {
   PROTOCOL: PROTOCOL,
   TASK_STATUSES: TASK_STATUSES,
   TERMINAL: TERMINAL,
+  dependencySatisfied: dependencySatisfied,
+  continuationSatisfies: continuationSatisfies,
+  attemptLineage: attemptLineage,
   PROFILE_BY_ACTION: PROFILE_BY_ACTION,
   DELIVERY_BY_ACTION: DELIVERY_BY_ACTION,
   STATUS_MAP: STATUS_MAP,

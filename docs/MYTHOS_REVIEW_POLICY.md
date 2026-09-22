@@ -127,6 +127,92 @@ untrusted data. Two existing allow-lists already prevent it, and both are now co
 tests: `POST /goals` rejects any unexpected field (`core-wiring.js` `GOAL_FIELDS`), and a
 generated plan cannot set task metadata at all (`planner.js` `SPEC_TASK_FIELDS`).
 
+## The GitHub bridge path (Mythos Haddad)
+
+The bridge/executor path does not run through the orchestration core, so for a while this policy
+did not apply to it at all: a Haddad task reached `COMPLETED` — the status that releases its
+dependents — without the question of review ever being asked.
+
+`bridge/review-gate.js` is the connection, and it is an adapter, not a second engine. It
+translates a bridge task and its report into the shapes this module already reads and returns
+**this module's** verdict:
+
+| Bridge fact | Core shape | Consequence |
+|---|---|---|
+| `requested_action` delivers a `commit` (`implement`, `document`) | `task_type: 'coding'` | owes a review |
+| `requested_action` delivers a `report` (`investigate`, `review`, `test`) | `task_type: 'analysis'` | owes none |
+| execution profile is `repo-write` / `autonomous` / `deploy` | write policy classes | sensitive |
+| the report claims a commit | `result.commit` | owes a review |
+| `review_required: true` on the task (`Review: required` in the Issue) | `metadata.review_required` | owes a review |
+
+The field can only **escalate**: there is no value of `review_required`, and no spelling in an
+Issue, that waives a review the policy requires — a waiver arriving as data would be a privilege
+downgrade written by whoever opened the Issue.
+
+No automated reviewer is wired into that path, because whether one LLM may judge another's work
+is still an open owner decision. A task that owes a review therefore stops for a **person**,
+through the state the bridge already has for exactly that (`BLOCKED` + `human_approval`, shown on
+the Issue as HUMAN APPROVAL). The owner approves by adding the `rerun` label; the continuing
+attempt records which attempt it continues and why, and that record — `continues.reason ===
+'review_required'` — is the approval. Continuing a *failed* attempt is continuity only and
+approves nothing.
+
+The gate is off unless `MYTHOS_BRIDGE_REVIEW_GATE` is set, and when it is off the core is never
+even loaded, so the production VPS bridge is unchanged. When the policy module cannot be loaded
+at all, the gate fails closed: the task stops rather than completing unreviewed.
+
+Note that this consults the review *policy* — a pure decision function — and never starts the
+orchestration core; that is why it works on Haddad, where `MYTHOS_CORE_ENABLED=false` keeps the
+core's execution path deliberately switched off.
+
+### One project waits, the others continue
+
+A stop is per task, never per host. The worker runs one task at a time (`MYTHOS_MAX_PARALLEL=1`
+on Haddad — one model inference), but it *manages* many: dependencies are checked before a task
+is claimed, so a task whose turn has not come has no executor record, no worktree and no GPU, and
+a task stopped for a person has already finished executing. So project A can wait for a decision
+for a day while B runs, C is queued and D finishes. Dependencies are per chain (`Depends on:` /
+`يعتمد على`) and never global.
+
+### Resuming is a new attempt that knows about the old one
+
+It is **not** a checkpoint restore, and the difference matters:
+
+- the continuation keeps its own single-use task id, records which attempt it continues, and
+  receives that attempt's **report** in its prompt — summary, files, commits, checks, problems —
+  with an instruction to verify it and spend the run only on what is missing;
+- a task branch is named after the task id, so the continuation starts from a **fresh branch off
+  `main`**. For a read-only task there is nothing to inherit. For a task that **commits**, the
+  earlier commits stay on the earlier branch and the new attempt cannot see them — continuity
+  there is guidance in a prompt, not restored state.
+
+Editing the Issue before rerunning deliberately does **not** carry the approval forward: the next
+attempt does different work, and work nobody has seen is not approved by a decision about work
+they had. The content hash recorded on every attempt is what distinguishes the two cases.
+
+### A dependency is satisfied by a trusted continuation
+
+Dependencies name a task id, and ids are single-use — so the approved work completes under a
+*different* id from the one a dependent was written against. A continuation therefore satisfies
+the dependency it continues, but only when it is provably the same work carried forward. All
+four must hold:
+
+1. it **names** the dependency (`continues.task_id`);
+2. it is a **later attempt of the same task** — same id stem, higher attempt number — so an
+   unrelated task cannot claim to continue anything;
+3. it really **completed**, a status only the bridge writes and only after an execution that
+   passed every gate;
+4. the **review is intact**: if the original owed a review, the continuation must carry an
+   approved one, and a continuation that owes one itself must have it too.
+
+Completion alone never releases a dependent whose work was supposed to be reviewed — that is the
+point of the fourth condition. A chain of continuations carries satisfaction through, and one
+unreviewed link breaks the whole chain. The walk is bounded, so a cycle cannot spin.
+
+So `B depends_on A` waits while A is stopped for a person, waits while `A-r2` is running or has
+failed, waits if something merely *claims* to continue A, waits if an edited rerun owes its own
+review — and becomes eligible the moment a trusted, approved `A-r2` completes.
+
 ## What was deliberately NOT built
 
 No queue, no daemon, no agent, no reviewer implementation, no HTTP endpoint, no async

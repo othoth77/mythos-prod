@@ -1,0 +1,530 @@
+'use strict';
+// =====================================================
+// MYTHOS HADDAD — multi-project task isolation
+// tests/mythos-haddad-multi-project-test.js
+//
+// One worker, several projects. What must hold:
+//
+//   * a task that owes an INDEPENDENT REVIEW does not reach COMPLETED on
+//     the bridge path, because COMPLETED is what releases its dependents —
+//     and the policy that decides which tasks owe one is core/validation.js,
+//     reused through bridge/review-gate.js, not restated here;
+//   * a task stopped for a person holds NOTHING: no worker, no executor
+//     slot, and no other project;
+//   * a rerun keeps its own single-use id but continues the attempt before
+//     it — the previous report travels into the prompt so successful work
+//     is verified, not repeated — and carries the owner's approval forward;
+//   * with the gate switched off (the VPS default) every one of these
+//     paths behaves exactly as it did before.
+//
+// Offline and deterministic, on the same fixture shape as
+// tests/mythos-github-bridge-test.js: a throwaway origin, a control
+// worktree, a planner clone and the executor's mock provider. No network,
+// no GPU, no real quota. Fixtures never live under /tmp.
+//
+// Run with: node tests/mythos-haddad-multi-project-test.js
+// =====================================================
+
+var fs = require('fs');
+var os = require('os');
+var path = require('path');
+var cp = require('child_process');
+
+var BASE = path.join(__dirname, '..');
+var EXEC = path.join(BASE, 'projects', 'mythos-ai-executor');
+var FIX = path.join(os.homedir(), 'mythos-multi-project-test-' + process.pid);
+fs.mkdirSync(FIX, { recursive: true });
+
+process.env.MYTHOS_EXECUTOR_HOME = path.join(FIX, 'home');
+process.env.MYTHOS_EXECUTOR_ALLOW_MOCK = '1';
+process.env.MYTHOS_ADVISORY_KEY_FILE = path.join(FIX, 'no-advisory-credential.env');
+process.env.MYTHOS_RESOURCE_GUARD = 'off';
+process.env.MYTHOS_BRIDGE_PROJECT = 'executor-selftest';
+process.env.MYTHOS_BRIDGE_REPO = path.join(FIX, 'repo');
+process.env.MYTHOS_BRIDGE_CONTROL_DIR = path.join(FIX, 'control');
+process.env.MYTHOS_BRIDGE_TASK_WORKTREES = path.join(FIX, 'wt');
+process.env.MYTHOS_BRIDGE_HOME = path.join(FIX, 'home', 'bridge');
+process.env.MYTHOS_BRIDGE_PROVIDER = 'mock';
+process.env.MYTHOS_BRIDGE_USER = os.userInfo().username;
+process.env.OTHMODE_STORE_ROOT = path.join(FIX, 'othstore');
+fs.mkdirSync(process.env.OTHMODE_STORE_ROOT, { recursive: true, mode: 0o700 });
+delete process.env.MYTHOS_MOCK_SCRIPT;
+delete process.env.MYTHOS_BRIDGE_REVIEW_GATE;
+
+var executor = require(path.join(EXEC, 'executor'));
+var state = require(path.join(EXEC, 'lib', 'state'));
+var bridge = require(path.join(EXEC, 'bridge', 'github-bridge'));
+var reviewGate = require(path.join(EXEC, 'bridge', 'review-gate'));
+var issues = require(path.join(EXEC, 'bridge', 'github-issues'));
+
+var passed = 0, failed = 0, failures = [];
+function ok(cond, name) { if (cond) passed++; else { failed++; failures.push(name); console.error('FAIL: ' + name); } }
+function cleanup() { try { fs.rmSync(FIX, { recursive: true, force: true }); } catch (e) { /* best effort */ } }
+
+function git(cwd, args) {
+  return cp.execFileSync('git', args, { cwd: cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+    env: Object.assign({}, process.env, { GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' }) }).trim();
+}
+
+function gateOn(on) {
+  if (on) process.env.MYTHOS_BRIDGE_REVIEW_GATE = '1';
+  else delete process.env.MYTHOS_BRIDGE_REVIEW_GATE;
+}
+
+// ===========================================================================
+// A — the gate is an ADAPTER: every verdict comes from core/validation.js
+// ===========================================================================
+
+function bridgeTask(fields) {
+  return Object.assign({
+    task_id: 't-sample-one', project: 'executor-selftest', requested_action: 'investigate',
+    execution: { execution_profile: 'repo-read', provider: 'mock' }
+  }, fields || {});
+}
+var EMPTY_REPORT = { summary: 'done', files_changed: [], commits: [], tests: [], problems: [] };
+
+(function () {
+  gateOn(false);
+  var off = reviewGate.evaluate(bridgeTask({ requested_action: 'implement' }), EMPTY_REPORT);
+  ok(off.required === false && off.gate === 'off',
+    'A gate: OFF by default — a commit-producing task is untouched, exactly as on the VPS today');
+
+  gateOn(true);
+  var read = reviewGate.evaluate(bridgeTask({ requested_action: 'investigate' }), EMPTY_REPORT);
+  ok(read.required === false,
+    'A gate: a read-only investigate owes no review (the policy decides, not the gate)');
+
+  ['implement', 'document'].forEach(function (action) {
+    var w = reviewGate.evaluate(bridgeTask({
+      task_id: 't-write-one', requested_action: action,
+      execution: { execution_profile: 'repo-write', provider: 'mock' }
+    }), EMPTY_REPORT);
+    ok(w.required === true && w.satisfied === false,
+      'A gate: ' + action + ' delivers a commit, so it owes a review');
+    ok(w.sensitive === true, 'A gate: ' + action + ' is sensitive (it can change the repository)');
+  });
+
+  var claimed = reviewGate.evaluate(bridgeTask({}),
+    Object.assign({}, EMPTY_REPORT, { commits: [{ sha: 'a'.repeat(40) }] }));
+  ok(claimed.required === true,
+    'A gate: a report that CLAIMS a commit owes a review whatever the action said');
+
+  var asked = reviewGate.evaluate(bridgeTask({ review_required: true }), EMPTY_REPORT);
+  ok(asked.required === true && asked.reason === 'required_by_task_metadata',
+    'A gate: a task may ASK for a review the policy would not demand');
+
+  var cannotWaive = reviewGate.evaluate(bridgeTask({
+    review_required: false, requested_action: 'implement',
+    execution: { execution_profile: 'repo-write', provider: 'mock' }
+  }), EMPTY_REPORT);
+  ok(cannotWaive.required === true,
+    'A gate SECURITY: review_required=false cannot waive a review the policy requires — escalation only');
+
+  var approved = reviewGate.evaluate(bridgeTask({
+    requested_action: 'implement', execution: { execution_profile: 'repo-write', provider: 'mock' },
+    continues: { task_id: 't-write-one', status: 'BLOCKED', reason: 'review_required' }
+  }), EMPTY_REPORT);
+  ok(approved.required === true && approved.satisfied === true && approved.approved_by === 't-write-one',
+    'A gate: continuing a review-stopped attempt carries the owner approval, and names it');
+
+  var otherReason = reviewGate.evaluate(bridgeTask({
+    requested_action: 'implement', execution: { execution_profile: 'repo-write', provider: 'mock' },
+    continues: { task_id: 't-write-one', status: 'FAILED', reason: 'failed' }
+  }), EMPTY_REPORT);
+  ok(otherReason.satisfied === false,
+    'A gate SECURITY: continuing a FAILED attempt is not an approval — only a review stop is');
+
+  // Fail closed: if the policy cannot be loaded, nothing is waved through.
+  var Module = require('module');
+  var realLoad = Module._load;
+  Module._load = function (req) {
+    if (String(req).indexOf('core/validation') !== -1) throw new Error('policy module missing');
+    return realLoad.apply(this, arguments);
+  };
+  delete require.cache[require.resolve(path.join(EXEC, 'core', 'validation'))];
+  var broken = reviewGate.evaluate(bridgeTask({ requested_action: 'implement' }), EMPTY_REPORT);
+  Module._load = realLoad;
+  ok(broken.required === true && broken.satisfied === false && /review_policy_unavailable/.test(broken.reason),
+    'A gate SECURITY: an unloadable policy fails CLOSED, it never completes the task');
+  gateOn(false);
+})();
+
+// ===========================================================================
+// B — the Issue grammar: asking for review, and continuing an attempt
+// ===========================================================================
+(function () {
+  var cfg = issues.config();
+  function convert(body, attempt, previous) {
+    return issues.issueToTask(cfg, {
+      number: 7, title: 'TASK: sample', body: body, user: { login: 'othman' }, labels: [],
+      html_url: 'https://github.com/othoth77/mythos-prod/issues/7'
+    }, attempt || 1, previous || null);
+  }
+
+  var plain = convert('## Objective\nDo something useful here.\n\nAction: investigate');
+  ok(plain.task && plain.task.review_required === undefined,
+    'B grammar: nothing is asked for by default — the policy alone decides');
+
+  ['Review: required', 'Review: yes', 'مراجعة مطلوبة: نعم'].forEach(function (line) {
+    var asked = convert('## Objective\nDo something useful here.\n\nAction: investigate\n' + line);
+    ok(asked.task && asked.task.review_required === true,
+      'B grammar: "' + line + '" asks for an independent review');
+  });
+
+  ['Review: no', 'Review: none', 'Review: skip'].forEach(function (line) {
+    var waived = convert('## Objective\nDo something useful here.\n\nAction: investigate\n' + line);
+    ok(waived.task && waived.task.review_required !== false,
+      'B grammar SECURITY: "' + line + '" cannot waive anything — no spelling lowers the bar');
+  });
+
+  var rerun = convert('## Objective\nDo something useful here.\n\nAction: investigate', 2, {
+    task_id: 'gh-issue-7', status: 'BLOCKED', execution: { review_gate: { required: true, reason: 'write_capable_task_type:coding' } }
+  });
+  ok(rerun.task && rerun.task.continues && rerun.task.continues.task_id === 'gh-issue-7',
+    'B grammar: a rerun records the attempt it continues');
+  ok(rerun.task.continues.reason === 'review_required_after_edit',
+    'B grammar SECURITY: a previous attempt with no recorded content hash cannot carry an approval');
+  ok(rerun.task.task_id !== 'gh-issue-7',
+    'B grammar: the rerun still gets its OWN single-use id — nothing is resurrected');
+
+  var afterFail = convert('## Objective\nDo something useful here.\n\nAction: investigate', 2, {
+    task_id: 'gh-issue-7', status: 'FAILED', execution: {}
+  });
+  ok(afterFail.task.continues.reason === 'failed',
+    'B grammar: continuing a failure is continuity only, never an approval');
+
+  // An approval is approval of THAT result, produced from THAT text. Editing
+  // the Issue and rerunning is how a person says "fix this" — the next
+  // attempt does different work, and different work was approved by nobody.
+  var SAME = '## Objective\nDo something useful here.\n\nAction: investigate';
+  var firstAttempt = convert(SAME);
+  var stoppedForReview = {
+    task_id: 'gh-issue-7', status: 'BLOCKED',
+    execution: { review_gate: { required: true, reason: 'write_capable_task_type:coding' } },
+    source: { content_sha256: firstAttempt.task.source.content_sha256 }
+  };
+  var unchanged = convert(SAME, 2, stoppedForReview);
+  ok(unchanged.task.continues.reason === 'review_required',
+    'B approval: rerunning the SAME text carries the approval');
+  var edited = convert(SAME + '\n\nAlso check the error path, which was missed.', 2, stoppedForReview);
+  ok(edited.task.continues.reason === 'review_required_after_edit',
+    'B approval SECURITY: rerunning EDITED text does not carry the approval — the new work is unreviewed');
+  gateOn(true);
+  ok(reviewGate.evaluate(Object.assign(bridgeTask({ review_required: true }),
+    { continues: edited.task.continues }), EMPTY_REPORT).satisfied === false,
+    'B approval SECURITY: and the gate refuses to treat the edited rerun as reviewed');
+  ok(reviewGate.evaluate(Object.assign(bridgeTask({ review_required: true }),
+    { continues: unchanged.task.continues }), EMPTY_REPORT).satisfied === true,
+    'B approval: the unchanged rerun IS treated as approved');
+  gateOn(false);
+})();
+
+// ===========================================================================
+// B2 — a dependency written against the ORIGINAL attempt, satisfied by a
+//      trusted continuation of it and by nothing else
+// ===========================================================================
+(function () {
+  function rec(id, fields) {
+    return Object.assign({ task_id: id, status: 'COMPLETED', execution: {} }, fields || {});
+  }
+  function index() {
+    var out = {};
+    Array.prototype.slice.call(arguments).forEach(function (t) { out[t.task_id] = t; });
+    return out;
+  }
+  var REVIEW_STOPPED = { execution: { review_gate: { required: true, reason: 'required_by_task_metadata' } } };
+  var APPROVED = { execution: { review_gate: { required: true, satisfied: true, approved_by: 'gh-issue-9' } } };
+
+  // 1 — the plain case is untouched.
+  ok(bridge.dependencySatisfied('gh-issue-9', index(rec('gh-issue-9'))) === true,
+    'B2-1: a COMPLETED original satisfies its dependency, exactly as before');
+
+  // 2 — stopped for a person: the dependent waits.
+  var stopped = rec('gh-issue-9', Object.assign({ status: 'BLOCKED' }, REVIEW_STOPPED));
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped)) === false,
+    'B2-2: an original stopped for HUMAN APPROVAL does not satisfy anything');
+
+  // 3 — a trusted, approved continuation does satisfy it.
+  var approved = rec('gh-issue-9-r2', Object.assign(
+    { continues: { task_id: 'gh-issue-9', reason: 'review_required' } }, APPROVED));
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, approved)) === true,
+    'B2-3: a trusted continuation that completed AND was approved satisfies the original');
+
+  // 4 — still running.
+  var running = rec('gh-issue-9-r2', { status: 'IN_PROGRESS',
+    continues: { task_id: 'gh-issue-9', reason: 'review_required' } });
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, running)) === false,
+    'B2-4: a continuation still running satisfies nothing');
+
+  // 5 — failed.
+  var failed = rec('gh-issue-9-r2', { status: 'FAILED',
+    continues: { task_id: 'gh-issue-9', reason: 'review_required' } });
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, failed)) === false,
+    'B2-5: a FAILED continuation satisfies nothing');
+
+  // 6 — a task that merely CLAIMS to continue it. This is the one that
+  //     would otherwise be a way to start dependent work without doing it.
+  var impostor = rec('t-unrelated-work', { continues: { task_id: 'gh-issue-9', reason: 'review_required' } });
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, impostor)) === false,
+    'B2-6 SECURITY: an unrelated task claiming to be the continuation is refused');
+  var wrongIssue = rec('gh-issue-77-r2', { continues: { task_id: 'gh-issue-9', reason: 'review_required' } });
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, wrongIssue)) === false,
+    'B2-6 SECURITY: a continuation of a DIFFERENT task is refused');
+  var notLater = rec('gh-issue-9-r1', { continues: { task_id: 'gh-issue-9', reason: 'review_required' } });
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, notLater)) === false,
+    'B2-6 SECURITY: a continuation that is not a LATER attempt of the same task is refused');
+
+  // 7 — the Issue changed, so the approval did not travel: still unreviewed.
+  var afterEdit = rec('gh-issue-9-r2', Object.assign(
+    { continues: { task_id: 'gh-issue-9', reason: 'review_required_after_edit' } },
+    { execution: { review_gate: { required: true, reason: 'required_by_task_metadata' } } }));
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, afterEdit)) === false,
+    'B2-7 SECURITY: an edited rerun that owes its own review does not satisfy the original');
+  var sneaky = rec('gh-issue-9-r2', { continues: { task_id: 'gh-issue-9', reason: 'review_required_after_edit' } });
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, sneaky)) === false,
+    'B2-7 SECURITY: completion alone never releases work whose original owed a review');
+
+  // 8 — reviewed and approved: covered by 3; here through a CHAIN, because a
+  //     second stop and a second approval must still add up.
+  var midway = rec('gh-issue-9-r2', Object.assign({ status: 'BLOCKED',
+    continues: { task_id: 'gh-issue-9', reason: 'review_required' } }, REVIEW_STOPPED));
+  var third = rec('gh-issue-9-r3', Object.assign(
+    { continues: { task_id: 'gh-issue-9-r2', reason: 'review_required' } }, APPROVED));
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, midway, third)) === true,
+    'B2-8: a chain of trusted continuations carries the satisfaction through');
+  var brokenChain = rec('gh-issue-9-r3', { continues: { task_id: 'gh-issue-9-r2', reason: 'review_required' },
+    execution: { review_gate: { required: true } } });
+  ok(bridge.dependencySatisfied('gh-issue-9', index(stopped, midway, brokenChain)) === false,
+    'B2-8 SECURITY: one unreviewed link breaks the whole chain');
+
+  // 9/10 — an original that owed NO review is satisfied by a plain
+  //        continuation, and a second continuation changes nothing.
+  var plainStop = rec('gh-issue-9', { status: 'FAILED' });
+  var plainCont = rec('gh-issue-9-r2', { continues: { task_id: 'gh-issue-9', reason: 'failed' } });
+  ok(bridge.dependencySatisfied('gh-issue-9', index(plainStop, plainCont)) === true,
+    'B2-9: a continuation of a task that owed no review satisfies it on completion alone');
+  var twin = rec('gh-issue-9-r3', { continues: { task_id: 'gh-issue-9', reason: 'failed' } });
+  ok(bridge.dependencySatisfied('gh-issue-9', index(plainStop, plainCont, twin)) === true,
+    'B2-10: two continuations of the same attempt still satisfy it exactly once — no duplicate effect');
+
+  // 12 — satisfaction reaches only the dependency it belongs to.
+  ok(bridge.dependencySatisfied('gh-issue-8', index(stopped, approved, rec('gh-issue-8', { status: 'BLOCKED' }))) === false,
+    'B2-12: a continuation releases ONLY what it actually continues');
+  ok(bridge.dependencySatisfied('gh-issue-9', {}) === false,
+    'B2: an unknown dependency is never satisfied');
+
+  // Lineage parsing, since everything above rests on it.
+  ok(bridge.attemptLineage('gh-issue-9').attempt === 1 && bridge.attemptLineage('gh-issue-9').stem === 'gh-issue-9',
+    'B2: a first attempt parses as attempt 1');
+  ok(bridge.attemptLineage('gh-issue-9-r3').attempt === 3 && bridge.attemptLineage('gh-issue-9-r3').stem === 'gh-issue-9',
+    'B2: a rerun parses to the same stem and a higher attempt');
+})();
+
+// ===========================================================================
+// C — the whole thing, through the REAL bridge and executor:
+//     four projects, one worker, one of them stopped for a person
+// ===========================================================================
+
+var ORIGIN = path.join(FIX, 'origin.git');
+var REPO = path.join(FIX, 'repo');
+var PLANNER = path.join(FIX, 'planner');
+git(FIX, ['init', '--bare', '-q', '-b', 'main', ORIGIN]);
+git(FIX, ['clone', '-q', ORIGIN, REPO]);
+fs.writeFileSync(path.join(REPO, 'README.md'), '# fixture\n');
+git(REPO, ['add', 'README.md']);
+git(REPO, ['commit', '-q', '-m', 'init']);
+git(REPO, ['push', '-q', 'origin', 'main']);
+git(FIX, ['clone', '-q', ORIGIN, PLANNER]);
+
+var cfg = bridge.config();
+bridge.init();
+function relay() {
+  git(REPO, ['push', '-q', 'origin', 'refs/heads/mythos/control:refs/heads/mythos/control']);
+}
+relay();
+
+function plannerWrite(name, content) {
+  git(PLANNER, ['fetch', '-q', 'origin', 'mythos/control']);
+  var has = cp.spawnSync('git', ['rev-parse', '--verify', '-q', 'mythos/control'], { cwd: PLANNER }).status === 0;
+  git(PLANNER, has ? ['checkout', '-q', 'mythos/control'] : ['checkout', '-q', '-b', 'mythos/control', 'origin/mythos/control']);
+  if (has) git(PLANNER, ['reset', '-q', '--hard', 'origin/mythos/control']);
+  var f = path.join(PLANNER, 'control', 'tasks', name);
+  fs.mkdirSync(path.dirname(f), { recursive: true });
+  fs.writeFileSync(f, JSON.stringify(content, null, 2) + '\n');
+  git(PLANNER, ['add', '--', 'control/tasks/' + name]);
+  git(PLANNER, ['commit', '-q', '-m', 'planner: ' + name]);
+  git(PLANNER, ['push', '-q', 'origin', 'mythos/control']);
+}
+
+function task(id, extra) {
+  return Object.assign({
+    protocol: 'mythos-control/1', task_id: id, project: 'executor-selftest',
+    objective: 'Report one fact about the fixture repository for ' + id + '.',
+    scope: ['read the repository'], constraints: ['read-only'],
+    priority: 'normal', requested_action: 'investigate',
+    validation_requirements: ['a fact is reported'], status: 'PENDING',
+    created_at: new Date().toISOString(), created_by: 'multi-project-test'
+  }, extra || {});
+}
+
+function controlTask(id) {
+  var f = path.join(cfg.controlDir, 'control', 'tasks', id + '.json');
+  return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : null;
+}
+function controlReport(id) {
+  var f = path.join(cfg.controlDir, 'control', 'reports', id + '.json');
+  return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : null;
+}
+function statusOf(id) { var t = controlTask(id); return t && t.status; }
+function executorIdOf(id) { var t = controlTask(id); return t && t.execution && t.execution.executor_task_id; }
+
+// One "turn of the crank": the bridge sees GitHub, the executor runs at
+// most one task. Nothing here is a manual state edit.
+function turn() {
+  var r = bridge.tick(executor);
+  return Promise.resolve(r && r.then ? r : null).then(function () {
+    return executor.tick();
+  }).then(function () {
+    return bridge.tick(executor);
+  });
+}
+
+function turns(n) {
+  var p = Promise.resolve();
+  for (var i = 0; i < n; i++) p = p.then(turn);
+  return p;
+}
+
+gateOn(true);
+
+// PROJECT A: a two-step chain. PROJECT B: one step that owes a review.
+// PROJECT C and D: independent single steps.
+plannerWrite('t-alpha-one.json', task('t-alpha-one'));
+plannerWrite('t-alpha-two.json', task('t-alpha-two', { depends_on: ['t-alpha-one'] }));
+plannerWrite('t-beta-one.json', task('t-beta-one', { review_required: true }));
+plannerWrite('t-gamma-one.json', task('t-gamma-one'));
+plannerWrite('t-delta-one.json', task('t-delta-one'));
+
+turns(8).then(function () {
+  // --- the project that owes a review stops, and stops ALONE ---------------
+  ok(statusOf('t-beta-one') === 'BLOCKED',
+    'C review: the task that owes a review does NOT reach COMPLETED');
+  var betaTask = controlTask('t-beta-one');
+  ok(betaTask.execution.review_gate && betaTask.execution.review_gate.required === true,
+    'C review: the reason it stopped is recorded on the task');
+  var betaReport = controlReport('t-beta-one');
+  ok(betaReport && (betaReport.problems || []).join(' ').indexOf('independent review required') !== -1,
+    'C review: the report says plainly WHY it stopped — unreviewed, not failed');
+  ok(betaReport && String(betaReport.summary || '').length > 0,
+    'C review: the worker’s own result is still reported, so the person can judge it');
+  ok(betaReport && issues.issueStateOf(betaTask, betaReport) === 'HUMAN_APPROVAL',
+    'C review: the Issue adapter classifies it as HUMAN APPROVAL, not as an infrastructure blocker');
+  ok(betaReport && /rerun/.test(String(betaReport.next_recommended_action || '')),
+    'C review: the report tells the person exactly what to do next');
+
+  // --- every other project finished anyway ---------------------------------
+  ok(statusOf('t-alpha-one') === 'COMPLETED', 'C isolation: project A step one completed');
+  ok(statusOf('t-alpha-two') === 'COMPLETED', 'C isolation: project A step two completed after its dependency');
+  ok(statusOf('t-gamma-one') === 'COMPLETED', 'C isolation: project C completed while project B waits');
+  ok(statusOf('t-delta-one') === 'COMPLETED', 'C isolation: project D completed while project B waits');
+
+  // --- the waiting task holds no worker ------------------------------------
+  var all = executor.summaries();
+  var running = all.filter(function (s) { return s.status === 'RUNNING'; });
+  ok(running.length === 0, 'C resources: nothing is left RUNNING while a task waits for a person');
+  var betaExec = executorIdOf('t-beta-one');
+  var betaState = betaExec ? state.readStatus(betaExec) : null;
+  ok(!betaState || ['COMPLETED', 'BLOCKED', 'FAILED'].indexOf(betaState.status) !== -1,
+    'C resources: the stopped task holds no executor slot — its execution is over');
+
+  // --- the dependent step never ran before its dependency ------------------
+  var alphaTwo = controlTask('t-alpha-two');
+  var alphaOne = controlTask('t-alpha-one');
+  var depDone = (alphaOne.history || []).filter(function (h) { return h.to === 'COMPLETED'; })[0];
+  var depClaim = (alphaTwo.history || []).filter(function (h) { return h.to === 'CLAIMED'; })[0];
+  ok(depDone && depClaim && Date.parse(depClaim.at) >= Date.parse(depDone.at),
+    'C dependency: the dependent step was claimed only after its dependency completed');
+
+  // --- a dependent of the stopped task waits, and keeps waiting -----------
+  plannerWrite('t-beta-dep.json', task('t-beta-dep', { depends_on: ['t-beta-one'] }));
+  return turns(2).then(function () {
+    ok(statusOf('t-beta-dep') === 'PENDING',
+      'C dependency: a dependent of the task stopped for a person waits');
+    ok(statusOf('t-gamma-one') === 'COMPLETED' && statusOf('t-delta-one') === 'COMPLETED',
+      'C dependency: …while the unrelated projects have finished');
+
+    // An impostor cannot open that door: it completes, but it is not a later
+    // attempt of t-beta-one, so the dependency is untouched.
+    plannerWrite('t-fake-cont.json', task('t-fake-cont', {
+      continues: { task_id: 't-beta-one', status: 'BLOCKED', reason: 'review_required' }
+    }));
+    return turns(3);
+  }).then(function () {
+    ok(statusOf('t-fake-cont') === 'COMPLETED',
+      'C dependency: the impostor task itself runs and completes normally');
+    ok(statusOf('t-beta-dep') === 'PENDING',
+      'C dependency SECURITY: …and releases nothing, because it is not a continuation of t-beta-one');
+
+    // --- HUMAN INTERVENTION: the owner approves by asking for a rerun -----
+    // This is the one deliberate human step; nothing else is touched.
+    plannerWrite('t-beta-one-r2.json', task('t-beta-one-r2', {
+      review_required: true,
+      continues: { task_id: 't-beta-one', status: 'BLOCKED', reason: 'review_required' }
+    }));
+    return turns(5);
+  });
+}).then(function () {
+  ok(statusOf('t-beta-one-r2') === 'COMPLETED',
+    'C resume: after the owner approves, the continuation completes instead of stopping again');
+  var t = controlTask('t-beta-one-r2');
+  ok(t.execution.review_gate && t.execution.review_gate.satisfied === true &&
+     t.execution.review_gate.approved_by === 't-beta-one',
+    'C resume: the approval is recorded and names the attempt it came from');
+
+  // --- and it was told what already succeeded, rather than starting over ---
+  var eid = executorIdOf('t-beta-one-r2');
+  var prompt = eid ? state.readText(eid, 'prompt.md') : null;
+  ok(prompt && /## Continuation — this task continues t-beta-one/.test(prompt),
+    'C resume: the continuation prompt names the attempt it continues');
+  ok(prompt && /Do NOT start from zero/.test(prompt),
+    'C resume: the worker is told not to repeat completed work');
+  ok(prompt && /What the previous attempt reported/.test(prompt) &&
+     prompt.indexOf(String(controlReport('t-beta-one').summary).slice(0, 40)) !== -1,
+    'C resume: the previous attempt’s own report travels into the prompt');
+  ok(prompt && /VERIFY the above against the worktree/.test(prompt),
+    'C resume: and it must be verified, not trusted — a report is a claim, not evidence');
+
+  // --- what continuation is NOT ------------------------------------------
+  // Pinned deliberately, so no future reader mistakes this for a checkpoint
+  // restore and no document can quietly start claiming one.
+  var prevTask = controlTask('t-beta-one');
+  ok(t.execution.branch !== prevTask.execution.branch,
+    'C limits: the continuation runs on its OWN branch — nothing is inherited from the previous worktree');
+  ok(t.execution.base_commit === prevTask.execution.base_commit,
+    'C limits: both attempts start from the same base, so the second does not build on the first');
+
+  // --- and NOW the dependent is released, by the continuation -------------
+  return turns(4).then(function () {
+    ok(statusOf('t-beta-dep') === 'COMPLETED',
+      'C dependency: the dependent runs and completes once the trusted continuation is approved');
+    var dep = controlTask('t-beta-dep');
+    var claims = (dep.history || []).filter(function (h) { return h.to === 'CLAIMED'; });
+    ok(claims.length === 1,
+      'C dependency: it was claimed exactly once — no duplicate execution across the ticks');
+
+    // --- with the gate off, the same task would simply have completed ------
+    gateOn(false);
+    var wouldComplete = reviewGate.evaluate(controlTask('t-beta-one'), controlReport('t-beta-one'));
+    ok(wouldComplete.required === false,
+      'C compatibility: with the gate off the identical task is not held back (VPS default unchanged)');
+  });
+}).then(function () {
+  console.log('\n' + passed + ' passed, ' + failed + ' failed');
+  if (failed) console.error('failures:\n  - ' + failures.join('\n  - '));
+  cleanup();
+  process.exit(failed ? 1 : 0);
+}).catch(function (err) {
+  console.error('SUITE ERROR: ' + (err && err.stack || err));
+  cleanup();
+  process.exit(1);
+});
