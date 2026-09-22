@@ -324,7 +324,14 @@ t('a tool the profile did not grant is refused', function () {
 t('the iteration budget stops the loop, and stops it FOR A PERSON', function () {
   var forever = msg(null, [tc('c1', 'list_files', { path: '.' })]);
   return runAgent(baseTask(), [forever]).then(function (o) {
-    assert.ok(o.tool_calls <= agent.MAX_TOOL_CALLS + 2, 'tool calls stayed bounded: ' + o.tool_calls);
+    // Running out of turns is a rejected attempt that re-enters the bounded
+    // repair path (supervised loop B4/B5), so a model that never answers
+    // gets MAX_ITERATIONS turns per execution for MAX_REPAIR_ROUNDS + 1
+    // executions — and not one more. Executed tool calls stay under the
+    // tool-call budget; everything past it is refused, not run.
+    assert.ok(o.tool_calls <= agent.MAX_ITERATIONS * (agent.MAX_REPAIR_ROUNDS + 1), 'turns stayed bounded: ' + o.tool_calls);
+    assert.ok(o.tool_trace.filter(function (x) { return !x.refused; }).length <= agent.MAX_TOOL_CALLS, 'executed calls stayed under the tool-call budget');
+    assert.strictEqual(o.repair_rounds, agent.MAX_REPAIR_ROUNDS, 'every repair round was spent before stopping');
     // A loop that ran out of turns is not a crash: it ends cleanly with a
     // `blocked` report, which the executor already classifies as a human
     // decision, and the report says how far it got rather than only that
