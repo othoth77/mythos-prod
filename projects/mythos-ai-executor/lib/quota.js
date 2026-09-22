@@ -46,7 +46,11 @@ var TRANSIENT_PATTERNS = [
   /fetch failed/i,
   /network error/i,
   /internal server error/i,
-  /connection (?:closed|reset|refused)/i
+  /connection (?:closed|reset|refused)/i,
+  // Node's phrase for a connection the peer dropped mid-request — a local
+  // runtime that crashed and is being restarted by systemd (measured: a
+  // Vulkan DeviceLost abort, back 10 s later) or a proxy that closed on us.
+  /socket hang up/i
 ];
 
 // Genuine human blockers: retrying cannot help, but the task is not broken.
