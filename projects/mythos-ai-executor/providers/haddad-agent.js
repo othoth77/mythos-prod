@@ -147,6 +147,23 @@ function sandboxArgv(workspace, bin, argv) {
     // The workspace at its REAL path, so a path the model read is the same
     // path the command sees, and it is the only writable mount in here.
     '--bind', workspace, workspace,
+    // ...except .git, which is mounted back READ-ONLY on top of it.
+    //
+    // read_file/write_file already refuse .git, but that is a rule at the
+    // TOOL layer and the runner's whole purpose is to run the model's own
+    // code. Measured, not theorised: a script written to an ordinary path
+    // and started with the permitted `node <file>` appended
+    // `core.hooksPath = ../evil-hooks` to .git/config; the validator never
+    // saw it (.git is in work-validation's IGNORED_DIRS, so the diff was
+    // empty) and the attempt could still pass. The executor then commits in
+    // that workspace OUTSIDE this sandbox, and `--no-verify` does not stop a
+    // post-commit hook — verified: it ran. That is arbitrary code as the
+    // host user, with the network and $HOME the sandbox exists to deny.
+    //
+    // So the boundary, not the rule, is what says no: inside here .git is
+    // EROFS to every process, whatever it was told to run. -try because a
+    // workspace legitimately may not be a repository at all.
+    '--ro-bind-try', path.join(workspace, '.git'), path.join(workspace, '.git'),
     // Everything bwrap had to invent to hold that bind — the empty parent
     // directories — becomes read-only, so a write above the workspace fails
     // with EROFS instead of quietly landing on a throwaway tmpfs and telling
