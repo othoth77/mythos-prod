@@ -600,9 +600,54 @@ or `~/.config/systemd/user/`.
 - mcp-ecosystem: 168/0
 - guardian: 597/0
 
+### Telemetry ACTIVATED (2026-09-22, owner-approved)
+
+**Haddad is beating.** `mythos-haddad-telemetry.timer` is `enabled`/`active` (10 s heartbeat).
+The public key generated on Haddad is registered on the VPS and verified loadable by the
+receiver itself, not merely written to a file. Sequence run: primary checkout (`dfcf3c91`, not
+a worktree) → setup script → public key sent to the VPS session over cross-session message →
+registered → timer enabled locally.
+
+**End-to-end, verified against the real public artifact
+(`https://status.mythosprod.xyz/data/haddad-node.json`), not a local dry-run:**
+
+| Check | Result |
+|---|---|
+| Setup on the real host | PASS — key `0600`, config carries no secret, `ExecStart` pinned to `/home/othman/projects/mythos-prod` |
+| Key registration | PASS — confirmed independently by the VPS session (loadable by the receiver, unsigned POSTs still 401) |
+| Timer | ACTIVE — `enabled`/`active`, beats every 10 s (`journalctl` shows 10 consecutive `HTTP 202` beats before this was even written) |
+| Real heartbeat | PASS — `sent_at` **20:21:41.141Z → 20:22:05.129Z** (24 s, >2 intervals), `seq` **1790108501 → 1790108525**, both fetched directly from the public JSON, not the agent's own log |
+| Console state | **ONLINE** (`summary.ONLINE: 1`, `state: "ONLINE"`, `age_s: 0`), page `HTTP 200` at `/haddad/` |
+| Secret exposure | PASS — full byte-scan of the actual public payload: no API key, private key, PEM body, SSH credential, bearer token, or `.env`/key file path. One false-positive substring (`tokens_per_s`, value `null`) |
+| Task view (the earlier `HADDAD_MCP_REPO`-adjacent fix) | PASS on the real host: `task_counts {"BLOCKED":16,"COMPLETED":25,"FAILED":5}` = 46, `current_task.task_id` = a real, in-flight task id |
+| Public-page authentication | **untouched**, as instructed — still open, still public |
+
+**Two NEW real defects found during this activation, reported to the VPS session, NOT fixed
+here** (Live Console code is out of scope for an activation task; both are cosmetic — the
+heartbeat, state, task view and security boundary are correct without them):
+
+1. `runtime.gpu_layers` / `runtime.vram_model_mib` publish `null` instead of `27`/`29`/`3884`.
+   Root cause isolated exactly: the agent reads the last 600 journal lines to find the
+   load-time facts, but the runtime has been up since `2026-09-22 15:43:17` and the
+   offload/buffer-size lines are now **6,094 lines past** a 600-line tail (40,473 total lines
+   in the unit's full journal). Confirmed the fix direction: scoping to `--since` the unit's
+   own `ActiveEnterTimestamp` instead of a fixed line count drops the read to 6,238 lines with
+   the target block at the very start — sufficient on its own, no regex changes needed.
+2. `gpu.model` publishes `null` instead of the device name. `out.model = gpuCheck.data.device
+   || …` (line 268) assigns the whole device **object**
+   (`{name, vendor_id, device_id, type, vulkan_api}`) rather than `device.name` — a type bug,
+   not a missing value. The receiver appears to defensively drop the malformed object before
+   publishing rather than exposing it raw, which contained the bug but means the model name is
+   silently absent from the page.
+
+Sent to the VPS session with exact journal excerpts, line counts, and a recommendation on the
+open `vram_model_mib` question (publish `3884` — the `Vulkan0 model buffer size` line alone,
+matching the field's own name — not `4920`, which is `llama_params_fit_impl`'s upfront total
+device-memory projection, a different quantity).
+
 ### Live Console remaining gates
 
-**DONE / VERIFIED:** receiver, ingest, console/card, signed telemetry, offline detection, recovery, stale-file override, refusals, secret allow-list, measured cost, bounded history, tests, regression, merge and deployment.
+**DONE / VERIFIED:** receiver, ingest, console/card, signed telemetry, offline detection, recovery, stale-file override, refusals, secret allow-list, measured cost, bounded history, tests, regression, merge and deployment, **live activation, real end-to-end heartbeat**.
 
 **DEFERRED:**
 - historical charts
@@ -610,13 +655,13 @@ or `~/.config/systemd/user/`.
 - rolling `tokens_per_s` source
 - fleet scheduling
 
-**OWNER GATES — NOT YET COMPLETE:**
-1. Haddad is not currently beating. The telemetry agent is waiting for explicit owner approval before installation/enablement. Do not invent heartbeats. **The setup is now safe to run** (see *Setup-safety fix* above) — no key, config or unit exists on Haddad, `mythos-haddad-telemetry.timer` reports `not-found`, and running the setup still does not enable it.
-2. The console page is currently public. TLS/noindex/robots controls exist, but the page is not authenticated. Because it exposes structured task identity/event information, authentication/privacy is an owner decision. **Deliberately not decided here.**
+**KNOWN, REPORTED, NOT YET FIXED (cosmetic, does not affect security or correctness of state):**
+- `runtime.gpu_layers` / `runtime.vram_model_mib` — `null` due to the journal-window gap above
+- `gpu.model` — `null` due to the type bug above
 
-**Nothing else blocks activation.** The remaining sequence is owner-gated end to end: run
-the setup on Haddad → send the printed public key to the VPS → key registered there →
-`systemctl --user enable --now mythos-haddad-telemetry.timer`.
+**OWNER GATES:**
+1. ~~Haddad is not currently beating~~ **RESOLVED — Haddad is beating, activated 2026-09-22.**
+2. The console page is currently public. TLS/noindex/robots controls exist, but the page is not authenticated. Because it exposes structured task identity/event information, authentication/privacy is an owner decision. **Still deliberately not decided.**
 # 12. WHAT ALREADY EXISTS — DO NOT REBUILD
 
 Reuse existing Mythos components.
