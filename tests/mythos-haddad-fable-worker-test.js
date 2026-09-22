@@ -196,13 +196,27 @@ var HAD3_ALLOWED = [
 // tool-call plumbing and the one schema field. Covered by
 // tests/mythos-haddad-tool-runner-test.js and
 // tests/mythos-haddad-supervised-loop-test.js. Anything else still fails.
+// bridge/action-resolution.js is allow-listed for ONE reason: it is the only
+// place blocker codes are declared, and the merge audit gave the executor a
+// new one to raise (DELIVERY_FAILED — validated work git refused, distinct
+// from PROVIDER_FAILED because the provider did its part). A code that is
+// raised but not declared there is precisely the drift that registry exists
+// to prevent: the next person adding to NON_RETRYABLE would never see it.
+// Leaving it undeclared to keep this list short would have been hiding the
+// change from the guard rather than making it.
+//
+// So the entry is deliberately NOT a general licence over that file — the
+// test below pins the diff to registry entries and comments, and anything
+// else in it fails exactly as before.
 var HAD4_ALLOWED = [
   'projects/mythos-ai-executor/providers/haddad-agent.js',
   'projects/mythos-ai-executor/lib/work-validation.js',
   'projects/mythos-ai-executor/lib/policy.js',
   'projects/mythos-ai-executor/free-llm/adapter.js',
-  'projects/mythos-ai-executor/schemas/task.schema.json'
+  'projects/mythos-ai-executor/schemas/task.schema.json',
+  'projects/mythos-ai-executor/bridge/action-resolution.js'
 ];
+var REGISTRY_ONLY = 'projects/mythos-ai-executor/bridge/action-resolution.js';
 
 function touchesHaddad(files) {
   return files.some(function (f) { return /^projects\/mythos-haddad\//.test(f); });
@@ -222,6 +236,34 @@ t('this integration modifies nothing under mythos-ai-executor/', function () {
   var modified = executorFilesModified(diff.stdout.trim().split('\n'));
   assert.strictEqual(modified.join(', '), '',
     'executor is reused, never modified: ' + modified.join(', '));
+
+  // The narrow half of the allow-list above: action-resolution.js may gain
+  // blocker-code declarations and comments, nothing else. Measured from the
+  // real diff, so the entry cannot quietly grow into permission to edit the
+  // action grammar, the profile mapping or the snapshot rules.
+  var reg = cp.spawnSync('git', ['diff', '--unified=0', 'origin/main...HEAD', '--', REGISTRY_ONLY],
+    { cwd: repoRoot, encoding: 'utf8', timeout: 30000 });
+  if (reg.status !== 0) return;
+  var regLines = reg.stdout.split('\n').filter(function (l) {
+    return /^[+-]/.test(l) && !/^(\+\+\+|---)/.test(l) && l.slice(1).trim();
+  });
+  // Codes ADDED by this diff, so a removal can be recognised as the comma
+  // reflow of the entry that used to be last rather than a deletion.
+  var added = {};
+  regLines.forEach(function (l) {
+    var m = /^\+\s*([A-Z_]+): '[A-Z_]+',?$/.exec(l);
+    if (m) added[m[1]] = true;
+  });
+  var offending = regLines.filter(function (l) {
+    var body = l.slice(1).trim();
+    if (body.indexOf('//') === 0) return false;                       // a comment
+    var m = /^([A-Z_]+): '[A-Z_]+',?$/.exec(body);
+    if (!m) return true;                                              // anything else at all
+    if (l[0] === '+') return false;                                   // a new code
+    return !added[m[1]];    // a removal is only OK as the reflow of a re-added line
+  });
+  assert.strictEqual(offending.join(' | '), '',
+    'action-resolution.js is allow-listed for blocker-code declarations ONLY; this diff changes more: ' + offending.join(' | '));
 });
 
 t('the scope guard is scoped to Haddad branches and still bites', function () {
@@ -238,7 +280,11 @@ t('the scope guard is scoped to Haddad branches and still bites', function () {
     'a Haddad branch that edits the executor outside the named surfaces still FAILS');
   assert.deepStrictEqual(
     executorFilesModified(['projects/mythos-haddad/bin/x.sh'].concat(HAD4_ALLOWED)), [],
-    'the five HAD-4 files stay allow-listed');
+    'the six HAD-4 files stay allow-listed');
+  assert.deepStrictEqual(
+    executorFilesModified(['projects/mythos-haddad/bin/x.sh', 'projects/mythos-ai-executor/bridge/review-gate.js']),
+    ['projects/mythos-ai-executor/bridge/review-gate.js'],
+    'allow-listing one bridge file did not open bridge/ as a whole');
   assert.deepStrictEqual(
     executorFilesModified(['projects/mythos-haddad/systemd/x.service'].concat(HAD3_ALLOWED)), [],
     'the three owner-approved HAD-3 files stay allow-listed');
