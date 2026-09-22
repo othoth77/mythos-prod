@@ -152,9 +152,35 @@ function runtimeLoadFacts(activeSince) {
   if (cached && cached.runtime_active_since && activeSince && cached.runtime_active_since === activeSince && cached.facts) {
     return cached.facts;
   }
-  var facts = { gpu_layers: null, gpu_layers_total: null, vram_model_mib: null, last_ready: null, source: null };
-  var r = sh('journalctl', ['--user', '-u', 'mythos-haddad-runtime.service', '-n', '600',
-    '--no-pager', '-o', 'short-iso'], { timeout: 6000 });
+  // Two DIFFERENT quantities, kept in two fields rather than overloading one:
+  //   vram_model_mib      `Vulkan0 model buffer size = 3883.68 MiB` — the model
+  //                        weights actually resident on the card. This is what
+  //                        the field name promises, and it is measured.
+  //   vram_projected_mib  `llama_params_fit_impl: projected to use 4920 MiB`
+  //                        — llama.cpp's own upfront ESTIMATE of total device
+  //                        use (model + KV + compute + overhead), made before
+  //                        allocation. Useful, but not a measurement, and it is
+  //                        labelled as an estimate on the page.
+  // Putting 4920 in vram_model_mib would have been a number the field name does
+  // not describe. (Both figures confirmed against the real runtime's journal.)
+  var facts = { gpu_layers: null, gpu_layers_total: null, vram_model_mib: null,
+    vram_projected_mib: null, context: null, last_ready: null, source: null };
+  // Window the read at the unit's OWN start, not an arbitrary line count.
+  // `-n 600` was wrong twice over: on a runtime that has been up for hours
+  // the model-load lines have long scrolled past 600 (so both figures came
+  // back null on the real node), and on a quiet one it reads further back
+  // than needed. ActiveEnterTimestamp is exactly the window containing the
+  // current load and nothing else — cheaper AND correct.
+  var args = ['--user', '-u', 'mythos-haddad-runtime.service', '--no-pager', '-o', 'short-iso'];
+  var sinceMs = activeSince ? Date.parse(activeSince) : NaN;
+  if (isFinite(sinceMs)) {
+    // A minute of slack: the unit becomes active before it finishes loading,
+    // but the load lines can also just precede the timestamp by a hair.
+    args = args.concat(['--since', new Date(sinceMs - 60000).toISOString().replace('T', ' ').slice(0, 19), '--utc']);
+  } else {
+    args = args.concat(['-n', '4000']);
+  }
+  var r = sh('journalctl', args, { timeout: 8000 });
   if (!r.ok || !r.out) return facts;
   var lines = r.out.split('\n');
   // Walk backwards to the most recent load, so a restart is reflected.
@@ -169,13 +195,30 @@ function runtimeLoadFacts(activeSince) {
                /load_tensors:\s*(?:Vulkan|CUDA)\S*\s*model buffer size\s*=\s*([\d.]+)\s*MiB/i.exec(line);
       if (vm) { facts.vram_model_mib = Math.round(parseFloat(vm[1])); facts.source = 'runtime load accounting (journal)'; }
     }
+    if (facts.vram_projected_mib === null) {
+      var pm = /projected to use\s+([\d.]+)\s*MiB of device memory/i.exec(line);
+      if (pm) { facts.vram_projected_mib = Math.round(parseFloat(pm[1])); facts.source = 'runtime load accounting (journal)'; }
+    }
+    if (facts.context === null) {
+      // The context the runtime actually loaded with, from its own line. The
+      // /props endpoint does not expose it on this build.
+      var cm = /llama_context:\s*n_ctx\s*=\s*(\d+)/i.exec(line);
+      if (cm) { facts.context = parseInt(cm[1], 10); }
+    }
     if (facts.last_ready === null && /all slots are idle|server is listening|main loop/i.test(line)) {
       var ts = /^(\S+)/.exec(line);
       if (ts) { var t = Date.parse(ts[1]); if (isFinite(t)) facts.last_ready = new Date(t).toISOString(); }
     }
-    if (facts.gpu_layers !== null && facts.vram_model_mib !== null && facts.last_ready !== null) break;
+    if (facts.gpu_layers !== null && facts.vram_model_mib !== null && facts.vram_projected_mib !== null &&
+        facts.context !== null && facts.last_ready !== null) break;
   }
-  if (activeSince) {
+  // NEVER cache an all-null result. Caching is keyed on the runtime's start
+  // time, so one transient miss would stick until the runtime next restarts
+  // and the page would show N/A for metrics that exist — the same lie as
+  // inventing a value, in the other direction.
+  var gotSomething = facts.gpu_layers !== null || facts.vram_model_mib !== null ||
+    facts.vram_projected_mib !== null || facts.context !== null || facts.last_ready !== null;
+  if (activeSince && gotSomething) {
     try {
       fs.mkdirSync(STATE_DIR, { recursive: true });
       fs.writeFileSync(CURSOR_FILE, JSON.stringify({ runtime_active_since: activeSince, facts: facts }), { mode: 0o600 });
@@ -186,7 +229,7 @@ function runtimeLoadFacts(activeSince) {
 
 function collectRuntime(units) {
   var out = {
-    state: 'UNKNOWN', endpoint: 'http://127.0.0.1:8600/v1', model: null, context: null,
+    state: 'UNKNOWN', endpoint: 'http://127.0.0.1:8600/v1', model: null, context: null, vram_projected_mib: null,
     slots_idle: null, slots_total: null, slots_processing: null,
     gpu_layers: null, gpu_layers_total: null, vram_model_mib: null, vram_source: null,
     tokens_per_s: null, last_ready: null, last_restart: null
@@ -224,6 +267,10 @@ function collectRuntime(units) {
   out.gpu_layers = facts.gpu_layers;
   out.gpu_layers_total = facts.gpu_layers_total;
   out.vram_model_mib = facts.vram_model_mib;
+  out.vram_projected_mib = facts.vram_projected_mib;
+  // /props does not carry n_ctx on this build, so the runtime's own load line
+  // is the source rather than leaving the context blank.
+  if (out.context === null) out.context = facts.context;
   out.vram_source = facts.source;
   out.last_ready = facts.last_ready;
 
@@ -263,11 +310,34 @@ function collectGpu(health) {
     utilization_pct: null, temperature_c: null, power_w: null, process: null,
     unavailable_reason: null
   };
-  var gpuCheck = (health && health.checks || []).filter(function (c) { return c.id === 'gpu_test' || c.id === 'gpu'; })[0];
-  if (gpuCheck && gpuCheck.data) {
-    out.model = gpuCheck.data.device || (gpuCheck.data.name || null);
-    out.driver = gpuCheck.data.driver || gpuCheck.data.vulkan_api || null;
-    out.vram_total_mib = n(gpuCheck.data.vram_mib);
+  var checks = (health && health.checks) || [];
+  function check(id) { return checks.filter(function (c) { return c.id === id; })[0]; }
+
+  // gpu_test carries the gpu-vulkan-test report verbatim. `device` is an
+  // OBJECT ({name, vulkan_api}) — reading it as a string produced a value
+  // the receiver's allow-list then dropped, so the real GPU showed as N/A
+  // on a machine that reports it perfectly well. Caught on the live node.
+  var gpuTest = check('gpu_test');
+  var vulkanAnswered = false;
+  if (gpuTest && gpuTest.data) {
+    var dev = gpuTest.data.device;
+    if (dev && typeof dev === 'object') {
+      out.model = dev.name || null;
+      if (dev.vulkan_api) out.driver = 'Vulkan ' + dev.vulkan_api;
+    } else if (typeof dev === 'string') {
+      out.model = dev;
+    }
+    out.vram_total_mib = n(gpuTest.data.vram_mib);
+    vulkanAnswered = out.vram_total_mib !== null;
+  }
+
+  // gpu_detect names the PCI device and the kernel driver, and runs even on
+  // a --quick health pass where gpu_test is skipped.
+  var detect = check('gpu_detect');
+  if (detect) {
+    if (!out.model && detect.detail) out.model = String(detect.detail).split(' [driver:')[0].split(';')[0].trim() || null;
+    var drv = detect.data && Array.isArray(detect.data.driver) ? detect.data.driver.join(',') : null;
+    if (drv) out.driver = out.driver ? out.driver + ' / ' + drv : drv;
   }
   var vram = path.join(__dirname, 'haddad-gpu-vram.py');
   if (fs.existsSync(vram)) {
@@ -287,16 +357,25 @@ function collectGpu(health) {
     if (dev.ok && dev.out) out.model = dev.out.replace(/^\S+\s+/, '').slice(0, 80);
   }
   if (out.vram_used_mib === null || out.utilization_pct === null) {
-    // Name the ACTUAL reason for this machine. Hard-coding Haddad's
-    // nouveau/NVK explanation would state a false cause on any other node,
-    // which is the same class of dishonesty as inventing the metric.
-    var open = /nouveau|NVK|nvidia/i.test(String(out.driver || '') + ' ' + String(out.model || ''));
-    out.unavailable_reason = open
-      ? 'the open nouveau/NVK stack exposes no live VRAM, utilisation, temperature or power counter ' +
-        'without root debugfs, and there is no nvidia-smi on it. The runtime reports what it loaded ' +
-        'onto the GPU itself (see runtime.vram_model_mib).'
-      : 'no live GPU counter is readable on this machine: no vendor tool answered and the driver ' +
-        'exposes no usage, temperature or power value to an unprivileged reader.';
+    // Name the ACTUAL reason for THIS machine. Hard-coding Haddad's
+    // nouveau/NVK explanation would state a false cause on any other node;
+    // but saying "no vendor tool answered" when the Vulkan probe answered
+    // perfectly well is equally wrong in the other direction. Both were
+    // live defects. Decide from what actually happened.
+    var openStack = /nouveau|NVK|nvidia/i.test(String(out.driver || '') + ' ' + String(out.model || ''));
+    if (vulkanAnswered && openStack) {
+      out.unavailable_reason = 'the open nouveau/NVK stack answered for device identity and total VRAM, but ' +
+        'exposes no live usage, utilisation, temperature or power counter to an unprivileged reader ' +
+        '(VK_EXT_memory_budget reports heapUsage 0 here even with the model resident, and there is no ' +
+        'nvidia-smi on this stack). What IS real is the runtime\'s own load accounting — see the ' +
+        'model-weights and projected-total figures.';
+    } else if (vulkanAnswered) {
+      out.unavailable_reason = 'the Vulkan probe answered for device identity and total VRAM, but this driver ' +
+        'exposes no live usage, temperature or power counter to an unprivileged reader.';
+    } else {
+      out.unavailable_reason = 'no live GPU counter is readable on this machine: no vendor tool answered and ' +
+        'the driver exposes no usage, temperature or power value to an unprivileged reader.';
+    }
   }
   return out;
 }

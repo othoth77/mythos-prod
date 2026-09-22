@@ -5,7 +5,7 @@
 # not for the user units on the Haddad side — no delegated user-scope
 # controllers on either host). Everything below is enforced, not aspirational.
 Description=MYTHOS Haddad telemetry ingest (Status Center, loopback only)
-Documentation=file:/home/deploy/projects/mythos-prod/projects/status-center/haddad/README.md
+Documentation=file:@RELEASE_DIR@/VERSION
 After=network.target
 Wants=network.target
 # A receiver that cannot start must not thrash: five failures in a minute
@@ -18,7 +18,7 @@ StartLimitBurst=5
 Type=simple
 User=mythos-ingest
 Group=mythos-ingest
-ExecStart=/usr/bin/node /home/deploy/projects/mythos-prod/projects/status-center/haddad/bin/haddad-ingest.js \
+ExecStart=/usr/bin/node @RELEASE_DIR@/bin/haddad-ingest.js \
   --nodes /etc/mythos/haddad-nodes.json \
   --out /var/www/status.mythosprod.xyz/data \
   --host 127.0.0.1 --port 8190
@@ -32,12 +32,11 @@ NoNewPrivileges=true
 PrivateTmp=true
 PrivateDevices=true
 ProtectSystem=strict
-# tmpfs, not true: the service must read its own source, which lives in a
-# checkout under /home. An empty /home plus one read-only bind gives it
-# exactly that directory and nothing else of anybody's home.
-ProtectHome=tmpfs
-BindReadOnlyPaths=/home/deploy/projects/mythos-prod/projects/status-center
-ReadOnlyPaths=/etc/mythos
+# The service runs from its own release directory under /opt, not from a
+# checkout, so it needs nothing under /home at all — no bind mount, no
+# dependency on a worktree that a tidy-up could remove under it.
+ProtectHome=true
+ReadOnlyPaths=/etc/mythos @RELEASE_DIR@
 ReadWritePaths=/var/www/status.mythosprod.xyz/data
 ProtectKernelTunables=true
 ProtectKernelModules=true

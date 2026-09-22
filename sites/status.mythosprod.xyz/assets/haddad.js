@@ -416,9 +416,15 @@
         ['Driver', val(gpu.driver)],
         ['VRAM total', gpu.vram_total_mib ? txt((gpu.vram_total_mib / 1024).toFixed(2) + ' GB') : na()],
         ['VRAM used (driver)', gpu.vram_used_mib ? txt((gpu.vram_used_mib / 1024).toFixed(2) + ' GB') : na()],
-        ['VRAM used (runtime)', (rt.vram_model_mib && gpu.vram_total_mib)
+        ['VRAM, model weights', (rt.vram_model_mib && gpu.vram_total_mib)
           ? meter(rt.vram_model_mib / 1024, gpu.vram_total_mib / 1024, 'GB', 2)
           : (rt.vram_model_mib ? txt((rt.vram_model_mib / 1024).toFixed(2) + ' GB') : na())],
+        // A DIFFERENT quantity from the line above: the runtime's own upfront
+        // estimate of total device use, made before allocation. Labelled as an
+        // estimate so it is never read as a measurement.
+        ['VRAM, projected total (estimate)', (rt.vram_projected_mib && gpu.vram_total_mib)
+          ? meter(rt.vram_projected_mib / 1024, gpu.vram_total_mib / 1024, 'GB', 2)
+          : (rt.vram_projected_mib ? txt((rt.vram_projected_mib / 1024).toFixed(2) + ' GB') : na())],
         ['GPU layers', (rt.gpu_layers !== null && rt.gpu_layers_total !== null && rt.gpu_layers !== undefined)
           ? txt(rt.gpu_layers + ' / ' + rt.gpu_layers_total) : na()],
         ['Utilisation', num(gpu.utilization_pct, 0, ' %')],
@@ -427,7 +433,11 @@
         ['Process', val(gpu.process)]
       ]));
       if (rt.vram_source) {
-        g.bodyEl.appendChild(el('p', { class: 'section-note', text: 'VRAM used (runtime) is the figure the AI runtime reports for what it loaded onto the GPU — source: ' + rt.vram_source + '.' }));
+        g.bodyEl.appendChild(el('p', { class: 'section-note', text:
+          'Two different figures, kept apart on purpose. "Model weights" is what the runtime ' +
+          'reports it actually placed on the card. "Projected total" is the runtime\'s own ' +
+          'estimate of model + KV cache + compute buffers, made before allocation — an estimate, ' +
+          'not a measurement. Source for both: ' + rt.vram_source + '.' }));
       }
       if (gpu.unavailable_reason) {
         g.bodyEl.appendChild(el('p', { class: 'section-note warn', text: 'Metrics shown as N/A above: ' + gpu.unavailable_reason }));
@@ -446,6 +456,8 @@
           ? txt(rt.slots_idle + ' idle / ' + rt.slots_total + ' total') : na()],
         ['Processing', val(rt.slots_processing)],
         ['GPU layers', (rt.gpu_layers !== null && rt.gpu_layers !== undefined) ? txt(rt.gpu_layers + ' / ' + rt.gpu_layers_total) : na()],
+        ['VRAM, model weights', rt.vram_model_mib ? txt((rt.vram_model_mib / 1024).toFixed(2) + ' GB') : na()],
+        ['VRAM, projected total', rt.vram_projected_mib ? txt((rt.vram_projected_mib / 1024).toFixed(2) + ' GB (estimate)') : na()],
         ['Inference speed', num(rt.tokens_per_s, 1, ' tok/s')],
         ['Last ready', val(rt.last_ready)],
         ['Last restart', val(rt.last_restart)]

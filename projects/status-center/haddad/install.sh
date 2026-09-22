@@ -31,6 +31,7 @@ NODES_DIR="/etc/mythos"
 NODES_FILE="${NODES_DIR}/haddad-nodes.json"
 VHOST="/etc/nginx/sites-available/${HOST}"
 PORT="8190"
+RELEASE_DIR="/opt/mythos/haddad-ingest"
 BEGIN="# BEGIN mythos-haddad (managed by projects/status-center/haddad/install.sh)"
 END="# END mythos-haddad"
 
@@ -57,8 +58,9 @@ if [ "${1:-}" = "--rollback" ]; then
     systemctl reload nginx
     info "nginx block removed"
   fi
+  rm -rf "${RELEASE_DIR}"
   userdel "${SVC_USER}" 2>/dev/null || true
-  info "unit, nginx block and service user removed."
+  info "unit, release directory, nginx block and service user removed."
   info "LEFT IN PLACE on purpose: ${NODES_FILE} (node registrations) and"
   info "${DATA_DIR}/haddad-node.json + haddad-history/ (the record of what was seen)."
   exit 0
@@ -122,9 +124,33 @@ chgrp "${SVC_USER}" "${DATA_DIR}"
 chmod 0775 "${DATA_DIR}"
 info "data directory ready (receiver owns haddad-node.json and haddad-history/ only)"
 
-# ── 5. unit ──────────────────────────────────────────────────────────
-step "5/6 systemd unit"
-sed "s#/home/deploy/projects/mythos-prod#${REPO}#g" "${SCRIPT_DIR}/systemd/${UNIT}" > "${UNIT_PATH}"
+# ── 5. release directory + unit ──────────────────────────────────────
+# The service does NOT run from a checkout. A git worktree is temporary by
+# nature (a `git worktree prune` or a tidy-up would break the receiver mid
+# flight) and the shared production checkout is dirty with other sessions'
+# work and is an operator-only merge. The receiver needs exactly two of its
+# own files and has zero dependencies outside them, so it is COPIED to a
+# release directory and the unit points there. The checkout can then be
+# moved or deleted without touching production.
+step "5/6 Release directory"
+install -d -m 0755 -o root -g root "${RELEASE_DIR}" "${RELEASE_DIR}/bin" "${RELEASE_DIR}/lib"
+install -m 0755 -o root -g root "${SCRIPT_DIR}/bin/haddad-ingest.js"  "${RELEASE_DIR}/bin/haddad-ingest.js"
+install -m 0644 -o root -g root "${SCRIPT_DIR}/lib/node-state.js"     "${RELEASE_DIR}/lib/node-state.js"
+SRC_REF="$(git -C "${REPO}" rev-parse HEAD 2>/dev/null || echo unknown)"
+SRC_DIRTY="$(git -C "${REPO}" status --porcelain -- "${SCRIPT_DIR}" 2>/dev/null | head -c1)"
+cat > "${RELEASE_DIR}/VERSION" <<EOF
+# Installed by projects/status-center/haddad/install.sh — do not edit by hand.
+installed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+source_repo=${REPO}
+source_commit=${SRC_REF}
+source_clean=$([ -z "${SRC_DIRTY}" ] && echo yes || echo NO)
+EOF
+chmod 0644 "${RELEASE_DIR}/VERSION"
+node --check "${RELEASE_DIR}/bin/haddad-ingest.js" || fail "the installed receiver does not parse"
+info "receiver installed to ${RELEASE_DIR} (commit ${SRC_REF:0:8}$([ -z "${SRC_DIRTY}" ] || echo ', SOURCE DIRTY'))"
+
+step "5b/6 systemd unit"
+sed -e "s#@RELEASE_DIR@#${RELEASE_DIR}#g" "${SCRIPT_DIR}/systemd/${UNIT}" > "${UNIT_PATH}"
 chmod 0644 "${UNIT_PATH}"
 systemd-analyze verify "${UNIT_PATH}" || fail "systemd-analyze verify rejected the unit"
 systemctl daemon-reload
