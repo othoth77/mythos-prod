@@ -544,7 +544,8 @@ function validationVerdict(report) {
 }
 
 function collectTasks() {
-  var out = { current_task: null, task_counts: {}, events: [], incidents: [] };
+  var out = { current_task: null, task_counts: {}, events: [], incidents: [],
+    activity_counts: { EXECUTING: 0, PENDING: 0, AT_REST: 0, TERMINAL: 0, UNKNOWN: 0 } };
   var state = loadExecutorState();
   if (!state) return out;
 
@@ -561,15 +562,66 @@ function collectTasks() {
     return { id: id, status: status, task: task || {}, effective: effective };
   }).filter(Boolean);
 
+  // ACTIVITY, derived from the executor's OWN state machine rather than from
+  // a list of status names held on the VPS. A status whose TRANSITIONS entry
+  // is an empty array is terminal, by the executor's definition; a task with
+  // a live pid is executing, by the kernel's. Everything else non-terminal is
+  // waiting.
+  //
+  // Why this is not a name list: the VPS decides BUSY/WAITING for the public
+  // page, and a new executing-like status that is not literally 'RUNNING' —
+  // exactly what a multi-agent design tends to add — would have made the page
+  // report ONLINE while the node was working. A wrong answer, not a missing
+  // one. This way a new status classifies itself correctly on the day it is
+  // added, with no coordination and no release on our side.
+  // ACTIVITY, derived from the executor's OWN state machine and from the
+  // kernel, rather than from a list of status names held on the VPS.
+  //
+  //   EXECUTING  the task has a LIVE PID. Kernel truth, completely name-free
+  //              — this is the case that matters, because a multi-agent
+  //              design adding an executing status that is not literally
+  //              'RUNNING' would otherwise make the public page say ONLINE
+  //              while the node was working. A wrong answer, not a missing one.
+  //   TERMINAL   the executor declares no outgoing transition at all.
+  //   PENDING    non-terminal, and can move DIRECTLY into an execution-bearing
+  //              status — i.e. it is waiting its turn to run.
+  //   AT_REST    non-terminal but cannot run next: FAILED and BLOCKED can only
+  //              go back to QUEUED first, so they are finished-for-now, not
+  //              queued. Counting them as "waiting" would overstate the queue.
+  //
+  // Which statuses bear execution is learned from the machine: any status
+  // currently holding a live pid, plus 'RUNNING' as the documented fallback
+  // for when nothing is running and there is nothing to observe. The fallback
+  // is only ever consulted while the node is idle, where it cannot mislead.
+  var TR = state.TRANSITIONS || {};
+  function alive(r) {
+    try { return !!(r.status.pid && state.processAlive(r.status.pid)); } catch (e) { return false; }
+  }
+  var execStatuses = {};
+  records.forEach(function (r) { if (alive(r)) execStatuses[r.status.status] = true; });
+  execStatuses.RUNNING = true;
+
+  function activityOf(r) {
+    var st = r.status.status;
+    if (alive(r)) return 'EXECUTING';
+    var outgoing = TR[st];
+    if (!Array.isArray(outgoing)) return 'UNKNOWN';   // a status the executor does not declare
+    if (outgoing.length === 0) return 'TERMINAL';
+    var canRunNext = outgoing.some(function (t) { return execStatuses[t]; });
+    return canRunNext ? 'PENDING' : 'AT_REST';
+  }
+
   records.forEach(function (r) {
     var key = r.effective || r.status.status || 'UNKNOWN';
     out.task_counts[key] = (out.task_counts[key] || 0) + 1;
+    r.activity = activityOf(r);
+    out.activity_counts[r.activity]++;
   });
 
   // The current task is the running one; with none running, the most
   // recently updated task is shown as the last activity — labelled by its
   // own real status, never as "running".
-  var running = records.filter(function (r) { return r.effective === 'RUNNING'; })
+  var running = records.filter(function (r) { return r.activity === 'EXECUTING'; })
     .sort(function (a, b) { return String(b.status.started_at || '').localeCompare(String(a.status.started_at || '')); });
   var pick = running[0] || records.slice().sort(function (a, b) {
     return String(b.status.updated_at || '').localeCompare(String(a.status.updated_at || ''));
@@ -595,6 +647,7 @@ function collectTasks() {
       attempt: n(pick.status.retry_count) !== null ? pick.status.retry_count + 1 : null,
       status: pick.status.status || null,
       effective: pick.effective || null,
+      activity: pick.activity || null,
       started_at: pick.status.started_at || null,
       elapsed_s: started ? Math.round(((ended || Date.now()) - started) / 1000) : null,
       validation: validationVerdict(report),
@@ -791,6 +844,7 @@ function collect(cfg) {
     resources: collectResources(),
     current_task: tasks.current_task,
     task_counts: tasks.task_counts,
+    activity_counts: tasks.activity_counts,
     events: tasks.events,
     incidents: tasks.incidents,
     repo: repo

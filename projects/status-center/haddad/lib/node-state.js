@@ -154,6 +154,7 @@ function sanitizeTask(v) {
     attempts_max: int(t.attempts_max),
     status: str(t.status, 40),
     effective: str(t.effective, 40),
+    activity: function (x) { return oneOf(x, ['EXECUTING', 'PENDING', 'AT_REST', 'TERMINAL', 'UNKNOWN']); }(t.activity),
     started_at: iso(t.started_at),
     elapsed_s: int(t.elapsed_s),
     // A short structured verdict, not the validator's prose.
@@ -233,6 +234,13 @@ function sanitize(envelope) {
       psi_cpu_avg10: num, psi_mem_avg10: num, psi_io_avg10: num
     }),
     current_task: sanitizeTask(e.current_task),
+    activity_counts: (function () {
+      var c = obj(e.activity_counts), out = {};
+      ['EXECUTING', 'PENDING', 'AT_REST', 'TERMINAL', 'UNKNOWN'].forEach(function (k) {
+        if (c[k] !== undefined) out[k] = int(c[k]) || 0;
+      });
+      return Object.keys(out).length ? out : null;
+    })(),
     task_counts: (function () {
       var c = obj(e.task_counts), out = {};
       Object.keys(c).slice(0, 20).forEach(function (k) {
@@ -293,11 +301,31 @@ function deriveState(snap, now, thresholds) {
     return { state: 'DEGRADED', reason: 'worker degraded: ' + degraded.map(function (w) { return w.id; }).join(', '), age_s: age };
   }
 
+  // The node classifies its own work against the executor's state machine and
+  // a live pid, and that classification WINS. The status-name fallback below
+  // is only for an older agent that does not send one: a new executing-like
+  // status that is not literally 'RUNNING' would otherwise be read as idle,
+  // and the page would say ONLINE while the node was working.
   var task = snap.current_task;
+  var ac = snap.activity_counts;
+
+  if (task && task.activity === 'EXECUTING') {
+    return { state: 'BUSY', reason: 'executing task ' + task.task_id, age_s: age };
+  }
+  if (ac) {
+    if (ac.EXECUTING > 0) {
+      return { state: 'BUSY', reason: ac.EXECUTING + ' task(s) executing', age_s: age };
+    }
+    if (ac.PENDING > 0) {
+      return { state: 'WAITING', reason: ac.PENDING + ' task(s) waiting to run, none executing', age_s: age };
+    }
+    return { state: 'ONLINE', reason: 'all checks pass, no work in flight', age_s: age };
+  }
+
+  // ── fallback: agent older than the activity classification ──
   if (task && (task.effective === 'RUNNING' || task.status === 'RUNNING')) {
     return { state: 'BUSY', reason: 'executing task ' + task.task_id, age_s: age };
   }
-
   var tc = snap.task_counts || {};
   var waiting = (tc.QUEUED || 0) + (tc.WAITING_FOR_QUOTA || 0) + (tc.WAITING_RETRY || 0);
   if (waiting > 0) {

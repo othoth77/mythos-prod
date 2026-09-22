@@ -435,6 +435,71 @@ console.log('§6 the receiver cannot reach a node');
   ok(/MemoryMax=/.test(unit), 'it has an explicit memory ceiling (this host has been OOM-killed before)');
 }
 
+console.log('\u00a72b a NEW executing status must not read as idle');
+{
+  // The risk this guards: a multi-agent design adds an executing-like status
+  // that is not literally 'RUNNING' (DISPATCHED, DELEGATING, a per-agent
+  // state...). Under a status-NAME rule the page would say ONLINE while the
+  // node was working — a wrong answer on a public page, not a missing one.
+  // The node classifies its own work against the executor's state machine and
+  // a live pid; that classification wins here.
+  const now = Date.parse('2026-09-22T12:00:00Z');
+  function snap(over) {
+    return Object.assign(nodeState.sanitize(envelope()), { received_at: new Date(now - 5000).toISOString() }, over || {});
+  }
+
+  const futureStatus = snap({
+    current_task: { task_id: 'gh-issue-500', status: 'DELEGATING', effective: 'DELEGATING', activity: 'EXECUTING' },
+    activity_counts: { EXECUTING: 1, PENDING: 0, AT_REST: 0, TERMINAL: 3, UNKNOWN: 0 },
+    task_counts: { DELEGATING: 1, COMPLETED: 3 }
+  });
+  eq(nodeState.deriveState(futureStatus, now).state, 'BUSY',
+    'a status name this VPS has never heard of still reads as BUSY when the node says it is executing');
+
+  const futureWaiting = snap({
+    current_task: { task_id: 'x', status: 'AWAITING_PEER', effective: 'AWAITING_PEER', activity: 'WAITING' },
+    activity_counts: { EXECUTING: 0, PENDING: 2, AT_REST: 0, TERMINAL: 1, UNKNOWN: 0 },
+    task_counts: { AWAITING_PEER: 2, COMPLETED: 1 }
+  });
+  eq(nodeState.deriveState(futureWaiting, now).state, 'WAITING', 'and an unknown waiting-like status reads as WAITING');
+
+  // A terminal task must not hold the node BUSY, whatever it is called.
+  const futureDone = snap({
+    current_task: { task_id: 'x', status: 'SUPERSEDED', effective: 'SUPERSEDED', activity: 'TERMINAL' },
+    activity_counts: { EXECUTING: 0, PENDING: 0, AT_REST: 0, TERMINAL: 4, UNKNOWN: 0 },
+    task_counts: { SUPERSEDED: 4 }
+  });
+  eq(nodeState.deriveState(futureDone, now).state, 'ONLINE', 'a terminal status, however named, leaves the node idle');
+
+  // AT_REST is the distinction that keeps the queue count honest: a failed or
+  // blocked task is finished-for-now, not queued, so it must not read WAITING.
+  const atRest = snap({
+    current_task: { task_id: 'x', status: 'FAILED', effective: 'FAILED', activity: 'AT_REST' },
+    activity_counts: { EXECUTING: 0, PENDING: 0, AT_REST: 3, TERMINAL: 1, UNKNOWN: 0 },
+    task_counts: { FAILED: 3, COMPLETED: 1 }
+  });
+  eq(nodeState.deriveState(atRest, now).state, 'ONLINE',
+    'failed/blocked tasks are at rest, not queued — the node is idle, and the queue is not overstated');
+
+  // The counts themselves must reach the page unchanged, so a new status is
+  // VISIBLE even before anyone teaches this file about it.
+  eq(futureStatus.task_counts.DELEGATING, 1, 'an unrecognised status still appears in the published counts');
+
+  // Old agent, no activity block: the name-based fallback must still work.
+  const legacy = snap({ current_task: { task_id: 'x', effective: 'RUNNING' }, activity_counts: null });
+  eq(nodeState.deriveState(legacy, now).state, 'BUSY', 'an agent predating the classification still reports BUSY');
+  const legacyWait = snap({ task_counts: { QUEUED: 2 }, activity_counts: null });
+  eq(nodeState.deriveState(legacyWait, now).state, 'WAITING', 'and still reports WAITING');
+
+  // Staleness still outranks everything.
+  const goneBusy = snap({
+    received_at: new Date(now - 600000).toISOString(),
+    current_task: { task_id: 'x', activity: 'EXECUTING' },
+    activity_counts: { EXECUTING: 1, PENDING: 0, AT_REST: 0, TERMINAL: 0, UNKNOWN: 0 }
+  });
+  eq(nodeState.deriveState(goneBusy, now).state, 'OFFLINE', 'a dead node is never shown executing');
+}
+
 console.log('\u00a77b deregistering a node removes it from the page');
 {
   // A disabled node must DISAPPEAR, not linger as a permanent OFFLINE row
