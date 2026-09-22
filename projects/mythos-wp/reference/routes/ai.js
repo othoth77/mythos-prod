@@ -49,7 +49,7 @@ module.exports = [
   { method: 'GET', path: /^\/api\/ai\/agents$/, role: 'any', handler: function (req) {
     var qq = q(req);
     return agents.list(db.wp(), { status: qq.status, engine: qq.engine, project: qq.project && qq.project !== 'all' ? qq.project : null }).then(function (items) {
-      return { items: items.map(function (a) { a = publicAgent(a, req); if (req.session.projects !== null && Array.isArray(a.projects)) a.projects = a.projects.filter(function (l) { return auth.canSeeProject(req.session, l.project_id); }); return a; }) };
+      return { items: items.map(function (a) { a = publicAgent(a, req); if (Array.isArray(a.projects)) a.projects = a.projects.filter(function (l) { return auth.canSeeProject(req.session, l.project_id); }); return a; }) };
     });
   } },
   { method: 'POST', path: /^\/api\/ai\/agents$/, role: 'admin', handler: function (req, res, ctx) {
@@ -62,7 +62,7 @@ module.exports = [
     return agents.get(db.wp(), ctx.params[1]).then(function (a) {
       if (!a) throw fail('not_found', 404, 'no such agent');
       a = publicAgent(a, req);
-      if (req.session.projects !== null && Array.isArray(a.projects)) a.projects = a.projects.filter(function (l) { return auth.canSeeProject(req.session, l.project_id); });
+      if (Array.isArray(a.projects)) a.projects = a.projects.filter(function (l) { return auth.canSeeProject(req.session, l.project_id); });
       return a;
     });
   } },

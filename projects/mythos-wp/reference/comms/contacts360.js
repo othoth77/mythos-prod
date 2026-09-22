@@ -15,13 +15,14 @@ function fail(code, status, detail) { var e = new Error(detail || code); e.code 
 function mask(n) { n = String(n || ''); return n.length >= 4 ? '***' + n.slice(-4) : '***'; }
 function clampInt(v, d, lo, hi) { var n = parseInt(v, 10); if (isNaN(n)) n = d; return Math.max(lo, Math.min(hi, n)); }
 var PHONE_EXPR = "COALESCE((SELECT ci.value FROM wp_contact_identities ci WHERE ci.contact_id = k.id AND ci.kind = 'phone' ORDER BY ci.id LIMIT 1), k.wa_id)";
-function scopeClause(projects, params) { if (projects === null || projects === undefined) return null; params.push(projects.length ? projects : ['-']); return 'k.project_id = ANY($' + params.length + '::text[])'; }
+// an unscoped session below admin still never reads the admin-only holding project ('unassigned')
+function scopeClause(projects, params, admin) { if (projects === null || projects === undefined) return admin === true ? null : "k.project_id <> 'unassigned'"; params.push(projects.length ? projects : ['-']); return 'k.project_id = ANY($' + params.length + '::text[])'; }
 function later(a, b) { if (!a) return b; if (!b) return a; return new Date(a) > new Date(b) ? a : b; }
 
 // list(pool, { q, projects, limit, admin }) → { items }
 function list(pool, o) {
   o = o || {}; var params = []; var where = ["k.status <> 'merged'"];
-  var sc = scopeClause(o.projects, params); if (sc) where.push(sc);
+  var sc = scopeClause(o.projects, params, o.admin); if (sc) where.push(sc);
   if (o.q) { var qq = String(o.q).slice(0, 80); params.push('%' + qq + '%'); where.push('(k.display_name ILIKE $' + params.length + ' OR ' + PHONE_EXPR + ' LIKE $' + params.length + ')'); }
   var limit = clampInt(o.limit, 50, 1, 200); params.push(limit * 5);
   return pool.query('SELECT k.id, k.project_id, p.display_name AS project_name, k.display_name, k.status, k.last_seen_at, ' + PHONE_EXPR + ' AS phone, ' +
@@ -48,7 +49,7 @@ function get360(pool, phone, o) {
   o = o || {}; phone = String(phone || '').replace(/[^0-9]/g, '');
   if (!PHONE_RE.test(phone)) throw fail('validation', 400, 'phone digits required');
   var params = [phone]; var where = ['(k.wa_id = $1 OR EXISTS (SELECT 1 FROM wp_contact_identities ci WHERE ci.contact_id = k.id AND ci.kind = \'phone\' AND ci.value = $1))', "k.status <> 'merged'"];
-  var sc = scopeClause(o.projects, params); if (sc) where.push(sc);
+  var sc = scopeClause(o.projects, params, o.admin); if (sc) where.push(sc);
   return pool.query('SELECT k.id, k.project_id, p.display_name AS project_name, k.display_name, k.language, k.status, k.source, k.memory, k.notes AS contact_notes, k.first_seen_at, k.last_seen_at, k.last_inbound_at, k.last_outbound_at, ' +
     "COALESCE((SELECT json_agg(json_build_object('id', t.id, 'name', t.name, 'color', t.color) ORDER BY t.name) FROM wp_contact_tags ct JOIN wp_tags t ON t.id = ct.tag_id WHERE ct.contact_id = k.id), '[]'::json) AS tags, " +
     "COALESCE((SELECT json_agg(json_build_object('id', n.id, 'author', n.author, 'body', n.body, 'created_at', n.created_at) ORDER BY n.created_at DESC) FROM wp_notes n WHERE n.target_kind = 'contact' AND n.target_id = k.id::text AND (n.project_id IS NULL OR n.project_id = k.project_id)), '[]'::json) AS notes " +
