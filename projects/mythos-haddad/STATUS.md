@@ -9,11 +9,11 @@ service. Full detail, measurements and rollback: [docs/AI_RUNTIME.md](docs/AI_RU
 | HAD-2 item | State | Evidence |
 |---|---|---|
 | Vulkan backend installed | DONE | `llama.cpp-tools`/`libggml0-backend-vulkan` 0.9.11-1 (Ubuntu 26.04 universe), unpacked to a user prefix — no root, no source build |
-| GPU acceleration verified | DONE | `llama-cli --list-devices` → `Vulkan0: NVIDIA GeForce GTX 1660 SUPER`; 29/29 model layers offloaded to GPU |
+| GPU acceleration verified | DONE | `llama-cli --list-devices` → `Vulkan0: NVIDIA GeForce GTX 1660 SUPER`; 29/29 layers offloaded at the original `--ctx-size 4096`. **At the current 8192 it is 27/29** — `auto` keeps two layers and 32 MiB of KV in host RAM to stay under the ceiling (see AI_RUNTIME.md § Measurements) |
 | Model selected + installed | DONE | Qwen2.5-7B-Instruct-Q4_K_M, official Qwen org, sha256-pinned, 4.36 GiB, fits 6 GB VRAM with headroom |
 | Real inference test | DONE | Three chat-completion requests through the OpenAI-compatible endpoint, all factually correct |
-| VRAM/RAM measured | DONE | VRAM 4696 MiB (runtime's own accounting — the OS-level Vulkan budget query is unreliable on this driver, documented); RAM ~430–505 MiB steady-state RSS |
-| Performance measured | DONE | ~20–25 tok/s generation once warm, ~19–81 tok/s prompt processing |
+| VRAM/RAM measured | DONE | At 4096: VRAM 4696 MiB, RSS ~430–505 MiB. **At the current 8192: VRAM 4920 MiB of 6400, RSS ~2.1 GiB** — higher by design, because two layers and part of the KV cache are deliberately in host RAM. (The OS-level Vulkan budget query is unreliable on this driver; the runtime's own accounting is the figure to trust.) |
+| Performance measured | DONE | At 4096: ~20–25 tok/s generation once warm. **At 8192: 17–33 tok/s generation** (17.0 on a sustained 80-token answer), 21–35 tok/s prompt — the two CPU layers cost ~15–30 % on a long answer |
 | OpenAI-compatible API exposed | DONE | `http://127.0.0.1:8600/v1`, loopback only, API-key required |
 | Free-LLM catalog untouched | DONE | `git diff` confined to `projects/mythos-haddad/` and `docs/` |
 | Not wired to production orchestration | DONE | No file under `mythos-ai-executor/{core,lib,providers,config}` changed — that is HAD-4, later |
@@ -110,9 +110,24 @@ live (#373, #376, #378), exhaustion → HUMAN_APPROVAL with the trace (#376), cr
 dependency wait while an independent task runs (#380/#381). Detail: [docs/GITHUB_WORKER.md](docs/GITHUB_WORKER.md),
 `docs/MYTHOS_REVIEW_POLICY.md`.
 
+## V1 merged — 2026-09-22
+
+HAD-2/HAD-2b/HAD-3/HAD-4 and their dependencies are on `main`: #365 `ae95857f`, #384 `6f8ed330`,
+#368 `10c8847d`, #385 `1d1fc4dd`, #366 `5a3b92ca`. The host checkout tracks `main` again.
+
+A post-merge probe found and closed one real sandbox escape: a script the model writes and runs
+with the permitted `node <file>` could set `core.hooksPath` in the workspace's `.git`, invisible to
+the validator, and the executor's later commit — outside the sandbox, where `--no-verify` does not
+stop `post-commit` — would have run it as the host user. `.git` is now mounted read-only inside the
+sandbox and delivery pins `core.hooksPath=/dev/null`. Detail: [docs/GITHUB_WORKER.md](docs/GITHUB_WORKER.md).
+
 ## Next action
 
-After #366 merges: re-run `haddad-mcp-setup.sh` with `HADDAD_MCP_REPO=$HOME/projects/mythos-prod` so the launcher
+**Restart `mythos-haddad-worker.service` once.** It is long-running and still holds pre-merge code;
+until then the merged classifier and the `.git` boundary are on disk but not in the running process.
+The bridge is a per-tick process and already runs merged code.
+
+Re-run `haddad-mcp-setup.sh` with `HADDAD_MCP_REPO=$HOME/projects/mythos-prod` so the launcher
 and the health timer run from the merged checkout. Then HAD-1 (local OTHKM store) to configure the knowledge
 tools. Owner decision, deferred: registering Haddad in the VPS estate MCP registry (needs a VPS→Haddad SSH
 credential). Still pending from V0: add the Windows client's SSH key and set `PasswordAuthentication no`.

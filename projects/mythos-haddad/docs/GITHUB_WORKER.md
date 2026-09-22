@@ -185,8 +185,19 @@ the `rerun` label to run again as a new attempt.
 The worker no longer runs an advisory model that only *reports*: the `haddad-agent` provider runs
 Qwen with a small tool surface (`read_file`, `list_files`, `write_file`, `run_command`), every
 command confined by a per-command **bwrap** sandbox (the task worktree is the only writable
-mount; `$HOME`, `/etc` and every credential are unmounted, not merely denied), and a loop that
-does not believe the model:
+mount, minus its own `.git`, which is mounted back read-only; `$HOME`, `/etc` and every credential
+are unmounted, not merely denied), and a loop that does not believe the model:
+
+**Why `.git` is read-only at the mount, not just refused by the tools.** `read_file`/`write_file`
+refuse `.git`, but that is a rule at the tool layer and the runner exists to execute the model's
+own code. Measured on 2026-09-22: a script written to an ordinary path and started with the
+permitted `node <file>` appended `core.hooksPath` to `.git/config`. Nothing caught it — `.git` is
+in the validator's `IGNORED_DIRS`, so the workspace diff was empty and the attempt could still
+pass — and the executor then commits in that workspace *outside* the sandbox, where `--no-verify`
+does **not** stop a `post-commit` hook (verified: it ran). That is arbitrary code as the host user,
+with the network and `$HOME` the sandbox exists to deny. Two locks now: `.git` is `EROFS` inside
+the sandbox whatever is running (test U2), and every git command in `deliverValidatedWork` pins
+`core.hooksPath=/dev/null` so a workspace cannot make git run its code either (test U3).
 
 ```
 GitHub Issue (mythos:haddad) → bridge tick → executor → haddad-agent

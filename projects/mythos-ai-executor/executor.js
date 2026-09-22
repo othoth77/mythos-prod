@@ -498,14 +498,24 @@ function deliverValidatedWork(task, report, outcome) {
   var files = (v.evidence.changed.created || []).concat(v.evidence.changed.modified || []);
   var deleted = v.evidence.changed.deleted || [];
   if (!files.length && !deleted.length) return null;
-  var add = files.length ? gitlib.git(['add', '--'].concat(files), cwd) : { ok: true };
-  var rm = deleted.length ? gitlib.git(['rm', '--quiet', '--cached', '--ignore-unmatch', '--'].concat(deleted), cwd) : { ok: true };
+  // Every git command here runs OUTSIDE the worker's sandbox, as the host
+  // user, in a workspace the worker had write access to. A repository can
+  // make git execute a script by configuration alone — core.hooksPath is
+  // the direct one — so these invocations refuse to take that instruction
+  // from the workspace. `--no-verify` is NOT that guarantee: it skips
+  // pre-commit and commit-msg, and a post-commit hook still runs (verified
+  // on this host). The sandbox now also mounts .git read-only, which is the
+  // real boundary; this is the second lock on the same door, because the
+  // door opens onto an unsandboxed process.
+  var NO_HOOKS = ['-c', 'core.hooksPath=/dev/null'];
+  var add = files.length ? gitlib.git(NO_HOOKS.concat(['add', '--']).concat(files), cwd) : { ok: true };
+  var rm = deleted.length ? gitlib.git(NO_HOOKS.concat(['rm', '--quiet', '--cached', '--ignore-unmatch', '--']).concat(deleted), cwd) : { ok: true };
   if (!add.ok || !rm.ok) return { problem: 'delivery: could not stage the validated files: ' + String((add.error || rm.error || '')).slice(0, 200) };
   var subject = String(report.summary || 'validated work').replace(/\s+/g, ' ').slice(0, 72);
   var body = 'Committed by the executor from the validator\'s measured evidence: ' + files.concat(deleted).join(', ') + '.\n' +
     'Checks: ' + (v.evidence.checks_run || []).map(function (c) { return c.check + (c.passed ? ' ok' : ' FAIL'); }).join('; ');
-  var commit = gitlib.git(['-c', 'user.name=mythos-haddad-worker', '-c', 'user.email=haddad-worker@mythos.invalid',
-    'commit', '--quiet', '--no-verify', '-m', subject, '-m', body], cwd);
+  var commit = gitlib.git(NO_HOOKS.concat(['-c', 'user.name=mythos-haddad-worker', '-c', 'user.email=haddad-worker@mythos.invalid',
+    'commit', '--quiet', '--no-verify', '-m', subject, '-m', body]), cwd);
   if (!commit.ok) return { problem: 'delivery: commit failed: ' + String(commit.error || '').slice(0, 200) };
   var sha = gitlib.head(cwd);
   try { state.appendEvent(task.task_id, 'work_delivered', { commit: sha, files: files, deleted: deleted, by: 'executor' }); } catch (e) { /* the commit is the record; the event is a convenience */ }

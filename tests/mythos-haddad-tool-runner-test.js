@@ -735,6 +735,64 @@ t('U1 the worker unit template creates no mount namespace and allows NETLINK', f
   assert.ok(active.indexOf('NoNewPrivileges=true') !== -1, 'NoNewPrivileges stays (it does not block bwrap)');
 });
 
+// The tool layer refuses .git, but the runner's whole purpose is to execute
+// the model's OWN code, and that code is not bound by a tool rule. Measured
+// before this was closed: a script written to an ordinary path and started
+// with the permitted `node <file>` appended `core.hooksPath` to .git/config.
+// Nothing caught it — .git is in work-validation's IGNORED_DIRS, so the diff
+// was empty and the attempt could still pass — and the executor then commits
+// in that workspace OUTSIDE the sandbox, where `--no-verify` does not stop a
+// post-commit hook (verified: it ran). Arbitrary code as the host user.
+//
+// So this asserts the BOUNDARY, not the rule: EROFS from inside, whatever is
+// running. Real bwrap, real script, real repository.
+t('U2 a script the model runs cannot write .git — the sandbox, not the tool rule, refuses it', function () {
+  var cp = require('child_process');
+  var ws = path.join(ROOT, 'git-boundary');
+  fs.mkdirSync(ws, { recursive: true });
+  cp.execFileSync('git', ['init', '-q'], { cwd: ws, stdio: ['ignore', 'ignore', 'ignore'] });
+  var cfg = path.join(ws, '.git', 'config');
+  var before = fs.readFileSync(cfg, 'utf8');
+  fs.writeFileSync(path.join(ws, 'attack.js'),
+    "require('fs').appendFileSync('.git/config','\\n[core]\\n\\thooksPath = ../evil\\n');console.log('MODIFIED');\n");
+
+  var argv = agent.sandboxArgv(ws, '/usr/bin/node', ['attack.js']);
+  var ro = argv.indexOf('--ro-bind-try');
+  assert.notStrictEqual(ro, -1, 'the argv mounts .git read-only');
+  assert.strictEqual(argv[ro + 1], path.join(ws, '.git'));
+  assert.strictEqual(argv[ro + 2], path.join(ws, '.git'));
+
+  var r = cp.spawnSync(agent.SANDBOX_BIN, argv, { encoding: 'utf8', timeout: 25000 });
+  assert.notStrictEqual(r.status, 0, 'the write must fail: ' + (r.stdout || '').trim());
+  assert.ok(/EROFS|read-only/i.test(String(r.stderr)), 'and fail as read-only, not as "file not found": ' + String(r.stderr).slice(0, 200));
+  assert.strictEqual(fs.readFileSync(cfg, 'utf8'), before, '.git/config is byte-identical afterwards');
+
+  // The workspace itself is still writable — the fix must not have made the
+  // runner useless.
+  fs.writeFileSync(path.join(ws, 'ok.js'), "require('fs').writeFileSync('proof.txt','x');console.log('OK');\n");
+  var ok = cp.spawnSync(agent.SANDBOX_BIN, agent.sandboxArgv(ws, '/usr/bin/node', ['ok.js']), { encoding: 'utf8', timeout: 25000 });
+  assert.strictEqual(ok.status, 0, 'ordinary workspace writes still work: ' + String(ok.stderr).slice(0, 200));
+  assert.ok(fs.existsSync(path.join(ws, 'proof.txt')));
+});
+
+// The second lock, on the door that opens outside the sandbox: the executor
+// commits as the host user in a workspace the worker could write to, and a
+// repository can make git run a script by configuration alone.
+t('U3 the executor delivers with hooks disabled, so a workspace cannot make git run its code', function () {
+  var src = fs.readFileSync(path.join(EXEC, 'executor.js'), 'utf8');
+  var fn = src.slice(src.indexOf('function deliverValidatedWork'), src.indexOf('function verifyGit'));
+  assert.ok(/NO_HOOKS = \['-c', 'core\.hooksPath=\/dev\/null'\]/.test(fn), 'delivery pins core.hooksPath');
+  // EVERY git invocation in the delivery path must start from NO_HOOKS —
+  // checked by shape rather than by proximity, so adding a fourth git call
+  // without it fails here instead of shipping.
+  var calls = fn.match(/gitlib\.git\(([\s\S]*?), cwd\)/g) || [];
+  assert.ok(calls.length >= 3, 'found the delivery git calls: ' + calls.length);
+  calls.forEach(function (c) {
+    assert.ok(/gitlib\.git\(NO_HOOKS\./.test(c),
+      'this delivery git call does not disable hooks: ' + c.replace(/\s+/g, ' ').slice(0, 120));
+  });
+});
+
 queue.reduce(function (c, s) { return c.then(s); }, Promise.resolve()).then(function () {
   try { fs.rmSync(ROOT, { recursive: true, force: true }); } catch (e) { /* best effort */ }
   console.log('\n' + pass + ' passed, ' + fail + ' failed');

@@ -180,11 +180,14 @@ is not a leak; if it climbs materially above ~2 GiB while serving, that would be
 Two real chat-completion requests through the OpenAI-compatible endpoint, `temperature: 0`
 (deterministic), measured via the server's own `timings` in the response.
 
-**These figures are from the 4096 layout, with all 29 layers on the GPU, and have not been
-re-measured since.** At 8192 two layers run on the CPU, so generation is expected to be somewhat
-slower than the range below; how much is not known, and quoting a guess here would be worse than
-saying so. The supervised loop is bound by the window, not by tokens per second, which is why the
-trade was taken without re-benchmarking first.
+The table below is the **4096** layout, with all 29 layers on the GPU.
+
+**Re-measured at 8192 (2026-09-22, same method, three requests):** prompt 21–35 tok/s, generation
+**17–33 tok/s** (33.2 on a 2-token answer, 22.3 on 4 tokens, 17.0 on a sustained 80-token answer).
+Compared with 20–25 tok/s generation at 4096, the two CPU-resident layers cost roughly 15–30 % on a
+sustained answer, and short answers are dominated by per-request overhead in both layouts. The
+window is worth that: at 4096 a supervised run could not read a file, change it and take a repair
+brief without overflowing, and the loop is bound by the window, not by tokens per second.
 
 | Request | Prompt tok/s | Generation tok/s | Notes |
 |---|---|---|---|

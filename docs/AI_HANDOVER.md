@@ -2,6 +2,20 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-22 — MYTHOS-HADDAD V1: merged, and one real escape found after merging (Opus 5)
+
+**Objective:** merge HAD-3/HAD-4 and their dependencies, then verify the merged system on the host
+rather than from the PRs.
+
+| Item | State |
+|---|---|
+| Merged, in order | #365 `ae95857f` → #384 `6f8ed330` → #368 `10c8847d` → #385 `1d1fc4dd` → #366 `5a3b92ca`. #365's squash made #384 conflict on every file it touched although #384 already contained that work; resolved to #384's side after checking each hunk — main's side was #365's own text, an ancestor — and verified by diffing the merged tree against the pre-merge branch: it differed by exactly the owner's `ARCHITECTURE_REUSE_STATUS.md`. #366 × #384 conflicted in `AI_HANDOVER.md` and `STATUS.md`; both stage records kept in full, neither rewritten. |
+| **Sandbox escape — FOUND AND CLOSED** | `read_file`/`write_file` refuse `.git`, but the runner exists to execute the model's own code. A script written to an ordinary path and started with the permitted `node <file>` appended `core.hooksPath` to `.git/config`; the validator never saw it (`.git` is in `IGNORED_DIRS`, so the diff was empty and the attempt could still PASS); the executor then commits in that workspace **outside** the sandbox, and `--no-verify` does not stop a `post-commit` hook — verified on this host: it ran. Arbitrary code as `othman`, with the network and `$HOME` the sandbox exists to deny. Closed at the boundary: `--ro-bind-try <ws>/.git` makes it EROFS to every process inside, and every git call in `deliverValidatedWork` pins `core.hooksPath=/dev/null`. Tests U2 (real bwrap, real repo, asserts EROFS *and* that ordinary writes still work) and U3 (shape-checked, so a fourth git call without it fails here). |
+| Security, re-probed post-merge | 14 cases against merged main with the real `sandboxArgv`: host-user shell, `$HOME` / `/etc` write, symlink-out to `~/.ssh` and `/etc/passwd`, another workspace, `runtime.key`, `worker.env`, network, external DNS — all refused, and the paths are *absent* rather than forbidden. `/tmp` writes land on the sandbox's own tmpfs (host `/tmp` untouched, verified). Upward traversal reaches only the empty read-only parents bwrap itself created — path components, no content. |
+| Runtime, measured not read | llama-server active, argv `--ctx-size 8192`, Qwen2.5-7B-Q4_K_M answering a real request; GTX 1660 SUPER (NVK), **27/29 layers** on the GPU, 4920 MiB projected of 6400, RSS ~2.1 GiB; worker + bridge timer + health timer active, RUNNING 0, no orphan llama-server or bwrap. Health 14/14. Throughput at 8192 finally measured: generation 17–33 tok/s (17.0 sustained) vs 20–25 at 4096 — the two CPU layers cost ~15–30 % on a long answer. |
+| Regression | Full 209-suite sweep on merged main vs the pre-merge baseline: **0 new failures, 0 changed failures**. The 50 non-clean suites are byte-identical to pre-merge main (ERP, MPI, hostops, stage*, WP, lane-routing — none of them Haddad's). orchestration-core 255/2, both VPS-only (the delivery-relay unit does not exist on this host). |
+| Not done | The long-running worker process still holds pre-merge code: restarting it is a `systemctl` action this session was denied, so `mythos-haddad-worker` must be restarted once by hand to pick up #385's classifier and the `.git` boundary. The bridge is a per-tick process and already runs merged code. No fresh live E2E after the merge — the evidence is still the #379 series — and dependency release by an approved continuation remains unobserved live. |
+
 ## 2026-09-22 — MYTHOS-HADDAD HAD-4: FABLE supervisor loop — proven live (Fable 5.1)
 
 **Objective:** complete and PROVE the execution-control loop on Haddad: GitHub task → bridge → Qwen in a
