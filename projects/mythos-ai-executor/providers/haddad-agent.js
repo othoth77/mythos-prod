@@ -540,6 +540,63 @@ function run(task, prompt, _sessionId, _mode, opts) {
     return toolRunCommand(ctx, { program: program, args: args });
   }
 
+  // Stopping for a PERSON is not the same as crashing. The executor already
+  // has a seam for this — a provider that ends cleanly with a report whose
+  // status is `blocked` is classified as a human decision (lib/quota.js
+  // classifyBlockedReport → HUMAN_APPROVAL) rather than a fatal error — so
+  // this uses that instead of inventing a second way to say it. The
+  // difference is what the Issue ends up saying: "needs a human, here is the
+  // measured evidence" rather than a bare FAILED.
+  // A rejection can quote an error that itself contains a code fence — the
+  // "no fenced ```json block" diagnosis is the common one — and embedding
+  // that verbatim would close the report's own fence early and corrupt it.
+  // The report must survive its own contents.
+  function fenceSafe(v) {
+    return String(v === undefined || v === null ? '' : v).replace(/`{3,}/g, "'''");
+  }
+
+  function stopForHuman(text, verdict, why) {
+    var rejections = ((verdict && verdict.rejections) || []).map(fenceSafe);
+    var summary = why + (rejections.length ? ' — ' + rejections.join(' | ') : '');
+    var blockedReport = {
+      mythos_report: true,
+      status: 'blocked',
+      summary: fenceSafe(summary).slice(0, 1500),
+      files_changed: verdict && verdict.evidence ? verdict.evidence.changed.created.concat(verdict.evidence.changed.modified) : [],
+      tests: verdict && verdict.evidence ? (verdict.evidence.checks_run || []).map(function (c) {
+        return fenceSafe(c.check + ': ' + (c.passed ? 'pass' : 'FAIL' + (c.exit_code === null ? '' : ' (exit ' + c.exit_code + ')')));
+      }) : [],
+      residual_risks: rejections.slice(0, 20),
+      next_stage: 'a person decides: the evidence above is measured, not reported by the worker'
+    };
+    return finish({
+      exit_code: 0, signal: null, timed_out: false,
+      stdout: text + '\n\n```json\n' + JSON.stringify(blockedReport, null, 2) + '\n```\n',
+      stderr: '',
+      parsed: { is_error: false, result: summary },
+      validation: verdict ? { passed: false, attempts: repairRound + 1, rejections: rejections, evidence: verdict.evidence } : null,
+      session_id: null, started_pid: null
+    });
+  }
+
+  // Validation runs even when the loop ran out of turns. Otherwise the
+  // report says "12 turns" and nothing about what the attempt actually DID —
+  // and a run observed live had by then edited the test file to make it
+  // pass, which is exactly the thing a person needs told.
+  function validateNow(text) {
+    var after = work.snapshot(workspace);
+    var verdict = work.validateWork({
+      report: reporting.extractReport(text).report,
+      workspace: workspace, before: before, after: after,
+      checks: task.required_tests || [],
+      scope: task.constraints || [],
+      requiredFiles: [],
+      runCommand: validatorRunCommand
+    });
+    validations.push({ attempt: repairRound + 1, pass: verdict.pass, rejections: verdict.rejections, evidence: verdict.evidence });
+    return verdict;
+  }
+
   function settleOrRepair(text) {
     var parsedReport = reporting.extractReport(text);
     var after = work.snapshot(workspace);
@@ -575,16 +632,10 @@ function run(task, prompt, _sessionId, _mode, opts) {
     }
 
     if (repairRound >= MAX_REPAIR_ROUNDS) {
-      // The budget is spent. This is a stop, not another try: the failures
-      // travel out so a person reads measured evidence, not a model's mood.
-      return finish({
-        exit_code: 1, signal: null, timed_out: false, stdout: text,
-        stderr: 'HADDAD_AGENT_VALIDATION_FAILED: ' + verdict.rejections.join(' | ').slice(0, 1500),
-        parsed: { is_error: true, subtype: 'HADDAD_AGENT_VALIDATION_FAILED',
-          result: 'validation failed after ' + (repairRound + 1) + ' attempt(s): ' + verdict.rejections.join(' | ') },
-        validation: { passed: false, attempts: repairRound + 1, rejections: verdict.rejections, evidence: verdict.evidence },
-        session_id: null, started_pid: null
-      });
+      // The budget is spent. This is a stop for a person, not a crash and
+      // not another try.
+      return stopForHuman(text, verdict,
+        'validation still failing after ' + (repairRound + 1) + ' attempt(s); the repair budget is spent');
     }
 
     repairRound++;
@@ -602,12 +653,10 @@ function run(task, prompt, _sessionId, _mode, opts) {
       }));
     }
     if (iteration >= MAX_ITERATIONS) {
-      return Promise.resolve(finish({
-        exit_code: 1, signal: null, timed_out: false, stdout: '',
-        stderr: 'HADDAD_AGENT_MAX_ITERATIONS: stopped after ' + MAX_ITERATIONS + ' model turns',
-        parsed: { is_error: true, subtype: 'HADDAD_AGENT_MAX_ITERATIONS', result: 'iteration budget spent' },
-        session_id: null, started_pid: null
-      }));
+      // Measure what it did before saying why it stopped: "12 turns" is not
+      // a finding, "it edited the check" is.
+      return Promise.resolve(stopForHuman('', validateNow(''),
+        'stopped after ' + MAX_ITERATIONS + ' model turns without a final answer'));
     }
 
     return adapter.chatCompletion(
