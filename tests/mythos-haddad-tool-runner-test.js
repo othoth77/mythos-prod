@@ -775,6 +775,37 @@ t('U2 a script the model runs cannot write .git — the sandbox, not the tool ru
   assert.ok(fs.existsSync(path.join(ws, 'proof.txt')));
 });
 
+// U2 uses `git init`, where .git is a DIRECTORY. Every real Haddad workspace
+// is a git WORKTREE, where .git is a FILE pointing into the parent repo —
+// a different thing to mount, and a --ro-bind that could not handle it would
+// fail the sandbox at startup and refuse every command on the host while the
+// unit tests stayed green. So the production shape is asserted, not assumed.
+t('U2b the same boundary holds in a git WORKTREE, where .git is a file, and the sandbox still starts', function () {
+  var cp = require('child_process');
+  var base = path.join(ROOT, 'wt-base');
+  fs.mkdirSync(base, { recursive: true });
+  function g(a, cwd) { return cp.execFileSync('git', a, { cwd: cwd || base, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); }
+  g(['init', '-q', '.']);
+  fs.writeFileSync(path.join(base, 'a.js'), 'module.exports = 1;\n');
+  g(['add', '-A']); g(['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'seed']);
+  var ws = path.join(ROOT, 'wt-workspace');
+  g(['worktree', 'add', '-q', '--detach', ws]);
+
+  assert.ok(fs.lstatSync(path.join(ws, '.git')).isFile(), 'a worktree .git is a file — the case this pins');
+  var gitFileBefore = fs.readFileSync(path.join(ws, '.git'), 'utf8');
+
+  fs.writeFileSync(path.join(ws, 'probe.js'),
+    "var fs=require('fs');fs.writeFileSync('ok.txt','x');" +
+    "try{fs.appendFileSync('.git','HACK');console.log('GIT_WRITE_OK')}catch(e){console.log('BLOCKED '+e.code)}\n");
+  var r = cp.spawnSync(agent.SANDBOX_BIN, agent.sandboxArgv(ws, '/usr/bin/node', ['probe.js']), { encoding: 'utf8', timeout: 25000 });
+
+  assert.strictEqual(r.status, 0, 'the sandbox still STARTS over a .git file: ' + String(r.stderr).slice(0, 200));
+  assert.ok(/BLOCKED EROFS/.test(r.stdout), 'and the .git file is read-only inside: ' + String(r.stdout).trim());
+  assert.ok(fs.existsSync(path.join(ws, 'ok.txt')), 'ordinary writes still land');
+  assert.strictEqual(fs.readFileSync(path.join(ws, '.git'), 'utf8'), gitFileBefore, '.git file untouched');
+  try { g(['worktree', 'remove', '--force', ws]); } catch (e) { /* cleaned with ROOT anyway */ }
+});
+
 // The second lock, on the door that opens outside the sandbox: the executor
 // commits as the host user in a workspace the worker could write to, and a
 // repository can make git run a script by configuration alone.
