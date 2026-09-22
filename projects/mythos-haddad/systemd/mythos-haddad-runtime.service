@@ -57,14 +57,24 @@ EnvironmentFile=%h/.config/mythos-haddad/runtime.env
 ExecStart=@RUNTIME_PREFIX@/bin/llama-server \
   --host 127.0.0.1 --port 8600 \
   --model @MODEL_PATH@ \
-  # 8192, not 4096. Measured on this card: the model takes 4168 MiB of VRAM,
-  # the compute buffer 304 MiB, and the KV cache 56 KiB per token — so 4096
-  # cost 224 MiB and 8192 costs 448 MiB, landing at ~4920 MiB of the 6400 MiB
-  # the GTX 1660 SUPER has. 4096 was not enough to work in: a bridge task
+  # 8192, not 4096. 4096 was not a window you could work in: a bridge task
   # instruction is ~1,900 tokens before a single file is read, and a live
-  # supervised run (gh-issue-367) produced a correct fix and then died with
-  # "request (4590 tokens) exceeds the available context size". Raising this
-  # further is a VRAM decision, not a free one.
+  # supervised run (gh-issue-367) produced a CORRECT fix and then died with
+  # "request (4590 tokens) exceeds the available context size".
+  #
+  # It is not free, and the price is not only VRAM. MEASURED on this card
+  # after the change (llama-server's own accounting, not arithmetic):
+  #   at 4096 — 29/29 layers on the GPU, model 4168 MiB, KV 224 MiB
+  #   at 8192 — 27/29 layers on the GPU, model 3884 MiB GPU + 577 MiB CPU,
+  #             KV 416 MiB GPU + 32 MiB CPU, compute 304 MiB
+  # 4920 MiB projected against 5752 MiB free, so it fits — but `auto` paid
+  # for the larger KV cache by moving two layers and part of the cache off
+  # the card. The whole model no longer lives in VRAM. Generation is slower
+  # for it; the window is worth more than the speed here, and that is the
+  # trade being made. See docs/AI_RUNTIME.md § Measurements.
+  #
+  # Raising this further is a VRAM decision, not a free one, and it will
+  # push more layers to the CPU rather than fail cleanly.
   --ctx-size 8192 \
   --n-gpu-layers auto \
   --api-key-file %h/.config/mythos-haddad/runtime.key

@@ -100,9 +100,14 @@ curl -H "Authorization: Bearer $(cat ~/.config/mythos-haddad/runtime.key)" \
   http://127.0.0.1:8600/v1/models
 ```
 
-## Measurements (2026-09-21, on `haddad`, through the managed systemd service)
+## Measurements (2026-09-21, re-measured at 8192 on 2026-09-22, on `haddad`, through the managed systemd service)
 
 ### GPU offload
+
+The context window was raised from 4096 to 8192 (see *Known limits*). Both layouts are kept here,
+because the difference between them is the cost of that change and it is not only VRAM.
+
+**At `--ctx-size 4096` (the original measurement, 2026-09-21):**
 
 ```
 load_tensors: offloading output layer to GPU
@@ -114,14 +119,41 @@ llama_kv_cache:    Vulkan0 KV buffer size =   224.00 MiB
 sched_reserve:    Vulkan0 compute buffer size =   304.00 MiB
 ```
 
-**All 29/29 layers on the GPU.** `llama-server`'s own memory-fit pass: *"projected to use 4696 MiB
-of device memory vs. 5752 MiB of free device memory … will leave 1055 ≥ 1024 MiB of free device
-memory, no changes needed"* — fits with headroom at `--ctx-size 4096`, no layers forced to CPU.
+All 29/29 layers on the GPU. `llama-server`'s own memory-fit pass: *"projected to use 4696 MiB of
+device memory vs. 5752 MiB of free device memory … will leave 1055 ≥ 1024 MiB of free device
+memory, no changes needed"* — fits with headroom, no layers forced to CPU.
+
+**At `--ctx-size 8192` (current, measured on the running service 2026-09-22):**
+
+```
+llama_params_fit_impl: projected to use 4920 MiB of device memory vs. 5752 MiB of free device memory
+load_tensors: offloading output layer to GPU
+load_tensors: offloading 26 repeating layers to GPU
+load_tensors: offloaded 27/29 layers to GPU
+load_tensors:   CPU_Mapped model buffer size =   576.77 MiB
+load_tensors:      Vulkan0 model buffer size =  3883.68 MiB
+llama_kv_cache:        CPU KV buffer size =    32.00 MiB
+llama_kv_cache:    Vulkan0 KV buffer size =   416.00 MiB
+sched_reserve:    Vulkan0 compute buffer size =   304.00 MiB
+```
+
+**27/29 layers on the GPU — the whole model no longer lives in VRAM.** `--n-gpu-layers auto` paid
+for the larger KV cache by moving two layers (≈284 MiB) and 32 MiB of the cache off the card. It
+still fits, and it fits *because* it made that trade — not because 8192 was free. Generation is
+slower for the two CPU layers. The window is worth more than the speed for this worker (at 4096 a
+supervised run could not read a file, fix it and take a repair brief without overflowing), and
+that is the trade, recorded rather than discovered later.
 
 ### VRAM
 
-**4696 MiB** (model 4168 + KV cache 224 + compute buffer 304, from llama-server's own accounting
-above), out of 6144–6400 MiB total, at 4096 tokens of context.
+**4920 MiB** on the card at 8192 tokens (model 3884 + KV 416 + compute 304, plus the fit pass's own
+projection of 4920), out of 6144–6400 MiB total — roughly 1.4 GiB free. A further 609 MiB of model
+and cache sits in host RAM.
+
+For reference, the 4096 layout was **4696 MiB** (model 4168 + KV 224 + compute 304) with nothing on
+the CPU. Note that the larger window costs only ~224 MiB *on the card* precisely because `auto`
+offloaded work to the host; the naive arithmetic (56 KiB/token × 8192 = 448 MiB of KV on the GPU)
+is what it would have cost had everything stayed resident, and it did not.
 
 A live OS-level cross-check was attempted (`bin/haddad-gpu-vram.py`, Vulkan `VK_EXT_memory_budget`)
 and found **unreliable on this driver**: it reads 0 MiB used even with the model actively resident
@@ -132,18 +164,27 @@ deliberately does not surface the unreliable Vulkan-budget number.
 
 ### RAM (process RSS, `/proc/<pid>/status`)
 
-| | |
-|---|---|
-| Steady state (serving) | **~430–505 MiB** |
-| Peak during load (`VmHWM`) | **~4.7 GiB** (transient — pages touched while `mmap`-uploading weights to VRAM, not held afterward) |
+| | at `--ctx-size` 4096 | at `--ctx-size` 8192 (current) |
+|---|---|---|
+| Steady state (serving) | **~430–505 MiB** | **~2.0 GiB** |
+| Peak during load (`VmHWM`) | **~4.7 GiB** | **~4.4 GiB** (transient — pages touched while `mmap`-uploading weights to VRAM, not held afterward) |
 
-Low steady-state RSS is consistent with the weights genuinely living in VRAM (`Vulkan0 model
-buffer`), not in system RAM.
+At 4096 the low steady-state RSS was the evidence that the weights genuinely lived in VRAM rather
+than in system RAM. **That is no longer the reading at 8192**: steady-state RSS is ~4× higher
+because two layers (577 MiB `CPU_Mapped`) and 32 MiB of the KV cache are deliberately resident in
+host RAM — the same trade recorded under *GPU offload*. The number going up is expected here and
+is not a leak; if it climbs materially above ~2 GiB while serving, that would be.
 
 ### Response performance
 
 Two real chat-completion requests through the OpenAI-compatible endpoint, `temperature: 0`
-(deterministic), measured via the server's own `timings` in the response:
+(deterministic), measured via the server's own `timings` in the response.
+
+**These figures are from the 4096 layout, with all 29 layers on the GPU, and have not been
+re-measured since.** At 8192 two layers run on the CPU, so generation is expected to be somewhat
+slower than the range below; how much is not known, and quoting a guess here would be worse than
+saying so. The supervised loop is bound by the window, not by tokens per second, which is why the
+trade was taken without re-benchmarking first.
 
 | Request | Prompt tok/s | Generation tok/s | Notes |
 |---|---|---|---|
@@ -213,5 +254,9 @@ endpoints, registry) is unchanged.
 - The loader shim is a workaround for a real, root-only permission gap, not a permanent design
   choice; if the owner ever grants the one-line symlink above, the shim can stay (harmless) or be
   retired in a later stage.
-- `--ctx-size` is fixed at 4096 tokens. Larger contexts increase the KV-cache VRAM cost and were
-  not tested against the 6 GB ceiling.
+- `--ctx-size` is fixed at 8192 tokens, raised from 4096 and measured at both sizes (see
+  *Measurements*). It is not a free dial: at 8192 `--n-gpu-layers auto` already keeps 2 of 29
+  layers and 32 MiB of the KV cache in host RAM to stay inside the 6 GB ceiling, so raising it
+  further buys window by moving more of the model off the card and slowing generation — it will
+  not fail cleanly at some limit. Anything above 8192 needs a fresh measurement on this hardware,
+  not an extrapolation.
