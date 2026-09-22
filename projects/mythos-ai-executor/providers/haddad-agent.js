@@ -522,6 +522,7 @@ function run(task, prompt, _sessionId, _mode, opts) {
   // measured against the state the task actually started from.
   var before = work.snapshot(workspace);
   var repairRound = 0;
+  var traceMarkAtRoundStart = 0;
   var validations = [];
 
   function finish(outcome) {
@@ -650,9 +651,15 @@ function run(task, prompt, _sessionId, _mode, opts) {
         'validation still failing after ' + (repairRound + 1) + ' attempt(s); the repair budget is spent');
     }
 
+    var callsThisRound = trace.length - traceMarkAtRoundStart;
     repairRound++;
+    traceMarkAtRoundStart = trace.length;
     messages.push({ role: 'assistant', content: text });
-    messages.push({ role: 'user', content: work.renderRepairNotes(verdict, repairRound, task.constraints || []) });
+    messages.push({ role: 'user', content: work.renderRepairNotes(verdict, repairRound, task.constraints || [], {
+      tool_calls: callsThisRound,
+      // The files the task constrained the worker to are the ones it must fix.
+      files_named: work.declaredScope(task.constraints || [])
+    }) });
     return step(0);
   }
 

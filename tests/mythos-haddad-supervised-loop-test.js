@@ -202,6 +202,14 @@ t('B2 the repair brief hands the worker MEASURED evidence, not a scolding', func
     assert.ok(/add\(2,2\) returned 0, expected 4/.test(brief), 'the real failure output is in the brief');
     assert.ok(/### What you actually changed/.test(brief), 'and what it really changed');
     assert.ok(/Do not edit, weaken or delete a check/.test(brief), 'and the rule against cheating');
+    // The round that was rejected made NO tool call (it only said "Done."):
+    // the brief must say so and spell out that prose is not a change —
+    // the failure mode measured live on gh-issue-373, where the model
+    // pasted the fix as a code block and claimed both checks passed.
+    assert.ok(/made NO tool call: nothing was written and nothing ran/.test(brief), 'a no-tool-call round is named');
+    assert.ok(/### What to do now — as TOOL CALLS, in this order/.test(brief), 'and the next steps are tool calls');
+    assert.ok(/write_file that path with the COMPLETE corrected file/.test(brief));
+    assert.ok(/run_command each failing check: `node add\.test\.js`/.test(brief), 'naming the failing check to run: ' + brief.slice(-500));
   });
 });
 

@@ -189,6 +189,20 @@ var HAD3_ALLOWED = [
   'projects/mythos-ai-executor/executor.js',
   'projects/mythos-ai-executor/config/projects.json'
 ];
+// HAD-4 (local tool runner + supervised execution, PR #365) is the stage
+// that gives the executor a Haddad-side provider, so its surface under the
+// executor tree is larger and equally named: the provider itself, the
+// mechanical validation it calls, the profile grant it reads, the adapter's
+// tool-call plumbing and the one schema field. Covered by
+// tests/mythos-haddad-tool-runner-test.js and
+// tests/mythos-haddad-supervised-loop-test.js. Anything else still fails.
+var HAD4_ALLOWED = [
+  'projects/mythos-ai-executor/providers/haddad-agent.js',
+  'projects/mythos-ai-executor/lib/work-validation.js',
+  'projects/mythos-ai-executor/lib/policy.js',
+  'projects/mythos-ai-executor/free-llm/adapter.js',
+  'projects/mythos-ai-executor/schemas/task.schema.json'
+];
 
 function touchesHaddad(files) {
   return files.some(function (f) { return /^projects\/mythos-haddad\//.test(f); });
@@ -197,7 +211,7 @@ function touchesHaddad(files) {
 function executorFilesModified(files) {
   if (!touchesHaddad(files)) return [];   // not a Haddad stage — not this guard's business
   return files.filter(function (f) {
-    return HAD3_ALLOWED.indexOf(f) === -1 && /^projects\/mythos-ai-executor\//.test(f);
+    return HAD3_ALLOWED.indexOf(f) === -1 && HAD4_ALLOWED.indexOf(f) === -1 && /^projects\/mythos-ai-executor\//.test(f);
   });
 }
 
@@ -219,9 +233,12 @@ t('the scope guard is scoped to Haddad branches and still bites', function () {
     'a Haddad branch that stays inside its own tree passes');
   assert.deepStrictEqual(
     executorFilesModified(['projects/mythos-haddad/lib/haddad-runtime.js',
-      'projects/mythos-ai-executor/free-llm/adapter.js']),
-    ['projects/mythos-ai-executor/free-llm/adapter.js'],
-    'a Haddad branch that edits the executor still FAILS');
+      'projects/mythos-ai-executor/core/validation.js']),
+    ['projects/mythos-ai-executor/core/validation.js'],
+    'a Haddad branch that edits the executor outside the named surfaces still FAILS');
+  assert.deepStrictEqual(
+    executorFilesModified(['projects/mythos-haddad/bin/x.sh'].concat(HAD4_ALLOWED)), [],
+    'the five HAD-4 files stay allow-listed');
   assert.deepStrictEqual(
     executorFilesModified(['projects/mythos-haddad/systemd/x.service'].concat(HAD3_ALLOWED)), [],
     'the three owner-approved HAD-3 files stay allow-listed');

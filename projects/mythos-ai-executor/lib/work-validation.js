@@ -277,15 +277,24 @@ function validateWork(input) {
 // (core/orchestrator.js "## REPAIR REQUIRED (attempt N)"), so a worker that
 // has seen one has seen both, and there is one format in the system rather
 // than two.
-function renderRepairNotes(verdict, attempt, constraints) {
+// opts (optional): { tool_calls: number of tool calls the rejected round
+// made, files_named: files the failing checks exercise }. A round that made
+// NO tool call is the failure mode a small model falls into most — it
+// "fixes" the file in prose and reports success (gh-issue-373, live) — so
+// the brief names it and says what a change actually is.
+function renderRepairNotes(verdict, attempt, constraints, opts) {
+  opts = opts || {};
   var lines = [
     '## REPAIR REQUIRED (attempt ' + (attempt || 1) + ')',
     '',
     'Your previous attempt was REJECTED by independent validation — not by your own report.',
     'Every line below is measured evidence from the workspace, not an opinion.',
-    '',
-    '### What failed'
+    ''
   ];
+  if (opts.tool_calls === 0) {
+    lines.push('Your previous reply made NO tool call: nothing was written and nothing ran. Code shown in a ```block is NOT applied — only a write_file call changes the workspace.', '');
+  }
+  lines.push('### What failed');
   verdict.rejections.forEach(function (r) { lines.push('- ' + r); });
   var ev = verdict.evidence || {};
   var ran = (ev.checks_run || []).filter(function (c) { return !c.passed; });
@@ -311,7 +320,14 @@ function renderRepairNotes(verdict, attempt, constraints) {
     lines.push('- Stay inside: ' + ev.scope_declared.join(', '));
   }
   (constraints || []).forEach(function (c) { lines.push('- ' + String(c).slice(0, 300)); });
-  lines.push('', 'Then run the checks yourself before reporting.');
+  // The order of operations, as tool calls. Prose is not one of them.
+  var failingChecks = ran.map(function (c) { return c.check; });
+  var targets = (opts.files_named || []).filter(Boolean);
+  lines.push('', '### What to do now — as TOOL CALLS, in this order');
+  lines.push('1. read_file the file you must fix' + (targets.length ? ' (' + targets.join(', ') + ')' : '') + ' if you no longer have its current content.');
+  lines.push('2. write_file that path with the COMPLETE corrected file. A code block in your answer changes nothing.');
+  lines.push('3. run_command each failing check' + (failingChecks.length ? ': ' + failingChecks.map(function (c) { return '`' + c + '`'; }).join(', ') : '') + ' and read its output.');
+  lines.push('4. Only when they pass, emit the report. A report that claims a pass the checks did not produce is rejected again.');
   return lines.join('\n');
 }
 
