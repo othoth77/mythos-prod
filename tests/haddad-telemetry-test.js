@@ -86,17 +86,43 @@ console.log('§2 GPU — absence is stated, never invented');
   });
   ok(/nouveau\/NVK/i.test(gNvk.unavailable_reason),
     'on the open NVIDIA stack it DOES name the nouveau/NVK limitation');
-  ok(/vram_model_mib/.test(gNvk.unavailable_reason),
-    'and points at the figure that IS real — the runtime\'s own load accounting');
+  ok(/runtime's own load accounting|model-weights/.test(gNvk.unavailable_reason),
+    'and points the reader at the figures that ARE real — the runtime\'s own load accounting');
 
-  // With a health report present, the device facts come from the existing
-  // gpu_test check rather than a second probe.
+  // The REAL shape haddad-health.js records: the gpu-vulkan-test report
+  // verbatim, in which `device` is an OBJECT. Reading it as a string
+  // produced a value the receiver's allow-list dropped, so the live page
+  // showed N/A for a GPU the node reports perfectly well. Caught on the
+  // real node; this fixture is that exact shape.
   const g2 = agent.collectGpu({
-    checks: [{ id: 'gpu_test', status: 'PASS', data: { device: 'NVIDIA GeForce GTX 1660 SUPER', vulkan_api: '1.4.335', vram_mib: 6144 } }]
+    checks: [
+      { id: 'gpu_detect', status: 'PASS', detail: 'NVIDIA Corporation TU116 [GeForce GTX 1660 SUPER] [driver: nouveau]', data: { driver: ['nouveau'] } },
+      { id: 'gpu_test', status: 'PASS', data: {
+          status: 'PASS',
+          device: { name: 'NVIDIA GeForce GTX 1660 SUPER', vulkan_api: '1.4.335' },
+          vram_mib: 6400 } }
+    ]
   });
-  eq(g2.model, 'NVIDIA GeForce GTX 1660 SUPER', 'the GPU model is reused from the existing health check');
-  eq(g2.vram_total_mib, 6144, 'VRAM total is reused from the existing health check');
+  eq(g2.model, 'NVIDIA GeForce GTX 1660 SUPER', 'the GPU model is read from device.name, not from the object itself');
+  ok(typeof g2.model === 'string', 'the model is a STRING — an object here is silently dropped by the allow-list');
+  ok(/Vulkan 1\.4\.335/.test(g2.driver) && /nouveau/.test(g2.driver), 'the driver combines the Vulkan API and the kernel driver');
+  eq(g2.vram_total_mib, 6400, 'VRAM total is reused from the existing health check');
   eq(g2.vram_used_mib, null, 'VRAM used stays null — the driver does not report it (documented NVK limitation)');
+  // The reason must not claim "no vendor tool answered" when one did.
+  ok(!/no vendor tool answered/.test(g2.unavailable_reason),
+    'when the Vulkan probe DID answer, the reason does not claim nothing answered');
+  ok(/heapUsage 0|no live usage/.test(g2.unavailable_reason), 'it names the real limitation instead');
+  ok(/nouveau\/NVK/.test(g2.unavailable_reason), 'and identifies the open stack, because this machine is on it');
+
+  // A --quick pass skips gpu_test entirely; gpu_detect must still identify it.
+  const g3 = agent.collectGpu({
+    checks: [
+      { id: 'gpu_detect', status: 'PASS', detail: 'NVIDIA Corporation TU116 [GeForce GTX 1660 SUPER] [driver: nouveau]', data: { driver: ['nouveau'] } },
+      { id: 'gpu_test', status: 'WARN', detail: 'skipped (--quick)' }
+    ]
+  });
+  ok(/GTX 1660 SUPER/.test(g3.model || ''), 'a --quick health pass still identifies the GPU from gpu_detect');
+  eq(g3.vram_total_mib, null, 'but total VRAM is honestly absent when the probe did not run');
 }
 
 console.log('§3 workers — units, timers, and the things the node cannot see');
@@ -377,6 +403,76 @@ console.log('\u00a710 executor-home resolution order');
   ok(/__dirname/.test(code), 'and defaults to the checkout it was run from, so a dry run needs no environment');
 
   fs.rmSync(dir, { recursive: true, force: true });
+}
+
+console.log('\u00a711 runtime load facts, parsed from the REAL journal lines');
+{
+  // Verbatim from Haddad's own runtime journal, 2026-09-22 (ActiveEnterTimestamp
+  // Tue 2026-09-22 15:43:17 UTC). Any change to these patterns must keep
+  // parsing exactly these strings, because this is what the machine emits.
+  const REAL = [
+    '2026-09-22T15:43:57 load_tensors: offloading output layer to GPU',
+    '2026-09-22T15:43:57 load_tensors: offloading 26 repeating layers to GPU',
+    '2026-09-22T15:43:57 load_tensors: offloaded 27/29 layers to GPU',
+    '2026-09-22T15:43:57 load_tensors:   CPU_Mapped model buffer size =   576.77 MiB',
+    '2026-09-22T15:43:57 load_tensors:      Vulkan0 model buffer size =  3883.68 MiB',
+    '2026-09-22T15:44:04 llama_context: n_ctx         = 8192',
+    '2026-09-22T15:44:04 llama_kv_cache:        CPU KV buffer size =    32.00 MiB',
+    '2026-09-22T15:44:04 llama_kv_cache:    Vulkan0 KV buffer size =   416.00 MiB',
+    '2026-09-22T15:44:04 sched_reserve:    Vulkan0 compute buffer size =   304.00 MiB',
+    '2026-09-22T15:44:04 llama_params_fit_impl: projected to use 4920 MiB of device memory',
+    '2026-09-22T15:44:07 main: server is listening on http://127.0.0.1:8600'
+  ];
+  // The parser walks lines; drive the same regexes over the real text.
+  function parse(lines) {
+    const f = { gpu_layers: null, gpu_layers_total: null, vram_model_mib: null,
+      vram_projected_mib: null, context: null, last_ready: null };
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i];
+      if (f.gpu_layers === null) {
+        const lm = /offloaded\s+(\d+)\s*\/\s*(\d+)\s+layers/i.exec(line);
+        if (lm) { f.gpu_layers = parseInt(lm[1], 10); f.gpu_layers_total = parseInt(lm[2], 10); }
+      }
+      if (f.vram_model_mib === null) {
+        const vm = /(?:Vulkan|CUDA|GPU)[^:]*model buffer size\s*=\s*([\d.]+)\s*MiB/i.exec(line);
+        if (vm) f.vram_model_mib = Math.round(parseFloat(vm[1]));
+      }
+      if (f.vram_projected_mib === null) {
+        const pm = /projected to use\s+([\d.]+)\s*MiB of device memory/i.exec(line);
+        if (pm) f.vram_projected_mib = Math.round(parseFloat(pm[1]));
+      }
+      if (f.context === null) {
+        const cm = /llama_context:\s*n_ctx\s*=\s*(\d+)/i.exec(line);
+        if (cm) f.context = parseInt(cm[1], 10);
+      }
+      if (f.last_ready === null && /all slots are idle|server is listening|main loop/i.test(line)) {
+        f.last_ready = /^(\S+)/.exec(line)[1];
+      }
+    }
+    return f;
+  }
+  const f = parse(REAL);
+  eq(f.gpu_layers, 27, 'GPU layers parsed from the real line');
+  eq(f.gpu_layers_total, 29, 'total layers parsed from the real line');
+  eq(f.vram_model_mib, 3884, 'model VRAM is the Vulkan0 MODEL buffer (3883.68 MiB), the measured figure');
+  ok(f.vram_model_mib !== 577, 'the CPU_Mapped buffer is NOT mistaken for device VRAM');
+  eq(f.vram_projected_mib, 4920, 'the projected device total is captured SEPARATELY, not folded into vram_model_mib');
+  ok(f.vram_projected_mib !== f.vram_model_mib, 'the two VRAM figures are different quantities and stay distinct');
+  eq(f.context, 8192, 'the context comes from the runtime\'s own load line');
+  ok(f.last_ready !== null, 'the ready timestamp is found');
+
+  const src = fs.readFileSync(AGENT_PATH, 'utf8');
+  // The window bug: a fixed tail missed the load block entirely on the real
+  // node (the target line sat 6094 lines back in a 40473-line journal).
+  ok(/ActiveEnterTimestamp/.test(src) && /'--since'/.test(src),
+    'the journal is read from the unit\'s own start, not a fixed tail');
+  ok(!/'-n', '600'/.test(src), 'the arbitrary 600-line tail is gone');
+  ok(/gotSomething/.test(src), 'an all-null result is never cached — a transient miss must not stick');
+
+  // The published field name must keep meaning what it says.
+  const clean = nodeState.sanitize({ runtime: { vram_model_mib: 3884, vram_projected_mib: 4920 } });
+  eq(clean.runtime.vram_model_mib, 3884, 'vram_model_mib survives the allow-list');
+  eq(clean.runtime.vram_projected_mib, 4920, 'vram_projected_mib survives the allow-list');
 }
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');

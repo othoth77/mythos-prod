@@ -207,6 +207,7 @@ function sanitize(envelope) {
       gpu_layers: int,
       gpu_layers_total: int,
       vram_model_mib: int,
+      vram_projected_mib: int,
       vram_source: function (x) { return str(x, 80); },
       tokens_per_s: num,
       last_ready: iso,
