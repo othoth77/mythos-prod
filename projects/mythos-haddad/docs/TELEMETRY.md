@@ -353,6 +353,27 @@ refuses a worktree outright; same reasoning, found there first.)
 the verbatim journal lines and the real health-report shape. That is the only reason these
 bugs are testable, and it is the direct consequence of having guessed a format wrong once.
 
+**And the suite itself had the same disease.** `collectGpu()` shells out to the real Vulkan
+probe, so a fixture could control `health` but not the subprocess: the assertion *"total VRAM
+is absent when the probe did not run"* passed on the VPS (Cirrus, nothing answers) and
+**failed on Haddad** (real GPU, probe answers). Green on the development host and red on the
+production host is the worst arrangement available — it certifies exactly the machine nobody
+ships to, and it is unfindable from the development host. `collectGpu(health, probes)` now
+takes an injection point defaulting to the real subprocesses, so both branches are driven
+deterministically, including the one that matters: a `--quick` pass skips `gpu_test` and the
+fallback *must* still supply total VRAM.
+
+The **guard** is the fix, not the injection point: an injection point that is not enforced is
+a promise, and a promise is what failed the first time. The suite reads its own source and
+asserts that no `collectGpu` call omits probes. It caught a call missed in that same change —
+which was also still using the old string-shaped `device` fixture, the original defect.
+
+**Verified on both classes of host:** 162/0 on the VPS (no usable GPU) and **168/0 on Haddad
+itself** (GTX 1660 SUPER, probes answering). The difference is the installer's behavioural
+half, which runs on a real checkout and is skipped on a linked worktree. Running a suite only
+where it is convenient is how the original bug survived; running it on the target hardware is
+what closed it.
+
 ## 11. Known limitations
 
 | | State |
