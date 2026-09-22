@@ -318,6 +318,42 @@ t('B8 diagnosis escalation: only on the LAST repair round, only when a diagnoser
   });
 });
 
+t('B9 budget spent, every check passing by measurement, no readable report: completed with a SYNTHESIZED report — never for a check that fails', function () {
+  var ws = newWorkspace('verified-no-report');
+  seedBrokenProject(ws);
+  // Three executions: the fix lands on the first turn, but no execution ever
+  // ends in a report (degenerate answers, as measured live on gh-issue-378).
+  return runTask(ws, [
+    callTool('w', 'write_file', { path: 'add.js', content: FIXED }), say('Ronaldo {{"name": "run_command"}}'),
+    say('Ronaldo'), say('Ronaldo')
+  ]).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, false, o.stderr);
+    assert.strictEqual(o.repair_rounds, 2, 'the budget was spent first');
+    assert.strictEqual(o.validation.passed, true);
+    assert.strictEqual(o.validation.report_synthesized, true, 'and the report is marked synthesized');
+    var rep = require(path.join(EXEC, 'lib', 'report.js')).extractReport(o.parsed.result).report;
+    assert.ok(rep && rep.status === 'completed' && /synthesized/.test(rep.summary), JSON.stringify(rep).slice(0, 300));
+    assert.deepStrictEqual(rep.files_changed, ['add.js']);
+    assert.ok(rep.residual_risks.some(function (r) { return /synthesized by the validator/.test(r); }));
+    assert.strictEqual(fs.readFileSync(path.join(ws, 'add.js'), 'utf8'), FIXED);
+  }).then(function () {
+    // The same shape with a check still FAILING stays a stop for a person.
+    var ws2 = newWorkspace('unverified-no-report'); seedBrokenProject(ws2);
+    return runTask(ws2, [callTool('w', 'write_file', { path: 'add.js', content: 'module.exports = function add(a, b) { return a * b; };\n' }), say('Ronaldo'), say('Ronaldo'), say('Ronaldo')]);
+  }).then(function (o) {
+    var rep = require(path.join(EXEC, 'lib', 'report.js')).extractReport(o.parsed.result).report;
+    assert.ok(rep && rep.status === 'blocked', 'a failing check is never synthesized into a pass');
+    assert.strictEqual(o.validation.passed, false);
+  }).then(function () {
+    // And with NO change at all (nothing done), no synthesis either.
+    var ws3 = newWorkspace('nothing-no-report'); seedBrokenProject(ws3);
+    return runTask(ws3, [say('Ronaldo'), say('Ronaldo'), say('Ronaldo')], { required_tests: ['node -e "process.exit(0)"'] });
+  }).then(function (o) {
+    var rep = require(path.join(EXEC, 'lib', 'report.js')).extractReport(o.parsed.result).report;
+    assert.ok(rep && rep.status === 'blocked', 'a passing check over an untouched workspace is not work');
+  });
+});
+
 t('B2 the repair brief hands the worker MEASURED evidence, not a scolding', function () {
   var ws = newWorkspace('repair-brief');
   seedBrokenProject(ws);

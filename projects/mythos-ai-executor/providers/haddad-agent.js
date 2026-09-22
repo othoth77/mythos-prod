@@ -631,6 +631,47 @@ function run(task, prompt, _sessionId, _mode, opts) {
     return String(v === undefined || v === null ? '' : v).replace(/`{3,}/g, "'''");
   }
 
+  // When the budget is spent, one outcome is not a failure: every declared
+  // check passes BY THE VALIDATOR'S OWN RUN, the work is in scope and the
+  // check files are intact, and the only rejections are about the worker's
+  // report (missing or unreadable). The success is then measured, not
+  // claimed — the opposite of a fake pass — and stopping it "for a person"
+  // would report verified work as unfinished (gh-issue-374, gh-issue-378:
+  // the fix on disk, both checks passing, the model's last message
+  // degenerate). The report is synthesized from the evidence and says so;
+  // the review gate still applies to it like to any completed task.
+  function verifiedWithoutReport(verdict) {
+    if (!verdict || verdict.pass) return false;
+    var ev = verdict.evidence || {};
+    if (!ev.mechanically_verified) return false;
+    var ran = ev.checks_run || [];
+    if (!ran.length || !ran.every(function (c) { return c.passed; })) return false;
+    var ch = ev.changed || {};
+    if (!((ch.created || []).length + (ch.modified || []).length)) return false;
+    return (verdict.rejections || []).every(function (r) { return /^(report|schema):/.test(String(r)); });
+  }
+  function finishVerified(text, verdict) {
+    var ev = verdict.evidence;
+    var report = {
+      mythos_report: true,
+      status: 'completed',
+      summary: 'Every declared check passes by independent validation; the worker emitted no readable report, so this one is synthesized from the measured evidence.',
+      files_changed: ev.changed.created.concat(ev.changed.modified),
+      tests: ev.checks_run.map(function (c) { return fenceSafe(c.check + ': pass'); }),
+      residual_risks: ['report synthesized by the validator — the worker\'s own final message was not a report'],
+      next_stage: 'review'
+    };
+    var stdoutText = text + '\n\n## Tool trace (' + trace.length + ' calls, ' + (repairRound + 1) + ' execution(s))\n' +
+      trace.map(function (e, i) { return (i + 1) + '. ' + e.tool + (e.target ? ' ' + fenceSafe(e.target) : '') + (e.refused ? ' → REFUSED' : ''); }).join('\n') +
+      '\n\n```json\n' + JSON.stringify(report, null, 2) + '\n```\n';
+    return finish({
+      exit_code: 0, signal: null, timed_out: false, stdout: stdoutText, stderr: '',
+      parsed: { is_error: false, result: stdoutText },
+      validation: { passed: true, attempts: repairRound + 1, evidence: ev, report_synthesized: true },
+      session_id: null, started_pid: null
+    });
+  }
+
   function stopForHuman(text, verdict, why) {
     var rejections = ((verdict && verdict.rejections) || []).map(fenceSafe);
     var summary = why + (rejections.length ? ' — ' + rejections.join(' | ') : '');
@@ -720,6 +761,7 @@ function run(task, prompt, _sessionId, _mode, opts) {
     }
 
     if (repairRound >= MAX_REPAIR_ROUNDS) {
+      if (verifiedWithoutReport(verdict)) return finishVerified(text, verdict);
       // The budget is spent. This is a stop for a person, not a crash and
       // not another try.
       return stopForHuman(text, verdict,
@@ -757,6 +799,7 @@ function run(task, prompt, _sessionId, _mode, opts) {
       // a check failing → fix it) — and only a spent budget stops for a
       // person. Three executions in total either way.
       if (repairRound >= MAX_REPAIR_ROUNDS) {
+        if (verifiedWithoutReport(capVerdict)) return Promise.resolve(finishVerified('', capVerdict));
         return Promise.resolve(stopForHuman('', capVerdict,
           'stopped after ' + MAX_ITERATIONS + ' model turns without a final answer; the repair budget is spent'));
       }
