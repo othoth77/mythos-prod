@@ -4,7 +4,7 @@
 >
 > Read this file first before working on Mythos Haddad.
 >
-> **Current main:** `d2fa93ac`
+> **Current main:** `d79de7f57ffb30c0d084beaa4f271a36d9be5d59`
 >
 > **Core rule:** SEARCH → REUSE → ADAPT → CONNECT → BUILD LAST.
 
@@ -492,50 +492,94 @@ HAD-1 knowledge integration remains future work.
 
 # 11. LIVE CONSOLE
 
-The Live Console is a parallel workstream.
+**Implementation:** DONE / VERIFIED and merged as PR #390 (`af486687`).
 
-Target:
+Live at:
 
-`status.mythosprod.xyz`
+`https://status.mythosprod.xyz/haddad/`
 
-Concept:
+and exposed as an **MYTHOS AI nodes** card on the Status Center front page.
+
+### Architecture
+
+Haddad does **not** have a VPS→Haddad inbound path. Continuous telemetry therefore uses:
 
 ```
+Haddad telemetry agent
+   ↓ HTTPS POST
+Public HTTPS / nginx
+   ↓
+loopback ingest receiver
+   ↓
+signature verification + allow-list
+   ↓
+derived Haddad state
+   ↓
 Status Center
- ↓
-VPS Status API
- ↓
-VPS MCP / Gateway
- ↓
-Haddad MCP
- ↓
-Haddad
 ```
 
-It should expose real observability, not fake production data.
+The agent signs each payload with an Ed25519 private key generated on Haddad. The private key never leaves Haddad; the VPS stores the public key.
 
-Important signals:
+Haddad opens no inbound port for telemetry.
 
-- online/degraded/busy/waiting/offline
-- current task
-- model
-- phase
-- attempt
-- validation/review
-- GPU/VRAM
-- runtime
-- worker
-- bridge
-- resource guard
-- task counts
-- incidents
-- heartbeat
+Haddad MCP remains the interface for interactive sessions; telemetry is the interface for continuous observation.
+
+### Verified capabilities
+
+- real signed telemetry
+- real public HTTPS ingest
+- online/degraded/offline state
+- heartbeat decay
 - recovery
+- state transition recording
+- browser-side stale/frozen-file override
+- deregistration removal
+- truthful N/A metrics
+- no fake zero values
+- bounded history
+- no-secret allow-list
+- real task visibility
+- GPU/runtime information where a real source exists
 
-No arbitrary shell/restart/config actions in the initial console.
+The production E2E proved:
 
----
+- real agent → real public POST → HTTP 202
+- stopped beats → DEGRADED at 36s → OFFLINE at 51s
+- resumed beats → recovery in under one second
+- stopped receiver → browser recomputed OFFLINE from frozen data
+- deregistered node → removed from page
 
+### Measured overhead
+
+- approximately 0.32 CPU-seconds per beat
+- approximately 68 MB peak for a short beat process
+- approximately 2.4 KB per beat on the wire
+- approximately 3.2% of one CPU core during the measured beat
+- bounded history approximately 11.9 MB/node/month
+
+### Tests / regression
+
+- `haddad-ingest`: 130/0
+- `haddad-telemetry`: 130/0
+- STC-1: 81/0 after fixing the pre-existing failure
+- monitor-coverage: 40/0
+- gateway-boundary: 37/0
+- mcp-ecosystem: 168/0
+- guardian: 597/0
+
+### Live Console remaining gates
+
+**DONE / VERIFIED:** receiver, ingest, console/card, signed telemetry, offline detection, recovery, stale-file override, refusals, secret allow-list, measured cost, bounded history, tests, regression, merge and deployment.
+
+**DEFERRED:**
+- historical charts
+- notifications
+- rolling `tokens_per_s` source
+- fleet scheduling
+
+**OWNER GATES — NOT YET COMPLETE:**
+1. Haddad is not currently beating. The telemetry agent is waiting for explicit owner approval before installation/enablement. Do not invent heartbeats.
+2. The console page is currently public. TLS/noindex/robots controls exist, but the page is not authenticated. Because it exposes structured task identity/event information, authentication/privacy is an owner decision.
 # 12. WHAT ALREADY EXISTS — DO NOT REBUILD
 
 Reuse existing Mythos components.
@@ -585,6 +629,8 @@ These are not reasons to restart V1; they are the remaining hardening/roadmap it
 - OTHKM knowledge tools are not yet configured on Haddad
 - Haddad→VPS SSH execution path is intentionally not established
 - Jev is not installed/integrated yet
+- Live Console telemetry is implemented but Haddad heartbeat is intentionally not enabled until explicit owner approval
+- Live Console authentication/privacy remains an owner decision
 - additional local models are not installed merely for quantity
 
 These should be handled by explicit gates, not by duplicating infrastructure.
@@ -742,4 +788,4 @@ Then, when implementation details are needed, read:
 
 This document is the **high-level navigation and architecture source**, while STATUS and implementation docs remain the detailed operational sources.
 
-Last consolidated: 2026-09-22.
+Last consolidated: 2026-09-22. Live Console PR #390 and production verification incorporated.
