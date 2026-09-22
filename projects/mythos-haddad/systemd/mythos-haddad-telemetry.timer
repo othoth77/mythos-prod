@@ -1,0 +1,20 @@
+[Unit]
+Description=MYTHOS Haddad telemetry heartbeat (every 10s)
+Documentation=file:%h/projects/mythos-prod/projects/mythos-haddad/docs/TELEMETRY.md
+
+[Timer]
+# 10 s is the published heartbeat. The Status Center's thresholds are
+# derived from it (DEGRADED at 30 s = 3 missed beats, OFFLINE at 45 s =
+# 4.5), and both numbers are published inside the snapshot so the browser
+# applies exactly the same rule. Changing this interval means changing
+# node-state.js's DEFAULT_THRESHOLDS and docs/TELEMETRY.md with it.
+OnBootSec=30s
+OnUnitInactiveSec=10s
+AccuracySec=1s
+# Never persistent: a missed beat is INFORMATION (the node was off), and
+# replaying it on boot would publish a stale state as if it were current.
+Persistent=false
+Unit=mythos-haddad-telemetry.service
+
+[Install]
+WantedBy=timers.target

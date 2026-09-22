@@ -1127,5 +1127,9 @@
     setInterval(loadLive, 60000);
     loadOthmode();
     setInterval(loadOthmode, 60000);
+    // AI nodes. The whole surface lives in assets/haddad.js, which also
+    // serves the /haddad/ console — one implementation, two mount points.
+    // Its absence must never break this page, exactly like the live layer.
+    if (window.MythosHaddad) window.MythosHaddad.mountCard(byId('nodes-body'), '');
   });
 })();
