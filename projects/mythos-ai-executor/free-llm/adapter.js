@@ -32,7 +32,15 @@ function defaultTransport(options, body) {
     var mod = target.protocol === 'https:' ? https : http;
     var req = mod.request({
       hostname: target.hostname, port: target.port, path: target.path,
-      method: 'POST', headers: options.headers, timeout: options.timeoutMs || 60000
+      method: 'POST', headers: options.headers, timeout: options.timeoutMs || 60000,
+      // One connection per request, never a pooled one. Node's default agent
+      // keeps sockets alive, a local llama-server closes idle ones after a
+      // few seconds, and a caller that blocks the event loop between two
+      // requests (the tool runner: sandboxed checks, a diagnoser) never sees
+      // the close — the next request goes out on a dead socket and fails as
+      // "socket hang up" (gh-issue-375, gh-issue-377, live). A fresh
+      // connection costs nothing that matters at these call rates.
+      agent: false
     }, function (res) {
       var chunks = [];
       res.on('data', function (c) { chunks.push(c); });
