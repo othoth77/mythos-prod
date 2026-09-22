@@ -89,8 +89,16 @@ owner-approved, fail-closed exemption for providers that have no tool surface at
 no execution authority. Real E2E: Issue #338 → `haddad:completed`. Detail:
 [docs/GITHUB_WORKER.md](docs/GITHUB_WORKER.md).
 
+**HAD-3 (Haddad MCP): COMPLETE — verified 2026-09-22.** The VPS OTH MCP (`projects/oth-mcp/server.js`,
+unchanged, 8 read-only tools, stdio) runs on Haddad over SSH-stdio with Haddad's configuration only: the
+executor tools read Haddad's own executor (`127.0.0.1:8130`, bearer by reference from the executor's own
+0600 file), OTHMODE/Status tools read the public estate models, knowledge tools stay fail-closed until HAD-1.
+No port, no unit, no root, no secret in git. Real E2E: Claude Code over `ssh othman@100.78.7.10` →
+`execution_status` → 26 tasks, first `t-20260921102118-y0rvkw` BLOCKED, matching the executor directly.
+Tests 14/0 (new) + 58/0 (existing server suite). Detail: [docs/HADDAD_MCP.md](docs/HADDAD_MCP.md).
+
 ## Next action
 
-HAD-3 (Haddad MCP), per the V1 order in `docs/MYTHOS_HADDAD_V1_SCOPE.md` — expose health/GPU/runtime/knowledge
-as read-only MCP tools over SSH-stdio. Before that: add the Windows client's SSH key and set
-`PasswordAuthentication no` (still pending from V0).
+Owner decisions after HAD-3: (a) whether Haddad-native tools (`haddad_health`, `haddad_gpu`, `haddad_runtime`)
+justify changing the shared `oth-mcp/server.js`; (b) HAD-1 (local OTHKM store) to configure the knowledge tools.
+Still pending from V0: add the Windows client's SSH key and set `PasswordAuthentication no`.

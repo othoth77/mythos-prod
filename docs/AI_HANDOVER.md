@@ -2,6 +2,24 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-22 — MYTHOS-HADDAD HAD-3: the VPS OTH MCP reused on Haddad (Fable 5.1)
+
+**Objective:** audit the MCP the VPS runs, decide what Haddad needs from it, reuse it on Haddad with the
+least change, install it production-like, and prove it works end to end — without building a second MCP.
+
+| Item | State |
+|---|---|
+| VPS MCP audited | `projects/oth-mcp/server.js` (389 lines, zero deps, stdio JSON-RPC 2.0, protocol `2024-11-05`, 8 read-only tools over Knowledge `:8150` / OTHMODE `:3021` / Executor `:8130` / Status Center; `GET` the only verb). Deployed as `deploy` via an SSH-stdio launcher + 0600 env, no unit; federated to remote HTTP clients by the bridge + ContextForge (VPS-only). Live through the gateway on 2026-09-22: 27 LIVE / 0 DOWN. |
+| Decision | **B — same source, configuration adapted.** `server.js` is not copied: Haddad's launcher runs it from the checkout the worker already runs from. Haddad had no MCP at all (no client config, no server, nothing listening but `:8600`/`:8130`). Full classification (ESSENTIAL / OPTIONAL / VPS-ONLY / UNSAFE / DUPLICATE) in `projects/mythos-haddad/docs/HADDAD_MCP.md` §2–3. |
+| What Haddad needs | the executor tools — Haddad's own executor had **no bearer provisioned**, so its task truth was readable by nothing. `execution_status/report`, `budget_status` now read `127.0.0.1:8130` with the bearer by reference from the executor's own `~/.config/mythos-ai-executor/executor.env` (provisioned with the executor's own `deploy/install.sh` idiom, only if absent). `project_context`/`capability_registry` → OTHMODE's public read model; `system_health` → Status Center; `knowledge_*` → `UPSTREAM_UNCONFIGURED` until HAD-1. |
+| Files | `bin/haddad-mcp-stdio.sh` (launcher, VPS twin), `bin/haddad-mcp-setup.sh` (idempotent, no root, verifies a real handshake), `bin/haddad-mcp-probe.js` (drives the **existing** `mythos-gateway/lib/mcp-client.js`), `haddad-health.js` check `mcp`, `tests/mythos-haddad-mcp-test.js`. No unit, no port, no firewall change, no secret in git, no second server. |
+| Security | no new listener (`ss -ltn` unchanged); reachable only by someone who can already SSH to haddad; runs as `othman`; bearer never in `mcp.env`/output/logs (all 8 tools' output grepped for 3 local secrets: 0/0/0); traversal-shaped ids URL-encoded → `UPSTREAM_404`, project grammar enforced; wrong bearer → `UPSTREAM_401`; absent → `UNCONFIGURED` with no upstream call; one 4 MiB process per client, 0 lingering after client/SSH kill. |
+| Tests | new **14/0** (offline: reuse assertion, no-secret/no-sudo/no-hostkey-bypass, full chain vs. a fake executor with bearer-by-reference, 401, malformed/unknown/traversal/oversized inputs, unreachable upstream, 3 concurrent clients, setup dry-run in a throwaway `$HOME`); existing `othk-6` **58/0** on Haddad; Haddad regression v0 8, runtime 9, fable 15, advisory 14, multi-project 73 — all 0 failed. Health `mcp` PASS. |
+| Real E2E | Claude Code 2.1.278 with `--mcp-config` → `ssh othman@100.78.7.10 …/haddad-mcp-stdio.sh` → `execution_status` → **`TASKS=26 FIRST=t-20260921102118-y0rvkw STATUS=BLOCKED`**, identical to `GET /tasks` on the executor. Every tool group verified over the Tailscale SSH path; the same task id asked of the VPS MCP → `UPSTREAM_404` (isolation holds). |
+| Haddad side effects | `~/.config/mythos-ai-executor/executor.env` created (executor's own file); `mythos-haddad-worker.service` restarted once to load it (nothing RUNNING; 4 BLOCKED / 22 COMPLETED before and after). Runtime, bridge timer, health timer untouched. |
+| VPS | untouched — no access from Haddad exists and none was created; live chain re-verified after the work. |
+| Not done (deliberately) | Haddad-native tools (`haddad_health/gpu/runtime`) — would change the shared `server.js` or add a second server: owner decision. Declared protocol version left at `2024-11-05` (no functional need; the real client accepted it). Scheduled health timer shows the `mcp` check only once `~/projects/mythos-prod` carries this branch. |
+
 ## 2026-09-22 — MYTHOS-HADDAD: multi-project isolation — review gate + continuation (Opus 5)
 
 **Objective:** Haddad manages several independent projects at once; one project stopping — for a

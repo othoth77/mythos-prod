@@ -183,6 +183,27 @@ check('ai_runtime', function () {
   add('ai_runtime', 'PASS', 'llama-server active, model "' + modelId + '" loaded, http://127.0.0.1:8600/v1 answers', { model: modelId });
 });
 
+// ---------- HAD-3: OTH MCP over SSH-stdio (optional) ----------
+check('mcp', function () {
+  var launcher = path.join(HOME, '.local', 'bin', 'haddad-mcp-stdio.sh');
+  if (!fs.existsSync(launcher)) return add('mcp', 'WARN', 'not installed (optional, HAD-3: run bin/haddad-mcp-setup.sh)');
+
+  // Drive the installed launcher exactly as a client does, through the
+  // existing MYTHOS MCP client: initialize, tools/list, then ONE real read
+  // (execution_status) through the Haddad executor. No daemon, no port.
+  var r = sh('node', [path.join(__dirname, 'haddad-mcp-probe.js'), launcher], { timeout: 45000 });
+  var rep = null; try { rep = JSON.parse(r.out); } catch (e) { /* reported below */ }
+  if (!rep) return add('mcp', 'FAIL', 'probe produced no report: ' + firstLine(r.err || r.out));
+  if (!rep.ok) return add('mcp', 'FAIL', 'launcher did not complete the MCP handshake: ' + (rep.error || 'unknown'), rep);
+  if (rep.tools.length !== 8) return add('mcp', 'FAIL', 'expected 8 tools, got ' + rep.tools.length, rep);
+  if (!rep.call.ok) {
+    // The MCP is up; the executor chain behind execution_status is not. The
+    // error names the owner (UPSTREAM_401 = bearer not loaded: restart the worker).
+    return add('mcp', 'WARN', rep.server + ' over stdio, 8 tools, but execution_status failed: ' + firstLine(rep.call.error || '').slice(0, 120), rep);
+  }
+  add('mcp', 'PASS', rep.server + ' (protocol ' + rep.protocol + ') over stdio, 8 tools, execution_status answered from the Haddad executor', rep);
+});
+
 check('logs', function () {
   fs.mkdirSync(LOG_DIR, { recursive: true });
   fs.accessSync(LOG_DIR, fs.constants.W_OK);
