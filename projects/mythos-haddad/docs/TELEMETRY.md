@@ -293,11 +293,30 @@ the counts are non-empty, because a silent empty view is the failure mode
 no assertion on shape would ever catch.
 
 **`HADDAD_MCP_REPO` is already taken.** It means the MCP launcher's
-checkout on that host. Borrowing it for the telemetry repo path would let
-a scratch value left in a shell silently repoint the live MCP launcher at
-a temporary worktree. The agent uses `HADDAD_TELEMETRY_REPO`, and defaults
-to the checkout it was itself run from, so a dry run needs no environment
-at all.
+checkout on that host, and it is routinely exported while re-pointing that
+launcher. Borrowing it for the telemetry repo path meant a scratch value
+left in a shell could pin the installed telemetry unit to a temporary
+worktree — which dies silently the day the worktree is removed, with the
+timer still firing and every beat failing to start.
+
+The agent was fixed first; **the setup script kept reading it for one more
+round, which was the half that mattered**, because the setup script is what
+bakes the path into `ExecStart`. Both now use `HADDAD_TELEMETRY_REPO` only,
+defaulting to the tree they were run from, so a normal run and a dry run
+need no environment at all.
+
+Three mechanical guards, not conventions:
+
+1. The setup **refuses** to install against a linked git worktree unless
+   `HADDAD_TELEMETRY_REPO` is set deliberately. A linked worktree has `.git`
+   as a *file* rather than a directory, which is an exact test, not a
+   heuristic.
+2. It validates and dry-runs **the agent the unit will execute**
+   (`$REPO/projects/…`), not the copy beside the script. Checking one file
+   and installing another is how a setup reports success for something that
+   cannot start.
+3. After generating the units it greps the result for that path and fails
+   if it is absent, so a broken substitution can never be left behind.
 
 (A third, on the VPS side, is in the ingest README: `MemoryDenyWriteExecute`
 aborts V8.)

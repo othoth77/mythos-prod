@@ -557,10 +557,43 @@ The production E2E proved:
 - approximately 3.2% of one CPU core during the measured beat
 - bounded history approximately 11.9 MB/node/month
 
+### Setup-safety fix — `HADDAD_MCP_REPO` (2026-09-22, after #390)
+
+PR #390 fixed `HADDAD_MCP_REPO` in the telemetry **agent** but not in the telemetry
+**setup script** — and the setup script is the half that matters, because it is what
+substitutes a path into the unit's `ExecStart`. An operator with that variable exported
+(it is routinely exported while re-pointing the MCP launcher) would have installed a
+telemetry unit pinned to whatever tree the MCP work was using. A unit pinned to a linked
+worktree dies silently the day the worktree is removed: the timer keeps firing and every
+beat fails to start.
+
+Closed mechanically, not by convention:
+
+- neither the agent nor the setup script reads `HADDAD_MCP_REPO`; both use
+  `HADDAD_TELEMETRY_REPO`, defaulting to the tree they were run from
+- the setup **refuses** a linked git worktree as a deployment target unless
+  `HADDAD_TELEMETRY_REPO` is set deliberately (`.git` as a file vs a directory — an exact
+  test, not a heuristic)
+- it validates and dry-runs **the agent the unit will execute**, not the copy beside the
+  script, so "collection OK" describes what will actually run
+- after generating the units it greps the result for that path and fails if absent
+- `ExecStart pinned to <path>` is printed, so the pinned path is visible without
+  `systemctl cat`
+
+Proven by running the real installer with a decoy `HADDAD_MCP_REPO` exported into a
+throwaway HOME: the decoy appears nowhere in the generated unit, `ExecStart` resolves to
+the production checkout, and nothing was written to the real `~/.config/mythos-haddad/`
+or `~/.config/systemd/user/`.
+
 ### Tests / regression
 
 - `haddad-ingest`: 130/0
-- `haddad-telemetry`: 130/0
+- `haddad-telemetry`: **139/2** — 11 new assertions in §11 (`HADDAD_MCP_REPO` cannot
+  redirect the installed unit; the installer is *run* with a decoy rather than
+  source-grepped; linked worktree refused; key mode 0600; no secret in the config).
+  The 2 failures are **ENVIRONMENTAL and pre-existing**: §2 asserts GPU-absence wording
+  on a host with no such GPU, and Haddad has an NVIDIA/nouveau GPU. Identical 2 failures
+  on clean `main` (128/2 before this change).
 - STC-1: 81/0 after fixing the pre-existing failure
 - monitor-coverage: 40/0
 - gateway-boundary: 37/0
@@ -578,8 +611,12 @@ The production E2E proved:
 - fleet scheduling
 
 **OWNER GATES — NOT YET COMPLETE:**
-1. Haddad is not currently beating. The telemetry agent is waiting for explicit owner approval before installation/enablement. Do not invent heartbeats.
-2. The console page is currently public. TLS/noindex/robots controls exist, but the page is not authenticated. Because it exposes structured task identity/event information, authentication/privacy is an owner decision.
+1. Haddad is not currently beating. The telemetry agent is waiting for explicit owner approval before installation/enablement. Do not invent heartbeats. **The setup is now safe to run** (see *Setup-safety fix* above) — no key, config or unit exists on Haddad, `mythos-haddad-telemetry.timer` reports `not-found`, and running the setup still does not enable it.
+2. The console page is currently public. TLS/noindex/robots controls exist, but the page is not authenticated. Because it exposes structured task identity/event information, authentication/privacy is an owner decision. **Deliberately not decided here.**
+
+**Nothing else blocks activation.** The remaining sequence is owner-gated end to end: run
+the setup on Haddad → send the printed public key to the VPS → key registered there →
+`systemctl --user enable --now mythos-haddad-telemetry.timer`.
 # 12. WHAT ALREADY EXISTS — DO NOT REBUILD
 
 Reuse existing Mythos components.
