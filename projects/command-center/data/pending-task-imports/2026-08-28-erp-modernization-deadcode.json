@@ -1,0 +1,52 @@
+{
+  "command": "othmode — CLAUDE — MASTER EXECUTION ORDER: modernize/repair/extend the Mythos ERP (Search First; full ERP audit; apply System Design; no placeholders)",
+  "status": "COMPLETED",
+  "phase": "COMPLETED",
+  "project": "mythos-os",
+  "source": "claude-code-remote/claude/mythos-erp-modernization-l1ptyo",
+  "sections": {
+    "preflight": {
+      "branch": "claude/mythos-erp-modernization-l1ptyo",
+      "base": "origin/main",
+      "othmode_activation": "keyword present -> OTHMODE control contract applied",
+      "read": ["AGENTS.md", "docs/AI_HANDOVER.md", "docs/ROADMAP.md", "docs/MYTHOS_OS_DESIGN_SYSTEM.md"],
+      "governing_finding": "Mythos OS Runtime complete through Stage 4AG; NO further runtime stage currently authorized; every other track owner-gated. AGENTS.md forbids opportunistic refactors, wholesale rewrites, editing load-bearing files, and starting unauthorized stages."
+    },
+    "status_center": "UNREACHABLE — othmode.mythosprod.xyz / status.* blocked by the Claude Code remote network policy (curl exit 56). Full report written here for host import per the pending-task-imports contract.",
+    "search_first": {
+      "verdict": "REUSE existing implementation; no new code built",
+      "evidence": "The working addLine/removeLine/getLines already exist and are canonical in js/shared/invoices.js (loaded after app.js). The app.js addLine was a shadowed dead stub. app-fresh.js has no reference in index.html or anywhere outside tests. Nothing new needed to be written — the correct action was removing duplication, not adding code."
+    },
+    "capabilities": "No runtime Mythos capability invoked. Agent-development work only, on the designated branch.",
+    "execution": {
+      "scope_decision": "Master order asked for a full one-pass ERP rebuild; that conflicts with safety (production-data protection) and AGENTS.md (priority 3), and no stage is currently authorized. Delivered the strongest SAFE, tested, in-scope increment instead: resolve two documented ROADMAP 'Remaining Known Open Items' as behaviour-preserving dead-code removal, plus verification that the ERP runs.",
+      "audit": "ERP booted in headless Chromium against php -S: login screen renders, 11 nav items, dashboard view present, 0 code console errors (only a sandbox-blocked redundant Google Fonts CDN line; fonts already self-hosted)."
+    },
+    "changes": {
+      "deleted": ["js/app-fresh.js (unreferenced dead file, 348 lines)"],
+      "modified": ["js/app.js (removed shadowed addLine 'Fonctionnalité en développement' stub -> ownership comment)", "tests/runtime-duplicate-cleanup-0-test.js (+2 assertions locking canonical addLine ownership)"]
+    },
+    "git": {
+      "commit": "889e8f3b683b6b6a43c10901569d2091c72f01a0",
+      "branch": "claude/mythos-erp-modernization-l1ptyo",
+      "remote_head_note": "verify origin/<branch> == 889e8f3 after push (the task-record commit follows)"
+    },
+    "validation": {
+      "runtime-duplicate-cleanup-0": "26/0 (was 24/0)",
+      "stage4ag": "44/0",
+      "stage4m": "76/0",
+      "mos-v2-regression-gate": "PASS, 0 new failures (1 known pre-existing orchestration-core failure, unrelated)",
+      "node -c js/app.js": "OK",
+      "browser-boot": "login screen renders, 0 new console errors"
+    },
+    "deployment": "NONE. Deployment is a separate host step; not performed and not authorized from this environment.",
+    "problems": "The master order as written (rebuild the entire ERP in one continuous unsupervised pass) cannot be executed safely against a live production ERP and would violate AGENTS.md scope discipline and production-data protection. Raised in the chat receipt; delivered a safe scoped increment under that stated constraint.",
+    "outcome": "Two documented open items closed as safe dead-code removal; regression protection added; ERP verified running. No behaviour change. Pushed to the designated branch; draft PR opened.",
+    "evolution": "No Evolution event recorded — the existing rules do not qualify routine dead-code removal as a signal/outcome worth a capsule."
+  },
+  "evidence_texts": [
+    "grep app-fresh across *.html/*.js/*.php (excl tests) -> no match (exit 1)",
+    "script order: js/app.js @2204 loads BEFORE js/shared/invoices.js @2215 -> invoices.js addLine wins",
+    "node tests/runtime-duplicate-cleanup-0-test.js -> 26 passed, 0 failed"
+  ]
+}
