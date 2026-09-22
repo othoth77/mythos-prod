@@ -1,11 +1,11 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-07T07:20:26.131Z",
+  "generated_at": "2026-09-22T19:32:55.970Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
-    "PENDING": 9,
+    "PENDING": 10,
     "CLAIMED": 0,
     "IN_PROGRESS": 0,
     "VALIDATING": 0,
@@ -23,7 +23,8 @@
     "gh-issue-211",
     "gh-issue-217",
     "gh-issue-220",
-    "gh-issue-228"
+    "gh-issue-228",
+    "gh-issue-389"
   ],
   "active": [],
   "awaiting_review": [
@@ -1998,6 +1999,29 @@
         "issue_number": 250,
         "issue_url": "https://github.com/othoth77/mythos-prod/issues/250",
         "issue_state": "COMPLETED"
+      }
+    },
+    {
+      "task_id": "gh-issue-389",
+      "status": "PENDING",
+      "priority": "normal",
+      "requested_action": "investigate",
+      "action_source": "default",
+      "execution_profile": null,
+      "model": null,
+      "blocker": null,
+      "created_at": "2026-09-22T19:32:54.178Z",
+      "created_by": "github-issue:othoth77",
+      "updated_at": "2026-09-22T19:32:54.178Z",
+      "executor_task_id": null,
+      "branch": null,
+      "task_file": "control/tasks/gh-issue-389.json",
+      "report_file": null,
+      "source": {
+        "kind": "github-issue",
+        "issue_number": 389,
+        "issue_url": "https://github.com/othoth77/mythos-prod/issues/389",
+        "issue_state": null
       }
     },
     {

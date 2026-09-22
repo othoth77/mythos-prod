@@ -1,0 +1,118 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-389",
+  "project": "mythos-prod",
+  "objective": "Capture the agreed Mythos V2/V3 architecture so it is not forgotten.\n\nminimize Claude token usage while maximizing reuse.",
+  "scope": [
+    "This issue is a durable architecture/roadmap record. It does not authorize implementation by itself. The V2 master execution plan should be created from this and the current codebase before autonomous V2 execution begins."
+  ],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "investigate",
+  "action_raw": "investigate",
+  "action_source": "default",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-22T19:32:54.178Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #389 https://github.com/othoth77/mythos-prod/issues/389 — \"MYTHOS V2 — Research → Decide → Execute → Jev future model/repository discovery\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[core v2 principle]\nBefore Qwen starts a substantial task, FABLE should determine whether existing strong/open-source projects, libraries, runtimes, skills, or models can be reused.\n\nFlow:\n\nFABLE → determine whether research is needed → Sonnet/Opus research → evaluate candidates → FABLE makes the execution decision → REUSE / ADAPT / CONNECT / BUILD LAST → Qwen executes → mechanical validation/review.\n\n[research policy]\nResearch is not a generic “best project” ranking. It must evaluate concrete candidates against the task requirements, including where relevant:\n\n- repository/project\n- license\n- maintenance/activity\n- architecture\n- dependencies\n- compatibility with Mythos/Haddad\n- security implications\n- expected reuse percentage\n- required adaptations\n- integration cost\n- risks\n- whether it can run on current hardware\n- whether it is genuinely free/open-weight/open-source where applicable\n\nFABLE remains the execution authority. Sonnet/Opus are research/architecture advisors, not the final authority and not the default executor.\n\n[model escalation]\n- Simple task / no meaningful reuse question → Qwen directly.\n- Reuse/integration research → Sonnet research when sufficient.\n- Architecture/security/complex integration → Opus research.\n- Ambiguous/high-impact research decision → Opus arbitration.\n- Qwen remains the local executor.\n\n[v2 phases]\n1. V2.1 — AI Team Foundation\n2. V2.2 — FABLE Task Delegation\n3. V2.3 — Parallel Workers + Resource Awareness\n4. V2.4 — OTHKM Integration\n5. V2.5 — AI Team Console\n6. V2.6 — Autonomous Continuous Operation\n\nEach phase advances only after capability + tests + evidence + safety + real E2E gates pass. No time-based promotion.\n\n[qwen capability ladder]\nThe V2 master plan must define what Qwen must demonstrably be able to do at each phase before promotion. Do not accept “Qwen says it succeeded”; use mechanical validation, evidence, scope checks, tests, review and delivery.\n\n[jev — future, not v2 dependency]\nLater, introduce Jev as a decision/router layer that can choose the most appropriate research strategy and possibly which researcher/model/tools to invoke.\n\nFuture flow:\n\nFABLE → Jev → choose research strategy → Sonnet/Opus research → FABLE decision → Qwen execution.\n\nJev must not become the executor and must not be a V2 prerequisite.\n\n[future model discovery]\nLater Jev + Sonnet/Opus can help discover free/open models suitable for Haddad/model library.\n\nCandidate evaluation should include:\n\n- truly free vs paid API\n- open weights/source status\n- license\n- VRAM/RAM requirements\n- inference speed\n- CUDA/Vulkan/CPU compatibility\n- context length\n- coding/reasoning quality\n- GGUF/llama.cpp availability\n- quantized variants\n- commercial-use constraints\n- maintenance/activity\n- benchmark on Haddad before acceptance\n\nFuture model onboarding:\n\nDISCOVER → VERIFY → BENCHMARK → SECURITY REVIEW → ACCEPT/REJECT.\n\nDo not install many models merely because they are popular.\n\n[parallel work]\nHaddad Live Console in status.mythosprod.xyz continues in parallel and should reuse VPS MCP + Haddad MCP and existing monitoring/health/event infrastructure.\n\n[reuse rule]\nSEARCH → REUSE → ADAPT → CONNECT → BUILD LAST.\n\nDo not build duplicate scheduler, executor, provider, validation, retry, MCP, memory, monitoring stack, or other infrastructure when an existing Mythos component can be reused.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 389,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/389",
+    "issue_id": 5544267890,
+    "issue_node_id": "I_kwDOTnlaF88AAAABSnbQcg",
+    "issue_title": "MYTHOS V2 — Research → Decide → Execute → Jev future model/repository discovery",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-22T19:32:41Z",
+    "issue_updated_at": "2026-09-22T19:32:41Z",
+    "issue_labels": [
+      "task"
+    ],
+    "content_sha256": "f2be7f4a83c370c2d579e6848015ebf63c1d68e3b99db978eee8013924875e95",
+    "attempt": 1,
+    "attempt_id": "gh-issue-389#1",
+    "idempotency_key": "503787b3621e5990f4828845f48e72898c9bb580e2b034fa5921fd1e05ee63f2",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "investigate",
+      "action_raw": "investigate",
+      "action_source": "default",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-22T19:32:54.179Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-22T19:32:54.180Z",
+        "event": "issue_received",
+        "reason": "open Issue #389 with label task",
+        "content_sha256": "f2be7f4a83c370c2d579e6848015ebf63c1d68e3b99db978eee8013924875e95"
+      },
+      {
+        "at": "2026-09-22T19:32:54.180Z",
+        "event": "action_resolved",
+        "reason": "default → investigate (raw \"investigate\")"
+      },
+      {
+        "at": "2026-09-22T19:32:54.180Z",
+        "event": "profile_resolved",
+        "reason": "investigate → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-22T19:32:54.180Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-22T19:32:55.940Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-389.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-22T19:32:54.180Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5782713724,
+        "url": "https://github.com/othoth77/mythos-prod/issues/389#issuecomment-5782713724",
+        "at": "2026-09-22T19:32:55.239Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
