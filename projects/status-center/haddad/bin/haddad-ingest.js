@@ -110,8 +110,15 @@ function readJson(file) {
 // Shaped as a FLEET from the first version (an array of nodes, not a
 // single object) so adding haddad-02 later is registration, not a schema
 // migration. No scheduler, no routing, no second node is implemented here.
-function publish(store, outDir, now) {
-  var nodes = Object.keys(store.nodes).sort().map(function (id) {
+// `known` is the set of currently registered node ids, or null when the
+// registry could not be read. A node that has been deregistered must
+// DISAPPEAR from the page, not linger as a permanent OFFLINE row — but a
+// registry that is temporarily unreadable must never blank the surface,
+// so null means "publish everything held".
+function publish(store, outDir, now, known) {
+  var nodes = Object.keys(store.nodes).filter(function (id) {
+    return !known || known[id];
+  }).sort().map(function (id) {
     var snap = store.nodes[id];
     var d = st.deriveState(snap, now, TH);
     var out = JSON.parse(JSON.stringify(snap));
@@ -154,6 +161,30 @@ function recordTransition(outDir, id, from, to, reason, at) {
     { at: at, node: id, from: from, to: to, reason: reason });
 }
 
+// Retention. Monthly history files older than history_keep_months are
+// removed, so an unattended node cannot fill a disk that has been under
+// pressure before. transitions.jsonl is never swept: it is one line per
+// real state change, it is the incident record, and it does not grow.
+var lastSweep = 0;
+function sweepHistory(outDir, now) {
+  if (now - lastSweep < 3600000) return;          // at most hourly
+  lastSweep = now;
+  var dir = path.join(outDir, 'haddad-history');
+  var cutoff = new Date(now);
+  cutoff.setUTCMonth(cutoff.getUTCMonth() - TH.history_keep_months);
+  var oldest = cutoff.toISOString().slice(0, 7);
+  var names;
+  try { names = fs.readdirSync(dir); } catch (e) { return; }
+  names.forEach(function (name) {
+    var m = /^(\d{4}-\d{2})\.jsonl$/.exec(name);
+    if (!m || m[1] >= oldest) return;
+    try {
+      fs.unlinkSync(path.join(dir, name));
+      log('info', 'history month retired', { file: name, keep_months: TH.history_keep_months });
+    } catch (e) { log('error', 'history sweep failed', { file: name, reason: String(e.message).slice(0, 120) }); }
+  });
+}
+
 // ── the server ─────────────────────────────────────────────────────
 function createServer(opts) {
   var nodesFile = opts.nodesFile;
@@ -161,13 +192,19 @@ function createServer(opts) {
   var clock = opts.clock || Date.now;
   // In-memory current state per node, rebuilt from the published file on
   // start so a restart does not make every node briefly UNKNOWN.
-  var store = { nodes: {}, seq: {} };
+  var store = { nodes: {}, seq: {}, lastHistory: {} };
   var boot = readJson(path.join(outDir, 'haddad-node.json'));
+  var bootKnown = null;
+  try { bootKnown = loadNodes(nodesFile); } catch (e) { bootKnown = null; }
   if (boot && Array.isArray(boot.nodes)) {
     boot.nodes.forEach(function (n) {
       if (!n || !st.NODE_ID_RE.test(String(n.node || ''))) return;
+      // A node deregistered while this service was down does not come back.
+      if (bootKnown && !bootKnown[n.node]) return;
       store.nodes[n.node] = n;
       if (typeof n.seq === 'number') store.seq[n.node] = n.seq;
+      // The replay guard must not be relaxed by a restart: keep the
+      // sequence AND the receipt time the published document recorded.
     });
   }
 
@@ -308,20 +345,7 @@ function createServer(opts) {
 
       var doc;
       try {
-        doc = publish(store, outDir, now);
-        appendJsonl(path.join(outDir, 'haddad-history', new Date(now).toISOString().slice(0, 7) + '.jsonl'), {
-          at: clean.received_at,
-          node: nodeId,
-          seq: seq,
-          state: (doc.nodes.filter(function (n) { return n.node === nodeId; })[0] || {}).state,
-          health: clean.health ? clean.health.counts : null,
-          runtime_state: clean.runtime ? clean.runtime.state : null,
-          gpu_vram_total_mib: clean.gpu ? clean.gpu.vram_total_mib : null,
-          mem_used_mib: clean.resources ? clean.resources.mem_used_mib : null,
-          load1: clean.resources ? clean.resources.load1 : null,
-          task: clean.current_task ? clean.current_task.task_id : null,
-          task_counts: clean.task_counts || null
-        });
+        doc = publish(store, outDir, now, registry);
       } catch (e) {
         log('error', 'publish failed', { node: nodeId, reason: String(e.message).slice(0, 160) });
         return reject(res, 500, 'publish_failed');
@@ -332,9 +356,38 @@ function createServer(opts) {
       // works on a copy, so without this the store would never hold a
       // state and no transition could ever be detected.
       if (newState.state) store.nodes[nodeId].state = newState.state;
-      if (prevState && newState.state && prevState !== newState.state) {
+
+      var stateChanged = !!(prevState && newState.state && prevState !== newState.state);
+      if (stateChanged) {
         recordTransition(outDir, nodeId, prevState, newState.state, newState.state_reason, clean.received_at);
         log('info', 'node state changed', { node: nodeId, from: prevState, to: newState.state });
+      }
+
+      // Downsampled history: every state change, otherwise at most one row
+      // per history_interval_s. See node-state.js for why.
+      var lastAt = store.lastHistory[nodeId] || 0;
+      if (stateChanged || now - lastAt >= TH.history_interval_s * 1000) {
+        store.lastHistory[nodeId] = now;
+        try {
+          appendJsonl(path.join(outDir, 'haddad-history', new Date(now).toISOString().slice(0, 7) + '.jsonl'), {
+            at: clean.received_at,
+            node: nodeId,
+            seq: seq,
+            state: newState.state,
+            reason: stateChanged ? 'state_change' : 'interval',
+            health: clean.health ? clean.health.counts : null,
+            runtime_state: clean.runtime ? clean.runtime.state : null,
+            gpu_vram_total_mib: clean.gpu ? clean.gpu.vram_total_mib : null,
+            mem_used_mib: clean.resources ? clean.resources.mem_used_mib : null,
+            load1: clean.resources ? clean.resources.load1 : null,
+            task: clean.current_task ? clean.current_task.task_id : null,
+            task_counts: clean.task_counts || null
+          });
+        } catch (e) {
+          // History is evidence, not the service: losing a row must not
+          // cost the beat that is already published.
+          log('error', 'history append failed', { node: nodeId, reason: String(e.message).slice(0, 160) });
+        }
       }
 
       var okBody = JSON.stringify({ ok: true, node: nodeId, seq: seq, state: newState.state }) + '\n';
@@ -350,7 +403,15 @@ function createServer(opts) {
   var tick = setInterval(function () {
     try {
       var now = clock();
-      var doc = publish(store, outDir, now);
+      var known = null;
+      try { known = loadNodes(nodesFile); } catch (e) { known = null; }
+      Object.keys(store.nodes).forEach(function (id) {
+        if (known && !known[id]) {
+          delete store.nodes[id]; delete store.seq[id]; delete store.lastHistory[id];
+          log('info', 'node deregistered — removed from the published surface', { node: id });
+        }
+      });
+      var doc = publish(store, outDir, now, known);
       // Decay is a real transition too: record it once, so the console's
       // incident view shows a node going away, not just being away.
       doc.nodes.forEach(function (n) {
@@ -362,13 +423,18 @@ function createServer(opts) {
         }
         held.state = n.state;
       });
+      sweepHistory(outDir, now);
     } catch (e) { log('error', 'decay publish failed', { reason: String(e.message).slice(0, 160) }); }
   }, 15000);
   if (tick.unref) tick.unref();
 
   server.on('close', function () { clearInterval(tick); });
   server.store = store;
-  server.publishNow = function () { return publish(store, outDir, clock()); };
+  server.publishNow = function () {
+    var known = null;
+    try { known = loadNodes(nodesFile); } catch (e) { known = null; }
+    return publish(store, outDir, clock(), known);
+  };
   return server;
 }
 

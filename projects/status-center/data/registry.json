@@ -1221,6 +1221,20 @@
       "reference": "https://github.com/othoth77/mythos-prod/pull/313#pullrequestreview-5253675044",
       "date": "2026-09-19",
       "note": "Recorded code review of PR #313 (commit 965305dd): 19 verified defects (password-hash leak via lookup, admin rank escalation on create and password reset, inbox-scope gaps on handoff/template test/search/contact, inbox digits below admin, dashboard platform health for viewers, AI fact credit without data, unresolved vehicle dropping the filter, plus UI/sync issues). All fixed in e0bb2a68 with regression tests (16 suites, 1,296 / 0); deployed with a backup; public-URL smoke 63 / 63."
+    },
+    {
+      "id": "EV-HADDAD-V1-MERGED",
+      "type": "commit",
+      "reference": "main d2fa93ac — PRs #365, #366, #368, #384, #385, #387, #388 merged 2026-09-22",
+      "date": "2026-09-22",
+      "note": "Mythos Haddad V1: local AI runtime (llama.cpp + Vulkan + Qwen2.5-7B-Q4_K_M on a GTX 1660 SUPER), Qwen usable by FABLE as a local worker, the VPS OTH MCP reused on Haddad over SSH-stdio with a haddad_health tool, and a supervised tool-runner with a bounded repair loop inside a bwrap sandbox. Detail and measurements in projects/mythos-haddad/STATUS.md and docs/."
+    },
+    {
+      "id": "EV-HADDAD-CONSOLE-E2E",
+      "type": "vps",
+      "reference": "mythos-haddad-ingest.service on vps-4722f0a9 + https://status.mythosprod.xyz/haddad/, 2026-09-22",
+      "date": "2026-09-22",
+      "note": "Signed telemetry end to end over public HTTPS: the real agent -> POST /ingest -> HTTP 202, snapshot, downsampled history and transitions written. Offline detection proven by stopping the beats (DEGRADED at 36 s, OFFLINE at 51 s against a 45 s threshold) and recovery by resuming them (back in under a second, no action in the Status Center). With the receiver stopped, the browser recomputed OFFLINE from the frozen file and said it had overridden the stored value. Measured cost 0.32 CPU-s per beat, nothing resident between beats. The node half is built and reviewed but NOT running: the Haddad session is under an owner hold."
     }
   ],
   "repositories": [
@@ -2087,6 +2101,33 @@
       "directories": [
         "projects/mythos-ai-executor",
         "projects/mythos-delegate"
+      ]
+    },
+    {
+      "id": "PROJECT-MYTHOS-HADDAD",
+      "name": "Mythos Haddad (AI compute node)",
+      "executive": false,
+      "purpose": "The local AI compute node: a GPU machine running its own llama.cpp/Qwen runtime, its own instance of the existing executor and GitHub bridge, and its own read-only MCP. It is not a second executor architecture — the separation is its worker environment and namespace, not a parallel implementation.",
+      "status": "IN_PROGRESS",
+      "maturity": "PRODUCTION_VERIFIED",
+      "repository": "othoth77/mythos-prod",
+      "directories": [
+        "projects/mythos-haddad"
+      ],
+      "last_change": "2026-09-22 (V1 merged; the Status Center live console built, deployed and verified on the VPS side)",
+      "blocker": "The node cannot yet be watched: the telemetry agent is built and reviewed but not running, because the Haddad session is under an explicit owner hold on new tooling and standing outward configuration. Until it runs, the AI-nodes card honestly shows no node.",
+      "next_action": "Owner: approve running projects/mythos-haddad/bin/haddad-telemetry-setup.sh on Haddad, then register the public key it prints with projects/status-center/haddad/bin/register-node.sh. Also open: whether the unauthenticated console page is the right place for structured task identity, or whether the page should be gated.",
+      "headline": "V1 MERGED and running on the node (runtime, FABLE worker, MCP, supervised tool runner with a bounded repair loop in a bwrap sandbox). The Status Center console for it is DEPLOYED and production-verified on the VPS side — ingest, offline detection, recovery and the frozen-file override were all proven with real signed beats — but Haddad itself is not beating yet, pending an owner decision.",
+      "dimensions": {
+        "implementation": {
+          "percent": 100,
+          "basis": "CALCULATED",
+          "note": "V1 stages HAD-2, HAD-2b, HAD-3 and HAD-4 are merged on main; the console's VPS half is deployed and verified. Percent measures built-and-verified engineering, not the owner gates that remain."
+        }
+      },
+      "evidence": [
+        "EV-HADDAD-V1-MERGED",
+        "EV-HADDAD-CONSOLE-E2E"
       ]
     },
     {

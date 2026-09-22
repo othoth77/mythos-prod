@@ -73,7 +73,21 @@ console.log('§2 GPU — absence is stated, never invented');
   ok(g.power_w === null, 'power is null where nothing can measure it');
   ok(typeof g.unavailable_reason === 'string' && g.unavailable_reason.length > 20,
     'the reason the metrics are missing is published, so the UI can explain N/A');
-  ok(/nouveau|NVK|nvidia-smi/i.test(g.unavailable_reason), 'the reason names the real driver limitation');
+  // The reason must describe THIS machine. Hard-coding Haddad's nouveau/NVK
+  // explanation everywhere would state a false cause on any other node —
+  // the same class of dishonesty as inventing the metric itself.
+  ok(!/nouveau|NVK/i.test(g.unavailable_reason),
+    'on a host with no such GPU the reason does NOT claim a nouveau/NVK limitation');
+  ok(/no live GPU counter is readable on this machine/i.test(g.unavailable_reason),
+    'it states the generic, true reason instead');
+
+  const gNvk = agent.collectGpu({
+    checks: [{ id: 'gpu_test', status: 'PASS', data: { device: 'NVIDIA GeForce GTX 1660 SUPER', vulkan_api: 'NVK 1.4.335', vram_mib: 6144 } }]
+  });
+  ok(/nouveau\/NVK/i.test(gNvk.unavailable_reason),
+    'on the open NVIDIA stack it DOES name the nouveau/NVK limitation');
+  ok(/vram_model_mib/.test(gNvk.unavailable_reason),
+    'and points at the figure that IS real — the runtime\'s own load accounting');
 
   // With a health report present, the device facts come from the existing
   // gpu_test check rather than a second probe.
@@ -274,6 +288,95 @@ console.log('§8 the agent reuses existing systems and builds no second one');
   const deps = (code.match(/require\('([^']+)'\)/g) || []).map(function (r) { return r.slice(9, -2); });
   const external = deps.filter(function (d) { return d.indexOf('.') !== 0 && ['child_process', 'fs', 'os', 'path', 'crypto', 'http', 'https', 'url'].indexOf(d) === -1; });
   eq(external, [], 'zero npm dependencies — node built-ins only');
+}
+
+console.log('\u00a79 the task view is never silently empty');
+{
+  // The failure this guards against was real and silent: reading
+  // MYTHOS_EXECUTOR_HOME from executor.env (which on Haddad holds only the
+  // token) left the store unresolved, state.js fell back to a directory
+  // that does not exist, and every beat published task_counts {} — which
+  // renders exactly like a healthy idle node. A fixture store with real
+  // tasks in it is the only assertion that catches that.
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'haddad-store-'));
+  const tasks = path.join(home, 'tasks');
+  function task(id, status, extra) {
+    const d = path.join(tasks, id);
+    fs.mkdirSync(d, { recursive: true });
+    fs.writeFileSync(path.join(d, 'task.json'), JSON.stringify(Object.assign({
+      project: 'mythos-prod', stage: 'execute', provider: 'openai-compat', requested_action: 'fix',
+      created_at: '2026-09-22T10:00:00Z'
+    }, (extra || {}).task)));
+    fs.writeFileSync(path.join(d, 'status.json'), JSON.stringify(Object.assign({
+      status: status, updated_at: '2026-09-22T11:00:00Z', retry_count: 0
+    }, (extra || {}).status)));
+    fs.writeFileSync(path.join(d, 'events.log'),
+      JSON.stringify({ ts: '2026-09-22T10:00:01Z', task_id: id, event: 'created' }) + '\n' +
+      JSON.stringify({ ts: '2026-09-22T10:00:02Z', task_id: id, event: 'transition', from: 'QUEUED', to: status }) + '\n');
+  }
+  task('gh-issue-379', 'COMPLETED');
+  task('gh-issue-380', 'QUEUED');
+  task('gh-issue-381', 'FAILED');
+
+  const prevHome = process.env.MYTHOS_EXECUTOR_HOME;
+  process.env.MYTHOS_EXECUTOR_HOME = home;
+  delete require.cache[require.resolve(AGENT_PATH)];
+  const a = require(AGENT_PATH);
+  const env = a.collect({ node: 'haddad', endpoint: 'http://127.0.0.1:1/ingest' });
+
+  ok(Object.keys(env.task_counts).length > 0, 'task_counts is NOT empty against a real store');
+  eq(env.task_counts.COMPLETED, 1, 'a completed task is counted');
+  eq(env.task_counts.QUEUED, 1, 'a queued task is counted');
+  eq(env.task_counts.FAILED, 1, 'a failed task is counted');
+  ok(env.current_task && env.current_task.task_id, 'a current task is reported');
+  eq(env.current_task.project, 'mythos-prod', 'the task carries its real project');
+  ok(env.events.length >= 6, 'real events are read from the executor\'s own event log');
+  ok(env.events.every(function (e) { return e.source === 'executor'; }), 'events are attributed to the executor');
+
+  // The whole envelope must survive the receiver's allow-list unchanged in
+  // substance — the two halves agree or the page shows nothing.
+  const clean = nodeState.sanitize(env);
+  eq(clean.task_counts, env.task_counts, 'task counts survive the receiver allow-list');
+  ok(clean.current_task && clean.current_task.task_id === env.current_task.task_id, 'the current task survives it');
+  ok(clean.events.length === Math.min(env.events.length, nodeState.DEFAULT_THRESHOLDS.max_events),
+    'events survive it');
+
+  // And the fields withheld from a page served without authentication
+  // really are absent, on both sides.
+  ok(clean.current_task.next_action === undefined, 'next_action is not published');
+  ok(env.current_task.next_action === undefined, 'the agent does not even collect next_action');
+  ok(!env.events.some(function (e) { return /error=|summary=/.test(String(e.detail || '')); }),
+    'event detail carries structured keys only, never free text');
+
+  if (prevHome === undefined) delete process.env.MYTHOS_EXECUTOR_HOME; else process.env.MYTHOS_EXECUTOR_HOME = prevHome;
+  delete require.cache[require.resolve(AGENT_PATH)];
+  fs.rmSync(home, { recursive: true, force: true });
+}
+
+console.log('\u00a710 executor-home resolution order');
+{
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'haddad-env-'));
+  fs.mkdirSync(path.join(dir, '.config', 'mythos-haddad'), { recursive: true });
+  fs.mkdirSync(path.join(dir, '.config', 'mythos-ai-executor'), { recursive: true });
+  // Exactly the shape found on the real node.
+  fs.writeFileSync(path.join(dir, '.config', 'mythos-ai-executor', 'executor.env'), 'MYTHOS_EXECUTOR_TOKEN=redacted\n');
+  fs.writeFileSync(path.join(dir, '.config', 'mythos-haddad', 'worker.env'),
+    'MYTHOS_EXECUTOR_HOME=/home/othman/mythos-ai-executor-haddad\n');
+
+  const src = fs.readFileSync(AGENT_PATH, 'utf8');
+  const order = src.indexOf("'mythos-haddad', 'worker.env'");
+  const other = src.indexOf("'mythos-ai-executor', 'executor.env'");
+  ok(order !== -1 && other !== -1 && order < other,
+    'worker.env is consulted BEFORE executor.env — it is the file that actually sets the home');
+
+  // HADDAD_MCP_REPO already means the MCP launcher's repo on that host;
+  // reusing it here could silently repoint one of the two.
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  ok(!/HADDAD_MCP_REPO/.test(code), 'the agent does not borrow HADDAD_MCP_REPO');
+  ok(/HADDAD_TELEMETRY_REPO/.test(code), 'it uses its own variable');
+  ok(/__dirname/.test(code), 'and defaults to the checkout it was run from, so a dry run needs no environment');
+
+  fs.rmSync(dir, { recursive: true, force: true });
 }
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');

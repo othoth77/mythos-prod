@@ -390,8 +390,7 @@
           ['Started', val(task.started_at)],
           ['Elapsed', val(duration(task.elapsed_s))],
           ['Validation', val(task.validation)],
-          ['Review', val(task.review)],
-          ['Next action', val(task.next_action)]
+          ['Review', val(task.review)]
         ]));
       }
       // Task summary — real counts only, in the executor's own vocabulary.

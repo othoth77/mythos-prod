@@ -8,6 +8,11 @@ Description=MYTHOS Haddad telemetry ingest (Status Center, loopback only)
 Documentation=file:/home/deploy/projects/mythos-prod/projects/status-center/haddad/README.md
 After=network.target
 Wants=network.target
+# A receiver that cannot start must not thrash: five failures in a minute
+# stops it and leaves the journal to explain why. These belong in [Unit] —
+# systemd ignores them in [Service] with only a warning.
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -19,10 +24,6 @@ ExecStart=/usr/bin/node /home/deploy/projects/mythos-prod/projects/status-center
   --host 127.0.0.1 --port 8190
 Restart=always
 RestartSec=5
-# A receiver that cannot start must not thrash: five failures in a minute
-# stops it and leaves the journal to explain why.
-StartLimitIntervalSec=60
-StartLimitBurst=5
 
 # ── sandbox ────────────────────────────────────────────────────────
 # The service's entire job is: read one registry file, accept a loopback
@@ -49,8 +50,16 @@ RestrictNamespaces=true
 RestrictRealtime=true
 RestrictSUIDSGID=true
 LockPersonality=true
-MemoryDenyWriteExecute=true
 RemoveIPC=true
+# MemoryDenyWriteExecute is deliberately ABSENT. V8 needs W->X memory for
+# its JIT and aborts under it (SIGTRAP in
+# MemoryAllocator::SetPermissionsOnExecutableMemoryChunk) — verified on
+# this host, 2026-09-22, not assumed. Running node --jitless to satisfy
+# the directive would trade a real capability for a nominal one on a
+# service that parses only its own allow-listed JSON. The same class of
+# mistake is already recorded for the Haddad runtime unit, where a
+# SystemCallFilter negation killed the Vulkan driver with SIGSYS
+# (projects/mythos-haddad/docs/AI_RUNTIME.md).
 # Loopback only. It never needs to originate a connection, and cannot
 # reach Haddad or anything else: this is what makes "the VPS never
 # connects to a node" a property of the system rather than a promise.

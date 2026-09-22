@@ -34,7 +34,13 @@ var DEFAULT_THRESHOLDS = {
   offline_after_s: 45,    // 4.5 missed beats — the node is gone
   max_skew_s: 120,        // reject an envelope whose clock is this far off
   max_body_bytes: 65536,
-  max_events: 100
+  max_events: 100,
+  // History is DOWNSAMPLED. One row per beat would be ~78 MB a month on a
+  // host that has been disk-pressured before, for a resolution nobody
+  // reads back. One row a minute, plus every state change unconditionally,
+  // keeps the trend and costs ~13 MB. The live file is the live file.
+  history_interval_s: 60,
+  history_keep_months: 6
 };
 
 var NODE_ID_RE = /^[a-z][a-z0-9-]{1,31}$/;
@@ -150,9 +156,12 @@ function sanitizeTask(v) {
     effective: str(t.effective, 40),
     started_at: iso(t.started_at),
     elapsed_s: int(t.elapsed_s),
-    validation: str(t.validation, 200),
-    review: str(t.review, 120),
-    next_action: str(t.next_action, 200)
+    // A short structured verdict, not the validator's prose.
+    validation: str(t.validation, 60),
+    review: str(t.review, 60)
+    // next_action is deliberately NOT published. It is free text written
+    // per task and this document is served without authentication; the
+    // owner's field list for the task view does not include it.
   };
 }
 

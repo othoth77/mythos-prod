@@ -319,7 +319,12 @@ console.log('§3 the receiver — signature, registry and replay');
         // ── history + transitions ─────────────────────────────────
         const month = new Date().toISOString().slice(0, 7);
         const hist = fs.readFileSync(path.join(out, 'haddad-history', month + '.jsonl'), 'utf8').trim().split('\n');
-        ok(hist.length >= 2, 'every accepted beat appends one immutable history line');
+        ok(hist.length >= 2, 'history rows are appended');
+        ok(hist.length < 12, 'history is DOWNSAMPLED — far fewer rows than the beats just sent');
+        ok(hist.every(function (l) { return ['state_change', 'interval'].indexOf(JSON.parse(l).reason) !== -1; }),
+          'every history row says why it was kept');
+        ok(hist.some(function (l) { return JSON.parse(l).reason === 'state_change'; }),
+          'a state change is ALWAYS kept, whatever the interval says');
         const lastHist = JSON.parse(hist[hist.length - 1]);
         eq(lastHist.node, 'haddad', 'history rows identify the node');
         ok(typeof lastHist.seq === 'number', 'history rows carry the sequence');
@@ -428,6 +433,60 @@ console.log('§6 the receiver cannot reach a node');
   ok(/User=mythos-ingest/.test(unit), 'it runs as its own unprivileged user, not www-data or deploy');
   ok(/NoNewPrivileges=true/.test(unit), 'it cannot gain privileges');
   ok(/MemoryMax=/.test(unit), 'it has an explicit memory ceiling (this host has been OOM-killed before)');
+}
+
+console.log('\u00a77b deregistering a node removes it from the page');
+{
+  // A disabled node must DISAPPEAR, not linger as a permanent OFFLINE row
+  // that nobody can clear — but an unreadable registry must never blank
+  // the surface, which would look exactly like every node going away.
+  const out = tmpDir('dereg');
+  const nodesFile = path.join(out, 'nodes.json');
+  const n1 = makeNode('haddad');
+  fs.writeFileSync(nodesFile, JSON.stringify({ nodes: [{ id: 'haddad', public_key: n1.pubB64 }] }));
+
+  const store = {
+    nodes: { haddad: Object.assign(nodeState.sanitize(envelope()), { node: 'haddad', received_at: new Date().toISOString() }) },
+    seq: { haddad: 1 }, lastHistory: {}
+  };
+  const known = ingest.loadNodes(nodesFile);
+  eq(ingest.publish(store, out, Date.now(), known).nodes.length, 1, 'a registered node is published');
+  eq(ingest.publish(store, out, Date.now(), {}).nodes.length, 0, 'a DEREGISTERED node is removed from the document');
+  eq(ingest.publish(store, out, Date.now(), null).nodes.length, 1,
+    'an UNREADABLE registry publishes what is held — it never blanks the surface');
+
+  const src = fs.readFileSync(path.join(BASE, 'bin', 'haddad-ingest.js'), 'utf8');
+  ok(/bootKnown && !bootKnown\[n\.node\]/.test(src),
+    'a node deregistered while the service was down does not come back on restart');
+  fs.rmSync(out, { recursive: true, force: true });
+}
+
+console.log('§7 history is bounded — an unattended node cannot fill the disk');
+{
+  const th = nodeState.DEFAULT_THRESHOLDS;
+  ok(th.history_interval_s >= 30, 'history is downsampled to at most one row per 30 s');
+  ok(th.history_interval_s > th.heartbeat_s, 'the history interval is coarser than the heartbeat');
+  ok(th.history_keep_months >= 1 && th.history_keep_months <= 24, 'a retention window is defined and sane');
+
+  const src = fs.readFileSync(path.join(BASE, 'bin', 'haddad-ingest.js'), 'utf8');
+  ok(/function sweepHistory/.test(src), 'old monthly files are swept');
+  ok(/history_keep_months/.test(src), 'the sweep uses the declared retention window');
+  ok(/transitions\.jsonl/.test(src) && !/unlink[^\n]*transitions/.test(src),
+    'the transition record is never swept — it is the incident history and it does not grow');
+
+  // A history row must stay small enough that the bound actually holds.
+  const row = JSON.stringify({
+    at: new Date().toISOString(), node: 'haddad', seq: 1758569330, state: 'ONLINE', reason: 'interval',
+    health: { PASS: 15, WARN: 1, FAIL: 0 }, runtime_state: 'READY', gpu_vram_total_mib: 6144,
+    mem_used_mib: 3800, load1: 0.42, task: 'gh-issue-379', task_counts: { COMPLETED: 12, FAILED: 2 }
+  });
+  const perMonth = row.length * (30 * 24 * 60 * 60 / th.history_interval_s) / 1048576;
+  ok(perMonth < 40, 'one node costs under 40 MB of history a month (measured: ' + perMonth.toFixed(1) + ' MB)');
+  console.log('   measured history cost: ' + row.length + ' B/row, ' + perMonth.toFixed(1) + ' MB per node per month');
+
+  // A failed history append must not cost the beat that was published.
+  ok(/history append failed/.test(src), 'a history write failure is logged, not fatal');
+  ok(src.indexOf("return reject(res, 500, 'publish_failed')") !== -1, 'a SNAPSHOT write failure still is fatal');
 }
 
 function report(dir) {

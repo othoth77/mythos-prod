@@ -142,7 +142,16 @@ function loopbackGet(port, pathname, key, timeoutS) {
 // VK_EXT_memory_budget's heapUsage, so the OS-level "VRAM used" reads 0
 // with 4.4 GB genuinely resident. Reported with its provenance, never as
 // a live sample.
-function runtimeLoadFacts() {
+// These facts are written once, when the model is loaded, and cannot change
+// until the runtime restarts. Reading 600 journal lines every 10 s to
+// re-derive them would be the single most expensive thing this agent does,
+// for a value that is already known — so the result is cached against the
+// unit's ActiveEnterTimestamp and re-read only when that moves.
+function runtimeLoadFacts(activeSince) {
+  var cached = readJson(CURSOR_FILE);
+  if (cached && cached.runtime_active_since && activeSince && cached.runtime_active_since === activeSince && cached.facts) {
+    return cached.facts;
+  }
   var facts = { gpu_layers: null, gpu_layers_total: null, vram_model_mib: null, last_ready: null, source: null };
   var r = sh('journalctl', ['--user', '-u', 'mythos-haddad-runtime.service', '-n', '600',
     '--no-pager', '-o', 'short-iso'], { timeout: 6000 });
@@ -165,6 +174,12 @@ function runtimeLoadFacts() {
       if (ts) { var t = Date.parse(ts[1]); if (isFinite(t)) facts.last_ready = new Date(t).toISOString(); }
     }
     if (facts.gpu_layers !== null && facts.vram_model_mib !== null && facts.last_ready !== null) break;
+  }
+  if (activeSince) {
+    try {
+      fs.mkdirSync(STATE_DIR, { recursive: true });
+      fs.writeFileSync(CURSOR_FILE, JSON.stringify({ runtime_active_since: activeSince, facts: facts }), { mode: 0o600 });
+    } catch (e) { /* an uncached run is slower, not wrong */ }
   }
   return facts;
 }
@@ -200,16 +215,17 @@ function collectRuntime(units) {
     if (!out.model) out.model = (typeof props.model_path === 'string') ? path.basename(props.model_path) : null;
   }
 
-  var facts = runtimeLoadFacts();
+  var since = sh('systemctl', ['--user', 'show', 'mythos-haddad-runtime.service',
+    '-p', 'ActiveEnterTimestamp', '--value']);
+  var activeSince = (since.ok && since.out) ? since.out : null;
+  if (activeSince) { var t = Date.parse(activeSince); if (isFinite(t)) out.last_restart = new Date(t).toISOString(); }
+
+  var facts = runtimeLoadFacts(activeSince);
   out.gpu_layers = facts.gpu_layers;
   out.gpu_layers_total = facts.gpu_layers_total;
   out.vram_model_mib = facts.vram_model_mib;
   out.vram_source = facts.source;
   out.last_ready = facts.last_ready;
-
-  var since = sh('systemctl', ['--user', 'show', 'mythos-haddad-runtime.service',
-    '-p', 'ActiveEnterTimestamp', '--value']);
-  if (since.ok && since.out) { var t = Date.parse(since.out); if (isFinite(t)) out.last_restart = new Date(t).toISOString(); }
 
   out.state = (out.slots_processing !== null && out.slots_processing > 0) ? 'BUSY' : 'READY';
   return out;
@@ -220,6 +236,27 @@ function collectRuntime(units) {
 // power have NO source on this driver stack (nouveau/NVK, no nvidia-smi,
 // no hwmon for this device without root) — they stay null and the reason
 // is published so the UI can say why instead of showing a zero.
+// The GPU's identity, its total VRAM and whether any live counter exists
+// are properties of the hardware and the driver. They cannot change while
+// the machine is up, and deriving them costs a python3 start (the Vulkan
+// probe) plus an lspci — every 10 s, for an answer that is already known.
+// Cached against boot time, so a reboot or a driver change re-derives.
+var GPU_CACHE_MS = 3600000;
+function collectGpuCached(health) {
+  var cacheFile = path.join(STATE_DIR, 'telemetry-gpu.json');
+  var bootAt = Math.round(Date.now() / 1000 - os.uptime());
+  var cached = readJson(cacheFile);
+  if (cached && cached.boot_at === bootAt && cached.gpu && Date.now() - (cached.at || 0) < GPU_CACHE_MS) {
+    return cached.gpu;
+  }
+  var gpu = collectGpu(health);
+  try {
+    fs.mkdirSync(STATE_DIR, { recursive: true });
+    fs.writeFileSync(cacheFile, JSON.stringify({ at: Date.now(), boot_at: bootAt, gpu: gpu }), { mode: 0o600 });
+  } catch (e) { /* an uncached run is slower, not wrong */ }
+  return gpu;
+}
+
 function collectGpu(health) {
   var out = {
     model: null, driver: null, vram_total_mib: null, vram_used_mib: null,
@@ -250,9 +287,16 @@ function collectGpu(health) {
     if (dev.ok && dev.out) out.model = dev.out.replace(/^\S+\s+/, '').slice(0, 80);
   }
   if (out.vram_used_mib === null || out.utilization_pct === null) {
-    out.unavailable_reason = 'nouveau/NVK exposes no live VRAM, utilisation, temperature or power counter ' +
-      'without root debugfs, and there is no nvidia-smi on the open driver stack. ' +
-      'The runtime reports what it loaded onto the GPU itself (see runtime.vram_model_mib).';
+    // Name the ACTUAL reason for this machine. Hard-coding Haddad's
+    // nouveau/NVK explanation would state a false cause on any other node,
+    // which is the same class of dishonesty as inventing the metric.
+    var open = /nouveau|NVK|nvidia/i.test(String(out.driver || '') + ' ' + String(out.model || ''));
+    out.unavailable_reason = open
+      ? 'the open nouveau/NVK stack exposes no live VRAM, utilisation, temperature or power counter ' +
+        'without root debugfs, and there is no nvidia-smi on it. The runtime reports what it loaded ' +
+        'onto the GPU itself (see runtime.vram_model_mib).'
+      : 'no live GPU counter is readable on this machine: no vendor tool answered and the driver ' +
+        'exposes no usage, temperature or power value to an unprivileged reader.';
   }
   return out;
 }
@@ -313,18 +357,43 @@ function collectResources() {
 }
 
 // ── tasks (the EXISTING executor store, read through its own module) ──
-function loadExecutorState() {
-  // The executor home is the worker's, not this process's default.
-  var home = process.env.MYTHOS_EXECUTOR_HOME;
-  if (!home) {
-    var envFile = path.join(HOME, '.config', 'mythos-ai-executor', 'executor.env');
+// Where the worker's task store actually is. Order matters and is not
+// arbitrary: on Haddad, ~/.config/mythos-ai-executor/executor.env holds
+// only MYTHOS_EXECUTOR_TOKEN, while ~/.config/mythos-haddad/worker.env is
+// the file the live worker unit loads and the only one that sets
+// MYTHOS_EXECUTOR_HOME. Reading executor.env first left `home` undefined,
+// state.js fell back to ~/mythos-ai-executor — a directory that does not
+// exist — and every beat published an empty task view that looked exactly
+// like an idle node. Verified against the real host, 2026-09-22.
+var EXECUTOR_HOME_FILES = [
+  path.join(HOME, '.config', 'mythos-haddad', 'worker.env'),
+  path.join(HOME, '.config', 'mythos-ai-executor', 'executor.env')
+];
+
+function executorHome() {
+  if (process.env.MYTHOS_EXECUTOR_HOME) return process.env.MYTHOS_EXECUTOR_HOME;
+  for (var i = 0; i < EXECUTOR_HOME_FILES.length; i++) {
     try {
-      var m = /^\s*(?:export\s+)?MYTHOS_EXECUTOR_HOME\s*=\s*["']?([^"'\n]+)/m.exec(fs.readFileSync(envFile, 'utf8'));
-      if (m) home = m[1].trim();
-    } catch (e) { /* fall through */ }
+      var m = /^\s*(?:export\s+)?MYTHOS_EXECUTOR_HOME\s*=\s*["']?([^"'\n]+)/m
+        .exec(fs.readFileSync(EXECUTOR_HOME_FILES[i], 'utf8'));
+      if (m && m[1].trim()) return m[1].trim();
+    } catch (e) { /* try the next one */ }
   }
-  var repo = process.env.HADDAD_MCP_REPO || path.join(HOME, 'projects', 'mythos-prod');
-  var mod = path.join(repo, 'projects', 'mythos-ai-executor', 'lib', 'state.js');
+  return null;
+}
+
+// The checkout this agent belongs to. Derived from the agent's OWN path by
+// default, so a dry run finds the right tree with nothing exported.
+// HADDAD_MCP_REPO is deliberately NOT consulted: it already means the MCP
+// launcher's repo on this host, and borrowing it would let a scratch value
+// left in the environment silently repoint one of the two.
+function repoRoot() {
+  return process.env.HADDAD_TELEMETRY_REPO || path.resolve(__dirname, '..', '..', '..');
+}
+
+function loadExecutorState() {
+  var home = executorHome();
+  var mod = path.join(repoRoot(), 'projects', 'mythos-ai-executor', 'lib', 'state.js');
   if (!fs.existsSync(mod)) return null;
   if (home) process.env.MYTHOS_EXECUTOR_HOME = home;
   try { return require(mod); } catch (e) { return null; }
@@ -350,11 +419,33 @@ function severityFor(ev) {
 }
 function eventDetail(ev) {
   if (ev.event === 'transition') return ev.from + ' -> ' + ev.to + (ev.reason ? ' (' + ev.reason + ')' : '');
+  // STRUCTURED KEYS ONLY. `error` and `summary` are free text — written by
+  // a model, or lifted from an exception — and this page is reachable
+  // without authentication. The owner's field list for the event stream is
+  // timestamp / source / event / task / severity; this adds only the
+  // executor's own controlled vocabulary on top of it.
   var bits = [];
-  ['to', 'reason', 'classification', 'provider', 'model', 'attempt', 'error', 'summary'].forEach(function (k) {
+  ['to', 'from', 'reason', 'classification', 'provider', 'model', 'attempt'].forEach(function (k) {
     if (ev[k] !== undefined && ev[k] !== null && typeof ev[k] !== 'object') bits.push(k + '=' + String(ev[k]));
   });
-  return bits.join(' ').slice(0, 300) || null;
+  return bits.join(' ').slice(0, 160) || null;
+}
+
+// The validator's verdict, as counts rather than prose. lib/work-validation
+// re-runs every declared check and records the outcome; what a reader needs
+// on a public page is how many passed, not the text of a failure.
+function validationVerdict(report) {
+  var v = report && report.validation;
+  if (!v) return null;
+  if (Array.isArray(v.checks)) {
+    var total = v.checks.length;
+    var pass = v.checks.filter(function (c) { return c && (c.ok === true || c.status === 'PASS' || c.passed === true); }).length;
+    return pass + ' / ' + total + ' checks passed';
+  }
+  if (typeof v.passed === 'number' && typeof v.total === 'number') return v.passed + ' / ' + v.total + ' checks passed';
+  if (typeof v.ok === 'boolean') return v.ok ? 'passed' : 'failed';
+  if (typeof v === 'string') return /^[A-Za-z0-9 ,./()-]{1,60}$/.test(v) ? v : 'recorded';
+  return 'recorded';
 }
 
 function collectTasks() {
@@ -411,11 +502,8 @@ function collectTasks() {
       effective: pick.effective || null,
       started_at: pick.status.started_at || null,
       elapsed_s: started ? Math.round(((ended || Date.now()) - started) / 1000) : null,
-      validation: report && report.validation
-        ? (typeof report.validation === 'string' ? report.validation : JSON.stringify(report.validation).slice(0, 200))
-        : null,
-      review: review ? (review.required ? (review.satisfied ? 'satisfied' : 'HUMAN APPROVAL REQUIRED') : 'not required') : null,
-      next_action: pick.status.next_action || null
+      validation: validationVerdict(report),
+      review: review ? (review.required ? (review.satisfied ? 'satisfied' : 'HUMAN APPROVAL REQUIRED') : 'not required') : null
     };
   }
 
@@ -545,6 +633,30 @@ function nextSeq() {
   return next;
 }
 
+var REPO_CACHE_MS = 300000;
+function collectRepo() {
+  var repoDir = repoRoot();
+  var cacheFile = path.join(STATE_DIR, 'telemetry-repo.json');
+  var cached = readJson(cacheFile);
+  if (cached && cached.at && Date.now() - cached.at < REPO_CACHE_MS && cached.repo && cached.dir === repoDir) {
+    return cached.repo;
+  }
+  var repo = { head: null, branch: null, dirty: null };
+  if (fs.existsSync(path.join(repoDir, '.git'))) {
+    var h = sh('git', ['-C', repoDir, 'rev-parse', '--short', 'HEAD']);
+    var b = sh('git', ['-C', repoDir, 'branch', '--show-current']);
+    var d = sh('git', ['-C', repoDir, 'status', '--porcelain']);
+    if (h.ok) repo.head = h.out;
+    if (b.ok) repo.branch = b.out || null;
+    if (d.ok) repo.dirty = d.out.length > 0;
+  }
+  try {
+    fs.mkdirSync(STATE_DIR, { recursive: true });
+    fs.writeFileSync(cacheFile, JSON.stringify({ at: Date.now(), dir: repoDir, repo: repo }), { mode: 0o600 });
+  } catch (e) { /* an uncached run is slower, not wrong */ }
+  return repo;
+}
+
 function collect(cfg) {
   var units = collectUnits();
   var health = collectHealth();
@@ -558,16 +670,10 @@ function collect(cfg) {
     });
   } catch (e) { /* leave unknown */ }
 
-  var repo = { head: null, branch: null, dirty: null };
-  var repoDir = process.env.HADDAD_MCP_REPO || path.join(HOME, 'projects', 'mythos-prod');
-  if (fs.existsSync(path.join(repoDir, '.git'))) {
-    var h = sh('git', ['-C', repoDir, 'rev-parse', '--short', 'HEAD']);
-    var b = sh('git', ['-C', repoDir, 'branch', '--show-current']);
-    var d = sh('git', ['-C', repoDir, 'status', '--porcelain']);
-    if (h.ok) repo.head = h.out;
-    if (b.ok) repo.branch = b.out || null;
-    if (d.ok) repo.dirty = d.out.length > 0;
-  }
+  // Three git spawns per beat, six times a minute, for facts that change
+  // when someone pulls. Cached for five minutes; `git status` on a large
+  // checkout is by far the most expensive call in this function.
+  var repo = collectRepo();
 
   return {
     schema: SCHEMA,
@@ -586,7 +692,7 @@ function collect(cfg) {
     health: health.summary,
     workers: collectWorkers(units, runtime, health, tasks.current_task),
     runtime: runtime,
-    gpu: collectGpu(health.doc),
+    gpu: collectGpuCached(health.doc),
     resources: collectResources(),
     current_task: tasks.current_task,
     task_counts: tasks.task_counts,
@@ -662,7 +768,12 @@ module.exports = {
   collectResources: collectResources,
   collectWorkers: collectWorkers,
   collectGpu: collectGpu,
+  collectGpuCached: collectGpuCached,
+  collectRepo: collectRepo,
   severityFor: severityFor,
+  validationVerdict: validationVerdict,
+  executorHome: executorHome,
+  repoRoot: repoRoot,
   eventDetail: eventDetail,
   loadConfig: loadConfig
 };

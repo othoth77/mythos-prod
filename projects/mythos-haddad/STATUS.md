@@ -121,6 +121,43 @@ the validator, and the executor's later commit — outside the sandbox, where `-
 stop `post-commit` — would have run it as the host user. `.git` is now mounted read-only inside the
 sandbox and delivery pins `core.hooksPath=/dev/null`. Detail: [docs/GITHUB_WORKER.md](docs/GITHUB_WORKER.md).
 
+## MYTHOS HADDAD live console — 2026-09-22
+
+**VPS half: COMPLETE, DEPLOYED, PRODUCTION-VERIFIED. Node half: BUILT and REVIEWED, NOT YET RUNNING — owner approval outstanding.**
+
+Haddad is now a node the Status Center can show, not only a machine you can SSH to.
+`https://status.mythosprod.xyz/` gains an **MYTHOS AI nodes** card and
+`https://status.mythosprod.xyz/haddad/` is the live console. Design, thresholds, measured
+cost and the two traps found on the way: [docs/TELEMETRY.md](docs/TELEMETRY.md).
+
+**The node pushes; the VPS never connects to it.** The Status Center's STC-2 monitor cannot
+poll Haddad — the VPS has no Tailscale and no VPS→Haddad SSH credential, and creating one
+is the deferred owner decision recorded below. Haddad→VPS HTTPS works (verified on the node,
+`/health` → 200). So Haddad signs a telemetry envelope with an Ed25519 key it generated
+itself and POSTs it every 10 s. Haddad opens no port, publishes no endpoint and needs no
+inbound rule, and this feature does not depend on that pending decision at all.
+
+| Item | State | Evidence (2026-09-22) |
+|---|---|---|
+| Ingest receiver deployed | **DONE / VERIFIED** | `mythos-haddad-ingest.service` active, `127.0.0.1:8190`, `systemd-analyze security` **2.9 OK** |
+| nginx path | **DONE / VERIFIED** | `POST /ingest` → 401 unsigned, `GET /ingest` → 403, `/haddad/` → 200, all over public TLS |
+| Console + card deployed | **DONE / VERIFIED** | rendered in real headless Chrome; every section shows real values or N/A |
+| Signed ingest, end to end | **DONE / VERIFIED** | the real agent → the real public endpoint → `HTTP 202`, snapshot + history + transitions written |
+| Offline detection | **DONE / VERIFIED** | beats stopped: DEGRADED at 36 s, **OFFLINE at 51 s** (threshold 45 s), transitions recorded |
+| Recovery | **DONE / VERIFIED** | one beat → back to its real state in < 1 s, **no manual action in the Status Center** |
+| Frozen-file honesty | **DONE / VERIFIED** | with the receiver stopped, the browser recomputes from `received_at` and says it overrode |
+| Refusals | **DONE / VERIFIED** | bad key, unknown node, replay, skew, oversize, broken registry — all refused; suite drives each |
+| No secret can be published | **DONE / VERIFIED** | `sanitize()` is an allow-list; the suite pushes real secret-shaped fields through the whole path |
+| Measured cost | **DONE / MEASURED** | **0.32 CPU-s per beat** (~0.15 s of it Node startup), 68 MB peak and nothing resident, ~2.4 KB on the wire, ~3.2 % of one core, 11.9 MB history/node/month |
+| Tests | **DONE** | `haddad-ingest-test.js` 126/0, `haddad-telemetry-test.js` 127/0 |
+| **Haddad actually beating** | **NOT DONE — owner gate** | the node session is under an explicit hold from the owner (no new tooling, no standing outward configuration). Until it runs, the card honestly shows no node. |
+| **Is a public page right for this?** | **OPEN — owner decision** | the console is TLS + noindex but **not authenticated**. It publishes structured task identity (issue, project, action, profile, model, status) and an event stream. That is the class of thing `data/current.json` already publishes, and the three free-text fields were removed rather than published — but gating the page is the owner's call, not ours. |
+
+Found by review on the real host **before any beat was sent**, and fixed: the agent read
+`MYTHOS_EXECUTOR_HOME` from `executor.env`, which on Haddad holds only the token. The home
+lives in `worker.env`. The effect was not an error — the task view was silently empty and
+rendered exactly like a healthy idle node. See TELEMETRY.md §10.
+
 ## Next action
 
 **Restart `mythos-haddad-worker.service` once.** It is long-running and still holds pre-merge code;
