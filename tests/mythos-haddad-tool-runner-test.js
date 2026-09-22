@@ -321,11 +321,18 @@ t('a tool the profile did not grant is refused', function () {
   });
 });
 
-t('the iteration budget stops the loop', function () {
+t('the iteration budget stops the loop, and stops it FOR A PERSON', function () {
   var forever = msg(null, [tc('c1', 'list_files', { path: '.' })]);
   return runAgent(baseTask(), [forever]).then(function (o) {
-    assert.strictEqual(o.parsed.subtype, 'HADDAD_AGENT_MAX_ITERATIONS');
     assert.ok(o.tool_calls <= agent.MAX_TOOL_CALLS + 2, 'tool calls stayed bounded: ' + o.tool_calls);
+    // A loop that ran out of turns is not a crash: it ends cleanly with a
+    // `blocked` report, which the executor already classifies as a human
+    // decision, and the report says how far it got rather than only that
+    // it stopped.
+    assert.strictEqual(o.parsed.is_error, false, 'not reported as a provider error');
+    var rep = require(path.join(EXEC, 'lib', 'report.js')).extractReport(o.stdout).report;
+    assert.ok(rep && rep.status === 'blocked', 'a blocked report is emitted');
+    assert.ok(/model turns/.test(rep.summary), rep.summary);
   });
 });
 

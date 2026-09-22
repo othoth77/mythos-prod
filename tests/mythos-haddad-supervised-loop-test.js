@@ -105,6 +105,18 @@ function runTask(ws, replies, over) {
 
 var FIXED = 'module.exports = function add(a, b) { return a + b; };\n';
 
+// A rejected attempt does not crash: it ends cleanly with a `blocked`
+// report so the executor's existing classifier calls it a human decision.
+// These two helpers read that contract.
+var reporting = require(path.join(EXEC, 'lib', 'report.js'));
+function blockedReport(o) {
+  var r = reporting.extractReport(o.stdout).report;
+  assert.ok(r, 'a structured report was emitted');
+  assert.strictEqual(r.status, 'blocked', 'and it asks for a person');
+  return r;
+}
+function rejections(o) { return blockedReport(o).residual_risks.join(' | '); }
+
 // ===========================================================================
 // A. The report is not the evidence
 // ===========================================================================
@@ -114,9 +126,10 @@ t('A1 a worker that claims success while the check fails is REJECTED', function 
   seedBrokenProject(ws);
   // The model touches nothing and declares victory, three times over.
   return runTask(ws, [say(report('completed', 'All tests pass.'))]).then(function (o) {
-    assert.strictEqual(o.parsed.is_error, true, 'the claim did not survive validation');
-    assert.strictEqual(o.parsed.subtype, 'HADDAD_AGENT_VALIDATION_FAILED');
-    assert.ok(/add\.test\.js` did not pass/.test(o.stderr), o.stderr);
+    assert.strictEqual(o.validation.passed, false, 'the claim did not survive validation');
+    var rep = require(path.join(EXEC, 'lib', 'report.js')).extractReport(o.stdout).report;
+    assert.strictEqual(rep.status, 'blocked', 'it stops for a person');
+    assert.ok(/add\.test\.js` did not pass/.test(rep.residual_risks.join(' | ')), rep.residual_risks.join(' | '));
     assert.strictEqual(o.repair_rounds, agent.MAX_REPAIR_ROUNDS, 'it used its repair budget first');
   });
 });
@@ -139,8 +152,8 @@ t('A3 a report that ADMITS failure is never a pass', function () {
   seedBrokenProject(ws);
   fs.writeFileSync(path.join(ws, 'add.js'), FIXED);   // work is actually fine
   return runTask(ws, [say(report('failed', 'I could not finish.'))]).then(function (o) {
-    assert.strictEqual(o.parsed.is_error, true, 'an admitted failure is not overridden by passing checks');
-    assert.ok(/reports failure/.test(o.stderr), o.stderr);
+    assert.strictEqual(o.validation.passed, false, 'an admitted failure is not overridden by passing checks');
+    assert.ok(/reports failure/.test(rejections(o)), rejections(o));
   });
 });
 
@@ -206,12 +219,19 @@ t('B3 the loop is BOUNDED: three executions, then it stops for a person', functi
     timeout_seconds: 600, required_tests: ['node add.test.js'] },
     'fix it', null, 'start', { apiKey: 'k', model: 'm', transport: transport }
   ).then(function (o) {
-    assert.strictEqual(o.parsed.is_error, true);
-    assert.strictEqual(o.parsed.subtype, 'HADDAD_AGENT_VALIDATION_FAILED');
     assert.strictEqual(o.repair_rounds, 2, 'two repair rounds — the declared bound');
     assert.strictEqual(o.validations.length, 3, 'three executions in total, then it stopped');
     assert.strictEqual(attempts, 3, 'the model was asked exactly three times');
-    assert.ok(/validation failed after 3 attempt/.test(o.parsed.result), o.parsed.result);
+    // It stops FOR A PERSON rather than crashing: the executor's existing
+    // "ended cleanly with a blocked report" seam turns this into a human
+    // decision (HUMAN_APPROVAL) instead of a bare FAILED.
+    assert.strictEqual(o.parsed.is_error, false, 'a spent budget is not an error');
+    var rep = require(path.join(EXEC, 'lib', 'report.js')).extractReport(o.stdout).report;
+    assert.ok(rep, 'a structured report is emitted');
+    assert.strictEqual(rep.status, 'blocked', 'and its status asks for a person');
+    assert.ok(/repair budget is spent/.test(rep.summary), rep.summary);
+    assert.ok(rep.residual_risks.length, 'carrying the measured rejections');
+    assert.strictEqual(o.validation.passed, false);
   });
 });
 
@@ -226,9 +246,9 @@ t('C1 editing the check itself is caught', function () {
     callTool('c1', 'write_file', { path: 'add.test.js', content: 'console.log("add ok");\n' }),
     say(report('completed', 'Tests pass now.', ['add.test.js']))
   ]).then(function (o) {
-    assert.strictEqual(o.parsed.is_error, true, 'a rewritten check is not a pass');
-    assert.ok(/integrity: add\.test\.js .*MODIFIED/.test(o.stderr),
-      'and it is named as an integrity failure: ' + o.stderr);
+    assert.strictEqual(o.validation.passed, false, 'a rewritten check is not a pass');
+    assert.ok(/integrity: add\.test\.js .*MODIFIED/.test(rejections(o)),
+      'and it is named as an integrity failure: ' + rejections(o));
   });
 });
 
@@ -265,8 +285,8 @@ t('C3 a stub that satisfies the letter but not the behaviour still fails', funct
   ], { required_tests: ['node add.test.js', 'node other.test.js'] }).then(function (o) {
     // add(2,2)===4 passes the first check; the second check does not exist,
     // so the work is not accepted on the strength of the one it satisfied.
-    assert.strictEqual(o.parsed.is_error, true, 'a partially-satisfying stub is not a pass');
-    assert.ok(/other\.test\.js` did not pass/.test(o.stderr), o.stderr);
+    assert.strictEqual(o.validation.passed, false, 'a partially-satisfying stub is not a pass');
+    assert.ok(/other\.test\.js` did not pass/.test(rejections(o)), rejections(o));
   });
 });
 
@@ -276,8 +296,8 @@ t('C4 claiming changed files while changing nothing is caught', function () {
   fs.writeFileSync(path.join(ws, 'add.js'), FIXED);   // checks will pass
   return runTask(ws, [say(report('completed', 'Rewrote three modules.',
     ['a.js', 'b.js', 'c.js']))]).then(function (o) {
-    assert.strictEqual(o.parsed.is_error, true, 'the claim contradicted the workspace');
-    assert.ok(/byte-identical to before the attempt/.test(o.stderr), o.stderr);
+    assert.strictEqual(o.validation.passed, false, 'the claim contradicted the workspace');
+    assert.ok(/byte-identical to before the attempt/.test(rejections(o)), rejections(o));
   });
 });
 
@@ -289,8 +309,8 @@ t('C5 work outside the declared scope is caught', function () {
     callTool('c2', 'write_file', { path: 'unrelated.js', content: 'module.exports = 1;\n' }),
     say(report('completed', 'Fixed add.', ['add.js', 'unrelated.js']))
   ], { constraints: ['Only change add.js'], required_tests: ['node add.test.js'] }).then(function (o) {
-    assert.strictEqual(o.parsed.is_error, true, 'the extra file was not allowed');
-    assert.ok(/scope: unrelated\.js was changed/.test(o.stderr), o.stderr);
+    assert.strictEqual(o.validation.passed, false, 'the extra file was not allowed');
+    assert.ok(/scope: unrelated\.js was changed/.test(rejections(o)), rejections(o));
   });
 });
 
@@ -299,8 +319,8 @@ t('C6 an unreadable report is a rejection with a named reason', function () {
   seedBrokenProject(ws);
   fs.writeFileSync(path.join(ws, 'add.js'), FIXED);
   return runTask(ws, [say('I think I am finished but here is no structured block.')]).then(function (o) {
-    assert.strictEqual(o.parsed.is_error, true, 'passing checks do not excuse an unreadable report');
-    assert.ok(/report: no fenced/.test(o.stderr), o.stderr);
+    assert.strictEqual(o.validation.passed, false, 'passing checks do not excuse an unreadable report');
+    assert.ok(/report: no fenced/.test(rejections(o)), rejections(o));
   });
 });
 
@@ -343,6 +363,21 @@ t('D3 a workspace that did not change is not automatically a failure', function 
       assert.strictEqual(o.parsed.is_error, false, 'work that was already right passes: ' + o.stderr);
       assert.strictEqual(o.validation.evidence.changed.created.length, 0);
     });
+});
+
+t('C7 a report survives a rejection that quotes a code fence', function () {
+  // The "no fenced ```json block" diagnosis contains a fence. Embedded
+  // verbatim it closes the report's own fence early and corrupts it — which
+  // is how this was found: C6 produced a perfectly correct blocked report
+  // that could not be parsed back.
+  var ws = newWorkspace('fence-in-rejection');
+  seedBrokenProject(ws);
+  fs.writeFileSync(path.join(ws, 'add.js'), FIXED);
+  return runTask(ws, [say('no structured block here.')]).then(function (o) {
+    var r = blockedReport(o);
+    assert.ok(/no fenced/.test(r.residual_risks.join(' ')), 'the diagnosis survived');
+    assert.ok(!/```/.test(JSON.stringify(r)), 'with no fence left inside the report to break it');
+  });
 });
 
 // ===========================================================================
