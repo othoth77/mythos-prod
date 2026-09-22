@@ -34,14 +34,26 @@
 set -euo pipefail
 
 HADDAD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-REPO="${HADDAD_MCP_REPO:-$(cd "$HADDAD_DIR/../.." && pwd)}"
+
+# The checkout the INSTALLED unit will run from, forever, long after this
+# shell exits. Resolution order is deliberate:
+#
+#   1. HADDAD_TELEMETRY_REPO — an explicit, considered operator choice
+#   2. this script's own tree — so a normal run needs no environment at all
+#
+# HADDAD_MCP_REPO is NOT consulted and must never be. It already means the
+# MCP launcher's checkout on this host, it is routinely exported while
+# re-pointing that launcher, and borrowing it here would let one setup
+# silently redirect the other — installing a telemetry unit pinned to
+# whatever tree the MCP work happened to be using.
+REPO_EXPLICIT="${HADDAD_TELEMETRY_REPO:-}"
+REPO="${REPO_EXPLICIT:-$(cd "$HADDAD_DIR/../.." && pwd)}"
 CONFIG_DIR="${HADDAD_TELEMETRY_CONFIG_DIR:-$HOME/.config/mythos-haddad}"
 UNIT_DIR="${HADDAD_TELEMETRY_UNIT_DIR:-$HOME/.config/systemd/user}"
 KEY_FILE="$CONFIG_DIR/telemetry-key.pem"
 ENV_FILE="$CONFIG_DIR/telemetry.env"
 NODE_ID="${HADDAD_TELEMETRY_NODE:-haddad}"
 ENDPOINT="${HADDAD_TELEMETRY_ENDPOINT:-https://status.mythosprod.xyz/ingest}"
-AGENT="$HADDAD_DIR/bin/haddad-telemetry.js"
 
 say() { printf '[haddad-telemetry-setup] %s\n' "$*"; }
 die() { printf '[haddad-telemetry-setup] FAILED: %s\n' "$*" >&2; exit 1; }
@@ -60,8 +72,33 @@ if [ "${1:-}" = "--print-key" ]; then print_key; exit 0; fi
 
 command -v node >/dev/null || die "node is required"
 command -v systemctl >/dev/null || die "systemctl is required"
-[ -f "$AGENT" ] || die "agent missing: $AGENT (wrong checkout? set HADDAD_MCP_REPO)"
-node --check "$AGENT" || die "the agent does not parse"
+
+# The unit runs the agent from REPO, not from this script's tree. Validate
+# the file the UNIT will execute — checking a different copy and then
+# installing this one is how a setup reports success for something that
+# cannot start.
+UNIT_AGENT="$REPO/projects/mythos-haddad/bin/haddad-telemetry.js"
+case "$REPO" in
+  /*) : ;;
+  *) die "the repository path must be absolute, got: $REPO" ;;
+esac
+[ -f "$UNIT_AGENT" ] || die "agent missing at the path the unit would run: $UNIT_AGENT (wrong checkout? set HADDAD_TELEMETRY_REPO)"
+node --check "$UNIT_AGENT" || die "the agent at $UNIT_AGENT does not parse"
+
+# A LINKED GIT WORKTREE IS NOT A DEPLOYMENT TARGET. In a linked worktree
+# `.git` is a FILE pointing into the parent repository; in a primary
+# checkout it is a directory. Worktrees here are created and removed
+# routinely (the MCP launcher was pinned to one until it was re-pointed),
+# so a unit installed against one dies silently the day it is removed —
+# the timer keeps firing and every beat fails to start.
+#
+# Refused rather than warned, because the failure is invisible until the
+# console has been dark long enough for someone to notice. An operator who
+# genuinely means it says so with HADDAD_TELEMETRY_REPO.
+if [ -z "$REPO_EXPLICIT" ] && [ -f "$REPO/.git" ]; then
+  die "$REPO is a linked git worktree, which is temporary by nature and must not be pinned into a systemd unit.
+    Run this from the production checkout, or set HADDAD_TELEMETRY_REPO=<path> deliberately if you really mean this tree."
+fi
 
 say "1/5 directories"
 mkdir -p "$CONFIG_DIR" "$UNIT_DIR"
@@ -98,11 +135,19 @@ say "4/5 systemd user units"
 for u in mythos-haddad-telemetry.service mythos-haddad-telemetry.timer; do
   sed "s#%h/projects/mythos-prod#$REPO#g" "$HADDAD_DIR/systemd/$u" > "$UNIT_DIR/$u"
 done
+# Say what got baked in. The one number an operator needs to sanity-check
+# after this runs is the path the service will execute, so it is printed
+# rather than left to `systemctl cat`.
+say "    ExecStart pinned to $REPO"
+grep -q "$UNIT_AGENT" "$UNIT_DIR/mythos-haddad-telemetry.service" ||
+  die "the generated unit does not point at $UNIT_AGENT — refusing to leave a unit that would not start"
 systemctl --user daemon-reload
 
 say "5/5 one real collection (dry run — sends nothing)"
-node "$AGENT" --dry-run > /dev/null || die "the agent could not collect this node's state"
-say "    collection OK"
+# Deliberately the UNIT's copy, with the unit's own repo resolution, so
+# "collection OK" is a statement about what will actually run.
+HADDAD_TELEMETRY_REPO="$REPO" node "$UNIT_AGENT" --dry-run > /dev/null || die "the agent could not collect this node's state"
+say "    collection OK (ran $UNIT_AGENT)"
 
 echo
 say "PUBLIC KEY for node '$NODE_ID' — register this on the VPS, it is not a secret:"
