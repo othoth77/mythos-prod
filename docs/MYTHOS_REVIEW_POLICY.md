@@ -165,6 +165,36 @@ Note that this consults the review *policy* — a pure decision function — and
 orchestration core; that is why it works on Haddad, where `MYTHOS_CORE_ENABLED=false` keeps the
 core's execution path deliberately switched off.
 
+### One project waits, the others continue
+
+A stop is per task, never per host. The worker runs one task at a time (`MYTHOS_MAX_PARALLEL=1`
+on Haddad — one model inference), but it *manages* many: dependencies are checked before a task
+is claimed, so a task whose turn has not come has no executor record, no worktree and no GPU, and
+a task stopped for a person has already finished executing. So project A can wait for a decision
+for a day while B runs, C is queued and D finishes. Dependencies are per chain (`Depends on:` /
+`يعتمد على`) and never global.
+
+### Resuming is a new attempt that knows about the old one
+
+It is **not** a checkpoint restore, and the difference matters:
+
+- the continuation keeps its own single-use task id, records which attempt it continues, and
+  receives that attempt's **report** in its prompt — summary, files, commits, checks, problems —
+  with an instruction to verify it and spend the run only on what is missing;
+- a task branch is named after the task id, so the continuation starts from a **fresh branch off
+  `main`**. For a read-only task there is nothing to inherit. For a task that **commits**, the
+  earlier commits stay on the earlier branch and the new attempt cannot see them — continuity
+  there is guidance in a prompt, not restored state.
+
+Editing the Issue before rerunning deliberately does **not** carry the approval forward: the next
+attempt does different work, and work nobody has seen is not approved by a decision about work
+they had. The content hash recorded on every attempt is what distinguishes the two cases.
+
+**Known limit.** Dependencies name a task id, and an approved rerun completes under a *different*
+id, so a task written as `Depends on: gh-issue-12` keeps waiting even after `gh-issue-12-r2` has
+been approved and completed. Until that is decided, a review-stopping task should not sit in the
+middle of a dependency chain.
+
 ## What was deliberately NOT built
 
 No queue, no daemon, no agent, no reviewer implementation, no HTTP endpoint, no async

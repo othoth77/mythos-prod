@@ -182,8 +182,8 @@ var EMPTY_REPORT = { summary: 'done', files_changed: [], commits: [], tests: [],
   });
   ok(rerun.task && rerun.task.continues && rerun.task.continues.task_id === 'gh-issue-7',
     'B grammar: a rerun records the attempt it continues');
-  ok(rerun.task.continues.reason === 'review_required',
-    'B grammar: continuing a review stop is recorded as such, so the approval can travel');
+  ok(rerun.task.continues.reason === 'review_required_after_edit',
+    'B grammar SECURITY: a previous attempt with no recorded content hash cannot carry an approval');
   ok(rerun.task.task_id !== 'gh-issue-7',
     'B grammar: the rerun still gets its OWN single-use id — nothing is resurrected');
 
@@ -192,6 +192,31 @@ var EMPTY_REPORT = { summary: 'done', files_changed: [], commits: [], tests: [],
   });
   ok(afterFail.task.continues.reason === 'failed',
     'B grammar: continuing a failure is continuity only, never an approval');
+
+  // An approval is approval of THAT result, produced from THAT text. Editing
+  // the Issue and rerunning is how a person says "fix this" — the next
+  // attempt does different work, and different work was approved by nobody.
+  var SAME = '## Objective\nDo something useful here.\n\nAction: investigate';
+  var firstAttempt = convert(SAME);
+  var stoppedForReview = {
+    task_id: 'gh-issue-7', status: 'BLOCKED',
+    execution: { review_gate: { required: true, reason: 'write_capable_task_type:coding' } },
+    source: { content_sha256: firstAttempt.task.source.content_sha256 }
+  };
+  var unchanged = convert(SAME, 2, stoppedForReview);
+  ok(unchanged.task.continues.reason === 'review_required',
+    'B approval: rerunning the SAME text carries the approval');
+  var edited = convert(SAME + '\n\nAlso check the error path, which was missed.', 2, stoppedForReview);
+  ok(edited.task.continues.reason === 'review_required_after_edit',
+    'B approval SECURITY: rerunning EDITED text does not carry the approval — the new work is unreviewed');
+  gateOn(true);
+  ok(reviewGate.evaluate(Object.assign(bridgeTask({ review_required: true }),
+    { continues: edited.task.continues }), EMPTY_REPORT).satisfied === false,
+    'B approval SECURITY: and the gate refuses to treat the edited rerun as reviewed');
+  ok(reviewGate.evaluate(Object.assign(bridgeTask({ review_required: true }),
+    { continues: unchanged.task.continues }), EMPTY_REPORT).satisfied === true,
+    'B approval: the unchanged rerun IS treated as approved');
+  gateOn(false);
 })();
 
 // ===========================================================================
@@ -347,11 +372,31 @@ turns(8).then(function () {
   ok(prompt && /VERIFY the above against the worktree/.test(prompt),
     'C resume: and it must be verified, not trusted — a report is a claim, not evidence');
 
-  // --- with the gate off, the same task would simply have completed --------
-  gateOn(false);
-  var wouldComplete = reviewGate.evaluate(controlTask('t-beta-one'), controlReport('t-beta-one'));
-  ok(wouldComplete.required === false,
-    'C compatibility: with the gate off the identical task is not held back (VPS default unchanged)');
+  // --- what continuation is NOT ------------------------------------------
+  // Pinned deliberately, so no future reader mistakes this for a checkpoint
+  // restore and no document can quietly start claiming one.
+  var prevTask = controlTask('t-beta-one');
+  ok(t.execution.branch !== prevTask.execution.branch,
+    'C limits: the continuation runs on its OWN branch — nothing is inherited from the previous worktree');
+  ok(t.execution.base_commit === prevTask.execution.base_commit,
+    'C limits: both attempts start from the same base, so the second does not build on the first');
+
+  // --- and a dependent of the ORIGINAL is not released by the rerun -------
+  // A known gap, recorded here rather than hidden: dependencies name a task
+  // id, and the approved work completed under a different one.
+  plannerWrite('t-beta-dep.json', task('t-beta-dep', { depends_on: ['t-beta-one'] }));
+  return turns(3).then(function () {
+    ok(statusOf('t-beta-dep') === 'PENDING',
+      'C limits: a task depending on the STOPPED attempt still waits after the rerun completed');
+    ok(statusOf('t-beta-two') === 'COMPLETED',
+      'C limits: …even though the continuation itself is complete and approved');
+
+    // --- with the gate off, the same task would simply have completed ------
+    gateOn(false);
+    var wouldComplete = reviewGate.evaluate(controlTask('t-beta-one'), controlReport('t-beta-one'));
+    ok(wouldComplete.required === false,
+      'C compatibility: with the gate off the identical task is not held back (VPS default unchanged)');
+  });
 }).then(function () {
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   if (failed) console.error('failures:\n  - ' + failures.join('\n  - '));

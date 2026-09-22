@@ -495,9 +495,21 @@ function wantsReview(fields) {
 
 // Why the attempt being continued stopped. Only a review stop carries an
 // approval forward; every other stop is continuity context alone.
-function continuationReason(previous) {
+//
+// And an approval is approval of THAT result, produced from THAT Issue text.
+// If the Issue has been edited since — which is exactly how a person says
+// "fix this and run it again" — the next attempt does DIFFERENT work, and
+// work nobody has seen must not inherit a decision about work they had.
+// The content hash the adapter already records on every attempt is what
+// tells the two cases apart.
+function continuationReason(previous, contentHash) {
   var gate = previous && previous.execution && previous.execution.review_gate;
-  if (gate && gate.required === true) return 'review_required';
+  if (gate && gate.required === true) {
+    var prevHash = previous.source && previous.source.content_sha256;
+    return (prevHash && contentHash && prevHash === contentHash)
+      ? 'review_required'
+      : 'review_required_after_edit';
+  }
   return previous && previous.status ? String(previous.status).toLowerCase() : null;
 }
 
@@ -632,17 +644,6 @@ function issueToTask(cfg, issue, attempt, previous) {
   // otherwise let through. It can only escalate: there is no spelling of
   // this field that waives a review, so an Issue can never lower the bar.
   if (wantsReview(fields)) task.review_required = true;
-  // A rerun keeps its own single-use id but records the attempt it follows,
-  // so the worker can verify what already succeeded instead of redoing it —
-  // and, when the previous attempt stopped for a review, so that the owner's
-  // decision to rerun travels with it as the approval.
-  if (previous && previous.task_id) {
-    task.continues = {
-      task_id: previous.task_id,
-      status: previous.status || null,
-      reason: continuationReason(previous)
-    };
-  }
   var timeout = pickInt(fields, 'timeout', 60, 21600);
   if (timeout) task.timeout_seconds = timeout;
   var turns = pickInt(fields, 'max_turns', 1, 500);
@@ -675,6 +676,18 @@ function issueToTask(cfg, issue, attempt, previous) {
     task.notes = task.notes.length + note.length + 2 <= LIMITS.notes ? task.notes + '\n\n' + note : task.notes.slice(0, LIMITS.notes - note.length - 3) + '…\n\n' + note;
   }
   var contentHash = sha256(String(issue.title || '') + '\n' + body);
+
+  // A rerun keeps its own single-use id but records the attempt it follows,
+  // so the worker can verify what already succeeded instead of redoing it —
+  // and, when the previous attempt stopped for a review, so that the owner's
+  // decision to rerun travels with it as the approval.
+  if (previous && previous.task_id) {
+    task.continues = {
+      task_id: previous.task_id,
+      status: previous.status || null,
+      reason: continuationReason(previous, contentHash)
+    };
+  }
   task.source = {
     kind: 'github-issue',
     repo: cfg.repo,
