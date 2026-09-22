@@ -523,6 +523,20 @@ function run(task, prompt, _sessionId, _mode, opts) {
   ];
   var toolCallCount = 0;
   var trace = [];
+
+  // A repair round starts from a COMPACT conversation: system, the task, the
+  // rejected answer (bounded) and the brief. The previous round's tool
+  // chatter is dropped on purpose — the brief carries the measured state
+  // and the worker re-reads what it needs — because with a local context
+  // window the turns otherwise accumulate past it: live (gh-issue-375) a
+  // second execution reached 6,400 of 8,192 tokens and the runtime dropped
+  // the request. Bounded context per execution is what makes three
+  // executions possible at all.
+  function compactForRepair(lastText, brief) {
+    messages = [messages[0], messages[1]];
+    if (lastText && String(lastText).trim()) messages.push({ role: 'assistant', content: String(lastText).slice(0, 2000) });
+    messages.push({ role: 'user', content: brief });
+  }
   // Taken BEFORE the model is called even once, so "what changed" is
   // measured against the state the task actually started from.
   var before = work.snapshot(workspace);
@@ -659,12 +673,11 @@ function run(task, prompt, _sessionId, _mode, opts) {
     var callsThisRound = trace.length - traceMarkAtRoundStart;
     repairRound++;
     traceMarkAtRoundStart = trace.length;
-    messages.push({ role: 'assistant', content: text });
-    messages.push({ role: 'user', content: work.renderRepairNotes(verdict, repairRound, task.constraints || [], {
+    compactForRepair(text, work.renderRepairNotes(verdict, repairRound, task.constraints || [], {
       tool_calls: callsThisRound,
       // The files the task constrained the worker to are the ones it must fix.
       files_named: work.declaredScope(task.constraints || [])
-    }) });
+    }));
     return step(0);
   }
 
@@ -694,11 +707,11 @@ function run(task, prompt, _sessionId, _mode, opts) {
       var callsThisRound = trace.length - traceMarkAtRoundStart;
       repairRound++;
       traceMarkAtRoundStart = trace.length;
-      messages.push({ role: 'user', content: work.renderRepairNotes(capVerdict, repairRound, task.constraints || [], {
+      compactForRepair('', work.renderRepairNotes(capVerdict, repairRound, task.constraints || [], {
         tool_calls: callsThisRound,
         out_of_turns: MAX_ITERATIONS,
         files_named: work.declaredScope(task.constraints || [])
-      }) });
+      }));
       return step(0);
     }
 

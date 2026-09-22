@@ -277,6 +277,12 @@ t('B2 the repair brief hands the worker MEASURED evidence, not a scolding', func
     assert.ok(/### What to do now — as TOOL CALLS, in this order/.test(brief), 'and the next steps are tool calls');
     assert.ok(/write_file that path with the COMPLETE corrected file/.test(brief));
     assert.ok(/run_command each failing check: `node add\.test\.js`/.test(brief), 'naming the failing check to run: ' + brief.slice(-500));
+    // And the repair request is COMPACT: system, task, the rejected answer,
+    // the brief — the previous round's tool traffic is not replayed, so the
+    // context does not grow execution over execution.
+    assert.strictEqual(second.messages.length, 4, 'compact repair conversation: ' + second.messages.map(function (m) { return m.role; }).join(','));
+    assert.strictEqual(second.messages[0].role, 'system'); assert.strictEqual(second.messages[1].role, 'user');
+    assert.strictEqual(second.messages[2].role, 'assistant'); assert.strictEqual(second.messages[3].role, 'user');
   });
 });
 
