@@ -710,6 +710,23 @@ t('S10 ordinary work inside the workspace is unaffected', function () {
     'and the file is readable back through the tools');
 });
 
+// ---- U: the daemon's own unit must not stop the sandbox from starting ----
+// On a host with kernel.apparmor_restrict_unprivileged_userns=1 a service
+// that has a private mount namespace (PrivateTmp, ProtectSystem,
+// ProtectHome, ReadWritePaths, …) cannot create the user namespace bwrap
+// needs, and --unshare-all needs a NETLINK_ROUTE socket for loopback.
+// Measured live (gh-issue-370, gh-issue-371); this pins the template.
+t('U1 the worker unit template creates no mount namespace and allows NETLINK', function () {
+  var unit = fs.readFileSync(path.join(__dirname, '..', 'projects', 'mythos-haddad', 'systemd', 'mythos-haddad-worker.service'), 'utf8');
+  var active = unit.split('\n').filter(function (l) { return /^[A-Za-z]+=/.test(l); });
+  ['PrivateTmp', 'ProtectSystem', 'ProtectHome', 'ReadWritePaths', 'ReadOnlyPaths', 'InaccessiblePaths', 'PrivateDevices', 'ProtectKernelTunables', 'RestrictNamespaces', 'TemporaryFileSystem', 'BindPaths', 'RootDirectory'].forEach(function (k) {
+    assert.ok(!active.some(function (l) { return l.indexOf(k + '=') === 0; }), k + '= would give the daemon a mount namespace and break bwrap');
+  });
+  var af = active.filter(function (l) { return l.indexOf('RestrictAddressFamilies=') === 0; })[0] || '';
+  assert.ok(/\bAF_NETLINK\b/.test(af), 'RestrictAddressFamilies must include AF_NETLINK for bwrap loopback');
+  assert.ok(active.indexOf('NoNewPrivileges=true') !== -1, 'NoNewPrivileges stays (it does not block bwrap)');
+});
+
 queue.reduce(function (c, s) { return c.then(s); }, Promise.resolve()).then(function () {
   try { fs.rmSync(ROOT, { recursive: true, force: true }); } catch (e) { /* best effort */ }
   console.log('\n' + pass + ' passed, ' + fail + ' failed');
