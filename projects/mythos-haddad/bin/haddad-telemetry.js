@@ -164,7 +164,11 @@ function runtimeLoadFacts(activeSince) {
   // Putting 4920 in vram_model_mib would have been a number the field name does
   // not describe. (Both figures confirmed against the real runtime's journal.)
   var facts = { gpu_layers: null, gpu_layers_total: null, vram_model_mib: null,
-    vram_projected_mib: null, context: null, last_ready: null, source: null };
+    vram_projected_mib: null, context: null, last_ready: null, source: null,
+    // Tri-state, and the null matters: true = the runtime SAID it found no
+    // device, false = it named one, null = neither line was in the window.
+    // "Could not tell" must never be collapsed into "fine".
+    no_devices: null };
   // Window the read at the unit's OWN start, not an arbitrary line count.
   // `-n 600` was wrong twice over: on a runtime that has been up for hours
   // the model-load lines have long scrolled past 600 (so both figures came
@@ -205,6 +209,23 @@ function runtimeLoadFacts(activeSince) {
       var cm = /llama_context:\s*n_ctx\s*=\s*(\d+)/i.exec(line);
       if (cm) { facts.context = parseInt(cm[1], 10); }
     }
+    // Whether the runtime found a GPU AT ALL. Verbatim from this host's
+    // 2026-09-22 CPU-only boot: "ggml_vulkan: No devices found." and
+    // "llama_params_fit_impl: no devices with dedicated memory found".
+    //
+    // TRAP, found on that same boot: "load_backend: loaded Vulkan backend
+    // from .../libggml-vulkan.so" is printed EVEN WHEN NO DEVICE EXISTS.
+    // Loading the backend is not using it, and matching that line as
+    // evidence of a GPU is precisely the mistake that made a CPU-only
+    // runtime look healthy. Only a named device counts.
+    if (facts.no_devices === null && /no devices found|no devices with dedicated memory found/i.test(line)) {
+      facts.no_devices = true;
+      facts.source = 'runtime load accounting (journal)';
+    }
+    if (facts.no_devices === null && /(?:using device|llama_model_load_from_file_impl:\s*using device)\s+(?:Vulkan|CUDA|SYCL|ROCm)\d/i.test(line)) {
+      facts.no_devices = false;
+      facts.source = 'runtime load accounting (journal)';
+    }
     if (facts.last_ready === null && /all slots are idle|server is listening|main loop/i.test(line)) {
       var ts = /^(\S+)/.exec(line);
       if (ts) { var t = Date.parse(ts[1]); if (isFinite(t)) facts.last_ready = new Date(t).toISOString(); }
@@ -217,7 +238,8 @@ function runtimeLoadFacts(activeSince) {
   // and the page would show N/A for metrics that exist — the same lie as
   // inventing a value, in the other direction.
   var gotSomething = facts.gpu_layers !== null || facts.vram_model_mib !== null ||
-    facts.vram_projected_mib !== null || facts.context !== null || facts.last_ready !== null;
+    facts.vram_projected_mib !== null || facts.context !== null || facts.last_ready !== null ||
+    facts.no_devices !== null;
   if (activeSince && gotSomething) {
     try {
       fs.mkdirSync(STATE_DIR, { recursive: true });
@@ -912,6 +934,9 @@ if (require.main === module) main();
 
 module.exports = {
   AGENT_VERSION: AGENT_VERSION,
+  // Exported for bin/haddad-health.js's ai_runtime GPU-offload assertion.
+  // One journal parse, in one place: health must not grow a second one.
+  runtimeLoadFacts: runtimeLoadFacts,
   SCHEMA: SCHEMA,
   collect: collect,
   collectResources: collectResources,
