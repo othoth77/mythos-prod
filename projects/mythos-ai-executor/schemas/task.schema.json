@@ -81,9 +81,10 @@
         "openai-compat",
         "mock",
         "delegate",
-        "free-llm-pool"
+        "free-llm-pool",
+        "haddad-agent"
       ],
-      "description": "Execution/advisory provider. `delegate` runs the task through the delegation boundary, which resolves the task's `lane` and runs that lane's implementer CLI; it requires a lane and grants no authority beyond the task's execution_profile. `free-llm-pool` is the advisory meta-agent over free-llm/ (selection + A→B→C fallback across free-tier providers); it never has execution authority."
+      "description": "Execution/advisory provider. `delegate` runs the task through the delegation boundary, which resolves the task's `lane` and runs that lane's implementer CLI; it requires a lane and grants no authority beyond the task's execution_profile. `free-llm-pool` is the advisory meta-agent over free-llm/ (selection + A→B→C fallback across free-tier providers); it never has execution authority. `haddad-agent` is the local read/test tool runner on the Haddad machine: it executes read_file/list_files/run_command in-process, confined to the task workspace and bounded by the task's execution_profile, and reports itself unavailable unless an operator enabled it on that host."
     },
     "model": {
       "type": [

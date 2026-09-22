@@ -55,7 +55,14 @@ var PROVIDERS = {
   'delegate': require('./providers/delegate'),
   // Advisory meta-agent over free-llm/ (discovery + health + fallback
   // across many free-tier providers). Never execution authority.
-  'free-llm-pool': require('./providers/free-llm-pool')
+  'free-llm-pool': require('./providers/free-llm-pool'),
+  // Local tool runner on the Haddad machine (read/test only, V1a). It has
+  // execution authority because it genuinely executes tools — but it is
+  // INERT unless an operator has created the enable marker AND the local
+  // runtime answers, so on the VPS `available()` is false and nothing can
+  // route to it. Registering it here only makes it nameable; being reachable
+  // is a separate, deliberate act.
+  'haddad-agent': require('./providers/haddad-agent')
 };
 // The mock provider is test-only and must be impossible to reach in
 // production: the systemd unit never sets this variable.
