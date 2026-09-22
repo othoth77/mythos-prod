@@ -24,6 +24,10 @@
 #                         table; there is no OTHMODE on Haddad and building one is
 #                         forbidden). Override: HADDAD_MCP_OTHMODE_URL.
 #   system_health      -> Status Center (public, server default)
+#   haddad_health      -> Haddad's own health report (bin/haddad-health.js, written by
+#                         its timer): OS, GPU, AI runtime + model, worker, MCP. This
+#                         tool exists ONLY where OTH_MCP_HADDAD_HEALTH_FILE is set —
+#                         the VPS keeps its 8 tools.
 #   knowledge_search / knowledge_get
 #                      -> UNCONFIGURED until HAD-1 (a local OTHKM store). The server
 #                         answers UPSTREAM_UNCONFIGURED naming the owner; it never
@@ -40,6 +44,7 @@ set -euo pipefail
 HADDAD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO="${HADDAD_MCP_REPO:-$(cd "$HADDAD_DIR/../.." && pwd)}"
 CONFIG_DIR="${HADDAD_MCP_CONFIG_DIR:-$HOME/.config/mythos-haddad}"
+STATE_DIR="${HADDAD_STATE_DIR:-$HOME/.local/state/mythos-haddad}"
 BIN_DIR="${HADDAD_MCP_BIN_DIR:-$HOME/.local/bin}"
 EXEC_CFG_DIR="${HADDAD_MCP_EXECUTOR_CONFIG_DIR:-$HOME/.config/mythos-ai-executor}"
 EXEC_ENV="$EXEC_CFG_DIR/executor.env"
@@ -74,6 +79,8 @@ ENV_FILE="$CONFIG_DIR/mcp.env"
 OTH_MCP_EXECUTOR_URL=$EXECUTOR_URL
 OTH_MCP_EXECUTOR_TOKEN_FILE=$EXEC_ENV
 OTH_MCP_OTHMODE_URL=$OTHMODE_URL
+# Haddad's own measured state (haddad-health.js report) -> tool haddad_health.
+OTH_MCP_HADDAD_HEALTH_FILE=$STATE_DIR/health-latest.json
 # OTH_MCP_STATUS_URL: server default (public Status Center).
 # OTH_MCP_KNOWLEDGE_URL / _TOKEN: deliberately unset until HAD-1 — the
 # knowledge tools answer UPSTREAM_UNCONFIGURED, never a guess.
@@ -92,10 +99,11 @@ say "  $LAUNCHER -> $REPO/projects/oth-mcp/server.js"
 # Real handshake through the installed launcher, exactly as a client does,
 # via the existing MYTHOS MCP client (bin/haddad-mcp-probe.js).
 say "verify: initialize + tools/list through $LAUNCHER"
+[ -s "$STATE_DIR/health-latest.json" ] || say "  note: no health report yet at $STATE_DIR/health-latest.json — haddad_health answers UNREACHABLE until bin/haddad-health.js runs"
 TOOLS="$(HADDAD_MCP_CONFIG_DIR="$CONFIG_DIR" node "$HADDAD_DIR/bin/haddad-mcp-probe.js" "$LAUNCHER" \
   | node -e 'let b="";process.stdin.on("data",d=>b+=d).on("end",()=>{const r=JSON.parse(b);process.stdout.write(String(r.ok?r.tools.length:0))})')"
-[ "$TOOLS" = "8" ] || { say "FAIL: expected 8 tools, got '$TOOLS'"; exit 1; }
-say "  OK — 8 tools listed"
+[ "$TOOLS" = "9" ] || { say "FAIL: expected 9 tools, got '$TOOLS'"; exit 1; }
+say "  OK — 9 tools listed (8 shared + haddad_health)"
 
 cat <<NOTE
 

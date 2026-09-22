@@ -15,7 +15,10 @@
 //     tools/call → a (fake, loopback) executor → correct result;
 //   * fail-closed: no token file → UNCONFIGURED; wrong bearer → 401;
 //     traversal-shaped ids rejected; malformed frame → parse error;
-//   * lifecycle: stdin end → clean exit, repeated and concurrent clients.
+//   * lifecycle: stdin end → clean exit, repeated and concurrent clients;
+//   * haddad_health: the one Haddad-native tool, present ONLY when the
+//     launcher environment names the health report (the VPS keeps 8 tools),
+//     reading a fixed path, never a request-named one; stale detection.
 // Offline and machine-independent: a fake executor on an ephemeral
 // loopback port, a throwaway config dir, an invented token.
 // =====================================================
@@ -61,6 +64,16 @@ function fakeExecutor() {
     srv.listen(0, '127.0.0.1', function () { resolve({ srv: srv, port: srv.address().port }); });
   });
 }
+
+var REPORT = path.join(TMP, 'health-latest.json');
+function writeReport(generatedAt, checks) {
+  fs.writeFileSync(REPORT, JSON.stringify({ schema: 'mythos-haddad-health/1', host: 'haddad-test', generated_at: generatedAt, mode: 'full',
+    status: 'PASS', counts: { PASS: checks.length, WARN: 0, FAIL: 0 }, checks: checks }));
+}
+writeReport(new Date().toISOString(), [
+  { id: 'gpu_test', status: 'PASS', detail: 'NVIDIA GeForce GTX 1660 SUPER, Vulkan 1.4' },
+  { id: 'ai_runtime', status: 'PASS', detail: 'llama-server active', data: { model: 'qwen-test.gguf' } },
+]);
 
 function writeEnv(cfgDir, lines) { fs.writeFileSync(path.join(cfgDir, 'mcp.env'), lines.join('\n') + '\n', { mode: 384 }); }
 
@@ -135,17 +148,26 @@ t('no secret value, no host-key bypass, no sudo in the HAD-3 files', function ()
   assert.ok(/OTH_MCP_EXECUTOR_TOKEN_FILE=/.test(envBlock[1]), 'mcp.env does not reference the executor file');
 });
 
-t('the shared server is the VPS one: 8 read-only tools, GET is the only upstream verb', function () {
-  assert.strictEqual(mcp.TOOLS.length, 8);
+t('the shared server is the VPS one: 8 read-only tools without Haddad config, GET is the only upstream verb', function () {
+  assert.strictEqual(mcp.TOOLS.length, 8, 'the VPS tool set changed');
+  assert.ok(!mcp.TOOL_BY_NAME.haddad_health, 'haddad_health must not exist without OTH_MCP_HADDAD_HEALTH_FILE');
+  var withEnv = run('node', ['-e', 'process.env.OTH_MCP_HADDAD_HEALTH_FILE="/x";var m=require(process.argv[1]);process.stdout.write(m.TOOLS.map(function(t){return t.name}).join(","))', SERVER]);
+  assert.strictEqual(withEnv.stdout.split(',').length, 9);
+  assert.ok(/haddad_health$/.test(withEnv.stdout), 'haddad_health is the 9th tool when configured');
+  assert.ok(!mcp.TOOLS.concat().some(function (t) { return /create|write|update|delete|ingest|promote|establish|dispatch|approve|run_/i.test(t.name); }));
+  var src0 = fs.readFileSync(SERVER, 'utf8');
+  assert.ok(!/fs\.(write|append|unlink|rm|mkdir|rename|chmod|open)/.test(src0), 'a write syscall appeared in the server');
+  assert.ok(/OTH_MCP_HADDAD_HEALTH_FILE/.test(src0) && !/readFileSync\((?!LOCAL_REPORT_FILE)/.test(src0), 'the only file read is the launch-time report path');
   var src = fs.readFileSync(SERVER, 'utf8');
   assert.ok(/method: 'GET'/.test(src));
   assert.ok(!/method: '(POST|PUT|PATCH|DELETE)'/.test(src));
   assert.strictEqual(mcp.PROTOCOL_VERSION, '2024-11-05');
 });
 
-t('the health check has an mcp check that is optional when uninstalled', function () {
+t('the health check has mcp and worker checks, both optional when uninstalled', function () {
   var s = fs.readFileSync(path.join(DIR, 'bin', 'haddad-health.js'), 'utf8');
-  assert.ok(/check\('mcp'/.test(s));
+  assert.ok(/check\('mcp'/.test(s) && /check\('worker'/.test(s));
+  assert.ok(/8160|4444/.test(s), 'no unexpected-listener assertion');
   assert.ok(/haddad-mcp-setup\.sh/.test(s), 'uninstalled hint missing');
 });
 
@@ -153,13 +175,13 @@ t('the health check has an mcp check that is optional when uninstalled', functio
 var exec_;
 at('fake executor up', function () { return fakeExecutor().then(function (e) { exec_ = e; }); })
 .then(function () {
-  writeEnv(CFG, ['OTH_MCP_EXECUTOR_URL=http://127.0.0.1:' + exec_.port, 'OTH_MCP_EXECUTOR_TOKEN_FILE=' + EXEC_ENV]);
+  writeEnv(CFG, ['OTH_MCP_EXECUTOR_URL=http://127.0.0.1:' + exec_.port, 'OTH_MCP_EXECUTOR_TOKEN_FILE=' + EXEC_ENV, 'OTH_MCP_HADDAD_HEALTH_FILE=' + REPORT]);
 
   return at('real chain: initialize → tools/list → execution_status → fake executor → correct result, token never returned', function () {
     return client([INIT, LIST, call(3, 'execution_status'), call(4, 'execution_report', { task_id: 't-haddad-0001' }), call(5, 'budget_status', { project: 'mythos-haddad' })]).then(function (r) {
       assert.strictEqual(r.code, 0, 'exit ' + r.code + ' ' + r.err);
       assert.strictEqual(r.byId[1].result.serverInfo.name, 'oth-mcp');
-      assert.strictEqual(r.byId[2].result.tools.length, 8);
+      assert.strictEqual(r.byId[2].result.tools.length, 9);
       assert.ok(!r.byId[3].result.isError, text(r.byId[3]));
       assert.deepStrictEqual(JSON.parse(text(r.byId[3])), { tasks: [{ id: 't-haddad-0001', status: 'COMPLETED' }] });
       assert.deepStrictEqual(JSON.parse(text(r.byId[4])).report, { summary: 'done on haddad' });
@@ -238,6 +260,73 @@ at('fake executor up', function () { return fakeExecutor().then(function (e) { e
   });
 })
 .then(function () {
+  return at('haddad_health: whole report, one check, staleness, bad check id, absent/corrupt report, absent config', function () {
+    return client([INIT, call(3, 'haddad_health'), call(4, 'haddad_health', { check: 'ai_runtime' }), call(5, 'haddad_health', { check: 'nope' }), call(6, 'haddad_health', { check: '../x' })]).then(function (r) {
+      var whole = JSON.parse(text(r.byId[3]));
+      assert.strictEqual(whole.host, 'haddad-test'); assert.strictEqual(whole.stale, false); assert.strictEqual(whole.checks.length, 2); assert.ok(whole.age_seconds < 60);
+      var one = JSON.parse(text(r.byId[4]));
+      assert.strictEqual(one.check.id, 'ai_runtime'); assert.strictEqual(one.check.data.model, 'qwen-test.gguf'); assert.ok(!one.checks);
+      assert.ok(/TOOL_INPUT: no such check: nope \(known: gpu_test, ai_runtime\)/.test(text(r.byId[5])), text(r.byId[5]));
+      assert.ok(/TOOL_INPUT: check must match/.test(text(r.byId[6])), text(r.byId[6]));
+      // stale: a report older than two hours says so, and is still returned
+      writeReport(new Date(Date.now() - 3 * 3600 * 1000).toISOString(), [{ id: 'os', status: 'PASS' }]);
+      return client([INIT, call(3, 'haddad_health')]);
+    }).then(function (r) {
+      var rep = JSON.parse(text(r.byId[3])); assert.strictEqual(rep.stale, true); assert.ok(rep.age_seconds > 10000);
+      fs.writeFileSync(REPORT, '{not json');
+      return client([INIT, call(3, 'haddad_health')]);
+    }).then(function (r) {
+      assert.ok(/^UPSTREAM_BAD_JSON: Mythos Haddad health report/.test(text(r.byId[3])), text(r.byId[3]));
+      fs.unlinkSync(REPORT);
+      return client([INIT, call(3, 'haddad_health')]);
+    }).then(function (r) {
+      assert.ok(/^UPSTREAM_UNREACHABLE: Mythos Haddad health report is not present/.test(text(r.byId[3])), text(r.byId[3]));
+      assert.ok(text(r.byId[3]).indexOf(TMP) === -1, 'the report path leaked into the error');
+      writeReport(new Date().toISOString(), [{ id: 'os', status: 'PASS' }]);
+      // without the variable the tool does not exist at all (the VPS case)
+      var cfg = path.join(TMP, 'cfg-nohealth'); fs.mkdirSync(cfg);
+      writeEnv(cfg, ['OTH_MCP_EXECUTOR_URL=http://127.0.0.1:' + exec_.port, 'OTH_MCP_EXECUTOR_TOKEN_FILE=' + EXEC_ENV]);
+      return client([INIT, LIST, call(3, 'haddad_health')], { cfg: cfg });
+    }).then(function (r) {
+      assert.strictEqual(r.byId[2].result.tools.length, 8);
+      assert.ok(/No such tool: haddad_health/.test(text(r.byId[3])));
+    });
+  });
+})
+.then(function () {
+  return at('upstream timeout: an executor that accepts and never answers is reported as UPSTREAM_TIMEOUT after the server\'s own bound', function () {
+    return new Promise(function (resolve) {
+      var hang = http.createServer(function () { /* never answers */ });
+      hang.listen(0, '127.0.0.1', function () { resolve(hang); });
+    }).then(function (hang) {
+      var cfg = path.join(TMP, 'cfg-hang'); fs.mkdirSync(cfg);
+      writeEnv(cfg, ['OTH_MCP_EXECUTOR_URL=http://127.0.0.1:' + hang.address().port, 'OTH_MCP_EXECUTOR_TOKEN_FILE=' + EXEC_ENV]);
+      var t0 = Date.now();
+      return client([INIT, call(3, 'execution_status')], { cfg: cfg }).then(function (r) {
+        hang.close();
+        assert.ok(/^UPSTREAM_TIMEOUT: Mythos AI Executor did not answer within 15000ms/.test(text(r.byId[3])), text(r.byId[3]));
+        assert.ok(Date.now() - t0 >= 14000 && Date.now() - t0 < 24000, 'timeout fired at ' + (Date.now() - t0) + 'ms');
+      });
+    });
+  });
+})
+.then(function () {
+  return at('environment leakage: no launcher environment value reaches a client through any answer', function () {
+    var marker = 'CANARY-' + Math.random().toString(36).slice(2);
+    var env = { CANARY_SECRET: marker, HADDAD_MCP_CONFIG_DIR: CFG };
+    return new Promise(function (resolve) {
+      var p = cp.spawn(LAUNCHER, [], { env: Object.assign({}, process.env, env) });
+      var out = '';
+      p.stdout.on('data', function (d) { out += d; if ((out.match(/\n/g) || []).length >= 5) p.stdin.end(); });
+      p.on('close', function () { resolve(out); });
+      [INIT, LIST, call(3, 'execution_status'), call(4, 'haddad_health'), call(5, 'system_health')].forEach(function (f) { p.stdin.write(JSON.stringify(f) + '\n'); });
+      setTimeout(function () { try { p.stdin.end(); } catch (e) { /* gone */ } }, 20000).unref();
+    }).then(function (out) {
+      assert.ok(out.indexOf(marker) === -1 && out.indexOf(TOKEN) === -1 && out.indexOf(EXEC_ENV) === -1, 'an environment value leaked');
+    });
+  });
+})
+.then(function () {
   return at('knowledge tools stay UNCONFIGURED on Haddad until HAD-1 (never a guess)', function () {
     return client([INIT, call(3, 'knowledge_search', { query: 'anything' })]).then(function (r) {
       assert.ok(/^UPSTREAM_UNCONFIGURED: OTH Knowledge/.test(text(r.byId[3])), text(r.byId[3]));
@@ -261,7 +350,8 @@ at('fake executor up', function () { return fakeExecutor().then(function (e) { e
     var tok = /^MYTHOS_EXECUTOR_TOKEN=([A-Za-z0-9]{40,48})$/m.exec(fs.readFileSync(execEnv, 'utf8'));
     assert.ok(tok, 'executor token not provisioned in the executor idiom');
     assert.ok(r.stdout.indexOf(tok[1]) === -1, 'setup printed the token');
-    assert.ok(/OK — 8 tools listed/.test(r.stdout));
+    assert.ok(/OK — 9 tools listed/.test(r.stdout));
+    assert.ok(/^OTH_MCP_HADDAD_HEALTH_FILE=.*health-latest\.json$/m.test(env), 'mcp.env does not name the health report');
     assert.ok(/restart the worker/.test(r.stdout), 'new-token restart note missing');
     // Idempotent: a second run keeps the token.
     var r2 = run('bash', [SETUP], { env: Object.assign({}, process.env, { HOME: home, HADDAD_MCP_REPO: ROOT }) });

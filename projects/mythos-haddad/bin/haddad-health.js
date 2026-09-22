@@ -183,6 +183,27 @@ check('ai_runtime', function () {
   add('ai_runtime', 'PASS', 'llama-server active, model "' + modelId + '" loaded, http://127.0.0.1:8600/v1 answers', { model: modelId });
 });
 
+// ---------- HAD-3: executor daemon (the GitHub worker, optional) ----------
+check('worker', function () {
+  var unitFile = path.join(HOME, '.config', 'systemd', 'user', 'mythos-haddad-worker.service');
+  if (!fs.existsSync(unitFile)) return add('worker', 'WARN', 'not installed (optional, HAD-3: run bin/haddad-worker-setup.sh)');
+  var active = sh('systemctl', ['--user', 'is-active', 'mythos-haddad-worker.service']).out;
+  if (active !== 'active') return add('worker', 'FAIL', 'unit installed but not active (' + active + '): journalctl --user -u mythos-haddad-worker');
+  // /health is the executor's one unauthenticated route (loopback). Its
+  // `ok` folds in VPS-only probes (n8n, omniroute) that do not exist here,
+  // so the facts read are the store, the queue and the code identity.
+  var r = sh('curl', ['-s', '-m', '10', 'http://127.0.0.1:8130/health'], { timeout: 15000 });
+  var h = null; try { h = JSON.parse(r.out); } catch (e) { /* reported below */ }
+  if (!h || !h.checks) return add('worker', 'FAIL', 'active but 127.0.0.1:8130/health did not answer: ' + firstLine(r.err || r.out));
+  var queue = h.checks.queue || {};
+  var ci = h.code_identity || {};
+  var bearer = fs.existsSync(path.join(HOME, '.config', 'mythos-ai-executor', 'executor.env'));
+  var detail = 'executor daemon active on 127.0.0.1:8130, store ' + (h.checks.store_writable ? 'writable' : 'NOT writable') + ', queue ' +
+    (Object.keys(queue).map(function (k) { return k + '=' + queue[k]; }).join(' ') || 'empty') + ', code ' + (ci.branch || '?') + '@' + String(ci.head || '').slice(0, 8) +
+    (bearer ? '' : ', NO bearer provisioned (authenticated routes refuse; run bin/haddad-mcp-setup.sh)');
+  add('worker', h.checks.store_writable && bearer ? 'PASS' : 'WARN', detail, { queue: queue, branch: ci.branch, head: ci.head, pid: ci.pid, bearer_provisioned: bearer });
+});
+
 // ---------- HAD-3: OTH MCP over SSH-stdio (optional) ----------
 check('mcp', function () {
   var launcher = path.join(HOME, '.local', 'bin', 'haddad-mcp-stdio.sh');
@@ -195,13 +216,21 @@ check('mcp', function () {
   var rep = null; try { rep = JSON.parse(r.out); } catch (e) { /* reported below */ }
   if (!rep) return add('mcp', 'FAIL', 'probe produced no report: ' + firstLine(r.err || r.out));
   if (!rep.ok) return add('mcp', 'FAIL', 'launcher did not complete the MCP handshake: ' + (rep.error || 'unknown'), rep);
-  if (rep.tools.length !== 8) return add('mcp', 'FAIL', 'expected 8 tools, got ' + rep.tools.length, rep);
+  // 8 shared tools, plus haddad_health when mcp.env names the health report.
+  var expected = fs.existsSync(path.join(HOME, '.config', 'mythos-haddad', 'mcp.env')) &&
+    /^OTH_MCP_HADDAD_HEALTH_FILE=/m.test(fs.readFileSync(path.join(HOME, '.config', 'mythos-haddad', 'mcp.env'), 'utf8')) ? 9 : 8;
+  if (rep.tools.length !== expected) return add('mcp', 'FAIL', 'expected ' + expected + ' tools, got ' + rep.tools.length + ' (' + rep.tools.join(',') + ')', rep);
+  // The MCP is stdio-only. The VPS bridge/gateway ports must not appear here.
+  var listeners = sh('ss', ['-ltnH']).out.split('\n').map(function (l) { return (l.split(/\s+/)[3] || '').replace(/^.*:/, ''); }).filter(Boolean);
+  var unexpected = listeners.filter(function (port) { return port === '8160' || port === '4444'; });
+  if (unexpected.length) return add('mcp', 'FAIL', 'unexpected MCP listener on port ' + unexpected.join(',') + ' — the Haddad MCP is stdio-only by design', rep);
+  rep.listeners = listeners;
   if (!rep.call.ok) {
     // The MCP is up; the executor chain behind execution_status is not. The
     // error names the owner (UPSTREAM_401 = bearer not loaded: restart the worker).
-    return add('mcp', 'WARN', rep.server + ' over stdio, 8 tools, but execution_status failed: ' + firstLine(rep.call.error || '').slice(0, 120), rep);
+    return add('mcp', 'WARN', rep.server + ' over stdio, ' + rep.tools.length + ' tools, but execution_status failed: ' + firstLine(rep.call.error || '').slice(0, 120), rep);
   }
-  add('mcp', 'PASS', rep.server + ' (protocol ' + rep.protocol + ') over stdio, 8 tools, execution_status answered from the Haddad executor', rep);
+  add('mcp', 'PASS', rep.server + ' (protocol ' + rep.protocol + ') over stdio, ' + rep.tools.length + ' tools, execution_status answered from the Haddad executor, no listener', rep);
 });
 
 check('logs', function () {

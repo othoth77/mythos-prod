@@ -108,7 +108,7 @@ On each client (e.g. the Windows PC): install Tailscale, sign in to the same tai
 | AI runtime setup (HAD-2, once) | `bash projects/mythos-haddad/bin/haddad-runtime-setup.sh` |
 | AI runtime status / restart | `systemctl --user status mythos-haddad-runtime` · `systemctl --user restart mythos-haddad-runtime` |
 | AI runtime logs | `journalctl --user -u mythos-haddad-runtime -n 50` |
-| Read Haddad over MCP (executor tasks/reports/budget, estate context) | `ssh othman@100.78.7.10 /home/othman/.local/bin/haddad-mcp-stdio.sh` as a stdio MCP server; probe: `node projects/mythos-haddad/bin/haddad-mcp-probe.js` — see [docs/HADDAD_MCP.md](docs/HADDAD_MCP.md) |
+| Read Haddad over MCP (its health/GPU/runtime/worker via `haddad_health`; executor tasks/reports/budget; estate context) | `ssh othman@100.78.7.10 /home/othman/.local/bin/haddad-mcp-stdio.sh` as a stdio MCP server; probe: `node projects/mythos-haddad/bin/haddad-mcp-probe.js` — see [docs/HADDAD_MCP.md](docs/HADDAD_MCP.md) |
 | Send a task to the local worker (FABLE) | `echo '{"instruction":"…"}' \| node projects/mythos-haddad/bin/haddad-task.js` — see [docs/FABLE_WORKER.md](docs/FABLE_WORKER.md) |
 | Chat with the local model | `curl -H "Authorization: Bearer $(cat ~/.config/mythos-haddad/runtime.key)" -H 'Content-Type: application/json' http://127.0.0.1:8600/v1/chat/completions -d '{"model":"qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf","messages":[{"role":"user","content":"…"}]}'` |
 

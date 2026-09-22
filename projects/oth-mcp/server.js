@@ -31,6 +31,7 @@
 // =====================================================
 'use strict';
 
+var fs = require('fs');
 var http = require('http');
 var https = require('https');
 var { URL } = require('url');
@@ -150,6 +151,35 @@ function q(params, name, opts) {
   if (typeof v !== 'string') throw fail('TOOL_INPUT', name + ' must be a string');
   if (opts.max && v.length > opts.max) throw fail('TOOL_INPUT', name + ' exceeds ' + opts.max + ' characters');
   return v;
+}
+
+// ------------------------------------------------------ local report
+
+// A host may publish ONE measured report of its own state as a tool — the
+// Mythos Haddad health report (projects/mythos-haddad/bin/haddad-health.js,
+// written by its timer). The path is fixed at launch from the environment,
+// never from a request, so no input can name a file. Unset on the VPS,
+// where the tool therefore does not exist and the tool set stays at 8.
+var LOCAL_REPORT_FILE = process.env.OTH_MCP_HADDAD_HEALTH_FILE || null;
+var LOCAL_REPORT_STALE_MS = 2 * 60 * 60 * 1000; // the timer runs every 30 min
+
+// One bounded read. Like upstreamGet it never writes, and an absent or
+// unreadable report is an explicit error, never an invented value.
+function localReportRead() {
+  if (!LOCAL_REPORT_FILE) throw fail('UPSTREAM_UNCONFIGURED', 'Mythos Haddad has no health report configured on this host; set OTH_MCP_HADDAD_HEALTH_FILE');
+  var body;
+  try {
+    var st = fs.statSync(LOCAL_REPORT_FILE);
+    if (st.size > MAX_RESPONSE_BYTES) throw fail('UPSTREAM_TOO_LARGE', 'Mythos Haddad health report exceeds ' + MAX_RESPONSE_BYTES + ' bytes');
+    body = fs.readFileSync(LOCAL_REPORT_FILE, 'utf8');
+  } catch (e) {
+    if (e.code === 'UPSTREAM_TOO_LARGE') throw e;
+    throw fail('UPSTREAM_UNREACHABLE', 'Mythos Haddad health report is not present on this host; run bin/haddad-health.js');
+  }
+  var json;
+  try { json = JSON.parse(body); } catch (e) { throw fail('UPSTREAM_BAD_JSON', 'Mythos Haddad health report is not JSON'); }
+  if (!json || !Array.isArray(json.checks)) throw fail('UPSTREAM_BAD_JSON', 'Mythos Haddad health report has no checks');
+  return json;
 }
 
 // ----------------------------------------------------------------- tools
@@ -302,6 +332,42 @@ var TOOLS = [
     run: function () { return upstreamGet('status', '/data/live-status.json'); },
   },
 ];
+
+// Registered only where a report is configured (Haddad). Owner: the health
+// check that measured it — this tool reports state it does not own.
+if (LOCAL_REPORT_FILE) {
+  TOOLS.push({
+    name: 'haddad_health',
+    owner: 'Mythos Haddad (haddad-health.js)',
+    description:
+      'Measured state of the Mythos Haddad on-prem AI server: OS, resources, SSH/Tailscale, GPU (gpu_detect, '
+      + 'gpu_test), AI runtime (ai_runtime: llama-server + the pinned model), worker (executor daemon + queue), '
+      + 'MCP, logs — as written by its scheduled health check. `stale: true` means the report is older than two '
+      + 'hours and the timer should be inspected. Observability only, never a control surface. Read-only.',
+    inputSchema: {
+      type: 'object',
+      properties: { check: { type: 'string', description: 'Optional check id to return alone, e.g. ai_runtime, gpu_test, worker, mcp. Omit for the whole report.' } },
+    },
+    run: function (p) {
+      var rep = localReportRead();
+      var want = q(p, 'check', { max: 32 });
+      if (want && !/^[a-z_]{2,32}$/.test(want)) throw fail('TOOL_INPUT', 'check must match [a-z_]{2,32}');
+      var age = Math.max(0, Math.round((Date.now() - Date.parse(rep.generated_at || 0)) / 1000));
+      var out = {
+        host: rep.host, generated_at: rep.generated_at, age_seconds: age, stale: age * 1000 > LOCAL_REPORT_STALE_MS,
+        mode: rep.mode, status: rep.status, counts: rep.counts,
+      };
+      if (want) {
+        var hit = rep.checks.filter(function (c) { return c && c.id === want; })[0];
+        if (!hit) throw fail('TOOL_INPUT', 'no such check: ' + want + ' (known: ' + rep.checks.map(function (c) { return c.id; }).join(', ') + ')');
+        out.check = hit;
+      } else {
+        out.checks = rep.checks;
+      }
+      return Promise.resolve(out);
+    },
+  });
+}
 
 var TOOL_BY_NAME = {};
 TOOLS.forEach(function (t) { TOOL_BY_NAME[t.name] = t; });
