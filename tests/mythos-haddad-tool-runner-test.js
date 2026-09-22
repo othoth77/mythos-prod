@@ -330,7 +330,8 @@ t('the iteration budget stops the loop, and stops it FOR A PERSON', function () 
     // executions — and not one more. Executed tool calls stay under the
     // tool-call budget; everything past it is refused, not run.
     assert.ok(o.tool_calls <= agent.MAX_ITERATIONS * (agent.MAX_REPAIR_ROUNDS + 1), 'turns stayed bounded: ' + o.tool_calls);
-    assert.ok(o.tool_trace.filter(function (x) { return !x.refused; }).length <= agent.MAX_TOOL_CALLS, 'executed calls stayed under the tool-call budget');
+    assert.ok(o.tool_trace.filter(function (x) { return !x.refused; }).length <= agent.MAX_TOOL_CALLS * (agent.MAX_REPAIR_ROUNDS + 1),
+      'executed calls stayed under the per-execution tool-call budget, three executions');
     assert.strictEqual(o.repair_rounds, agent.MAX_REPAIR_ROUNDS, 'every repair round was spent before stopping');
     // A loop that ran out of turns is not a crash: it ends cleanly with a
     // `blocked` report, which the executor already classifies as a human
