@@ -27,6 +27,7 @@
     <nav class="primary" aria-label="Sections">
       <a href="#about-ar" lang="ar" dir="rtl">شرح بالعربية</a>
       <a href="#overview">Overview</a>
+      <a href="#nodes">AI nodes</a>
       <a href="#projects">Projects</a>
       <a href="#timeline">Timeline</a>
       <a href="#changed">What changed</a>
@@ -77,6 +78,18 @@
     section is the evidence-based review record, a separate data source.</p>
     <p class="simple-ar" lang="ar" dir="rtl">نتائج فحص فعلي للخدمات، لا حالة مكتوبة يدوياً: يُجرى الفحص كل خمس دقائق ويُسجَّل ما وجده. ما بعد هذا القسم هو سجل المراجعة المبني على الأدلة، وهو مصدر بيانات منفصل.</p>
     <div id="live-body"></div>
+  </section>
+
+  <section class="panel" id="nodes" aria-labelledby="h-nodes">
+    <p class="section-kicker">AI compute</p>
+    <h2 id="h-nodes">MYTHOS AI nodes</h2>
+    <p class="section-note">Machines that run MYTHOS models. Each node pushes its own
+    state here every few seconds over HTTPS; this host never connects to a node, and
+    nothing on this page can run anything on one. A node that stops beating becomes
+    OFFLINE on a published threshold — the state is recomputed in your browser, so a
+    frozen file cannot keep a node green. Metrics a node cannot measure read N/A.</p>
+    <p class="simple-ar" lang="ar" dir="rtl">عقد الحوسبة: الأجهزة التي تشغّل نماذج Mythos. كل عقدة ترسل حالتها بنفسها كل بضع ثوانٍ، والخادم لا يتصل بها أبداً ولا تستطيع هذه الصفحة تنفيذ أي أمر عليها. وإذا توقف النبض تتحول الحالة إلى <span dir="ltr">OFFLINE</span> بحدّ زمني معلن، والقياس الذي لا تستطيع العقدة أخذه يظهر <span dir="ltr">N/A</span>.</p>
+    <div id="nodes-body"></div>
   </section>
 
   <section class="panel" id="othmode" aria-labelledby="h-othmode">
@@ -229,6 +242,7 @@
   </div>
 </footer>
 
+<script src="assets/haddad.js"></script>
 <script src="assets/app.js"></script>
 </body>
 </html>

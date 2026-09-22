@@ -1,0 +1,82 @@
+[Unit]
+# MYTHOS HADDAD — telemetry ingest receiver.
+#
+# A SYSTEM unit, so systemd's sandboxing actually applies here (it does
+# not for the user units on the Haddad side — no delegated user-scope
+# controllers on either host). Everything below is enforced, not aspirational.
+Description=MYTHOS Haddad telemetry ingest (Status Center, loopback only)
+Documentation=file:/home/deploy/projects/mythos-prod/projects/status-center/haddad/README.md
+After=network.target
+Wants=network.target
+# A receiver that cannot start must not thrash: five failures in a minute
+# stops it and leaves the journal to explain why. These belong in [Unit] —
+# systemd ignores them in [Service] with only a warning.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=mythos-ingest
+Group=mythos-ingest
+ExecStart=/usr/bin/node /home/deploy/projects/mythos-prod/projects/status-center/haddad/bin/haddad-ingest.js \
+  --nodes /etc/mythos/haddad-nodes.json \
+  --out /var/www/status.mythosprod.xyz/data \
+  --host 127.0.0.1 --port 8190
+Restart=always
+RestartSec=5
+
+# ── sandbox ────────────────────────────────────────────────────────
+# The service's entire job is: read one registry file, accept a loopback
+# POST, write three files. Nothing else is reachable from it.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+# tmpfs, not true: the service must read its own source, which lives in a
+# checkout under /home. An empty /home plus one read-only bind gives it
+# exactly that directory and nothing else of anybody's home.
+ProtectHome=tmpfs
+BindReadOnlyPaths=/home/deploy/projects/mythos-prod/projects/status-center
+ReadOnlyPaths=/etc/mythos
+ReadWritePaths=/var/www/status.mythosprod.xyz/data
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RemoveIPC=true
+# MemoryDenyWriteExecute is deliberately ABSENT. V8 needs W->X memory for
+# its JIT and aborts under it (SIGTRAP in
+# MemoryAllocator::SetPermissionsOnExecutableMemoryChunk) — verified on
+# this host, 2026-09-22, not assumed. Running node --jitless to satisfy
+# the directive would trade a real capability for a nominal one on a
+# service that parses only its own allow-listed JSON. The same class of
+# mistake is already recorded for the Haddad runtime unit, where a
+# SystemCallFilter negation killed the Vulkan driver with SIGSYS
+# (projects/mythos-haddad/docs/AI_RUNTIME.md).
+# Loopback only. It never needs to originate a connection, and cannot
+# reach Haddad or anything else: this is what makes "the VPS never
+# connects to a node" a property of the system rather than a promise.
+RestrictAddressFamilies=AF_INET AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount @debug @obsolete
+
+# ── resource ceiling ───────────────────────────────────────────────
+# This host has been OOM-killed by accumulated Node processes before
+# (docs: MYTHOS VPS OOM). A tiny receiver gets a tiny, explicit cap.
+MemoryMax=128M
+MemoryHigh=96M
+TasksMax=32
+CPUQuota=20%
+
+[Install]
+WantedBy=multi-user.target

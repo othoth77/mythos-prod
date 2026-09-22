@@ -1,0 +1,33 @@
+{
+  "_comment": [
+    "MYTHOS AI node registry for the telemetry ingest receiver.",
+    "",
+    "Deployed copy: /etc/mythos/haddad-nodes.json (0644, root-owned, readable by",
+    "the mythos-ingest user). This example is the committed shape; the deployed",
+    "file is NOT in git because it carries per-node public keys that are",
+    "registered operationally, not through a code review.",
+    "",
+    "public_key is the base64 of an Ed25519 SPKI DER public key. It is NOT a",
+    "secret: the matching private key is generated on the node and never leaves",
+    "it. Get a node's value from, on that node:",
+    "    projects/mythos-haddad/bin/haddad-telemetry-setup.sh --print-key",
+    "",
+    "The receiver re-reads this file on every request, so adding, disabling or",
+    "re-keying a node needs no restart. An entry that is malformed, disabled, or",
+    "carries an unusable key simply does not register — the receiver fails closed",
+    "and its beats are refused with 401.",
+    "",
+    "Adding a second node here is all that a second node requires. There is",
+    "deliberately no scheduler, no routing and no fleet control: registration",
+    "makes a node VISIBLE, nothing more."
+  ],
+  "nodes": [
+    {
+      "id": "haddad",
+      "name": "MYTHOS HADDAD",
+      "subtitle": "AI COMPUTE NODE",
+      "enabled": true,
+      "public_key": "REPLACE-WITH-THE-BASE64-SPKI-PRINTED-ON-THE-NODE"
+    }
+  ]
+}
