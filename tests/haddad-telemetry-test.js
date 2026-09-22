@@ -405,7 +405,113 @@ console.log('\u00a710 executor-home resolution order');
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
-console.log('\u00a711 runtime load facts, parsed from the REAL journal lines');
+// ---------------------------------------------------------------------------
+// §11 HADDAD_MCP_REPO cannot reach the installed unit
+//
+// The agent was fixed in #390; the SETUP SCRIPT still read HADDAD_MCP_REPO,
+// and the setup script is what bakes a path into ExecStart. So this section
+// does not read source for the script — it RUNS it, with a decoy exported,
+// into a throwaway HOME, and asserts the decoy is nowhere in the unit that
+// lands on disk. A source grep would pass on a script that still behaved
+// badly through some other path.
+// ---------------------------------------------------------------------------
+console.log('§11 HADDAD_MCP_REPO cannot redirect the installed telemetry unit');
+{
+  const cp = require('child_process');
+  const SETUP = path.join(REPO, 'projects', 'mythos-haddad', 'bin', 'haddad-telemetry-setup.sh');
+
+  // Neither script may consult it, ever.
+  const setupSrc = fs.readFileSync(SETUP, 'utf8');
+  const setupCode = setupSrc.replace(/^\s*#.*$/gm, '');
+  ok(!/HADDAD_MCP_REPO/.test(setupCode),
+    'the setup script does not read HADDAD_MCP_REPO (comments explaining why it must not are fine)');
+  ok(/HADDAD_TELEMETRY_REPO/.test(setupCode), 'the setup script uses its own variable');
+
+  const agentCode = fs.readFileSync(AGENT_PATH, 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  ok(!/HADDAD_MCP_REPO/.test(agentCode), 'the agent does not read HADDAD_MCP_REPO either');
+
+  // Now the behavioural proof.
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'haddad-setup-home-'));
+  const decoy = fs.mkdtempSync(path.join(os.tmpdir(), 'haddad-decoy-repo-'));
+  // Make the decoy look like a perfectly valid checkout, so the only reason
+  // it loses is that the script refuses to consult that variable.
+  fs.mkdirSync(path.join(decoy, 'projects', 'mythos-haddad', 'bin'), { recursive: true });
+  fs.copyFileSync(AGENT_PATH, path.join(decoy, 'projects', 'mythos-haddad', 'bin', 'haddad-telemetry.js'));
+
+  const confDir = path.join(home, 'conf');
+  const unitDir = path.join(home, 'units');
+  const env = Object.assign({}, process.env, {
+    HOME: home,
+    HADDAD_MCP_REPO: decoy,                    // the decoy, exported exactly as on a real shell
+    HADDAD_TELEMETRY_CONFIG_DIR: confDir,
+    HADDAD_TELEMETRY_UNIT_DIR: unitDir,
+    HADDAD_TELEMETRY_NODE: 'test-node'
+  });
+  delete env.HADDAD_TELEMETRY_REPO;            // no explicit choice: the default must win
+
+  let ran;
+  try {
+    ran = cp.spawnSync('bash', [SETUP], { env: env, encoding: 'utf8', timeout: 120000 });
+  } catch (e) {
+    ran = { status: -1, stdout: '', stderr: String(e && e.message) };
+  }
+
+  const unitFile = path.join(unitDir, 'mythos-haddad-telemetry.service');
+  if (ran && ran.status === 0 && fs.existsSync(unitFile)) {
+    const unit = fs.readFileSync(unitFile, 'utf8');
+    ok(unit.indexOf(decoy) === -1,
+      'the decoy HADDAD_MCP_REPO does NOT appear in the installed ExecStart');
+    ok(unit.indexOf(REPO) !== -1,
+      'the unit is pinned to the tree the setup script was actually run from');
+    ok(/ExecStart=.*haddad-telemetry\.js/.test(unit), 'and it still points at the agent');
+    // The private key must never be world-readable, and the config must
+    // carry no secret — re-asserted here because this is the one test that
+    // runs the real installer end to end.
+    const keyFile = path.join(confDir, 'telemetry-key.pem');
+    if (fs.existsSync(keyFile)) {
+      ok((fs.statSync(keyFile).mode & 0o077) === 0, 'the generated private key is not group/world readable');
+    } else { ok(false, 'the setup generated a signing key'); }
+    const envFile = path.join(confDir, 'telemetry.env');
+    if (fs.existsSync(envFile)) {
+      const conf = fs.readFileSync(envFile, 'utf8');
+      ok(!/BEGIN [A-Z ]*PRIVATE KEY/.test(conf), 'the config file holds no private key material');
+      ok(conf.indexOf(decoy) === -1, 'and no decoy path leaked into the config');
+    } else { ok(false, 'the setup wrote a config file'); }
+  } else {
+    // Environments without systemd/node cannot run the installer; say so
+    // rather than reporting a pass that never happened.
+    const why = (ran && (ran.stderr || ran.stdout) || '').trim().split('\n').slice(-2).join(' ');
+    console.log('    (installer not runnable here — skipping the behavioural half: ' + why.slice(0, 160) + ')');
+  }
+
+  // A linked git worktree must be refused unless chosen deliberately: a
+  // worktree is temporary, and a unit pinned to one dies the day it is
+  // removed, with the timer still firing.
+  const wt = fs.mkdtempSync(path.join(os.tmpdir(), 'haddad-fake-worktree-'));
+  fs.mkdirSync(path.join(wt, 'projects', 'mythos-haddad', 'bin'), { recursive: true });
+  fs.copyFileSync(AGENT_PATH, path.join(wt, 'projects', 'mythos-haddad', 'bin', 'haddad-telemetry.js'));
+  fs.mkdirSync(path.join(wt, 'projects', 'mythos-haddad', 'systemd'), { recursive: true });
+  ['mythos-haddad-telemetry.service', 'mythos-haddad-telemetry.timer'].forEach(function (u) {
+    fs.copyFileSync(path.join(REPO, 'projects', 'mythos-haddad', 'systemd', u),
+      path.join(wt, 'projects', 'mythos-haddad', 'systemd', u));
+  });
+  fs.copyFileSync(SETUP, path.join(wt, 'projects', 'mythos-haddad', 'bin', 'haddad-telemetry-setup.sh'));
+  fs.writeFileSync(path.join(wt, '.git'), 'gitdir: /somewhere/.git/worktrees/x\n');   // the exact worktree shape
+  const wtRun = cp.spawnSync('bash', [path.join(wt, 'projects', 'mythos-haddad', 'bin', 'haddad-telemetry-setup.sh')], {
+    env: Object.assign({}, process.env, {
+      HOME: home, HADDAD_TELEMETRY_CONFIG_DIR: path.join(home, 'c2'), HADDAD_TELEMETRY_UNIT_DIR: path.join(home, 'u2')
+    }),
+    encoding: 'utf8', timeout: 120000
+  });
+  ok(wtRun.status !== 0, 'a linked git worktree is REFUSED as a deployment target');
+  ok(/linked git worktree/i.test(String(wtRun.stderr) + String(wtRun.stdout)),
+    'and the refusal says why, so the operator can choose deliberately');
+
+  [home, decoy, wt].forEach(function (d) { try { fs.rmSync(d, { recursive: true, force: true }); } catch (e) {} });
+}
+
+console.log('\u00a712 runtime load facts, parsed from the REAL journal lines');
 {
   // Verbatim from Haddad's own runtime journal, 2026-09-22 (ActiveEnterTimestamp
   // Tue 2026-09-22 15:43:17 UTC). Any change to these patterns must keep

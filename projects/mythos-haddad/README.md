@@ -1,5 +1,7 @@
 # Mythos Haddad — on-premises AI server
 
+> **Master entry point:** [MASTER_STATUS_AND_ROADMAP.md](MASTER_STATUS_AND_ROADMAP.md) — current status, architecture, V1/V2 roadmap, Jev design, model pools, priorities and deferred items. **Read this first when starting work.**
+
 Mythos Haddad is the on-premises AI server of the Mythos ecosystem: a single Ubuntu machine with a GPU,
 reachable only over Tailscale, that Claude Code and local AI runtimes work on. **V0** delivered the
 verified, reproducible base — access, toolchain, GPU, health checks, logs, documentation. **HAD-2** (V1)
