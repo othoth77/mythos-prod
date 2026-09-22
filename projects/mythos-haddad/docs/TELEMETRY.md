@@ -321,6 +321,38 @@ Three mechanical guards, not conventions:
 (A third, on the VPS side, is in the ingest README: `MemoryDenyWriteExecute`
 aborts V8.)
 
+## 10b. What going live actually taught (2026-09-22)
+
+Haddad started beating and the page immediately showed four metrics as N/A that the
+machine reports perfectly well. **Absence displayed where data exists is the same lie as a
+fabricated value, in the other direction** — and none of it was visible from reading the
+code. Recorded because the class will recur for any collector written against a machine
+nobody can run locally.
+
+| What broke | Why it was invisible |
+|---|---|
+| **`device` is an object, not a string.** `haddad-health.js` passes the gpu-vulkan-test report through verbatim, so `data.device` is `{name, vendor_id, device_id, type, vulkan_api}`. Reading it as a string put an object in a string slot; `sanitize()` dropped it, exactly as designed. | **The defence worked and the collector was still wrong.** A strict receiver protects the page from bad values; it cannot tell you that you sent the wrong *shape*. A receiver that silently drops a malformed field is indistinguishable from the field genuinely having no value — that is the real cost of an allow-list, and it is worth paying with eyes open. |
+| **`-n 600` never contained the model-load block.** On the real node it sits 6094 lines back in a 40473-line journal. | The patterns were correct the whole time. The *window* was a number picked without evidence. `--since` the unit's own `ActiveEnterTimestamp` is the only window that means anything: 40473 lines → 6238, target in the first ~20. |
+| **A null result was cached.** Keyed on the runtime's start time, so one transient miss froze the nulls until the next restart — potentially days. | Caching a negative result is almost always wrong when the key is long-lived. |
+| **The "no counter available" text asserted a cause.** An early version claimed a nouveau/NVK limitation on a Cirrus GPU; the fix then over-corrected and claimed "no vendor tool answered" on a node where the Vulkan probe answered fine. | Both directions are now decided from what actually happened — probe answered or not, open stack or not — and both are covered by tests. |
+
+**Two VRAM figures, and why they are two fields.** `Vulkan0 model buffer size = 3883.68 MiB`
+is model weights measured on the card. `projected to use 4920 MiB` is llama.cpp's estimate
+of model + KV + compute, made *before* allocation. 4920 is the figure already in
+`STATUS.md`, so folding it into `vram_model_mib` would have looked consistent with the docs
+while publishing a number the field name does not describe. The page labels the second an
+estimate. A genuinely measured total, if one ever becomes available, belongs in a third field.
+
+**Nothing is load-bearing on a checkout any more.** `install.sh` copies the receiver to
+`/opt/mythos/haddad-ingest` with a `VERSION` file recording the source commit *and whether
+that source was clean*. The unit previously pointed into a git worktree — temporary by
+nature, one `git worktree prune` from breaking the receiver mid-flight. (The node side
+refuses a worktree outright; same reasoning, found there first.)
+
+**The fixtures in the suite are copied from the machine, not written from memory** —
+the verbatim journal lines and the real health-report shape. That is the only reason these
+bugs are testable, and it is the direct consequence of having guessed a format wrong once.
+
 ## 11. Known limitations
 
 | | State |
