@@ -289,14 +289,14 @@ function collectRuntime(units) {
 // probe) plus an lspci — every 10 s, for an answer that is already known.
 // Cached against boot time, so a reboot or a driver change re-derives.
 var GPU_CACHE_MS = 3600000;
-function collectGpuCached(health) {
+function collectGpuCached(health, probes) {
   var cacheFile = path.join(STATE_DIR, 'telemetry-gpu.json');
   var bootAt = Math.round(Date.now() / 1000 - os.uptime());
   var cached = readJson(cacheFile);
   if (cached && cached.boot_at === bootAt && cached.gpu && Date.now() - (cached.at || 0) < GPU_CACHE_MS) {
     return cached.gpu;
   }
-  var gpu = collectGpu(health);
+  var gpu = collectGpu(health, probes);
   try {
     fs.mkdirSync(STATE_DIR, { recursive: true });
     fs.writeFileSync(cacheFile, JSON.stringify({ at: Date.now(), boot_at: bootAt, gpu: gpu }), { mode: 0o600 });
@@ -304,7 +304,28 @@ function collectGpuCached(health) {
   return gpu;
 }
 
-function collectGpu(health) {
+// The two subprocesses this function may run, behind an injection point.
+// Without it a fixture test can control `health` but NOT what the function
+// shells out to, so on a host with a working GPU the real Vulkan probe
+// answers and a "the probe did not run" fixture cannot hold — the test
+// then passes only on machines UNLIKE the one the feature targets, which
+// is worse than no test. Found by the node running this suite on Haddad.
+var GPU_PROBES = {
+  vulkan: function () {
+    var vram = path.join(__dirname, 'haddad-gpu-vram.py');
+    if (!fs.existsSync(vram)) return null;
+    var r = sh('python3', [vram], { timeout: 6000 });
+    if (!r.ok) return null;
+    try { return JSON.parse(r.out); } catch (e) { return null; }
+  },
+  pci: function () {
+    var dev = sh('sh', ['-c', 'lspci -nn 2>/dev/null | grep -i "VGA\\|3D controller" | head -1']);
+    return (dev.ok && dev.out) ? dev.out.replace(/^\S+\s+/, '').slice(0, 80) : null;
+  }
+};
+
+function collectGpu(health, probes) {
+  var probe = probes || GPU_PROBES;
   var out = {
     model: null, driver: null, vram_total_mib: null, vram_used_mib: null,
     utilization_pct: null, temperature_c: null, power_w: null, process: null,
@@ -339,22 +360,17 @@ function collectGpu(health) {
     var drv = detect.data && Array.isArray(detect.data.driver) ? detect.data.driver.join(',') : null;
     if (drv) out.driver = out.driver ? out.driver + ' / ' + drv : drv;
   }
-  var vram = path.join(__dirname, 'haddad-gpu-vram.py');
-  if (fs.existsSync(vram)) {
-    var r = sh('python3', [vram], { timeout: 6000 });
-    if (r.ok) {
-      try {
-        var v = JSON.parse(r.out);
-        if (out.vram_total_mib === null) out.vram_total_mib = n(v.vram_total_mib);
-        // Documented NVK limitation: heapUsage is 0 even when the model is
-        // resident. A zero here is not a measurement, so it is discarded.
-        if (n(v.vram_used_mib) > 0) out.vram_used_mib = n(v.vram_used_mib);
-      } catch (e) { /* leave null */ }
-    }
+  var v = probe.vulkan();
+  if (v) {
+    if (out.vram_total_mib === null) out.vram_total_mib = n(v.vram_total_mib);
+    // Documented NVK limitation: heapUsage is 0 even when the model is
+    // resident. A zero here is not a measurement, so it is discarded.
+    if (n(v.vram_used_mib) > 0) out.vram_used_mib = n(v.vram_used_mib);
+    if (out.vram_total_mib !== null) vulkanAnswered = true;
   }
   if (out.model === null) {
-    var dev = sh('sh', ['-c', 'lspci -nn 2>/dev/null | grep -i "VGA\\|3D controller" | head -1']);
-    if (dev.ok && dev.out) out.model = dev.out.replace(/^\S+\s+/, '').slice(0, 80);
+    var pciName = probe.pci();
+    if (pciName) out.model = pciName;
   }
   if (out.vram_used_mib === null || out.utilization_pct === null) {
     // Name the ACTUAL reason for THIS machine. Hard-coding Haddad's
@@ -847,6 +863,7 @@ module.exports = {
   collectResources: collectResources,
   collectWorkers: collectWorkers,
   collectGpu: collectGpu,
+  GPU_PROBES: GPU_PROBES,
   collectGpuCached: collectGpuCached,
   collectRepo: collectRepo,
   severityFor: severityFor,

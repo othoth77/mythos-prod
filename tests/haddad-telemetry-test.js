@@ -65,8 +65,19 @@ console.log('§1 resources — real values, or null, never a fabricated zero');
 
 console.log('§2 GPU — absence is stated, never invented');
 {
-  // This host has no Haddad GPU stack, which is the degraded path.
-  const g = agent.collectGpu(null);
+  // EVERY call here injects the probes. Without that, the result depends on
+  // whether the machine running the suite happens to have a working GPU —
+  // so these assertions would pass on a host UNLIKE the one the feature
+  // targets and fail on Haddad itself. (Caught by the node running this
+  // suite there: 160/1, and the 1 was this.)
+  const NO_PROBE = { vulkan: function () { return null; }, pci: function () { return null; } };
+  const VULKAN_OK = {
+    vulkan: function () { return { vram_total_mib: 6400, vram_used_mib: 0 }; },  // NVK reports 0 used
+    pci: function () { return 'NVIDIA Corporation TU116 [GeForce GTX 1660 SUPER]'; }
+  };
+
+  // Nothing answers: the degraded path.
+  const g = agent.collectGpu(null, NO_PROBE);
   ok(g.vram_used_mib === null || typeof g.vram_used_mib === 'number', 'VRAM used is a number or null');
   ok(g.utilization_pct === null, 'utilisation is null where nothing can measure it');
   ok(g.temperature_c === null, 'temperature is null where nothing can measure it');
@@ -82,8 +93,21 @@ console.log('§2 GPU — absence is stated, never invented');
     'it states the generic, true reason instead');
 
   const gNvk = agent.collectGpu({
-    checks: [{ id: 'gpu_test', status: 'PASS', data: { device: 'NVIDIA GeForce GTX 1660 SUPER', vulkan_api: 'NVK 1.4.335', vram_mib: 6144 } }]
-  });
+    checks: [{ id: 'gpu_test', status: 'PASS', data: {
+      device: { name: 'NVIDIA GeForce GTX 1660 SUPER (NVK TU116)', vulkan_api: '1.4.335' },
+      vram_mib: 6400 } }]
+  }, NO_PROBE);
+  // GUARD: every collectGpu call in this suite must inject probes. A single
+  // bare call reintroduces hardware dependence silently — the suite would go
+  // green here and red on Haddad, which is the wrong way round.
+  {
+    const suite = fs.readFileSync(__filename, 'utf8');
+    const calls = suite.match(/agent\.collectGpu\([^;]*?\);/gs) || [];
+    const bare = calls.filter(function (c) { return !/NO_PROBE|VULKAN_OK|probe/i.test(c); });
+    eq(bare.length, 0, 'no collectGpu call in this suite depends on the host\'s real hardware');
+    ok(calls.length >= 5, 'and the injected calls cover both the answering and non-answering probe');
+  }
+
   ok(/nouveau\/NVK/i.test(gNvk.unavailable_reason),
     'on the open NVIDIA stack it DOES name the nouveau/NVK limitation');
   ok(/runtime's own load accounting|model-weights/.test(gNvk.unavailable_reason),
@@ -102,7 +126,7 @@ console.log('§2 GPU — absence is stated, never invented');
           device: { name: 'NVIDIA GeForce GTX 1660 SUPER', vulkan_api: '1.4.335' },
           vram_mib: 6400 } }
     ]
-  });
+  }, NO_PROBE);
   eq(g2.model, 'NVIDIA GeForce GTX 1660 SUPER', 'the GPU model is read from device.name, not from the object itself');
   ok(typeof g2.model === 'string', 'the model is a STRING — an object here is silently dropped by the allow-list');
   ok(/Vulkan 1\.4\.335/.test(g2.driver) && /nouveau/.test(g2.driver), 'the driver combines the Vulkan API and the kernel driver');
@@ -120,9 +144,27 @@ console.log('§2 GPU — absence is stated, never invented');
       { id: 'gpu_detect', status: 'PASS', detail: 'NVIDIA Corporation TU116 [GeForce GTX 1660 SUPER] [driver: nouveau]', data: { driver: ['nouveau'] } },
       { id: 'gpu_test', status: 'WARN', detail: 'skipped (--quick)' }
     ]
-  });
+  }, NO_PROBE);
   ok(/GTX 1660 SUPER/.test(g3.model || ''), 'a --quick health pass still identifies the GPU from gpu_detect');
-  eq(g3.vram_total_mib, null, 'but total VRAM is honestly absent when the probe did not run');
+  eq(g3.vram_total_mib, null, 'and total VRAM is absent when NOTHING can supply it');
+
+  // The same --quick pass on a machine where the Vulkan probe DOES answer:
+  // the fallback is the point of it, so total VRAM must be filled in.
+  const g4 = agent.collectGpu({
+    checks: [
+      { id: 'gpu_detect', status: 'PASS', detail: 'NVIDIA Corporation TU116 [GeForce GTX 1660 SUPER] [driver: nouveau]', data: { driver: ['nouveau'] } },
+      { id: 'gpu_test', status: 'WARN', detail: 'skipped (--quick)' }
+    ]
+  }, VULKAN_OK);
+  eq(g4.vram_total_mib, 6400, 'a --quick pass still gets total VRAM from the probe — that IS the fallback');
+  eq(g4.vram_used_mib, null, 'a reported 0 is discarded, not published as a measurement (NVK limitation)');
+  ok(!/no vendor tool answered/.test(g4.unavailable_reason),
+    'and the reason reflects that the probe answered, even though gpu_test was skipped');
+
+  // With nothing in the health report at all, the probes alone identify it.
+  const g5 = agent.collectGpu(null, VULKAN_OK);
+  ok(/GTX 1660 SUPER/.test(g5.model || ''), 'with no health report, the PCI probe names the device');
+  eq(g5.vram_total_mib, 6400, 'and the Vulkan probe supplies total VRAM');
 }
 
 console.log('§3 workers — units, timers, and the things the node cannot see');
