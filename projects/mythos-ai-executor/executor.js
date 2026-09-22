@@ -509,7 +509,18 @@ function deliverValidatedWork(task, report, outcome) {
   if (!commit.ok) return { problem: 'delivery: commit failed: ' + String(commit.error || '').slice(0, 200) };
   var sha = gitlib.head(cwd);
   try { state.appendEvent(task.task_id, 'work_delivered', { commit: sha, files: files, deleted: deleted, by: 'executor' }); } catch (e) { /* the commit is the record; the event is a convenience */ }
-  return { commit: sha, files: files };
+  // Scope is a NARROWING the task may or may not have declared. When it
+  // declared none, the validator had no scope rule to apply, so a passing
+  // verdict means "the checks pass" — not "only the intended files
+  // changed" — and these files are committed on that basis. The sandbox
+  // boundary is unaffected (writes never leave the workspace either way),
+  // but the only remaining check on an unrelated file is the person reading
+  // the diff, so they are told rather than left to assume one happened.
+  var note = v.evidence.scope_enforced === false
+    ? 'scope: the task declared no path scope, so the ' + (files.length + deleted.length) +
+      ' committed file(s) were never checked against one — review the diff itself, not only the checks'
+    : null;
+  return { commit: sha, files: files, note: note };
 }
 
 function verifyGit(task, report) {
@@ -740,6 +751,32 @@ function procStartTicks(pid) {
   } catch (e) { return null; }
 }
 
+// The state a finished run settles in. A pure decision, kept out of
+// handleSuccess so the rule can be read and tested on its own rather than
+// inferred from four overlapping assignments.
+//
+// Order is the point. Worst news first:
+//   no readable report  — nothing can be concluded; a "successful" exit
+//                         with no report is not a clean completion, and the
+//                         reason names the exact failure shape so a rerun
+//                         or a person can act on it (gh-issue-112).
+//   the report admits failure / asks for a person — the worker's own verdict.
+//   delivery failed     — the work is real and validated, but git did not
+//                         take it. Completing here would tell the Bridge
+//                         "done" about a change that exists only in a
+//                         worktree, close the Issue, and release anything
+//                         that depended on it.
+//   otherwise           — COMPLETED.
+function settleState(report, extractedError, deliveryProblem) {
+  if (!report) {
+    return { state: 'BLOCKED', next_action: 'provider produced no structured report: ' + (extractedError || 'unknown reason') + ' — review stdout.log' };
+  }
+  if (report.status === 'blocked') return { state: 'BLOCKED', next_action: 'owner decision required: ' + (report.summary || '') };
+  if (report.status === 'failed') return { state: 'FAILED', next_action: 'inspect failure report' };
+  if (deliveryProblem) return { state: 'BLOCKED', next_action: 'validated work was not delivered — ' + deliveryProblem };
+  return { state: 'COMPLETED', next_action: report.next_stage ? String(report.next_stage) : 'review report' };
+}
+
 function handleSuccess(task, taskId, outcome, parsed) {
   var resultText = typeof parsed.result === 'string' ? parsed.result : JSON.stringify(parsed.result);
   var extracted = reporting.extractReport(resultText);
@@ -759,20 +796,22 @@ function handleSuccess(task, taskId, outcome, parsed) {
   if (delivered && delivered.commit) report.commit = delivered.commit;
   if (delivered && delivered.problem) problems.push(delivered.problem);
 
+  // Work that was validated but NOT delivered is not a completion. Without
+  // this the delivery problem landed in report_problems and the task still
+  // finished COMPLETED: the Bridge closed the Issue as done, a dependent
+  // task was released, and the change existed only in a worktree nobody
+  // would look at again. Recorded as a distinct state below, never folded
+  // into "the provider failed" — the provider did its part.
+  var deliveryProblem = (delivered && delivered.problem) ? delivered.problem : null;
+  if (delivered && delivered.note) problems.push(delivered.note);
+
   var extras = verifyGit(task, report);
   if (extras.problem) problems.push(extras.problem);
   extras.report_problems = problems.filter(Boolean);
 
-  var finalState = 'COMPLETED';
-  var nextAction = report && report.next_stage ? String(report.next_stage) : 'review report';
-  if (report && report.status === 'failed') { finalState = 'FAILED'; nextAction = 'inspect failure report'; }
-  if (report && report.status === 'blocked') { finalState = 'BLOCKED'; nextAction = 'owner decision required: ' + (report.summary || ''); }
-  // A "successful" run that produced no usable report is not a clean
-  // completion — it lands BLOCKED for review rather than silently green.
-  // The reason names the exact failure shape (extractReport's diagnosis),
-  // not just "no structured report", so a rerun or a human can act on it
-  // instead of opening stdout.log to guess (gh-issue-112).
-  if (!report) { finalState = 'BLOCKED'; nextAction = 'provider produced no structured report: ' + (extracted.error || 'unknown reason') + ' — review stdout.log'; }
+  var settled = settleState(report, extracted.error, deliveryProblem);
+  var finalState = settled.state;
+  var nextAction = settled.next_action;
 
   // A structured report ALWAYS exists from here on: the provider's own, or a
   // synthesised one carrying the diagnosis (never a bare "no report").
@@ -785,6 +824,12 @@ function handleSuccess(task, taskId, outcome, parsed) {
     blocker = engine.blocker('PROVIDER_FAILED', { reason: String(report.summary || '').slice(0, 800), task_id: taskId, attempt_id: task.attempt_id || null });
   } else if (!report) {
     blocker = engine.blocker('NO_STRUCTURED_REPORT', { reason: extracted.error || 'unknown reason', task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
+  } else if (deliveryProblem) {
+    // Retryable by design: a staging or commit failure is an executor-side
+    // fault (a lock, a permission, a worktree in a state git refused), not
+    // a judgement on the work — a rerun that re-does the attempt is the
+    // right next move, and NON_RETRYABLE would deny it one.
+    blocker = engine.blocker(engine.BLOCKER_CODES.DELIVERY_FAILED, { reason: deliveryProblem.slice(0, 800), task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
   }
   var structured = report ? Object.assign({}, report, { task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, action_raw: task.action_raw || null, action_source: task.action_source || null, execution_profile: task.execution_profile || null, model: task.model || null, branch: task.branch || null, blocker: blocker })
     : reporting.synthesize({ status: 'blocked', task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, action_raw: task.action_raw || null, action_source: task.action_source || null,
@@ -1602,6 +1647,7 @@ module.exports = {
   preflightBlocker: preflightBlocker,
   verifyGit: verifyGit,
   deliverValidatedWork: deliverValidatedWork,
+  settleState: settleState,
   commitReportToGit: commitReportToGit,
   sshEnv: sshEnv,
   acquireDaemonLock: acquireDaemonLock,

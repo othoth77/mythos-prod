@@ -366,12 +366,13 @@ t('B10 mechanical delivery: the executor commits exactly the validated files, on
   fs.writeFileSync(path.join(ws, 'stray.txt'), 'not validated\n');          // present, but NOT in the measured change set
   var task = { task_id: 't-deliver', working_directory: ws, expected_delivery: 'commit' };
   var report = { mythos_report: true, status: 'completed', summary: 'add fixed', files_changed: ['add.js'] };
-  var outcome = { validation: { passed: true, evidence: { changed: { created: [], modified: ['add.js'], deleted: [] }, checks_run: [{ check: 'node add.test.js', passed: true }] } } };
+  var outcome = { validation: { passed: true, evidence: { changed: { created: [], modified: ['add.js'], deleted: [] }, checks_run: [{ check: 'node add.test.js', passed: true }], scope_enforced: true } } };
   // The state module writes events under the executor home; point it at a scratch home.
   var prevHome = process.env.MYTHOS_EXECUTOR_HOME; process.env.MYTHOS_EXECUTOR_HOME = path.join(ROOT, 'exec-home');
   var d;
   try { d = executor.deliverValidatedWork(task, report, outcome); } finally { if (prevHome === undefined) delete process.env.MYTHOS_EXECUTOR_HOME; else process.env.MYTHOS_EXECUTOR_HOME = prevHome; }
   assert.ok(d && d.commit && !d.problem, JSON.stringify(d));
+  assert.strictEqual(d.note, null, 'a scope WAS enforced here, so there is nothing to warn the reviewer about');
   assert.strictEqual(sh(['rev-parse', 'HEAD']), d.commit);
   assert.strictEqual(sh(['show', '--name-only', '--format=', 'HEAD']), 'add.js', 'exactly the validated file is in the commit');
   assert.ok(/^\?\? stray\.txt$/m.test(sh(['status', '--porcelain'])), 'the unvalidated file was left alone');
@@ -382,6 +383,58 @@ t('B10 mechanical delivery: the executor commits exactly the validated files, on
   assert.strictEqual(executor.deliverValidatedWork(task, Object.assign({}, report, { status: 'blocked' }), outcome), null);
   assert.strictEqual(executor.deliverValidatedWork(task, Object.assign({}, report, { commit: 'abc' }), outcome), null);
   assert.strictEqual(executor.deliverValidatedWork(Object.assign({}, task, { expected_delivery: 'report' }), report, outcome), null);
+});
+
+// B10 delivers; this pins what happens when it CANNOT. A delivery that
+// fails used to land its problem in report_problems and let the task finish
+// COMPLETED: the Bridge closed the Issue as done and released anything that
+// depended on it, for a change that existed only in a worktree.
+t('B10b validated work that git refused is BLOCKED, not COMPLETED — and it is not blamed on the worker', function () {
+  var executor = require(path.join(EXEC, 'executor.js'));
+  var engine = require(path.join(EXEC, 'bridge/action-resolution.js'));
+  var done = { mythos_report: true, status: 'completed', summary: 'fixed', next_stage: 'review' };
+
+  // The normal path is untouched.
+  assert.deepStrictEqual(executor.settleState(done, null, null), { state: 'COMPLETED', next_action: 'review' });
+  // A delivery problem downgrades it, and says which one.
+  var blockedByDelivery = executor.settleState(done, null, 'delivery: commit failed: index.lock exists');
+  assert.strictEqual(blockedByDelivery.state, 'BLOCKED');
+  assert.ok(/validated work was not delivered — delivery: commit failed/.test(blockedByDelivery.next_action), blockedByDelivery.next_action);
+  // It never upgrades a worse verdict: the worker's own admission wins.
+  assert.strictEqual(executor.settleState({ status: 'failed' }, null, 'delivery: commit failed').state, 'FAILED');
+  assert.strictEqual(executor.settleState({ status: 'blocked', summary: 'need a key' }, null, 'delivery: commit failed').state, 'BLOCKED');
+  assert.ok(/owner decision required: need a key/.test(executor.settleState({ status: 'blocked', summary: 'need a key' }, null, 'x').next_action));
+  // And an unreadable report still outranks everything, with its diagnosis.
+  var noReport = executor.settleState(null, 'no fenced json block', 'delivery: commit failed');
+  assert.strictEqual(noReport.state, 'BLOCKED');
+  assert.ok(/no fenced json block/.test(noReport.next_action), noReport.next_action);
+
+  // The blocker code names the delivery, not the provider — a rerun must
+  // not be sent looking for a fault in work that was validated — and it is
+  // retryable, because a lock or a permission is exactly what a rerun fixes.
+  assert.strictEqual(engine.BLOCKER_CODES.DELIVERY_FAILED, 'DELIVERY_FAILED');
+  assert.strictEqual(engine.isRetryable('DELIVERY_FAILED'), true);
+  assert.notStrictEqual(engine.BLOCKER_CODES.DELIVERY_FAILED, engine.BLOCKER_CODES.PROVIDER_FAILED);
+
+  // And a delivery made with no scope to check against still delivers —
+  // but hands the reviewer the one fact they cannot recover from the
+  // checks: nothing compared these files to an intended set.
+  var cp = require('child_process');
+  var ws = newWorkspace('delivery-no-scope');
+  function sh(args) { return cp.execFileSync('git', args, { cwd: ws, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); }
+  sh(['init', '-q']); sh(['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'base']);
+  seedBrokenProject(ws);
+  sh(['add', '-A']); sh(['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'seed']);
+  fs.writeFileSync(path.join(ws, 'add.js'), FIXED);
+  var unscoped = { validation: { passed: true, evidence: { changed: { created: [], modified: ['add.js'], deleted: [] }, checks_run: [], scope_enforced: false } } };
+  var prev = process.env.MYTHOS_EXECUTOR_HOME; process.env.MYTHOS_EXECUTOR_HOME = path.join(ROOT, 'exec-home');
+  var d2;
+  try {
+    d2 = executor.deliverValidatedWork({ task_id: 't-deliver-2', working_directory: ws, expected_delivery: 'commit' }, done, unscoped);
+  } finally { if (prev === undefined) delete process.env.MYTHOS_EXECUTOR_HOME; else process.env.MYTHOS_EXECUTOR_HOME = prev; }
+  assert.ok(d2 && d2.commit, 'an undeclared scope does not block delivery: ' + JSON.stringify(d2));
+  assert.ok(/declared no path scope/.test(d2.note || ''), d2.note);
+  assert.ok(/review the diff itself/.test(d2.note || ''), d2.note);
 });
 
 t('B2 the repair brief hands the worker MEASURED evidence, not a scolding', function () {
@@ -531,6 +584,30 @@ t('C5 work outside the declared scope is caught', function () {
   ], { constraints: ['Only change add.js'], required_tests: ['node add.test.js'] }).then(function (o) {
     assert.strictEqual(o.validation.passed, false, 'the extra file was not allowed');
     assert.ok(/scope: unrelated\.js was changed/.test(rejections(o)), rejections(o));
+    assert.strictEqual(o.validation.evidence.scope_enforced, true, 'a path scope existed and was applied');
+  });
+});
+
+// The other half of C5, and the one that is easy to mistake for it: a task
+// whose constraints are PROSE yields no path, so there is no scope rule to
+// break and the same work passes. That is correct — the validator cannot
+// invent a restriction the task never stated, and the sandbox still keeps
+// every write inside the workspace — but "stayed in scope" and "there was
+// no scope" must not read the same afterwards. The verdict records which
+// one happened, and the executor puts it in front of the reviewer.
+t('C5b prose constraints declare no scope — the work passes and says so, it does not silently claim a scope check', function () {
+  var ws = newWorkspace('prose-scope');
+  seedBrokenProject(ws);
+  return runTask(ws, [
+    callTool('c1', 'write_file', { path: 'add.js', content: FIXED }),
+    callTool('c2', 'write_file', { path: 'unrelated.js', content: 'module.exports = 1;\n' }),
+    say(report('completed', 'Fixed add.', ['add.js', 'unrelated.js']))
+  ], { constraints: ['Do not weaken the check', 'Keep the change small'], required_tests: ['node add.test.js'] }).then(function (o) {
+    assert.strictEqual(o.validation.passed, true, 'prose constraints are not a scope rule: ' + JSON.stringify(o.validation.rejections));
+    assert.deepStrictEqual(o.validation.evidence.scope_declared, [], 'no path could be read from prose');
+    assert.strictEqual(o.validation.evidence.scope_enforced, false, 'and the verdict says no scope was enforced');
+    assert.strictEqual(reporting.extractReport(o.stdout).report.status, 'completed',
+      'the worker is not failed for a restriction the task never declared');
   });
 });
 

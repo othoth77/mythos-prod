@@ -178,6 +178,13 @@ function validateWork(input) {
     checks_run: [],
     checks_advisory: parsed.advisory,
     scope_declared: scope,
+    // Whether a path scope existed to enforce AT ALL. A task whose
+    // constraints are prose ("do not weaken the check") yields no path and
+    // therefore no scope rule — which is legitimate, but "stayed in scope"
+    // and "there was no scope" are different facts and must never read the
+    // same downstream. Recorded for the same reason mechanically_verified
+    // is: the difference travels to the reviewer instead of being lost.
+    scope_enforced: scope.length > 0,
     out_of_scope: []
   };
 
