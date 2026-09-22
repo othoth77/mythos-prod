@@ -522,6 +522,7 @@ function run(task, prompt, _sessionId, _mode, opts) {
     { role: 'user', content: String(prompt) }
   ];
   var toolCallCount = 0;
+  var roundToolCalls = 0;
   var trace = [];
 
   // A repair round starts from a COMPACT conversation: system, the task, the
@@ -533,9 +534,64 @@ function run(task, prompt, _sessionId, _mode, opts) {
   // the request. Bounded context per execution is what makes three
   // executions possible at all.
   function compactForRepair(lastText, brief) {
+    roundToolCalls = 0;
     messages = [messages[0], messages[1]];
     if (lastText && String(lastText).trim()) messages.push({ role: 'assistant', content: String(lastText).slice(0, 2000) });
     messages.push({ role: 'user', content: brief });
+  }
+
+  // ESCALATION, diagnosis only. On the LAST repair round — the local model
+  // has by then failed the task once and failed one measured repair — a
+  // stronger model may be asked for a diagnosis and precise repair
+  // instructions, which are appended to the brief. It is given the task,
+  // the measured failures and the constrained files' current content; it
+  // is given NO tool, writes nothing and runs nothing — the local model
+  // still does the work and the validator still decides. Off unless the
+  // host names a diagnoser (HADDAD_AGENT_DIAGNOSER, a command line; or
+  // opts.diagnose in tests). Bounded, and fail-open: no diagnosis means the
+  // mechanical brief goes alone, exactly as before.
+  function diagnosisFor(verdict, brief) {
+    var diagnose = opts.diagnose || diagnoserFromEnv();
+    if (!diagnose) return null;
+    var files = work.declaredScope(task.constraints || []).slice(0, 4).map(function (rel) {
+      var content = '';
+      try { content = fs.readFileSync(path.join(workspace, rel), 'utf8').slice(0, 8000); } catch (e) { content = '(unreadable)'; }
+      return '--- ' + rel + ' ---\n' + content;
+    }).join('\n');
+    var ask = [
+      'You are the DIAGNOSER for a supervised coding loop. A small local model (Qwen 7B) is fixing a file and has failed twice; independent validation measured the failures below.',
+      'Give a short diagnosis (why the current file fails those checks) and PRECISE repair instructions the small model can follow with write_file: the exact final content of the file, complete, inside one ```javascript block, plus at most five lines of explanation. Do not run anything; do not ask questions.',
+      '', '## Task', String(prompt).slice(0, 3000),
+      '', '## Measured failures', brief.slice(0, 4000),
+      '', '## Current content of the constrained files', files || '(none declared)'
+    ].join('\n');
+    var out = null;
+    try { out = diagnose(ask); } catch (e) { out = null; }
+    if (!out || !String(out).trim()) return null;
+    return String(out).slice(0, 6000);
+  }
+  function diagnoserFromEnv() {
+    var cmdline = process.env.HADDAD_AGENT_DIAGNOSER;
+    if (!cmdline) return null;
+    var argv = cmdline.split(/\s+/).filter(Boolean);
+    return function (ask) {
+      // Its cwd is an empty scratch directory, so a file-reading tool the
+      // diagnoser might have finds nothing; the ask carries what it needs.
+      var scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'haddad-diag-'));
+      try {
+        var r = cp.spawnSync(argv[0], argv.slice(1), { input: ask, encoding: 'utf8', timeout: 180000, cwd: scratch, maxBuffer: 1024 * 1024 });
+        trace.push({ tool: 'diagnose', refused: r.status !== 0, detail: r.status === 0 ? null : 'diagnoser exit ' + r.status + ': ' + String(r.stderr || '').slice(0, 120), target: argv[0] });
+        return r.status === 0 ? r.stdout : null;
+      } finally {
+        try { fs.rmSync(scratch, { recursive: true, force: true }); } catch (e) { /* best effort */ }
+      }
+    };
+  }
+  function withDiagnosis(verdict, brief) {
+    if (repairRound < MAX_REPAIR_ROUNDS) return brief;   // not the last round: the local model gets another measured try first
+    var d = diagnosisFor(verdict, brief);
+    if (!d) return brief;
+    return brief + '\n\n### Diagnosis (escalated — follow it exactly, as tool calls)\n' + d;
   }
   // Taken BEFORE the model is called even once, so "what changed" is
   // measured against the state the task actually started from.
@@ -673,11 +729,11 @@ function run(task, prompt, _sessionId, _mode, opts) {
     var callsThisRound = trace.length - traceMarkAtRoundStart;
     repairRound++;
     traceMarkAtRoundStart = trace.length;
-    compactForRepair(text, work.renderRepairNotes(verdict, repairRound, task.constraints || [], {
+    compactForRepair(text, withDiagnosis(verdict, work.renderRepairNotes(verdict, repairRound, task.constraints || [], {
       tool_calls: callsThisRound,
       // The files the task constrained the worker to are the ones it must fix.
       files_named: work.declaredScope(task.constraints || [])
-    }));
+    })));
     return step(0);
   }
 
@@ -707,11 +763,11 @@ function run(task, prompt, _sessionId, _mode, opts) {
       var callsThisRound = trace.length - traceMarkAtRoundStart;
       repairRound++;
       traceMarkAtRoundStart = trace.length;
-      compactForRepair('', work.renderRepairNotes(capVerdict, repairRound, task.constraints || [], {
+      compactForRepair('', withDiagnosis(capVerdict, work.renderRepairNotes(capVerdict, repairRound, task.constraints || [], {
         tool_calls: callsThisRound,
         out_of_turns: MAX_ITERATIONS,
         files_named: work.declaredScope(task.constraints || [])
-      }));
+      })));
       return step(0);
     }
 
@@ -744,9 +800,14 @@ function run(task, prompt, _sessionId, _mode, opts) {
       for (var i = 0; i < calls.length; i++) {
         var c = calls[i];
         toolCallCount++;
+        roundToolCalls++;
         var name = c.function && c.function.name;
         var result;
-        if (toolCallCount > MAX_TOOL_CALLS) {
+        // The budget is PER EXECUTION, like the turn budget: a repair round
+        // that inherits a spent budget can only be refused (gh-issue-376,
+        // live: round three made four calls, all refused). Bounded either
+        // way — three executions of at most MAX_TOOL_CALLS each.
+        if (roundToolCalls > MAX_TOOL_CALLS) {
           result = { error: 'REFUSED: tool-call budget of ' + MAX_TOOL_CALLS + ' is spent' };
         } else {
           var parsedArgs = {};

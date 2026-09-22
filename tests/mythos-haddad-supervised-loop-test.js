@@ -64,6 +64,8 @@ function callTool(id, name, args) {
   return { role: 'assistant', content: null,
     tool_calls: [{ id: id, type: 'function', function: { name: name, arguments: JSON.stringify(args) } }] };
 }
+function tc(id, name, args) { return { id: id, type: 'function', function: { name: name, arguments: JSON.stringify(args) } }; }
+function msgWithCalls(calls) { return { role: 'assistant', content: null, tool_calls: calls }; }
 function report(status, summary, files) {
   return '```json\n' + JSON.stringify({ mythos_report: true, status: status || 'completed',
     summary: summary || 'done', files_changed: files || [], tests: [], commit: null }) + '\n```';
@@ -90,14 +92,14 @@ function seedBrokenProject(ws) {
     'console.log("add ok");\n');
 }
 
-function runTask(ws, replies, over) {
+function runTask(ws, replies, over, extraOpts) {
   var task = Object.assign({
     task_id: 't-sup', working_directory: ws, execution_profile: 'repo-write',
-    timeout_seconds: 600, required_tests: ['node add.test.js'], constraints: []
+    timeout_seconds: 600, required_tests: ['node add.test.js'], constraints: ['Only change add.js']
   }, over || {});
   var transport = fakeTransport(replies);
   return agent.run(task, 'Fix add so its test passes.', null, 'start',
-    { apiKey: 'k', model: 'm', transport: transport }).then(function (o) {
+    Object.assign({ apiKey: 'k', model: 'm', transport: transport }, extraOpts || {})).then(function (o) {
       o._sent = transport.sent;
       return o;
     });
@@ -250,6 +252,69 @@ t('B6 every model turn is bounded in tokens (a runaway answer cannot eat the req
     return adapter.chatCompletion({ baseUrl: 'http://x', apiKey: 'k', model: 'm' }, 'hi', {
       transport: function (o2, body) { seen = JSON.parse(body); return Promise.resolve({ status: 200, body: JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }) }); }
     }).then(function () { assert.ok(seen && !('max_tokens' in seen), 'no max_tokens unless asked for'); });
+  });
+});
+
+t('B7 the tool-call budget is per execution: a repair round is not starved by the round before it', function () {
+  var ws = newWorkspace('budget-per-round');
+  seedBrokenProject(ws);
+  var replies = [];
+  // Attempt 1 spends the whole tool budget on reads, then reports.
+  var many = []; for (var i = 0; i < agent.MAX_TOOL_CALLS; i++) many.push(tc('m' + i, 'read_file', { path: 'add.js' }));
+  replies.push(msgWithCalls(many));
+  replies.push(say(report('completed', 'looked', [])));
+  // Attempt 2 must still be able to write and run.
+  replies.push(callTool('w', 'write_file', { path: 'add.js', content: FIXED }));
+  replies.push(callTool('r', 'run_command', { program: 'node', args: ['add.test.js'] }));
+  replies.push(say(report('completed', 'fixed', ['add.js'])));
+  return runTask(ws, replies).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, false, o.stderr);
+    assert.strictEqual(o.repair_rounds, 1);
+    var refusedInRound2 = o.tool_trace.slice(agent.MAX_TOOL_CALLS).filter(function (x) { return x.refused; });
+    assert.strictEqual(refusedInRound2.length, 0, 'round two was not refused: ' + JSON.stringify(refusedInRound2));
+    assert.ok(o.tool_calls <= agent.MAX_TOOL_CALLS * (agent.MAX_REPAIR_ROUNDS + 1), 'still bounded overall');
+  });
+});
+
+t('B8 diagnosis escalation: only on the LAST repair round, only when a diagnoser exists, given the measured failures, and it executes nothing', function () {
+  var ws = newWorkspace('diagnosis');
+  seedBrokenProject(ws);
+  var asks = [];
+  var diagnose = function (ask) { asks.push(ask); return 'Cause: add multiplies. Write add.js as:\n```javascript\n' + FIXED + '```'; };
+  return runTask(ws, [
+    say(report('completed', 'Done.')),                                   // attempt 1: nothing done → rejected
+    say(report('completed', 'Done again.')),                             // repair 1: still nothing → rejected (no diagnosis yet)
+    callTool('w', 'write_file', { path: 'add.js', content: FIXED }),     // repair 2, after the diagnosis
+    say(report('completed', 'fixed as diagnosed', ['add.js']))
+  ], {}, { diagnose: diagnose }).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, false, o.stderr);
+    assert.strictEqual(asks.length, 1, 'the diagnoser was asked exactly once');
+    assert.ok(/## Measured failures/.test(asks[0]) && /add\(2,2\) returned 0, expected 4/.test(asks[0]), 'it was given the measured evidence');
+    assert.ok(/## Current content of the constrained files/.test(asks[0]));
+    var brief1 = o._sent[1].messages.slice(-1)[0].content;
+    var brief2 = o._sent[2].messages.slice(-1)[0].content;
+    assert.ok(!/### Diagnosis \(escalated/.test(brief1), 'the first repair round is the local model\'s own');
+    assert.ok(/### Diagnosis \(escalated — follow it exactly, as tool calls\)\nCause: add multiplies/.test(brief2), 'the last round carries the diagnosis');
+    assert.strictEqual(fs.readFileSync(path.join(ws, 'add.js'), 'utf8'), FIXED, 'the LOCAL model wrote the file, through write_file');
+    assert.strictEqual(o.validation.passed, true);
+  }).then(function () {
+    // Without a diagnoser nothing changes: the brief goes alone.
+    var ws2 = newWorkspace('no-diagnoser'); seedBrokenProject(ws2);
+    delete process.env.HADDAD_AGENT_DIAGNOSER;
+    return runTask(ws2, [say(report('completed', 'x')), say(report('completed', 'y')), say(report('completed', 'z'))]);
+  }).then(function (o) {
+    o._sent.slice(1).forEach(function (req) { assert.ok(!/### Diagnosis/.test(req.messages.slice(-1)[0].content), 'no diagnosis without a diagnoser'); });
+  }).then(function () {
+    // A diagnoser command that fails is fail-open: the brief still goes.
+    var ws3 = newWorkspace('diagnoser-fails'); seedBrokenProject(ws3);
+    process.env.HADDAD_AGENT_DIAGNOSER = '/bin/false';
+    return runTask(ws3, [say(report('completed', 'x')), say(report('completed', 'y')), say(report('completed', 'z'))]).then(function (o) {
+      delete process.env.HADDAD_AGENT_DIAGNOSER;
+      var last = o._sent[2].messages.slice(-1)[0].content;
+      assert.ok(/## REPAIR REQUIRED \(attempt 2\)/.test(last) && !/### Diagnosis/.test(last), 'brief without diagnosis');
+      var d = o.tool_trace.filter(function (x) { return x.tool === 'diagnose'; });
+      assert.strictEqual(d.length, 1); assert.ok(d[0].refused && /diagnoser exit 1/.test(d[0].detail), 'the failed escalation is in the trace');
+    });
   });
 });
 
