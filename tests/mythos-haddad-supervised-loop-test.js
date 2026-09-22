@@ -354,6 +354,36 @@ t('B9 budget spent, every check passing by measurement, no readable report: comp
   });
 });
 
+t('B10 mechanical delivery: the executor commits exactly the validated files, only for a validated pass, never for anything else', function () {
+  var cp = require('child_process');
+  var executor = require(path.join(EXEC, 'executor.js'));
+  var ws = newWorkspace('delivery');
+  function sh(args) { return cp.execFileSync('git', args, { cwd: ws, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); }
+  sh(['init', '-q']); sh(['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'base']);
+  seedBrokenProject(ws);
+  sh(['add', '-A']); sh(['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'seed']);
+  fs.writeFileSync(path.join(ws, 'add.js'), FIXED);
+  fs.writeFileSync(path.join(ws, 'stray.txt'), 'not validated\n');          // present, but NOT in the measured change set
+  var task = { task_id: 't-deliver', working_directory: ws, expected_delivery: 'commit' };
+  var report = { mythos_report: true, status: 'completed', summary: 'add fixed', files_changed: ['add.js'] };
+  var outcome = { validation: { passed: true, evidence: { changed: { created: [], modified: ['add.js'], deleted: [] }, checks_run: [{ check: 'node add.test.js', passed: true }] } } };
+  // The state module writes events under the executor home; point it at a scratch home.
+  var prevHome = process.env.MYTHOS_EXECUTOR_HOME; process.env.MYTHOS_EXECUTOR_HOME = path.join(ROOT, 'exec-home');
+  var d;
+  try { d = executor.deliverValidatedWork(task, report, outcome); } finally { if (prevHome === undefined) delete process.env.MYTHOS_EXECUTOR_HOME; else process.env.MYTHOS_EXECUTOR_HOME = prevHome; }
+  assert.ok(d && d.commit && !d.problem, JSON.stringify(d));
+  assert.strictEqual(sh(['rev-parse', 'HEAD']), d.commit);
+  assert.strictEqual(sh(['show', '--name-only', '--format=', 'HEAD']), 'add.js', 'exactly the validated file is in the commit');
+  assert.ok(/^\?\? stray\.txt$/m.test(sh(['status', '--porcelain'])), 'the unvalidated file was left alone');
+  assert.ok(/mythos-haddad-worker/.test(sh(['log', '-1', '--format=%an'])));
+  // Not delivered: validation absent (every other provider), failed, report not completed, or a commit already claimed.
+  assert.strictEqual(executor.deliverValidatedWork(task, report, {}), null);
+  assert.strictEqual(executor.deliverValidatedWork(task, report, { validation: { passed: false, evidence: outcome.validation.evidence } }), null);
+  assert.strictEqual(executor.deliverValidatedWork(task, Object.assign({}, report, { status: 'blocked' }), outcome), null);
+  assert.strictEqual(executor.deliverValidatedWork(task, Object.assign({}, report, { commit: 'abc' }), outcome), null);
+  assert.strictEqual(executor.deliverValidatedWork(Object.assign({}, task, { expected_delivery: 'report' }), report, outcome), null);
+});
+
 t('B2 the repair brief hands the worker MEASURED evidence, not a scolding', function () {
   var ws = newWorkspace('repair-brief');
   seedBrokenProject(ws);

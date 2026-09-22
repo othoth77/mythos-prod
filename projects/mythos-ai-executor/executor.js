@@ -488,6 +488,30 @@ function buildPrompt(task, status, resumeNote) {
 
 // --- Git verification and report delivery -------------------------------------
 
+function deliverValidatedWork(task, report, outcome) {
+  var v = outcome && outcome.validation;
+  if (!v || v.passed !== true || !v.evidence || !v.evidence.changed) return null;
+  if (!report || report.status !== 'completed' || report.commit) return null;
+  if (task.expected_delivery !== 'commit') return null;
+  var cwd = task.working_directory;
+  if (!cwd || !gitlib.isRepo(cwd)) return null;
+  var files = (v.evidence.changed.created || []).concat(v.evidence.changed.modified || []);
+  var deleted = v.evidence.changed.deleted || [];
+  if (!files.length && !deleted.length) return null;
+  var add = files.length ? gitlib.git(['add', '--'].concat(files), cwd) : { ok: true };
+  var rm = deleted.length ? gitlib.git(['rm', '--quiet', '--cached', '--ignore-unmatch', '--'].concat(deleted), cwd) : { ok: true };
+  if (!add.ok || !rm.ok) return { problem: 'delivery: could not stage the validated files: ' + String((add.error || rm.error || '')).slice(0, 200) };
+  var subject = String(report.summary || 'validated work').replace(/\s+/g, ' ').slice(0, 72);
+  var body = 'Committed by the executor from the validator\'s measured evidence: ' + files.concat(deleted).join(', ') + '.\n' +
+    'Checks: ' + (v.evidence.checks_run || []).map(function (c) { return c.check + (c.passed ? ' ok' : ' FAIL'); }).join('; ');
+  var commit = gitlib.git(['-c', 'user.name=mythos-haddad-worker', '-c', 'user.email=haddad-worker@mythos.invalid',
+    'commit', '--quiet', '--no-verify', '-m', subject, '-m', body], cwd);
+  if (!commit.ok) return { problem: 'delivery: commit failed: ' + String(commit.error || '').slice(0, 200) };
+  var sha = gitlib.head(cwd);
+  try { state.appendEvent(task.task_id, 'work_delivered', { commit: sha, files: files, deleted: deleted, by: 'executor' }); } catch (e) { /* the commit is the record; the event is a convenience */ }
+  return { commit: sha, files: files };
+}
+
 function verifyGit(task, report) {
   var extras = { git_verified: null, remote_head: null };
   if (!task.working_directory || !gitlib.isRepo(task.working_directory)) return extras;
@@ -721,6 +745,19 @@ function handleSuccess(task, taskId, outcome, parsed) {
   var extracted = reporting.extractReport(resultText);
   var problems = extracted.report ? reporting.validateReport(extracted.report) : [extracted.error];
   var report = extracted.report;
+
+  // Mechanical delivery for a worker that has no git of its own. The Haddad
+  // tool runner refuses .git by design and so can never commit; without
+  // this its validated work stayed uncommitted in the worktree, the report
+  // said "delivery expected a commit but the report claims none", and a
+  // continuation (gh-issue-379-r2, live) started from a fresh worktree and
+  // redid everything. The executor commits EXACTLY the files the validator
+  // measured as changed — nothing else — and only when the provider's own
+  // validation passed. No other provider sets outcome.validation, so the
+  // VPS path is byte-for-byte unchanged. Never pushes.
+  var delivered = deliverValidatedWork(task, report, outcome);
+  if (delivered && delivered.commit) report.commit = delivered.commit;
+  if (delivered && delivered.problem) problems.push(delivered.problem);
 
   var extras = verifyGit(task, report);
   if (extras.problem) problems.push(extras.problem);
@@ -1564,6 +1601,7 @@ module.exports = {
   writeCheckpoint: writeCheckpoint,
   preflightBlocker: preflightBlocker,
   verifyGit: verifyGit,
+  deliverValidatedWork: deliverValidatedWork,
   commitReportToGit: commitReportToGit,
   sshEnv: sshEnv,
   acquireDaemonLock: acquireDaemonLock,
