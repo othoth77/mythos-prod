@@ -174,7 +174,11 @@ function advanceMission(missionId, opts) {
       var settled = validation.validateAndSettle(task.id, task.result, Object.assign({}, validatorOpts, {
         worktree_dir: task.metadata && task.metadata.worktree_dir
       }));
-      if (task.agent_id) {
+      // A task parked for review has no outcome yet: the agent neither
+      // succeeded nor failed, and recording it as a failure would punish
+      // an agent for the absence of a REVIEWER. Reputation waits for the
+      // verdict, which arrives through validation.resolveReview.
+      if (task.agent_id && settled.status !== 'REVIEW_REQUIRED') {
         reputation.recordOutcome(task.agent_id,
           (task.capabilities_required || [])[0] || task.task_type,
           settled.status === 'COMPLETED');

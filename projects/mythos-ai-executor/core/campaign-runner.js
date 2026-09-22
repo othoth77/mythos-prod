@@ -381,6 +381,25 @@ function settleMission(campaignId, mission, opts) {
     return parkOutcome(parked1, 'approval_required', reasons.join(' | '));
   }
 
+  // Independent review: a task's evidence is sound but no reviewer was
+  // available, so it parked instead of completing (core/validation.js).
+  // That is an owner decision, not a repair — the work is not wrong, it is
+  // unverified — and parking it here is what stops the campaign from
+  // ticking forever against a mission that can no longer finish by itself.
+  var reviewParked = tasks.filter(function (t) { return t.status === 'REVIEW_REQUIRED'; });
+  if (mission.status === 'WAITING' && reviewParked.length) {
+    var reviewReasons = reviewParked.map(function (t) {
+      return (t.metadata.plan_key || t.id) + ': ' + (t.metadata.review_block_reason || 'review required');
+    });
+    var parkedReview = campaign.parkForApproval(campaignId, {
+      mission_id: cm.mission_id, capability_key: cm.capability_key,
+      objective: cm.objective,
+      reason: 'independent review unavailable: ' + reviewReasons.join(' | '),
+      action_class: 'REVIEW'
+    });
+    return parkOutcome(parkedReview, 'review_required', reviewReasons.join(' | '));
+  }
+
   // The mission finished (either way) → acceptance on evidence.
   if (['COMPLETED', 'FAILED'].indexOf(mission.status) !== -1) {
     campaign.transition(campaignId, 'REVIEWING', {});

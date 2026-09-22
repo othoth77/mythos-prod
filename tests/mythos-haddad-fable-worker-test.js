@@ -169,27 +169,62 @@ t('the CLI writes one JSON line and uses the documented exit codes', function ()
   assert.strictEqual(JSON.parse(unconfigured.stdout.trim()).reason, 'RUNTIME_UNCONFIGURED');
 });
 
+// SCOPE GUARD. This asserts that a HADDAD stage reuses the executor rather
+// than editing it — so it must first establish that the branch it is
+// reading IS a Haddad stage. A branch that changes nothing under
+// projects/mythos-haddad/ is not one, and judging its executor changes here
+// makes this file veto unrelated core work. It did: a core branch that
+// changed core/validation.js and no Haddad file at all failed this check.
+// Scoped to Haddad branches, the guard refuses exactly what it always did.
+//
+// HAD-2b itself modifies nothing here, and that still holds. HAD-3 later
+// changes exactly three files under the executor tree, each with owner
+// approval and its own coverage in tests/mythos-haddad-advisory-profile-test.js:
+// the two preflight gates that reconcile "an advisory provider carries no
+// execution profile" with "every action must carry its profile", plus one
+// additive project registration. Naming them keeps this guard meaningful —
+// any OTHER file under the executor tree still fails it.
+var HAD3_ALLOWED = [
+  'projects/mythos-ai-executor/bridge/github-bridge.js',
+  'projects/mythos-ai-executor/executor.js',
+  'projects/mythos-ai-executor/config/projects.json'
+];
+
+function touchesHaddad(files) {
+  return files.some(function (f) { return /^projects\/mythos-haddad\//.test(f); });
+}
+
+function executorFilesModified(files) {
+  if (!touchesHaddad(files)) return [];   // not a Haddad stage — not this guard's business
+  return files.filter(function (f) {
+    return HAD3_ALLOWED.indexOf(f) === -1 && /^projects\/mythos-ai-executor\//.test(f);
+  });
+}
+
 t('this integration modifies nothing under mythos-ai-executor/', function () {
   var repoRoot = path.join(__dirname, '..');
   var diff = cp.spawnSync('git', ['diff', '--name-only', 'origin/main...HEAD'], { cwd: repoRoot, encoding: 'utf8', timeout: 30000 });
   if (diff.status !== 0 || !diff.stdout.trim()) return; // no origin/main to compare against — skip
-  // HAD-2b itself modifies nothing here, and that still holds. HAD-3 later
-  // changes exactly three files under the executor tree, each with owner
-  // approval and its own coverage in tests/mythos-haddad-advisory-profile-test.js:
-  // the two preflight gates that reconcile "an advisory provider carries no
-  // execution profile" with "every action must carry its profile", plus one
-  // additive project registration. Naming them keeps this guard meaningful —
-  // any OTHER file under the executor tree still fails it.
-  var HAD3_ALLOWED = [
-    'projects/mythos-ai-executor/bridge/github-bridge.js',
-    'projects/mythos-ai-executor/executor.js',
-    'projects/mythos-ai-executor/config/projects.json'
-  ];
-  diff.stdout.trim().split('\n').forEach(function (f) {
-    if (HAD3_ALLOWED.indexOf(f) !== -1) return;
-    assert.ok(!/^projects\/mythos-ai-executor\//.test(f),
-      'executor is reused, never modified: ' + f);
-  });
+  var modified = executorFilesModified(diff.stdout.trim().split('\n'));
+  assert.strictEqual(modified.join(', '), '',
+    'executor is reused, never modified: ' + modified.join(', '));
+});
+
+t('the scope guard is scoped to Haddad branches and still bites', function () {
+  assert.deepStrictEqual(
+    executorFilesModified(['projects/mythos-ai-executor/core/validation.js', 'docs/AI_HANDOVER.md']), [],
+    'a branch that touches no Haddad file is not judged by this guard');
+  assert.deepStrictEqual(
+    executorFilesModified(['projects/mythos-haddad/lib/haddad-runtime.js']), [],
+    'a Haddad branch that stays inside its own tree passes');
+  assert.deepStrictEqual(
+    executorFilesModified(['projects/mythos-haddad/lib/haddad-runtime.js',
+      'projects/mythos-ai-executor/free-llm/adapter.js']),
+    ['projects/mythos-ai-executor/free-llm/adapter.js'],
+    'a Haddad branch that edits the executor still FAILS');
+  assert.deepStrictEqual(
+    executorFilesModified(['projects/mythos-haddad/systemd/x.service'].concat(HAD3_ALLOWED)), [],
+    'the three owner-approved HAD-3 files stay allow-listed');
 });
 
 // ---------------------------------------------------------------------

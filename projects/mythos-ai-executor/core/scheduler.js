@@ -464,6 +464,11 @@ function runMission(missionId, opts) {
     });
     var waitingApproval = openStates.filter(function (t) { return t.status === 'WAITING_FOR_APPROVAL'; });
     var waitingQuota = openStates.filter(function (t) { return t.status === 'WAITING_FOR_QUOTA'; });
+    // A task parked for an independent review it could not get is waiting
+    // on a decision, exactly like an approval: the mission parks, it does
+    // not fail, and it is never re-dispatched (promoteReady only promotes
+    // QUEUED/WAITING_FOR_DEPENDENCY, so the work never runs twice).
+    var waitingReview = openStates.filter(function (t) { return t.status === 'REVIEW_REQUIRED'; });
     var doomedIds = assessment.doomed.map(function (d) { return d.id; });
 
     if (!openStates.length) {
@@ -489,11 +494,12 @@ function runMission(missionId, opts) {
         return ['COMPLETED', 'FAILED', 'CANCELLED'].indexOf(t.status) === -1 &&
           doomedIds.indexOf(t.id) === -1;
       });
-      if (waitingApproval.length || waitingQuota.length) {
+      if (waitingApproval.length || waitingQuota.length || waitingReview.length) {
         mission = store.transition('mission', missionId, 'WAITING', {
           metadata: Object.assign({}, mission.metadata, {
             waiting_approval: waitingApproval.map(function (t) { return t.id; }),
-            waiting_quota: waitingQuota.map(function (t) { return t.id; })
+            waiting_quota: waitingQuota.map(function (t) { return t.id; }),
+            waiting_review: waitingReview.map(function (t) { return t.id; })
           })
         });
         return Promise.resolve(mission);
