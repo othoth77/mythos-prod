@@ -201,7 +201,7 @@ check('ai_runtime', function () {
   // (bin/haddad-telemetry.js, runtimeLoadFacts), so this reads the pair the
   // same way rather than adding a timer, a retry loop or a state file.
   var show = sh('systemctl', ['--user', 'show', 'mythos-haddad-runtime.service',
-    '-p', 'ActiveEnterTimestamp', '-p', 'TimeoutStartUSec']);
+    '-p', 'ActiveEnterTimestamp', '-p', 'TimeoutStartUSec', '-p', 'ExecStart']);
   var props = {};
   show.out.split('\n').forEach(function (l) { var m = /^([A-Za-z]+)=(.*)$/.exec(l); if (m) props[m[1]] = m[2]; });
   var activeSinceMs = Date.parse(props.ActiveEnterTimestamp || '');
@@ -216,6 +216,23 @@ check('ai_runtime', function () {
     });
     budgetS = Math.round(budgetS) || null;
   }
+  // Whether THIS unit is supposed to use a GPU at all, taken from its own argv
+  // rather than assumed, so the offload assertion below holds a host to the
+  // configuration it actually declares instead of to a policy this check
+  // invented. Same principle as the startup budget above: the unit is the
+  // source of truth about itself.
+  //
+  // ONLY AN EXPLICIT OPT-OUT COUNTS. `--n-gpu-layers 0` is an operator saying
+  // "CPU on purpose", and failing that host would be wrong. Everything else —
+  // a flag with any other value, NO flag at all, or an unreadable ExecStart —
+  // means the assertion stays armed. That asymmetry is deliberate: reading a
+  // missing flag as "CPU intended" would mean this unit could silently lose
+  // its GPU assertion by losing a line, which is the same class of quiet
+  // regression the assertion exists to catch. A false FAIL is loud and
+  // explicable; a silently disabled check is neither.
+  var ngl = /--n-gpu-layers[= ]+(\S+)/.exec(props.ExecStart || '');
+  var gpuIntended = !(ngl && /^(0|off|none)$/i.test(ngl[1]));
+
   // Only a runtime that is genuinely inside its declared startup window may
   // report a non-failure without answering. Unknown timestamp or unknown
   // budget means no grace at all — an unreadable clock must never buy one.
@@ -282,6 +299,11 @@ check('ai_runtime', function () {
     gpu_layers: layers === undefined ? null : layers, gpu_layers_total: total === undefined ? null : total,
     no_devices: facts.no_devices === undefined ? null : facts.no_devices, gpu_source: facts.source || null };
 
+  data.gpu_intended = gpuIntended;
+  // A unit that never asked for the GPU is not failing by not using it.
+  if (!gpuIntended) {
+    return add('ai_runtime', 'PASS', base + ', CPU-only by configuration (--n-gpu-layers ' + ngl[1] + ')', data);
+  }
   // A runtime that found no device, or offloaded nothing, is a REAL failure:
   // it is serving from CPU on a machine bought for the card, at a fraction of
   // the speed, and the whole point of this node is that it does not.

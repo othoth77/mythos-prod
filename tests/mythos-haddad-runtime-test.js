@@ -211,7 +211,9 @@ function runAiRuntime(opts) {
     '#!/bin/sh\n' +
     'case " $* " in\n' +
     '  *" is-active "*) echo "' + opts.active + '" ;;\n' +
-    '  *" show "*) echo "ActiveEnterTimestamp=' + activeSince + '"; echo "TimeoutStartUSec=' + opts.budget + '" ;;\n' +
+    '  *" show "*) echo "ActiveEnterTimestamp=' + activeSince + '"; echo "TimeoutStartUSec=' + opts.budget + '";' +
+    (opts.exec_start === undefined ? ' echo "ExecStart={ argv[]=/usr/bin/llama-server --n-gpu-layers auto ; }"' :
+      opts.exec_start === null ? '' : ' echo "ExecStart=' + opts.exec_start + '"') + ' ;;\n' +
     '  *) echo "" ;;\n' +
     'esac\nexit 0\n', { mode: 0o755 });
   // The check asks curl for the body plus "\n%{http_code}"; reproduce both.
@@ -382,6 +384,43 @@ t('the telemetry parser distinguishes no-device from unknown (tri-state)', funct
   assert.ok(/no_devices: null/.test(src), 'no_devices starts unknown, not false');
   assert.ok(/no devices with dedicated memory found/.test(src), 'the real second marker is matched too');
   assert.ok(/runtimeLoadFacts: runtimeLoadFacts/.test(src), 'exported for reuse');
+});
+
+
+t('a unit that asked for CPU is not failed for using CPU', function () {
+  // --n-gpu-layers 0 is an operator saying "CPU on purpose". Failing that
+  // host would be this check inventing a policy nobody set.
+  var c = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 200, body: LOADED,
+    journal: CPU_ONLY_BOOT, exec_start: '{ argv[]=/usr/bin/llama-server --n-gpu-layers 0 ; }' });
+  assert.strictEqual(c.status, 'PASS', 'an explicit CPU-only unit passes on CPU');
+  assert.strictEqual(c.data.gpu_intended, false);
+  assert.ok(/CPU-only by configuration/.test(c.detail), c.detail);
+});
+
+t('only an EXPLICIT opt-out disarms the assertion — silence never does', function () {
+  // The asymmetry that matters: a missing flag must NOT read as "CPU
+  // intended", or this unit could lose its GPU assertion by losing a line.
+  var noFlag = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 200, body: LOADED,
+    journal: CPU_ONLY_BOOT, exec_start: '{ argv[]=/usr/bin/llama-server --ctx-size 8192 ; }' });
+  assert.strictEqual(noFlag.status, 'FAIL', 'no --n-gpu-layers flag still asserts the GPU');
+  assert.strictEqual(noFlag.data.gpu_intended, true);
+
+  var unreadable = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 200, body: LOADED,
+    journal: CPU_ONLY_BOOT, exec_start: null });
+  assert.strictEqual(unreadable.status, 'FAIL', 'an unreadable ExecStart never softens a real regression');
+  assert.strictEqual(unreadable.data.gpu_intended, true);
+
+  // ...and a non-zero value obviously keeps it armed.
+  var auto = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 200, body: LOADED,
+    journal: CPU_ONLY_BOOT, exec_start: '{ argv[]=/usr/bin/llama-server --n-gpu-layers auto ; }' });
+  assert.strictEqual(auto.status, 'FAIL', '--n-gpu-layers auto means the GPU is expected');
+});
+
+t('a CPU-only unit still has to actually answer', function () {
+  // Opting out of the GPU does not opt out of the readiness contract.
+  var c = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 503, body: LOADING,
+    journal: CPU_ONLY_BOOT, exec_start: '{ argv[]=/usr/bin/llama-server --n-gpu-layers 0 ; }' });
+  assert.strictEqual(c.status, 'FAIL', 'a stuck CPU-only runtime is still a failure');
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
