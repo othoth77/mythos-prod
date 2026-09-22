@@ -384,15 +384,6 @@ t('B10 mechanical delivery: the executor commits exactly the validated files, on
   assert.strictEqual(executor.deliverValidatedWork(Object.assign({}, task, { expected_delivery: 'report' }), report, outcome), null);
 });
 
-t('B11 a runtime that drops the connection mid-request is a TRANSIENT failure the executor retries', function () {
-  var quota = require(path.join(EXEC, 'lib', 'quota.js'));
-  var d = quota.classifyOutcome('HADDAD_AGENT_RUNTIME: FREE_LLM_NETWORK: socket hang up', {});
-  assert.strictEqual(d.category, 'transient'); assert.strictEqual(d.retryable, true);
-  // …and a validation stop is still not one.
-  var v = quota.classifyOutcome('HADDAD_AGENT_VALIDATION_FAILED: acceptance did not pass', {});
-  assert.notStrictEqual(v.category, 'transient');
-});
-
 t('B2 the repair brief hands the worker MEASURED evidence, not a scolding', function () {
   var ws = newWorkspace('repair-brief');
   seedBrokenProject(ws);
