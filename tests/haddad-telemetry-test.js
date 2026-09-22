@@ -399,6 +399,17 @@ console.log('\u00a79 the task view is never silently empty');
   ok(env.current_task && env.current_task.task_id, 'a current task is reported');
   eq(env.current_task.project, 'mythos-prod', 'the task carries its real project');
   ok(env.events.length >= 6, 'real events are read from the executor\'s own event log');
+
+  // The activity classification must come from the EXECUTOR's own state
+  // machine, not a name list here: terminal = an empty TRANSITIONS entry,
+  // executing = a live pid, everything else non-terminal = waiting.
+  ok(env.activity_counts, 'the agent classifies activity');
+  eq(env.activity_counts.EXECUTING, 0, 'EXECUTING needs a LIVE PID — nothing in this fixture has one');
+  eq(env.activity_counts.TERMINAL, 1, 'COMPLETED is terminal: the executor declares no outgoing transition');
+  eq(env.activity_counts.PENDING, 1, 'QUEUED can move straight into an execution-bearing status, so it is waiting to run');
+  eq(env.activity_counts.AT_REST, 1,
+    'FAILED is NOT waiting: it can only go back to QUEUED first, so counting it as queued would overstate the queue');
+  ok(env.current_task.activity, 'the current task carries its activity');
   ok(env.events.every(function (e) { return e.source === 'executor'; }), 'events are attributed to the executor');
 
   // The whole envelope must survive the receiver's allow-list unchanged in
