@@ -83,6 +83,11 @@ var DEFAULT_TASK_TIMEOUT_S = 900;
 // executions total — the first plus two repairs — then the task stops for a
 // person. A loop whose bound an instruction could raise is not a bound.
 var MAX_REPAIR_ROUNDS = 2;
+// One model turn is a tool call or a short answer plus a report; a file of
+// the size the runner accepts plus a report fits comfortably. Measured live
+// (gh-issue-375): an unbounded turn ran to ~3,800 tokens and past the
+// request timeout, losing the whole execution to a transient retry.
+var MAX_TOKENS_PER_TURN = 1536;
 
 // THE CODE CEILING. The profile may permit git, ls, rg, cat and more; this
 // runner will execute none of them. Two programs, resolved to absolute paths
@@ -517,11 +522,82 @@ function run(task, prompt, _sessionId, _mode, opts) {
     { role: 'user', content: String(prompt) }
   ];
   var toolCallCount = 0;
+  var roundToolCalls = 0;
   var trace = [];
+
+  // A repair round starts from a COMPACT conversation: system, the task, the
+  // rejected answer (bounded) and the brief. The previous round's tool
+  // chatter is dropped on purpose — the brief carries the measured state
+  // and the worker re-reads what it needs — because with a local context
+  // window the turns otherwise accumulate past it: live (gh-issue-375) a
+  // second execution reached 6,400 of 8,192 tokens and the runtime dropped
+  // the request. Bounded context per execution is what makes three
+  // executions possible at all.
+  function compactForRepair(lastText, brief) {
+    roundToolCalls = 0;
+    messages = [messages[0], messages[1]];
+    if (lastText && String(lastText).trim()) messages.push({ role: 'assistant', content: String(lastText).slice(0, 2000) });
+    messages.push({ role: 'user', content: brief });
+  }
+
+  // ESCALATION, diagnosis only. On the LAST repair round — the local model
+  // has by then failed the task once and failed one measured repair — a
+  // stronger model may be asked for a diagnosis and precise repair
+  // instructions, which are appended to the brief. It is given the task,
+  // the measured failures and the constrained files' current content; it
+  // is given NO tool, writes nothing and runs nothing — the local model
+  // still does the work and the validator still decides. Off unless the
+  // host names a diagnoser (HADDAD_AGENT_DIAGNOSER, a command line; or
+  // opts.diagnose in tests). Bounded, and fail-open: no diagnosis means the
+  // mechanical brief goes alone, exactly as before.
+  function diagnosisFor(verdict, brief) {
+    var diagnose = opts.diagnose || diagnoserFromEnv();
+    if (!diagnose) return null;
+    var files = work.declaredScope(task.constraints || []).slice(0, 4).map(function (rel) {
+      var content = '';
+      try { content = fs.readFileSync(path.join(workspace, rel), 'utf8').slice(0, 8000); } catch (e) { content = '(unreadable)'; }
+      return '--- ' + rel + ' ---\n' + content;
+    }).join('\n');
+    var ask = [
+      'You are the DIAGNOSER for a supervised coding loop. A small local model (Qwen 7B) is fixing a file and has failed twice; independent validation measured the failures below.',
+      'Give a short diagnosis (why the current file fails those checks) and PRECISE repair instructions the small model can follow with write_file: the exact final content of the file, complete, inside one ```javascript block, plus at most five lines of explanation. Do not run anything; do not ask questions.',
+      '', '## Task', String(prompt).slice(0, 3000),
+      '', '## Measured failures', brief.slice(0, 4000),
+      '', '## Current content of the constrained files', files || '(none declared)'
+    ].join('\n');
+    var out = null;
+    try { out = diagnose(ask); } catch (e) { out = null; }
+    if (!out || !String(out).trim()) return null;
+    return String(out).slice(0, 6000);
+  }
+  function diagnoserFromEnv() {
+    var cmdline = process.env.HADDAD_AGENT_DIAGNOSER;
+    if (!cmdline) return null;
+    var argv = cmdline.split(/\s+/).filter(Boolean);
+    return function (ask) {
+      // Its cwd is an empty scratch directory, so a file-reading tool the
+      // diagnoser might have finds nothing; the ask carries what it needs.
+      var scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'haddad-diag-'));
+      try {
+        var r = cp.spawnSync(argv[0], argv.slice(1), { input: ask, encoding: 'utf8', timeout: 180000, cwd: scratch, maxBuffer: 1024 * 1024 });
+        trace.push({ tool: 'diagnose', refused: r.status !== 0, detail: r.status === 0 ? null : 'diagnoser exit ' + r.status + ': ' + String(r.stderr || '').slice(0, 120), target: argv[0] });
+        return r.status === 0 ? r.stdout : null;
+      } finally {
+        try { fs.rmSync(scratch, { recursive: true, force: true }); } catch (e) { /* best effort */ }
+      }
+    };
+  }
+  function withDiagnosis(verdict, brief) {
+    if (repairRound < MAX_REPAIR_ROUNDS) return brief;   // not the last round: the local model gets another measured try first
+    var d = diagnosisFor(verdict, brief);
+    if (!d) return brief;
+    return brief + '\n\n### Diagnosis (escalated — follow it exactly, as tool calls)\n' + d;
+  }
   // Taken BEFORE the model is called even once, so "what changed" is
   // measured against the state the task actually started from.
   var before = work.snapshot(workspace);
   var repairRound = 0;
+  var traceMarkAtRoundStart = 0;
   var validations = [];
 
   function finish(outcome) {
@@ -555,6 +631,47 @@ function run(task, prompt, _sessionId, _mode, opts) {
     return String(v === undefined || v === null ? '' : v).replace(/`{3,}/g, "'''");
   }
 
+  // When the budget is spent, one outcome is not a failure: every declared
+  // check passes BY THE VALIDATOR'S OWN RUN, the work is in scope and the
+  // check files are intact, and the only rejections are about the worker's
+  // report (missing or unreadable). The success is then measured, not
+  // claimed — the opposite of a fake pass — and stopping it "for a person"
+  // would report verified work as unfinished (gh-issue-374, gh-issue-378:
+  // the fix on disk, both checks passing, the model's last message
+  // degenerate). The report is synthesized from the evidence and says so;
+  // the review gate still applies to it like to any completed task.
+  function verifiedWithoutReport(verdict) {
+    if (!verdict || verdict.pass) return false;
+    var ev = verdict.evidence || {};
+    if (!ev.mechanically_verified) return false;
+    var ran = ev.checks_run || [];
+    if (!ran.length || !ran.every(function (c) { return c.passed; })) return false;
+    var ch = ev.changed || {};
+    if (!((ch.created || []).length + (ch.modified || []).length)) return false;
+    return (verdict.rejections || []).every(function (r) { return /^(report|schema):/.test(String(r)); });
+  }
+  function finishVerified(text, verdict) {
+    var ev = verdict.evidence;
+    var report = {
+      mythos_report: true,
+      status: 'completed',
+      summary: 'Every declared check passes by independent validation; the worker emitted no readable report, so this one is synthesized from the measured evidence.',
+      files_changed: ev.changed.created.concat(ev.changed.modified),
+      tests: ev.checks_run.map(function (c) { return fenceSafe(c.check + ': pass'); }),
+      residual_risks: ['report synthesized by the validator — the worker\'s own final message was not a report'],
+      next_stage: 'review'
+    };
+    var stdoutText = text + '\n\n## Tool trace (' + trace.length + ' calls, ' + (repairRound + 1) + ' execution(s))\n' +
+      trace.map(function (e, i) { return (i + 1) + '. ' + e.tool + (e.target ? ' ' + fenceSafe(e.target) : '') + (e.refused ? ' → REFUSED' : ''); }).join('\n') +
+      '\n\n```json\n' + JSON.stringify(report, null, 2) + '\n```\n';
+    return finish({
+      exit_code: 0, signal: null, timed_out: false, stdout: stdoutText, stderr: '',
+      parsed: { is_error: false, result: stdoutText },
+      validation: { passed: true, attempts: repairRound + 1, evidence: ev, report_synthesized: true },
+      session_id: null, started_pid: null
+    });
+  }
+
   function stopForHuman(text, verdict, why) {
     var rejections = ((verdict && verdict.rejections) || []).map(fenceSafe);
     var summary = why + (rejections.length ? ' — ' + rejections.join(' | ') : '');
@@ -569,11 +686,23 @@ function run(task, prompt, _sessionId, _mode, opts) {
       residual_risks: rejections.slice(0, 20),
       next_stage: 'a person decides: the evidence above is measured, not reported by the worker'
     };
+    // What the attempt DID, turn by turn, so "12 turns" is readable as
+    // "read, wrote, ran the test, ran it again…" by the person who decides.
+    var traceLines = trace.map(function (e, i) {
+      return (i + 1) + '. ' + e.tool + (e.target ? ' ' + fenceSafe(e.target) : '') + (e.refused ? ' → REFUSED: ' + fenceSafe(e.detail).slice(0, 80) : '');
+    });
+    var stdoutText = text + '\n\n## Tool trace (' + trace.length + ' calls, ' + (repairRound + 1) + ' execution(s))\n' +
+      (traceLines.length ? traceLines.join('\n') : '(no tool call)') +
+      '\n\n```json\n' + JSON.stringify(blockedReport, null, 2) + '\n```\n';
     return finish({
       exit_code: 0, signal: null, timed_out: false,
-      stdout: text + '\n\n```json\n' + JSON.stringify(blockedReport, null, 2) + '\n```\n',
+      stdout: stdoutText,
       stderr: '',
-      parsed: { is_error: false, result: summary },
+      // The executor extracts the structured report from parsed.result, not
+      // from stdout (handleSuccess → extractReport(parsed.result)). A summary
+      // here alone lands as NO_STRUCTURED_REPORT — measured live on
+      // gh-issue-372 — so the same text goes to both.
+      parsed: { is_error: false, result: stdoutText },
       validation: verdict ? { passed: false, attempts: repairRound + 1, rejections: rejections, evidence: verdict.evidence } : null,
       session_id: null, started_pid: null
     });
@@ -632,15 +761,21 @@ function run(task, prompt, _sessionId, _mode, opts) {
     }
 
     if (repairRound >= MAX_REPAIR_ROUNDS) {
+      if (verifiedWithoutReport(verdict)) return finishVerified(text, verdict);
       // The budget is spent. This is a stop for a person, not a crash and
       // not another try.
       return stopForHuman(text, verdict,
         'validation still failing after ' + (repairRound + 1) + ' attempt(s); the repair budget is spent');
     }
 
+    var callsThisRound = trace.length - traceMarkAtRoundStart;
     repairRound++;
-    messages.push({ role: 'assistant', content: text });
-    messages.push({ role: 'user', content: work.renderRepairNotes(verdict, repairRound, task.constraints || []) });
+    traceMarkAtRoundStart = trace.length;
+    compactForRepair(text, withDiagnosis(verdict, work.renderRepairNotes(verdict, repairRound, task.constraints || [], {
+      tool_calls: callsThisRound,
+      // The files the task constrained the worker to are the ones it must fix.
+      files_named: work.declaredScope(task.constraints || [])
+    })));
     return step(0);
   }
 
@@ -655,14 +790,34 @@ function run(task, prompt, _sessionId, _mode, opts) {
     if (iteration >= MAX_ITERATIONS) {
       // Measure what it did before saying why it stopped: "12 turns" is not
       // a finding, "it edited the check" is.
-      return Promise.resolve(stopForHuman('', validateNow(''),
-        'stopped after ' + MAX_ITERATIONS + ' model turns without a final answer'));
+      var capVerdict = validateNow('');
+      // Running out of turns is a REJECTED attempt, not a verdict on the
+      // work: live (gh-issue-374) the worker had every check passing by the
+      // validator's own run and had simply not written the report. So the
+      // cap feeds the same bounded repair path as any other rejection — the
+      // brief carries the measured state (checks passing → emit the report;
+      // a check failing → fix it) — and only a spent budget stops for a
+      // person. Three executions in total either way.
+      if (repairRound >= MAX_REPAIR_ROUNDS) {
+        if (verifiedWithoutReport(capVerdict)) return Promise.resolve(finishVerified('', capVerdict));
+        return Promise.resolve(stopForHuman('', capVerdict,
+          'stopped after ' + MAX_ITERATIONS + ' model turns without a final answer; the repair budget is spent'));
+      }
+      var callsThisRound = trace.length - traceMarkAtRoundStart;
+      repairRound++;
+      traceMarkAtRoundStart = trace.length;
+      compactForRepair('', withDiagnosis(capVerdict, work.renderRepairNotes(capVerdict, repairRound, task.constraints || [], {
+        tool_calls: callsThisRound,
+        out_of_turns: MAX_ITERATIONS,
+        files_named: work.declaredScope(task.constraints || [])
+      })));
+      return step(0);
     }
 
     return adapter.chatCompletion(
       { baseUrl: baseUrl, apiKey: apiKey, model: model, providerId: PROVIDER_ID },
       messages,
-      { timeoutMs: Math.max(1000, Math.min(deadline - Date.now(), 300000)), tools: schemas, transport: opts.transport }
+      { timeoutMs: Math.max(1000, Math.min(deadline - Date.now(), 300000)), tools: schemas, transport: opts.transport, maxTokens: MAX_TOKENS_PER_TURN }
     ).then(function (res) {
       if (!res || !res.message) {
         return finish({
@@ -688,9 +843,14 @@ function run(task, prompt, _sessionId, _mode, opts) {
       for (var i = 0; i < calls.length; i++) {
         var c = calls[i];
         toolCallCount++;
+        roundToolCalls++;
         var name = c.function && c.function.name;
         var result;
-        if (toolCallCount > MAX_TOOL_CALLS) {
+        // The budget is PER EXECUTION, like the turn budget: a repair round
+        // that inherits a spent budget can only be refused (gh-issue-376,
+        // live: round three made four calls, all refused). Bounded either
+        // way — three executions of at most MAX_TOOL_CALLS each.
+        if (roundToolCalls > MAX_TOOL_CALLS) {
           result = { error: 'REFUSED: tool-call budget of ' + MAX_TOOL_CALLS + ' is spent' };
         } else {
           var parsedArgs = {};
@@ -703,7 +863,10 @@ function run(task, prompt, _sessionId, _mode, opts) {
           else if (!parsedArgs || typeof parsedArgs !== 'object') result = { error: 'REFUSED: arguments are not a JSON object' };
           else result = impl(ctx, parsedArgs);
         }
-        trace.push({ tool: name, refused: !!result.error, detail: result.error || null });
+        trace.push({ tool: name, refused: !!result.error, detail: result.error || null,
+          target: parsedArgs && typeof parsedArgs === 'object'
+            ? String(parsedArgs.path || (parsedArgs.program ? [parsedArgs.program].concat(parsedArgs.args || []).join(' ') : '')).slice(0, 80)
+            : null });
         var payload = JSON.stringify(result);
         if (payload.length > MAX_TOOL_OUTPUT_BYTES) {
           payload = JSON.stringify({ error: 'REFUSED: result exceeded ' + MAX_TOOL_OUTPUT_BYTES + ' bytes' });
@@ -739,6 +902,7 @@ module.exports = {
   TOOL_IMPL: TOOL_IMPL,
   MAX_ITERATIONS: MAX_ITERATIONS,
   MAX_REPAIR_ROUNDS: MAX_REPAIR_ROUNDS,
+  MAX_TOKENS_PER_TURN: MAX_TOKENS_PER_TURN,
   MAX_TOOL_CALLS: MAX_TOOL_CALLS,
   MAX_TOOL_OUTPUT_BYTES: MAX_TOOL_OUTPUT_BYTES
 };

@@ -64,6 +64,8 @@ function callTool(id, name, args) {
   return { role: 'assistant', content: null,
     tool_calls: [{ id: id, type: 'function', function: { name: name, arguments: JSON.stringify(args) } }] };
 }
+function tc(id, name, args) { return { id: id, type: 'function', function: { name: name, arguments: JSON.stringify(args) } }; }
+function msgWithCalls(calls) { return { role: 'assistant', content: null, tool_calls: calls }; }
 function report(status, summary, files) {
   return '```json\n' + JSON.stringify({ mythos_report: true, status: status || 'completed',
     summary: summary || 'done', files_changed: files || [], tests: [], commit: null }) + '\n```';
@@ -90,14 +92,14 @@ function seedBrokenProject(ws) {
     'console.log("add ok");\n');
 }
 
-function runTask(ws, replies, over) {
+function runTask(ws, replies, over, extraOpts) {
   var task = Object.assign({
     task_id: 't-sup', working_directory: ws, execution_profile: 'repo-write',
-    timeout_seconds: 600, required_tests: ['node add.test.js'], constraints: []
+    timeout_seconds: 600, required_tests: ['node add.test.js'], constraints: ['Only change add.js']
   }, over || {});
   var transport = fakeTransport(replies);
   return agent.run(task, 'Fix add so its test passes.', null, 'start',
-    { apiKey: 'k', model: 'm', transport: transport }).then(function (o) {
+    Object.assign({ apiKey: 'k', model: 'm', transport: transport }, extraOpts || {})).then(function (o) {
       o._sent = transport.sent;
       return o;
     });
@@ -186,6 +188,255 @@ t('B1 fail → diagnose → the worker repairs → checks pass → SUCCESS', fun
   });
 });
 
+t('B4 running out of turns with the work DONE is a rejected attempt, not a stop: the next round is asked only for the report', function () {
+  var ws = newWorkspace('out-of-turns');
+  seedBrokenProject(ws);
+  // Attempt 1: the real fix on the first turn, then 11 more tool turns
+  // re-running the check without ever reporting — gh-issue-374, live.
+  var replies = [callTool('c1', 'write_file', { path: 'add.js', content: FIXED })];
+  for (var i = 0; i < agent.MAX_ITERATIONS - 1; i++) replies.push(callTool('r' + i, 'run_command', { program: 'node', args: ['add.test.js'] }));
+  // Attempt 2: the brief says everything passes — it only reports.
+  replies.push(say(report('completed', 'add returns a + b; the check passes.', ['add.js'])));
+  return runTask(ws, replies).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, false, 'the task succeeded: ' + o.stderr + ' ' + JSON.stringify(o.parsed).slice(0, 300));
+    assert.strictEqual(o.repair_rounds, 1, 'the cap consumed one repair round');
+    assert.strictEqual(o.validations.length, 2);
+    assert.strictEqual(o.validations[0].pass, false, 'attempt 1 was rejected (no report)');
+    assert.ok(o.validations[0].evidence.checks_run.every(function (c) { return c.passed; }), 'but its checks already passed');
+    assert.strictEqual(o.validations[1].pass, true);
+    var brief = o._sent[agent.MAX_ITERATIONS].messages.slice(-1)[0].content;
+    assert.ok(/used all \d+ tool turns without emitting the final report/.test(brief), brief.slice(0, 300));
+    assert.ok(/ALL OF THEM PASS\. Do not change anything: emit the final/.test(brief), 'told to report, not to change');
+    assert.ok(!/### What to do now — as TOOL CALLS/.test(brief), 'no tool-call steps when nothing is left to fix');
+    assert.strictEqual(o.validation.evidence.mechanically_verified, true);
+  });
+});
+
+t('B5 running out of turns with a check still FAILING repairs it, and a spent budget stops for a person', function () {
+  var ws = newWorkspace('out-of-turns-failing');
+  seedBrokenProject(ws);
+  var replies = [];
+  for (var i = 0; i < agent.MAX_ITERATIONS; i++) replies.push(callTool('r' + i, 'read_file', { path: 'add.js' }));
+  // Attempt 2 after the brief: fixes and reports.
+  replies.push(callTool('w', 'write_file', { path: 'add.js', content: FIXED }));
+  replies.push(say(report('completed', 'fixed', ['add.js'])));
+  return runTask(ws, replies).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, false, o.stderr);
+    assert.strictEqual(o.repair_rounds, 1);
+    var brief = o._sent[agent.MAX_ITERATIONS].messages.slice(-1)[0].content;
+    assert.ok(/the ones that still fail are listed below/.test(brief), brief.slice(0, 400));
+    assert.ok(/### What to do now — as TOOL CALLS/.test(brief));
+    // And the bound holds: three cap-outs in a row stop for a person.
+    var ws2 = newWorkspace('out-of-turns-x3');
+    seedBrokenProject(ws2);
+    var r2 = [];
+    for (var j = 0; j < agent.MAX_ITERATIONS * 3; j++) r2.push(callTool('q' + j, 'read_file', { path: 'add.js' }));
+    return runTask(ws2, r2);
+  }).then(function (o) {
+    assert.strictEqual(o.repair_rounds, 2);
+    assert.strictEqual(o.validations.length, 3);
+    var rep = require(path.join(EXEC, 'lib', 'report.js')).extractReport(o.parsed.result).report;
+    assert.ok(rep && rep.status === 'blocked' && /repair budget is spent/.test(rep.summary), JSON.stringify(rep).slice(0, 300));
+  });
+});
+
+t('B6 every model turn is bounded in tokens (a runaway answer cannot eat the request timeout)', function () {
+  var ws = newWorkspace('max-tokens');
+  seedBrokenProject(ws);
+  return runTask(ws, [callTool('c1', 'write_file', { path: 'add.js', content: FIXED }), say(report('completed', 'fixed', ['add.js']))]).then(function (o) {
+    assert.ok(o._sent.length >= 2);
+    o._sent.forEach(function (req) { assert.strictEqual(req.max_tokens, agent.MAX_TOKENS_PER_TURN, 'max_tokens on every request'); });
+    // The adapter's default request shape is unchanged for every other caller.
+    var adapter = require(path.join(EXEC, 'free-llm', 'adapter.js'));
+    var seen = null;
+    return adapter.chatCompletion({ baseUrl: 'http://x', apiKey: 'k', model: 'm' }, 'hi', {
+      transport: function (o2, body) { seen = JSON.parse(body); return Promise.resolve({ status: 200, body: JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }) }); }
+    }).then(function () { assert.ok(seen && !('max_tokens' in seen), 'no max_tokens unless asked for'); });
+  });
+});
+
+t('B7 the tool-call budget is per execution: a repair round is not starved by the round before it', function () {
+  var ws = newWorkspace('budget-per-round');
+  seedBrokenProject(ws);
+  var replies = [];
+  // Attempt 1 spends the whole tool budget on reads, then reports.
+  var many = []; for (var i = 0; i < agent.MAX_TOOL_CALLS; i++) many.push(tc('m' + i, 'read_file', { path: 'add.js' }));
+  replies.push(msgWithCalls(many));
+  replies.push(say(report('completed', 'looked', [])));
+  // Attempt 2 must still be able to write and run.
+  replies.push(callTool('w', 'write_file', { path: 'add.js', content: FIXED }));
+  replies.push(callTool('r', 'run_command', { program: 'node', args: ['add.test.js'] }));
+  replies.push(say(report('completed', 'fixed', ['add.js'])));
+  return runTask(ws, replies).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, false, o.stderr);
+    assert.strictEqual(o.repair_rounds, 1);
+    var refusedInRound2 = o.tool_trace.slice(agent.MAX_TOOL_CALLS).filter(function (x) { return x.refused; });
+    assert.strictEqual(refusedInRound2.length, 0, 'round two was not refused: ' + JSON.stringify(refusedInRound2));
+    assert.ok(o.tool_calls <= agent.MAX_TOOL_CALLS * (agent.MAX_REPAIR_ROUNDS + 1), 'still bounded overall');
+  });
+});
+
+t('B8 diagnosis escalation: only on the LAST repair round, only when a diagnoser exists, given the measured failures, and it executes nothing', function () {
+  var ws = newWorkspace('diagnosis');
+  seedBrokenProject(ws);
+  var asks = [];
+  var diagnose = function (ask) { asks.push(ask); return 'Cause: add multiplies. Write add.js as:\n```javascript\n' + FIXED + '```'; };
+  return runTask(ws, [
+    say(report('completed', 'Done.')),                                   // attempt 1: nothing done → rejected
+    say(report('completed', 'Done again.')),                             // repair 1: still nothing → rejected (no diagnosis yet)
+    callTool('w', 'write_file', { path: 'add.js', content: FIXED }),     // repair 2, after the diagnosis
+    say(report('completed', 'fixed as diagnosed', ['add.js']))
+  ], {}, { diagnose: diagnose }).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, false, o.stderr);
+    assert.strictEqual(asks.length, 1, 'the diagnoser was asked exactly once');
+    assert.ok(/## Measured failures/.test(asks[0]) && /add\(2,2\) returned 0, expected 4/.test(asks[0]), 'it was given the measured evidence');
+    assert.ok(/## Current content of the constrained files/.test(asks[0]));
+    var brief1 = o._sent[1].messages.slice(-1)[0].content;
+    var brief2 = o._sent[2].messages.slice(-1)[0].content;
+    assert.ok(!/### Diagnosis \(escalated/.test(brief1), 'the first repair round is the local model\'s own');
+    assert.ok(/### Diagnosis \(escalated — follow it exactly, as tool calls\)\nCause: add multiplies/.test(brief2), 'the last round carries the diagnosis');
+    assert.strictEqual(fs.readFileSync(path.join(ws, 'add.js'), 'utf8'), FIXED, 'the LOCAL model wrote the file, through write_file');
+    assert.strictEqual(o.validation.passed, true);
+  }).then(function () {
+    // Without a diagnoser nothing changes: the brief goes alone.
+    var ws2 = newWorkspace('no-diagnoser'); seedBrokenProject(ws2);
+    delete process.env.HADDAD_AGENT_DIAGNOSER;
+    return runTask(ws2, [say(report('completed', 'x')), say(report('completed', 'y')), say(report('completed', 'z'))]);
+  }).then(function (o) {
+    o._sent.slice(1).forEach(function (req) { assert.ok(!/### Diagnosis/.test(req.messages.slice(-1)[0].content), 'no diagnosis without a diagnoser'); });
+  }).then(function () {
+    // A diagnoser command that fails is fail-open: the brief still goes.
+    var ws3 = newWorkspace('diagnoser-fails'); seedBrokenProject(ws3);
+    process.env.HADDAD_AGENT_DIAGNOSER = '/bin/false';
+    return runTask(ws3, [say(report('completed', 'x')), say(report('completed', 'y')), say(report('completed', 'z'))]).then(function (o) {
+      delete process.env.HADDAD_AGENT_DIAGNOSER;
+      var last = o._sent[2].messages.slice(-1)[0].content;
+      assert.ok(/## REPAIR REQUIRED \(attempt 2\)/.test(last) && !/### Diagnosis/.test(last), 'brief without diagnosis');
+      var d = o.tool_trace.filter(function (x) { return x.tool === 'diagnose'; });
+      assert.strictEqual(d.length, 1); assert.ok(d[0].refused && /diagnoser exit 1/.test(d[0].detail), 'the failed escalation is in the trace');
+    });
+  });
+});
+
+t('B9 budget spent, every check passing by measurement, no readable report: completed with a SYNTHESIZED report — never for a check that fails', function () {
+  var ws = newWorkspace('verified-no-report');
+  seedBrokenProject(ws);
+  // Three executions: the fix lands on the first turn, but no execution ever
+  // ends in a report (degenerate answers, as measured live on gh-issue-378).
+  return runTask(ws, [
+    callTool('w', 'write_file', { path: 'add.js', content: FIXED }), say('Ronaldo {{"name": "run_command"}}'),
+    say('Ronaldo'), say('Ronaldo')
+  ]).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, false, o.stderr);
+    assert.strictEqual(o.repair_rounds, 2, 'the budget was spent first');
+    assert.strictEqual(o.validation.passed, true);
+    assert.strictEqual(o.validation.report_synthesized, true, 'and the report is marked synthesized');
+    var rep = require(path.join(EXEC, 'lib', 'report.js')).extractReport(o.parsed.result).report;
+    assert.ok(rep && rep.status === 'completed' && /synthesized/.test(rep.summary), JSON.stringify(rep).slice(0, 300));
+    assert.deepStrictEqual(rep.files_changed, ['add.js']);
+    assert.ok(rep.residual_risks.some(function (r) { return /synthesized by the validator/.test(r); }));
+    assert.strictEqual(fs.readFileSync(path.join(ws, 'add.js'), 'utf8'), FIXED);
+  }).then(function () {
+    // The same shape with a check still FAILING stays a stop for a person.
+    var ws2 = newWorkspace('unverified-no-report'); seedBrokenProject(ws2);
+    return runTask(ws2, [callTool('w', 'write_file', { path: 'add.js', content: 'module.exports = function add(a, b) { return a * b; };\n' }), say('Ronaldo'), say('Ronaldo'), say('Ronaldo')]);
+  }).then(function (o) {
+    var rep = require(path.join(EXEC, 'lib', 'report.js')).extractReport(o.parsed.result).report;
+    assert.ok(rep && rep.status === 'blocked', 'a failing check is never synthesized into a pass');
+    assert.strictEqual(o.validation.passed, false);
+  }).then(function () {
+    // And with NO change at all (nothing done), no synthesis either.
+    var ws3 = newWorkspace('nothing-no-report'); seedBrokenProject(ws3);
+    return runTask(ws3, [say('Ronaldo'), say('Ronaldo'), say('Ronaldo')], { required_tests: ['node -e "process.exit(0)"'] });
+  }).then(function (o) {
+    var rep = require(path.join(EXEC, 'lib', 'report.js')).extractReport(o.parsed.result).report;
+    assert.ok(rep && rep.status === 'blocked', 'a passing check over an untouched workspace is not work');
+  });
+});
+
+t('B10 mechanical delivery: the executor commits exactly the validated files, only for a validated pass, never for anything else', function () {
+  var cp = require('child_process');
+  var executor = require(path.join(EXEC, 'executor.js'));
+  var ws = newWorkspace('delivery');
+  function sh(args) { return cp.execFileSync('git', args, { cwd: ws, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); }
+  sh(['init', '-q']); sh(['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'base']);
+  seedBrokenProject(ws);
+  sh(['add', '-A']); sh(['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'seed']);
+  fs.writeFileSync(path.join(ws, 'add.js'), FIXED);
+  fs.writeFileSync(path.join(ws, 'stray.txt'), 'not validated\n');          // present, but NOT in the measured change set
+  var task = { task_id: 't-deliver', working_directory: ws, expected_delivery: 'commit' };
+  var report = { mythos_report: true, status: 'completed', summary: 'add fixed', files_changed: ['add.js'] };
+  var outcome = { validation: { passed: true, evidence: { changed: { created: [], modified: ['add.js'], deleted: [] }, checks_run: [{ check: 'node add.test.js', passed: true }], scope_enforced: true } } };
+  // The state module writes events under the executor home; point it at a scratch home.
+  var prevHome = process.env.MYTHOS_EXECUTOR_HOME; process.env.MYTHOS_EXECUTOR_HOME = path.join(ROOT, 'exec-home');
+  var d;
+  try { d = executor.deliverValidatedWork(task, report, outcome); } finally { if (prevHome === undefined) delete process.env.MYTHOS_EXECUTOR_HOME; else process.env.MYTHOS_EXECUTOR_HOME = prevHome; }
+  assert.ok(d && d.commit && !d.problem, JSON.stringify(d));
+  assert.strictEqual(d.note, null, 'a scope WAS enforced here, so there is nothing to warn the reviewer about');
+  assert.strictEqual(sh(['rev-parse', 'HEAD']), d.commit);
+  assert.strictEqual(sh(['show', '--name-only', '--format=', 'HEAD']), 'add.js', 'exactly the validated file is in the commit');
+  assert.ok(/^\?\? stray\.txt$/m.test(sh(['status', '--porcelain'])), 'the unvalidated file was left alone');
+  assert.ok(/mythos-haddad-worker/.test(sh(['log', '-1', '--format=%an'])));
+  // Not delivered: validation absent (every other provider), failed, report not completed, or a commit already claimed.
+  assert.strictEqual(executor.deliverValidatedWork(task, report, {}), null);
+  assert.strictEqual(executor.deliverValidatedWork(task, report, { validation: { passed: false, evidence: outcome.validation.evidence } }), null);
+  assert.strictEqual(executor.deliverValidatedWork(task, Object.assign({}, report, { status: 'blocked' }), outcome), null);
+  assert.strictEqual(executor.deliverValidatedWork(task, Object.assign({}, report, { commit: 'abc' }), outcome), null);
+  assert.strictEqual(executor.deliverValidatedWork(Object.assign({}, task, { expected_delivery: 'report' }), report, outcome), null);
+});
+
+// B10 delivers; this pins what happens when it CANNOT. A delivery that
+// fails used to land its problem in report_problems and let the task finish
+// COMPLETED: the Bridge closed the Issue as done and released anything that
+// depended on it, for a change that existed only in a worktree.
+t('B10b validated work that git refused is BLOCKED, not COMPLETED — and it is not blamed on the worker', function () {
+  var executor = require(path.join(EXEC, 'executor.js'));
+  var engine = require(path.join(EXEC, 'bridge/action-resolution.js'));
+  var done = { mythos_report: true, status: 'completed', summary: 'fixed', next_stage: 'review' };
+
+  // The normal path is untouched.
+  assert.deepStrictEqual(executor.settleState(done, null, null), { state: 'COMPLETED', next_action: 'review' });
+  // A delivery problem downgrades it, and says which one.
+  var blockedByDelivery = executor.settleState(done, null, 'delivery: commit failed: index.lock exists');
+  assert.strictEqual(blockedByDelivery.state, 'BLOCKED');
+  assert.ok(/validated work was not delivered — delivery: commit failed/.test(blockedByDelivery.next_action), blockedByDelivery.next_action);
+  // It never upgrades a worse verdict: the worker's own admission wins.
+  assert.strictEqual(executor.settleState({ status: 'failed' }, null, 'delivery: commit failed').state, 'FAILED');
+  assert.strictEqual(executor.settleState({ status: 'blocked', summary: 'need a key' }, null, 'delivery: commit failed').state, 'BLOCKED');
+  assert.ok(/owner decision required: need a key/.test(executor.settleState({ status: 'blocked', summary: 'need a key' }, null, 'x').next_action));
+  // And an unreadable report still outranks everything, with its diagnosis.
+  var noReport = executor.settleState(null, 'no fenced json block', 'delivery: commit failed');
+  assert.strictEqual(noReport.state, 'BLOCKED');
+  assert.ok(/no fenced json block/.test(noReport.next_action), noReport.next_action);
+
+  // The blocker code names the delivery, not the provider — a rerun must
+  // not be sent looking for a fault in work that was validated — and it is
+  // retryable, because a lock or a permission is exactly what a rerun fixes.
+  assert.strictEqual(engine.BLOCKER_CODES.DELIVERY_FAILED, 'DELIVERY_FAILED');
+  assert.strictEqual(engine.isRetryable('DELIVERY_FAILED'), true);
+  assert.notStrictEqual(engine.BLOCKER_CODES.DELIVERY_FAILED, engine.BLOCKER_CODES.PROVIDER_FAILED);
+
+  // And a delivery made with no scope to check against still delivers —
+  // but hands the reviewer the one fact they cannot recover from the
+  // checks: nothing compared these files to an intended set.
+  var cp = require('child_process');
+  var ws = newWorkspace('delivery-no-scope');
+  function sh(args) { return cp.execFileSync('git', args, { cwd: ws, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); }
+  sh(['init', '-q']); sh(['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'base']);
+  seedBrokenProject(ws);
+  sh(['add', '-A']); sh(['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'seed']);
+  fs.writeFileSync(path.join(ws, 'add.js'), FIXED);
+  var unscoped = { validation: { passed: true, evidence: { changed: { created: [], modified: ['add.js'], deleted: [] }, checks_run: [], scope_enforced: false } } };
+  var prev = process.env.MYTHOS_EXECUTOR_HOME; process.env.MYTHOS_EXECUTOR_HOME = path.join(ROOT, 'exec-home');
+  var d2;
+  try {
+    d2 = executor.deliverValidatedWork({ task_id: 't-deliver-2', working_directory: ws, expected_delivery: 'commit' }, done, unscoped);
+  } finally { if (prev === undefined) delete process.env.MYTHOS_EXECUTOR_HOME; else process.env.MYTHOS_EXECUTOR_HOME = prev; }
+  assert.ok(d2 && d2.commit, 'an undeclared scope does not block delivery: ' + JSON.stringify(d2));
+  assert.ok(/declared no path scope/.test(d2.note || ''), d2.note);
+  assert.ok(/review the diff itself/.test(d2.note || ''), d2.note);
+});
+
 t('B2 the repair brief hands the worker MEASURED evidence, not a scolding', function () {
   var ws = newWorkspace('repair-brief');
   seedBrokenProject(ws);
@@ -202,6 +453,20 @@ t('B2 the repair brief hands the worker MEASURED evidence, not a scolding', func
     assert.ok(/add\(2,2\) returned 0, expected 4/.test(brief), 'the real failure output is in the brief');
     assert.ok(/### What you actually changed/.test(brief), 'and what it really changed');
     assert.ok(/Do not edit, weaken or delete a check/.test(brief), 'and the rule against cheating');
+    // The round that was rejected made NO tool call (it only said "Done."):
+    // the brief must say so and spell out that prose is not a change —
+    // the failure mode measured live on gh-issue-373, where the model
+    // pasted the fix as a code block and claimed both checks passed.
+    assert.ok(/made NO tool call: nothing was written and nothing ran/.test(brief), 'a no-tool-call round is named');
+    assert.ok(/### What to do now — as TOOL CALLS, in this order/.test(brief), 'and the next steps are tool calls');
+    assert.ok(/write_file that path with the COMPLETE corrected file/.test(brief));
+    assert.ok(/run_command each failing check: `node add\.test\.js`/.test(brief), 'naming the failing check to run: ' + brief.slice(-500));
+    // And the repair request is COMPACT: system, task, the rejected answer,
+    // the brief — the previous round's tool traffic is not replayed, so the
+    // context does not grow execution over execution.
+    assert.strictEqual(second.messages.length, 4, 'compact repair conversation: ' + second.messages.map(function (m) { return m.role; }).join(','));
+    assert.strictEqual(second.messages[0].role, 'system'); assert.strictEqual(second.messages[1].role, 'user');
+    assert.strictEqual(second.messages[2].role, 'assistant'); assert.strictEqual(second.messages[3].role, 'user');
   });
 });
 
@@ -232,6 +497,14 @@ t('B3 the loop is BOUNDED: three executions, then it stops for a person', functi
     assert.ok(/repair budget is spent/.test(rep.summary), rep.summary);
     assert.ok(rep.residual_risks.length, 'carrying the measured rejections');
     assert.strictEqual(o.validation.passed, false);
+    // The executor reads the report from parsed.result (handleSuccess →
+    // extractReport), NOT from stdout. gh-issue-372 landed as
+    // NO_STRUCTURED_REPORT because only stdout carried it.
+    var viaExecutorSeam = require(path.join(EXEC, 'lib', 'report.js')).extractReport(o.parsed.result);
+    assert.ok(viaExecutorSeam.report && viaExecutorSeam.report.status === 'blocked',
+      'the executor seam (parsed.result) carries the same blocked report: ' + (viaExecutorSeam.error || 'ok'));
+    // And a person can see what the attempt DID, not just that it stopped.
+    assert.ok(/## Tool trace \(\d+ calls, 3 execution\(s\)\)/.test(o.parsed.result), 'the tool trace travels with the record');
   });
 });
 
@@ -311,6 +584,30 @@ t('C5 work outside the declared scope is caught', function () {
   ], { constraints: ['Only change add.js'], required_tests: ['node add.test.js'] }).then(function (o) {
     assert.strictEqual(o.validation.passed, false, 'the extra file was not allowed');
     assert.ok(/scope: unrelated\.js was changed/.test(rejections(o)), rejections(o));
+    assert.strictEqual(o.validation.evidence.scope_enforced, true, 'a path scope existed and was applied');
+  });
+});
+
+// The other half of C5, and the one that is easy to mistake for it: a task
+// whose constraints are PROSE yields no path, so there is no scope rule to
+// break and the same work passes. That is correct — the validator cannot
+// invent a restriction the task never stated, and the sandbox still keeps
+// every write inside the workspace — but "stayed in scope" and "there was
+// no scope" must not read the same afterwards. The verdict records which
+// one happened, and the executor puts it in front of the reviewer.
+t('C5b prose constraints declare no scope — the work passes and says so, it does not silently claim a scope check', function () {
+  var ws = newWorkspace('prose-scope');
+  seedBrokenProject(ws);
+  return runTask(ws, [
+    callTool('c1', 'write_file', { path: 'add.js', content: FIXED }),
+    callTool('c2', 'write_file', { path: 'unrelated.js', content: 'module.exports = 1;\n' }),
+    say(report('completed', 'Fixed add.', ['add.js', 'unrelated.js']))
+  ], { constraints: ['Do not weaken the check', 'Keep the change small'], required_tests: ['node add.test.js'] }).then(function (o) {
+    assert.strictEqual(o.validation.passed, true, 'prose constraints are not a scope rule: ' + JSON.stringify(o.validation.rejections));
+    assert.deepStrictEqual(o.validation.evidence.scope_declared, [], 'no path could be read from prose');
+    assert.strictEqual(o.validation.evidence.scope_enforced, false, 'and the verdict says no scope was enforced');
+    assert.strictEqual(reporting.extractReport(o.stdout).report.status, 'completed',
+      'the worker is not failed for a restriction the task never declared');
   });
 });
 

@@ -35,15 +35,26 @@ RestartSec=15
 RestartPreventExitStatus=2 3
 
 NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=read-only
+# Deliberately NOT set: PrivateTmp, ProtectSystem, ProtectHome, ReadWritePaths.
+# Each of the four gives the daemon a private mount namespace, and on this
+# host (kernel.apparmor_restrict_unprivileged_userns=1) the kernel then
+# refuses the user namespace bwrap needs — so under any of them the tool
+# runner could read and write but never run a single check (gh-issue-370
+# and gh-issue-371: "No permissions to create a new namespace"; bisected
+# with transient units and the provider's real bwrap argv; NoNewPrivileges
+# is not the cause). The boundary that matters is the per-command bwrap
+# sandbox around everything the model runs (providers/haddad-agent.js):
+# workspace-only writes, no $HOME, no /etc, no credentials. The daemon
+# itself is no longer confined to its store by systemd. Owner decision,
+# 2026-09-22.
 RestrictSUIDSGID=true
 RestrictRealtime=true
 LockPersonality=true
 SystemCallArchitectures=native
-RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
-ReadWritePaths=%h/mythos-ai-executor-haddad %h/.local/state/mythos-haddad
+# AF_NETLINK: bwrap --unshare-all brings up loopback inside its new network
+# namespace through a NETLINK_ROUTE socket; without it every sandboxed
+# command fails at "Failed to create NETLINK_ROUTE socket".
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 
 # 7.5 GB machine already holding a 4.4 GB model resident on the GPU.
 MemoryMax=1G

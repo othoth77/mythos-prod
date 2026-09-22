@@ -102,7 +102,12 @@ var BLOCKER_CODES = {
   STALE_WORKER: 'STALE_WORKER',
   NO_STRUCTURED_REPORT: 'NO_STRUCTURED_REPORT',
   PROVIDER_BLOCKED: 'PROVIDER_BLOCKED',
-  PROVIDER_FAILED: 'PROVIDER_FAILED'
+  PROVIDER_FAILED: 'PROVIDER_FAILED',
+  // Work the validator passed that git would not accept. Distinct from
+  // PROVIDER_FAILED on purpose: the provider did its part, the delivery is
+  // what broke, and attributing it to the worker would send the next
+  // attempt looking in the wrong place. Retryable.
+  DELIVERY_FAILED: 'DELIVERY_FAILED'
 };
 var NON_RETRYABLE = [
   BLOCKER_CODES.ACTION_PROFILE_MISMATCH, BLOCKER_CODES.MODEL_UNAVAILABLE, BLOCKER_CODES.ATTEMPT_SNAPSHOT_MUTATED,

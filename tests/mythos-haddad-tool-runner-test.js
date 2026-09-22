@@ -324,7 +324,15 @@ t('a tool the profile did not grant is refused', function () {
 t('the iteration budget stops the loop, and stops it FOR A PERSON', function () {
   var forever = msg(null, [tc('c1', 'list_files', { path: '.' })]);
   return runAgent(baseTask(), [forever]).then(function (o) {
-    assert.ok(o.tool_calls <= agent.MAX_TOOL_CALLS + 2, 'tool calls stayed bounded: ' + o.tool_calls);
+    // Running out of turns is a rejected attempt that re-enters the bounded
+    // repair path (supervised loop B4/B5), so a model that never answers
+    // gets MAX_ITERATIONS turns per execution for MAX_REPAIR_ROUNDS + 1
+    // executions — and not one more. Executed tool calls stay under the
+    // tool-call budget; everything past it is refused, not run.
+    assert.ok(o.tool_calls <= agent.MAX_ITERATIONS * (agent.MAX_REPAIR_ROUNDS + 1), 'turns stayed bounded: ' + o.tool_calls);
+    assert.ok(o.tool_trace.filter(function (x) { return !x.refused; }).length <= agent.MAX_TOOL_CALLS * (agent.MAX_REPAIR_ROUNDS + 1),
+      'executed calls stayed under the per-execution tool-call budget, three executions');
+    assert.strictEqual(o.repair_rounds, agent.MAX_REPAIR_ROUNDS, 'every repair round was spent before stopping');
     // A loop that ran out of turns is not a crash: it ends cleanly with a
     // `blocked` report, which the executor already classifies as a human
     // decision, and the report says how far it got rather than only that
@@ -708,6 +716,23 @@ t('S10 ordinary work inside the workspace is unaffected', function () {
   assert.ok(/ok/.test(r.stdout));
   assert.strictEqual(call('read_file', ctxWrite, { path: 'lib.js' }).content.indexOf('module.exports'), 0,
     'and the file is readable back through the tools');
+});
+
+// ---- U: the daemon's own unit must not stop the sandbox from starting ----
+// On a host with kernel.apparmor_restrict_unprivileged_userns=1 a service
+// that has a private mount namespace (PrivateTmp, ProtectSystem,
+// ProtectHome, ReadWritePaths, …) cannot create the user namespace bwrap
+// needs, and --unshare-all needs a NETLINK_ROUTE socket for loopback.
+// Measured live (gh-issue-370, gh-issue-371); this pins the template.
+t('U1 the worker unit template creates no mount namespace and allows NETLINK', function () {
+  var unit = fs.readFileSync(path.join(__dirname, '..', 'projects', 'mythos-haddad', 'systemd', 'mythos-haddad-worker.service'), 'utf8');
+  var active = unit.split('\n').filter(function (l) { return /^[A-Za-z]+=/.test(l); });
+  ['PrivateTmp', 'ProtectSystem', 'ProtectHome', 'ReadWritePaths', 'ReadOnlyPaths', 'InaccessiblePaths', 'PrivateDevices', 'ProtectKernelTunables', 'RestrictNamespaces', 'TemporaryFileSystem', 'BindPaths', 'RootDirectory'].forEach(function (k) {
+    assert.ok(!active.some(function (l) { return l.indexOf(k + '=') === 0; }), k + '= would give the daemon a mount namespace and break bwrap');
+  });
+  var af = active.filter(function (l) { return l.indexOf('RestrictAddressFamilies=') === 0; })[0] || '';
+  assert.ok(/\bAF_NETLINK\b/.test(af), 'RestrictAddressFamilies must include AF_NETLINK for bwrap loopback');
+  assert.ok(active.indexOf('NoNewPrivileges=true') !== -1, 'NoNewPrivileges stays (it does not block bwrap)');
 });
 
 queue.reduce(function (c, s) { return c.then(s); }, Promise.resolve()).then(function () {

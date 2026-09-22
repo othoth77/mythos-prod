@@ -232,32 +232,65 @@ was allowed to touch, and whether a check's own file was edited or deleted to ma
 
 **Repair, bounded.** On rejection the worker receives its own measured failures in the format
 the orchestrator already uses (`## REPAIR REQUIRED (attempt N)`): the failing check's real
-output, what it actually changed, and the rule that the cause is fixed rather than the check.
-Three executions in total, then the task stops with the evidence attached for a person. Repair
-rounds are not retries and do not touch the executor's retry budget.
+output, what it actually changed, the rule that the cause is fixed rather than the check — and,
+because a small model's commonest failure is to "fix" the file in prose and report success, the
+brief names a round that made no tool call and ends with the next steps *as tool calls* in
+order (`read_file`, `write_file` the complete file, `run_command` each failing check by name,
+then report). Three executions in total; repair rounds are not retries and do not touch the
+executor's retry budget. Each execution has its own turn budget (12) and tool-call budget (24),
+and a repair round starts from a **compact** conversation — system, task, the rejected answer,
+the brief — so context does not grow execution over execution (measured: a second execution
+that replayed the first reached 6,400 of 8,192 tokens and the runtime dropped it). Every model
+turn is bounded at 1,536 tokens. Running out of turns is a *rejected attempt* that re-enters
+this path with the measured state (checks passing → "emit the report"; a check failing → fix
+it), not a stop.
+
+**Escalation, diagnosis only.** On the last repair round — the local model has by then failed
+the task once and failed one measured repair — a stronger model may be asked for a diagnosis
+and the exact corrected file, appended to the brief. It is handed the task, the measured
+failures and the constrained files' current content; it has no tool, writes nothing, runs
+nothing. The local model still does the work through `write_file` and the validator still
+decides. Off unless the host names a diagnoser (`HADDAD_AGENT_DIAGNOSER`, a command line — on
+Haddad: Sonnet through the Claude CLI with every tool disallowed); unset on the VPS, so nothing
+changes there. Fail-open and recorded in the tool trace. Claude never becomes the executor.
+
+**How it ends.** Validation passes → the task completes and the review gate applies as to any
+completed task (an `implement` task owes a review and stops as `haddad:human-approval`).
+Budget spent with a check still failing → the task stops for a person as `blocked`, which
+`lib/quota.js` classifies as `HUMAN_APPROVAL`, with the measured rejections, the check outputs
+and the per-call tool trace attached. Budget spent with **every declared check passing by the
+validator's own run**, the work in scope, the check files intact and something changed — the
+only rejections being about the worker's report — → the task completes with a report
+**synthesized from the evidence** and marked so (`validation.report_synthesized`, a residual
+risk naming it): the success is measured, not claimed. A failing check or an untouched
+workspace is never synthesized into a pass.
 
 **A pass is labelled honestly.** Criteria that can be run make a pass *mechanical*. Prose
 criteria are legitimate and cannot be machine-checked, so such a task passes flagged
 `mechanically_verified: false` rather than being dressed up as verified. A task that declared no
 criteria is recorded as unverified, not failed — the omission is its author's, not the worker's.
 
-**Known limit — the sandbox cannot start under the daemon.** `run_command` only ever runs inside
-a bwrap namespace and fails closed without one. Under the worker *service* it has none:
-`ProtectSystem=strict`, `ProtectHome=read-only` and `PrivateTmp=true` each put the unit in its
-own mount namespace, and with `kernel.apparmor_restrict_unprivileged_userns=1` the kernel then
-refuses bwrap's user namespace. (Bisected with transient units; `NoNewPrivileges` is *not* the
-cause.) So under the daemon the worker can read and write but cannot run a check, and any task
-whose acceptance criteria are runnable stops for a person rather than passing unverified — which
-is what gh-issue-370 did. Resolving it means choosing where the boundary sits: the daemon's own
-unit hardening, or a per-command sandbox. That is an owner decision and is not taken here.
+**The sandbox under the daemon (owner decision, 2026-09-22).** `run_command` only ever runs
+inside a bwrap namespace and fails closed without one. With
+`kernel.apparmor_restrict_unprivileged_userns=1`, a service that has a private mount namespace
+cannot create the user namespace bwrap needs — `ProtectSystem`, `ProtectHome`, `PrivateTmp`
+**and `ReadWritePaths`** each do that (bisected with transient units and the provider's real
+argv; `NoNewPrivileges` does not), and `--unshare-all` needs `AF_NETLINK` for loopback. The
+worker unit therefore carries none of the four; the boundary sits around every command the model
+runs, not around the daemon (`systemd/mythos-haddad-worker.service` says so; tool-runner test
+U1 pins it). The daemon itself is no longer confined to its store by systemd.
 
-**Historic limit, resolved.** The local runtime ran with a 4096-token context. A bridge task instruction is
-~1,900 tokens before any file is read, so a full read → change → re-read → repair cycle does not
-fit: a live run was observed producing a correct fix and then failing with
-`request (4590 tokens) exceeds the available context size`. The loop is proven against real
-files, real sandboxed runs and the real validator in
-`tests/mythos-haddad-supervised-loop-test.js`; a live repair round on Haddad needs a larger
-context window, which is an owner decision about GPU memory.
+**Proven live on Haddad (2026-09-22).** gh-issue-379: attempt 1 (12 tool calls) rejected by the
+validator's own run of the second check → repair round 1 rejected → repair round 2 with the
+Sonnet diagnosis → the local model wrote the diagnosed fix through `write_file` → both declared
+checks pass by the validator's run (re-run by hand afterwards: 8/8 and 3/3) → completed with a
+synthesized report → review gate → `haddad:human-approval` on the Issue. The runs before it are
+the evidence for every other branch: gh-issue-373 (fake success — the fix pasted as prose, both
+checks "claimed" passing, nothing written — caught), gh-issue-376 (three executions, the fix
+rewritten nine times, "assume it is correct" caught, stopped as HUMAN_APPROVAL with the trace),
+gh-issue-374 (all checks passing at the turn cap, report missing), gh-issue-375 (transient
+retry then the pooled-socket failure), gh-issue-370/371 (the sandbox could not start under the
+daemon — the task refused to pass unverified).
 
 ## What was deliberately NOT built
 
