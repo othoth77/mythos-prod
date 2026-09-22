@@ -115,6 +115,11 @@ function chatCompletion(spec, prompt, opts) {
   };
   // Only sent when a caller asks for it, so no existing request shape changes.
   if (Array.isArray(opts.tools) && opts.tools.length) body.tools = opts.tools;
+  // Same rule: a caller that bounds one answer says so. Without it a small
+  // local model can run away for thousands of tokens on one turn (measured:
+  // ~3,800 tokens, past the request timeout) and the whole task is lost to
+  // a timeout instead of ending in a bounded, readable turn.
+  if (opts.maxTokens > 0) body.max_tokens = Math.floor(opts.maxTokens);
   var payload = JSON.stringify(body);
   var headers = Object.assign({
     'Content-Type': 'application/json',

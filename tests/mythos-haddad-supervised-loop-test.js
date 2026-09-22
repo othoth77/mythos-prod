@@ -238,6 +238,21 @@ t('B5 running out of turns with a check still FAILING repairs it, and a spent bu
   });
 });
 
+t('B6 every model turn is bounded in tokens (a runaway answer cannot eat the request timeout)', function () {
+  var ws = newWorkspace('max-tokens');
+  seedBrokenProject(ws);
+  return runTask(ws, [callTool('c1', 'write_file', { path: 'add.js', content: FIXED }), say(report('completed', 'fixed', ['add.js']))]).then(function (o) {
+    assert.ok(o._sent.length >= 2);
+    o._sent.forEach(function (req) { assert.strictEqual(req.max_tokens, agent.MAX_TOKENS_PER_TURN, 'max_tokens on every request'); });
+    // The adapter's default request shape is unchanged for every other caller.
+    var adapter = require(path.join(EXEC, 'free-llm', 'adapter.js'));
+    var seen = null;
+    return adapter.chatCompletion({ baseUrl: 'http://x', apiKey: 'k', model: 'm' }, 'hi', {
+      transport: function (o2, body) { seen = JSON.parse(body); return Promise.resolve({ status: 200, body: JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }) }); }
+    }).then(function () { assert.ok(seen && !('max_tokens' in seen), 'no max_tokens unless asked for'); });
+  });
+});
+
 t('B2 the repair brief hands the worker MEASURED evidence, not a scolding', function () {
   var ws = newWorkspace('repair-brief');
   seedBrokenProject(ws);

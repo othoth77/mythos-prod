@@ -83,6 +83,11 @@ var DEFAULT_TASK_TIMEOUT_S = 900;
 // executions total — the first plus two repairs — then the task stops for a
 // person. A loop whose bound an instruction could raise is not a bound.
 var MAX_REPAIR_ROUNDS = 2;
+// One model turn is a tool call or a short answer plus a report; a file of
+// the size the runner accepts plus a report fits comfortably. Measured live
+// (gh-issue-375): an unbounded turn ran to ~3,800 tokens and past the
+// request timeout, losing the whole execution to a transient retry.
+var MAX_TOKENS_PER_TURN = 1536;
 
 // THE CODE CEILING. The profile may permit git, ls, rg, cat and more; this
 // runner will execute none of them. Two programs, resolved to absolute paths
@@ -700,7 +705,7 @@ function run(task, prompt, _sessionId, _mode, opts) {
     return adapter.chatCompletion(
       { baseUrl: baseUrl, apiKey: apiKey, model: model, providerId: PROVIDER_ID },
       messages,
-      { timeoutMs: Math.max(1000, Math.min(deadline - Date.now(), 300000)), tools: schemas, transport: opts.transport }
+      { timeoutMs: Math.max(1000, Math.min(deadline - Date.now(), 300000)), tools: schemas, transport: opts.transport, maxTokens: MAX_TOKENS_PER_TURN }
     ).then(function (res) {
       if (!res || !res.message) {
         return finish({
@@ -780,6 +785,7 @@ module.exports = {
   TOOL_IMPL: TOOL_IMPL,
   MAX_ITERATIONS: MAX_ITERATIONS,
   MAX_REPAIR_ROUNDS: MAX_REPAIR_ROUNDS,
+  MAX_TOKENS_PER_TURN: MAX_TOKENS_PER_TURN,
   MAX_TOOL_CALLS: MAX_TOOL_CALLS,
   MAX_TOOL_OUTPUT_BYTES: MAX_TOOL_OUTPUT_BYTES
 };
