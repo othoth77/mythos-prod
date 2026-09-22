@@ -113,21 +113,61 @@ t('systemd unit: loopback-bound, token-required, avoids known user-scope-fatal d
   });
 });
 
+// SCOPE GUARD. A Haddad stage must never reach into production
+// orchestration. The guard reads the BRANCH's diff, so it must also know
+// whose diff it is reading: a branch that changes nothing under
+// projects/mythos-haddad/ is not a Haddad stage, and refusing its executor
+// changes makes this file veto unrelated core work. It did exactly that —
+// a core branch that legitimately changed core/validation.js and touched no
+// Haddad file at all failed here. So the guard applies to Haddad branches
+// only, and for those it refuses precisely what it always refused.
+//
+// HAD-3 legitimately adds ONE additive entry to config/projects.json (the
+// Haddad project registration) with owner approval — see
+// projects/mythos-haddad/docs/GITHUB_WORKER.md. It is named explicitly so
+// the guard stays sharp: everything else under core/, lib/, providers/ and
+// free-llm/ is still refused, which is what this test exists to protect.
+var ALLOWED = ['projects/mythos-ai-executor/config/projects.json'];
+var PROTECTED = /^projects\/mythos-ai-executor\/(core|lib|providers|free-llm|config)\//;
+
+function isHaddadBranch(files) {
+  return files.some(function (f) { return /^projects\/mythos-haddad\//.test(f); });
+}
+
+function forbiddenExecutorFiles(files) {
+  if (!isHaddadBranch(files)) return [];   // not a Haddad stage — not this guard's business
+  return files.filter(function (f) { return ALLOWED.indexOf(f) === -1 && PROTECTED.test(f); });
+}
+
 t('production orchestration and the free-LLM catalog are untouched', function () {
   var repoRoot = path.join(__dirname, '..');
   var diff = run('git', ['diff', '--name-only', 'origin/main...HEAD'], { cwd: repoRoot });
   if (diff.status !== 0 || !diff.stdout.trim()) return; // not in a git checkout with origin/main, or nothing to compare — skip
-  // HAD-3 legitimately adds ONE additive entry to config/projects.json (the
-  // Haddad project registration) with owner approval — see
-  // projects/mythos-haddad/docs/GITHUB_WORKER.md. It is named explicitly so
-  // the guard stays sharp: everything else under core/, lib/, providers/ and
-  // free-llm/ is still refused, which is what this test exists to protect.
-  var ALLOWED = ['projects/mythos-ai-executor/config/projects.json'];
-  var files = diff.stdout.trim().split('\n');
-  files.forEach(function (f) {
-    if (ALLOWED.indexOf(f) !== -1) return;
-    assert.ok(!/^projects\/mythos-ai-executor\/(core|lib|providers|free-llm|config)\//.test(f), 'HAD-2 does not touch orchestration/provider code: ' + f);
-  });
+  var offenders = forbiddenExecutorFiles(diff.stdout.trim().split('\n'));
+  assert.strictEqual(offenders.join(', '), '',
+    'HAD-2 does not touch orchestration/provider code: ' + offenders.join(', '));
+});
+
+t('the scope guard is scoped to Haddad branches and still bites', function () {
+  assert.deepStrictEqual(
+    forbiddenExecutorFiles(['projects/mythos-ai-executor/core/validation.js', 'tests/some-core-test.js']), [],
+    'a branch that touches no Haddad file is not judged by this guard');
+  assert.deepStrictEqual(
+    forbiddenExecutorFiles(['projects/mythos-haddad/lib/haddad-runtime.js', 'docs/AI_RUNTIME.md']), [],
+    'a Haddad branch that stays inside its own tree passes');
+  assert.deepStrictEqual(
+    forbiddenExecutorFiles(['projects/mythos-haddad/lib/haddad-runtime.js',
+      'projects/mythos-ai-executor/core/validation.js']),
+    ['projects/mythos-ai-executor/core/validation.js'],
+    'a Haddad branch that reaches into production orchestration still FAILS');
+  assert.deepStrictEqual(
+    forbiddenExecutorFiles(['projects/mythos-haddad/docs/GITHUB_WORKER.md',
+      'projects/mythos-ai-executor/config/projects.json']), [],
+    'the one owner-approved HAD-3 registration stays allow-listed');
+  assert.deepStrictEqual(
+    forbiddenExecutorFiles(['projects/mythos-haddad/x.md', 'projects/mythos-ai-executor/config/agents.json']),
+    ['projects/mythos-ai-executor/config/agents.json'],
+    'the allow-list is one FILE, not the whole config directory');
 });
 
 t('haddad-health.js gained exactly one new, well-formed check (ai_runtime)', function () {
