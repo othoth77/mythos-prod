@@ -213,6 +213,42 @@ So `B depends_on A` waits while A is stopped for a person, waits while `A-r2` is
 failed, waits if something merely *claims* to continue A, waits if an edited rerun owes its own
 review — and becomes eligible the moment a trusted, approved `A-r2` completes.
 
+## Supervised execution on Haddad: what makes a pass a pass
+
+The Haddad worker writes files and runs commands (`docs/` for the tool runner). Its own report
+is **not** what decides whether the work is done. `lib/work-validation.js` produces the evidence
+from three things the worker does not control:
+
+- the **workspace**, snapshotted before the model is called and measured after, so what changed
+  is observed rather than claimed;
+- the **acceptance criteria**, re-run by the validator itself inside the same sandbox — a
+  criterion that names a command (`node …`, `npm test`) is executed here, not believed;
+- the **report**, checked for shape and for the failure it may be admitting.
+
+The verdict comes from `core/validation.js` — the same validators that judge an
+orchestration-core result — with this module supplying the injected `test_runner` they were
+written to take. What it adds is the part those validators cannot know: which files the attempt
+was allowed to touch, and whether a check's own file was edited or deleted to make it pass.
+
+**Repair, bounded.** On rejection the worker receives its own measured failures in the format
+the orchestrator already uses (`## REPAIR REQUIRED (attempt N)`): the failing check's real
+output, what it actually changed, and the rule that the cause is fixed rather than the check.
+Three executions in total, then the task stops with the evidence attached for a person. Repair
+rounds are not retries and do not touch the executor's retry budget.
+
+**A pass is labelled honestly.** Criteria that can be run make a pass *mechanical*. Prose
+criteria are legitimate and cannot be machine-checked, so such a task passes flagged
+`mechanically_verified: false` rather than being dressed up as verified. A task that declared no
+criteria is recorded as unverified, not failed — the omission is its author's, not the worker's.
+
+**Known limit.** The local runtime runs with a 4096-token context. A bridge task instruction is
+~1,900 tokens before any file is read, so a full read → change → re-read → repair cycle does not
+fit: a live run was observed producing a correct fix and then failing with
+`request (4590 tokens) exceeds the available context size`. The loop is proven against real
+files, real sandboxed runs and the real validator in
+`tests/mythos-haddad-supervised-loop-test.js`; a live repair round on Haddad needs a larger
+context window, which is an owner decision about GPU memory.
+
 ## What was deliberately NOT built
 
 No queue, no daemon, no agent, no reviewer implementation, no HTTP endpoint, no async
