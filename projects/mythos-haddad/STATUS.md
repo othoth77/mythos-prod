@@ -89,6 +89,17 @@ owner-approved, fail-closed exemption for providers that have no tool surface at
 no execution authority. Real E2E: Issue #338 → `haddad:completed`. Detail:
 [docs/GITHUB_WORKER.md](docs/GITHUB_WORKER.md).
 
+**HAD-3 (Haddad MCP): COMPLETE — verified 2026-09-22 (PR #366).** The VPS OTH MCP (`projects/oth-mcp/server.js`,
+stdio, read-only) runs on Haddad over SSH-stdio with Haddad's configuration: the executor tools read Haddad's
+own executor (`127.0.0.1:8130`, bearer by reference from the executor's own 0600 file); OTHMODE/Status tools
+read the public estate models; **`haddad_health`** — the one Haddad-native tool the V1 scope asked for (health,
+GPU, AI runtime + model, worker, MCP) — is a 66-line env-gated read of `health-latest.json` inside the shared
+server, absent on the VPS (still 8 tools). Knowledge tools stay fail-closed until HAD-1. No port, no unit, no
+root, no secret in git. Health gained `worker` and `mcp` checks (16/0/0). Real E2E: Claude Code over
+`ssh othman@100.78.7.10` → `execution_status` + `haddad_health` + `system_health` → every value matched the
+sources directly. Tests 17/0 (new), 58/0 + 168/0 + 37/0 (shared MCP suites), full regression green.
+Detail: [docs/HADDAD_MCP.md](docs/HADDAD_MCP.md).
+
 **HAD-4 (tool runner + supervised execution): COMPLETE — proven live 2026-09-22.** Qwen writes and runs
 inside a per-command bwrap sandbox; `lib/work-validation.js` re-runs every declared check itself and
 measures the workspace; a bounded repair loop (3 executions, compact briefs, per-execution turn/tool
@@ -101,6 +112,7 @@ dependency wait while an independent task runs (#380/#381). Detail: [docs/GITHUB
 
 ## Next action
 
-HAD-3 (Haddad MCP), per the V1 order in `docs/MYTHOS_HADDAD_V1_SCOPE.md` — expose health/GPU/runtime/knowledge
-as read-only MCP tools over SSH-stdio. Before that: add the Windows client's SSH key and set
-`PasswordAuthentication no` (still pending from V0).
+After #366 merges: re-run `haddad-mcp-setup.sh` with `HADDAD_MCP_REPO=$HOME/projects/mythos-prod` so the launcher
+and the health timer run from the merged checkout. Then HAD-1 (local OTHKM store) to configure the knowledge
+tools. Owner decision, deferred: registering Haddad in the VPS estate MCP registry (needs a VPS→Haddad SSH
+credential). Still pending from V0: add the Windows client's SSH key and set `PasswordAuthentication no`.
