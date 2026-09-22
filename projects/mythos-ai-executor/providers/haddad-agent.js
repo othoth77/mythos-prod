@@ -674,8 +674,27 @@ function run(task, prompt, _sessionId, _mode, opts) {
     if (iteration >= MAX_ITERATIONS) {
       // Measure what it did before saying why it stopped: "12 turns" is not
       // a finding, "it edited the check" is.
-      return Promise.resolve(stopForHuman('', validateNow(''),
-        'stopped after ' + MAX_ITERATIONS + ' model turns without a final answer'));
+      var capVerdict = validateNow('');
+      // Running out of turns is a REJECTED attempt, not a verdict on the
+      // work: live (gh-issue-374) the worker had every check passing by the
+      // validator's own run and had simply not written the report. So the
+      // cap feeds the same bounded repair path as any other rejection — the
+      // brief carries the measured state (checks passing → emit the report;
+      // a check failing → fix it) — and only a spent budget stops for a
+      // person. Three executions in total either way.
+      if (repairRound >= MAX_REPAIR_ROUNDS) {
+        return Promise.resolve(stopForHuman('', capVerdict,
+          'stopped after ' + MAX_ITERATIONS + ' model turns without a final answer; the repair budget is spent'));
+      }
+      var callsThisRound = trace.length - traceMarkAtRoundStart;
+      repairRound++;
+      traceMarkAtRoundStart = trace.length;
+      messages.push({ role: 'user', content: work.renderRepairNotes(capVerdict, repairRound, task.constraints || [], {
+        tool_calls: callsThisRound,
+        out_of_turns: MAX_ITERATIONS,
+        files_named: work.declaredScope(task.constraints || [])
+      }) });
+      return step(0);
     }
 
     return adapter.chatCompletion(

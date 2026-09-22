@@ -294,6 +294,17 @@ function renderRepairNotes(verdict, attempt, constraints, opts) {
   if (opts.tool_calls === 0) {
     lines.push('Your previous reply made NO tool call: nothing was written and nothing ran. Code shown in a ```block is NOT applied — only a write_file call changes the workspace.', '');
   }
+  var ev0 = verdict.evidence || {};
+  var allRanPassed = (ev0.checks_run || []).length > 0 && (ev0.checks_run || []).every(function (c) { return c.passed; });
+  if (opts.out_of_turns) {
+    lines.push('Your previous attempt used all ' + opts.out_of_turns + ' tool turns without emitting the final report.');
+    if (allRanPassed) {
+      lines.push('The validator ran every declared check on the workspace as you left it and ALL OF THEM PASS. Do not change anything: emit the final ```json mythos_report block NOW, with status "completed", the files you changed and the checks that passed. No more tool calls.');
+    } else {
+      lines.push('The validator ran the declared checks on the workspace as you left it; the ones that still fail are listed below. Fix them, then emit the report.');
+    }
+    lines.push('');
+  }
   lines.push('### What failed');
   verdict.rejections.forEach(function (r) { lines.push('- ' + r); });
   var ev = verdict.evidence || {};
@@ -323,6 +334,11 @@ function renderRepairNotes(verdict, attempt, constraints, opts) {
   // The order of operations, as tool calls. Prose is not one of them.
   var failingChecks = ran.map(function (c) { return c.check; });
   var targets = (opts.files_named || []).filter(Boolean);
+  if (opts.out_of_turns && allRanPassed) {
+    lines.push('', '### What to do now');
+    lines.push('Emit the final ```json mythos_report block and nothing else. Every check already passes.');
+    return lines.join('\n');
+  }
   lines.push('', '### What to do now — as TOOL CALLS, in this order');
   lines.push('1. read_file the file you must fix' + (targets.length ? ' (' + targets.join(', ') + ')' : '') + ' if you no longer have its current content.');
   lines.push('2. write_file that path with the COMPLETE corrected file. A code block in your answer changes nothing.');

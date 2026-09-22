@@ -186,6 +186,58 @@ t('B1 fail → diagnose → the worker repairs → checks pass → SUCCESS', fun
   });
 });
 
+t('B4 running out of turns with the work DONE is a rejected attempt, not a stop: the next round is asked only for the report', function () {
+  var ws = newWorkspace('out-of-turns');
+  seedBrokenProject(ws);
+  // Attempt 1: the real fix on the first turn, then 11 more tool turns
+  // re-running the check without ever reporting — gh-issue-374, live.
+  var replies = [callTool('c1', 'write_file', { path: 'add.js', content: FIXED })];
+  for (var i = 0; i < agent.MAX_ITERATIONS - 1; i++) replies.push(callTool('r' + i, 'run_command', { program: 'node', args: ['add.test.js'] }));
+  // Attempt 2: the brief says everything passes — it only reports.
+  replies.push(say(report('completed', 'add returns a + b; the check passes.', ['add.js'])));
+  return runTask(ws, replies).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, false, 'the task succeeded: ' + o.stderr + ' ' + JSON.stringify(o.parsed).slice(0, 300));
+    assert.strictEqual(o.repair_rounds, 1, 'the cap consumed one repair round');
+    assert.strictEqual(o.validations.length, 2);
+    assert.strictEqual(o.validations[0].pass, false, 'attempt 1 was rejected (no report)');
+    assert.ok(o.validations[0].evidence.checks_run.every(function (c) { return c.passed; }), 'but its checks already passed');
+    assert.strictEqual(o.validations[1].pass, true);
+    var brief = o._sent[agent.MAX_ITERATIONS].messages.slice(-1)[0].content;
+    assert.ok(/used all \d+ tool turns without emitting the final report/.test(brief), brief.slice(0, 300));
+    assert.ok(/ALL OF THEM PASS\. Do not change anything: emit the final/.test(brief), 'told to report, not to change');
+    assert.ok(!/### What to do now — as TOOL CALLS/.test(brief), 'no tool-call steps when nothing is left to fix');
+    assert.strictEqual(o.validation.evidence.mechanically_verified, true);
+  });
+});
+
+t('B5 running out of turns with a check still FAILING repairs it, and a spent budget stops for a person', function () {
+  var ws = newWorkspace('out-of-turns-failing');
+  seedBrokenProject(ws);
+  var replies = [];
+  for (var i = 0; i < agent.MAX_ITERATIONS; i++) replies.push(callTool('r' + i, 'read_file', { path: 'add.js' }));
+  // Attempt 2 after the brief: fixes and reports.
+  replies.push(callTool('w', 'write_file', { path: 'add.js', content: FIXED }));
+  replies.push(say(report('completed', 'fixed', ['add.js'])));
+  return runTask(ws, replies).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, false, o.stderr);
+    assert.strictEqual(o.repair_rounds, 1);
+    var brief = o._sent[agent.MAX_ITERATIONS].messages.slice(-1)[0].content;
+    assert.ok(/the ones that still fail are listed below/.test(brief), brief.slice(0, 400));
+    assert.ok(/### What to do now — as TOOL CALLS/.test(brief));
+    // And the bound holds: three cap-outs in a row stop for a person.
+    var ws2 = newWorkspace('out-of-turns-x3');
+    seedBrokenProject(ws2);
+    var r2 = [];
+    for (var j = 0; j < agent.MAX_ITERATIONS * 3; j++) r2.push(callTool('q' + j, 'read_file', { path: 'add.js' }));
+    return runTask(ws2, r2);
+  }).then(function (o) {
+    assert.strictEqual(o.repair_rounds, 2);
+    assert.strictEqual(o.validations.length, 3);
+    var rep = require(path.join(EXEC, 'lib', 'report.js')).extractReport(o.parsed.result).report;
+    assert.ok(rep && rep.status === 'blocked' && /repair budget is spent/.test(rep.summary), JSON.stringify(rep).slice(0, 300));
+  });
+});
+
 t('B2 the repair brief hands the worker MEASURED evidence, not a scolding', function () {
   var ws = newWorkspace('repair-brief');
   seedBrokenProject(ws);
