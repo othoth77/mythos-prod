@@ -89,6 +89,16 @@ owner-approved, fail-closed exemption for providers that have no tool surface at
 no execution authority. Real E2E: Issue #338 → `haddad:completed`. Detail:
 [docs/GITHUB_WORKER.md](docs/GITHUB_WORKER.md).
 
+**HAD-4 (tool runner + supervised execution): COMPLETE — proven live 2026-09-22.** Qwen writes and runs
+inside a per-command bwrap sandbox; `lib/work-validation.js` re-runs every declared check itself and
+measures the workspace; a bounded repair loop (3 executions, compact briefs, per-execution turn/tool
+budgets, 1,536 tokens per turn) hands Qwen its measured failures, with a diagnosis-only Sonnet
+escalation on the last round. Real E2E gh-issue-379: attempt FAIL → repair FAIL → repair + diagnosis →
+both checks PASS by the validator → COMPLETED → review gate → `haddad:human-approval`. Fake success caught
+live (#373, #376, #378), exhaustion → HUMAN_APPROVAL with the trace (#376), crash recovery (#381),
+dependency wait while an independent task runs (#380/#381). Detail: [docs/GITHUB_WORKER.md](docs/GITHUB_WORKER.md),
+`docs/MYTHOS_REVIEW_POLICY.md`.
+
 ## Next action
 
 HAD-3 (Haddad MCP), per the V1 order in `docs/MYTHOS_HADDAD_V1_SCOPE.md` — expose health/GPU/runtime/knowledge
