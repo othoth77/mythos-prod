@@ -32,10 +32,12 @@
 //     required to sit inside it. Traversal, absolute escapes and symlinks
 //     pointing out all fail the same containment test, because the test is
 //     on the RESOLVED path, not the string.
-//   * run_command: argv only. No shell, no string command, no interpolation.
-//     The program must be in this file's own ALLOWED_PROGRAMS map (absolute
-//     paths, resolved once at load) AND permitted by the profile. sh, bash
-//     and sudo are not in the map and cannot be added by configuration.
+//   * run_command: argv only, and the process runs inside a bwrap namespace
+//     where the workspace is the only writable mount, /usr is read-only,
+//     /etc and $HOME do not exist and there is no network. The allow-list
+//     (node, npm) and the argv rules narrow what is ASKED; the namespace is
+//     what bounds what a running interpreter can DO — `node -e` was shown
+//     escaping every check that was not a namespace. No sandbox, no command.
 //   * bounded: tool calls, iterations, output bytes, and the task's own
 //     timeout, whichever ends first.
 //
@@ -93,6 +95,66 @@ var ALLOWED_PROGRAMS = (function () {
   });
   return out;
 })();
+
+// THE BOUNDARY. Everything above this line — the allow-list, the argv rules,
+// the path containment — restricts what a command is ASKED to do. None of it
+// restricts what a command DOES once it is running, and `node` is a general
+// interpreter: `node -e` was demonstrated writing outside the workspace,
+// spawning a shell as this user, and reaching the network, straight through
+// every one of those checks.
+//
+// So the command runs inside a mount/network/pid namespace where the escape
+// is not forbidden but ABSENT: the workspace is the only writable thing that
+// exists, /usr is read-only, /etc and $HOME are not mounted at all, and there
+// is no network. bwrap is already installed on this host and needs no
+// privileges; nothing new is introduced.
+//
+// FAIL CLOSED: no sandbox, no commands. There is deliberately no path that
+// runs a command unconfined because the sandbox was unavailable.
+var SANDBOX_BIN = (function () {
+  var candidates = ['/usr/bin/bwrap', '/bin/bwrap', '/usr/local/bin/bwrap'];
+  for (var i = 0; i < candidates.length; i++) {
+    try { if (fs.statSync(candidates[i]).isFile()) return candidates[i]; } catch (e) { /* keep looking */ }
+  }
+  return null;
+})();
+
+// Top-level directories a language runtime needs, mounted READ-ONLY. /etc and
+// /home are deliberately absent: that is what makes ~/.ssh, the runtime key
+// and every system credential unreachable rather than merely forbidden.
+function sandboxArgv(workspace, bin, argv) {
+  var a = ['--ro-bind', '/usr', '/usr'];
+  [['usr/bin', '/bin'], ['usr/lib', '/lib'], ['usr/lib64', '/lib64'], ['usr/sbin', '/sbin']].forEach(function (pair) {
+    try { if (fs.existsSync('/' + pair[0])) a.push('--symlink', pair[0], pair[1]); } catch (e) { /* skip */ }
+  });
+  a = a.concat([
+    '--proc', '/proc',
+    '--dev', '/dev',
+    '--tmpfs', '/tmp',
+    // The workspace at its REAL path, so a path the model read is the same
+    // path the command sees, and it is the only writable mount in here.
+    '--bind', workspace, workspace,
+    // Everything bwrap had to invent to hold that bind — the empty parent
+    // directories — becomes read-only, so a write above the workspace fails
+    // with EROFS instead of quietly landing on a throwaway tmpfs and telling
+    // the model it succeeded. /proc, /dev and /tmp are separate mounts and
+    // keep their own modes (a runtime needs a writable temp dir).
+    '--remount-ro', '/',
+    '--chdir', workspace,
+    // Namespaces: no network, no host pids, no host ipc. --new-session stops
+    // terminal-injection tricks against the parent.
+    '--unshare-all',
+    '--die-with-parent',
+    '--new-session',
+    '--clearenv',
+    '--setenv', 'PATH', '/usr/bin:/bin',
+    '--setenv', 'HOME', workspace,
+    '--setenv', 'LANG', 'C',
+    '--setenv', 'NO_COLOR', '1',
+    '--'
+  ]);
+  return a.concat([bin]).concat(argv);
+}
 
 function readKey(file) {
   try {
@@ -251,6 +313,38 @@ function commandPermittedByProfile(grant, program, argv) {
   });
 }
 
+// Scope rules, layered ON TOP of the sandbox rather than instead of it. The
+// sandbox already makes these harmless; refusing them keeps the runner's
+// behaviour legible — a task that asks to evaluate a string is not doing the
+// thing this runner exists for, and saying so is better than letting it run
+// confined and fail strangely.
+var NODE_CODE_FLAGS = ['-e', '--eval', '-p', '--print', '--require', '-r',
+  '--input-type', '-i', '--interactive', '--eval-file'];
+var NPM_ALLOWED_VERBS = [['test'], ['run', 'test'], ['run-script', 'test']];
+
+function scopeRefusal(program, argv) {
+  if (program === 'node') {
+    for (var i = 0; i < argv.length; i++) {
+      var a = argv[i];
+      if (a === '--') break;
+      var flag = a.split('=')[0];
+      if (NODE_CODE_FLAGS.indexOf(flag) !== -1) {
+        return 'node ' + flag + ' evaluates code given as an argument; run a file inside the workspace instead';
+      }
+      if (a === '-') return 'node cannot take a program on stdin here';
+    }
+  }
+  if (program === 'npm') {
+    var ok = NPM_ALLOWED_VERBS.some(function (verb) {
+      return verb.every(function (w, i) { return argv[i] === w; });
+    });
+    if (!ok) {
+      return 'npm may only run the test script here (npm test / npm run test); install and arbitrary scripts are not available';
+    }
+  }
+  return null;
+}
+
 function toolRunCommand(ctx, args) {
   var program = args && args.program;
   var argv = (args && args.args) || [];
@@ -268,15 +362,21 @@ function toolRunCommand(ctx, args) {
   if (!commandPermittedByProfile(ctx.grant, program, argv)) {
     return { error: 'REFUSED: the ' + ctx.grant.profile + ' profile does not permit ' + program + ' with those arguments' };
   }
-  // argv array, absolute binary, no shell. There is no code path here that
-  // builds a command string, so there is nothing for an argument to escape
-  // out of.
-  var r = cp.spawnSync(bin, argv, {
+  var scoped = scopeRefusal(program, argv);
+  if (scoped) return { error: 'REFUSED: ' + scoped };
+  // FAIL CLOSED. A command is only ever started inside the sandbox.
+  if (!SANDBOX_BIN) {
+    return { error: 'REFUSED: no sandbox available on this host, so no command runs' };
+  }
+  // argv array, absolute binary, no shell, inside the namespace. There is no
+  // code path here that builds a command string, and none that starts a
+  // process outside sandboxArgv().
+  var r = cp.spawnSync(SANDBOX_BIN, sandboxArgv(ctx.workspace, bin, argv), {
     cwd: ctx.workspace,
     timeout: COMMAND_TIMEOUT_MS,
     maxBuffer: MAX_TOOL_OUTPUT_BYTES * 4,
     encoding: 'utf8',
-    env: { PATH: '/usr/bin:/bin', HOME: ctx.workspace, LANG: 'C', NO_COLOR: '1' }
+    env: { PATH: '/usr/bin:/bin', LANG: 'C' }
   });
   if (r.error && r.error.code === 'ETIMEDOUT') return { error: 'REFUSED: command timed out' };
   if (r.error) return { error: 'REFUSED: ' + String(r.error.message).slice(0, 200) };
@@ -317,7 +417,9 @@ function toolSchemas(grant) {
         content: { type: 'string', description: 'the complete new file content' }
       }, required: ['path', 'content'] } } });
   }
-  if (grant.commands.length) {
+  // Without a sandbox there is no safe way to start a process, so the tool is
+  // not offered at all rather than offered and always refused.
+  if (grant.commands.length && SANDBOX_BIN) {
     var hint = grant.commands
       .filter(function (c) { return ALLOWED_PROGRAMS[c.program]; })
       .map(function (c) { return c.program + (c.args.length ? ' ' + c.args.join(' ') : '') + (c.prefix ? ' …' : ''); });
@@ -502,6 +604,9 @@ module.exports = {
   // test that cannot reach them cannot guard them.
   resolveInside: resolveInside,
   underGitDir: underGitDir,
+  sandboxArgv: sandboxArgv,
+  scopeRefusal: scopeRefusal,
+  SANDBOX_BIN: SANDBOX_BIN,
   systemPrompt: systemPrompt,
   toolSchemas: toolSchemas,
   commandPermittedByProfile: commandPermittedByProfile,

@@ -32,7 +32,11 @@ function t(name, fn) {
 }
 
 // ---- a real workspace on disk, plus a real escape target outside it -------
-var ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'haddad-runner-'));
+// NOT under /tmp, and not only because the repo's other suites keep fixtures
+// out of it: the sandbox mounts a scratch tmpfs at /tmp, so a workspace
+// placed there would have a writable parent INSIDE the namespace and would
+// not mirror production, where task worktrees live under $HOME.
+var ROOT = fs.mkdtempSync(path.join(os.homedir(), 'haddad-runner-'));
 var WS = path.join(ROOT, 'workspace');
 var OUTSIDE = path.join(ROOT, 'outside');
 fs.mkdirSync(WS); fs.mkdirSync(OUTSIDE);
@@ -117,7 +121,10 @@ t('list_files lists the workspace and marks directories', function () {
 
 t('run_command runs a profile-permitted command and returns its output', function () {
   if (!agent.ALLOWED_PROGRAMS.node) throw new Error('node not found in the allowed program map');
-  var r = call('run_command', ctxTest, { program: 'node', args: ['-e', 'console.log("TOOL-RAN-OK")'] });
+  // A FILE in the workspace, not `-e`: inline code was the vector that walked
+  // through every check that was not a namespace, and is now refused outright.
+  fs.writeFileSync(path.join(WS, 'tool-ran.js'), 'console.log("TOOL-RAN-OK");\n');
+  var r = call('run_command', ctxTest, { program: 'node', args: ['tool-ran.js'] });
   assert.ok(!r.error, 'not refused: ' + r.error);
   assert.strictEqual(r.exit_code, 0);
   assert.ok(/TOOL-RAN-OK/.test(r.stdout), 'real stdout came back, got ' + JSON.stringify(r.stdout));
@@ -527,6 +534,173 @@ t('W11 the runner can run the tests it just changed', function () {
   var again = call('run_command', ctxWrite, { program: 'node', args: ['check.js'] });
   assert.strictEqual(again.exit_code, 3, 'the command observes the write that preceded it');
   assert.ok(/changed/.test(again.stdout), 'and its output comes back');
+});
+
+// ===========================================================================
+// S. THE SANDBOX — the boundary run_command actually runs behind.
+//
+// Everything in this section executes for real: a real bwrap namespace, a
+// real node process, real attempts at the real filesystem. `node -e` was
+// demonstrated writing outside the workspace, spawning a shell as this user
+// and reaching the network, straight through the allow-list and the argv
+// checks. Those checks are still here and still refuse — but they are not
+// what makes the escape impossible, so this section proves the namespace.
+// ===========================================================================
+
+var SANDBOXED = !!agent.SANDBOX_BIN;
+var OUTSIDE_MARK = path.join(ROOT, 'ESCAPED.txt');
+
+t('S0 the sandbox is present, and commands fail closed without one', function () {
+  assert.ok(SANDBOXED, 'bwrap is available on this host');
+  var src = fs.readFileSync(path.join(EXEC, 'providers', 'haddad-agent.js'), 'utf8');
+  assert.ok(/no sandbox available on this host, so no command runs/.test(src),
+    'there is an explicit refusal when no sandbox exists');
+  assert.ok(!/cp\.spawnSync\(bin,/.test(src), 'no code path starts the program outside the sandbox');
+  assert.ok(/cp\.spawnSync\(SANDBOX_BIN, sandboxArgv\(/.test(src), 'the only spawn goes through sandboxArgv');
+  var argv = agent.sandboxArgv('/ws', '/usr/bin/node', ['x.js']);
+  assert.ok(argv.indexOf('--unshare-all') !== -1, 'namespaces are unshared (network included)');
+  assert.ok(argv.indexOf('--remount-ro') !== -1, 'the invented root is read-only');
+  assert.ok(argv.indexOf('--clearenv') !== -1, 'the environment does not leak in');
+  assert.ok(argv.join(' ').indexOf('--ro-bind /usr /usr') !== -1, '/usr is read-only');
+  assert.ok(argv.join(' ').indexOf('/etc') === -1, '/etc is never mounted');
+  assert.ok(argv.join(' ').indexOf('--bind /ws /ws') !== -1, 'the workspace is the writable mount');
+});
+
+t('S1 a test file inside the workspace runs and reports its exit code', function () {
+  if (!SANDBOXED) return;
+  fs.writeFileSync(path.join(WS, 'passing.test.js'), 'console.log("2 passed"); process.exit(0);\n');
+  var r = call('run_command', ctxWrite, { program: 'node', args: ['passing.test.js'] });
+  assert.ok(!r.error, String(r.error));
+  assert.strictEqual(r.exit_code, 0);
+  assert.ok(/2 passed/.test(r.stdout), r.stdout);
+  fs.writeFileSync(path.join(WS, 'failing.test.js'), 'console.error("1 failed"); process.exit(1);\n');
+  var f = call('run_command', ctxWrite, { program: 'node', args: ['failing.test.js'] });
+  assert.strictEqual(f.exit_code, 1, 'a real failure comes back as a real non-zero exit');
+});
+
+t('S2 npm test is permitted; install and other scripts are not', function () {
+  if (!SANDBOXED) return;
+  fs.writeFileSync(path.join(WS, 'package.json'),
+    JSON.stringify({ name: 'ws', version: '1.0.0', scripts: { test: 'node passing.test.js', build: 'node evil.js' } }) + '\n');
+  var ok = call('run_command', ctxWrite, { program: 'npm', args: ['test'] });
+  assert.ok(!ok.error, 'npm test is allowed: ' + String(ok.error));
+  [['install'], ['install', 'left-pad'], ['run', 'build'], ['ci'], ['publish'], ['exec', 'x']].forEach(function (argv) {
+    var r = call('run_command', ctxWrite, { program: 'npm', args: argv });
+    assert.ok(r.error && /only run the test script/.test(r.error), 'npm ' + argv.join(' ') + ' → ' + String(r.error));
+  });
+});
+
+t('S3 node -e and every other inline-code flag are refused', function () {
+  ['-e', '--eval', '-p', '--print', '-r', '--require', '--input-type', '-i', '--interactive'].forEach(function (flag) {
+    var r = call('run_command', ctxWrite, { program: 'node', args: [flag, 'console.log(1)'] });
+    assert.ok(r.error && /evaluates code given as an argument|cannot take a program on stdin/.test(r.error),
+      'node ' + flag + ' → ' + String(r.error));
+  });
+  assert.ok(call('run_command', ctxWrite, { program: 'node', args: ['--eval=1'] }).error, '--eval=1 is refused too');
+  assert.ok(call('run_command', ctxWrite, { program: 'node', args: ['-'] }).error, 'a program on stdin is refused');
+});
+
+t('S4 THE ORIGINAL EXPLOIT, from a file the runner is allowed to run', function () {
+  if (!SANDBOXED) return;
+  // The argv rules cannot stop this: writing a file and running it is exactly
+  // what the runner exists for. Only the namespace can, so this is the test
+  // that matters most in this file.
+  try { fs.unlinkSync(OUTSIDE_MARK); } catch (e) { /* first run */ }
+  fs.writeFileSync(path.join(WS, 'attack.js'), [
+    'var fs = require("fs"), out = [];',
+    'function tryIt(l, f) { try { out.push(l + ":" + f()); } catch (e) { out.push(l + ":blocked(" + e.code + ")"); } }',
+    'tryIt("write-outside", function () { fs.writeFileSync(' + JSON.stringify(OUTSIDE_MARK) + ', "escaped"); return "WROTE"; });',
+    'tryIt("read-etc", function () { return "READ" + fs.readFileSync("/etc/passwd", "utf8").length; });',
+    'tryIt("read-ssh", function () { return "READ" + fs.readdirSync(' + JSON.stringify(path.join(os.homedir(), '.ssh')) + '); });',
+    'tryIt("shell", function () { return "SHELL" + require("child_process").execSync("whoami").toString().trim(); });',
+    'tryIt("write-home", function () { fs.writeFileSync(' + JSON.stringify(path.join(os.homedir(), 'ESCAPED.txt')) + ', "x"); return "WROTE"; });',
+    'console.log(out.join("\\n"));'
+  ].join('\n'));
+  var r = call('run_command', ctxWrite, { program: 'node', args: ['attack.js'] });
+  assert.ok(!r.error, 'the command itself is allowed to run: ' + String(r.error));
+  var out = String(r.stdout || '');
+  ['write-outside', 'read-etc', 'read-ssh', 'shell', 'write-home'].forEach(function (label) {
+    assert.ok(new RegExp(label + ':blocked').test(out), label + ' must be blocked — got: ' + out.replace(/\n/g, ' | '));
+  });
+  // And the only claim that counts: the real filesystem is untouched.
+  assert.ok(!fs.existsSync(OUTSIDE_MARK), 'nothing was written outside the workspace');
+  assert.ok(!fs.existsSync(path.join(os.homedir(), 'ESCAPED.txt')), 'nothing was written into $HOME');
+});
+
+t('S5 secrets outside the workspace are absent, not merely forbidden', function () {
+  if (!SANDBOXED) return;
+  fs.writeFileSync(path.join(WS, 'read-secrets.js'), [
+    'var fs = require("fs"), out = [];',
+    [path.join(os.homedir(), '.config', 'mythos-haddad', 'runtime.key'),
+     path.join(os.homedir(), '.config', 'mythos-haddad', 'github-issues.env'),
+     '/etc/shadow', '/etc/ssh/sshd_config'].map(function (p) {
+      return 'try { out.push("READ:" + fs.readFileSync(' + JSON.stringify(p) + ', "utf8").length); } catch (e) { out.push("blocked:" + e.code); }';
+    }).join('\n'),
+    'console.log(out.join("\\n"));'
+  ].join('\n'));
+  var r = call('run_command', ctxWrite, { program: 'node', args: ['read-secrets.js'] });
+  assert.ok(!/READ:/.test(String(r.stdout)), 'no secret was readable: ' + String(r.stdout).replace(/\n/g, ' | '));
+});
+
+t('S6 there is no network inside the sandbox', function () {
+  if (!SANDBOXED) return;
+  fs.writeFileSync(path.join(WS, 'net.js'),
+    'require("http").get("http://127.0.0.1:8600/v1/models", function (r) { console.log("REACHED", r.statusCode); })' +
+    '.on("error", function (e) { console.log("blocked:" + e.code); });\n');
+  var r = call('run_command', ctxWrite, { program: 'node', args: ['net.js'] });
+  assert.ok(!/REACHED/.test(String(r.stdout)), 'the local runtime was not reachable: ' + String(r.stdout).trim());
+});
+
+t('S7 a symlink planted in the workspace leads nowhere from inside a command', function () {
+  if (!SANDBOXED) return;
+  var link = path.join(WS, 'cmd-escape-link');
+  try { fs.unlinkSync(link); } catch (e) { /* first run */ }
+  try { fs.symlinkSync(path.join(OUTSIDE, 'secret.txt'), link); } catch (e) { return; }
+  fs.writeFileSync(path.join(WS, 'follow.js'),
+    'try { console.log("READ:" + require("fs").readFileSync("cmd-escape-link", "utf8").trim()); }' +
+    ' catch (e) { console.log("blocked:" + e.code); }\n');
+  var r = call('run_command', ctxWrite, { program: 'node', args: ['follow.js'] });
+  assert.ok(!/SHOULD NEVER BE READ/.test(String(r.stdout)), 'the link resolved to nothing: ' + String(r.stdout).trim());
+});
+
+t('S8 traversal from inside a command fails with a real error', function () {
+  if (!SANDBOXED) return;
+  fs.writeFileSync(path.join(WS, 'traverse.js'), [
+    'var fs = require("fs"), out = [];',
+    'try { fs.writeFileSync("../traversed.txt", "x"); out.push("WROTE"); } catch (e) { out.push("blocked:" + e.code); }',
+    'try { fs.writeFileSync("../../traversed.txt", "x"); out.push("WROTE"); } catch (e) { out.push("blocked:" + e.code); }',
+    'console.log(out.join("\\n"));'
+  ].join('\n'));
+  var r = call('run_command', ctxWrite, { program: 'node', args: ['traverse.js'] });
+  assert.ok(!/WROTE/.test(String(r.stdout)), 'traversal was refused: ' + String(r.stdout).replace(/\n/g, ' | '));
+  assert.ok(/EROFS|ENOENT|EACCES/.test(String(r.stdout)), 'and failed with a real errno, not a phantom success');
+  assert.ok(!fs.existsSync(path.join(ROOT, 'traversed.txt')), 'nothing landed above the workspace');
+});
+
+t('S9 another task workspace is not visible from inside a command', function () {
+  if (!SANDBOXED) return;
+  var other = path.join(ROOT, 'other-workspace');
+  fs.mkdirSync(other, { recursive: true });
+  fs.writeFileSync(path.join(other, 'theirs.txt'), 'another project\n');
+  fs.writeFileSync(path.join(WS, 'peek.js'),
+    'try { console.log("READ:" + require("fs").readFileSync(' + JSON.stringify(path.join(other, 'theirs.txt')) + ', "utf8").trim()); }' +
+    ' catch (e) { console.log("blocked:" + e.code); }\n');
+  var r = call('run_command', ctxWrite, { program: 'node', args: ['peek.js'] });
+  assert.ok(!/another project/.test(String(r.stdout)), 'the other workspace was invisible: ' + String(r.stdout).trim());
+  assert.strictEqual(fs.readFileSync(path.join(other, 'theirs.txt'), 'utf8'), 'another project\n');
+});
+
+t('S10 ordinary work inside the workspace is unaffected', function () {
+  if (!SANDBOXED) return;
+  // Read a file, write a file, run the thing you wrote — the whole point.
+  assert.ok(!call('write_file', ctxWrite, { path: 'lib.js', content: 'module.exports = function (a, b) { return a + b; };\n' }).error);
+  assert.ok(!call('write_file', ctxWrite, { path: 'lib.test.js',
+    content: 'var add = require("./lib"); if (add(2, 2) !== 4) { console.error("FAIL"); process.exit(1); } console.log("ok"); \n' }).error);
+  var r = call('run_command', ctxWrite, { program: 'node', args: ['lib.test.js'] });
+  assert.strictEqual(r.exit_code, 0, 'the test it wrote passes: ' + JSON.stringify(r));
+  assert.ok(/ok/.test(r.stdout));
+  assert.strictEqual(call('read_file', ctxWrite, { path: 'lib.js' }).content.indexOf('module.exports'), 0,
+    'and the file is readable back through the tools');
 });
 
 queue.reduce(function (c, s) { return c.then(s); }, Promise.resolve()).then(function () {
