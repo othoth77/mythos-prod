@@ -200,8 +200,14 @@ check('ai_runtime', function () {
   // telemetry agent already windows its journal reads on ActiveEnterTimestamp
   // (bin/haddad-telemetry.js, runtimeLoadFacts), so this reads the pair the
   // same way rather than adding a timer, a retry loop or a state file.
+  // InvocationID identifies THIS start of the unit. It is asked for in the
+  // same call as the other two and handed to runtimeLoadFacts below, which
+  // uses it to read exactly this instance's journal: the timestamp window it
+  // otherwise falls back on carries 60 s of slack, and a restart inside that
+  // slack would let the PREVIOUS instance's offload line vouch for a new
+  // CPU-only one — the very false PASS this check exists to prevent.
   var show = sh('systemctl', ['--user', 'show', 'mythos-haddad-runtime.service',
-    '-p', 'ActiveEnterTimestamp', '-p', 'TimeoutStartUSec']);
+    '-p', 'ActiveEnterTimestamp', '-p', 'TimeoutStartUSec', '-p', 'InvocationID']);
   var props = {};
   show.out.split('\n').forEach(function (l) { var m = /^([A-Za-z]+)=(.*)$/.exec(l); if (m) props[m[1]] = m[2]; });
   var activeSinceMs = Date.parse(props.ActiveEnterTimestamp || '');
@@ -274,7 +280,7 @@ check('ai_runtime', function () {
   // Measurements, for how VRAM was actually measured (the runtime's own
   // memory-fit log line, cross-checked against low process RSS).
   var facts = {};
-  try { facts = require('./haddad-telemetry.js').runtimeLoadFacts(props.ActiveEnterTimestamp || null) || {}; }
+  try { facts = require('./haddad-telemetry.js').runtimeLoadFacts(props.ActiveEnterTimestamp || null, props.InvocationID || null) || {}; }
   catch (e) { facts = { unreadable: e && e.message }; }
   var layers = facts.gpu_layers, total = facts.gpu_layers_total;
   var base = 'llama-server active, model "' + modelId + '" loaded, http://127.0.0.1:8600/v1 answers';

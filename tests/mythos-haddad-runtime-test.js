@@ -291,6 +291,112 @@ t('ai_runtime state 3: only a real model answer is a PASS', function () {
   assert.strictEqual(d.data.ready, false);
 });
 
+// ── the CAUSE: the unit starts before it can open the render node ──
+// The offload assertion above makes the CPU fallback loud. It does not stop
+// it happening. This is what stops it happening.
+t('the runtime unit waits for a render node it can OPEN before starting llama-server', function () {
+  var svc = read('systemd/mythos-haddad-runtime.service');
+  var pre = svc.split('\n').filter(function (l) { return /^ExecStartPre=/.test(l); });
+  assert.strictEqual(pre.length, 2, 'an existence grace and a readability wait');
+  pre.forEach(function (l) {
+    assert.ok(/^ExecStartPre=-/.test(l), 'prefixed `-`: a timeout must never keep the runtime down: ' + l);
+    assert.ok(/\/usr\/bin\/timeout \d+/.test(l), 'every wait is bounded: ' + l);
+    // systemd expands $NAME in Exec lines itself, so a shell variable here
+    // would be eaten before /bin/sh ever saw it.
+    assert.strictEqual(l.indexOf('$'), -1, 'no shell variable in an Exec line: ' + l);
+  });
+  // Readability, not existence: the node was THERE the whole time on
+  // 2026-09-22: what arrived 83 s late was the logind seat ACL that let this
+  // user open it. Waiting for the file to appear would have waited for
+  // nothing and changed nothing.
+  assert.ok(/test -r \/dev\/dri\/renderD128/.test(pre[1]),
+    'the wait is on READABILITY (the seat ACL), not on the node merely existing');
+  assert.ok(/while test -e \/dev\/dri\/renderD128 &&/.test(pre[1]),
+    'a host with no render node at all falls straight through instead of waiting out the bound');
+
+  // The waits run while the unit is still activating, so they must stay well
+  // inside the startup budget haddad-health.js reads back from this unit.
+  var bound = pre.reduce(function (n, l) { return n + parseInt(/timeout (\d+)/.exec(l)[1], 10); }, 0);
+  var budget = parseInt(/^TimeoutStartSec=(\d+)$/m.exec(svc)[1], 10);
+  assert.ok(bound + 208 < budget,
+    'waits (' + bound + 's) plus the measured 208 s cold start must fit the ' + budget + 's budget');
+});
+
+t('the unit records the race it fixes, with the measurement and why there is nothing to order against', function () {
+  var svc = read('systemd/mythos-haddad-runtime.service');
+  ['ggml_vulkan: No devices found', '83 s', 'render', 'graphical-session.target', 'ACL'].forEach(function (m) {
+    assert.ok(svc.indexOf(m) !== -1, 'the header documents ' + m);
+  });
+  // After=network.target survives, but a reader must not mistake it for the
+  // thing that fixed this: it does not resolve in a --user manager here.
+  assert.ok(/network\.target/.test(svc.split('[Service]')[0]), 'After=network.target is still declared');
+  assert.ok(/does not\n# exist/.test(svc), 'and is recorded as inert in a --user manager on this host');
+
+  // The operator-facing account lives in the doc, per this file's convention.
+  var doc = read('docs/AI_RUNTIME.md');
+  ['ggml_vulkan: No devices found', 'renderD128', 'ExecStartPre', '_SYSTEMD_INVOCATION_ID', '2.902 s'].forEach(function (m) {
+    assert.ok(doc.indexOf(m) !== -1, 'AI_RUNTIME.md documents ' + m);
+  });
+  assert.ok(/no NVIDIA\n\*\*proprietary driver|proprietary driver and no `nvidia-smi`/.test(doc),
+    'and states that no proprietary driver or nvidia-smi is involved');
+});
+
+// ── the remaining way the assertion could be fooled ────────────────
+t('the load journal is read for THIS instance, not a 60 s window around it', function () {
+  // The hole: --since (ActiveEnterTimestamp - 60s) has no upper bound and the
+  // parser walks backwards to the newest match, so a restart inside that
+  // slack lets the PREVIOUS instance's "offloaded 27/29" vouch for a new
+  // CPU-only one — reintroducing the exact false PASS being fixed.
+  var tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'haddad-window-'));
+  var stub = path.join(tmp, 'bin');
+  fs.mkdirSync(stub, { recursive: true });
+  var argvLog = path.join(tmp, 'argv.txt');
+  fs.writeFileSync(path.join(stub, 'journalctl'),
+    '#!/bin/sh\necho "$@" >> ' + argvLog + '\ncat <<\'JEOF\'\n' + GPU_BOOT + '\nJEOF\nexit 0\n', { mode: 0o755 });
+
+  function callWith(id) {
+    fs.rmSync(argvLog, { force: true });
+    var r = cp.spawnSync(process.execPath, ['-e',
+      'var a = require(process.argv[1]); a.runtimeLoadFacts(process.argv[2], process.argv[3] || null);',
+      path.join(BIN, 'haddad-telemetry.js'), 'Tue 2026-09-22 22:40:46 UTC', id || ''],
+      { encoding: 'utf8', timeout: 30000,
+        env: Object.assign({}, process.env, { PATH: stub, HADDAD_STATE_DIR: path.join(tmp, 'state-' + (id || 'none')) }) });
+    assert.strictEqual(r.status, 0, r.stderr);
+    return fs.readFileSync(argvLog, 'utf8');
+  }
+
+  var INV = 'bc120b00b76b4f14b100f21fc320925b';   // a real InvocationID from this host
+  var scoped = callWith(INV);
+  assert.ok(scoped.indexOf('_SYSTEMD_INVOCATION_ID=' + INV) !== -1, 'the instance scopes the read: ' + scoped);
+  assert.strictEqual(scoped.indexOf('--since'), -1, 'and replaces the slack window rather than adding to it');
+  assert.strictEqual(scoped.indexOf('-u mythos-haddad-runtime.service'), -1,
+    'the match is already unit-scoped — the invocation belongs to exactly one unit');
+
+  // No id (an older caller, or systemd not answering): the timestamp window
+  // must still work, or the parser would go blind instead of degrading.
+  var fallback = callWith(null);
+  assert.ok(fallback.indexOf('--since') !== -1, 'without an id it falls back to the timestamp window: ' + fallback);
+  assert.ok(fallback.indexOf('-u mythos-haddad-runtime.service') !== -1, 'and re-adds the unit filter it then needs');
+
+  // A malformed id never reaches a command line.
+  var junk = callWith('not-an-invocation-id; rm -rf /');
+  assert.strictEqual(junk.indexOf('_SYSTEMD_INVOCATION_ID'), -1, 'a malformed id is refused, not passed through');
+  assert.ok(junk.indexOf('--since') !== -1, 'and it degrades to the fallback window');
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+t('both callers ask systemd for the instance id they pass down', function () {
+  var health = read('bin/haddad-health.js');
+  assert.ok(/'-p', 'InvocationID'/.test(health), 'ai_runtime asks for InvocationID');
+  assert.ok(/runtimeLoadFacts\([^)]*props\.InvocationID/.test(health), 'and hands it to the parser');
+  var tel = read('bin/haddad-telemetry.js');
+  assert.ok(/'-p', 'InvocationID'/.test(tel), 'the telemetry agent asks for it too');
+  assert.ok(/runtimeLoadFacts\(activeSince, unitProps\.InvocationID/.test(tel), 'and hands it down as well');
+  // The cache is keyed on the instance, or a restart inside the same second
+  // would serve the previous instance's facts from disk.
+  assert.ok(/runtime_invocation/.test(tel), 'the load-facts cache is keyed on the instance, not only its start time');
+});
+
 t('the runtime unit declares a startup budget above the MEASURED cold start', function () {
   var svc = read('systemd/mythos-haddad-runtime.service');
   var m = /^TimeoutStartSec=(\d+)$/m.exec(svc);

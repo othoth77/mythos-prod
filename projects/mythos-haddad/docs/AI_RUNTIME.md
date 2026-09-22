@@ -247,8 +247,87 @@ endpoints, registry) is unchanged.
   `.deb` binaries. The one compiled artifact is the 15-line loader shim described above, needed
   only because of the root constraint, not because of anything about llama.cpp itself.
 
+## Startup: the runtime must not start before it can open the render node
+
+**The failure, measured on `haddad` on 2026-09-22.** After a reboot the runtime came up and served
+every request from the CPU, for 26 minutes, while every check in the suite passed.
+
+```
+22:14:53  mythos-haddad-runtime.service starts
+22:14:57  ggml_vulkan: No devices found.
+          warning: no usable GPU found, --gpu-layers option will be ignored
+22:15:31  load_tensors: CPU_Mapped 3802.54 MiB + 585.07 MiB, CPU_REPACK 2976.75 MiB
+22:16:16  /dev/dri/card0 and /dev/dri/renderD128 receive their ACL  <- 83 s too late
+```
+
+`/dev/dri/renderD128` is `crw-rw----+ root render` and the service user is **not** in the `render`
+group. Access comes from an ACL that `systemd-logind` sets when the seat session comes up, and on
+this boot that happened 83 s after llama-server had already enumerated Vulkan, found nothing, and
+given up. The fallback is permanent for the life of the process.
+
+**Why nothing caught it.** `gpu_test` probes the card in its own process, after the ACL exists, so it
+reported a perfectly healthy GPU — Vulkan 1.4, 6400 MiB VRAM. `ai_runtime` asked the endpoint whether
+it answered, and it did. The report read `RESULT: PASS (pass 16, warn 0, fail 0)` twice (22:21:43 and
+22:24:46) against a runtime that was not using the GPU at all. Two true checks, one false conclusion.
+
+**What it cost.** Same request, same host, same model — `{"messages":[{"role":"user","content":"Say
+OK"}],"max_tokens":16}`:
+
+| | time to answer | MemAvailable |
+|---|---|---|
+| CPU-only (22:14 instance) | no answer within **180 s** | 1.9 GiB |
+| GPU, 27/29 layers (22:40 instance) | **2.902 s** | 4.8 GiB |
+
+Roughly 60x, and the 6.4 GB the model was holding in host RAM was the same RAM the executor and its
+sandboxes needed. Live role executions failed on timeouts that looked like defects in their own code.
+
+**The fix, in two independent places.**
+
+1. *Stop it happening* — the unit waits for the fact it needs before exec'ing llama-server:
+
+   ```ini
+   ExecStartPre=-/usr/bin/timeout 10 /bin/sh -c 'until test -e /dev/dri/renderD128; do sleep 1; done'
+   ExecStartPre=-/usr/bin/timeout 150 /bin/sh -c 'while test -e /dev/dri/renderD128 && ! test -r /dev/dri/renderD128; do sleep 1; done'
+   ```
+
+   It waits on **readability**, not existence: the node was present the whole time — what arrived
+   late was permission to open it. There is nothing to order against instead. `network.target` does
+   not resolve in a `--user` manager on this host, `graphical-session.target` is inactive on a tty1
+   console login, and a user manager cannot order against the system units that create the node.
+   Both waits are bounded and both are prefixed `-`, so a timeout can never keep the runtime down;
+   a host with no render node at all falls through the second loop immediately and starts CPU-only,
+   which is correct there. They run while the unit is still `activating`, so `ActiveEnterTimestamp`
+   still marks llama-server's own start and the health readiness budget is unaffected.
+
+2. *Make it loud if it ever happens again* — `ai_runtime` no longer passes on "the endpoint
+   answers". It reads llama-server's own load accounting and requires real offload: a named device
+   and N > 0 layers is a PASS reporting `N/M layers on the GPU`, `No devices found` or 0 layers is a
+   FAIL, and no load accounting at all is a WARN that says so. Unproven is not proven-good.
+
+The evidence for (2) is read through `bin/haddad-telemetry.js:runtimeLoadFacts()` — the parser the
+telemetry agent already used — scoped to **this start of the unit** via systemd's `InvocationID`
+(`journalctl --user _SYSTEMD_INVOCATION_ID=<id>`). The earlier window, `--since
+(ActiveEnterTimestamp - 60s)` with no upper bound, could have let a previous instance's
+`offloaded 27/29 layers to GPU` vouch for a new CPU-only one and recreate the same false PASS.
+
+### If it happens anyway
+
+```bash
+journalctl --user -u mythos-haddad-runtime -b | grep -E "No devices found|using device|offloaded"
+systemctl --user restart mythos-haddad-runtime     # ~128 s to reload on GPU
+```
+
+A restart is enough once the render node is openable; nothing needs reinstalling, and **no NVIDIA
+proprietary driver and no `nvidia-smi` is involved in any part of this** — the card is driven by
+nouveau/NVK throughout.
+
 ## Known limits
 
+- The runtime depends on a `/dev/dri` render node this user can **open**, and that permission
+  arrives from a logind seat ACL some seconds into boot. The unit now waits for it (see *Startup*)
+  rather than racing it, but the dependency is real: on a host where that ACL never arrives,
+  llama-server starts CPU-only after the bounded wait and `ai_runtime` reports FAIL rather than
+  hiding it.
 - No CUDA (matches V0): Vulkan via NVK only. Generation throughput is modest for a 7B model on
   this hardware; this is a driver-maturity limit, not a install or configuration defect.
 - Live VRAM usage cannot currently be read from the OS on this host (`VK_EXT_memory_budget`'s
