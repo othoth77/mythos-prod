@@ -189,5 +189,102 @@ t('haddad-health.js gained exactly one new, well-formed check (ai_runtime)', fun
   assert.ok(/not installed \(optional, HAD-2/.test(src), 'absent runtime is WARN, not FAIL');
 });
 
+
+// ── ai_runtime readiness states ────────────────────────────────────
+// Drives the REAL check with systemctl and curl stubbed on PATH, so the
+// three states can be asserted without restarting the live runtime (which
+// is answering E2E traffic) and without waiting for a cold boot. Only
+// those two binaries are shadowed; everything else resolves normally.
+function runAiRuntime(opts) {
+  var tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'haddad-ready-'));
+  var stub = path.join(tmp, 'stub');
+  fs.mkdirSync(stub, { recursive: true });
+  fs.mkdirSync(path.join(tmp, '.config', 'systemd', 'user'), { recursive: true });
+  fs.mkdirSync(path.join(tmp, '.config', 'mythos-haddad'), { recursive: true });
+  fs.writeFileSync(path.join(tmp, '.config', 'systemd', 'user', 'mythos-haddad-runtime.service'), '# stub\n');
+  fs.writeFileSync(path.join(tmp, '.config', 'mythos-haddad', 'runtime.key'), 'test-key\n');
+
+  // `show` prints the properties the check asks for; `is-active` prints the
+  // state. Anything else answers empty, as systemctl would for a stub host.
+  var activeSince = new Date(Date.now() - opts.active_for_s * 1000).toUTCString().replace('GMT', 'UTC');
+  fs.writeFileSync(path.join(stub, 'systemctl'),
+    '#!/bin/sh\n' +
+    'case " $* " in\n' +
+    '  *" is-active "*) echo "' + opts.active + '" ;;\n' +
+    '  *" show "*) echo "ActiveEnterTimestamp=' + activeSince + '"; echo "TimeoutStartUSec=' + opts.budget + '" ;;\n' +
+    '  *) echo "" ;;\n' +
+    'esac\nexit 0\n', { mode: 0o755 });
+  // The check asks curl for the body plus "\n%{http_code}"; reproduce both.
+  fs.writeFileSync(path.join(stub, 'curl'),
+    '#!/bin/sh\nprintf \'%s\\n%s\' \'' + opts.body.replace(/'/g, "'\\''") + '\' \'' + opts.code + '\'\nexit 0\n', { mode: 0o755 });
+
+  var r = cp.spawnSync(process.execPath, [path.join(BIN, 'haddad-health.js'), '--quick', '--json', '--no-log'],
+    { encoding: 'utf8', timeout: 180000,
+      env: Object.assign({}, process.env, { HOME: tmp, PATH: stub + ':' + process.env.PATH,
+        HADDAD_STATE_DIR: path.join(tmp, 'state'), HADDAD_DATA_DIR: path.join(tmp, 'data') }) });
+  var rep = JSON.parse(r.stdout);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  return rep.checks.filter(function (c) { return c.id === 'ai_runtime'; })[0];
+}
+
+var LOADING = '{"error":{"message":"Loading model","type":"unavailable_error","code":503}}';
+var LOADED = '{"object":"list","data":[{"id":"qwen2.5-7b-instruct-q4_k_m.gguf"}]}';
+
+t('ai_runtime state 1: unit installed but not active is a FAIL at any age', function () {
+  var c = runAiRuntime({ active: 'inactive', active_for_s: 5, budget: '10min', code: 200, body: LOADED });
+  assert.strictEqual(c.status, 'FAIL', 'a stopped runtime never gets startup grace');
+  assert.ok(/not active/.test(c.detail), c.detail);
+});
+
+t('ai_runtime state 2: "Loading model" INSIDE the startup budget is a readiness state, not a failure', function () {
+  // The real 2026-09-22 post-reboot case: active 183 s, budget 10 min, 503.
+  var c = runAiRuntime({ active: 'active', active_for_s: 183, budget: '10min', code: 503, body: LOADING });
+  assert.strictEqual(c.status, 'WARN', 'a normal boot must not be reported as FAIL');
+  assert.ok(/STARTING/.test(c.detail), c.detail);
+  assert.ok(/Loading model/.test(c.detail), 'the runtime\'s own reason is carried through');
+  assert.strictEqual(c.data.ready, false, 'WARN never claims the model is ready');
+  assert.strictEqual(c.data.starting, true);
+});
+
+t('ai_runtime state 2 expires: the SAME 503 PAST the budget is a real FAIL', function () {
+  var c = runAiRuntime({ active: 'active', active_for_s: 601, budget: '10min', code: 503, body: LOADING });
+  assert.strictEqual(c.status, 'FAIL', 'readiness grace is bounded, not indefinite');
+  assert.ok(!/STARTING/.test(c.detail), c.detail);
+  assert.strictEqual(c.data.starting, false);
+});
+
+t('ai_runtime grace needs a known clock AND a known budget — never assumed', function () {
+  var c = runAiRuntime({ active: 'active', active_for_s: 10, budget: 'infinity', code: 503, body: LOADING });
+  assert.strictEqual(c.status, 'FAIL', 'an unbounded budget buys no grace');
+  var d = runAiRuntime({ active: 'active', active_for_s: 10, budget: '', code: 503, body: LOADING });
+  assert.strictEqual(d.status, 'FAIL', 'an unreadable budget buys no grace');
+});
+
+t('ai_runtime state 3: only a real model answer is a PASS', function () {
+  var c = runAiRuntime({ active: 'active', active_for_s: 5, budget: '10min', code: 200, body: LOADED });
+  assert.strictEqual(c.status, 'PASS');
+  assert.strictEqual(c.data.ready, true);
+  assert.ok(/qwen2\.5-7b/.test(c.detail), c.detail);
+  // An empty model list inside the window is STARTING, never PASS.
+  var d = runAiRuntime({ active: 'active', active_for_s: 5, budget: '10min', code: 200, body: '{"object":"list","data":[]}' });
+  assert.strictEqual(d.status, 'WARN');
+  assert.strictEqual(d.data.ready, false);
+});
+
+t('the runtime unit declares a startup budget above the MEASURED cold start', function () {
+  var svc = read('systemd/mythos-haddad-runtime.service');
+  var m = /^TimeoutStartSec=(\d+)$/m.exec(svc);
+  assert.ok(m, 'TimeoutStartSec is set — it is the readiness budget the health check reads back');
+  // Measured on this host 2026-09-22: active 22:14:53, model loaded 22:18:21.
+  assert.ok(parseInt(m[1], 10) >= 208, 'budget must exceed the 208 s cold start that produced the false FAIL');
+});
+
+t('health reports a timed-out probe as a timeout, not as an absent binary', function () {
+  var src = read('bin/haddad-health.js');
+  assert.ok(/timed_out/.test(src), 'sh() distinguishes a killed child from a failed one');
+  assert.ok(/npm\.timed_out \? 'NOT MEASURED/.test(src), 'a timed-out npm is not reported as MISSING');
+});
+
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

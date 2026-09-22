@@ -80,7 +80,26 @@ ExecStart=@RUNTIME_PREFIX@/bin/llama-server \
   --api-key-file %h/.config/mythos-haddad/runtime.key
 Restart=on-failure
 RestartSec=10
-TimeoutStartSec=120
+# The declared startup budget, and — because Type=simple makes systemd call
+# this unit "active" the moment llama-server execs, long before the model is
+# answerable — ALSO the readiness budget haddad-health.js reads back from
+# systemd (`show -p TimeoutStartUSec`) to decide whether a "Loading model"
+# 503 is a boot in progress or a real failure. One number, in the unit that
+# owns it; the health check invents none of its own.
+#
+# 120 was too small and it produced a false alarm. MEASURED on this host,
+# 2026-09-22, both boots of that evening:
+#   GPU boot — active 22:40:46, "main: model loaded" 22:42:54 = 128 s
+#   CPU boot — active 22:14:53, "main: model loaded" 22:18:21 = 208 s
+# The health timer's OnBootSec=3min fired at ~22:17:56, 25 s short of the
+# slower one, and the run was recorded FAIL on an ai_runtime that was
+# loading normally and passed four minutes later with nothing changed.
+# The budget is set against the SLOWER figure on purpose: 208 s was a boot
+# that found no Vulkan device and fell back to CPU, and a degraded boot is
+# exactly when a false FAIL costs the most. 10 min leaves real headroom over
+# it for a boot contending with the interactive sessions this machine also
+# carries, while still failing a runtime that never comes up.
+TimeoutStartSec=600
 
 NoNewPrivileges=true
 PrivateTmp=true

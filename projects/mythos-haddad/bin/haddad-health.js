@@ -35,9 +35,24 @@ var SSH_OPTS = ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8'];
 
 var checks = [];
 
+// A timed-out or signalled child returns status null and an EMPTY stderr, so
+// every caller that reports `r.err` rendered a bare "FAIL <check>: " with no
+// reason. That is how the 2026-09-22 22:12 report — taken while the machine
+// had 294 MiB free and load 18 — came to state "npm MISSING" and "claude is
+// not on PATH" about a machine where both were installed and on PATH: the
+// children were killed at the 30 s deadline, not absent. A check that cannot
+// run must say so; it must never be read as a check that ran and found the
+// thing missing. The status is unchanged (still a FAIL) — only the reason is
+// now truthful.
 function sh(cmd, args, opts) {
-  var r = cp.spawnSync(cmd, args || [], Object.assign({ encoding: 'utf8', timeout: 30000 }, opts || {}));
-  return { ok: !r.error && r.status === 0, code: r.status, out: (r.stdout || '').trim(), err: (r.stderr || '').trim(), missing: !!(r.error && r.error.code === 'ENOENT') };
+  var o = Object.assign({ encoding: 'utf8', timeout: 30000 }, opts || {});
+  var r = cp.spawnSync(cmd, args || [], o);
+  var err = (r.stderr || '').trim();
+  var timedOut = !!(r.error && r.error.code === 'ETIMEDOUT') || (r.status === null && r.signal === 'SIGTERM');
+  if (timedOut && !err) err = cmd + ' did not finish within ' + Math.round(o.timeout / 1000) + 's (killed; the host may be under memory or CPU pressure)';
+  else if (r.error && !err) err = String(r.error.message || r.error.code);
+  return { ok: !r.error && r.status === 0, code: r.status, out: (r.stdout || '').trim(), err: err,
+    missing: !!(r.error && r.error.code === 'ENOENT'), timed_out: timedOut };
 }
 function firstLine(s) { return String(s || '').split('\n')[0]; }
 function add(id, status, detail, data) { checks.push({ id: id, status: status, detail: detail, data: data || undefined }); }
@@ -115,12 +130,15 @@ check('git', function () {
 check('node', function () {
   var major = parseInt(process.versions.node, 10), npm = sh('npm', ['--version']);
   var ok = major >= MIN_NODE_MAJOR && npm.ok;
-  add('node', ok ? 'PASS' : 'FAIL', 'node v' + process.versions.node + ', npm ' + (npm.ok ? npm.out : 'MISSING') + (major < MIN_NODE_MAJOR ? ' (need node >= ' + MIN_NODE_MAJOR + ')' : ''));
+  // MISSING is a claim about the machine; say it only when npm really was not
+  // found. A timeout is a claim about this run.
+  var npmState = npm.ok ? npm.out : npm.timed_out ? 'NOT MEASURED (' + npm.err + ')' : 'MISSING';
+  add('node', ok ? 'PASS' : 'FAIL', 'node v' + process.versions.node + ', npm ' + npmState + (major < MIN_NODE_MAJOR ? ' (need node >= ' + MIN_NODE_MAJOR + ')' : ''));
 });
 
 check('claude_code', function () {
   var v = sh('claude', ['--version']);
-  if (!v.ok) return add('claude_code', 'FAIL', 'claude is not on PATH (run bin/haddad-setup.sh)');
+  if (!v.ok) return add('claude_code', 'FAIL', v.timed_out ? 'claude --version ' + v.err : 'claude is not on PATH (run bin/haddad-setup.sh)');
   var a = sh('claude', ['auth', 'status'], { cwd: HOME });
   var loggedIn = false;
   try { loggedIn = JSON.parse(a.out).loggedIn === true; } catch (e) { loggedIn = /"loggedIn":\s*true/.test(a.out); }
@@ -156,6 +174,20 @@ check('runtime', function () {
 });
 
 // ---------- HAD-2: local AI runtime (llama-server, optional) ----------
+// Three distinguishable states, not two. This model takes MINUTES to become
+// answerable, and the health timer's OnBootSec=3min lands inside that
+// window. Both boots of 2026-09-22 were timed on this host:
+//   GPU boot  — active 22:40:46, "main: model loaded" 22:42:54 = 128 s
+//   CPU boot  — active 22:14:53, "main: model loaded" 22:18:21 = 208 s
+//               (that instance logged "ggml_vulkan: No devices found" and
+//               ran entirely on CPU; the budget must cover it, because a
+//               degraded boot is exactly when a false FAIL is most costly)
+// Reporting the model's own "Loading model" 503 as FAIL made a correct
+// boot look like a runtime failure; suppressing it would hide a real one.
+// So the loading window is a readiness state (WARN), and it is bounded by
+// the unit's OWN declared startup budget — TimeoutStartSec, read back from
+// systemd — not by a second constant invented here. Past that budget a
+// runtime that still will not answer is a FAIL, exactly as before.
 check('ai_runtime', function () {
   var unitFile = path.join(HOME, '.config', 'systemd', 'user', 'mythos-haddad-runtime.service');
   if (!fs.existsSync(unitFile)) return add('ai_runtime', 'WARN', 'not installed (optional, HAD-2: run bin/haddad-runtime-setup.sh)');
@@ -163,24 +195,85 @@ check('ai_runtime', function () {
   var active = sh('systemctl', ['--user', 'is-active', 'mythos-haddad-runtime.service']).out;
   if (active !== 'active') return add('ai_runtime', 'FAIL', 'unit installed but not active (' + active + '): journalctl --user -u mythos-haddad-runtime');
 
+  // How long this unit has been active, and how long it is allowed to take
+  // to come up. Both are systemd's own properties of this same unit — the
+  // telemetry agent already windows its journal reads on ActiveEnterTimestamp
+  // (bin/haddad-telemetry.js, runtimeLoadFacts), so this reads the pair the
+  // same way rather than adding a timer, a retry loop or a state file.
+  var show = sh('systemctl', ['--user', 'show', 'mythos-haddad-runtime.service',
+    '-p', 'ActiveEnterTimestamp', '-p', 'TimeoutStartUSec']);
+  var props = {};
+  show.out.split('\n').forEach(function (l) { var m = /^([A-Za-z]+)=(.*)$/.exec(l); if (m) props[m[1]] = m[2]; });
+  var activeSinceMs = Date.parse(props.ActiveEnterTimestamp || '');
+  var activeForS = isFinite(activeSinceMs) ? Math.round((Date.now() - activeSinceMs) / 1000) : null;
+  // TimeoutStartUSec prints as systemd time ("10min", "2min 30s", "infinity").
+  var budgetS = null;
+  if (props.TimeoutStartUSec && props.TimeoutStartUSec !== 'infinity') {
+    budgetS = 0;
+    String(props.TimeoutStartUSec).replace(/(\d+)(min|ms|us|s|h)/g, function (_, n, u) {
+      var mul = { h: 3600, min: 60, s: 1, ms: 0.001, us: 0.000001 }[u];
+      budgetS += parseInt(n, 10) * mul; return '';
+    });
+    budgetS = Math.round(budgetS) || null;
+  }
+  // Only a runtime that is genuinely inside its declared startup window may
+  // report a non-failure without answering. Unknown timestamp or unknown
+  // budget means no grace at all — an unreadable clock must never buy one.
+  var starting = activeForS !== null && budgetS !== null && activeForS < budgetS;
+  var elapsed = 'active ' + (activeForS === null ? '?' : activeForS) + 's of ' + (budgetS === null ? '?' : budgetS) + 's startup budget';
+  function notReady(why) {
+    return add('ai_runtime', starting ? 'WARN' : 'FAIL',
+      (starting ? 'STARTING — ' : 'active but ') + why + ' (' + elapsed + ')',
+      { ready: false, starting: starting, active_for_s: activeForS, startup_budget_s: budgetS });
+  }
+
   var keyFile = path.join(HOME, '.config', 'mythos-haddad', 'runtime.key');
   var key = '';
   try { key = fs.readFileSync(keyFile, 'utf8').trim(); } catch (e) { return add('ai_runtime', 'FAIL', 'unit active but ' + keyFile + ' is unreadable'); }
 
-  var curlArgs = ['-s', '-m', '10', '-H', 'Authorization: Bearer ' + key, 'http://127.0.0.1:8600/v1/models'];
+  // -w '%{http_code}' rather than -f: the model's loading reply is a 503 with
+  // a body that says WHICH state it is in, and -f would throw that body away.
+  var curlArgs = ['-s', '-m', '10', '-w', '\n%{http_code}', '-H', 'Authorization: Bearer ' + key, 'http://127.0.0.1:8600/v1/models'];
   var r = sh('curl', curlArgs, { timeout: 15000 });
-  if (!r.ok) return add('ai_runtime', 'FAIL', 'active but /v1/models did not answer: ' + firstLine(r.err || r.out));
-  var models = null; try { models = JSON.parse(r.out); } catch (e) { /* reported below */ }
-  var modelId = models && models.data && models.data[0] && models.data[0].id;
-  if (!modelId) return add('ai_runtime', 'FAIL', 'active but /v1/models returned no model: ' + firstLine(r.out));
+  if (!r.ok) return notReady('/v1/models did not answer: ' + firstLine(r.err || r.out));
+  var lines = r.out.split('\n');
+  var code = parseInt(lines.pop(), 10);
+  var body = lines.join('\n');
+  var parsed = null; try { parsed = JSON.parse(body); } catch (e) { /* reported below */ }
 
+  // State 2: the server is up and answering, and its answer is "not yet".
+  if (code === 503 || (parsed && parsed.error)) {
+    var msg = (parsed && parsed.error && parsed.error.message) || firstLine(body) || ('HTTP ' + code);
+    return notReady('the model is not loaded yet: ' + msg);
+  }
+  if (code !== 200) return notReady('/v1/models returned HTTP ' + code + ': ' + firstLine(body));
+  var modelId = parsed && parsed.data && parsed.data[0] && parsed.data[0].id;
+  if (!modelId) return notReady('/v1/models returned no model: ' + firstLine(body));
+
+  // State 3: loaded. Nothing below this line is reachable while loading, so
+  // a PASS here still means exactly what it meant before — the model answers.
+  //
+  // KNOWN GAP, deliberately left to its owner: this PASS proves the endpoint
+  // answers, NOT that the model offloaded to the GPU. On 2026-09-22 the
+  // runtime came up with "ggml_vulkan: No devices found" and served entirely
+  // from CPU, and this check passed 16/16 twice against it (22:21:43,
+  // 22:24:46) — gpu_test probes the card in its own process and so saw a
+  // healthy GPU the runtime was not using. The offload assertion and the
+  // unit-ordering fix behind it (/dev/dri/renderD128 gets its logind seat ACL
+  // after the unit starts; the unit declares only After=network.target) are
+  // owned by the V2.1 stage. It hooks in HERE, on the facts llama-server
+  // already logs at load time — bin/haddad-telemetry.js:runtimeLoadFacts()
+  // parses `offloaded N/M layers to GPU` from the journal already, so that
+  // parse is the thing to reuse rather than write a second one.
+  //
   // haddad-gpu-vram.py (VK_EXT_memory_budget) is NOT used here: verified on
   // this host to report 0 MiB used even with ~4.4 GB genuinely resident on
   // the GPU (NVK does not track heapUsage yet) — showing it would be a
   // confidently wrong number, worse than no number. See docs/AI_RUNTIME.md,
   // Measurements, for how VRAM was actually measured (the runtime's own
   // memory-fit log line, cross-checked against low process RSS).
-  add('ai_runtime', 'PASS', 'llama-server active, model "' + modelId + '" loaded, http://127.0.0.1:8600/v1 answers', { model: modelId });
+  add('ai_runtime', 'PASS', 'llama-server active, model "' + modelId + '" loaded, http://127.0.0.1:8600/v1 answers',
+    { model: modelId, ready: true, starting: false, active_for_s: activeForS, startup_budget_s: budgetS });
 });
 
 // ---------- HAD-3: executor daemon (the GitHub worker, optional) ----------
