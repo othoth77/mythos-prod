@@ -232,6 +232,14 @@ t('B3 the loop is BOUNDED: three executions, then it stops for a person', functi
     assert.ok(/repair budget is spent/.test(rep.summary), rep.summary);
     assert.ok(rep.residual_risks.length, 'carrying the measured rejections');
     assert.strictEqual(o.validation.passed, false);
+    // The executor reads the report from parsed.result (handleSuccess →
+    // extractReport), NOT from stdout. gh-issue-372 landed as
+    // NO_STRUCTURED_REPORT because only stdout carried it.
+    var viaExecutorSeam = require(path.join(EXEC, 'lib', 'report.js')).extractReport(o.parsed.result);
+    assert.ok(viaExecutorSeam.report && viaExecutorSeam.report.status === 'blocked',
+      'the executor seam (parsed.result) carries the same blocked report: ' + (viaExecutorSeam.error || 'ok'));
+    // And a person can see what the attempt DID, not just that it stopped.
+    assert.ok(/## Tool trace \(\d+ calls, 3 execution\(s\)\)/.test(o.parsed.result), 'the tool trace travels with the record');
   });
 });
 

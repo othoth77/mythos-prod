@@ -569,11 +569,23 @@ function run(task, prompt, _sessionId, _mode, opts) {
       residual_risks: rejections.slice(0, 20),
       next_stage: 'a person decides: the evidence above is measured, not reported by the worker'
     };
+    // What the attempt DID, turn by turn, so "12 turns" is readable as
+    // "read, wrote, ran the test, ran it again…" by the person who decides.
+    var traceLines = trace.map(function (e, i) {
+      return (i + 1) + '. ' + e.tool + (e.target ? ' ' + fenceSafe(e.target) : '') + (e.refused ? ' → REFUSED: ' + fenceSafe(e.detail).slice(0, 80) : '');
+    });
+    var stdoutText = text + '\n\n## Tool trace (' + trace.length + ' calls, ' + (repairRound + 1) + ' execution(s))\n' +
+      (traceLines.length ? traceLines.join('\n') : '(no tool call)') +
+      '\n\n```json\n' + JSON.stringify(blockedReport, null, 2) + '\n```\n';
     return finish({
       exit_code: 0, signal: null, timed_out: false,
-      stdout: text + '\n\n```json\n' + JSON.stringify(blockedReport, null, 2) + '\n```\n',
+      stdout: stdoutText,
       stderr: '',
-      parsed: { is_error: false, result: summary },
+      // The executor extracts the structured report from parsed.result, not
+      // from stdout (handleSuccess → extractReport(parsed.result)). A summary
+      // here alone lands as NO_STRUCTURED_REPORT — measured live on
+      // gh-issue-372 — so the same text goes to both.
+      parsed: { is_error: false, result: stdoutText },
       validation: verdict ? { passed: false, attempts: repairRound + 1, rejections: rejections, evidence: verdict.evidence } : null,
       session_id: null, started_pid: null
     });
@@ -703,7 +715,10 @@ function run(task, prompt, _sessionId, _mode, opts) {
           else if (!parsedArgs || typeof parsedArgs !== 'object') result = { error: 'REFUSED: arguments are not a JSON object' };
           else result = impl(ctx, parsedArgs);
         }
-        trace.push({ tool: name, refused: !!result.error, detail: result.error || null });
+        trace.push({ tool: name, refused: !!result.error, detail: result.error || null,
+          target: parsedArgs && typeof parsedArgs === 'object'
+            ? String(parsedArgs.path || (parsedArgs.program ? [parsedArgs.program].concat(parsedArgs.args || []).join(' ') : '')).slice(0, 80)
+            : null });
         var payload = JSON.stringify(result);
         if (payload.length > MAX_TOOL_OUTPUT_BYTES) {
           payload = JSON.stringify({ error: 'REFUSED: result exceeded ' + MAX_TOOL_OUTPUT_BYTES + ' bytes' });
