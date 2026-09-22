@@ -51,8 +51,10 @@ var fs = require('fs');
 var os = require('os');
 var path = require('path');
 
+var reporting = require('../lib/report');
 var policy = require('../lib/policy');
 var adapter = require('../free-llm/adapter');
+var work = require('../lib/work-validation');
 
 var PROVIDER_ID = 'haddad-agent';
 
@@ -75,6 +77,12 @@ var MAX_READ_BYTES = 64 * 1024;
 var MAX_LIST_ENTRIES = 400;
 var COMMAND_TIMEOUT_MS = 120000;
 var DEFAULT_TASK_TIMEOUT_S = 900;
+// Repair rounds are NOT retries. A retry re-runs a task the executor
+// already gave up on; a repair round hands this same attempt its own
+// measured failures and lets it try again with them in hand. Three
+// executions total — the first plus two repairs — then the task stops for a
+// person. A loop whose bound an instruction could raise is not a bound.
+var MAX_REPAIR_ROUNDS = 2;
 
 // THE CODE CEILING. The profile may permit git, ls, rg, cat and more; this
 // runner will execute none of them. Two programs, resolved to absolute paths
@@ -510,12 +518,79 @@ function run(task, prompt, _sessionId, _mode, opts) {
   ];
   var toolCallCount = 0;
   var trace = [];
+  // Taken BEFORE the model is called even once, so "what changed" is
+  // measured against the state the task actually started from.
+  var before = work.snapshot(workspace);
+  var repairRound = 0;
+  var validations = [];
 
   function finish(outcome) {
     outcome.duration_ms = Date.now() - started;
     outcome.tool_calls = toolCallCount;
     outcome.tool_trace = trace;
+    outcome.validations = validations;
+    outcome.repair_rounds = repairRound;
     return outcome;
+  }
+
+  // Runs the declared acceptance checks inside the same sandbox the worker
+  // used, through the same tool — so the checks are subject to every
+  // confinement the worker was, and no second execution path exists.
+  function validatorRunCommand(program, args) {
+    return toolRunCommand(ctx, { program: program, args: args });
+  }
+
+  function settleOrRepair(text) {
+    var parsedReport = reporting.extractReport(text);
+    var after = work.snapshot(workspace);
+    var verdict = work.validateWork({
+      report: parsedReport.report,
+      workspace: workspace,
+      before: before,
+      after: after,
+      checks: task.required_tests || [],
+      // Scope comes from what the task CONSTRAINED, never from its
+      // acceptance criteria: the criteria name the files that must keep
+      // working, and treating them as the permitted scope would mean "you
+      // may only edit the test" — the precise opposite of the intent.
+      scope: task.constraints || [],
+      requiredFiles: [],
+      runCommand: validatorRunCommand
+    });
+    // A report that could not be read is itself a rejection, named as such
+    // rather than folded into "something went wrong".
+    if (!parsedReport.report) {
+      verdict.pass = false;
+      verdict.rejections.unshift('report: ' + parsedReport.error);
+    }
+    validations.push({ attempt: repairRound + 1, pass: verdict.pass, rejections: verdict.rejections, evidence: verdict.evidence });
+
+    if (verdict.pass) {
+      return finish({
+        exit_code: 0, signal: null, timed_out: false, stdout: text, stderr: '',
+        parsed: { is_error: false, result: text },
+        validation: { passed: true, attempts: repairRound + 1, evidence: verdict.evidence },
+        session_id: null, started_pid: null
+      });
+    }
+
+    if (repairRound >= MAX_REPAIR_ROUNDS) {
+      // The budget is spent. This is a stop, not another try: the failures
+      // travel out so a person reads measured evidence, not a model's mood.
+      return finish({
+        exit_code: 1, signal: null, timed_out: false, stdout: text,
+        stderr: 'HADDAD_AGENT_VALIDATION_FAILED: ' + verdict.rejections.join(' | ').slice(0, 1500),
+        parsed: { is_error: true, subtype: 'HADDAD_AGENT_VALIDATION_FAILED',
+          result: 'validation failed after ' + (repairRound + 1) + ' attempt(s): ' + verdict.rejections.join(' | ') },
+        validation: { passed: false, attempts: repairRound + 1, rejections: verdict.rejections, evidence: verdict.evidence },
+        session_id: null, started_pid: null
+      });
+    }
+
+    repairRound++;
+    messages.push({ role: 'assistant', content: text });
+    messages.push({ role: 'user', content: work.renderRepairNotes(verdict, repairRound, task.constraints || []) });
+    return step(0);
   }
 
   function step(iteration) {
@@ -551,12 +626,13 @@ function run(task, prompt, _sessionId, _mode, opts) {
       var msg = res.message;
       var calls = msg.tool_calls || [];
       if (!calls.length) {
+        // The model says it is done. That is a CLAIM, and the only thing
+        // that decides whether the task is done is evidence: the acceptance
+        // checks re-run here, and the workspace measured against the
+        // snapshot taken before the attempt started. If the evidence
+        // disagrees with the claim, the claim loses.
         var text = String(msg.content || '');
-        return finish({
-          exit_code: 0, signal: null, timed_out: false, stdout: text, stderr: '',
-          parsed: { is_error: false, result: text },
-          session_id: null, started_pid: null
-        });
+        return settleOrRepair(text);
       }
 
       messages.push({ role: 'assistant', content: msg.content || null, tool_calls: calls });
@@ -613,6 +689,7 @@ module.exports = {
   ALLOWED_PROGRAMS: ALLOWED_PROGRAMS,
   TOOL_IMPL: TOOL_IMPL,
   MAX_ITERATIONS: MAX_ITERATIONS,
+  MAX_REPAIR_ROUNDS: MAX_REPAIR_ROUNDS,
   MAX_TOOL_CALLS: MAX_TOOL_CALLS,
   MAX_TOOL_OUTPUT_BYTES: MAX_TOOL_OUTPUT_BYTES
 };

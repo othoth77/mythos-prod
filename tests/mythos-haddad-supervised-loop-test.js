@@ -1,0 +1,354 @@
+'use strict';
+// =====================================================
+// MYTHOS HADDAD — supervised execution: validate, repair, stop
+// tests/mythos-haddad-supervised-loop-test.js
+//
+// The claim this file exists to test is not "the worker can write a file".
+// It is: a worker's report is never the evidence. The acceptance criteria a
+// task declared are RE-RUN by the validator, the workspace is measured
+// against a snapshot taken before the attempt, and when the evidence
+// disagrees with the claim the claim loses — the worker is handed its own
+// measured failures and tries again, up to a bound, and then stops for a
+// person.
+//
+// The model is a scripted transport, so the SEQUENCE is deterministic —
+// but every file write, every check, and every verdict below is real: real
+// files on disk, real `node` runs inside the real sandbox, the real
+// validator. Nothing about the verdict is mocked.
+//
+// Fixtures live under $HOME, not /tmp: the sandbox mounts a scratch tmpfs
+// at /tmp, so a workspace there would not mirror production.
+//
+// Run with: node tests/mythos-haddad-supervised-loop-test.js
+// =====================================================
+
+var assert = require('assert');
+var fs = require('fs');
+var os = require('os');
+var path = require('path');
+
+var EXEC = path.join(__dirname, '..', 'projects', 'mythos-ai-executor');
+var agent = require(path.join(EXEC, 'providers', 'haddad-agent.js'));
+var work = require(path.join(EXEC, 'lib', 'work-validation.js'));
+
+var pass = 0, fail = 0, failures = [];
+var queue = [];
+function t(name, fn) {
+  queue.push(function () {
+    return Promise.resolve().then(fn).then(
+      function () { pass++; console.log('ok - ' + name); },
+      function (e) { fail++; failures.push(name); console.log('not ok - ' + name + '\n  ' + (e && e.message)); }
+    );
+  });
+}
+
+var ROOT = fs.mkdtempSync(path.join(os.homedir(), 'haddad-supervised-'));
+
+// --- a scripted model -------------------------------------------------------
+// Each reply is either plain text (the model says it is done) or a tool call.
+// The transport records what it was SENT, so the repair brief the worker
+// actually receives can be asserted rather than assumed.
+function fakeTransport(replies) {
+  var i = 0;
+  var sent = [];
+  var fn = function (opts, body) {
+    sent.push(JSON.parse(body));
+    var reply = replies[Math.min(i++, replies.length - 1)];
+    return Promise.resolve({ status: 200, body: JSON.stringify({ choices: [{ message: reply }] }) });
+  };
+  fn.sent = sent;
+  return fn;
+}
+function say(text) { return { role: 'assistant', content: text }; }
+function callTool(id, name, args) {
+  return { role: 'assistant', content: null,
+    tool_calls: [{ id: id, type: 'function', function: { name: name, arguments: JSON.stringify(args) } }] };
+}
+function report(status, summary, files) {
+  return '```json\n' + JSON.stringify({ mythos_report: true, status: status || 'completed',
+    summary: summary || 'done', files_changed: files || [], tests: [], commit: null }) + '\n```';
+}
+
+function newWorkspace(name) {
+  var ws = path.join(ROOT, name);
+  fs.mkdirSync(ws, { recursive: true });
+  return ws;
+}
+
+// The task under test everywhere below: a real, checkable unit of work.
+// `add` is deliberately wrong to begin with, and the check is a real test
+// file that runs it.
+function seedBrokenProject(ws) {
+  fs.writeFileSync(path.join(ws, 'add.js'), 'module.exports = function add(a, b) { return a - b; };\n');
+  // Two cases on purpose: one case can be satisfied by a coincidence
+  // (2*2===4) or by a constant, and a check that a wrong answer can pass is
+  // not a check.
+  fs.writeFileSync(path.join(ws, 'add.test.js'),
+    'var add = require("./add");\n' +
+    'if (add(2, 2) !== 4) { console.error("add(2,2) returned " + add(2, 2) + ", expected 4"); process.exit(1); }\n' +
+    'if (add(2, 5) !== 7) { console.error("add(2,5) returned " + add(2, 5) + ", expected 7"); process.exit(1); }\n' +
+    'console.log("add ok");\n');
+}
+
+function runTask(ws, replies, over) {
+  var task = Object.assign({
+    task_id: 't-sup', working_directory: ws, execution_profile: 'repo-write',
+    timeout_seconds: 600, required_tests: ['node add.test.js'], constraints: []
+  }, over || {});
+  var transport = fakeTransport(replies);
+  return agent.run(task, 'Fix add so its test passes.', null, 'start',
+    { apiKey: 'k', model: 'm', transport: transport }).then(function (o) {
+      o._sent = transport.sent;
+      return o;
+    });
+}
+
+var FIXED = 'module.exports = function add(a, b) { return a + b; };\n';
+
+// ===========================================================================
+// A. The report is not the evidence
+// ===========================================================================
+
+t('A1 a worker that claims success while the check fails is REJECTED', function () {
+  var ws = newWorkspace('claims-success');
+  seedBrokenProject(ws);
+  // The model touches nothing and declares victory, three times over.
+  return runTask(ws, [say(report('completed', 'All tests pass.'))]).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, true, 'the claim did not survive validation');
+    assert.strictEqual(o.parsed.subtype, 'HADDAD_AGENT_VALIDATION_FAILED');
+    assert.ok(/add\.test\.js` did not pass/.test(o.stderr), o.stderr);
+    assert.strictEqual(o.repair_rounds, agent.MAX_REPAIR_ROUNDS, 'it used its repair budget first');
+  });
+});
+
+t('A2 the rejection carries the REAL output of the failing check', function () {
+  var ws = newWorkspace('real-output');
+  seedBrokenProject(ws);
+  return runTask(ws, [say(report('completed', 'Done.'))]).then(function (o) {
+    var last = o.validations[o.validations.length - 1];
+    var check = last.evidence.checks_run[0];
+    assert.strictEqual(check.passed, false);
+    assert.strictEqual(check.exit_code, 1, 'a real exit code from a real run');
+    assert.ok(/add\(2,2\) returned 0, expected 4/.test(check.output),
+      'the real stderr of the real test came back: ' + check.output);
+  });
+});
+
+t('A3 a report that ADMITS failure is never a pass', function () {
+  var ws = newWorkspace('admits-failure');
+  seedBrokenProject(ws);
+  fs.writeFileSync(path.join(ws, 'add.js'), FIXED);   // work is actually fine
+  return runTask(ws, [say(report('failed', 'I could not finish.'))]).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, true, 'an admitted failure is not overridden by passing checks');
+    assert.ok(/reports failure/.test(o.stderr), o.stderr);
+  });
+});
+
+// ===========================================================================
+// B. The repair loop — the experiment this stage exists for
+// ===========================================================================
+
+t('B1 fail → diagnose → the worker repairs → checks pass → SUCCESS', function () {
+  var ws = newWorkspace('repair-loop');
+  seedBrokenProject(ws);
+  return runTask(ws, [
+    // Attempt 1: writes something that is still wrong, then claims success.
+    callTool('c1', 'write_file', { path: 'add.js', content: 'module.exports = function add(a, b) { return a * b; };\n' }),
+    // a*b passes add(2,2)===4 by coincidence and fails add(2,5)===7.
+    say(report('completed', 'Fixed add.', ['add.js'])),
+    // Attempt 2, after the repair brief: the real fix.
+    callTool('c2', 'write_file', { path: 'add.js', content: FIXED }),
+    say(report('completed', 'add now returns a + b.', ['add.js']))
+  ]).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, false, 'the task succeeded: ' + o.stderr);
+    assert.strictEqual(o.repair_rounds, 1, 'exactly one repair round was needed');
+    assert.strictEqual(o.validations.length, 2, 'validation ran after each attempt');
+    assert.strictEqual(o.validations[0].pass, false, 'attempt 1 was rejected');
+    assert.strictEqual(o.validations[1].pass, true, 'attempt 2 was accepted');
+    assert.strictEqual(fs.readFileSync(path.join(ws, 'add.js'), 'utf8'), FIXED,
+      'the repaired file is really on disk');
+    assert.strictEqual(o.validation.passed, true);
+    assert.strictEqual(o.validation.evidence.mechanically_verified, true,
+      'and the pass was mechanical, not assumed');
+  });
+});
+
+t('B2 the repair brief hands the worker MEASURED evidence, not a scolding', function () {
+  var ws = newWorkspace('repair-brief');
+  seedBrokenProject(ws);
+  return runTask(ws, [
+    say(report('completed', 'Done.')),
+    callTool('c1', 'write_file', { path: 'add.js', content: FIXED }),
+    say(report('completed', 'fixed', ['add.js']))
+  ]).then(function (o) {
+    // The second request the transport was sent must carry the brief.
+    var second = o._sent[1];
+    var brief = second.messages[second.messages.length - 1].content;
+    assert.ok(/## REPAIR REQUIRED \(attempt 1\)/.test(brief), 'the existing repair format is reused');
+    assert.ok(/REJECTED by independent validation/.test(brief), brief.slice(0, 200));
+    assert.ok(/add\(2,2\) returned 0, expected 4/.test(brief), 'the real failure output is in the brief');
+    assert.ok(/### What you actually changed/.test(brief), 'and what it really changed');
+    assert.ok(/Do not edit, weaken or delete a check/.test(brief), 'and the rule against cheating');
+  });
+});
+
+t('B3 the loop is BOUNDED: three executions, then it stops for a person', function () {
+  var ws = newWorkspace('bounded');
+  seedBrokenProject(ws);
+  var attempts = 0;
+  var transport = function (opts, body) {
+    var msgs = JSON.parse(body).messages;
+    if (msgs[msgs.length - 1].role === 'user') attempts++;
+    return Promise.resolve({ status: 200,
+      body: JSON.stringify({ choices: [{ message: say(report('completed', 'Done.')) }] }) });
+  };
+  return agent.run({ task_id: 't-b3', working_directory: ws, execution_profile: 'repo-write',
+    timeout_seconds: 600, required_tests: ['node add.test.js'] },
+    'fix it', null, 'start', { apiKey: 'k', model: 'm', transport: transport }
+  ).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, true);
+    assert.strictEqual(o.parsed.subtype, 'HADDAD_AGENT_VALIDATION_FAILED');
+    assert.strictEqual(o.repair_rounds, 2, 'two repair rounds — the declared bound');
+    assert.strictEqual(o.validations.length, 3, 'three executions in total, then it stopped');
+    assert.strictEqual(attempts, 3, 'the model was asked exactly three times');
+    assert.ok(/validation failed after 3 attempt/.test(o.parsed.result), o.parsed.result);
+  });
+});
+
+// ===========================================================================
+// C. Anti-cheating — the ways a worker "passes" without doing the work
+// ===========================================================================
+
+t('C1 editing the check itself is caught', function () {
+  var ws = newWorkspace('edits-check');
+  seedBrokenProject(ws);
+  return runTask(ws, [
+    callTool('c1', 'write_file', { path: 'add.test.js', content: 'console.log("add ok");\n' }),
+    say(report('completed', 'Tests pass now.', ['add.test.js']))
+  ]).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, true, 'a rewritten check is not a pass');
+    assert.ok(/integrity: add\.test\.js .*MODIFIED/.test(o.stderr),
+      'and it is named as an integrity failure: ' + o.stderr);
+  });
+});
+
+t('C2 deleting the check is caught', function () {
+  var ws = newWorkspace('deletes-check');
+  seedBrokenProject(ws);
+  var o1 = agent.TOOL_IMPL; // deletion is not a tool; simulate the worker's effect
+  return runTask(ws, [say(report('completed', 'Removed the failing test.'))], null).then(function () {
+    // The worker has no delete tool at all — so the only way a check can
+    // vanish is outside the runner. Assert BOTH: no tool exists, and if a
+    // file does vanish the validator still calls it out.
+    assert.strictEqual(o1.delete_file, undefined, 'there is no delete tool to begin with');
+    fs.unlinkSync(path.join(ws, 'add.test.js'));
+    var before = { files: { 'add.js': 'x', 'add.test.js': 'y' } };
+    var after = { files: { 'add.js': 'x' } };
+    var v = work.validateWork({
+      report: { status: 'completed', summary: 'done' }, workspace: ws,
+      before: before, after: after, checks: ['node add.test.js'],
+      runCommand: function () { return { error: 'no such file' }; }
+    });
+    assert.strictEqual(v.pass, false);
+    assert.ok(v.rejections.join(' ').indexOf('DELETED') !== -1, v.rejections.join(' | '));
+  });
+});
+
+t('C3 a stub that satisfies the letter but not the behaviour still fails', function () {
+  // The real gh-issue-364 failure: the worker invented a second file that
+  // hardcoded the answer. The check runs the REAL behaviour, so it fails.
+  var ws = newWorkspace('stub');
+  seedBrokenProject(ws);
+  return runTask(ws, [
+    callTool('c1', 'write_file', { path: 'add.js', content: 'module.exports = function add() { return 4; };\n' }),
+    say(report('completed', 'add returns 4 as required.', ['add.js']))
+  ], { required_tests: ['node add.test.js', 'node other.test.js'] }).then(function (o) {
+    // add(2,2)===4 passes the first check; the second check does not exist,
+    // so the work is not accepted on the strength of the one it satisfied.
+    assert.strictEqual(o.parsed.is_error, true, 'a partially-satisfying stub is not a pass');
+    assert.ok(/other\.test\.js` did not pass/.test(o.stderr), o.stderr);
+  });
+});
+
+t('C4 claiming changed files while changing nothing is caught', function () {
+  var ws = newWorkspace('claims-changes');
+  seedBrokenProject(ws);
+  fs.writeFileSync(path.join(ws, 'add.js'), FIXED);   // checks will pass
+  return runTask(ws, [say(report('completed', 'Rewrote three modules.',
+    ['a.js', 'b.js', 'c.js']))]).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, true, 'the claim contradicted the workspace');
+    assert.ok(/byte-identical to before the attempt/.test(o.stderr), o.stderr);
+  });
+});
+
+t('C5 work outside the declared scope is caught', function () {
+  var ws = newWorkspace('out-of-scope');
+  seedBrokenProject(ws);
+  return runTask(ws, [
+    callTool('c1', 'write_file', { path: 'add.js', content: FIXED }),
+    callTool('c2', 'write_file', { path: 'unrelated.js', content: 'module.exports = 1;\n' }),
+    say(report('completed', 'Fixed add.', ['add.js', 'unrelated.js']))
+  ], { constraints: ['Only change add.js'], required_tests: ['node add.test.js'] }).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, true, 'the extra file was not allowed');
+    assert.ok(/scope: unrelated\.js was changed/.test(o.stderr), o.stderr);
+  });
+});
+
+t('C6 an unreadable report is a rejection with a named reason', function () {
+  var ws = newWorkspace('no-report');
+  seedBrokenProject(ws);
+  fs.writeFileSync(path.join(ws, 'add.js'), FIXED);
+  return runTask(ws, [say('I think I am finished but here is no structured block.')]).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, true, 'passing checks do not excuse an unreadable report');
+    assert.ok(/report: no fenced/.test(o.stderr), o.stderr);
+  });
+});
+
+// ===========================================================================
+// D. What the validator must NOT do
+// ===========================================================================
+
+t('D1 prose criteria are recorded as unverified, never as verified', function () {
+  var ws = newWorkspace('prose-only');
+  seedBrokenProject(ws);
+  return runTask(ws, [say(report('completed', 'I reviewed it.'))],
+    { required_tests: ['The explanation is clear and correct.'] }).then(function (o) {
+      assert.strictEqual(o.parsed.is_error, false, 'a prose criterion does not fail the task');
+      assert.strictEqual(o.validation.evidence.mechanically_verified, false,
+        'but the pass is explicitly NOT mechanical');
+      assert.deepStrictEqual(o.validation.evidence.checks_advisory,
+        ['The explanation is clear and correct.'], 'and the criterion is carried as advisory');
+    });
+});
+
+t('D2 checks run inside the sandbox, with the worker\'s own confinement', function () {
+  var ws = newWorkspace('checks-confined');
+  fs.writeFileSync(path.join(ws, 'escape.test.js'),
+    'try { require("fs").readFileSync("/etc/passwd"); console.log("READ"); process.exit(0); }' +
+    ' catch (e) { console.error("blocked:" + e.code); process.exit(1); }\n');
+  return runTask(ws, [say(report('completed', 'done'))],
+    { required_tests: ['node escape.test.js'] }).then(function (o) {
+      var check = o.validations[0].evidence.checks_run[0];
+      assert.strictEqual(check.passed, false, 'the check could not read outside the workspace');
+      assert.ok(/blocked:ENOENT/.test(check.output), check.output);
+    });
+});
+
+t('D3 a workspace that did not change is not automatically a failure', function () {
+  var ws = newWorkspace('already-correct');
+  seedBrokenProject(ws);
+  fs.writeFileSync(path.join(ws, 'add.js'), FIXED);
+  return runTask(ws, [say(report('completed', 'It was already correct; nothing to change.', []))])
+    .then(function (o) {
+      assert.strictEqual(o.parsed.is_error, false, 'work that was already right passes: ' + o.stderr);
+      assert.strictEqual(o.validation.evidence.changed.created.length, 0);
+    });
+});
+
+// ===========================================================================
+queue.reduce(function (c, s) { return c.then(s); }, Promise.resolve()).then(function () {
+  try { fs.rmSync(ROOT, { recursive: true, force: true }); } catch (e) { /* best effort */ }
+  console.log('\n' + pass + ' passed, ' + fail + ' failed');
+  if (fail) console.error('failures:\n  - ' + failures.join('\n  - '));
+  process.exit(fail ? 1 : 0);
+});
