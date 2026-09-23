@@ -231,6 +231,17 @@ var V21_ALLOWED = [
   'projects/mythos-ai-executor/lib/roles.js',
   'projects/mythos-ai-executor/core/agent-registry.js'
 ];
+// V2.2 (FABLE delegation) is the stage that makes the bridge's provider
+// choice a ROUTED decision instead of a configuration read, so its surface
+// under the executor tree is one new adapter — named here for the same
+// reason every entry above is named. `bridge/github-bridge.js` is already
+// allow-listed by HAD-3. The adapter holds no routing logic of its own;
+// tests/mythos-haddad-delegation-test.js section E asserts that it depends
+// on exactly the three modules it connects and contains no ranking,
+// candidate selection or route() of its own.
+var V22_ALLOWED = [
+  'projects/mythos-ai-executor/bridge/provider-selection.js'
+];
 var REGISTRY_ONLY = 'projects/mythos-ai-executor/bridge/action-resolution.js';
 
 function touchesHaddad(files) {
@@ -241,7 +252,8 @@ function executorFilesModified(files) {
   if (!touchesHaddad(files)) return [];   // not a Haddad stage — not this guard's business
   return files.filter(function (f) {
     return HAD3_ALLOWED.indexOf(f) === -1 && HAD4_ALLOWED.indexOf(f) === -1 &&
-      V21_ALLOWED.indexOf(f) === -1 && /^projects\/mythos-ai-executor\//.test(f);
+      V21_ALLOWED.indexOf(f) === -1 && V22_ALLOWED.indexOf(f) === -1 &&
+      /^projects\/mythos-ai-executor\//.test(f);
   });
 }
 
