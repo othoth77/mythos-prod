@@ -137,13 +137,34 @@ check('node', function () {
 });
 
 check('claude_code', function () {
+  // Resolve the way the UNITS do, not the way this process happens to be
+  // launched. Every unit that actually uses `claude` — the worker (which is
+  // how the L2 Sonnet diagnoser is reached) and the health unit itself —
+  // declares `PATH=%h/.local/bin:...`. A caller that does NOT is measuring
+  // its own shell, not the capability.
+  //
+  // MEASURED on the 2026-09-23 cold boot: the evidence collector's unit set
+  // no PATH at all, so it inherited `systemctl --user show-environment`,
+  // which has no ~/.local/bin. It reported "claude is not on PATH" about a
+  // host where /home/othman/.local/bin/claude exists and where the worker
+  // reaches it perfectly well. That FAIL went into a cold-boot report to be
+  // read as a regression. This is the same mistake as the 22:12 report
+  // calling npm MISSING: a statement about this run, written as a statement
+  // about the machine.
+  var LOCAL_BIN = path.join(HOME, '.local', 'bin', 'claude');
   var v = sh('claude', ['--version']);
-  if (!v.ok) return add('claude_code', 'FAIL', v.timed_out ? 'claude --version ' + v.err : 'claude is not on PATH (run bin/haddad-setup.sh)');
-  var a = sh('claude', ['auth', 'status'], { cwd: HOME });
+  var via = 'PATH';
+  if (!v.ok && !v.timed_out && fs.existsSync(LOCAL_BIN)) { v = sh(LOCAL_BIN, ['--version']); via = LOCAL_BIN; }
+  if (!v.ok) return add('claude_code', 'FAIL', v.timed_out ? 'claude --version ' + v.err
+    : 'claude is on neither PATH nor ' + LOCAL_BIN + ' (run bin/haddad-setup.sh)');
+  var exe = via === 'PATH' ? 'claude' : LOCAL_BIN;
+  var a = sh(exe, ['auth', 'status'], { cwd: HOME });
   var loggedIn = false;
   try { loggedIn = JSON.parse(a.out).loggedIn === true; } catch (e) { loggedIn = /"loggedIn":\s*true/.test(a.out); }
   // Identity fields (email, org) are deliberately not copied into the report.
-  add('claude_code', loggedIn ? 'PASS' : 'FAIL', firstLine(v.out) + (loggedIn ? ', authenticated' : ', NOT authenticated (run: claude auth login)'));
+  add('claude_code', loggedIn ? 'PASS' : 'FAIL', firstLine(v.out) + (loggedIn ? ', authenticated' : ', NOT authenticated (run: claude auth login)') +
+    (via === 'PATH' ? '' : ' [not on this process\'s PATH; found at ' + LOCAL_BIN + ', which every unit that uses it declares]'),
+    { resolved_via: via });
 });
 
 // ---------- GPU + AI runtime foundation ----------
