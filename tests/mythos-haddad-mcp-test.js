@@ -40,6 +40,14 @@ var pass = 0, fail = 0;
 function t(name, fn) { try { fn(); pass++; console.log('ok - ' + name); } catch (e) { fail++; console.log('not ok - ' + name + '\n  ' + (e && e.stack || e)); } }
 function at(name, fn) { return fn().then(function () { pass++; console.log('ok - ' + name); }, function (e) { fail++; console.log('not ok - ' + name + '\n  ' + (e && e.stack || e)); }); }
 function run(cmd, args, opts) { return cp.spawnSync(cmd, args, Object.assign({ encoding: 'utf8', timeout: 60000 }, opts || {})); }
+// Async variant for probes that must reach the fake executor hosted by THIS process: spawnSync would block the event loop the fake server answers on.
+function runAsync(cmd, args, opts) {
+  return new Promise(function (resolve) {
+    var p = cp.spawn(cmd, args, Object.assign({ stdio: ['ignore', 'pipe', 'pipe'] }, opts || {})); var out = '', err = '';
+    p.stdout.on('data', function (d) { out += d; }); p.stderr.on('data', function (d) { err += d; });
+    p.on('close', function (code) { resolve({ status: code, stdout: out, stderr: err }); });
+  });
+}
 
 var TOKEN = 'haddad-test-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 var TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'haddad-mcp-'));
@@ -169,6 +177,54 @@ t('the health check has mcp and worker checks, both optional when uninstalled', 
   assert.ok(/check\('mcp'/.test(s) && /check\('worker'/.test(s));
   assert.ok(/8160|4444/.test(s), 'no unexpected-listener assertion');
   assert.ok(/haddad-mcp-setup\.sh/.test(s), 'uninstalled hint missing');
+});
+
+
+// ------------------------------------------------------- static: HAD-3b (HTTP transport)
+var HTTP_SETUP = path.join(DIR, 'bin', 'haddad-mcp-http-setup.sh');
+var HTTP_UNIT = path.join(DIR, 'systemd', 'mythos-haddad-mcp-http.service');
+var BRIDGE = path.join(ROOT, 'projects', 'mythos-gateway', 'mcp-http-bridge.js');
+var PROBE = path.join(DIR, 'bin', 'haddad-mcp-probe.js');
+
+t('HAD-3b reuse: the HTTP transport is the VPS bridge, unchanged, in front of the stdio launcher — no second server, no second port, loopback pinned', function () {
+  var u = fs.readFileSync(HTTP_UNIT, 'utf8');
+  assert.ok(/^ExecStart=\/usr\/bin\/node @REPO@\/projects\/mythos-gateway\/mcp-http-bridge\.js$/m.test(u), 'unit does not run the shared bridge');
+  assert.ok(/^Environment=MYTHOS_MCP_HTTP_HOST=127\.0\.0\.1$/m.test(u), 'bind not pinned to loopback');
+  assert.ok(/^Environment=MYTHOS_MCP_HTTP_PORT=8160$/m.test(u), 'port not pinned');
+  assert.ok(/^Environment=MYTHOS_MCP_LAUNCHER=%h\/\.local\/bin\/haddad-mcp-stdio\.sh$/m.test(u), 'bridge does not relay to the installed stdio launcher');
+  assert.ok(/^EnvironmentFile=%h\/\.config\/mythos-haddad\/mcp-http\.env$/m.test(u), 'bearer file not referenced');
+  assert.ok(!/0\.0\.0\.0|100\.\d+\.\d+\.\d+|\[::\]|MYTHOS_MCP_HTTP_TOKEN=/.test(u), 'unit widens the bind or carries a token');
+  assert.ok(/^WantedBy=default\.target$/m.test(u), 'not a user unit');
+  // The bridge itself is the file gateway-boundary already pins; it declares no tool.
+  var b = fs.readFileSync(BRIDGE, 'utf8');
+  assert.ok(!/knowledge_search|execution_status|haddad_health/.test(b), 'the bridge names a tool — it has become a server');
+  assert.ok(/MYTHOS_MCP_HTTP_TOKEN is required/.test(b) && /timingSafeEqual/.test(b), 'bridge auth contract changed');
+});
+
+t('HAD-3b setup: executable, parses, no sudo, no Funnel, serves /mcp only, never a literal token', function () {
+  assert.ok(fs.statSync(HTTP_SETUP).mode & 64, 'not executable');
+  var r = run('bash', ['-n', HTTP_SETUP]); assert.strictEqual(r.status, 0, r.stderr);
+  var s = fs.readFileSync(HTTP_SETUP, 'utf8');
+  assert.ok(!/^\s*sudo\b/m.test(s), 'uses sudo');
+  assert.ok(!/\bfunnel\b(?!.*never)/i.test(s.replace(/^#.*$/mg, '')), 'Funnel (public exposure) appears in executable code');
+  assert.ok(/serve --bg --https=443 --set-path=\/mcp "http:\/\/\$HOST:\$PORT"/.test(s), 'serve target is not /mcp -> loopback bridge');
+  assert.ok(/\/health is reachable over HTTPS/.test(s), 'setup does not assert that /health stays unserved');
+  assert.ok(!/(TOKEN|KEY|SECRET)=[A-Za-z0-9+\/]{20,}/.test(s), 'carries a literal credential');
+  assert.ok(/haddad-mcp-setup\.sh first/.test(s), 'does not require the stdio MCP (HAD-3) first');
+  assert.ok(/carries something other than MYTHOS_MCP_HTTP_TOKEN/.test(s), 'does not refuse an env file that could widen the bind');
+});
+
+t('HAD-3b probe and health: --http drives the shared client\'s streamable-http transport with the bearer by reference; health measures 401, loopback bind and tool-list equality', function () {
+  var p = fs.readFileSync(PROBE, 'utf8');
+  assert.ok(/createHttpClient\(\{ url: httpUrl, token: token/.test(p), 'probe does not use the shared HTTP client');
+  assert.ok(/HADDAD_MCP_HTTP_ENV/.test(p) && !/--token/.test(p), 'token must come from the 0600 file, never argv');
+  var h = fs.readFileSync(path.join(DIR, 'bin', 'haddad-health.js'), 'utf8');
+  assert.ok(/mythos-haddad-mcp-http\.service/.test(h) && /mcp-http\.env/.test(h));
+  assert.ok(/a !== '127\.0\.0\.1:8160'/.test(h), 'health does not refuse a non-loopback 8160 bind');
+  assert.ok(/unauth !== '401'/.test(h), 'health does not require 401 without a bearer');
+  assert.ok(/hrep\.tools\.join\(','\) !== rep\.tools\.join\(','\)/.test(h), 'health does not compare HTTP and stdio tool lists');
+  assert.ok(/'4444'/.test(h), 'the VPS gateway port is no longer refused');
+  assert.ok(/!httpInstalled && on8160\.length/.test(h), 'an unowned 8160 listener is no longer refused');
 });
 
 // --------------------------------------------------------------- dynamic
@@ -358,6 +414,104 @@ at('fake executor up', function () { return fakeExecutor().then(function (e) { e
     assert.strictEqual(r2.status, 0, r2.stdout + r2.stderr);
     assert.strictEqual(/^MYTHOS_EXECUTOR_TOKEN=(.+)$/m.exec(fs.readFileSync(execEnv, 'utf8'))[1], tok[1], 'token rotated on re-run');
     assert.ok(/already provisioned/.test(r2.stdout));
+  }); });
+})
+.then(function () {
+  return at('HAD-3b bridge (unchanged) on an ephemeral port in front of the test launcher: 401 without/wrong bearer, 404 elsewhere, 405 GET, same 9 tools as stdio, execution_status via the fake executor, token never in any output', function () {
+    var port = 18000 + Math.floor(Math.random() * 20000);
+    var btok = 'bridge-test-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    var envFile = path.join(TMP, 'mcp-http.env'); fs.writeFileSync(envFile, 'MYTHOS_MCP_HTTP_TOKEN=' + btok + '\n', { mode: 384 });
+    var bridgeOut = '';
+    var bridge = cp.spawn('node', [BRIDGE], { env: Object.assign({}, process.env, { MYTHOS_MCP_HTTP_HOST: '127.0.0.1', MYTHOS_MCP_HTTP_PORT: String(port), MYTHOS_MCP_LAUNCHER: LAUNCHER, MYTHOS_MCP_HTTP_TOKEN: btok, HADDAD_MCP_CONFIG_DIR: CFG }), stdio: ['ignore', 'pipe', 'pipe'] });
+    bridge.stdout.on('data', function (d) { bridgeOut += d; }); bridge.stderr.on('data', function (d) { bridgeOut += d; });
+    function req(method, p, headers, body) {
+      return new Promise(function (resolve, reject) {
+        var r = http.request({ host: '127.0.0.1', port: port, method: method, path: p, headers: headers || {} }, function (res) { var b = ''; res.on('data', function (d) { b += d; }); res.on('end', function () { resolve({ status: res.statusCode, body: b }); }); });
+        r.on('error', reject); r.end(body || undefined);
+      });
+    }
+    function waitUp(n) { return req('GET', '/health').catch(function (e) { if (n <= 0) throw e; return new Promise(function (r) { setTimeout(r, 200); }).then(function () { return waitUp(n - 1); }); }); }
+    var list = JSON.stringify(LIST);
+    return waitUp(50).then(function (h) {
+      assert.strictEqual(h.status, 200); assert.strictEqual(JSON.parse(h.body).service, 'mythos-mcp-http');
+      return req('POST', '/mcp', { 'Content-Type': 'application/json' }, list);
+    }).then(function (r) {
+      assert.strictEqual(r.status, 401, 'no bearer must be 401');
+      return req('POST', '/mcp', { 'Content-Type': 'application/json', Authorization: 'Bearer ' + btok + 'x' }, list);
+    }).then(function (r) {
+      assert.strictEqual(r.status, 401, 'wrong bearer must be 401');
+      return req('POST', '/mcp/../etc', { 'Content-Type': 'application/json', Authorization: 'Bearer ' + btok }, list);
+    }).then(function (r) {
+      assert.strictEqual(r.status, 404, 'any other path must be 404');
+      return req('GET', '/mcp', { Authorization: 'Bearer ' + btok });
+    }).then(function (r) {
+      assert.strictEqual(r.status, 405, 'no standalone stream');
+      return runAsync('node', [PROBE, '--http', 'http://127.0.0.1:' + port + '/mcp'], { env: Object.assign({}, process.env, { HADDAD_MCP_HTTP_ENV: envFile }) });
+    }).then(function (pr) {
+      var rep = JSON.parse(pr.stdout);
+      assert.strictEqual(rep.transport, 'streamable-http'); assert.strictEqual(rep.bearer, 'by reference'); assert.strictEqual(rep.launcher, null);
+      assert.ok(rep.ok, rep.error); assert.strictEqual(rep.tools.length, 9);
+      assert.ok(rep.call.ok, rep.call.error); assert.deepStrictEqual(rep.call.sample, { tasks: 1 });
+      return runAsync('node', [PROBE, LAUNCHER], { env: Object.assign({}, process.env, { HADDAD_MCP_CONFIG_DIR: CFG }) }).then(function (sr) {
+        var stdioRep = JSON.parse(sr.stdout);
+        assert.deepStrictEqual(rep.tools, stdioRep.tools, 'HTTP and stdio list different tools');
+        return runAsync('node', [PROBE, '--http', 'http://127.0.0.1:' + port + '/mcp'], { env: Object.assign({}, process.env, { HADDAD_MCP_HTTP_ENV: path.join(TMP, 'absent-http.env') }) });
+      }).then(function (un) {
+        var unrep = JSON.parse(un.stdout);
+        assert.strictEqual(unrep.ok, false); assert.strictEqual(unrep.bearer, 'none'); assert.ok(/UNAUTHORIZED|401/.test(unrep.error), unrep.error);
+        assert.strictEqual(un.status, 1);
+        [pr.stdout, pr.stderr, un.stdout, bridgeOut].forEach(function (o) { assert.ok(o.indexOf(btok) === -1 && o.indexOf(TOKEN) === -1, 'a token leaked to an output'); });
+      });
+    }).then(function () { bridge.kill('SIGTERM'); }, function (e) { bridge.kill('SIGTERM'); throw e; });
+  });
+})
+.then(function () {
+  return at('HAD-3b setup dry run into a throwaway home: unit 0600 with @REPO@ filled, bearer 0600 and never printed, idempotent, --rotate rotates, a widened env file is refused, --serve without certs / without operator is PENDING (exit 2) and never runs Funnel', function () { return Promise.resolve().then(function () {
+    var home = path.join(TMP, 'home-http'); fs.mkdirSync(home, { recursive: true });
+    var stub = path.join(TMP, 'stub'); fs.mkdirSync(stub, { recursive: true });
+    var sysLog = path.join(TMP, 'systemctl.log'), tsLog = path.join(TMP, 'tailscale.log'), tsStatus = path.join(TMP, 'ts-status.json');
+    fs.writeFileSync(path.join(stub, 'systemctl'), '#!/bin/bash\necho "$*" >> ' + sysLog + '\ncase "$*" in *is-active*) echo inactive; exit 3;; esac\nexit 0\n', { mode: 493 });
+    fs.writeFileSync(path.join(stub, 'tailscale'), '#!/bin/bash\necho "$*" >> ' + tsLog + '\ncase "$1" in status) cat ' + tsStatus + ';; serve) echo "Use \'sudo tailscale serve\'. To not require root, use \'sudo tailscale set --operator=$USER\' once." >&2; exit 1;; *) exit 1;; esac\n', { mode: 493 });
+    var env = function (extra) { return Object.assign({}, process.env, { HOME: home, HADDAD_MCP_REPO: ROOT, HADDAD_MCP_HTTP_SYSTEMCTL: path.join(stub, 'systemctl'), HADDAD_MCP_HTTP_TAILSCALE: path.join(stub, 'tailscale') }, extra || {}); };
+    // Without the stdio MCP the HTTP setup refuses — it is a transport for HAD-3, not a replacement.
+    var r0 = run('bash', [HTTP_SETUP], { env: env() });
+    assert.notStrictEqual(r0.status, 0); assert.ok(/haddad-mcp-setup\.sh first/.test(r0.stdout), r0.stdout);
+    var r1 = run('bash', [SETUP], { env: env() }); assert.strictEqual(r1.status, 0, r1.stdout + r1.stderr);
+    var r = run('bash', [HTTP_SETUP], { env: env() });
+    assert.strictEqual(r.status, 0, r.stdout + r.stderr);
+    var unit = path.join(home, '.config', 'systemd', 'user', 'mythos-haddad-mcp-http.service');
+    var envFile = path.join(home, '.config', 'mythos-haddad', 'mcp-http.env');
+    [unit, envFile].forEach(function (f) { assert.strictEqual(fs.statSync(f).mode & 511, 384, f + ' not 0600'); });
+    assert.ok(fs.readFileSync(unit, 'utf8').indexOf('ExecStart=/usr/bin/node ' + ROOT + '/projects/mythos-gateway/mcp-http-bridge.js') !== -1, '@REPO@ not substituted');
+    var lines = fs.readFileSync(envFile, 'utf8').split('\n').filter(Boolean);
+    assert.strictEqual(lines.length, 1); var tok = /^MYTHOS_MCP_HTTP_TOKEN=([A-Za-z0-9]{48})$/.exec(lines[0]); assert.ok(tok, 'bearer not in the bridge idiom');
+    assert.ok(r.stdout.indexOf(tok[1]) === -1 && r.stderr.indexOf(tok[1]) === -1, 'setup printed the bearer');
+    assert.ok(/daemon-reload/.test(fs.readFileSync(sysLog, 'utf8')));
+    assert.ok(!/enable|restart/.test(fs.readFileSync(sysLog, 'utf8')), 'started without --enable');
+    assert.ok(/not started \(pass --enable\)/.test(r.stdout));
+    // Idempotent, then rotated.
+    var r2 = run('bash', [HTTP_SETUP], { env: env() }); assert.strictEqual(r2.status, 0, r2.stdout);
+    assert.strictEqual(fs.readFileSync(envFile, 'utf8'), lines[0] + '\n', 'bearer rotated on re-run'); assert.ok(/already provisioned/.test(r2.stdout));
+    var r3 = run('bash', [HTTP_SETUP, '--rotate'], { env: env() }); assert.strictEqual(r3.status, 0, r3.stdout);
+    assert.notStrictEqual(fs.readFileSync(envFile, 'utf8'), lines[0] + '\n', '--rotate kept the bearer');
+    // A second variable in the env file could override the unit's loopback bind: refused.
+    fs.appendFileSync(envFile, 'MYTHOS_MCP_HTTP_HOST=0.0.0.0\n');
+    var r4 = run('bash', [HTTP_SETUP], { env: env() });
+    assert.notStrictEqual(r4.status, 0); assert.ok(/carries something other than MYTHOS_MCP_HTTP_TOKEN/.test(r4.stdout), r4.stdout);
+    fs.writeFileSync(envFile, fs.readFileSync(envFile, 'utf8').split('\n').filter(function (l) { return /^MYTHOS_MCP_HTTP_TOKEN=/.test(l); }).join('\n') + '\n');
+    // --serve: certificates not enabled -> PENDING, nothing attempted.
+    fs.writeFileSync(tsStatus, JSON.stringify({ Self: { DNSName: 'haddad.example.ts.net.' }, CertDomains: null }));
+    var r5 = run('bash', [HTTP_SETUP, '--serve'], { env: env() });
+    assert.strictEqual(r5.status, 2, r5.stdout); assert.ok(/PENDING owner action — HTTPS certificates are not enabled/.test(r5.stdout), r5.stdout);
+    assert.ok(!/serve/.test(fs.readFileSync(tsLog, 'utf8')), 'serve attempted without certificates');
+    // --serve: certificates enabled but no operator grant -> PENDING with the exact owner command; only /mcp, never funnel.
+    fs.writeFileSync(tsStatus, JSON.stringify({ Self: { DNSName: 'haddad.example.ts.net.' }, CertDomains: ['haddad.example.ts.net'] }));
+    var r6 = run('bash', [HTTP_SETUP, '--serve'], { env: env() });
+    assert.strictEqual(r6.status, 2, r6.stdout); assert.ok(/sudo tailscale set --operator=/.test(r6.stdout), r6.stdout);
+    var ts = fs.readFileSync(tsLog, 'utf8');
+    assert.ok(/serve --bg --https=443 --set-path=\/mcp http:\/\/127\.0\.0\.1:8160$/m.test(ts), ts);
+    assert.ok(!/funnel/.test(ts), 'funnel was invoked');
+    assert.ok(/URL:/.test(r6.stdout) === false, 'an HTTPS URL was announced although serve failed');
   }); });
 })
 .then(function () {
