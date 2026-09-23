@@ -230,6 +230,47 @@ overlapped with GPU work — that is a scheduler change and the signal here is i
 and no second full supervised task has been run end to end, only concurrent inference at
 task-prompt size.
 
+## MYTHOS HADDAD V2.3 — the scheduler half
+
+**GPU work is serialised by a lease held around a model TURN, so everything that is not
+inference overlaps freely.** Before this, `gpu_in_flight` counted RUNNING tasks — and a task is
+running for its whole life, including validation, the declared checks, the snapshot and the
+delivery commit, none of which touch the card. Detail: [docs/RESOURCE.md](docs/RESOURCE.md).
+
+| Item | State | Evidence |
+|---|---|---|
+| The lease exists and is per-turn | DONE | acquired immediately before the model call, released the moment it answers, and on the throw path too |
+| **It serialises, it does not merely count** | DONE | the first version recorded without enforcing: a live two-task run observed **2** concurrent leases. The turn now waits — `acquireWhenFree()` |
+| Waiting is bounded three ways | DONE | the task's own deadline · a TTL so a dead holder cannot wedge the card · re-entry is not a second claim, so a repair round cannot deadlock on itself |
+| A task that never gets the card fails loudly | DONE | `HADDAD_AGENT_GPU_BUSY`, named, not silent |
+| The gate counts leases, not running tasks | DONE | `gpu_in_flight = gpuSlots.heldCount()` |
+| **Measured live** | DONE | two supervised tasks, real runtime: max concurrent leases **1**, one recorded a `gpu_wait`, wall clock **148 s vs 232 s serial — 36 % saved** |
+| Tests | DONE | `tests/mythos-haddad-gpu-admission-test.js` **57/0**, including five contention tests |
+
+**Still not done:** `MYTHOS_MAX_PARALLEL` is 1 on this host — the mechanism now makes raising it
+safe, but the number itself is an operational change to `worker.env` that should follow a
+measurement of full supervised tasks in production. Grants are unordered; under sustained
+contention a turn could wait while later arrivals are served, and fixing that means building the
+queue this deliberately is not.
+
+## MYTHOS HADDAD V2.6 — unattended continuous operation
+
+**Five of six gate items closed by measurement.** Detail: [docs/UNATTENDED.md](docs/UNATTENDED.md).
+
+| V2.6 gate item | State | Evidence |
+|---|---|---|
+| multi-task run, unattended, zero autonomous merges | DONE | Issues #410/#411 on the production label, claimed and completed by the live bridge and worker with no intervention; one recovered a transient on its own; both `report` delivery, no commit, `main` untouched |
+| every stop-for-human is machine-readable | DONE | **16/16** BLOCKED tasks in the live store carry a blocker code (`HUMAN_APPROVAL` 9, `NO_STRUCTURED_REPORT` 5, `ACTION_PROFILE_MISMATCH` 2) |
+| `unattended.classify()` never grants | DONE | property test over the whole table, **136 assertions**, mutation-checked: one injected `APPROVE` turns 136/0 into 135/3 |
+| a governance/destructive attempt is denied, run continues | DONE | 8 destructive reasons, **0 granted**; `terminal_for_capability: false` so the capability is not written off |
+| Claude spend per completed task measured | DONE | **0.36** calls/task across 22 tasks, against a structural bound of ≤1 (L2 fires only on the last repair round) |
+| STD-1 / STD-2 / STD-3 | DONE | 213-suite sweep 0 new 0 changed · no new subsystem (the bridge timer is the loop; no campaign runner wired) · security suites green |
+
+**NOT done:** no autonomous merge, push or PR — delivery still commits locally and never pushes,
+and merge stays human-gated. `core/campaign-runner.js` remains unwired on the Haddad path
+deliberately: the bridge timer is the loop, and adding a second one would be the duplicate
+subsystem this project forbids.
+
 ## Next action
 
 **Restart `mythos-haddad-worker.service` once.** It is long-running and still holds pre-merge code;

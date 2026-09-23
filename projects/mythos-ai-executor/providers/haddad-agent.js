@@ -54,6 +54,7 @@ var path = require('path');
 var reporting = require('../lib/report');
 var policy = require('../lib/policy');
 var roles = require('../lib/roles');
+var gpuSlots = require('../lib/gpu-slots');
 var adapter = require('../free-llm/adapter');
 var work = require('../lib/work-validation');
 
@@ -1084,11 +1085,50 @@ function run(task, prompt, _sessionId, _mode, opts) {
         session_id: null, started_pid: null
       }));
     }
+    // THE GPU LEASE (V2.3 scheduler half). Held around THIS TURN only, not
+    // around the task. Everything after the turn — validation, the declared
+    // checks in their sandbox, the workspace snapshot, the delivery commit —
+    // is CPU and git work that has no business holding the card, and holding
+    // it there is what made "one task at a time" and "one inference at a
+    // time" the same sentence.
+    //
+    // Released in BOTH settlements below, and carried by a TTL so a provider
+    // that dies mid-turn cannot wedge the GPU shut for the life of the
+    // daemon. A lease that leaks is worse than no lease.
+    var leaseId = (task && task.task_id) || ('haddad-' + process.pid + '-' + started);
+    // WAIT for the card rather than assume it. A plain acquire() only
+    // recorded who was on the GPU and stopped nobody — measured live, two
+    // admitted tasks both entered a turn and the observed maximum was 2
+    // concurrent leases. Admission gates a task once, at its start; nothing
+    // then coordinates the turns it takes minutes later, so the serialising
+    // has to happen here, at the turn.
+    //
+    // Bounded by this task's own deadline, so waiting can never outlast the
+    // work it is waiting for.
+    return gpuSlots.acquireWhenFree(leaseId, { deadline: deadline, capacity: opts.gpuCapacity })
+      .then(function (lease) {
+        if (!lease.acquired) {
+          return finish({
+            exit_code: 1, signal: null, timed_out: false, stdout: '',
+            stderr: 'HADDAD_AGENT_GPU_BUSY: the local runtime was occupied by another task for this task\'s whole deadline (' + lease.reason + ')',
+            parsed: { is_error: true, subtype: 'HADDAD_AGENT_GPU_BUSY', result: 'the GPU was busy for this task\'s whole deadline' },
+            session_id: null, started_pid: null
+          });
+        }
+        if (lease.waited_ms > 0) {
+          trace.push({ tool: 'gpu_wait', refused: false, target: null,
+            detail: 'waited ' + lease.waited_ms + ' ms for the runtime to be free' });
+        }
+        return turn();
+      });
+
+    function turn() {
     return adapter.chatCompletion(
       { baseUrl: baseUrl, apiKey: apiKey, model: model, providerId: PROVIDER_ID },
       messages,
       { timeoutMs: Math.max(1000, Math.min(deadline - Date.now(), 300000)), tools: schemas, transport: opts.transport, maxTokens: MAX_TOKENS_PER_TURN }
     ).then(function (res) {
+      gpuSlots.release(leaseId);
       if (res && res.usage && Number(res.usage.prompt_tokens) > 0) {
         anchor = { tokens: Number(res.usage.prompt_tokens), chars: conversationChars() };
       }
@@ -1170,9 +1210,13 @@ function run(task, prompt, _sessionId, _mode, opts) {
       }
       return step(iteration + 1);
     });
+    }
   }
 
   return step(0).catch(function (e) {
+    // The turn threw. Release rather than wait for the TTL: a failure is not
+    // a reason to hold the card.
+    gpuSlots.release((task && task.task_id) || null);
     return finish(fail('HADDAD_AGENT_ERROR', String(e && e.message).slice(0, 200)));
   });
 }
