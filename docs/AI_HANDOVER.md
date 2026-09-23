@@ -2,6 +2,39 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-23 — MYTHOS HADDAD V2.3: RESOURCE AWARENESS, the GPU half (Opus 5)
+
+**Objective:** give the resource guard a GPU signal, and derive the concurrency limit for GPU
+work from a measurement rather than from the slot count.
+
+| Item | State |
+|---|---|
+| Branch | `mythos-haddad/v2-3-resource-awareness` on `main@f190cd18` |
+| ADDED | `lib/gpu-slots.js` (the signal) · `tests/mythos-haddad-gpu-admission-test.js` (24) · `projects/mythos-haddad/docs/RESOURCE.md` |
+| ADAPTED | `lib/resource-guard.js`: `admission(status, opts)` gains an optional `opts.needs_gpu`, default false, so every existing call site is unchanged |
+| **Why not the OS VRAM reader** | `haddad-gpu-vram.py` answers `vram_used_mib: 0.0` with a 3,883 MiB model resident on the card — the Vulkan budget query is unreliable on NVK, as AI_RUNTIME.md records. A signal that reads 0 while the GPU is full turns a missing measurement into a confident wrong one, so it is not used |
+| What is used | llama-server's own `/slots`, read with the runtime key the provider already holds: 4 slots, `is_processing`, `n_ctx` |
+| **The trap** | `kv_unified = true` — the four slots share ONE 8192-token pool. The 8192 each advertises is the *same* 8192. Slot count is a ceiling, never a budget |
+
+**The measurement changed the answer, which is why it was worth taking.** Real concurrent
+requests at the size of a real executor task prompt (5,451 chars → 1,264 prompt tokens), live:
+n=1 1/1 in 6,632 ms · n=2 2/2 in 6,511 ms · n=3 **3/3** in 7,413 ms, slots seen 3/4 busy. Three
+concurrent tasks of that size demonstrably fit — 3 × 1,264 = 3,792 of 8,192 — at a 12 %
+wall-clock cost. The assumption that the pool limited concurrency to one **at typical size was
+wrong**.
+
+It is limited by what a task may GROW to: a repair round carrying an escalated diagnosis reaches
+~6,400 prompt tokens, a task's size is not knowable at admission, `/slots` reports occupancy but
+**not** KV tokens, and exhausting a shared pool mid-flight degrades every task in it. So
+admission budgets against the ceiling — `min(4, floor(8192/6400)) = 1` — which is a deliberate
+choice of the conservative number over the demonstrated one, with both recorded and
+`HADDAD_TASK_KV_TOKENS` as the knob.
+
+**NOT done, and said so in the doc rather than left to be found:** `MYTHOS_MAX_PARALLEL` is
+unchanged at 1; non-GPU work (validation, checks, git, snapshots) is **not** yet overlapped with
+GPU work — that is a scheduler change and this signal is its prerequisite; and no second full
+supervised task has been run end to end, only concurrent inference at task-prompt size.
+
 ## 2026-09-23 — MYTHOS HADDAD V2.2: FABLE DELEGATION (Opus 5)
 
 **Objective:** make the bridge's provider choice a routed decision — role → capability → agent →

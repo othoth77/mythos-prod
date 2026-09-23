@@ -146,7 +146,13 @@ var ALLOWED = [
   'projects/mythos-ai-executor/config/agents.json',
   'projects/mythos-ai-executor/config/roles.json',
   'projects/mythos-ai-executor/lib/roles.js',
-  'projects/mythos-ai-executor/core/agent-registry.js'
+  'projects/mythos-ai-executor/core/agent-registry.js',
+  // V2.3 (resource awareness): the GPU occupancy signal and the one
+  // function in the guard that consults it. The guard change is additive and
+  // opt-in (`admission(status, {needs_gpu})`, default false), so nothing
+  // that called it before behaves differently.
+  'projects/mythos-ai-executor/lib/gpu-slots.js',
+  'projects/mythos-ai-executor/lib/resource-guard.js'
 ];
 var PROTECTED = /^projects\/mythos-ai-executor\/(core|lib|providers|free-llm|config)\//;
 
