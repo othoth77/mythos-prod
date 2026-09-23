@@ -253,6 +253,51 @@ measurement of full supervised tasks in production. Grants are unordered; under 
 contention a turn could wait while later arrivals are served, and fixing that means building the
 queue this deliberately is not.
 
+## MYTHOS HADDAD V2.5 — AI Team Console
+
+**The console was already running.** V2.5 was scoped as a build and turned out to be an audit.
+Measured before a line was written, and again after: `mythos-haddad-telemetry.timer` pushing every
+ten seconds, `HTTP 202 {"node":"haddad","state":"ONLINE"}`, carrying `health.schema =
+mythos-haddad-health/1` with `{PASS:16, WARN:0, FAIL:0}`, **61 events** read from per-task
+`events.log`, 6 workers, 3 incidents, GPU, resources, runtime and repo identity. Detail:
+[docs/CONSOLE.md](docs/CONSOLE.md).
+
+**One real gap, in the publisher, not the page.** `grep role haddad-telemetry.js` → **zero hits**.
+The console showed a task's provider and model — who ran it and with what — and nothing about the
+**role**, which is the decision V2.1 exists to make and the thing this gate asks for by name
+("workers/roles"). Sixth instance this run of *a mechanism exists and nothing reaches it*:
+`sanitizeTask()` had carried `validation` and `review` for months, `task.json` had carried `role`
+since V2.1, and nothing joined them.
+
+| V2.5 gate item | State | Evidence |
+|---|---|---|
+| console reads only published state; **zero** write paths | DONE | two routes; anything but `POST /ingest` refused; the receiver opens no outbound connection and spawns nothing; the page holds no node address, runtime port or MCP tool name |
+| `WARN` + `mode: quick` + `FAIL: 0` not alerted as unhealthy | DONE | that snapshot derives `ONLINE`; held before, still held |
+| schema pinned to `mythos-haddad-health/1` | DONE | live in production; a foreign schema is refused with 400 |
+| no second monitoring stack | DONE | two keys added to an existing allow-list, one row to an existing table; no new collector, transport, store or page |
+| STD-1 / STD-2 / STD-3 | DONE | telemetry 168/0 unchanged vs main, status-center 81/0, console 1438/0, eleven Haddad suites unchanged; ingest **138 → 154** |
+
+**Live end-to-end, through the real allow-list:** `role = "researcher"`, `role_reason =
+"action:investigate"` on `t-20260923075021-147rik` (the task the V2.6 unattended run recovered),
+and the derived state is unchanged — **the role changes what is displayed and never what the node
+is**, pinned by a test that derives state twice from snapshots differing only in role.
+
+Every new guarantee was mutation-checked: dropping the allow-list entry fails 4, unbounding it
+fails 2, mutating the page's read fails 1, deleting the Role row fails 2. The page check had to be
+tightened first — `indexOf('task.role')` passed while the row was mutated away, because
+`task.role_reason` contains it as a substring. A check that cannot fail is not a check.
+
+**NOT done:** the V2.2 routing decision is not on the console. It is recorded per task in the
+bridge's claims file (so V2.2's "recorded and auditable" item is met), but telemetry reads the
+*executor's* store; publishing it would mean the console reading a second store, which is the start
+of the second monitoring stack this gate forbids. The fix belongs in the bridge. **Deploy of the
+receiver's widened allow-list stays the owner's gate** — until then the node publishes `role` and
+the deployed receiver drops it, which is fail-closed and safe.
+
+**Owner decision, recorded not worked around:** the gate names `haddad_health` (not a tool on the
+VPS, which has no route to the node) and `core/events.js` (not produced with core off). Both are
+already served by live equivalents. See §25 of the master plan.
+
 ## MYTHOS HADDAD V2.6 — unattended continuous operation
 
 **Five of six gate items closed by measurement.** Detail: [docs/UNATTENDED.md](docs/UNATTENDED.md).

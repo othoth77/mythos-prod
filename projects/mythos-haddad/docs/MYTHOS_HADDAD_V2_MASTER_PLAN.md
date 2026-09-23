@@ -754,3 +754,81 @@ naming the path, `available:false`; config the host cannot honour → **FAIL**, 
 knowledge, as configured" and "we cannot tell what was configured" must not wear the same green.
 A layer off by design is not a WARN: a permanent yellow for an architectural decision is a false
 alarm, and this suite spent 2026-09-22/23 removing exactly that failure mode.
+
+---
+
+## 24. V2.5 audit — the console was already running (2026-09-23)
+
+V2.5 was scoped as "build the AI Team Console". It is not a build. The console has been
+running since Track A and was pushing every ten seconds while the phase was being planned:
+`HTTP 202 {"node":"haddad","state":"ONLINE"}`, carrying `health.schema =
+mythos-haddad-health/1`, **61 events** read from per-task `events.log`, 6 workers, GPU,
+resources and runtime. The pinned schema was already satisfied in production.
+
+**One real gap, and it was in the publisher.** `grep role haddad-telemetry.js` → zero hits.
+The console showed provider and model and never the **role** — the decision V2.1 exists to
+make, and the thing this phase's field list asks for by name. Closed: `role` and
+`role_reason` are published, allow-listed (bounded 40/80, scrubbed), and shown in a Role row
+beside Provider. The role never reaches `deriveState()`. Detail and the gate item-by-item in
+[CONSOLE.md](CONSOLE.md).
+
+**Not done, deliberately:** the V2.2 routing decision is recorded per task in the bridge's
+claims file, not in the executor store telemetry reads. Publishing it would mean the console
+reading a second store — the start of the second monitoring stack this gate forbids. The fix
+belongs in the bridge, not in a console phase.
+
+---
+
+## 25. Open owner decisions (2026-09-23)
+
+Three questions that implementers should not answer for themselves. All three were found by
+auditing rather than by building, and **items 1 and 3 share a root**: both phases were planned
+against a core that never came up.
+
+### 1. V2.5's event and health sources — documentation, not a build decision
+
+The V2.5 gate says the console "must consume the existing `haddad_health` MCP tool and the
+`core/events.js` stream". Neither is reachable from the host the console is served from:
+
+- `core/events.js` is required by `core/campaign.js`, `core/core-wiring.js`,
+  `core/campaign-runner.js` and `core/orchestrator.js` and by nothing else. `executor.js`
+  neither requires it nor emits through it. With `MYTHOS_CORE_ENABLED=false` the stream is
+  not produced. The live executor emits `lib/lifecycle` plus **24** `state.appendEvent` sites
+  writing per-task `events.log`.
+- The VPS has no Tailscale and no VPS→Haddad SSH, and `OTH_MCP_HADDAD_HEALTH_FILE` is unset
+  there, so `haddad_health` is not a tool on that host at all.
+
+Both are already served by live equivalents — `events.log` and `health-latest.json`, the same
+file the MCP tool reads, under the same pinned schema — and have been since Track A.
+
+**Question:** may the sentence be corrected to name the sources production actually uses?
+
+### 2. V2.4's knowledge store — (a) or (b)
+
+Stated in full in §23. Unchanged: blockers 1 and 2 survive either answer, so provisioning a
+store does not by itself unblock V2.4.
+
+### 3. Core — the root of both, and the one that blocks a 100 % claim
+
+V2.2's IMPLEMENTATION item 1 is "Turn on `MYTHOS_CORE_ENABLED=true` on Haddad only, behind an
+env flag". Its EXIT GATE item 1 is "core enabled on Haddad; planner/router/registry in the
+live path". **The live value is `false`** (`~/.config/mythos-haddad/worker.env`), and the plan
+and STATUS.md contain no recorded re-scope of that item.
+
+To be fair to what shipped: the **outcome** the gate item exists to guarantee is demonstrably
+met. All four capabilities route to `haddad-qwen` with execution authority; it is refused as
+reviewer on SENSITIVE scope; the decision is recorded per task and is auditable. Routing
+works. What is not true is the gate's stated **mechanism**, and that item was neither met nor
+formally re-scoped.
+
+It matters beyond bookkeeping because it is the root of two other findings: V2.4's blocker 2
+(`core/context.js` reachable only through the orchestrator) and V2.5's stale event source both
+dangle from the same assumption — that V2.2 turned core on. That is **one** decision, made once
+and generally, not three made phase by phase.
+
+**Question:** is core turned on, or is V2.2's exit-gate item formally re-scoped to the seam
+that actually ships?
+
+**Until item 3 is answered, "V2 = 100 % VERIFIED" is not claimable**, because a merged phase
+carries an unmet exit-gate item with no recorded descope. Whether an exit gate is waived is an
+owner's call, not an implementer's.
