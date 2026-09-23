@@ -358,13 +358,25 @@ reports without writing; REVIEWER returns a verdict with no workspace change; DE
 seeded failure; RESEARCHER answers from repo files with no network.
 
 **EXIT GATE**
-- [ ] `haddad-qwen` registered, probed, selected by capability for coding/testing
-- [ ] `haddad-qwen` **rejected** for sensitive review by the existing policy
-- [ ] 5 roles defined in config; each maps to an existing profile; no new runtime
-- [ ] skill packs injected and trust-gated
-- [ ] 5 real Qwen E2Es, one per role, each with measured evidence
-- [ ] TESTER/REVIEWER/RESEARCHER produce **zero** workspace writes (measured by snapshot)
-- [ ] STD-1, STD-2, STD-3
+- [x] `haddad-qwen` registered, probed, selected by capability for coding/testing
+- [x] `haddad-qwen` **rejected** for sensitive review by the existing policy
+- [x] **SIX** roles defined in config; each maps to an existing profile; no new runtime
+      *(this item said "5". There are six — coder, debugger, documenter, tester, reviewer,
+      researcher — and the count was never corrected when the sixth was added.)*
+- [x] skill packs injected and trust-gated
+- [x] **SIX** real Qwen E2Es, one per role, each with measured evidence — all six COMPLETED
+      with the validator passing *(also said "5", for the same reason)*
+- [x] TESTER/REVIEWER/RESEARCHER produce **zero** workspace writes (measured by snapshot):
+      `status_after` empty and nothing delivered, against three write roles that each
+      delivered exactly one file
+- [x] **STD-1** no V2 regression: the 8 suites failing on `main` fail **identically** at the
+      pre-V2 baseline `0068a523` — mpi-0 33/3, hostops-daemon 5/9, hostops-executor 35/1,
+      hostops 32/3, orchestration-core 255/2, v1-lane-routing 53/4, othk-live-gate 54/1,
+      stage4w 42/2 — and none of them exercises V2 code. Sweep coverage asserted
+      `intended=214 ran=214`. **STD-2** no duplicate architecture: no scheduler, registry,
+      router, memory, validator, MCP or monitoring stack was added in V2. **STD-3** the
+      security boundary (bwrap argv, tool grants, profiles, delivery git, MCP surface) is
+      unchanged by V2.4-V2.6
 
 ---
 
@@ -401,15 +413,27 @@ validated, reviewed and reported — with the routing decision recorded in the I
       owner-ratified 2026-09-23. Measured in `docs/DELEGATION.md`: zero `coreEnabled()`
       references in `provider-router`, `agent-registry`, `reputation`, `validation`; only
       `core/core-wiring.js` gates, and it gates the HTTP goal API. The flag stays `false`.)*
-- [ ] routing decision is **recorded and auditable** per task
-- [ ] Claude is never selected as executor in any routing test
-- [ ] ambiguity stops for a human with a named reason
+- [x] routing decision is **recorded and auditable** per task — verified live on the attempt
+      record for `gh-issue-410`, which carries `routed`, `role`, `task_type`,
+      `capabilities_required`, `router_action`, `router_agent`, `allowed`, `provider`,
+      `authority` and `why` in full
+- [x] Claude is never selected as executor in any routing test — the delegation suite drives
+      every action under the Haddad floor and asserts none yields `claude-code`
+- [x] ambiguity stops for a human with a named reason — a defer names what was refused
+      (`not_permitted:claude-code`) or that nothing was available (`no_provider`)
 - [x] a down runtime **defers on no permitted provider**, never silently falls back —
       implemented and asserted by test
       *(RE-SCOPED from "`wait_for_quota` observed live when the runtime is down",
       owner-ratified 2026-09-23. That branch is unreachable in production: nothing builds
       `quota_state`, so a down runtime yields `no_provider`.)*
-- [ ] STD-1, STD-2, STD-3
+- [x] **STD-1** no V2 regression: the 8 suites failing on `main` fail **identically** at the
+      pre-V2 baseline `0068a523` — mpi-0 33/3, hostops-daemon 5/9, hostops-executor 35/1,
+      hostops 32/3, orchestration-core 255/2, v1-lane-routing 53/4, othk-live-gate 54/1,
+      stage4w 42/2 — and none of them exercises V2 code. Sweep coverage asserted
+      `intended=214 ran=214`. **STD-2** no duplicate architecture: no scheduler, registry,
+      router, memory, validator, MCP or monitoring stack was added in V2. **STD-3** the
+      security boundary (bwrap argv, tool grants, profiles, delivery git, MCP surface) is
+      unchanged by V2.4-V2.6
 
 ---
 
@@ -439,11 +463,22 @@ crash mid-task recovers with 0 sandbox orphans (proven in V1, re-asserted here).
 concurrently — with measured VRAM/RAM staying inside the envelope.
 
 **EXIT GATE**
-- [ ] `MAX_PARALLEL` derived from **measurement**, with the numbers recorded in the doc
-- [ ] resource guard has a GPU signal; admission consults it
-- [ ] a waiting task provably holds no GPU/worker
-- [ ] no OOM, no thrash, no orphan `bwrap`/`llama-server` across the run
-- [ ] STD-1, STD-2, STD-3
+- [x] `MAX_PARALLEL` derived from **measurement**, with the numbers recorded in
+      `docs/RESOURCE.md` (1 and 2 concurrent timed; `MYTHOS_MAX_PARALLEL` stays 1)
+- [x] resource guard has a GPU signal; admission consults it — `executor.js` sets
+      `needs_gpu`, reads `gpuSlots.read()` and passes `gpu_in_flight` on the live path
+- [x] a waiting task provably holds no GPU/worker — the lease is released when the model
+      TURN ends, before validation, checks and git, and a dead holder's lease expires
+- [x] no OOM, no thrash, no orphan `bwrap`/`llama-server` — measured live: 0 orphan `bwrap`,
+      1 `llama-server`, 0 OOM kills since boot
+- [x] **STD-1** no V2 regression: the 8 suites failing on `main` fail **identically** at the
+      pre-V2 baseline `0068a523` — mpi-0 33/3, hostops-daemon 5/9, hostops-executor 35/1,
+      hostops 32/3, orchestration-core 255/2, v1-lane-routing 53/4, othk-live-gate 54/1,
+      stage4w 42/2 — and none of them exercises V2 code. Sweep coverage asserted
+      `intended=214 ran=214`. **STD-2** no duplicate architecture: no scheduler, registry,
+      router, memory, validator, MCP or monitoring stack was added in V2. **STD-3** the
+      security boundary (bwrap argv, tool grants, profiles, delivery git, MCP surface) is
+      unchanged by V2.4-V2.6
 
 ---
 
@@ -493,16 +528,23 @@ history; Qwen's prompt with context still fits 8192.
 - [ ] memory written **only** from validated outcomes
       — **N/A on Haddad**: nothing is written here, because there is nothing to write to.
       The guarantee stands where the store lives.
-- [ ] secret-shaped content refused (test, not assertion)
+- [x] secret-shaped content refused (test, not assertion)
       — held, and independent of this host.
-- [ ] context assembly provably within the 8192-token budget
-      — **held by a different mechanism than this item names**: `core/context.js` is
-      unreachable with core off; the 8192-token window is protected by the provider's
-      `PROMPT_BUDGET_TOKENS` (V2.1, measured).
-- [ ] measurable improvement on a repeat-task benchmark, **or the stage is re-scoped honestly**
+- [x] the **8192-token window is provably respected** — by the provider's
+      `PROMPT_BUDGET_TOKENS` with exchange-level compaction
+      (`providers/haddad-agent.js`, V2.1, measured). `core/context.js` does not run on
+      this node
+      *(this item said "context assembly provably within the 8192-token budget". Read
+      alone that asserts CONTEXT ASSEMBLY is within budget, and the assembly this plan
+      names never executes here — the tick would have been carried by the annotation
+      beside it, which is the one thing the standalone-true rule forbids. Restated to
+      name the mechanism that does run and the one that does not.)*
+- [x] measurable improvement on a repeat-task benchmark, **or the stage is re-scoped honestly**
       — **satisfied by the re-scope**, which is the branch this item already allowed for.
-- [ ] STD-1, STD-2, STD-3
-      — STD-2 is the interesting one here: this phase's deliverable is a **refusal** to build
+- [x] **STD-1/2/3** — no V2 regression (the 8 failures on `main` are identical at the pre-V2
+      baseline `0068a523`; coverage asserted `intended=214 ran=214`), no duplicate
+      architecture, security boundary unchanged.
+      STD-2 is the interesting one here: this phase's deliverable is a **refusal** to build
       a second store. Kept by test, not by prose: othk-2w §8 (42→52) and the Haddad runtime
       suite (34→36), both mutation-checked.
 
@@ -533,11 +575,39 @@ VRAM, RAM, CPU, failures, uptime, events.
 any interactive control.
 
 **EXIT GATE**
-- [ ] console reads only MCP + events; **zero** write paths (verified by code review + test)
-- [ ] `WARN` + `mode: quick` + `FAIL: 0` is not alerted as unhealthy (known false-positive)
+- [x] the console reads only what the node publishes — the health document and per-task
+      `events.log` — and has **zero** write paths. Verified BEHAVIOURALLY against the running
+      receiver, not by reading its source: every verb on `/ingest`
+      (GET/PUT/DELETE/PATCH/HEAD/OPTIONS/TRACE) answers **405**, every other path **404**,
+      path traversal **404**, and no non-`/health` 2xx exists
+      *(this item said "MCP + events"; that wording was corrected with V2.5's requirement)*
+- [x] `WARN` + `mode: quick` + `FAIL: 0` is not alerted as unhealthy — the ingest suite's
+      DEFAULT envelope is exactly that case and asserts the node derives `ONLINE`
 - [ ] schema pinned to `mythos-haddad-health/1`
-- [ ] no second monitoring stack introduced
-- [ ] STD-1, STD-2, STD-3
+      — **KNOWN INCONSISTENCY while this lands:** `docs/CONSOLE.md` (line 81) and
+      `STATUS.md` (line 329) currently record this item as DONE, "a foreign schema is
+      refused with 400". That is wrong for the reason below, was found by its own author
+      at closure, and is being corrected in a follow-up to those two documents. This gate
+      is the correct record; the phase docs briefly disagree with it.
+      — **NOT TICKED: the item names the one of three schemas that is NOT pinned.** What IS
+      pinned is the TRANSPORT schema `mythos-node-telemetry/1`: the receiver refuses a
+      mismatch with HTTP 400 `bad_schema`. The receiver publishes `mythos-haddad-node/1`.
+      The health document's own `mythos-haddad-health/1` travels inside as a bounded,
+      allow-listed field and is never compared to an expected value. The gate's INTENT — a
+      versioned contract whose breach is refused — is met by the transport pin; the literal
+      sentence is not true, so it does not get a tick. Pinning the health document's own
+      schema is carried to V3 in §22
+- [x] no second monitoring stack introduced — the console renders the health report the node
+      already produces, computes no health of its own, and holds no node address, runtime
+      port or MCP tool name
+- [x] **STD-1** no V2 regression: the 8 suites failing on `main` fail **identically** at the
+      pre-V2 baseline `0068a523` — mpi-0 33/3, hostops-daemon 5/9, hostops-executor 35/1,
+      hostops 32/3, orchestration-core 255/2, v1-lane-routing 53/4, othk-live-gate 54/1,
+      stage4w 42/2 — and none of them exercises V2 code. Sweep coverage asserted
+      `intended=214 ran=214`. **STD-2** no duplicate architecture: no scheduler, registry,
+      router, memory, validator, MCP or monitoring stack was added in V2. **STD-3** the
+      security boundary (bwrap argv, tool grants, profiles, delivery git, MCP surface) is
+      unchanged by V2.4-V2.6
 
 ---
 
@@ -550,12 +620,22 @@ per-task human intervention, with the deny-only invariant preserved. Human gates
 where §9 puts them: merge, push, PR, production config, credentials, destructive ops, security.
 
 **EXIT GATE**
-- [ ] a multi-task run completes unattended with **zero** human input and zero autonomous merges
-- [ ] every stop-for-human is recorded with a machine-readable reason
-- [ ] `unattended.classify()` never grants — property test over the full decision table
-- [ ] a governance/destructive attempt is denied and the campaign continues
-- [ ] Claude token spend per completed task is **measured and reported**
-- [ ] STD-1, STD-2, STD-3
+- [x] a multi-task run completes unattended with **zero** human input and zero autonomous
+      merges — gh-issue-410 and gh-issue-411 both COMPLETED on `haddad-agent`, 411 recovering
+      a transient by itself, and the worker authored **0** commits
+- [x] every stop-for-human is recorded with a machine-readable reason
+- [x] `unattended.classify()` never grants — property test over the full decision table:
+      no reason produces a grant, and every caged path is a terminal DENY
+- [x] a governance/destructive attempt is denied and the campaign continues
+- [x] Claude token spend per completed task is **measured and reported**
+- [x] **STD-1** no V2 regression: the 8 suites failing on `main` fail **identically** at the
+      pre-V2 baseline `0068a523` — mpi-0 33/3, hostops-daemon 5/9, hostops-executor 35/1,
+      hostops 32/3, orchestration-core 255/2, v1-lane-routing 53/4, othk-live-gate 54/1,
+      stage4w 42/2 — and none of them exercises V2 code. Sweep coverage asserted
+      `intended=214 ran=214`. **STD-2** no duplicate architecture: no scheduler, registry,
+      router, memory, validator, MCP or monitoring stack was added in V2. **STD-3** the
+      security boundary (bwrap argv, tool grants, profiles, delivery git, MCP surface) is
+      unchanged by V2.4-V2.6
 
 ---
 
@@ -769,6 +849,9 @@ protocols; Browser Use, Jev, Herdr, delegate-skills, Kimi.
 | PR #363 (report recovery), #332 (scope doc) open | not in V1 merge set | owner decision |
 | OTHKM knowledge tools UNCONFIGURED on Haddad | **RESOLVED 2026-09-23 — owner decision (a):** one canonical store on the VPS, no duplicate on Haddad. Closed state is now explicit (health check `knowledge`), not silent. Phase record: [`docs/KNOWLEDGE.md`](KNOWLEDGE.md). | closed |
 | `lib/knowledge.js` is required by no executor code on ANY host | found by the V2.4 audit; decision (a) settles where the store lives, not whether anything reads it | V3 |
+| The health document's own schema is not pinned | the transport `mythos-node-telemetry/1` IS pinned (receiver refuses a mismatch with HTTP 400), but `mythos-haddad-health/1` travels inside it as a bounded allow-listed field and is never compared to an expected value. Found at V2 closure; the V2.5 gate item naming it is left unticked | V3 |
+| STD-1's own suite count is wrong | the standing gate reads "full 209-suite sweep"; the measured count is **214**. Inherited by every phase, so every phase that claimed STD-1 claimed it against a number nobody had re-measured. Whether 209 drifted or was always a glob artifact is unknown | V3 / owner |
+| `core/core-wiring.js` contradicts itself on the core default | line 14 says "default TRUE (Phase 2 finalization)", line 64 says "off by default". Pre-existing, unrelated to V2, and the same shape as the §11 row that misled an audit | V3 |
 | `core/context.js` / `core/memory.js` reachable only via `core/orchestrator.js` | core stays `false` by ratified decision; the mission/campaign path is the thing that would justify turning it on | V3 |
 
 ---
