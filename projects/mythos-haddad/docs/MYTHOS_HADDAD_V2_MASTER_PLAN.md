@@ -393,10 +393,16 @@ validated, reviewed and reported — with the routing decision recorded in the I
 
 **EXIT GATE**
 - [ ] core enabled on Haddad; planner/router/registry in the live path
+      — **RE-SCOPED in `docs/DELEGATION.md`, awaiting owner ratification (§25.3).** Measured:
+      routing needs no `coreEnabled()`; the flag stays `false`. Left unchecked deliberately —
+      ratifying a re-scope is the owner's, not an implementer's.
 - [ ] routing decision is **recorded and auditable** per task
 - [ ] Claude is never selected as executor in any routing test
 - [ ] ambiguity stops for a human with a named reason
 - [ ] `wait_for_quota` observed live when the runtime is down
+      — **RE-SCOPED in `docs/DELEGATION.md`, awaiting owner ratification (§25.3).** The branch
+      is unreachable in production (nothing builds `quota_state`); restated as **defer on no
+      permitted provider**. Left unchecked for the same reason as the item above.
 - [ ] STD-1, STD-2, STD-3
 
 ---
@@ -634,7 +640,12 @@ never earlier.
 |---|---|---|---|---|---|---|---|
 | Roles/agents registry | **BUILD** | use | use | use | show | use | — |
 | Skills | wire | select | use | context | show | use | expand |
-| Core enabled | no | **YES** | use | use | use | use | — |
+| Core enabled | no | **YES** † | use | use | use | use | — |
+
+† **Stale.** V2.2 shipped with `MYTHOS_CORE_ENABLED=false` by a measured, recorded decision
+(`docs/DELEGATION.md`): routing does not require core, and the flag was deliberately not
+touched. This row is left as written pending the owner's ratification in §25.3, and should be
+read with that correction — it is the row that misled an audit on 2026-09-23.
 | Delegation/routing | — | **BUILD** | use | use | show | use | — |
 | Parallelism | 1 | 1 | **MEASURE→1–2** | use | show | use | multi-host |
 | GPU resource signal | — | — | **BUILD** | use | show | use | — |
@@ -783,7 +794,8 @@ belongs in the bridge, not in a console phase.
 
 Three questions that implementers should not answer for themselves. All three were found by
 auditing rather than by building, and **items 1 and 3 share a root**: both phases were planned
-against a core that never came up.
+against a core that never came up. Item 3 has since been corrected — see the withdrawal at its
+head; it is a documentation reconciliation, not a skipped gate.
 
 ### 1. V2.5's event and health sources — documentation, not a build decision
 
@@ -808,27 +820,48 @@ file the MCP tool reads, under the same pinned schema — and have been since Tr
 Stated in full in §23. Unchanged: blockers 1 and 2 survive either answer, so provisioning a
 store does not by itself unblock V2.4.
 
-### 3. Core — the root of both, and the one that blocks a 100 % claim
+### 3. Core — the plan text is stale; the decision itself was recorded
 
-V2.2's IMPLEMENTATION item 1 is "Turn on `MYTHOS_CORE_ENABLED=true` on Haddad only, behind an
-env flag". Its EXIT GATE item 1 is "core enabled on Haddad; planner/router/registry in the
-live path". **The live value is `false`** (`~/.config/mythos-haddad/worker.env`), and the plan
-and STATUS.md contain no recorded re-scope of that item.
+**CORRECTED 2026-09-23.** An earlier revision of this section claimed V2.2's core item was
+"neither met nor formally re-scoped" and that no record of a re-scope existed. **That was
+wrong, and it was wrong for the reason this document keeps warning about:** the search covered
+this file and `STATUS.md` and concluded from their silence. V2.2's re-scope is recorded — in
+its own phase document, with measurements — and the original claim is withdrawn.
 
-To be fair to what shipped: the **outcome** the gate item exists to guarantee is demonstrably
-met. All four capabilities route to `haddad-qwen` with execution authority; it is refused as
-reviewer on SENSITIVE scope; the decision is recorded per task and is auditable. Routing
-works. What is not true is the gate's stated **mechanism**, and that item was neither met nor
-formally re-scoped.
+`docs/DELEGATION.md` §"Two corrections to the V2 master plan §11", repeated verbatim in the
+header of `bridge/provider-selection.js`:
 
-It matters beyond bookkeeping because it is the root of two other findings: V2.4's blocker 2
-(`core/context.js` reachable only through the orchestrator) and V2.5's stale event source both
-dangle from the same assumption — that V2.2 turned core on. That is **one** decision, made once
-and generally, not three made phase by phase.
+> **1. Routing does not require `MYTHOS_CORE_ENABLED=true`.** Measured: `provider-router.js`,
+> `agent-registry.js`, `reputation.js` and `validation.js` contain **zero** `coreEnabled()`
+> references. Only `core/core-wiring.js` gates, and what it gates is the HTTP goal API, whose
+> intake is a closed two-entry `MISSION_KINDS` table (`repo-analysis`, `policy-probe`) —
+> neither can express a bridge coding task. **The flag stays `false` and V2.2 does not touch it.**
 
-**Question:** is core turned on, or is V2.2's exit-gate item formally re-scoped to the seam
-that actually ships?
+> **2. "`wait_for_quota` observed live when the runtime is down" is unreachable.** `route()`
+> answers it only when `opts.quota_state[agent].exhausted` is set, and no production code
+> builds that map. A down runtime makes the probe false, the registry filters the agent out,
+> and the answer is `no_provider`. Restated as what the code guarantees: **defer on no
+> permitted provider.**
 
-**Until item 3 is answered, "V2 = 100 % VERIFIED" is not claimable**, because a merged phase
-carries an unmet exit-gate item with no recorded descope. Whether an exit gate is waived is an
-owner's call, not an implementer's.
+Both re-verified independently on 2026-09-23: `coreEnabled` count is 0 in all four routing
+modules; it appears only in `server.js`, `core/core-wiring.js`, and — as a comment, not a gate
+— in `bridge/provider-selection.js`. `wait_for_quota` appears in no `status.json` or
+`events.log` under the executor store, consistent with "unreachable" rather than "missed".
+
+**So V2.2 does not carry a silently unmet gate item.** Two items were consciously re-scoped,
+with measured reasons, in the phase's own record.
+
+**What is genuinely wrong is this file.** Its V2.2 EXIT GATE still lists both original items
+unchecked, and its §11 matrix still reads `Core enabled | V2.2 | YES`. The plan was never
+reconciled with the decision, so a reader trusting the plan reaches the wrong conclusion —
+which is exactly what happened here.
+
+**Question, now much narrower:** ratify the two recorded re-scopes and reconcile this file's
+V2.2 gate text and §11 matrix to match them. If instead core *should* be turned on, that is a
+separate decision to be argued on the mission/campaign path it actually buys — not on routing,
+which does not need it.
+
+**Bearing on a 100 % claim:** the blocker is no longer an unmet gate. It is (i) this
+reconciliation, and (ii) decision 2 above. V2.4's blocker 2 and V2.5's source sentence still
+share the core assumption and are still worth settling once rather than per phase, but neither
+is evidence of a skipped gate.
