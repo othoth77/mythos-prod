@@ -2,6 +2,26 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-23 — MYTHOS HADDAD V2.6: unattended operation, proven on the production label (Opus 5)
+
+**Objective:** prove the unattended loop rather than build one. The loop is the existing bridge
+timer plus the executor daemon — the pair that has run every Haddad task since HAD-3 — so V2.6
+adds evidence, not machinery. `core/campaign-runner.js` stays unwired deliberately: a second
+loop would be the duplicate subsystem this project forbids.
+
+| Gate item | Evidence |
+|---|---|
+| multi-task run, unattended, **zero autonomous merges** | Issues #410/#411 opened on the production `mythos:haddad` label and then left alone — no tick forced, no task nudged. Both claimed by the timer within a second, one ran while the other sat QUEUED, both COMPLETED. Both `investigate` → delivery `report`, so `commit: null`, `git_verified: null`, `main` untouched at `146748ba` |
+| the run survives its own trouble | #411 recorded `retries: 1` — a transient failure it recovered from by itself. That is the part a scripted demo would not produce, and the behaviour the gate is really about |
+| V2.1's role layer is visibly live | both tasks resolved to `researcher`, the role that may not write |
+| every stop-for-human is machine-readable | **16/16** BLOCKED tasks in the LIVE store carry a blocker code: `HUMAN_APPROVAL` 9, `NO_STRUCTURED_REPORT` 5, `ACTION_PROFILE_MISMATCH` 2 |
+| `classify()` never grants | property test over the full table, 136 assertions, **mutation-checked** — one injected `APPROVE` turns 136/0 into 135/3 |
+| governance/destructive denied, run continues | 8 reasons (`merge to main`, `deploy to production`, `DROP TABLE tasks`, `APPROVE`, …) — **0 granted**, `terminal_for_capability: false` |
+| Claude spend per completed task | **0.36 calls/task** across 22 recorded tasks, against a structural bound of ≤1 (L2 diagnosis fires only on the last repair round, no tools, writes nothing) |
+
+Both answers were independently checkable and correct: the profiles `lib/policy.js` defines, with
+`repo-write` as default.
+
 ## 2026-09-23 — MYTHOS HADDAD V2.3: the scheduler half, and the cold boot (Opus 5)
 
 **Objective:** let work that is not inference overlap work that is, on a machine that can only
