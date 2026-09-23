@@ -276,9 +276,15 @@ the bearer by reference, health measures 401 + bind + list equality; live bridge
 port; setup dry run in a throwaway `$HOME` incl. a widened env file refused and both PENDING
 paths of `--serve` with stubbed `systemctl`/`tailscale`) · `gateway-boundary` 37/0 · `othk-6`
 58/0 · `mcp-ecosystem` 168/0 · telemetry 168/0 · runtime 36/0 · ingest 154/0 · v0 8/0.
-The live enablement on Haddad and its measurements are recorded in `docs/AI_HANDOVER.md`
-(entry of 2026-09-23, HAD-3b) — MERGED ≠ RUNNING, so they are written only after the live
-checkout carries this stage.
+**Live on Haddad (2026-09-23 15:13 UTC, unit from the worktree, every check from a separate
+process):** bound `127.0.0.1:8160` only (`100.78.7.10:8160` refused) · no/wrong bearer and
+`GET /mcp` → 401 · `/admin`, `/tasks` → 404 · 9 tools = stdio list · `execution_status`,
+`haddad_health`, `budget_status`, `system_health` answered through the bridge · bearer in 0
+journal lines · worker, GPU (`Vulkan0`, 27/29 layers) and telemetry (202 ONLINE) unchanged ·
+this branch's health **PASS 17/17**. `--serve` → PENDING (`CertDomains: null`). The scheduled
+timer, running **main's pre-stage** health, then FAILed on the listener exactly as designed, so
+the unit is **installed but disabled** until the live checkout carries this stage — the finish
+order is in `docs/AI_HANDOVER.md` (HAD-3b entry).
 
 **Limits, stated:** the URL is under the tailnet's MagicDNS domain, not `mythosprod.xyz` —
 carrying it there would need the VPS on the tailnet or a Haddad→VPS tunnel, both new credentials
