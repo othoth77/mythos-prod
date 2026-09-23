@@ -828,8 +828,21 @@ wrong, and it was wrong for the reason this document keeps warning about:** the 
 this file and `STATUS.md` and concluded from their silence. V2.2's re-scope is recorded — in
 its own phase document, with measurements — and the original claim is withdrawn.
 
-`docs/DELEGATION.md` §"Two corrections to the V2 master plan §11", repeated verbatim in the
-header of `bridge/provider-selection.js`:
+Two records, and they are not copies of each other — cited separately so each can be found:
+
+- `docs/DELEGATION.md` line 70, under the heading
+  **"Two corrections to the master plan, both measured"** — kept on one line so the phrase is
+  greppable. This is the fuller record: it names the `MISSION_KINDS` entries and the
+  `quota_state` mechanism.
+- `projects/mythos-ai-executor/bridge/provider-selection.js`, module header, **lines 33-44**.
+  A condensed restatement of the same two corrections, not the same prose — it says "the HTTP
+  goal API" where the document enumerates the two mission kinds.
+
+An earlier revision of this section cited a heading that does not exist ("Two corrections to
+the V2 master plan §11" — that wording is the source comment's, not the document's) and called
+the two copies verbatim. Corrected here rather than left, because a section whose whole subject
+is *an audit that concluded from not finding something* cannot itself carry a citation that
+cannot be found. Quoted below from the document:
 
 > **1. Routing does not require `MYTHOS_CORE_ENABLED=true`.** Measured: `provider-router.js`,
 > `agent-registry.js`, `reputation.js` and `validation.js` contain **zero** `coreEnabled()`
