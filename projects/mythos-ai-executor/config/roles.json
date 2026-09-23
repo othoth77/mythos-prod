@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0.0",
+  "note": "MYTHOS HADDAD V2.1 — the AI-team role table. A role is CONFIG over the existing vocabulary, not a runtime: it names the closed bridge action it serves (the execution profile and the delivery are derived from that action by bridge/action-resolution.js and are NOT restated here), the core task_type it maps to, the capabilities an agent must advertise to take it, the runtime skill category injected into the prompt (lib/skills.js — an existing, trust-attested pack; no new skill file), and a one-line brief the Haddad tool runner adds to its system prompt. Exactly one role per action is the DEFAULT (no `match`); a role with `match` is chosen for that action only when the case-insensitive pattern matches the task instruction, tried in file order. A role grants nothing: the profile, the tool grant and the sandbox come from the action, and nothing in an Issue can name a role. Validated fail-closed by lib/roles.js — a malformed table darkens the whole role layer and every task falls back to pre-V2 behaviour.",
+  "roles": {
+    "coder": {
+      "action": "implement",
+      "task_type": "coding",
+      "capabilities_required": ["coding", "repo_modification"],
+      "skill_category": "general",
+      "brief": "Your role is CODER: read the files the task names, make the smallest change that satisfies the objective, run the declared checks once, and report what you changed."
+    },
+    "debugger": {
+      "action": "implement",
+      "task_type": "coding",
+      "capabilities_required": ["debugging", "repo_modification"],
+      "skill_category": "general",
+      "match": "\\b(bug|debug|failing|fails|broken|regression|crash|root cause)\\b",
+      "brief": "Your role is DEBUGGER: reproduce the failure with the declared check first, find the root cause in the code under test (never in the test), fix that cause, and state the diagnosis in your report."
+    },
+    "documenter": {
+      "action": "document",
+      "task_type": "documentation",
+      "capabilities_required": ["documentation", "repo_modification"],
+      "skill_category": "general",
+      "brief": "Your role is DOCUMENTER: change only documentation files the task names, keep every claim tied to something you read in the repository, and never edit code."
+    },
+    "tester": {
+      "action": "test",
+      "task_type": "testing",
+      "capabilities_required": ["testing", "repo_inspection"],
+      "skill_category": "testing",
+      "brief": "Your role is TESTER: run the declared tests with run_command and report the exact exit code and output you saw. A failing test is your result, not a blocker: report it and stop. You change and fix nothing."
+    },
+    "reviewer": {
+      "action": "review",
+      "task_type": "review",
+      "capabilities_required": ["review", "repo_inspection"],
+      "skill_category": "github-review",
+      "brief": "Your role is REVIEWER: read the files under review, list concrete findings with file paths and line references, and end with a verdict (approve or request changes). You change nothing."
+    },
+    "researcher": {
+      "action": "investigate",
+      "task_type": "research",
+      "capabilities_required": ["research", "repo_inspection"],
+      "skill_category": "general",
+      "brief": "Your role is RESEARCHER: answer from the repository files only (there is no network), cite each file you relied on, and mark anything you could not verify as unverified. You change nothing."
+    }
+  }
+}

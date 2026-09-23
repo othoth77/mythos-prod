@@ -235,6 +235,20 @@
       ],
       "maxLength": 200
     },
+    "role": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 40
+    },
+    "role_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
     "mcp_capabilities": {
       "type": "array",
       "items": {

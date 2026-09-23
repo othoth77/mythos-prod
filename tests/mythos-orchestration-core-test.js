@@ -26,6 +26,12 @@ var EXEC = path.join(BASE, 'projects', 'mythos-ai-executor');
 var FIXTURES = path.join(os.homedir(), 'mythos-core-test-' + process.pid);
 fs.mkdirSync(FIXTURES, { recursive: true });
 process.env.MYTHOS_EXECUTOR_HOME = path.join(FIXTURES, 'home');
+// V2.1: the local Haddad worker is a registered agent whose availability is
+// PROBED (enable marker + key + runtime). On the Haddad host itself that
+// probe answers true, which would make this suite's agent counts depend on
+// the machine it runs on. Pin it off, exactly as the other providers are
+// pinned off above/below: the suite injects what it wants to be available.
+process.env.HADDAD_AGENT_ENABLE_FILE = path.join(FIXTURES, 'no-haddad-agent.enabled');
 
 var domain = require(path.join(EXEC, 'core', 'domain'));
 var store = require(path.join(EXEC, 'core', 'store'));

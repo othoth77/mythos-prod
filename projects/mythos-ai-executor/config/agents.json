@@ -48,5 +48,18 @@
     "latency": { "class": "unknown" },
     "enabled": true,
     "note": "Meta-agent over free-llm/catalog.json — selects and auto-falls-back across free-tier LLM services discovered from raullenchai/free-llm-api-resources. Reports unavailable until an operator creates a credential file under ~/.config/mythos-ai-executor/free-llm/<provider>.env for at least one wired provider (see free-llm/README.md) — none is invented, and no key from the upstream list is ever used."
+  },
+  "haddad-qwen": {
+    "provider": "haddad-agent",
+    "capabilities": ["coding", "debugging", "testing", "repo_modification", "repo_inspection", "analysis", "research", "documentation", "review"],
+    "task_types": ["coding", "testing", "integration", "review", "analysis", "research", "inspection", "documentation"],
+    "model": null,
+    "execution_authority": true,
+    "review_scope": ["standard"],
+    "risk_level": "medium",
+    "cost": { "tier": "local" },
+    "latency": { "class": "slow" },
+    "enabled": true,
+    "note": "MYTHOS HADDAD V2.1: the local Qwen worker (providers/haddad-agent.js \u2014 tools in a per-command bwrap sandbox, mechanical validation, bounded repair). Availability is PROBED: the provider's enable marker + runtime key must exist AND the local llama-server must answer /health, so on the VPS \u2014 no marker, no runtime \u2014 it is unavailable and can never be selected. review_scope is deliberately [\"standard\"] only: core/validation.js refuses it as the reviewer of any sensitive (commit-producing) change. cost tier \"local\" ranks with \"free\" in the registry's ordering."
   }
 }

@@ -66,6 +66,47 @@ notification channel, a UI framework.
   VPS can reach Haddad to poll. Inverting the direction was the only design that needed no
   new access at all.
 
+## Reuse outcome — V2.1 AI team foundation (2026-09-22)
+
+The second of the eight wiring items delivered, and it confirms the position
+above a second time: the gap was a **connection**, not a subsystem.
+
+**Reused unmodified:** `core/provider-router.js` and `config/router.json` ·
+`core/validation.js` (review scope, reviewer-is-not-author, sensitivity) ·
+`lib/policy.js` (the three execution profiles and their tool grants) ·
+`bridge/action-resolution.js` (the closed action set and its profile/delivery
+tables) · `lib/skills.js`, `config/skills.json` and the `config/skill-trust.json`
+ledger · `lib/work-validation.js` · `lib/state.js` · the executor's retry,
+fencing and delivery paths.
+
+**Adapted, each named:** `core/agent-registry.js` gained one probe branch and
+`local` in its existing cost-rank table · `executor.js` derives the role and
+keeps the provider's measured evidence in `report.json` ·
+`providers/haddad-agent.js` gained the role brief, the registry probe and
+context-window accounting.
+
+**Added — and this is the whole of it:** one entry in `config/agents.json`,
+one `config/roles.json`, and `lib/roles.js` (validation + pure resolution).
+
+**Refused, by name:** a second registry, router, scheduler, queue, DAG, state
+machine, retry engine, validation or review engine, skill system, knowledge
+store, memory, provider catalog, permission dictionary and action→profile
+table. Asserted structurally, not just claimed: `tests/mythos-haddad-ai-team-test.js`
+H1–H8 read `lib/roles.js` and fail if it acquires a dependency beyond `fs`,
+`path` and the existing action table, declares a profile table, starts a
+process, timer or listener, or if a role entry carries a privilege-shaped
+field.
+
+**One reuse decision worth recording:** no new skill file was written, even
+though a `debugging` and a `research` pack were the obvious thing to add. The
+trust ledger binds an attestation to the exact bytes scanned by NVIDIA
+SkillSpector, Gitleaks and NVIDIA SkillEvaluator, and none of those is
+installed on Haddad — so a new pack would load as UNTRUSTED and be silently
+dropped from every prompt. The debugger and researcher roles therefore run
+under the attested `generic` pack plus their one-line brief. A skill the
+ledger has not seen is not a skill this system will use, and adding one
+without a scan would have been a change that looked complete and was not.
+
 ## What to read next
 
 1. **This file** — quick architecture/reuse position.

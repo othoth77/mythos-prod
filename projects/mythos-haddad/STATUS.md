@@ -158,6 +158,30 @@ Found by review on the real host **before any beat was sent**, and fixed: the ag
 lives in `worker.env`. The effect was not an error — the task view was silently empty and
 rendered exactly like a healthy idle node. See TELEMETRY.md §10.
 
+## MYTHOS HADDAD V2.1 — AI TEAM FOUNDATION
+
+**V2.1 (AI TEAM FOUNDATION): <!--V21-VERDICT-->.** V1 shipped an AI *worker* — one local
+model, one task at a time, supervised by code. V2.1 makes that worker a member of a team the
+existing orchestration core can see, and gives it roles. It is a CONNECT stage: the agent
+registry, provider router, review policy, execution profiles, action→profile table, skill
+registry and trust ledger all already existed and are reused. Full record, including every
+finding from the live runs: [docs/AI_TEAM.md](docs/AI_TEAM.md).
+
+| V2.1 item | State | Evidence |
+|---|---|---|
+| `haddad-qwen` in the agent registry | DONE | `config/agents.json` +13 lines; availability **probed** (enable marker + runtime key + llama-server answering `/health`), so on the VPS it is unavailable and unselectable |
+| Selected by capability, not hardcoded | DONE | live on this host: `selectCandidates` returns it ahead of `claude-code` for coding and testing on the registry's own risk-then-cost order; `provider-router.route()` routes to it with `authority: true` |
+| Refused as reviewer of sensitive work | DONE | live: `reviewer_not_trusted_for_sensitive`, `haddad-qwen` named in the refusal; the existing `core/validation.js` does it, unmodified |
+| Six roles, config not code | DONE | `config/roles.json` + `lib/roles.js`; the execution profile is **derived** from the action and a role that names one is refused |
+| Role selects the trust-attested skill pack | DONE | tester → `testing`, reviewer → `github-review`, rest → `generic`, each `ACCEPT` in the ledger. No new skill file: none could be attested on this host |
+| Read-only roles cannot write | DONE | `repo-read`/`repo-test` grant no `write_file`, so the tool is absent from the model's vocabulary; measured as zero workspace writes in the live runs |
+| Context window accounted for | DONE | prompt budget 6,272 of 8,192, per-call payload cap, oldest-first exchange compaction, `HADDAD_AGENT_CONTEXT_EXHAUSTED` — after a live run died on a 9,710-token request |
+| A failed run carries its evidence | DONE | `report.json` gained `evidence` (validator verdicts, tool trace with refusals, repair and compaction counts), written on the failure path too |
+| Six real Qwen E2Es | **DONE** — all six COMPLETED, validator PASS, three delivered commits, three wrote nothing | `bin/haddad-role-e2e.js`, real runtime, isolated executor home, one git worktree per role |
+| No duplicate subsystem | DONE | asserted structurally (ai-team H1–H8), not claimed |
+| Security boundary | RE-PROBED | tool-runner 64/0 on the final tree: real `sandboxArgv`, real `bwrap`, U1/U2/U2b/U3 and the escape probes |
+
+
 ## Next action
 
 **Restart `mythos-haddad-worker.service` once.** It is long-running and still holds pre-merge code;

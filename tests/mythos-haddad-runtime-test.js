@@ -136,7 +136,17 @@ var ALLOWED = [
   'projects/mythos-ai-executor/providers/haddad-agent.js',
   'projects/mythos-ai-executor/lib/work-validation.js',
   'projects/mythos-ai-executor/lib/policy.js',
-  'projects/mythos-ai-executor/free-llm/adapter.js'
+  'projects/mythos-ai-executor/free-llm/adapter.js',
+  // V2.1 (AI team foundation): the stage whose purpose IS to register the
+  // Haddad worker as an agent with roles. The registry entry, its probe, the
+  // role table and the library that validates it — each named, each covered
+  // by tests/mythos-haddad-ai-team-test.js. Everything else under the
+  // protected trees still fails this guard, which is the point of naming
+  // them rather than widening the pattern.
+  'projects/mythos-ai-executor/config/agents.json',
+  'projects/mythos-ai-executor/config/roles.json',
+  'projects/mythos-ai-executor/lib/roles.js',
+  'projects/mythos-ai-executor/core/agent-registry.js'
 ];
 var PROTECTED = /^projects\/mythos-ai-executor\/(core|lib|providers|free-llm|config)\//;
 
@@ -174,10 +184,18 @@ t('the scope guard is scoped to Haddad branches and still bites', function () {
     forbiddenExecutorFiles(['projects/mythos-haddad/docs/GITHUB_WORKER.md',
       'projects/mythos-ai-executor/config/projects.json']), [],
     'the one owner-approved HAD-3 registration stays allow-listed');
+  // The property this pins is per-FILE allow-listing, not per-directory. Its
+  // example used to be config/agents.json; V2.1 allow-listed that file by
+  // name (the agent registration IS that stage), so the example moves to a
+  // config file no stage has named. The property is unchanged.
   assert.deepStrictEqual(
-    forbiddenExecutorFiles(['projects/mythos-haddad/x.md', 'projects/mythos-ai-executor/config/agents.json']),
-    ['projects/mythos-ai-executor/config/agents.json'],
+    forbiddenExecutorFiles(['projects/mythos-haddad/x.md', 'projects/mythos-ai-executor/config/model-policy.json']),
+    ['projects/mythos-ai-executor/config/model-policy.json'],
     'the allow-list is one FILE, not the whole config directory');
+  assert.deepStrictEqual(
+    forbiddenExecutorFiles(['projects/mythos-haddad/x.md', 'projects/mythos-ai-executor/core/scheduler.js']),
+    ['projects/mythos-ai-executor/core/scheduler.js'],
+    'naming one file under core/ did not open core/ — the scheduler is still refused');
 });
 
 t('haddad-health.js gained exactly one new, well-formed check (ai_runtime)', function () {
