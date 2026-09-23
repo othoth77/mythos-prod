@@ -626,12 +626,73 @@ console.log('\u00a712 runtime load facts, parsed from the REAL journal lines');
   ok(/ActiveEnterTimestamp/.test(src) && /'--since'/.test(src),
     'the journal is read from the unit\'s own start, not a fixed tail');
   ok(!/'-n', '600'/.test(src), 'the arbitrary 600-line tail is gone');
-  ok(/gotSomething/.test(src), 'an all-null result is never cached — a transient miss must not stick');
+  ok(/loadSettled/.test(src), 'only a SETTLED load is cached — a mid-load read must not stick (renamed from gotSomething, which cached on any populated field)');
 
   // The published field name must keep meaning what it says.
   const clean = nodeState.sanitize({ runtime: { vram_model_mib: 3884, vram_projected_mib: 4920 } });
   eq(clean.runtime.vram_model_mib, 3884, 'vram_model_mib survives the allow-list');
   eq(clean.runtime.vram_projected_mib, 4920, 'vram_projected_mib survives the allow-list');
+}
+
+console.log('\u00a714 a mid-load read is never cached (cold boot 2026-09-23)');
+{
+  // The cache is keyed on the runtime INSTANCE, so anything written while the
+  // model is still loading sticks until the next restart. On the 2026-09-23
+  // cold boot the telemetry timer read the journal 37 s before the offload
+  // line was printed, cached gpu_layers: null, and the scheduled health check
+  // then reported "GPU offload is NOT VERIFIED" for the life of a runtime
+  // that had 27/29 layers on the card. These are the real lines, in order.
+  const cp2 = require('child_process');
+  const stub = fs.mkdtempSync(path.join(os.tmpdir(), 'tel-settle-'));
+  fs.mkdirSync(path.join(stub, 'bin'), { recursive: true });
+
+  const MID_LOAD = [
+    '2026-09-23T07:04:38+00:00 haddad llama-server[2687]: llama_params_fit_impl: projected to use 4920 MiB of device memory vs. 5755 MiB of free device memory',
+    '2026-09-23T07:04:39+00:00 haddad llama-server[2687]: llama_model_load_from_file_impl: using device Vulkan0 (NVIDIA GeForce GTX 1660 SUPER (NVK TU116)) (0000:29:00.0) - 5755 MiB free',
+    '2026-09-23T07:04:40+00:00 haddad llama-server[2687]: llama_context: n_ctx = 8192'
+  ].join('\n');
+  const SETTLED = MID_LOAD + '\n' +
+    '2026-09-23T07:05:15+00:00 haddad llama-server[2687]: load_tensors: offloaded 27/29 layers to GPU\n' +
+    '2026-09-23T07:05:15+00:00 haddad llama-server[2687]: load_tensors:      Vulkan0 model buffer size =  3883.68 MiB';
+
+  function factsFor(journal, stateDir) {
+    fs.writeFileSync(path.join(stub, 'bin', 'journalctl'),
+      '#!/bin/sh\ncat <<\'JEOF\'\n' + journal + '\nJEOF\nexit 0\n', { mode: 0o755 });
+    const r = cp2.spawnSync(process.execPath, ['-e',
+      'var a = require(process.argv[1]);' +
+      'process.stdout.write(JSON.stringify(a.runtimeLoadFacts(process.argv[2], process.argv[3])));',
+      AGENT_PATH, 'Wed 2026-09-23 07:04:36 UTC', 'd4473185c6464bfbaf451dc403c06166'],
+      { encoding: 'utf8', timeout: 30000,
+        env: Object.assign({}, process.env, { PATH: path.join(stub, 'bin') + ':/usr/bin:/bin', HADDAD_STATE_DIR: stateDir }) });
+    ok(r.status === 0, 'probe ran: ' + (r.stderr || '').slice(0, 120));
+    return JSON.parse(r.stdout);
+  }
+
+  const state = path.join(stub, 'state');
+  const mid = factsFor(MID_LOAD, state);
+  eq(mid.gpu_layers, null, 'mid-load: the offload line has not been printed yet');
+  eq(mid.vram_projected_mib, 4920, 'and the projected estimate IS already there — the old cache trigger');
+  eq(mid.context, 8192, 'as is the context');
+  ok(!fs.existsSync(path.join(state, 'telemetry-cursor.json')),
+    'an UNSETTLED load must not be cached, however many of its fields are populated');
+
+  // Same instance, journal now carrying the offload line: the reader must see
+  // it rather than be served the earlier null from disk.
+  const after = factsFor(SETTLED, state);
+  eq(after.gpu_layers, 27, 'once the load settles the real layer count is read, not the cached null');
+  eq(after.gpu_layers_total, 29, 'and its total');
+  eq(after.vram_model_mib, 3884, 'and the Vulkan model buffer that came with it');
+  ok(fs.existsSync(path.join(state, 'telemetry-cursor.json')), 'and THAT result is cached');
+
+  // A no-device load is the other terminal state and is cacheable too — it is
+  // a real answer, not an absence of one.
+  const cpuState = path.join(stub, 'state-cpu');
+  const cpu = factsFor('2026-09-23T07:04:38+00:00 haddad llama-server[1]: ggml_vulkan: No devices found.\n' +
+    '2026-09-23T07:04:40+00:00 haddad llama-server[1]: llama_context: n_ctx = 8192', cpuState);
+  eq(cpu.no_devices, true, 'the runtime said it found no device');
+  ok(fs.existsSync(path.join(cpuState, 'telemetry-cursor.json')), 'a settled no-device load IS cached');
+
+  fs.rmSync(stub, { recursive: true, force: true });
 }
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');

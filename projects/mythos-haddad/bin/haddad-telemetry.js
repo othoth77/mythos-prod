@@ -258,14 +258,34 @@ function runtimeLoadFacts(activeSince, invocationId) {
     if (facts.gpu_layers !== null && facts.vram_model_mib !== null && facts.vram_projected_mib !== null &&
         facts.context !== null && facts.last_ready !== null) break;
   }
-  // NEVER cache an all-null result. Caching is keyed on the runtime's start
-  // time, so one transient miss would stick until the runtime next restarts
-  // and the page would show N/A for metrics that exist — the same lie as
-  // inventing a value, in the other direction.
-  var gotSomething = facts.gpu_layers !== null || facts.vram_model_mib !== null ||
-    facts.vram_projected_mib !== null || facts.context !== null || facts.last_ready !== null ||
-    facts.no_devices !== null;
-  if (activeSince && gotSomething) {
+  // NEVER cache a result the load had not yet SETTLED, and "some field is
+  // non-null" is not settled. The cache is keyed on the instance, so anything
+  // written here sticks until the runtime next restarts.
+  //
+  // Measured on the cold boot of 2026-09-23, which is what found this. The
+  // runtime logs its facts over ~37 s:
+  //     07:04:38  llama_params_fit_impl: projected to use 4920 MiB
+  //     07:04:39  using device Vulkan0 (... NVK TU116)
+  //     07:05:15  load_tensors: offloaded 27/29 layers to GPU
+  // The telemetry timer fires every 60 s, so it read the journal inside that
+  // window, found `vram_projected_mib` and `context` — enough for the old
+  // "got something" test — and cached gpu_layers: null against an instance
+  // that was seconds away from offloading 27 layers. Every later reader got
+  // the null from disk without re-reading the journal, and the scheduled
+  // health check reported "GPU offload is NOT VERIFIED" for the life of a
+  // runtime that was running entirely on the GPU: RESULT WARN (pass 15,
+  // warn 1, fail 0), with `offloaded 27/29 layers to GPU` sitting in the
+  // journal the whole time.
+  //
+  // So the condition is the LOAD'S OWN terminal state, not field population:
+  // it offloaded (we know how many layers) or it found no device. Those are
+  // the only two answers to the question the cache exists to remember. A
+  // mid-load read is now simply not cached — the next reader re-reads a
+  // journal that by then has the answer. That costs one extra journal read
+  // on a runtime still loading, which is the cheapest possible price for
+  // never pinning a wrong answer for the life of an instance.
+  var loadSettled = facts.gpu_layers !== null || facts.no_devices === true;
+  if (activeSince && loadSettled) {
     try {
       fs.mkdirSync(STATE_DIR, { recursive: true });
       fs.writeFileSync(CURSOR_FILE, JSON.stringify({ runtime_active_since: activeSince,
