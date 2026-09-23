@@ -199,5 +199,54 @@ console.log('§7 Allowlist holds against a widened service');
 }
 
 console.log('');
+console.log('§8 V2.4 decision (a) — a host without the canonical store materialises NOTHING');
+{
+  // THE DECISION THIS PINS (owner, 2026-09-23): the canonical OTHKM store
+  // stays on the VPS and no host creates a local duplicate. On a host that
+  // cannot reach it the layer is fail-closed and inert.
+  //
+  // Fail-closed was already covered above, and the store's own write path
+  // mkdir -p's its root (projects/oth-knowledge/lib/store.js, _appendLine).
+  // What was NOT covered anywhere is the consequence that makes the decision
+  // enforceable rather than merely stated: that asking this boundary about a
+  // store which is not there leaves the filesystem exactly as it found it.
+  // Without this, a future convenience — "create it if missing" — would pass
+  // every existing test in this suite.
+  const parent = tmpRoot();
+  const absent = path.join(parent, 'othk-store-that-must-never-appear');
+
+  const first = knowledge.openKnowledge({ config: cfg({ enabled: true, store_root: absent }) });
+  ok(first.enabled === false, 'an unreachable store_root opens disabled');
+  ok(/does not exist/.test(first.reason || ''), 'and says so, naming the condition: ' + first.reason);
+  ok(!fs.existsSync(absent), 'THE DECISION: opening an absent store did not create it');
+
+  // Idempotent under repetition — a per-tick caller must not accumulate a
+  // store one retry at a time.
+  for (let i = 0; i < 5; i++) knowledge.openKnowledge({ config: cfg({ enabled: true, store_root: absent }) });
+  ok(!fs.existsSync(absent), 'five further opens still created nothing');
+  ok(fs.readdirSync(parent).length === 0, 'and nothing was created beside it either');
+
+  // A disabled layer is the other half of (a): Haddad may end up here if the
+  // config is ever turned off, and it must be equally inert.
+  const off = knowledge.openKnowledge({ config: cfg({ enabled: false, store_root: null }) });
+  ok(off.enabled === false, 'a disabled layer opens disabled');
+  ok(fs.readdirSync(parent).length === 0, 'and creates nothing anywhere');
+
+  // The boundary must own no way to create a store. This is a source
+  // assertion on purpose: the behavioural checks above prove today's code is
+  // inert, and this one fails the day somebody adds the mechanism, which is
+  // when the decision would actually be lost.
+  const src = fs.readFileSync(path.join(__dirname, '..', 'projects', 'mythos-ai-executor', 'lib', 'knowledge.js'), 'utf8');
+  ok(!/mkdir/.test(src), 'the read boundary contains no mkdir');
+  ok(!/writeFile|appendFile|rmSync|unlink/.test(src), 'and no write, append or delete call');
+  // No second way to name a store root: an env override would let a host
+  // acquire one without the config edit that decision (a) makes visible.
+  ok(!/process\.env\.[A-Z_]*STORE|process\.env\.[A-Z_]*KNOWLEDGE/.test(src),
+    'and no environment override of the store root — the config is the only way to name one');
+
+  fs.rmSync(parent, { recursive: true, force: true });
+}
+
+console.log('');
 console.log('othk-2w: ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

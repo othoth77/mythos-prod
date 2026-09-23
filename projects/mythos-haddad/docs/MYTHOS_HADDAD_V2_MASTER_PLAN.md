@@ -449,7 +449,10 @@ concurrently — with measured VRAM/RAM staying inside the envelope.
 
 ### V2.4 — OTHKM INTEGRATION
 
-**ENTRY:** V2.3 exit checked **and HAD-1 store provisioned** (parallel track, started at V2.1).
+**ENTRY:** V2.3 exit checked. ~~and HAD-1 store provisioned~~ — **superseded by the owner's
+decision (a) of 2026-09-23** (§23): the canonical store stays on the VPS and Haddad provisions
+nothing, so HAD-1 is not a precondition for this stage on this host. See
+[`docs/KNOWLEDGE.md`](KNOWLEDGE.md).
 
 **IMPLEMENTATION**
 - **Before task:** `core/context.js` assembles context; `lib/knowledge.js` retrieves with
@@ -485,11 +488,23 @@ history; Qwen's prompt with context still fits 8192.
 > tests (`docs/KNOWLEDGE.md`, `othk-2w` §8), not here.
 
 - [ ] OTHKM read path live on Haddad with provenance and explicit `asOf`
+      — **RE-SCOPED BY THE OWNER.** The boundary is present, correct and inert on this host;
+      live retrieval here is out of scope by decision, not unbuilt.
 - [ ] memory written **only** from validated outcomes
+      — **N/A on Haddad**: nothing is written here, because there is nothing to write to.
+      The guarantee stands where the store lives.
 - [ ] secret-shaped content refused (test, not assertion)
+      — held, and independent of this host.
 - [ ] context assembly provably within the 8192-token budget
-- [ ] measurable improvement on a repeat-task benchmark, or the stage is re-scoped honestly
+      — **held by a different mechanism than this item names**: `core/context.js` is
+      unreachable with core off; the 8192-token window is protected by the provider's
+      `PROMPT_BUDGET_TOKENS` (V2.1, measured).
+- [ ] measurable improvement on a repeat-task benchmark, **or the stage is re-scoped honestly**
+      — **satisfied by the re-scope**, which is the branch this item already allowed for.
 - [ ] STD-1, STD-2, STD-3
+      — STD-2 is the interesting one here: this phase's deliverable is a **refusal** to build
+      a second store. Kept by test, not by prose: othk-2w §8 (42→52) and the Haddad runtime
+      suite (34→36), both mutation-checked.
 
 ---
 
@@ -681,7 +696,13 @@ stale row that misleads is worse than no row.
 | Delegation/routing | — | **BUILD** | use | use | show | use | — |
 | Parallelism | 1 | 1 | **MEASURE→1–2** | use | show | use | multi-host |
 | GPU resource signal | — | — | **BUILD** | use | show | use | — |
-| OTHKM | — | — | — | **INTEGRATE** | show | use | bidirectional |
+| OTHKM | — | — | — | **INTEGRATE** ‡ | show | use | bidirectional |
+
+‡ **On Haddad this reads NO-OP, by the owner's decision (a) of 2026-09-23** (§23,
+[`docs/KNOWLEDGE.md`](KNOWLEDGE.md)): the canonical store stays on the VPS, this host
+creates no duplicate, and an unreachable store is fail-closed. "INTEGRATE" describes the
+estate, not this node.
+
 | Reputation feedback | — | **START** | use | use | show | use | — |
 | Console | — | — | — | — | **BUILD** | use | history/fleet |
 | Autonomous loop | — | — | — | — | — | **BUILD** | self-directed |
@@ -746,7 +767,7 @@ protocols; Browser Use, Jev, Herdr, delegate-skills, Kimi.
 | No cgroup limit on the sandbox | bwrap is the boundary; cgroup is depth | V2.3 with GPU signal |
 | Daemon has no systemd mount namespace | owner-approved; bwrap replaces it | keep; re-assert each gate |
 | PR #363 (report recovery), #332 (scope doc) open | not in V1 merge set | owner decision |
-| OTHKM knowledge tools UNCONFIGURED on Haddad | **RESOLVED 2026-09-23 — owner decision (a):** one canonical store on the VPS, no duplicate on Haddad. Closed state is now explicit (health check `knowledge`), not silent. | closed |
+| OTHKM knowledge tools UNCONFIGURED on Haddad | **RESOLVED 2026-09-23 — owner decision (a):** one canonical store on the VPS, no duplicate on Haddad. Closed state is now explicit (health check `knowledge`), not silent. Phase record: [`docs/KNOWLEDGE.md`](KNOWLEDGE.md). | closed |
 | `lib/knowledge.js` is required by no executor code on ANY host | found by the V2.4 audit; decision (a) settles where the store lives, not whether anything reads it | V3 |
 | `core/context.js` / `core/memory.js` reachable only via `core/orchestrator.js` | core stays `false` by ratified decision; the mission/campaign path is the thing that would justify turning it on | V3 |
 
@@ -777,9 +798,34 @@ the consequence intended: *"On any host where this path does not exist the layer
 fail-closed — a disabled layer is a normal, reportable state."* Measured on Haddad:
 `openKnowledge()` → `{ enabled: false, reason: "store_root does not exist" }`. Fail-closed works.
 
-### The owner decision, stated as a decision
+### RATIFIED 2026-09-23 — the owner chose (a)
 
-Whether Haddad gets its own knowledge store is an OWNER call about where private knowledge
+> **The canonical OTHKM store stays on the VPS. Haddad creates no local duplicate. Where the
+> canonical store is unreachable from Haddad, the behaviour is fail-closed / no-op, explicitly
+> and documented.**
+
+So V2.4 on this host is a **deliberate no-op with a correct, inert boundary** — the branch this
+stage's own exit gate already allowed for ("or the stage is re-scoped honestly"), taken by the
+owner rather than by an implementer. Full record, gate item by item, in
+[`docs/KNOWLEDGE.md`](KNOWLEDGE.md).
+
+**Why it costs nothing to implement: the correct behaviour was already the shipped behaviour.**
+What the decision changed is that it is now *kept* rather than merely true — othk-2w §8 pins
+that opening an absent store leaves the filesystem untouched and that the boundary owns no
+`mkdir`, write call or environment override; the Haddad runtime suite pins that `store_root`
+stays the canonical VPS path and that exactly one `knowledge.json` exists. Both mutation-checked
+(a "helpful" create fails 8, an env override 1, a repointed config 1, a second config 1).
+
+**Verified on the host, 2026-09-23:** no `othk*` directory anywhere under `/home/othman`,
+`/opt`, `/srv` or `/var/lib`; no Haddad unit, timer or script references `oth-knowledge`; the
+only service is `oth-knowledge-http.service`, owned by `deploy` on the VPS.
+
+**Blockers 1 and 2 above are unchanged by this decision** — they were never about where the
+store lives. They are not V2.4 defects and are not reopened here.
+
+### The decision as it was put (retained for the record)
+
+Whether Haddad gets its own knowledge store was an OWNER call about where private knowledge
 lives, not an implementation detail:
 
 - **(a) Fail-closed is the design.** One canonical store on the VPS; Haddad retrieves nothing and
@@ -873,10 +919,12 @@ file the MCP tool reads, under the same pinned schema — and have been since Tr
 
 **Question:** may the sentence be corrected to name the sources production actually uses?
 
-### 2. V2.4's knowledge store — (a) or (b)
+### 2. V2.4's knowledge store — **ANSWERED 2026-09-23: (a)**
 
-Stated in full in §23. Unchanged: blockers 1 and 2 survive either answer, so provisioning a
-store does not by itself unblock V2.4.
+The canonical store stays on the VPS; Haddad creates no local duplicate; unreachable is
+fail-closed and documented. Recorded in §23 and [`docs/KNOWLEDGE.md`](KNOWLEDGE.md), and kept by
+test rather than by prose. Blockers 1 and 2 of §23 are unchanged by it — they were never about
+where the store lives — and are not V2.4 defects.
 
 ### 3. Core — the plan text is stale; the decision itself was recorded
 
