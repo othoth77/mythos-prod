@@ -379,6 +379,59 @@ check('mcp', function () {
   add('mcp', 'PASS', rep.server + ' (protocol ' + rep.protocol + ') over stdio, ' + rep.tools.length + ' tools, execution_status answered from the Haddad executor, no listener', rep);
 });
 
+// ---------- V2.4: the OTH Knowledge read boundary ----------
+// config/knowledge.json says, in its own description, that on a host where
+// store_root does not exist "the layer disables itself fail-closed — a
+// disabled layer is a normal, reportable state". It was neither reported nor
+// reportable: nothing on this node named the knowledge layer at all, so
+// "Haddad retrieves no knowledge" was true, intended, and invisible. This
+// check makes it reportable. It adds no mechanism — it asks the existing
+// consumption boundary (projects/mythos-ai-executor/lib/knowledge.js) the two
+// questions it already answers, and prints them.
+//
+// STATUS, deliberately: a layer that is off BY DESIGN is a PASS, not a WARN.
+// A permanent yellow for an architectural decision is a false alarm, and a
+// check that cries wolf on a correct configuration is one people stop
+// reading — which is the failure mode this suite spent 2026-09-22/23 removing.
+// What is NOT normal is a config this host cannot honour: a malformed table
+// darkens the layer for a bad reason and that is a FAIL.
+check('knowledge', function () {
+  var lib = path.resolve(__dirname, '..', '..', 'mythos-ai-executor', 'lib', 'knowledge.js');
+  if (!fs.existsSync(lib)) return add('knowledge', 'WARN', 'executor knowledge boundary not present at ' + lib);
+  var knowledge;
+  try { knowledge = require(lib); }
+  catch (e) { return add('knowledge', 'FAIL', 'knowledge boundary failed to load: ' + firstLine(e.message)); }
+
+  // Injectable for the same reason HADDAD_DRI_DIR is: which of the four
+  // states this host is in depends on a file outside this repo's control, and
+  // all four have to be drivable by a test. Unset in production, where the
+  // boundary's own default config path is used.
+  var cfgPath = process.env.HADDAD_KNOWLEDGE_CONFIG || null;
+  var cfg = knowledge.loadConfig(cfgPath);
+  if (!cfg.valid) {
+    // Not "no knowledge" but "we cannot tell what was asked for" — the layer
+    // is dark because its config is broken, which is a defect to fix.
+    return add('knowledge', 'FAIL', 'config invalid, layer dark: ' + cfg.reason,
+      { valid: false, configured: false, available: false, reason: cfg.reason });
+  }
+  if (!cfg.enabled) {
+    return add('knowledge', 'PASS', 'disabled by configuration — this host retrieves no OTH Knowledge, by design',
+      { valid: true, configured: false, available: false, store_root: null, reason: 'disabled in config' });
+  }
+
+  var open = knowledge.openKnowledge(cfgPath ? { configPath: cfgPath } : undefined);
+  if (!open.enabled) {
+    // The config asks for a store this host does not have. Fail-closed is the
+    // documented behaviour and is safe, so this is not an alarm — but the gap
+    // is named, with the path, so nobody has to discover it from an empty
+    // answer later. This is the live V2.4 state on Haddad.
+    return add('knowledge', 'PASS', 'fail-closed: ' + open.reason + ' — configured store is unreachable from this host, so no knowledge is retrieved',
+      { valid: true, configured: true, available: false, store_root: cfg.store_root, reason: open.reason });
+  }
+  add('knowledge', 'PASS', 'read boundary open on ' + cfg.store_root + ', ' + (knowledge.READ_OPS || []).length + ' read-only operations',
+    { valid: true, configured: true, available: true, store_root: cfg.store_root, read_ops: (knowledge.READ_OPS || []).length });
+});
+
 check('logs', function () {
   fs.mkdirSync(LOG_DIR, { recursive: true });
   fs.accessSync(LOG_DIR, fs.constants.W_OK);

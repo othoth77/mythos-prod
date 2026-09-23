@@ -431,6 +431,79 @@ t('the runtime unit declares a startup budget above the MEASURED cold start', fu
   assert.ok(parseInt(m[1], 10) >= 208, 'budget must exceed the 208 s cold start that produced the false FAIL');
 });
 
+// ── V2.4: the knowledge layer is reportable, not merely off ────────
+// config/knowledge.json promises that a host without the store "disables
+// itself fail-closed — a disabled layer is a normal, reportable state". It
+// was normal and it was NOT reportable: nothing on the node named the layer,
+// so "Haddad retrieves no knowledge" was invisible. These drive all four
+// states through the real check.
+function runKnowledge(config) {
+  var tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'haddad-know-'));
+  var cfgPath = path.join(tmp, 'knowledge.json');
+  fs.writeFileSync(cfgPath, typeof config === 'string' ? config : JSON.stringify(config));
+  var r = cp.spawnSync(process.execPath, [path.join(BIN, 'haddad-health.js'), '--quick', '--json', '--no-log'],
+    { encoding: 'utf8', timeout: 180000,
+      env: Object.assign({}, process.env, { HADDAD_KNOWLEDGE_CONFIG: cfgPath }) });
+  var rep = JSON.parse(r.stdout);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  return rep.checks.filter(function (c) { return c.id === 'knowledge'; })[0];
+}
+
+t('knowledge: a store this host cannot reach is reported, and is not an alarm', function () {
+  // The live V2.4 state on Haddad. Fail-closed is the documented design, so a
+  // WARN here would be a permanent false alarm — and a check that cries wolf
+  // on a correct configuration is one people stop reading.
+  var c = runKnowledge({ enabled: true, store_root: '/nonexistent/othk-store', description: 'x' });
+  assert.strictEqual(c.status, 'PASS', 'fail-closed by design is not a failure');
+  assert.strictEqual(c.data.available, false, 'but it never claims knowledge is available');
+  assert.strictEqual(c.data.configured, true, 'and it records that a store WAS asked for');
+  assert.ok(/\/nonexistent\/othk-store/.test(c.detail), 'the unreachable path is named: ' + c.detail);
+});
+
+t('knowledge: deliberately disabled is PASS and says so', function () {
+  var c = runKnowledge({ enabled: false, store_root: null, description: 'x' });
+  assert.strictEqual(c.status, 'PASS');
+  assert.strictEqual(c.data.configured, false, 'nothing was asked for');
+  assert.strictEqual(c.data.available, false);
+  assert.ok(/by design/.test(c.detail), c.detail);
+});
+
+t('knowledge: a config the host cannot honour is a FAIL, not a quiet nothing', function () {
+  // The distinction that matters: "no knowledge, as configured" versus "we
+  // cannot tell what was configured". The second is a defect and must not
+  // wear the same green as the first.
+  var bad = runKnowledge('{ this is not json');
+  assert.strictEqual(bad.status, 'FAIL', 'an unreadable config darkens the layer for a BAD reason');
+  assert.strictEqual(bad.data.valid, false);
+
+  var shaped = runKnowledge({ enabled: true, store_root: 'relative/path', description: 'x' });
+  assert.strictEqual(shaped.status, 'FAIL', 'a non-absolute store_root is a config defect');
+});
+
+t('knowledge: an open store reports the read-only surface, and only that', function () {
+  var store = fs.mkdtempSync(path.join(require('os').tmpdir(), 'othk-store-'));
+  var c = runKnowledge({ enabled: true, store_root: store, description: 'x' });
+  fs.rmSync(store, { recursive: true, force: true });
+  // Whether the service opens on an empty dir is the boundary's business, not
+  // this check's; either way it must never report available without one.
+  if (c.data.available) {
+    assert.ok(/read-only operations/.test(c.detail), c.detail);
+    assert.ok(c.data.read_ops > 0, 'the allowlisted read surface is counted');
+  } else {
+    assert.strictEqual(c.status, 'PASS', 'a store that will not open is still fail-closed, not an alarm');
+  }
+});
+
+t('knowledge: the check REUSES the executor boundary and reimplements none of it', function () {
+  var src = read('bin/haddad-health.js');
+  assert.ok(/mythos-ai-executor', 'lib', 'knowledge\.js'/.test(src), 'it requires the existing boundary');
+  // It must not grow its own copy of the config rules or the read allowlist.
+  assert.strictEqual(src.indexOf('store_root must be'), -1, 'no second copy of the config validation');
+  assert.strictEqual(src.indexOf('lookupProvenance'), -1, 'no second copy of the read allowlist');
+  assert.ok(/knowledge\.loadConfig\(/.test(src) && /knowledge\.openKnowledge\(/.test(src),
+    'both questions are asked of the boundary itself');
+});
+
 t('health reports a timed-out probe as a timeout, not as an absent binary', function () {
   var src = read('bin/haddad-health.js');
   assert.ok(/timed_out/.test(src), 'sh() distinguishes a killed child from a failed one');

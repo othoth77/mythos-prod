@@ -704,3 +704,53 @@ protocols; Browser Use, Jev, Herdr, delegate-skills, Kimi.
 | Daemon has no systemd mount namespace | owner-approved; bwrap replaces it | keep; re-assert each gate |
 | PR #363 (report recovery), #332 (scope doc) open | not in V1 merge set | owner decision |
 | OTHKM knowledge tools UNCONFIGURED on Haddad | no local store | HAD-1 / Track E |
+
+---
+
+## 23. V2.4 audit — what actually blocks it (2026-09-23)
+
+Audited before building, per SEARCH → REUSE → ADAPT → CONNECT → BUILD LAST. **The missing
+store is the smallest of three blockers, and it is not the one that decides the stage.**
+
+**1. The read boundary is connected to nothing.** `projects/mythos-ai-executor/lib/knowledge.js`
+is complete, hardened and tested (`tests/othk-2w-executor-wiring-test.js`: fail-closed config
+validation, a read-only operation allowlist, explicit `asOf`, provenance on every hit). Nothing
+in the executor requires it — on Haddad or on the VPS. Verified by grepping every `require` in
+`projects/`: the only hits are `oth-knowledge`'s own service and `command-center`. So V2.4's
+"read path live" is not a Haddad gap; the integration does not exist on any host.
+
+**2. `core/context.js` is unreachable on the live path.** V2.4 specifies context assembly by
+`core/context.js` and memory writes by `core/memory.js`. Both exist and both are wired — but
+only into `core/orchestrator.js`, and `executor.js` never requires either. `MYTHOS_CORE_ENABLED`
+is `false` on Haddad, and V2.1 deliberately did not turn core on. Turning it on is a governance
+change, not a V2.4 implementation detail.
+
+**3. There is no store Haddad can reach — and that may be correct.** `config/knowledge.json`
+pins `store_root=/home/deploy/othk-store` (VPS, 0700, 37 records) with no environment override,
+and there is deliberately no Haddad→VPS SSH path. The config's own description already declares
+the consequence intended: *"On any host where this path does not exist the layer disables itself
+fail-closed — a disabled layer is a normal, reportable state."* Measured on Haddad:
+`openKnowledge()` → `{ enabled: false, reason: "store_root does not exist" }`. Fail-closed works.
+
+### The owner decision, stated as a decision
+
+Whether Haddad gets its own knowledge store is an OWNER call about where private knowledge
+lives, not an implementation detail:
+
+- **(a) Fail-closed is the design.** One canonical store on the VPS; Haddad retrieves nothing and
+  says so. V2.4 on Haddad is then a deliberate, documented no-op — which the gate already permits
+  ("or the stage is re-scoped honestly"). Costs nothing, keeps one source of truth.
+- **(b) Haddad gets a local store.** Needs provisioning (HAD-1) *and* an answer to divergence:
+  two stores with no sync is two truths. Nothing in the current design reconciles them.
+
+Blockers 1 and 2 remain in both cases, so neither is unblocked by provisioning a store.
+
+### Done in this pass, because it needed no decision
+
+The layer's state was normal, intended, and **invisible** — nothing on the node named it.
+`haddad-health.js` now reports it (check `knowledge`), reusing the existing boundary rather
+than reimplementing any of it: deliberately disabled → PASS; configured-but-unreachable → PASS
+naming the path, `available:false`; config the host cannot honour → **FAIL**, because "no
+knowledge, as configured" and "we cannot tell what was configured" must not wear the same green.
+A layer off by design is not a WARN: a permanent yellow for an architectural decision is a false
+alarm, and this suite spent 2026-09-22/23 removing exactly that failure mode.
