@@ -207,7 +207,9 @@ t('HAD-3b setup: executable, parses, no sudo, no Funnel, serves /mcp only, never
   var s = fs.readFileSync(HTTP_SETUP, 'utf8');
   assert.ok(!/^\s*sudo\b/m.test(s), 'uses sudo');
   assert.ok(!/\bfunnel\b(?!.*never)/i.test(s.replace(/^#.*$/mg, '')), 'Funnel (public exposure) appears in executable code');
-  assert.ok(/serve --bg --https=443 --set-path=\/mcp "http:\/\/\$HOST:\$PORT"/.test(s), 'serve target is not /mcp -> loopback bridge');
+  // Serve strips the --set-path mount point: the target must name the bridge's /mcp route (a bare host:port gives HTTPS 404).
+  assert.ok(/serve --bg --https=443 --set-path=\/mcp "http:\/\/\$HOST:\$PORT\/mcp"/.test(s), 'serve target is not the bridge /mcp route');
+  assert.ok(!/--set-path=\/mcp "http:\/\/\$HOST:\$PORT"/.test(s), 'serve target lost its /mcp path (HTTPS would reach the bridge at "/" and 404)');
   assert.ok(/\/health is reachable over HTTPS/.test(s), 'setup does not assert that /health stays unserved');
   assert.ok(!/(TOKEN|KEY|SECRET)=[A-Za-z0-9+\/]{20,}/.test(s), 'carries a literal credential');
   assert.ok(/haddad-mcp-setup\.sh first/.test(s), 'does not require the stdio MCP (HAD-3) first');
@@ -225,6 +227,8 @@ t('HAD-3b probe and health: --http drives the shared client\'s streamable-http t
   assert.ok(/hrep\.tools\.join\(','\) !== rep\.tools\.join\(','\)/.test(h), 'health does not compare HTTP and stdio tool lists');
   assert.ok(/'4444'/.test(h), 'the VPS gateway port is no longer refused');
   assert.ok(/!httpInstalled && on8160\.length/.test(h), 'an unowned 8160 listener is no longer refused');
+  assert.ok(/8160\\\/mcp\\\/\?\$/.test(h), 'health does not require the Serve target to carry /mcp');
+  assert.ok(/serveMiswired/.test(h) && /Serve strips the mount point/.test(h), 'health does not FAIL a Serve target without /mcp');
 });
 
 // --------------------------------------------------------------- dynamic
@@ -509,7 +513,7 @@ at('fake executor up', function () { return fakeExecutor().then(function (e) { e
     var r6 = run('bash', [HTTP_SETUP, '--serve'], { env: env() });
     assert.strictEqual(r6.status, 2, r6.stdout); assert.ok(/sudo tailscale set --operator=/.test(r6.stdout), r6.stdout);
     var ts = fs.readFileSync(tsLog, 'utf8');
-    assert.ok(/serve --bg --https=443 --set-path=\/mcp http:\/\/127\.0\.0\.1:8160$/m.test(ts), ts);
+    assert.ok(/serve --bg --https=443 --set-path=\/mcp http:\/\/127\.0\.0\.1:8160\/mcp$/m.test(ts), ts);
     assert.ok(!/funnel/.test(ts), 'funnel was invoked');
     assert.ok(/URL:/.test(r6.stdout) === false, 'an HTTPS URL was announced although serve failed');
   }); });

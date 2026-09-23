@@ -292,3 +292,28 @@ and an owner decision. Serve's identity headers (`Tailscale-User-Login`) are not
 authorisation; the bearer is. One bearer, not per-client tokens — rotation (`--rotate`)
 invalidates every client at once; per-client credentials are the gateway's job (ecosystem doc #3)
 and out of scope here. The ecosystem/estate registry is unchanged (deferred owner decision, §11).
+
+### 12.1 Fix: HTTPS `/mcp` answered 404 (2026-09-23)
+
+**Root cause:** `tailscale serve --set-path=/mcp <target>` **strips the mount point** before
+proxying. The setup script used the bare target `http://127.0.0.1:8160`, so
+`https://haddad.tail23f990.ts.net/mcp` arrived at the bridge as `/`, which the bridge answers
+`404 {"error":"not found"}`. The 404 body was the **bridge's** JSON, not Tailscale's `404 page not
+found`, which is what proved the request reached the right process on the wrong path. The
+loopback bridge was healthy throughout (`/mcp` → 401). The health check had the same
+assumption inverted: it recognised only the bare target as "HTTPS configured", so on a correct
+mapping it reported "no HTTPS".
+
+**Fix:** target `http://127.0.0.1:8160/mcp` in the setup script. Health now recognises only that
+target and **FAILs** a bare one, naming the fix. Tests pin the target. Mutation-checked: the old
+target restored in the script → 2 test failures; the old mapping restored in live Serve → health
+`mcp` FAIL. No architecture change: same bridge, same Serve mount, one path segment.
+
+**Verified after the fix (tailnet client, separate processes):** certificate
+`CN=haddad.tail23f990.ts.net`, Let's Encrypt, valid to 2026-12-22, strict curl verify OK ·
+no/wrong bearer and unauthenticated `GET /mcp` → 401 with `WWW-Authenticate: Bearer` from the
+bridge · `/`, `/admin`, `/mcpx`, `/health` over HTTPS → 404 (only `/mcp` mounted) · HTTPS
+handshake `oth-mcp 1.0.0` / `2024-11-05`, **9 tools = stdio list**, `execution_status`,
+`haddad_health`, `budget_status`, `system_health` answered · loopback `/health` 200 · Serve
+tailnet-only, no Funnel · `server.js`, the stdio launcher and the bridge byte-identical to
+`c8b1b149` · health **PASS 17/17**.

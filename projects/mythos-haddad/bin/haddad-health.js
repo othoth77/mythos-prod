@@ -399,14 +399,21 @@ check('mcp', function () {
     if (hrep.tools.join(',') !== rep.tools.join(',')) return add('mcp', 'FAIL', 'HTTP lists ' + hrep.tools.length + ' tools, stdio lists ' + rep.tools.length + ' — not the same server', rep);
     // HTTPS is Tailscale Serve's; reported as measured, never assumed.
     var serve = sh('tailscale', ['serve', 'status', '--json']);
-    var httpsUrl = null;
+    var httpsUrl = null, serveMiswired = null;
     try {
       var cfg = JSON.parse(serve.out || '{}'), web = cfg.Web || {};
       Object.keys(web).forEach(function (hostPort) {
         var hs = web[hostPort].Handlers || {};
-        Object.keys(hs).forEach(function (p) { if (/^http:\/\/127\.0\.0\.1:8160\/?$/.test(hs[p].Proxy || '') && p === '/mcp') httpsUrl = 'https://' + hostPort.replace(/:443$/, '') + '/mcp'; });
+        Object.keys(hs).forEach(function (p) {
+          if (p !== '/mcp') return;
+          // Serve strips the mount point: the target must carry the bridge's /mcp route,
+          // or https://…/mcp arrives at the bridge as "/" and is answered 404.
+          if (/^http:\/\/127\.0\.0\.1:8160\/mcp\/?$/.test(hs[p].Proxy || '')) httpsUrl = 'https://' + hostPort.replace(/:443$/, '') + '/mcp';
+          else if (/^http:\/\/127\.0\.0\.1:8160\/?$/.test(hs[p].Proxy || '')) serveMiswired = hs[p].Proxy;
+        });
       });
     } catch (e) { /* no serve config, or not permitted to read it */ }
+    if (serveMiswired) return add('mcp', 'FAIL', 'Tailscale Serve maps /mcp to ' + serveMiswired + ' — Serve strips the mount point, so HTTPS /mcp reaches the bridge as "/" (404). Fix: tailscale serve --bg --https=443 --set-path=/mcp http://127.0.0.1:8160/mcp', rep);
     rep.http = { url: 'http://127.0.0.1:8160/mcp', unauthenticated: 401, tools: hrep.tools.length, call_ok: !!(hrep.call && hrep.call.ok), https_url: httpsUrl };
     transport = 'stdio + HTTP (bearer, loopback)' + (httpsUrl ? ' + ' + httpsUrl + ' (Tailscale Serve)' : ', no HTTPS (Tailscale Serve not configured)');
   }

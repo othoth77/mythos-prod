@@ -23,7 +23,8 @@
 # Exposure model, layer by layer — nothing here widens Haddad's surface:
 #   bind      127.0.0.1:8160 only (the unit fixes it; the health check refuses any other bind)
 #   auth      Bearer on every /mcp request, constant-time compare, 401 otherwise
-#   tls       Tailscale Serve (--serve): https://<node>.<tailnet>.ts.net/mcp -> 127.0.0.1:8160/mcp,
+#   tls       Tailscale Serve (--serve): https://<node>.<tailnet>.ts.net/mcp -> http://127.0.0.1:8160/mcp
+#             (target carries /mcp: Serve strips the mount point before proxying),
 #             certificate issued by Tailscale, reachable ONLY by tailnet members — the same
 #             population that could already `ssh othman@haddad`. No Funnel (public) ever.
 #   surface   /mcp (bearer) is the only path served; /health stays loopback-only
@@ -171,7 +172,10 @@ if [ "$SERVE" = 1 ]; then
     HTTPS_STATE="PENDING owner action — HTTPS certificates are not enabled for the tailnet (admin console → DNS → HTTPS Certificates); nothing attempted"
   else
     say "tailscale serve: https://$NODE_DNS/mcp -> http://$HOST:$PORT/mcp (tailnet only, never public)"
-    if OUT="$("$TAILSCALE" serve --bg --https=443 --set-path=/mcp "http://$HOST:$PORT" 2>&1)"; then
+    # Serve STRIPS the --set-path mount point before proxying: with a bare
+    # "http://$HOST:$PORT" target, https://…/mcp reaches the bridge as "/" and the
+    # bridge answers 404. The target therefore carries the bridge's own route.
+    if OUT="$("$TAILSCALE" serve --bg --https=443 --set-path=/mcp "http://$HOST:$PORT/mcp" 2>&1)"; then
       HTTPS_URL="https://$NODE_DNS/mcp"
       say "verify (HTTPS, tailnet address, from a separate process)"
       n=0; code=000
