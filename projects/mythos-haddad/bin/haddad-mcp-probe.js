@@ -5,13 +5,21 @@
 // projects/mythos-haddad/bin/haddad-mcp-probe.js
 //
 //   haddad-mcp-probe.js [launcher] [--call <tool> [json-args]]
+//   haddad-mcp-probe.js --http <url> [--call <tool> [json-args]]
 //
 // Not a client implementation: it drives the EXISTING MYTHOS MCP client
-// (projects/mythos-gateway/lib/mcp-client.js, stdio transport) against the
-// launcher — initialize, tools/list, then one real tools/call (default:
+// (projects/mythos-gateway/lib/mcp-client.js — stdio transport against the
+// launcher, or its streamable-http transport against the bridge URL) —
+// initialize, tools/list, then one real tools/call (default:
 // execution_status, the Haddad executor chain) — and prints one JSON
 // report. Used by haddad-health.js (check id `mcp`) and by the setup
-// script's verification; usable by hand.
+// scripts' verification; usable by hand.
+//
+// --http: the bridge bearer is read BY REFERENCE inside this process from
+// HADDAD_MCP_HTTP_ENV (default ~/.config/mythos-haddad/mcp-http.env, the
+// unit's own 0600 file) and sent as Authorization only; it is never an
+// argument, never in the report. An absent file means an unauthenticated
+// probe, which the bridge must answer 401 — that is reported, not hidden.
 //
 // Why a separate process: the health check is synchronous by design, and
 // a stdio MCP server exits when its stdin closes — a client has to keep
@@ -23,12 +31,16 @@
 // not a probe failure); 1 otherwise. Never prints a credential: nothing
 // here reads one.
 // =====================================================
+var fs = require('fs');
 var path = require('path');
 var os = require('os');
 var mcpClient = require(path.join(__dirname, '..', '..', 'mythos-gateway', 'lib', 'mcp-client.js'));
 
 var argv = process.argv.slice(2);
 var launcher = argv[0] && argv[0].charAt(0) !== '-' ? argv.shift() : path.join(os.homedir(), '.local', 'bin', 'haddad-mcp-stdio.sh');
+var h = argv.indexOf('--http');
+var httpUrl = h !== -1 ? argv[h + 1] : null;
+if (h !== -1 && !/^https?:\/\//.test(String(httpUrl))) { console.error('--http needs a URL'); process.exit(2); }
 var tool = 'execution_status';
 var args = {};
 var i = argv.indexOf('--call');
@@ -37,8 +49,17 @@ if (i !== -1) {
   if (argv[i + 2]) { try { args = JSON.parse(argv[i + 2]); } catch (e) { console.error('bad json args'); process.exit(2); } }
 }
 
-var report = { launcher: launcher, ok: false, server: null, protocol: null, tools: [], call: { tool: tool, ok: false, error: null, sample: null } };
-var client = mcpClient.createStdioClient({ command: launcher, args: [], timeoutMs: 30000 });
+var report = { transport: httpUrl ? 'streamable-http' : 'stdio', launcher: httpUrl ? null : launcher, url: httpUrl || null, ok: false, server: null, protocol: null, tools: [], call: { tool: tool, ok: false, error: null, sample: null } };
+var client;
+if (httpUrl) {
+  var envFile = process.env.HADDAD_MCP_HTTP_ENV || path.join(os.homedir(), '.config', 'mythos-haddad', 'mcp-http.env');
+  var token = null;
+  try { var m = /^MYTHOS_MCP_HTTP_TOKEN=(\S+)$/m.exec(fs.readFileSync(envFile, 'utf8')); if (m) token = m[1]; } catch (e) { /* unauthenticated probe: the bridge answers 401 */ }
+  report.bearer = token ? 'by reference' : 'none';
+  client = mcpClient.createHttpClient({ url: httpUrl, token: token, timeoutMs: 30000 });
+} else {
+  client = mcpClient.createStdioClient({ command: launcher, args: [], timeoutMs: 30000 });
+}
 
 client.initialize({ name: 'haddad-mcp-probe', version: '1.0.0' })
   .then(function (init) {

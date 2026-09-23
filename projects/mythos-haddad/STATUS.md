@@ -102,6 +102,15 @@ root, no secret in git. Health gained `worker` and `mcp` checks (16/0/0). Real E
 sources directly. Tests 17/0 (new), 58/0 + 168/0 + 37/0 (shared MCP suites), full regression green.
 Detail: [docs/HADDAD_MCP.md](docs/HADDAD_MCP.md).
 
+**HAD-3b (Haddad MCP over HTTPS): code merged 2026-09-23; live state in `docs/AI_HANDOVER.md`.** No
+second server: the VPS bridge `projects/mythos-gateway/mcp-http-bridge.js` runs **unchanged** as the
+user unit `mythos-haddad-mcp-http.service` on `127.0.0.1:8160`, relaying to the installed stdio
+launcher; bearer on every `/mcp` request; Tailscale Serve carries TLS to
+`https://haddad.tail23f990.ts.net/mcp` (tailnet only, no Funnel) once two owner actions are done
+(HTTPS certificates enabled for the tailnet; `sudo tailscale set --operator=othman`). Health `mcp`
+now measures the bridge (401 without bearer, loopback-only bind, HTTP tool list = stdio tool list).
+Tests 22/0 (was 17). Detail: [docs/HADDAD_MCP.md §12](docs/HADDAD_MCP.md).
+
 **HAD-4 (tool runner + supervised execution): COMPLETE — proven live 2026-09-22.** Qwen writes and runs
 inside a per-command bwrap sandbox; `lib/work-validation.js` re-runs every declared check itself and
 measures the workspace; a bounded repair loop (3 executions, compact briefs, per-execution turn/tool

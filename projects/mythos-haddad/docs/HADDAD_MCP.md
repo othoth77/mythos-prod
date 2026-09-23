@@ -84,9 +84,10 @@ projects/oth-mcp/server.js     SHARED — stdio JSON-RPC, 8 tools everywhere + h
 | `projects/oth-mcp/server.js` | **+66 lines, shared:** `haddad_health`, registered only when `OTH_MCP_HADDAD_HEALTH_FILE` is set; one bounded `readFileSync` of that launch-time path; `stale` flag (> 2 h); optional `check` filter (`[a-z_]{2,32}`); absent → `UPSTREAM_UNREACHABLE`, corrupt → `UPSTREAM_BAD_JSON`, unknown check → `TOOL_INPUT` listing the known ids. No write syscall (asserted). VPS: variable unset → exactly the 8 tools it had; `othk-6` 58/0, `mcp-ecosystem` 168/0, `gateway-boundary` 37/0 unchanged |
 | `bin/haddad-mcp-stdio.sh` | launcher template (Haddad twin of the VPS `oth-mcp-stdio.sh`); installed to `~/.local/bin/` with `@REPO@` filled |
 | `bin/haddad-mcp-setup.sh` | idempotent, no root: writes `mcp.env`, provisions the executor bearer **only if absent** with the executor's own idiom (`projects/mythos-ai-executor/deploy/install.sh` step 1), installs the launcher, verifies a real `initialize` + `tools/list` |
-| `bin/haddad-mcp-probe.js` | drives the installed launcher through the **existing** `projects/mythos-gateway/lib/mcp-client.js` (stdio): initialize → tools/list → one real `tools/call`; one JSON report. Used by the health check and the setup; not a client implementation |
-| `bin/haddad-health.js` | new checks `worker` (unit active, `/health` answers, store writable, queue counts, code identity, bearer provisioned) and `mcp` (real handshake through the installed launcher via the probe; expected tool count 8/9 from `mcp.env`; PASS only when `execution_status` really answered; **FAIL if the VPS bridge/gateway ports 8160/4444 ever listen here** — the Haddad MCP is stdio-only). Both WARN when not installed, like `ai_runtime` |
-| `tests/mythos-haddad-mcp-test.js` | 17 checks, offline (§7) |
+| `bin/haddad-mcp-probe.js` | drives the installed launcher through the **existing** `projects/mythos-gateway/lib/mcp-client.js` (stdio): initialize → tools/list → one real `tools/call`; one JSON report. Used by the health check and the setup; not a client implementation. **HAD-3b:** `--http <url>` drives the same client's streamable-http transport against the bridge; the bearer is read by reference from `mcp-http.env` inside the process, never from argv |
+| `bin/haddad-health.js` | new checks `worker` (unit active, `/health` answers, store writable, queue counts, code identity, bearer provisioned) and `mcp` (real handshake through the installed launcher via the probe; expected tool count 8/9 from `mcp.env`; PASS only when `execution_status` really answered; **FAIL if 4444 ever listens here, or 8160 listens without this user's `mythos-haddad-mcp-http` unit owning it, or 8160 is bound anywhere but `127.0.0.1`**; with the unit installed (HAD-3b, §12) the check also measures the bridge: env file 0600 with exactly one variable, unit active, unauthenticated `tools/list` → 401, HTTP handshake lists the same tools as stdio, Tailscale Serve URL reported as found). Both WARN when not installed, like `ai_runtime` |
+| `tests/mythos-haddad-mcp-test.js` | 17 checks, offline (§7); **22** since HAD-3b (§12) |
+| `systemd/mythos-haddad-mcp-http.service`, `bin/haddad-mcp-http-setup.sh` | **HAD-3b (§12):** user unit running the **unchanged** VPS bridge `projects/mythos-gateway/mcp-http-bridge.js` on `127.0.0.1:8160` in front of the installed launcher; idempotent setup (bearer, unit, verification, optional Tailscale Serve) |
 
 **Not added:** a systemd unit (stdio servers are spawned by SSH, exactly as on the VPS), a
 port, a firewall rule, a second server file, a client config in git.
@@ -192,7 +193,9 @@ bearer file may stay (it only lets a bearer holder read the executor over loopba
 | `UPSTREAM_UNREACHABLE: Mythos Haddad health report is not present` | the health timer has not written yet → `node bin/haddad-health.js` |
 | `haddad_health` says `stale: true` | timer stopped → `systemctl --user list-timers mythos-haddad-health.timer` |
 | `tools/list` shows 8, not 9 | the launcher's `REPO` checkout predates this stage, or `mcp.env` lacks `OTH_MCP_HADDAD_HEALTH_FILE` → re-run setup with `HADDAD_MCP_REPO=<checkout carrying this branch>` |
-| health `mcp` FAIL "unexpected MCP listener" | something bound 8160/4444 on Haddad — not part of this design; find it with `ss -ltnp` |
+| health `mcp` FAIL "unexpected MCP listener" | 4444, or 8160 without `~/.config/systemd/user/mythos-haddad-mcp-http.service` installed — not part of this design; find it with `ss -ltnp`. With the unit installed, 8160 must be `127.0.0.1:8160` only (§12) |
+| health `mcp` FAIL "mcp-http.env … carries something other than MYTHOS_MCP_HTTP_TOKEN" | someone added a variable that could override the unit's loopback bind → `bash bin/haddad-mcp-http-setup.sh` refuses too; remove the extra line |
+| `MCP_UNAUTHORIZED: server answered 401` from `--http` | bearer absent or stale on the client side; the value lives only in `~/.config/mythos-haddad/mcp-http.env` — `--rotate` invalidates every client |
 | client hangs on connect | SSH itself: `ssh -o BatchMode=yes othman@100.78.7.10 true` must succeed with a key |
 
 ## 11. Deferred (not blockers for V1) and limits
@@ -207,3 +210,85 @@ bearer file may stay (it only lets a bearer holder read the executor over loopba
 - **Protocol version** stays `2024-11-05`: stdio has no sessions, the server implements exactly the three stable methods, and the real client accepted it. A bump would touch the VPS server for no functional gain.
 - Still pending from V0: the Windows client's SSH key + `PasswordAuthentication no` — the MCP inherits Haddad's SSH policy and adds no access of its own.
 - Out of scope by instruction and untouched: Qwen supervisor / repair loops, Sonnet/Opus escalation, delegate-skills, browser use. Nothing here blocks them: the MCP is an interface; execution authority stays in the executor/worker policy.
+
+## 12. HAD-3b — the same MCP over HTTPS (2026-09-23)
+
+**Ask:** a stable HTTPS MCP endpoint for authorised clients, without a second server. **Branch:**
+`mythos-haddad/mcp-http-exposure`. Measured before anything changed:
+
+| # | Found |
+|---|---|
+| 1 | Server/process: `projects/oth-mcp/server.js` via `~/.local/bin/haddad-mcp-stdio.sh`, one process per SSH client, no daemon; health `mcp` PASS |
+| 2 | Transport: newline JSON-RPC 2.0 over stdio, `2024-11-05`, stateless (the dispatch keeps no session) |
+| 3 | Port: none. Listeners on the host: `:22`, `127.0.0.1:8600` (llama-server), `127.0.0.1:8130` (executor, bearer), tailscaled |
+| 4 | TLS / reverse proxy on Haddad: **none** (no caddy, nginx, certbot, socat; no `/etc/letsencrypt`). Tailscale 1.102.4 present: MagicDNS on, node `haddad.tail23f990.ts.net`, **Serve unconfigured, `CertDomains: null` (HTTPS certificates not enabled for the tailnet), no Funnel capability, `othman` not the tailscale operator** (`tailscale serve`/`cert` need root; no non-interactive sudo). `mythosprod.xyz` terminates TLS on the VPS nginx; the VPS is **not** on the tailnet and has no route to Haddad, so a `*.mythosprod.xyz` URL for Haddad is not something the current infrastructure can carry |
+| 5 | Auth: SSH as `othman` over the tailnet; the server has no auth of its own; executor bearer by reference; GET-only. The repository already holds a bearer-gated Streamable-HTTP transport for exactly this server — `projects/mythos-gateway/mcp-http-bridge.js`, `mythos-mcp-http.service` on the VPS, `gateway-boundary` 37/0 |
+| 6 | Missing: (a) that bridge is deployed only on the VPS, as a system unit with `/home/deploy` paths — nothing on Haddad speaks HTTP MCP; (b) Haddad's only TLS terminator, Tailscale Serve, is gated on two owner actions |
+
+**Decision — REUSE, CONNECT, build nothing:** run the VPS bridge **byte-identical** as a Haddad
+user unit on `127.0.0.1:8160`, relaying to the installed stdio launcher (so HTTP serves exactly
+what SSH serves, from the same `server.js`, with the same upstream credentials by reference), and
+put Tailscale Serve in front of `/mcp` for TLS + tailnet reach. The bridge adds one credential of
+its own — a bearer — because an HTTP listener has no SSH identity to lean on. No Funnel: public
+exposure is a different security model from "whoever could already `ssh othman@haddad`".
+
+**Exposure, layer by layer (none widens Haddad's surface):**
+
+| Layer | Fact |
+|---|---|
+| bind | `127.0.0.1:8160` pinned in the unit; the health check FAILs any other 8160 bind; `mcp-http.env` may hold only `MYTHOS_MCP_HTTP_TOKEN` (setup and health both refuse otherwise) so `EnvironmentFile=` cannot widen it |
+| auth | `Authorization: Bearer` on every `/mcp` request, constant-time compare, 401 without/with a wrong one; the bearer lives in `~/.config/mythos-haddad/mcp-http.env` (0600), never printed, never in git |
+| surface | bridge: `/mcp` (POST/DELETE; GET → 405) and `/health` (liveness, reveals nothing); everything else 404. Serve mounts **only** `/mcp`; `/health` stays loopback |
+| tls | Tailscale Serve → `https://haddad.tail23f990.ts.net/mcp`, certificate issued by Tailscale, reachable only by tailnet members |
+| authority | none added: the child is the read-only server; write boundary unchanged (`othk-6` §W) |
+
+**Operate**
+
+```bash
+# install (needs HAD-3's stdio MCP first), enable, verify over HTTP from a separate process
+HADDAD_MCP_REPO=$HOME/projects/mythos-prod bash projects/mythos-haddad/bin/haddad-mcp-http-setup.sh --enable
+# publish /mcp through Tailscale Serve and verify over HTTPS (exit 2 + PENDING while the owner actions are outstanding)
+HADDAD_MCP_REPO=$HOME/projects/mythos-prod bash projects/mythos-haddad/bin/haddad-mcp-http-setup.sh --enable --serve
+# probe the bridge as a client (bearer by reference)
+node projects/mythos-haddad/bin/haddad-mcp-probe.js --http http://127.0.0.1:8160/mcp --call haddad_health '{"check":"ai_runtime"}'
+# a remote client (tailnet member) — the bearer is read from the file, never typed into a config in git
+claude mcp add --transport http haddad-http https://haddad.tail23f990.ts.net/mcp \
+  --header "Authorization: Bearer $(ssh othman@100.78.7.10 sed -n 's/^MYTHOS_MCP_HTTP_TOKEN=//p' .config/mythos-haddad/mcp-http.env)"
+```
+
+**Owner actions the script never attempts (once, then `--serve` completes on its own):**
+
+1. Tailscale admin console → DNS → **Enable HTTPS Certificates** (today `CertDomains: null`).
+2. On Haddad: `sudo tailscale set --operator=othman`.
+
+Rollback: `systemctl --user disable --now mythos-haddad-mcp-http.service`; `tailscale serve
+--https=443 --set-path=/mcp off`; remove the unit and `mcp-http.env`. The stdio path is untouched
+throughout.
+
+**Verified in this stage (worktree, unchanged bridge on an ephemeral port in front of the installed
+launcher, all from a separate process):** `/health` 200 · unauthenticated and wrong-bearer
+`tools/list` → 401 · unknown path → 404 · `GET /mcp` → 405 · handshake `oth-mcp 1.0.0` /
+`2024-11-05` · **9 tools, identical to the stdio list** · `execution_status` answered from the
+Haddad executor (48 tasks) · `haddad_health {check: gpu_test}` answered · exactly one
+`server.js` child under the bridge · 0 occurrences of the bearer in any output. Tests: this suite
+17 → **22 / 0** (unit pins loopback, setup has no sudo/no Funnel/serves `/mcp` only, probe reads
+the bearer by reference, health measures 401 + bind + list equality; live bridge on an ephemeral
+port; setup dry run in a throwaway `$HOME` incl. a widened env file refused and both PENDING
+paths of `--serve` with stubbed `systemctl`/`tailscale`) · `gateway-boundary` 37/0 · `othk-6`
+58/0 · `mcp-ecosystem` 168/0 · telemetry 168/0 · runtime 36/0 · ingest 154/0 · v0 8/0.
+**Live on Haddad (2026-09-23 15:13 UTC, unit from the worktree, every check from a separate
+process):** bound `127.0.0.1:8160` only (`100.78.7.10:8160` refused) · no/wrong bearer and
+`GET /mcp` → 401 · `/admin`, `/tasks` → 404 · 9 tools = stdio list · `execution_status`,
+`haddad_health`, `budget_status`, `system_health` answered through the bridge · bearer in 0
+journal lines · worker, GPU (`Vulkan0`, 27/29 layers) and telemetry (202 ONLINE) unchanged ·
+this branch's health **PASS 17/17**. `--serve` → PENDING (`CertDomains: null`). The scheduled
+timer, running **main's pre-stage** health, then FAILed on the listener exactly as designed, so
+the unit is **installed but disabled** until the live checkout carries this stage — the finish
+order is in `docs/AI_HANDOVER.md` (HAD-3b entry).
+
+**Limits, stated:** the URL is under the tailnet's MagicDNS domain, not `mythosprod.xyz` —
+carrying it there would need the VPS on the tailnet or a Haddad→VPS tunnel, both new credentials
+and an owner decision. Serve's identity headers (`Tailscale-User-Login`) are not used for
+authorisation; the bearer is. One bearer, not per-client tokens — rotation (`--rotate`)
+invalidates every client at once; per-client credentials are the gateway's job (ecosystem doc #3)
+and out of scope here. The ecosystem/estate registry is unchanged (deferred owner decision, §11).

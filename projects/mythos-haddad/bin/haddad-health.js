@@ -366,17 +366,56 @@ check('mcp', function () {
   var expected = fs.existsSync(path.join(HOME, '.config', 'mythos-haddad', 'mcp.env')) &&
     /^OTH_MCP_HADDAD_HEALTH_FILE=/m.test(fs.readFileSync(path.join(HOME, '.config', 'mythos-haddad', 'mcp.env'), 'utf8')) ? 9 : 8;
   if (rep.tools.length !== expected) return add('mcp', 'FAIL', 'expected ' + expected + ' tools, got ' + rep.tools.length + ' (' + rep.tools.join(',') + ')', rep);
-  // The MCP is stdio-only. The VPS bridge/gateway ports must not appear here.
-  var listeners = sh('ss', ['-ltnH']).out.split('\n').map(function (l) { return (l.split(/\s+/)[3] || '').replace(/^.*:/, ''); }).filter(Boolean);
-  var unexpected = listeners.filter(function (port) { return port === '8160' || port === '4444'; });
-  if (unexpected.length) return add('mcp', 'FAIL', 'unexpected MCP listener on port ' + unexpected.join(',') + ' — the Haddad MCP is stdio-only by design', rep);
+  // Listeners. The stdio MCP opens none. Port 8160 belongs here ONLY when this
+  // user's mythos-haddad-mcp-http unit owns it (HAD-3b: the VPS bridge reused,
+  // loopback-bound, bearer-gated); 4444 (the VPS gateway) never does.
+  var bound = sh('ss', ['-ltnH']).out.split('\n').map(function (l) { return l.split(/\s+/)[3] || ''; }).filter(Boolean);
+  var listeners = bound.map(function (a) { return a.replace(/^.*:/, ''); });
+  var httpUnit = path.join(HOME, '.config', 'systemd', 'user', 'mythos-haddad-mcp-http.service');
+  var httpInstalled = fs.existsSync(httpUnit);
+  var on8160 = bound.filter(function (a) { return /:8160$/.test(a); });
+  if (listeners.indexOf('4444') !== -1) return add('mcp', 'FAIL', 'unexpected MCP listener on port 4444 — the VPS gateway does not belong on Haddad', rep);
+  if (!httpInstalled && on8160.length) return add('mcp', 'FAIL', 'unexpected MCP listener on port 8160 (' + on8160.join(',') + ') — no mythos-haddad-mcp-http unit is installed, so the Haddad MCP is stdio-only; find it with ss -ltnp', rep);
+  var offLoopback = on8160.filter(function (a) { return a !== '127.0.0.1:8160'; });
+  if (offLoopback.length) return add('mcp', 'FAIL', 'MCP HTTP bridge bound outside loopback: ' + offLoopback.join(',') + ' — the unit binds 127.0.0.1 only; TLS and tailnet reach belong to Tailscale Serve', rep);
   rep.listeners = listeners;
+
+  var transport = 'stdio';
+  if (httpInstalled) {
+    // The bridge is a transport for the same server, so it is measured as one:
+    // refused without a bearer, and listing exactly the tools stdio lists.
+    var envFile = path.join(HOME, '.config', 'mythos-haddad', 'mcp-http.env');
+    var envLines = fs.existsSync(envFile) ? fs.readFileSync(envFile, 'utf8').split('\n').filter(function (l) { return l.trim() && !/^#/.test(l); }) : null;
+    if (!envLines || (fs.statSync(envFile).mode & 63) !== 0 || !envLines.every(function (l) { return /^MYTHOS_MCP_HTTP_TOKEN=\S+$/.test(l); }) || envLines.length !== 1)
+      return add('mcp', 'FAIL', 'mcp-http.env is missing, not 0600, or carries something other than MYTHOS_MCP_HTTP_TOKEN — the unit\'s bind must not be overridable; re-run bin/haddad-mcp-http-setup.sh', rep);
+    var active = sh('systemctl', ['--user', 'is-active', 'mythos-haddad-mcp-http.service']).out;
+    if (active !== 'active') return add('mcp', 'FAIL', 'mythos-haddad-mcp-http installed but ' + (active || 'unknown') + ': journalctl --user -u mythos-haddad-mcp-http', rep);
+    if (!on8160.length) return add('mcp', 'FAIL', 'mythos-haddad-mcp-http is active but nothing listens on 127.0.0.1:8160', rep);
+    var unauth = sh('curl', ['-s', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '5', '-X', 'POST', '-H', 'Content-Type: application/json', '--data', '{"jsonrpc":"2.0","id":1,"method":"tools/list"}', 'http://127.0.0.1:8160/mcp']).out;
+    if (unauth !== '401') return add('mcp', 'FAIL', 'the bridge answered ' + (unauth || 'nothing') + ' to an unauthenticated tools/list — must be 401', rep);
+    var hr = sh('node', [path.join(__dirname, 'haddad-mcp-probe.js'), '--http', 'http://127.0.0.1:8160/mcp'], { timeout: 45000, env: Object.assign({}, process.env, { HADDAD_MCP_HTTP_ENV: envFile }) });
+    var hrep = null; try { hrep = JSON.parse(hr.out); } catch (e) { /* reported below */ }
+    if (!hrep || !hrep.ok) return add('mcp', 'FAIL', 'bridge handshake over HTTP failed: ' + firstLine((hrep && hrep.error) || hr.err || hr.out), rep);
+    if (hrep.tools.join(',') !== rep.tools.join(',')) return add('mcp', 'FAIL', 'HTTP lists ' + hrep.tools.length + ' tools, stdio lists ' + rep.tools.length + ' — not the same server', rep);
+    // HTTPS is Tailscale Serve's; reported as measured, never assumed.
+    var serve = sh('tailscale', ['serve', 'status', '--json']);
+    var httpsUrl = null;
+    try {
+      var cfg = JSON.parse(serve.out || '{}'), web = cfg.Web || {};
+      Object.keys(web).forEach(function (hostPort) {
+        var hs = web[hostPort].Handlers || {};
+        Object.keys(hs).forEach(function (p) { if (/^http:\/\/127\.0\.0\.1:8160\/?$/.test(hs[p].Proxy || '') && p === '/mcp') httpsUrl = 'https://' + hostPort.replace(/:443$/, '') + '/mcp'; });
+      });
+    } catch (e) { /* no serve config, or not permitted to read it */ }
+    rep.http = { url: 'http://127.0.0.1:8160/mcp', unauthenticated: 401, tools: hrep.tools.length, call_ok: !!(hrep.call && hrep.call.ok), https_url: httpsUrl };
+    transport = 'stdio + HTTP (bearer, loopback)' + (httpsUrl ? ' + ' + httpsUrl + ' (Tailscale Serve)' : ', no HTTPS (Tailscale Serve not configured)');
+  }
   if (!rep.call.ok) {
     // The MCP is up; the executor chain behind execution_status is not. The
     // error names the owner (UPSTREAM_401 = bearer not loaded: restart the worker).
-    return add('mcp', 'WARN', rep.server + ' over stdio, ' + rep.tools.length + ' tools, but execution_status failed: ' + firstLine(rep.call.error || '').slice(0, 120), rep);
+    return add('mcp', 'WARN', rep.server + ' over ' + transport + ', ' + rep.tools.length + ' tools, but execution_status failed: ' + firstLine(rep.call.error || '').slice(0, 120), rep);
   }
-  add('mcp', 'PASS', rep.server + ' (protocol ' + rep.protocol + ') over stdio, ' + rep.tools.length + ' tools, execution_status answered from the Haddad executor, no listener', rep);
+  add('mcp', 'PASS', rep.server + ' (protocol ' + rep.protocol + ') over ' + transport + ', ' + rep.tools.length + ' tools, execution_status answered from the Haddad executor' + (httpInstalled ? '' : ', no listener'), rep);
 });
 
 // ---------- V2.4: the OTH Knowledge read boundary ----------
