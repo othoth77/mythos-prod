@@ -530,10 +530,15 @@ history; Qwen's prompt with context still fits 8192.
       The guarantee stands where the store lives.
 - [x] secret-shaped content refused (test, not assertion)
       — held, and independent of this host.
-- [x] context assembly provably within the 8192-token budget
-      — **held by a different mechanism than this item names**: `core/context.js` is
-      unreachable with core off; the 8192-token window is protected by the provider's
-      `PROMPT_BUDGET_TOKENS` (V2.1, measured).
+- [x] the **8192-token window is provably respected** — by the provider's
+      `PROMPT_BUDGET_TOKENS` with exchange-level compaction
+      (`providers/haddad-agent.js`, V2.1, measured). `core/context.js` does not run on
+      this node
+      *(this item said "context assembly provably within the 8192-token budget". Read
+      alone that asserts CONTEXT ASSEMBLY is within budget, and the assembly this plan
+      names never executes here — the tick would have been carried by the annotation
+      beside it, which is the one thing the standalone-true rule forbids. Restated to
+      name the mechanism that does run and the one that does not.)*
 - [x] measurable improvement on a repeat-task benchmark, **or the stage is re-scoped honestly**
       — **satisfied by the re-scope**, which is the branch this item already allowed for.
 - [x] **STD-1/2/3** — no V2 regression (the 8 failures on `main` are identical at the pre-V2
@@ -579,6 +584,11 @@ any interactive control.
 - [x] `WARN` + `mode: quick` + `FAIL: 0` is not alerted as unhealthy — the ingest suite's
       DEFAULT envelope is exactly that case and asserts the node derives `ONLINE`
 - [ ] schema pinned to `mythos-haddad-health/1`
+      — **KNOWN INCONSISTENCY while this lands:** `docs/CONSOLE.md` (line 81) and
+      `STATUS.md` (line 329) currently record this item as DONE, "a foreign schema is
+      refused with 400". That is wrong for the reason below, was found by its own author
+      at closure, and is being corrected in a follow-up to those two documents. This gate
+      is the correct record; the phase docs briefly disagree with it.
       — **NOT TICKED: the item names the one of three schemas that is NOT pinned.** What IS
       pinned is the TRANSPORT schema `mythos-node-telemetry/1`: the receiver refuses a
       mismatch with HTTP 400 `bad_schema`. The receiver publishes `mythos-haddad-node/1`.
