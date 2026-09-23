@@ -326,7 +326,7 @@ since V2.1, and nothing joined them.
 |---|---|---|
 | console reads only published state; **zero** write paths | DONE | two routes; anything but `POST /ingest` refused; the receiver opens no outbound connection and spawns nothing; the page holds no node address, runtime port or MCP tool name |
 | `WARN` + `mode: quick` + `FAIL: 0` not alerted as unhealthy | DONE | that snapshot derives `ONLINE`; held before, still held |
-| schema pinned to `mythos-haddad-health/1` | DONE | live in production; a foreign schema is refused with 400 |
+| schema pinned to `mythos-haddad-health/1` | **NOT MET — corrected 2026-09-23** | this row said DONE, "a foreign schema is refused with 400". That 400 is real and it is the **transport** schema: `haddad-ingest.js:299` compares `payload.schema` against `SCHEMA = 'mythos-node-telemetry/1'`. The health document's own `mythos-haddad-health/1` rides inside as a bounded allow-listed string and is compared to nothing — zero hits across `projects/status-center` and the site. Intent served by the transport pin, literal requirement unmet; the master plan leaves the item unticked, carried to §22 for V3. *Two fields are named `schema`; only one is checked.* |
 | no second monitoring stack | DONE | two keys added to an existing allow-list, one row to an existing table; no new collector, transport, store or page |
 | STD-1 / STD-2 / STD-3 | DONE | telemetry 168/0 unchanged vs main, status-center 81/0, console 1438/0, eleven Haddad suites unchanged; ingest **138 → 154** |
 
@@ -341,7 +341,7 @@ tightened first — `indexOf('task.role')` passed while the row was mutated away
 `task.role_reason` contains it as a substring. A check that cannot fail is not a check.
 
 **NOT done:** the V2.2 routing decision is not on the console. It is recorded per task in the
-bridge's claims file (so V2.2's "recorded and auditable" item is met), but telemetry reads the
+**control store** — `~/.local/state/mythos-haddad/control/control/tasks/gh-issue-410.json` carries `routed:true`, `role`, `router_agent`, `allowed`, `provider`, `authority` whole (so V2.2's "recorded and auditable" item is met). *Corrected 2026-09-23: this line said "the bridge's claims file"; `bridge/claims.json` is a five-key index, 48 entries and zero routing.* Telemetry reads the
 *executor's* store; publishing it would mean the console reading a second store, which is the start
 of the second monitoring stack this gate forbids. The fix belongs in the bridge. **Deploy of the
 receiver's widened allow-list stays the owner's gate** — until then the node publishes `role` and

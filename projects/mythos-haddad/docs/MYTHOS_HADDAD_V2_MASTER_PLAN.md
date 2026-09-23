@@ -584,11 +584,6 @@ any interactive control.
 - [x] `WARN` + `mode: quick` + `FAIL: 0` is not alerted as unhealthy — the ingest suite's
       DEFAULT envelope is exactly that case and asserts the node derives `ONLINE`
 - [ ] schema pinned to `mythos-haddad-health/1`
-      — **KNOWN INCONSISTENCY while this lands:** `docs/CONSOLE.md` (line 81) and
-      `STATUS.md` (line 329) currently record this item as DONE, "a foreign schema is
-      refused with 400". That is wrong for the reason below, was found by its own author
-      at closure, and is being corrected in a follow-up to those two documents. This gate
-      is the correct record; the phase docs briefly disagree with it.
       — **NOT TICKED: the item names the one of three schemas that is NOT pinned.** What IS
       pinned is the TRANSPORT schema `mythos-node-telemetry/1`: the receiver refuses a
       mismatch with HTTP 400 `bad_schema`. The receiver publishes `mythos-haddad-node/1`.

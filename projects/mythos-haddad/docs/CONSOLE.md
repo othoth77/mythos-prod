@@ -78,8 +78,25 @@ the two results are equal.
   that does not exist.
 - **`WARN` + `mode: quick` + `FAIL: 0` is not alerted as unhealthy.** Already
   held and still held: that snapshot derives `ONLINE`.
-- **Schema pinned to `mythos-haddad-health/1`.** Held in production — a
-  foreign schema is refused with 400.
+- **Schema pinned to `mythos-haddad-health/1`. NOT MET — corrected
+  2026-09-23.** This document previously claimed it was held in production
+  because "a foreign schema is refused with 400". That refusal is real and it
+  is the wrong schema: `bin/haddad-ingest.js:299` compares `payload.schema`
+  against `node-state.js:20`'s `SCHEMA = 'mythos-node-telemetry/1'`, the
+  **transport** envelope. Three schemas exist here — that transport pin, the
+  receiver's published `mythos-haddad-node/1`, and the health document's own
+  `mythos-haddad-health/1`, which rides inside as a bounded allow-listed
+  string and is **compared to nothing** (`mythos-haddad-health` appears zero
+  times across `projects/status-center` and the site). The gate's intent is
+  served by the transport pin; its literal requirement is not met, and the
+  master plan leaves the item unticked. Carried to §22 for V3.
+
+  *How the claim got here: a test sends `schema: 'something-else/9'` and gets
+  a 400, and I never checked which of two fields named `schema` it was
+  overriding. Both are called `schema`; only one is checked. A name that
+  matches is not the thing that matches — and note that no coverage assertion
+  or mutation test would have caught this, because the check was real, running
+  and passing, against the wrong object.*
 - **No second monitoring stack.** The page renders the health report the node
   already produces and computes no health of its own.
 - **STD-1**: telemetry 168/0 unchanged against main, status-center 81/0,
@@ -100,9 +117,14 @@ not a check** — the same defect as the dormant `needs_gpu` rule in V2.3.
 ## What is NOT done
 
 **The routing decision is not on the console.** V2.2 records it per task —
-`exec.routing`, kept whole in the bridge's claims file — so the gate item
-"recorded and auditable per task" is met. But it lives in the bridge's store
-under `cfg.home`, and telemetry reads the *executor's* store. Publishing it
+`exec.routing`, kept whole on the attempt in the **control store**
+(`~/.local/state/mythos-haddad/control/control/tasks/gh-issue-410.json`
+carries `routed: true`, `role`, `router_agent`, `allowed`, `provider`,
+`authority`) — so the gate item "recorded and auditable per task" is met.
+*(Corrected 2026-09-23: this document said "the bridge's claims file".
+`bridge/claims.json` is a five-key index — 48 entries, zero routing — and
+naming it here was wrong.)* But that store is not the *executor's* store,
+which is what telemetry reads. Publishing it
 would mean the console reading a second store, which is the beginning of
 exactly the second monitoring stack this gate forbids. The honest place to
 fix it is the bridge writing its decision onto the attempt the executor
