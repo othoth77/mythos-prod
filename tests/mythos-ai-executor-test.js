@@ -30,6 +30,12 @@ var FIXTURES = path.join(os.homedir(), 'mythos-ai-executor-test-' + process.pid)
 fs.mkdirSync(FIXTURES, { recursive: true });
 process.env.MYTHOS_EXECUTOR_HOME = path.join(FIXTURES, 'home');
 process.env.MYTHOS_EXECUTOR_ALLOW_MOCK = '1';
+// V2.1: the local Haddad worker is a registered agent whose availability is
+// PROBED (enable marker + key + runtime). On the Haddad host itself that
+// probe answers true, which would make this suite's agent counts depend on
+// the machine it runs on. Pin it off, exactly as the other providers are
+// pinned off above/below: the suite injects what it wants to be available.
+process.env.HADDAD_AGENT_ENABLE_FILE = path.join(FIXTURES, 'no-haddad-agent.enabled');
 delete process.env.MYTHOS_MOCK_SCRIPT;
 // MOS-v2 M-10: the advisory credential is pinned at a path that does not
 // exist, so the planner-model path is deterministically UNAVAILABLE here

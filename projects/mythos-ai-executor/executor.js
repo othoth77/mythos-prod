@@ -27,6 +27,7 @@ var quota = require('./lib/quota');
 var policy = require('./lib/policy');
 var reporting = require('./lib/report');
 var skills = require('./lib/skills');
+var roles = require('./lib/roles');
 var mcpCapabilities = require('./lib/mcp-capabilities');
 var modelPolicy = require('./lib/model-policy');
 var resourceGuard = require('./lib/resource-guard');
@@ -252,8 +253,19 @@ function createTask(input) {
   // have shaped via the schema. Selection is deterministic and always
   // succeeds with SOME outcome (a skill, or null with a reason) — a
   // malformed skills.json disables the layer, it never blocks the task.
+  // V2.1 (AI team): the ROLE is derived from the closed bridge action, server-
+  // side, after the envelope validated — nothing a caller wrote can name it.
+  // A role changes which trust-attested skill pack is selected (its
+  // skill_category) and what the Haddad runner says in its system prompt;
+  // it never changes the profile, which still comes from the action. A
+  // category that is not a bridge action, or a dark role layer, leaves the
+  // pre-V2 selection exactly as it was.
+  var roleSel = roles.resolveRole({ action: task.task_category, instruction: task.instruction });
+  task.role = roleSel.role ? roleSel.role.id : null;
+  task.role_reason = roleSel.reason;
   var selection = skills.selectSkill({
-    stage: task.stage, instruction: task.instruction, task_category: task.task_category
+    stage: task.stage, instruction: task.instruction,
+    task_category: roleSel.role ? roleSel.role.skill_category : task.task_category
   });
   task.skill_id = selection.skill ? selection.skill.id : null;
   task.skill_version = selection.skill ? selection.skill.version : null;
@@ -293,6 +305,7 @@ function createTask(input) {
   state.appendEvent(task.task_id, 'created', {
     project: task.project, stage: task.stage, provider: task.provider,
     model: task.model, status: 'QUEUED',
+    role: task.role, role_reason: task.role_reason,
     skill_id: task.skill_id, skill_version: task.skill_version,
     skill_selection_reason: task.skill_selection_reason
   });
@@ -484,6 +497,28 @@ function buildPrompt(task, status, resumeNote) {
     PREVIOUS_REPORT: prevReport && prevReport.report ? JSON.stringify(prevReport.report, null, 2) : '(none)',
     RESUME_NOTE: resumeNote || '(first run)'
   });
+}
+
+// V2.1: the measured evidence a supervising provider attaches to its
+// outcome, in a bounded shape for report.json. null when the provider
+// measured nothing (every non-supervising provider).
+function providerEvidence(outcome) {
+  if (!outcome || (!outcome.validation && !outcome.tool_trace && !outcome.validations)) return null;
+  var trace = Array.isArray(outcome.tool_trace) ? outcome.tool_trace.slice(0, 200) : [];
+  return {
+    validation: outcome.validation || null,
+    validations: Array.isArray(outcome.validations) ? outcome.validations.slice(0, 10).map(function (v) {
+      return { attempt: v.attempt, pass: v.pass, rejections: (v.rejections || []).slice(0, 20) };
+    }) : [],
+    repair_rounds: typeof outcome.repair_rounds === 'number' ? outcome.repair_rounds : null,
+    tool_calls: typeof outcome.tool_calls === 'number' ? outcome.tool_calls : trace.length,
+    tool_trace: trace.map(function (e) {
+      return { tool: e.tool, target: e.target || null, refused: !!e.refused, detail: e.detail ? String(e.detail).slice(0, 160) : null };
+    }),
+    diagnosis_requested: trace.some(function (e) { return e.tool === 'diagnose'; }),
+    context_compactions: trace.filter(function (e) { return e.tool === 'context_compaction'; }).length,
+    duration_ms: typeof outcome.duration_ms === 'number' ? outcome.duration_ms : null
+  };
 }
 
 // --- Git verification and report delivery -------------------------------------
@@ -865,7 +900,12 @@ function handleSuccess(task, taskId, outcome, parsed) {
   state.writeJSON(taskId, 'report.json', {
     task_id: taskId, report: report, structured: structured, blocker: blocker, problems: extras.report_problems,
     git: extras, provider_result_tail: tailOf(resultText, 4000),
-    provider_used: status.provider_used, model_used: status.model_used, attempts: status.attempts, fallback: status.fallback
+    provider_used: status.provider_used, model_used: status.model_used, attempts: status.attempts, fallback: status.fallback,
+    // V2.1 (AI team): what the provider MEASURED, kept next to what the
+    // model CLAIMED. A supervising provider (haddad-agent) returns its
+    // validator verdicts, tool trace and repair count; other providers
+    // return none and the field is null. Bounded, never the raw transcript.
+    evidence: providerEvidence(outcome)
   });
   var md = reporting.renderMarkdown(task, status, report || structured, extras);
   state.writeText(taskId, 'report.md', md);
@@ -988,7 +1028,7 @@ function handleFailure(task, taskId, outcome, mode, opts) {
       state.appendEvent(taskId, 'retries_exhausted', { retry_count: retryCount, max_retries: maxRetries, status: 'FAILED' });
       lifecycle.emit({ type: 'EXECUTION_FAILED', execution_id: failed.execution_id, task_id: taskId, task_state: 'FAILED', reason: 'transient failures exceeded max_retries', location: 'VPS', source: 'executor' });
       if (task.requested_by !== 'github-bridge') lifecycle.emit({ type: 'REPORT_SUBMITTED', execution_id: failed.execution_id, task_id: taskId, report_status: 'failed', report_ref: 'executor:report.json', location: 'VPS', source: 'executor' });
-      writeFailureReport(task, taskId, failed, 'failed', engine.blocker('PROVIDER_FAILED', { reason: 'transient failures exceeded max_retries (' + retryCount + '): ' + tailOf(text.trim(), 300), task_id: taskId, attempt_id: task.attempt_id || null, retries: retryCount, category: 'transient' }));
+      writeFailureReport(task, taskId, failed, 'failed', engine.blocker('PROVIDER_FAILED', { reason: 'transient failures exceeded max_retries (' + retryCount + '): ' + tailOf(text.trim(), 300), task_id: taskId, attempt_id: task.attempt_id || null, retries: retryCount, category: 'transient' }), outcome);
       notify('task_failed', task.stage, taskId + ' FAILED after ' + retryCount + ' retries');
       return failed;
     }
@@ -1031,7 +1071,7 @@ function handleFailure(task, taskId, outcome, mode, opts) {
   });
   writeCheckpoint(task, final, { current_step: terminal.toLowerCase() });
   var fb = engine.blocker(detail.code || (terminal === 'BLOCKED' ? 'PROVIDER_BLOCKED' : 'PROVIDER_FAILED'), { reason: tailOf(text.trim(), 500), category: detail.category, task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
-  writeFailureReport(task, taskId, final, terminal.toLowerCase(), fb);
+  writeFailureReport(task, taskId, final, terminal.toLowerCase(), fb, outcome);
   state.appendEvent(taskId, kind + '_failure', { status: terminal, code: fb.code, category: detail.category });
   notify('task_failed', task.stage, taskId + ' ' + terminal);
   lifecycle.emit({ type: 'EXECUTION_FAILED', execution_id: final.execution_id, task_id: taskId, task_state: terminal, reason: (fb.code || terminal) + ': ' + String(fb.reason || '').slice(0, 120), location: 'VPS', source: 'executor' });
@@ -1043,7 +1083,13 @@ function handleFailure(task, taskId, outcome, mode, opts) {
 
 // A provider that died (denied, blocked, fatal, retries exhausted) still ends
 // in a structured report: synthesised, marked as such, carrying the blocker.
-function writeFailureReport(task, taskId, status, reportStatus, blocker) {
+// `outcome` is optional and only present on the provider paths: a failed run
+// must carry the SAME measured evidence a successful one does (V2.1). It is
+// exactly when a run fails that the tool trace, the validator's verdicts and
+// the compaction count are what a reader needs — measured live: a FAILED
+// tester run produced an evidence file with a null trace and nothing to
+// diagnose from.
+function writeFailureReport(task, taskId, status, reportStatus, blocker, outcome) {
   var structured = reporting.synthesize({
     status: reportStatus, task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null,
     action_raw: task.action_raw || null, action_source: task.action_source || null, execution_profile: task.execution_profile || null,
@@ -1053,7 +1099,8 @@ function writeFailureReport(task, taskId, status, reportStatus, blocker) {
   state.writeJSON(taskId, 'report.json', {
     task_id: taskId, report: null, structured: structured, blocker: blocker,
     problems: [blocker.code + ': ' + String(blocker.reason || '').slice(0, 800)],
-    git: { git_verified: null, remote_head: null, report_problems: [] }, provider_result_tail: ''
+    git: { git_verified: null, remote_head: null, report_problems: [] }, provider_result_tail: '',
+    evidence: providerEvidence(outcome)
   });
   state.writeText(taskId, 'report.md', reporting.renderMarkdown(task, status, structured, { report_problems: [blocker.code] }));
 }
@@ -1662,6 +1709,7 @@ module.exports = {
   sshEnv: sshEnv,
   acquireDaemonLock: acquireDaemonLock,
   dispatchTask: dispatchTask,
+  providerEvidence: providerEvidence,
   drainQueue: drainQueue,
   dispatcherStatus: dispatcherStatus,
   // Deliberately NOT folded into dispatcherStatus(): the console asserts

@@ -824,6 +824,32 @@ t('U3 the executor delivers with hooks disabled, so a workspace cannot make git 
   });
 });
 
+// ------------------------------------------------- E. directory-shaped paths
+// Found live (coder run t-20260922210225): `write_file` with `lib/` created a
+// zero-byte regular FILE named `lib`, every later write under that name then
+// failed with "parent is not a real directory", and the stray file was an
+// out-of-scope change that cost the task its delivery.
+
+var ctxWrite = { workspace: WS, grant: policy.toolsForProfile('repo-write') };
+
+t('E1 write_file refuses a path that names a directory, and creates nothing', function () {
+  ['sub/', 'sub\\', 'newdir/', './newdir/'].forEach(function (p) {
+    var r = call('write_file', ctxWrite, { path: p, content: 'x' });
+    assert.ok(r.error && /names a directory/.test(r.error), p + ' refused: ' + JSON.stringify(r));
+  });
+  assert.ok(!fs.existsSync(path.join(WS, 'newdir')), 'nothing was created');
+  var before = fs.readdirSync(WS).length;
+  call('write_file', ctxWrite, { path: 'lib/', content: '' });
+  assert.strictEqual(fs.readdirSync(WS).length, before, 'the workspace is unchanged');
+});
+
+t('E2 an ordinary path still writes, and a nested path still needs a real parent', function () {
+  var ok = call('write_file', ctxWrite, { path: 'sub/written.txt', content: 'hello\n' });
+  assert.strictEqual(ok.written, path.join('sub', 'written.txt'));
+  var missing = call('write_file', ctxWrite, { path: 'nope/deep.txt', content: 'x' });
+  assert.ok(/parent directory does not exist/.test(missing.error), 'unchanged refusal for a missing parent');
+});
+
 queue.reduce(function (c, s) { return c.then(s); }, Promise.resolve()).then(function () {
   try { fs.rmSync(ROOT, { recursive: true, force: true }); } catch (e) { /* best effort */ }
   console.log('\n' + pass + ' passed, ' + fail + ' failed');

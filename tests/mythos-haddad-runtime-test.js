@@ -136,7 +136,17 @@ var ALLOWED = [
   'projects/mythos-ai-executor/providers/haddad-agent.js',
   'projects/mythos-ai-executor/lib/work-validation.js',
   'projects/mythos-ai-executor/lib/policy.js',
-  'projects/mythos-ai-executor/free-llm/adapter.js'
+  'projects/mythos-ai-executor/free-llm/adapter.js',
+  // V2.1 (AI team foundation): the stage whose purpose IS to register the
+  // Haddad worker as an agent with roles. The registry entry, its probe, the
+  // role table and the library that validates it — each named, each covered
+  // by tests/mythos-haddad-ai-team-test.js. Everything else under the
+  // protected trees still fails this guard, which is the point of naming
+  // them rather than widening the pattern.
+  'projects/mythos-ai-executor/config/agents.json',
+  'projects/mythos-ai-executor/config/roles.json',
+  'projects/mythos-ai-executor/lib/roles.js',
+  'projects/mythos-ai-executor/core/agent-registry.js'
 ];
 var PROTECTED = /^projects\/mythos-ai-executor\/(core|lib|providers|free-llm|config)\//;
 
@@ -174,10 +184,18 @@ t('the scope guard is scoped to Haddad branches and still bites', function () {
     forbiddenExecutorFiles(['projects/mythos-haddad/docs/GITHUB_WORKER.md',
       'projects/mythos-ai-executor/config/projects.json']), [],
     'the one owner-approved HAD-3 registration stays allow-listed');
+  // The property this pins is per-FILE allow-listing, not per-directory. Its
+  // example used to be config/agents.json; V2.1 allow-listed that file by
+  // name (the agent registration IS that stage), so the example moves to a
+  // config file no stage has named. The property is unchanged.
   assert.deepStrictEqual(
-    forbiddenExecutorFiles(['projects/mythos-haddad/x.md', 'projects/mythos-ai-executor/config/agents.json']),
-    ['projects/mythos-ai-executor/config/agents.json'],
+    forbiddenExecutorFiles(['projects/mythos-haddad/x.md', 'projects/mythos-ai-executor/config/model-policy.json']),
+    ['projects/mythos-ai-executor/config/model-policy.json'],
     'the allow-list is one FILE, not the whole config directory');
+  assert.deepStrictEqual(
+    forbiddenExecutorFiles(['projects/mythos-haddad/x.md', 'projects/mythos-ai-executor/core/scheduler.js']),
+    ['projects/mythos-ai-executor/core/scheduler.js'],
+    'naming one file under core/ did not open core/ — the scheduler is still refused');
 });
 
 t('haddad-health.js gained exactly one new, well-formed check (ai_runtime)', function () {
@@ -211,7 +229,9 @@ function runAiRuntime(opts) {
     '#!/bin/sh\n' +
     'case " $* " in\n' +
     '  *" is-active "*) echo "' + opts.active + '" ;;\n' +
-    '  *" show "*) echo "ActiveEnterTimestamp=' + activeSince + '"; echo "TimeoutStartUSec=' + opts.budget + '" ;;\n' +
+    '  *" show "*) echo "ActiveEnterTimestamp=' + activeSince + '"; echo "TimeoutStartUSec=' + opts.budget + '";' +
+    (opts.exec_start === undefined ? ' echo "ExecStart={ argv[]=/usr/bin/llama-server --n-gpu-layers auto ; }"' :
+      opts.exec_start === null ? '' : ' echo "ExecStart=' + opts.exec_start + '"') + ' ;;\n' +
     '  *) echo "" ;;\n' +
     'esac\nexit 0\n', { mode: 0o755 });
   // The check asks curl for the body plus "\n%{http_code}"; reproduce both.
@@ -488,6 +508,43 @@ t('the telemetry parser distinguishes no-device from unknown (tri-state)', funct
   assert.ok(/no_devices: null/.test(src), 'no_devices starts unknown, not false');
   assert.ok(/no devices with dedicated memory found/.test(src), 'the real second marker is matched too');
   assert.ok(/runtimeLoadFacts: runtimeLoadFacts/.test(src), 'exported for reuse');
+});
+
+
+t('a unit that asked for CPU is not failed for using CPU', function () {
+  // --n-gpu-layers 0 is an operator saying "CPU on purpose". Failing that
+  // host would be this check inventing a policy nobody set.
+  var c = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 200, body: LOADED,
+    journal: CPU_ONLY_BOOT, exec_start: '{ argv[]=/usr/bin/llama-server --n-gpu-layers 0 ; }' });
+  assert.strictEqual(c.status, 'PASS', 'an explicit CPU-only unit passes on CPU');
+  assert.strictEqual(c.data.gpu_intended, false);
+  assert.ok(/CPU-only by configuration/.test(c.detail), c.detail);
+});
+
+t('only an EXPLICIT opt-out disarms the assertion — silence never does', function () {
+  // The asymmetry that matters: a missing flag must NOT read as "CPU
+  // intended", or this unit could lose its GPU assertion by losing a line.
+  var noFlag = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 200, body: LOADED,
+    journal: CPU_ONLY_BOOT, exec_start: '{ argv[]=/usr/bin/llama-server --ctx-size 8192 ; }' });
+  assert.strictEqual(noFlag.status, 'FAIL', 'no --n-gpu-layers flag still asserts the GPU');
+  assert.strictEqual(noFlag.data.gpu_intended, true);
+
+  var unreadable = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 200, body: LOADED,
+    journal: CPU_ONLY_BOOT, exec_start: null });
+  assert.strictEqual(unreadable.status, 'FAIL', 'an unreadable ExecStart never softens a real regression');
+  assert.strictEqual(unreadable.data.gpu_intended, true);
+
+  // ...and a non-zero value obviously keeps it armed.
+  var auto = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 200, body: LOADED,
+    journal: CPU_ONLY_BOOT, exec_start: '{ argv[]=/usr/bin/llama-server --n-gpu-layers auto ; }' });
+  assert.strictEqual(auto.status, 'FAIL', '--n-gpu-layers auto means the GPU is expected');
+});
+
+t('a CPU-only unit still has to actually answer', function () {
+  // Opting out of the GPU does not opt out of the readiness contract.
+  var c = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 503, body: LOADING,
+    journal: CPU_ONLY_BOOT, exec_start: '{ argv[]=/usr/bin/llama-server --n-gpu-layers 0 ; }' });
+  assert.strictEqual(c.status, 'FAIL', 'a stuck CPU-only runtime is still a failure');
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

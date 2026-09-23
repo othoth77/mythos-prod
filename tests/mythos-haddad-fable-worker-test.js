@@ -216,6 +216,21 @@ var HAD4_ALLOWED = [
   'projects/mythos-ai-executor/schemas/task.schema.json',
   'projects/mythos-ai-executor/bridge/action-resolution.js'
 ];
+// V2.1 (AI team foundation) is the stage that makes the Haddad worker a
+// REGISTERED AGENT with ROLES, so its surface under the executor tree is
+// named here for the same reason the two above are: the registry entry and
+// its probe, the role table and the library that validates it, the executor
+// call site that derives the role and keeps the provider's measured
+// evidence, and the two nullable audit fields on the task schema. Covered by
+// tests/mythos-haddad-ai-team-test.js (including H1–H8, which assert the
+// role layer adds no subsystem and holds no authority). Anything else under
+// the executor tree still fails this guard.
+var V21_ALLOWED = [
+  'projects/mythos-ai-executor/config/agents.json',
+  'projects/mythos-ai-executor/config/roles.json',
+  'projects/mythos-ai-executor/lib/roles.js',
+  'projects/mythos-ai-executor/core/agent-registry.js'
+];
 var REGISTRY_ONLY = 'projects/mythos-ai-executor/bridge/action-resolution.js';
 
 function touchesHaddad(files) {
@@ -225,7 +240,8 @@ function touchesHaddad(files) {
 function executorFilesModified(files) {
   if (!touchesHaddad(files)) return [];   // not a Haddad stage — not this guard's business
   return files.filter(function (f) {
-    return HAD3_ALLOWED.indexOf(f) === -1 && HAD4_ALLOWED.indexOf(f) === -1 && /^projects\/mythos-ai-executor\//.test(f);
+    return HAD3_ALLOWED.indexOf(f) === -1 && HAD4_ALLOWED.indexOf(f) === -1 &&
+      V21_ALLOWED.indexOf(f) === -1 && /^projects\/mythos-ai-executor\//.test(f);
   });
 }
 

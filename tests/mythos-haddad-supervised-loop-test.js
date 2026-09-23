@@ -512,16 +512,63 @@ t('B3 the loop is BOUNDED: three executions, then it stops for a person', functi
 // C. Anti-cheating — the ways a worker "passes" without doing the work
 // ===========================================================================
 
-t('C1 editing the check itself is caught', function () {
+// C1 and C5 drive their out-of-scope write through a SCRIPT, not through
+// write_file. That is deliberate and it is the whole point: write_file now
+// answers the declared scope itself (immediate feedback), but a tool rule is
+// not a boundary when the tool surface includes "run code" — the V1 `.git`
+// escape taught that. What these two prove is that the VALIDATOR, which
+// measures the workspace out of band, catches the write that never passed
+// through a tool at all. Each task declares the helper as in scope, so the
+// helper itself is written legitimately and only what it DOES is out of scope.
+
+t('C1 editing the check itself is caught — by the validator, through a script the tool layer never sees', function () {
   var ws = newWorkspace('edits-check');
   seedBrokenProject(ws);
+  var tamper = 'var fs = require("fs");\n' +
+    'fs.writeFileSync("add.test.js", "console.log(\'add ok\');\\n");\n';
   return runTask(ws, [
-    callTool('c1', 'write_file', { path: 'add.test.js', content: 'console.log("add ok");\n' }),
+    callTool('c1', 'write_file', { path: 'tamper.js', content: tamper }),
+    callTool('c2', 'run_command', { program: 'node', args: ['tamper.js'] }),
     say(report('completed', 'Tests pass now.', ['add.test.js']))
-  ]).then(function (o) {
+  ], { constraints: ['Only change add.js, tamper.js'] }).then(function (o) {
+    var wrote = o.tool_trace.filter(function (e) { return e.tool === 'write_file'; })[0];
+    assert.strictEqual(wrote.refused, false, 'the helper itself was in scope and was written');
     assert.strictEqual(o.validation.passed, false, 'a rewritten check is not a pass');
     assert.ok(/integrity: add\.test\.js .*MODIFIED/.test(rejections(o)),
       'and it is named as an integrity failure: ' + rejections(o));
+  });
+});
+
+t('C1b write_file answers the declared scope immediately — and that is feedback, not the boundary', function () {
+  var ws = newWorkspace('scope-feedback');
+  seedBrokenProject(ws);
+  return runTask(ws, [
+    callTool('c1', 'write_file', { path: 'add.test.js', content: 'console.log("add ok");\n' }),
+    callTool('c2', 'write_file', { path: 'add.js', content: FIXED }),
+    say(report('completed', 'Fixed add.', ['add.js']))
+  ], { constraints: ['Only change add.js'] }).then(function (o) {
+    var writes = o.tool_trace.filter(function (e) { return e.tool === 'write_file'; });
+    assert.strictEqual(writes[0].refused, true, 'the out-of-scope write was refused at the tool');
+    assert.ok(/outside the scope this task declared/.test(writes[0].detail), writes[0].detail);
+    assert.ok(/add\.js/.test(writes[0].detail), 'the refusal names the scope the task declared: ' + writes[0].detail);
+    assert.strictEqual(writes[1].refused, false, 'the in-scope write went through');
+    assert.strictEqual(o.validation.passed, true, 'and the attempt then passes on its merits');
+    var content = fs.readFileSync(path.join(ws, 'add.test.js'), 'utf8');
+    assert.ok(/add\(2, 5\)/.test(content), 'the check file was never touched');
+  });
+});
+
+t('C1c a task that declares no FILE scope is refused nothing it was not refused before', function () {
+  var ws = newWorkspace('no-scope');
+  seedBrokenProject(ws);
+  return runTask(ws, [
+    callTool('c1', 'write_file', { path: 'anything.js', content: 'module.exports = 1;\n' }),
+    callTool('c2', 'write_file', { path: 'add.js', content: FIXED }),
+    say(report('completed', 'Fixed add.', ['add.js', 'anything.js']))
+  ], { constraints: ['Read-only where possible. Be careful.'] }).then(function (o) {
+    var writes = o.tool_trace.filter(function (e) { return e.tool === 'write_file'; });
+    assert.strictEqual(writes[0].refused, false, 'a prose-only constraint declares no scope, so nothing is refused');
+    assert.strictEqual(o.validation.evidence.scope_enforced, false, 'and the validator agrees there was no scope');
   });
 });
 
@@ -574,15 +621,19 @@ t('C4 claiming changed files while changing nothing is caught', function () {
   });
 });
 
-t('C5 work outside the declared scope is caught', function () {
+t('C5 work outside the declared scope is caught — by the validator, when a script put it there', function () {
   var ws = newWorkspace('out-of-scope');
   seedBrokenProject(ws);
+  var helper = 'var fs = require("fs");\nfs.writeFileSync("unrelated.js", "module.exports = 1;\\n");\n';
   return runTask(ws, [
     callTool('c1', 'write_file', { path: 'add.js', content: FIXED }),
-    callTool('c2', 'write_file', { path: 'unrelated.js', content: 'module.exports = 1;\n' }),
+    callTool('c2', 'write_file', { path: 'helper.js', content: helper }),
+    callTool('c3', 'run_command', { program: 'node', args: ['helper.js'] }),
     say(report('completed', 'Fixed add.', ['add.js', 'unrelated.js']))
-  ], { constraints: ['Only change add.js'], required_tests: ['node add.test.js'] }).then(function (o) {
-    assert.strictEqual(o.validation.passed, false, 'the extra file was not allowed');
+  ], { constraints: ['Only change add.js, helper.js'], required_tests: ['node add.test.js'] }).then(function (o) {
+    assert.ok(o.tool_trace.filter(function (e) { return e.tool === 'write_file'; }).every(function (e) { return !e.refused; }),
+      'both declared files were written through the tool without complaint');
+    assert.strictEqual(o.validation.passed, false, 'the file the SCRIPT created was not allowed');
     assert.ok(/scope: unrelated\.js was changed/.test(rejections(o)), rejections(o));
     assert.strictEqual(o.validation.evidence.scope_enforced, true, 'a path scope existed and was applied');
   });
@@ -674,6 +725,270 @@ t('C7 a report survives a rejection that quotes a code fence', function () {
     var r = blockedReport(o);
     assert.ok(/no fenced/.test(r.residual_risks.join(' ')), 'the diagnosis survived');
     assert.ok(!/```/.test(JSON.stringify(r)), 'with no fence left inside the report to break it');
+  });
+});
+
+// ---------------------------------------------------------------- D. context
+// V2.1 (measured live, gh researcher run t-20260922204100-lttyji): tool
+// results accumulated past the runtime's 8,192-token window and the whole
+// attempt failed with HTTP 400. The runner now accounts for the window.
+
+t('D1 context budget: derived from the window, leaves room for the answer, bounds a single tool result', function () {
+  assert.strictEqual(agent.CONTEXT_WINDOW_TOKENS, 8192, 'default window is the runtime unit\'s --ctx-size');
+  assert.ok(agent.PROMPT_BUDGET_TOKENS <= agent.CONTEXT_WINDOW_TOKENS - agent.MAX_TOKENS_PER_TURN, 'the answer always has its ' + agent.MAX_TOKENS_PER_TURN + ' tokens');
+  assert.ok(agent.MAX_TOOL_PAYLOAD_CHARS < agent.MAX_TOOL_OUTPUT_BYTES, 'per-call payload cap is tighter than the byte ceiling');
+  assert.ok(agent.MAX_TOOL_PAYLOAD_CHARS * 3 <= agent.PROMPT_BUDGET_TOKENS * 3 + 8, 'one result is at most a third of the budget');
+});
+
+t('D2 context budget: a long file is handed over TRUNCATED and says so; the conversation stays under budget', function () {
+  var ws = newWorkspace('ctx-truncate');
+  seedBrokenProject(ws);
+  fs.writeFileSync(path.join(ws, 'big.txt'), new Array(4000).join('0123456789\n'));  // ~44 KB, under MAX_READ_BYTES
+  var replies = [callTool('c1', 'read_file', { path: 'big.txt' }), say('done\n' + report('completed', 'read it'))];
+  return runTask(ws, replies).then(function (o) {
+    var second = o._sent[1];
+    var toolMsg = second.messages.filter(function (m) { return m.role === 'tool'; })[0];
+    var parsed = JSON.parse(toolMsg.content);
+    assert.strictEqual(parsed.truncated, true, 'marked truncated');
+    assert.ok(parsed.total_bytes > parsed.content.length, 'total size reported');
+    assert.ok(toolMsg.content.length <= agent.MAX_TOOL_PAYLOAD_CHARS, 'payload within the per-call cap');
+    var chars = second.messages.reduce(function (n, m) { return n + (typeof m.content === 'string' ? m.content.length : 0); }, 0);
+    assert.ok(chars / 3 < agent.PROMPT_BUDGET_TOKENS, 'estimated prompt under budget');
+  });
+});
+
+t('D3 context budget: accumulated EXCHANGES are elided OLDEST-FIRST, never the system prompt, the task or the newest exchange, and the trace records it', function () {
+  var ws = newWorkspace('ctx-compact');
+  seedBrokenProject(ws);
+  for (var i = 0; i < 6; i++) fs.writeFileSync(path.join(ws, 'f' + i + '.txt'), new Array(600).join('line ' + i + ' 0123456789\n')); // ~10 KB each
+  var replies = [];
+  for (var j = 0; j < 6; j++) replies.push(callTool('c' + j, 'read_file', { path: 'f' + j + '.txt' }));
+  replies.push(say('done\n' + report('completed', 'read them')));
+  return runTask(ws, replies).then(function (o) {
+    // The 7th request is the one carrying all six results (the answer that
+    // follows fails validation and starts a compact repair round, as usual).
+    var last = o._sent[6];
+    var tools = last.messages.filter(function (m) { return m.role === 'tool'; });
+    assert.strictEqual(tools.length, 6, 'every tool message still present (ids intact for the API)');
+    var elided = tools.filter(function (m) { return m.content === agent.ELIDED_TOOL_STUB; });
+    assert.ok(elided.length >= 1, 'at least one earlier result elided (' + elided.length + ')');
+    assert.strictEqual(tools[tools.length - 1].content === agent.ELIDED_TOOL_STUB, false, 'the most recent result is kept');
+    assert.strictEqual(tools[0].content, agent.ELIDED_TOOL_STUB, 'the oldest went first');
+    // The ASSISTANT half of an elided exchange goes with it — a write_file
+    // call's arguments carry a whole file, which is what actually fills the
+    // window — while its tool_call ids survive so the message stays valid.
+    var assistants = last.messages.filter(function (m) { return m.role === 'assistant' && m.tool_calls; });
+    assert.strictEqual(assistants.length, 6, 'every assistant turn still present');
+    assert.strictEqual(assistants[0].tool_calls[0].function.arguments, agent.ELIDED_ARGS, 'the oldest exchange\'s arguments went too');
+    assert.ok(assistants[0].tool_calls[0].id, 'its tool_call id survives, so the tool message that answers it stays valid');
+    assert.strictEqual(assistants[0].tool_calls[0].function.name, 'read_file', 'the call NAME survives, so the model still sees what it did');
+    assert.notStrictEqual(assistants[assistants.length - 1].tool_calls[0].function.arguments, agent.ELIDED_ARGS, 'the newest exchange is intact');
+    // Elision is paired: an elided assistant turn's results are elided too.
+    last.messages.forEach(function (m, i) {
+      if (m.role === 'assistant' && m.tool_calls && m.tool_calls[0].function.arguments === agent.ELIDED_ARGS) {
+        for (var j = i + 1; j < last.messages.length && last.messages[j].role === 'tool'; j++) {
+          assert.strictEqual(last.messages[j].content, agent.ELIDED_TOOL_STUB, 'result of an elided call is elided too');
+        }
+      }
+    });
+    assert.strictEqual(last.messages[0].role, 'system');
+    assert.ok(/Fix add/.test(last.messages[1].content), 'the task is untouched');
+    var chars = last.messages.reduce(function (n, m) { return n + (typeof m.content === 'string' ? m.content.length : 0); }, 0);
+    assert.ok(chars / 3 <= agent.PROMPT_BUDGET_TOKENS, 'the final request is under budget (~' + Math.round(chars / 3) + ')');
+    assert.ok(o.tool_trace.some(function (e) { return e.tool === 'context_compaction'; }), 'compaction is in the trace');
+    // The task still settles normally: a compacted conversation is not a failure.
+    assert.strictEqual(o.exit_code, 0);
+  });
+});
+
+t('D4 context budget: the runtime\'s own usage.prompt_tokens re-anchors the estimate', function () {
+  var ws = newWorkspace('ctx-anchor');
+  seedBrokenProject(ws);
+  fs.writeFileSync(path.join(ws, 'mid.txt'), new Array(300).join('0123456789\n')); // ~3.3 KB: far under the per-call cap
+  var sent = [];
+  var n = 0;
+  // Two small reads, then done. By the CHAR estimate nothing ever needs
+  // compacting; the runtime's own accounting says otherwise before the third
+  // request, and the runner must believe the measurement.
+  var usageByTurn = [600, agent.PROMPT_BUDGET_TOKENS - 800, 600];
+  var transport = function (opts, body) {
+    sent.push(JSON.parse(body));
+    var turn = n++;
+    var reply = turn < 2 ? callTool('c' + turn, 'read_file', { path: 'mid.txt' }) : say('done\n' + report('completed', 'x'));
+    return Promise.resolve({ status: 200, body: JSON.stringify({ choices: [{ message: reply }], usage: { prompt_tokens: usageByTurn[Math.min(turn, usageByTurn.length - 1)] } }) });
+  };
+  var task = { task_id: 't-anchor', working_directory: ws, execution_profile: 'repo-write', timeout_seconds: 600, required_tests: ['node add.test.js'], constraints: ['Only change add.js'] };
+  return agent.run(task, 'Fix add so its test passes.', null, 'start', { apiKey: 'k', model: 'm', transport: transport }).then(function (o) {
+    // After the first answer the anchor says the prompt is already over
+    // budget; the one tool result gets elided before the second request.
+    assert.ok(sent.length >= 3, 'three requests were made (' + sent.length + ')');
+    var third = sent[2];
+    var toolMsg = third.messages.filter(function (m) { return m.role === 'tool'; })[0];
+    assert.strictEqual(toolMsg.content, agent.ELIDED_TOOL_STUB, 'elided on the runtime\'s measurement, not the estimate');
+    var chars = third.messages.reduce(function (n2, m) { return n2 + (typeof m.content === 'string' ? m.content.length : 0); }, 0);
+    assert.ok(chars / 3 < agent.PROMPT_BUDGET_TOKENS, 'the char estimate alone would never have compacted this (' + Math.round(chars / 3) + ' tokens)');
+    assert.ok(o.tool_trace.some(function (e) { return e.tool === 'context_compaction'; }));
+    assert.ok(/exchange/.test(o.tool_trace.filter(function (e) { return e.tool === 'context_compaction'; })[0].detail), 'the trace says what unit was dropped');
+  });
+});
+
+t('D5 context budget: a task prompt that cannot fit even alone stops with a named code, never an HTTP 400 from the runtime', function () {
+  var ws = newWorkspace('ctx-huge');
+  seedBrokenProject(ws);
+  var calls = 0;
+  var transport = function () { calls++; return Promise.resolve({ status: 200, body: JSON.stringify({ choices: [{ message: say('x') }] }) }); };
+  var task = { task_id: 't-huge', working_directory: ws, execution_profile: 'repo-write', timeout_seconds: 600, required_tests: [], constraints: [] };
+  var huge = new Array(agent.PROMPT_BUDGET_TOKENS * 4).join('word ');
+  return agent.run(task, huge, null, 'start', { apiKey: 'k', model: 'm', transport: transport }).then(function (o) {
+    assert.strictEqual(calls, 0, 'the runtime was never asked');
+    assert.strictEqual(o.parsed.subtype, 'HADDAD_AGENT_CONTEXT_EXHAUSTED');
+    assert.strictEqual(o.exit_code, 1);
+    // An authoring problem and a run that grew need different answers, so
+    // the message says which one this is.
+    assert.ok(/task prompt alone/.test(o.stderr), 'named as an over-large task prompt: ' + o.stderr);
+    assert.ok(new RegExp(String(agent.PROMPT_BUDGET_TOKENS)).test(o.stderr) && /8192/.test(o.stderr), 'budget and window both stated');
+  });
+});
+
+t('D6 context budget: a run whose ARGUMENTS keep growing is sustained by compaction — every request stays under budget, and it never dies of HTTP 400', function () {
+  var ws = newWorkspace('ctx-grown');
+  seedBrokenProject(ws);
+  var n = 0;
+  var sent = [];
+  // Each turn writes a file whose CONTENT is ~30 % of the budget. The
+  // arguments — not the results — are what accumulates, and eliding results
+  // alone never touched them (measured live, gh-tester t-20260922205205:
+  // twelve assistant turns, every result already elided, still ~6,700
+  // tokens). This drives more turns than the window could ever hold.
+  var big = new Array(Math.floor(agent.PROMPT_BUDGET_TOKENS * 3 * 0.3)).join('x');
+  var transport = function (opts, body) {
+    sent.push(JSON.parse(body));
+    n++;
+    return Promise.resolve({ status: 200, body: JSON.stringify({ choices: [{ message: callTool('c' + n, 'write_file', { path: 'grow' + n + '.txt', content: big }) }] }) });
+  };
+  var task = { task_id: 't-grown', working_directory: ws, execution_profile: 'repo-write', timeout_seconds: 600, required_tests: [], constraints: [] };
+  return agent.run(task, 'Fix add so its test passes.', null, 'start', { apiKey: 'k', model: 'm', transport: transport }).then(function (o) {
+    assert.ok(sent.length > 12, 'the run went well past a window\'s worth of turns (' + sent.length + ' requests)');
+    assert.notStrictEqual(o.parsed.subtype, 'HADDAD_AGENT_CONTEXT_EXHAUSTED', 'compaction kept it alive');
+    var over = sent.filter(function (req) {
+      return req.messages.reduce(function (c, m) {
+        return c + (typeof m.content === 'string' ? m.content.length : 0) + (m.tool_calls ? JSON.stringify(m.tool_calls).length : 0);
+      }, 0) / 3 > agent.PROMPT_BUDGET_TOKENS;
+    });
+    assert.strictEqual(over.length, 0, over.length + ' of ' + sent.length + ' requests exceeded the prompt budget');
+    assert.ok(o.tool_trace.filter(function (e) { return e.tool === 'context_compaction'; }).length > 5, 'compaction ran repeatedly and is in the trace');
+  });
+});
+
+t('D7 context budget: when only the newest exchange is left and it still does not fit, the message blames the conversation, not the task prompt', function () {
+  var ws = newWorkspace('ctx-wall');
+  seedBrokenProject(ws);
+  fs.writeFileSync(path.join(ws, 'big.txt'), new Array(4000).join('0123456789\n'));
+  // The runtime reports the prompt as nearly full; the one capped result
+  // that follows cannot fit beside it, and the newest exchange is never
+  // dropped (dropping what the model just asked for makes it ask forever).
+  var n = 0;
+  var transport = function () {
+    var reply = n++ === 0 ? callTool('c1', 'read_file', { path: 'big.txt' }) : say('done');
+    return Promise.resolve({ status: 200, body: JSON.stringify({ choices: [{ message: reply }], usage: { prompt_tokens: agent.PROMPT_BUDGET_TOKENS - 100 } }) });
+  };
+  var task = { task_id: 't-wall', working_directory: ws, execution_profile: 'repo-write', timeout_seconds: 600, required_tests: [], constraints: [] };
+  return agent.run(task, 'Fix add so its test passes.', null, 'start', { apiKey: 'k', model: 'm', transport: transport }).then(function (o) {
+    assert.strictEqual(o.parsed.subtype, 'HADDAD_AGENT_CONTEXT_EXHAUSTED');
+    assert.ok(/after compacting every earlier exchange/.test(o.stderr), 'blames the conversation: ' + o.stderr);
+    assert.ok(!/task prompt alone/.test(o.stderr), 'does not blame the task prompt');
+  });
+});
+
+t('D8 an identical repeated call is answered with the same result plus a note, never a different result', function () {
+  var ws = newWorkspace('repeat');
+  seedBrokenProject(ws);
+  var replies = [
+    callTool('r1', 'read_file', { path: 'add.js' }),
+    callTool('r2', 'read_file', { path: 'add.js' }),
+    say('done\n' + report('completed', 'x'))
+  ];
+  return runTask(ws, replies).then(function (o) {
+    var toolMsgs = o._sent[2].messages.filter(function (m) { return m.role === 'tool'; });
+    assert.strictEqual(toolMsgs.length, 2);
+    var first = JSON.parse(toolMsgs[0].content);
+    var second = JSON.parse(toolMsgs[1].content);
+    assert.strictEqual(second.content, first.content, 'the RESULT is unchanged — the note adds nothing and hides nothing');
+    assert.ok(!first.note, 'the first call carries no note');
+    assert.ok(/do not repeat it/.test(second.note || ''), 'the repeat is named: ' + second.note);
+  });
+});
+
+t('D9 a repeated call whose result CHANGED is not called a repeat', function () {
+  var ws = newWorkspace('repeat-changed');
+  seedBrokenProject(ws);
+  var replies = [
+    callTool('r1', 'read_file', { path: 'add.js' }),
+    callTool('r2', 'write_file', { path: 'add.js', content: FIXED }),
+    callTool('r3', 'read_file', { path: 'add.js' }),
+    say('done\n' + report('completed', 'x', ['add.js']))
+  ];
+  return runTask(ws, replies).then(function (o) {
+    var toolMsgs = o._sent[3].messages.filter(function (m) { return m.role === 'tool'; });
+    var reads = [JSON.parse(toolMsgs[0].content), JSON.parse(toolMsgs[2].content)];
+    assert.notStrictEqual(reads[1].content, reads[0].content, 'the file really did change between the two reads');
+    assert.ok(!reads[1].note, 'the second read is not flagged as a repeat');
+  });
+});
+
+t('D10 compaction reaches a FIXED floor: a long run of small exchanges does not accumulate stubs until the window is gone', function () {
+  var ws = newWorkspace('ctx-floor');
+  seedBrokenProject(ws);
+  // Many small tool calls. Eliding each one leaves a stub, and a stub is not
+  // free — measured live (tester t-20260922230756), eleven elided exchanges
+  // still needed ~6,371 tokens against a 6,272 budget and the attempt died
+  // 99 tokens over a floor that grew with the run. The floor must be
+  // system + task + newest exchange, whatever N was.
+  var replies = [];
+  for (var i = 0; i < 11; i++) replies.push(callTool('c' + i, 'read_file', { path: 'add.js' }));
+  replies.push(say('done\n' + report('completed', 'read it', [])));
+  var sent = [];
+  var n = 0;
+  // The transport reports prompt_tokens the way a real runtime does —
+  // derived from what it was actually sent — plus a fixed head that stands
+  // in for a large task prompt. Without that the simulation never feels
+  // pressure and proves nothing.
+  var HEAD_TOKENS = agent.PROMPT_BUDGET_TOKENS - 900;
+  var transport = function (opts, body) {
+    var req = JSON.parse(body);
+    sent.push(req);
+    var chars = req.messages.reduce(function (c, m) {
+      return c + (typeof m.content === 'string' ? m.content.length : 0) +
+        (m.tool_calls ? JSON.stringify(m.tool_calls).length : 0);
+    }, 0);
+    return Promise.resolve({ status: 200, body: JSON.stringify({
+      choices: [{ message: replies[Math.min(n++, replies.length - 1)] }],
+      usage: { prompt_tokens: HEAD_TOKENS + Math.ceil(chars / 3.5) } }) });
+  };
+  var task = { task_id: 't-floor', working_directory: ws, execution_profile: 'repo-write',
+    timeout_seconds: 600, required_tests: [], constraints: [] };
+  return agent.run(task, 'Fix add so its test passes.', null, 'start',
+    { apiKey: 'k', model: 'm', transport: transport }).then(function (o) {
+    assert.notStrictEqual(o.parsed.subtype, 'HADDAD_AGENT_CONTEXT_EXHAUSTED',
+      'the run survived: ' + String(o.stderr).slice(0, 160));
+    assert.ok(sent.length >= 11, 'every turn was sent (' + sent.length + ')');
+    // The floor holds: the last request carries no more messages than the
+    // first few, because exhausted stubs are dropped rather than kept.
+    // The property is that growth STOPS, not that the floor is tiny: the
+    // runner drops only as much as it must to fit, so the plateau sits
+    // wherever the budget allows. Before this fix the count simply climbed
+    // until the request was refused.
+    var counts = sent.map(function (r) { return r.messages.length; });
+    var peak = Math.max.apply(null, counts);
+    var peakAt = counts.indexOf(peak);
+    assert.ok(peakAt < counts.length - 1, 'the conversation stopped growing before the end: ' + counts.join(','));
+    assert.ok(counts.slice(peakAt).every(function (c) { return c <= peak; }),
+      'and never grew past that plateau: ' + counts.join(','));
+    var last = sent[sent.length - 1];
+    assert.strictEqual(last.messages[0].role, 'system');
+    assert.ok(/Fix add/.test(last.messages[1].content), 'the task is still there');
+    assert.ok(o.tool_trace.some(function (e) { return e.tool === 'context_compaction' && /dropped/.test(e.detail || ''); }),
+      'and once elision was exhausted the trace says stubs were DROPPED, which is what makes the floor fixed');
   });
 });
 

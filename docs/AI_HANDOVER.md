@@ -2,6 +2,48 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-22 — MYTHOS HADDAD V2.1: AI TEAM FOUNDATION (Opus 5)
+
+**Objective:** make the local Qwen worker a member of a team the existing orchestration core can
+see — a registered, probed agent with roles — without building a second registry, router,
+scheduler, skill system or permission model.
+
+| Item | State |
+|---|---|
+| Branch | `mythos-haddad/v2-1-ai-team-foundation`, rebased onto `main@dd2c2ffe` (#397), worktree `~/projects/worktrees/mythos-haddad-v2` |
+| The finding that shaped the stage | The AI-team substrate already existed and was switched off. `agent-registry` already catalogs agents by capability with probed availability; `provider-router` already refuses a fallback that changes execution authority; `validation.js` already refuses a reviewer that is the author and gates who may review a *sensitive* change; `policy.js` already maps profiles to exact tool grants; `action-resolution.js` already maps the closed action set to those profiles. So V2.1 is a CONNECT stage, not a BUILD one. |
+| ADDED, in full | `config/agents.json` one entry (+13 lines) · `config/roles.json` (6 roles) · `lib/roles.js` · `bin/haddad-team-chain.js` (read-only live chain diagnostic) · `bin/haddad-role-e2e.js` (evidence runner) · `tests/mythos-haddad-ai-team-test.js` (153) · `docs/AI_TEAM.md` |
+| ADAPTED, each named | `core/agent-registry.js` (+8: one probe branch, `local` in the existing cost rank) · `executor.js` (derive the role, select the skill through it, keep provider-measured `evidence` in `report.json` including on the failure path) · `providers/haddad-agent.js` (role brief under the grant, registry probe, context-window accounting, delivery contract) · `schemas/task.schema.json` (+2 nullable audit fields) |
+| REUSED unmodified | provider-router + `router.json` · the `core/validation.js` review policy · `lib/policy.js` profiles · `bridge/action-resolution.js` · `lib/skills.js` + the trust ledger · `lib/work-validation.js` · executor retry / fencing / delivery |
+| Roles | `(action, task_type, capabilities_required, skill_category, brief)`. The profile is DERIVED from the action and a role that names one is refused — a second action→profile table is the drift this stage exists to avoid. Nothing an Issue or API caller writes can name a role; a caller-supplied `role` is ignored. |
+| Why no new skill file | The trust ledger binds an attestation to bytes scanned by SkillSpector, Gitleaks and SkillEvaluator, none of which is installed on Haddad. A new pack would load UNTRUSTED and be dropped from every prompt, so debugger and researcher run under the attested `generic` pack plus their brief. |
+| Live chain, measured | `node projects/mythos-haddad/bin/haddad-team-chain.js` — `haddad-qwen` discovered available by the real probe, selected ahead of `claude-code` for coding/testing/review/research on the registry's own risk-then-cost order, routed with `authority: true`, **refused** as reviewer of sensitive work (`reviewer_not_trusted_for_sensitive`), and its own work reviewed by `claude-code` with the author excluded. |
+
+**Six roles, each a real Qwen task through the existing executor:**
+
+| Role | Status | Report | Validator | Time | Tool calls | Repairs | Workspace writes | Delivered | Files committed | L2 diagnosis | Compactions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `coder` | COMPLETED | completed | **PASS** | 257 s | 36 | 2 | none | yes | `projects/mythos-haddad/lib/e2e/greet.js` | yes | 0 |
+| `debugger` | COMPLETED | completed | **PASS** | 99 s | 7 | 0 | none | yes | `projects/mythos-haddad/lib/e2e/pct.js` | no | 0 |
+| `documenter` | COMPLETED | completed | **PASS** | 326 s | 36 | 2 | none | yes | `projects/mythos-haddad/lib/e2e/NOTES.md` | yes | 0 |
+| `tester` | COMPLETED | completed | **PASS** | 109 s | 6 | 0 | none | no | - | no | 0 |
+| `reviewer` | COMPLETED | completed | **PASS** | 45 s | 5 | 0 | none | no | - | no | 0 |
+| `researcher` | COMPLETED | completed | **PASS** | 67 s | 3 | 0 | none | no | - | no | 0 |
+
+**Nine findings came out of the live runs, each fixed at its own seam and pinned by a test.** The
+two that matter most: a read-only tester **fabricated** commit `7a186fc1a7b0` and two changed
+files having written nothing — the validator refused all three attempts and stopped for a human,
+which is the whole argument for supervising a small model rather than trusting one; and compaction
+had no real floor, because eliding an exchange leaves a stub and eleven stubs still needed ~6,371
+tokens against a 6,272 budget. Full account: `projects/mythos-haddad/docs/AI_TEAM.md`.
+
+**Two readings of mine were withdrawn rather than shipped.** I attributed a run of failures to
+llama-server memory growth and host pressure; a peer session showed the runtime had come up
+**CPU-only** after a reboot (`/dev/dri/renderD128` gets its ACL ~80 s after the unit starts) and
+that cgroup `memory.peak` counts page cache for an mmap'd GGUF. Health passes 16/16 either way,
+since `gpu_test` probes the card in its own process and `ai_runtime` only proves the endpoint
+answers. That gap and the unit ordering are #397/#398/#399, not V2.1.
+
 ## 2026-09-22 — MYTHOS-HADDAD V1: merged, and one real escape found after merging (Opus 5)
 
 **Objective:** merge HAD-3/HAD-4 and their dependencies, then verify the merged system on the host
