@@ -265,7 +265,26 @@ function runtimeLoadFacts(activeSince, invocationId) {
   var gotSomething = facts.gpu_layers !== null || facts.vram_model_mib !== null ||
     facts.vram_projected_mib !== null || facts.context !== null || facts.last_ready !== null ||
     facts.no_devices !== null;
-  if (activeSince && gotSomething) {
+
+  // ...AND NEVER CACHE A PARTIAL ONE EITHER, which is the harder case and the
+  // one that actually bit. MEASURED on the 2026-09-23 cold boot: llama-server
+  // was Started 07:04:36 and finished loading 07:05:42, and this agent — which
+  // runs every 10 s — sampled inside that 66 s window. It found the projection
+  // line ("projected to use 4920 MiB") but not the accounting lines that come
+  // later, so `gotSomething` was true on a snapshot whose gpu_layers was still
+  // null. That froze against the live invocation, and haddad-health.js's
+  // ai_runtime then reported "GPU offload is NOT VERIFIED" for the whole life
+  // of a runtime that had 27/29 layers genuinely on the card. It failed safe —
+  // a WARN, never a false PASS — but it was wrong, and it would have recurred
+  // on every boot.
+  //
+  // last_ready is the completeness marker, and it is not a new one: it is set
+  // from "server is listening" / "main loop" / "all slots are idle", which
+  // llama-server prints AFTER the whole load block. Until it appears the
+  // journal is still being written and every snapshot is provisional, so the
+  // read is cheap-but-uncached rather than fast-and-wrong.
+  var loadFinished = facts.last_ready !== null;
+  if (activeSince && gotSomething && loadFinished) {
     try {
       fs.mkdirSync(STATE_DIR, { recursive: true });
       fs.writeFileSync(CURSOR_FILE, JSON.stringify({ runtime_active_since: activeSince,

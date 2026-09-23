@@ -634,5 +634,40 @@ console.log('\u00a712 runtime load facts, parsed from the REAL journal lines');
   eq(clean.runtime.vram_projected_mib, 4920, 'vram_projected_mib survives the allow-list');
 }
 
+
+console.log('§13 the load-facts cache must not freeze a mid-load snapshot');
+{
+  // The 2026-09-23 cold boot: this agent runs every 10 s, llama-server took
+  // 66 s to load (Started 07:04:36, "main loop" 07:05:42), so a sample landed
+  // INSIDE the load. It saw the projection line and not the accounting lines.
+  const src = fs.readFileSync(AGENT_PATH, 'utf8');
+  ok(/loadFinished/.test(src), 'a completeness marker gates the write');
+  ok(/facts\.last_ready !== null/.test(src),
+    'completeness is last_ready — printed after the whole load block, not invented');
+  const guard = /if \(activeSince && gotSomething && loadFinished\)/.test(src);
+  ok(guard, 'the cache write requires activeSince AND gotSomething AND loadFinished');
+
+  // The exact shape that was written to disk on that boot. gotSomething is
+  // true here (vram_projected_mib is set), which is precisely why the old
+  // guard let it through — so the new guard has to reject it on last_ready.
+  const midLoad = { gpu_layers: null, gpu_layers_total: null, vram_model_mib: null,
+    vram_projected_mib: 4920, context: null, last_ready: null,
+    source: 'runtime load accounting (journal)', no_devices: null };
+  const gotSomething = midLoad.gpu_layers !== null || midLoad.vram_model_mib !== null ||
+    midLoad.vram_projected_mib !== null || midLoad.context !== null ||
+    midLoad.last_ready !== null || midLoad.no_devices !== null;
+  ok(gotSomething === true, 'the real mid-load snapshot DID satisfy the old all-null guard');
+  ok((gotSomething && midLoad.last_ready !== null) === false,
+    'and it is rejected once completeness is required — the regression, exactly');
+
+  // A finished load still caches, or the fix would just disable caching.
+  const done = Object.assign({}, midLoad, { gpu_layers: 27, gpu_layers_total: 29,
+    vram_model_mib: 3884, context: 8192, last_ready: '2026-09-23T07:05:42.000Z', no_devices: false });
+  const doneGot = done.gpu_layers !== null || done.vram_model_mib !== null ||
+    done.vram_projected_mib !== null || done.context !== null ||
+    done.last_ready !== null || done.no_devices !== null;
+  ok(doneGot && done.last_ready !== null, 'a completed load is still cached');
+}
+
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 if (failed) process.exitCode = 1;
