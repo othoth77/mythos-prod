@@ -231,6 +231,36 @@ t('HAD-3b probe and health: --http drives the shared client\'s streamable-http t
   assert.ok(/serveMiswired/.test(h) && /Serve strips the mount point/.test(h), 'health does not FAIL a Serve target without /mcp');
 });
 
+// --------------------------------------------- static: HAD-3c (/mcphaddad on the VPS)
+var ROUTE_SNIP = path.join(DIR, 'nginx', 'mythos-mcp-haddad.conf');
+var ROUTE_SH = path.join(DIR, 'bin', 'haddad-mcp-vps-route.sh');
+
+t('HAD-3c route: one exact nginx location relays to the existing Serve endpoint with strict TLS, leaves Authorization untouched and never claims /mcp', function () {
+  var c = fs.readFileSync(ROUTE_SNIP, 'utf8').replace(/^\s*#.*$/mg, '');
+  var locs = c.match(/^\s*location\b.*$/mg) || [];
+  assert.deepStrictEqual(locs.map(function (l) { return l.trim(); }), ['location = /mcphaddad {'], 'the snippet must add exactly one exact-match location');
+  assert.ok(/proxy_pass https:\/\/100\.78\.7\.10\/mcp;/.test(c), 'upstream is not the Haddad Serve /mcp over the tailnet IP');
+  assert.ok(/proxy_ssl_verify on;/.test(c) && /proxy_ssl_name haddad\.tail23f990\.ts\.net;/.test(c) && /proxy_ssl_server_name on;/.test(c), 'upstream TLS is not verified against the node name');
+  assert.ok(/proxy_set_header Host haddad\.tail23f990\.ts\.net;/.test(c), 'Host is not the node name');
+  // The Haddad bridge is the only authority: nginx must neither strip, replace nor add a credential.
+  assert.ok(!/Authorization|auth_request|auth_basic|TOKEN|Bearer/i.test(c), 'the route touches authentication');
+  assert.ok(!/resolver\b/.test(c), 'a resolver makes the route depend on MagicDNS on the VPS');
+  assert.ok(/proxy_buffering off;/.test(c), 'streamed MCP responses would be buffered');
+});
+
+t('HAD-3c install script: parses, root-only, never joins the tailnet or touches Serve/Funnel, refuses without a verified 401 from Haddad, rolls back on nginx -t', function () {
+  assert.ok(fs.statSync(ROUTE_SH).mode & 64, 'not executable');
+  var r = run('bash', ['-n', ROUTE_SH]); assert.strictEqual(r.status, 0, r.stderr);
+  var s = fs.readFileSync(ROUTE_SH, 'utf8').replace(/^#.*$/mg, '');
+  assert.ok(!/tailscale (up|login|serve|funnel (on|--)|set)\b/.test(s), 'the script changes tailnet membership, Serve or Funnel');
+  assert.ok(/tailscale funnel status/.test(s) && /REFUSED — Funnel is on/.test(s), 'the script does not refuse a Funnel-exposed node');
+  assert.ok(/\[ "\$code" = 401 \]/.test(s) && /--resolve "\$NODE_NAME:443:\$NODE_IP"/.test(s), 'preflight does not require the bridge 401 over strict TLS');
+  assert.ok(/ANCHOR='include snippets\/mythos-mcp-auth\.conf;'/.test(s), 'not anchored after the existing /mcp include');
+  assert.ok(/nginx -t failed — vhost restored/.test(s), 'no rollback when nginx -t fails');
+  assert.ok(!/mythos-mcp-auth(-proxy|-dex)?\.conf"?\s*$/m.test(s.replace(/ANCHOR=.*$/m, '')), 'the script writes an /mcp snippet');
+  assert.ok(!/(TOKEN|KEY|SECRET)=[A-Za-z0-9+\/]{20,}/.test(s) && !/Authorization/.test(s), 'the script handles a credential');
+});
+
 // --------------------------------------------------------------- dynamic
 var exec_;
 at('fake executor up', function () { return fakeExecutor().then(function (e) { exec_ = e; }); })

@@ -317,3 +317,74 @@ handshake `oth-mcp 1.0.0` / `2024-11-05`, **9 tools = stdio list**, `execution_s
 `haddad_health`, `budget_status`, `system_health` answered · loopback `/health` 200 · Serve
 tailnet-only, no Funnel · `server.js`, the stdio launcher and the bridge byte-identical to
 `c8b1b149` · health **PASS 17/17**.
+
+## 13. HAD-3c — the same endpoint at `https://mythosprod.xyz/mcphaddad` (2026-09-23)
+
+**Ask:** expose the §12 endpoint through the VPS domain without touching `https://mythosprod.xyz/mcp`
+and without a second server, bridge, router or auth layer.
+
+**Audit (measured on the VPS, 2026-09-23):**
+
+| # | Found |
+|---|---|
+| 1 | `/mcp` = `location = /mcp` + `location ^~ /mcp/` in `snippets/mythos-mcp-auth.conf` (mcp-auth-proxy :8180, OAuth/Dex). `/mcphaddad` matches neither; today it falls to the Hub (`404`) |
+| 2 | VPS → Haddad: **no route.** No `tailscale`/`tailscaled`, no tailnet interface, `haddad.tail23f990.ts.net` does not resolve, `100.78.7.10:443` times out; no SSH key or `known_hosts` entry for Haddad in root/deploy/ubuntu |
+| 3 | The only existing Haddad↔VPS channel is Haddad's **outbound** signed push to `/ingest` (status console). It is one-way by design and cannot carry an MCP request/response without building a relay — rejected |
+| 4 | `https://haddad.tail23f990.ts.net/mcp` is served by Tailscale Serve (tailnet-only). So the target in the required architecture is reachable **only by a tailnet member**: the VPS must join the tailnet |
+
+**Decision — CONNECT, build nothing:** the VPS joins the existing tailnet as a **tagged, ACL-restricted
+node** (reaches `haddad:443` and nothing else; `--shields-up` so no tailnet node can reach the VPS),
+and nginx relays one exact path to the existing Serve endpoint:
+
+```
+Claude / MCP client ─TLS(mythosprod.xyz, LE)─▶ VPS nginx  location = /mcphaddad
+   ─TLS(verified for haddad.tail23f990.ts.net) over the tailnet─▶ 100.78.7.10:443 Tailscale Serve /mcp
+   ─▶ 127.0.0.1:8160 mcp-http-bridge.js (bearer check) ─▶ haddad-mcp-stdio.sh ─▶ oth-mcp server.js
+```
+
+- `nginx/mythos-mcp-haddad.conf` — one `location = /mcphaddad`, included after the `/mcp` snippet. Upstream is the
+  node's tailnet **IP** with `proxy_ssl_name`/`Host` = the node name and `proxy_ssl_verify on`, so the config never
+  depends on MagicDNS on the VPS (`--accept-dns=false`) and loads even with tailscaled down (the route then answers
+  502; `/mcp` is unaffected).
+- **Authentication is unchanged end-to-end:** nginx forwards the client's `Authorization` header untouched; the Haddad
+  bridge alone answers 401. The VPS never holds the Haddad bearer. The test suite fails if the snippet mentions
+  `Authorization`, `auth_request`, a resolver, or a second location.
+- `bin/haddad-mcp-vps-route.sh` (root, on the VPS): refuses unless the VPS already gets **401 from the bridge over
+  strict TLS** and Funnel is off; installs the snippet + one include line (backup first), `nginx -t` (restores the
+  vhost on failure), reload, then checks `/mcp` → 401 unchanged and `/mcphaddad` → 401. `--check` changes nothing;
+  `--remove` takes the route out. It never runs `tailscale up`, Serve or Funnel.
+
+Pre-verified without a tailnet (scratch nginx, loopback): `/mcp`, `/mcp/` → 401 from mcp-auth-proxy (unchanged);
+`/mcphaddad` → nginx dials `https://100.78.7.10:443/mcp` (times out: no route yet); `/mcphaddad/x`, `/mcphaddadx`
+→ not routed. Full live config copy passes `nginx -t`.
+
+**Owner actions (the only ones; nothing below has been attempted by an agent):**
+
+1. Tailscale admin → Access controls: add a tag and a grant that lets it reach Haddad's 443 only, e.g.
+   ```jsonc
+   "tagOwners": { "tag:mythos-vps": ["autogroup:admin"] },
+   "hosts":     { "haddad": "100.78.7.10" },
+   "grants":    [ { "src": ["tag:mythos-vps"], "dst": ["haddad"], "ip": ["tcp:443"] } ]
+   ```
+   If the policy still has the default allow-all rule (`src: ["*"]`), narrow it (e.g. `src: ["autogroup:member"]`)
+   or the tagged VPS inherits reach to every node.
+2. Tailscale admin → Settings → Keys → generate an auth key: **one-off, not reusable, not ephemeral, pre-approved,
+   tag `tag:mythos-vps`**.
+3. On the VPS as root (the key goes nowhere else — not into chat, git or a file):
+   ```bash
+   curl -fsSL https://tailscale.com/install.sh | sh
+   tailscale up --auth-key='tskey-auth-…' --hostname=mythos-vps --accept-dns=false --accept-routes=false --shields-up
+   ```
+Then (agent or owner): `sudo bash projects/mythos-haddad/bin/haddad-mcp-vps-route.sh` from a checkout carrying this
+stage, and the external verification from a separate host, bearer by reference — e.g. on Haddad:
+`node projects/mythos-haddad/bin/haddad-mcp-probe.js --http https://mythosprod.xyz/mcphaddad --call haddad_health '{"check":"ai_runtime"}'`.
+
+**Rollback:** `haddad-mcp-vps-route.sh --remove`; `tailscale down` (or remove the node in the admin console);
+`apt remove tailscale`. Haddad is untouched throughout.
+
+**Limit, stated — Claude Web:** the bridge's credential is a static bearer. A client that can send a header (Claude
+Code `--header`, the probe, the Agent SDK) works as-is. Claude Web custom connectors authenticate with OAuth: on a 401
+they discover `/.well-known/oauth-protected-resource…`, which on this origin belongs to the `/mcp` OAuth bridge, and
+would present *that* token to Haddad (→ 401). Making `/mcphaddad` OAuth-capable means either the existing mcp-auth-proxy
+learning a second upstream or a second proxy instance — the latter is a duplicate auth subsystem and out of scope;
+both are an owner decision.

@@ -3061,3 +3061,12 @@ Next stage: V2 work begins from the verified V1 baseline.
 - **MERGED ≠ RUNNING, measured on purpose:** the scheduled health timer fired at 15:14:44 while the unit was up and — running **main's** pre-stage `haddad-health.js` — wrote `mcp FAIL "unexpected MCP listener on port 8160"` exactly as that check was written to. So the unit was **stopped and disabled** (`disabled` / `inactive`, unit file and bearer left in place) until #421 lands on main and the live checkout carries it; main's health re-run: **PASS 17/17**, telemetry ONLINE. Landing #421 was refused to this session by policy ("Merge Without Review") — it is the owner's.
 - **To finish, in this order:** (1) land #421 on main; (2) fast-forward `~/projects/mythos-prod` to origin/main; (3) `HADDAD_MCP_REPO=$HOME/projects/mythos-prod bash projects/mythos-haddad/bin/haddad-mcp-http-setup.sh --enable` (re-points the unit from the worktree to the live checkout, keeps the bearer, re-verifies); (4) owner: enable HTTPS certificates for the tailnet + `sudo tailscale set --operator=othman`; (5) the same command with `--serve` → `https://haddad.tail23f990.ts.net/mcp` verified over TLS by the script itself.
 - **Next Claude:** `docs/HADDAD_MCP.md` §12. Do not bind the bridge anywhere but loopback; do not use Funnel; do not add a second variable to `mcp-http.env` (three checks refuse it: setup, health, test); do not enable the unit under a live checkout that predates this stage.
+
+## 2026-09-23 — MYTHOS HADDAD HAD-3c: `https://mythosprod.xyz/mcphaddad` (code stage, owner-gated)
+
+The VPS has no route to Haddad (no Tailscale, no credential); `haddad.tail23f990.ts.net/mcp` is tailnet-only, so the
+VPS must join the tailnet as a tagged, ACL-restricted node. Code: one exact nginx location
+(`projects/mythos-haddad/nginx/mythos-mcp-haddad.conf`) + a root install script that refuses until the VPS gets a
+verified 401 from the Haddad bridge. `/mcp` untouched; no new server/bridge/auth; bearer forwarded untouched.
+**Not deployed.** Owner steps (ACL tag + one-off tagged auth key + `tailscale up … --shields-up --accept-dns=false`)
+and the finish order: `projects/mythos-haddad/docs/HADDAD_MCP.md` §13. Claude Web OAuth limit recorded there.

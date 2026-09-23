@@ -29,7 +29,7 @@ projects/mythos-haddad/
   STATUS.md                      last verified state, blockers, next action
   docs/AI_RUNTIME.md             HAD-2: what's installed, commands, endpoint, measurements, rollback
   docs/FABLE_WORKER.md           HAD-2b: FABLE sends a task to Qwen, reviews it, corrects it
-  docs/HADDAD_MCP.md             HAD-3: the VPS OTH MCP running on Haddad over SSH-stdio (audit, decision, E2E); §12 HAD-3b: the same MCP over HTTPS
+  docs/HADDAD_MCP.md             HAD-3: the VPS OTH MCP running on Haddad over SSH-stdio (audit, decision, E2E); §12 HAD-3b: the same MCP over HTTPS; §13 HAD-3c: /mcphaddad on the VPS
   bin/haddad-health.js           health check -> JSON report + log (no deps, no root, read-only)
   bin/gpu-vulkan-test.py         basic GPU test on real VRAM (ctypes + libvulkan, no deps)
   bin/haddad-gpu-vram.py         live VRAM heap query (Vulkan VK_EXT_memory_budget; known limit, see AI_RUNTIME.md)
