@@ -504,6 +504,47 @@ t('knowledge: the check REUSES the executor boundary and reimplements none of it
     'both questions are asked of the boundary itself');
 });
 
+// ── V2.4 decision (a), as it applies to THIS host ─────────────────
+// Owner, 2026-09-23: the canonical OTHKM store stays on the VPS; Haddad
+// creates no local duplicate; where the canonical store is unreachable the
+// behaviour is fail-closed and documented. Recorded in
+// docs/KNOWLEDGE.md and master plan §23.
+//
+// The boundary's inertness is pinned in tests/othk-2w-executor-wiring-test.js
+// §8. What belongs HERE is the host-shaped half: a duplicate store does not
+// arrive by accident, it arrives by someone editing the config to point
+// somewhere local. These assertions make that edit fail a test rather than
+// pass unnoticed.
+t('V2.4(a): exactly one knowledge config, and it names the canonical VPS store', function () {
+  var REPO = path.join(__dirname, '..');
+  var cfgPath = path.join(REPO, 'projects', 'mythos-ai-executor', 'config', 'knowledge.json');
+  var cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+  assert.strictEqual(cfg.store_root, '/home/deploy/othk-store',
+    'the store_root must stay the canonical VPS path — a local path here IS the duplicate store decision (a) forbids');
+  assert.ok(path.isAbsolute(cfg.store_root), 'and absolute');
+  assert.ok(cfg.store_root.indexOf(REPO) !== 0, 'and outside this repository');
+
+  // A second config would be a second answer to "where does knowledge live".
+  var found = cp.execFileSync('find', [path.join(REPO, 'projects'), '-name', 'knowledge.json',
+    '-not', '-path', '*/node_modules/*'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+  assert.deepStrictEqual(found, [cfgPath], 'exactly one knowledge config in the tree: ' + found.join(', '));
+});
+
+t('V2.4(a): this host reports the layer fail-closed, and holds no local store', function () {
+  var REPO = path.join(__dirname, '..');
+  // Read through the real boundary, not by re-deriving the rule.
+  var knowledge = require(path.join(REPO, 'projects', 'mythos-ai-executor', 'lib', 'knowledge.js'));
+  var open = knowledge.openKnowledge();
+  assert.strictEqual(open.enabled, false,
+    'on this host the canonical store is unreachable, so the layer must be closed, not open');
+  assert.ok(/does not exist|unreadable|not a directory/.test(open.reason || ''),
+    'and the reason names the condition rather than being silent: ' + open.reason);
+
+  // The decision, checked against the filesystem: no local store materialised.
+  var cfg = knowledge.loadConfig();
+  assert.ok(!fs.existsSync(cfg.store_root), 'the canonical path is genuinely absent here — this is the fail-closed case, not a live one');
+});
+
 t('health reports a timed-out probe as a timeout, not as an absent binary', function () {
   var src = read('bin/haddad-health.js');
   assert.ok(/timed_out/.test(src), 'sh() distinguishes a killed child from a failed one');

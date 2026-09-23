@@ -255,6 +255,57 @@ measurement of full supervised tasks in production. Grants are unordered; under 
 contention a turn could wait while later arrivals are served, and fixing that means building the
 queue this deliberately is not.
 
+## MYTHOS HADDAD V2.4 — OTHKM: a deliberate no-op, ratified
+
+**Owner decision (a), 2026-09-23:** the canonical OTHKM store stays on the VPS, Haddad creates no
+local duplicate, and where the canonical store is unreachable the behaviour is **fail-closed /
+no-op**, explicitly and documented. Full record: [docs/KNOWLEDGE.md](docs/KNOWLEDGE.md), master
+plan §23. This is the branch the V2.4 exit gate already allowed for — "or the stage is re-scoped
+honestly" — taken by the owner rather than by an implementer.
+
+**Why it cost nothing to implement: the correct behaviour was already the shipped behaviour.**
+`config/knowledge.json` has named `/home/deploy/othk-store` since the owner activated it on
+2026-08-20. On this host that path does not exist, so `openKnowledge()` returns
+`{ enabled: false, reason: 'store_root does not exist: /home/deploy/othk-store' }`, every read op
+is simply absent, and nothing is created. What the decision changed is that this is now **kept**
+rather than merely true.
+
+| V2.4 gate item | Under (a) | Evidence |
+|---|---|---|
+| read path live on Haddad with provenance + explicit `asOf` | RE-SCOPED by the owner — boundary present, correct, inert; live retrieval here is out of scope by decision | othk-2w 52/0 |
+| memory written only from validated outcomes | N/A here — nothing is written, because there is nothing to write to | the facade exposes no write op |
+| secret-shaped content refused | held, independent of this host | othk suites |
+| context assembly within the 8192-token budget | held by a **different mechanism** than the item names: `core/context.js` is unreachable with core off; the window is protected by the provider's `PROMPT_BUDGET_TOKENS` | V2.1, measured |
+| measurable benchmark improvement, **or an honest re-scope** | satisfied by the re-scope | ratified 2026-09-23 |
+| STD-1 / STD-2 / STD-3 | full sweep 0 new failures · **STD-2 is the interesting one: this phase's deliverable is a refusal to build a second store** · read-only and fail-closed | below |
+
+**Verified on the host:** no `othk*` directory anywhere under `/home/othman`, `/opt`, `/srv` or
+`/var/lib`; the read boundary contains no `mkdir`, no write/append/delete call and no environment
+override of the store root; exactly one `knowledge.json` in the tree; no Haddad unit, timer or
+script references `oth-knowledge` — the only service is `oth-knowledge-http.service`, owned by
+`deploy` on the VPS. A store can be created only by a **write** path
+(`oth-knowledge/lib/store.js`, `_appendLine`), and the read facade exposes only `READ_OPS`.
+
+**Kept by test, not by prose** — a duplicate store would not arrive by accident but by a config
+edit, so that edit now fails a test. `tests/othk-2w-executor-wiring-test.js` §8 **42 → 52**:
+opening an absent store leaves the filesystem exactly as it found it, five further opens still
+create nothing, and the boundary owns no creation mechanism. `tests/mythos-haddad-runtime-test.js`
+**34 → 36**: `store_root` must stay `/home/deploy/othk-store`, absolute and outside the repo, and
+exactly one `knowledge.json` may exist. Mutation-checked: a "helpful" create fails **8**, an env
+override **1**, a repointed config **1**, a second config **1**.
+
+**Reportable, not merely off** (#412): `haddad-health.js` carries a `knowledge` check. A layer off
+by design is a **PASS** — a permanent yellow for an architectural decision is a false alarm — with
+the machine-readable truth in `data.available: false`. A config this host *cannot honour* is a
+**FAIL**, because "no knowledge, as configured" and "we cannot tell what was configured" must not
+wear the same green.
+
+**NOT done, and not a defect:** Haddad retrieves no knowledge, by decision. If that should ever
+change, the first question is not where the store goes but §23's blockers 1 and 2 — nothing
+requires `lib/knowledge.js` on any host, and `core/context.js` is unreachable with core off.
+There is no sync because there is one store and one truth, which is the property option (b) would
+have had to solve.
+
 ## MYTHOS HADDAD V2.5 — AI Team Console
 
 **The console was already running.** V2.5 was scoped as a build and turned out to be an audit.
