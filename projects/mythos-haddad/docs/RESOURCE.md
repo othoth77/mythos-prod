@@ -102,6 +102,19 @@ The GPU rule only ever **adds** a denial:
 over `slots_busy`: a task between model turns holds no slot but still owns
 its share of the pool.
 
+### And the executor actually asks
+
+Worth separating, because the first version of this change did not. A rule
+that `admission()` supports and **nobody passes** is dormant: the signal
+existed, the tests passed, and the live path never consulted it. That is the
+shape of a feature that looks done and is not.
+
+`guardGate(status, task)` is now task-aware. When the task's provider is the
+local Qwen runner it asks the GPU question; for any other provider, or with
+no task, it is byte-for-byte the previous behaviour. `tick()` asks about the
+task at the head of the queue — the one that would actually start — and
+`dispatchTask()` about the task it is dispatching.
+
 ## What V2.3 does NOT do
 
 Stated plainly rather than left to be discovered.
@@ -115,6 +128,10 @@ Stated plainly rather than left to be discovered.
 - **No second concurrent supervised task has been run end to end.** What was
   measured is concurrent *inference* at task-prompt size, not two full
   supervised tasks with their sandboxes, validators and deliveries.
+- **The denial has not been observed live.** With capacity 1 and
+  `MYTHOS_MAX_PARALLEL=1`, the executor never tries to start a second GPU
+  task, so `gpu_at_capacity` is proven by test rather than by a run. It
+  becomes reachable the moment either number moves.
 
 `tests/mythos-haddad-gpu-admission-test.js` — 24 assertions, every reading
 injected.

@@ -1206,10 +1206,33 @@ function guardSample() {
 
 // Cheap reading for out-of-band admission (dispatchTask/drainQueue): reuses
 // the tick's sample while it is fresh.
-function guardGate(status) {
+// `task` (V2.3) is optional. When the work about to start will occupy the
+// LOCAL INFERENCE RUNTIME, the gate asks the GPU question too — a second
+// task admitted on memory alone is exactly what the GPU signal exists to
+// prevent. Without a task, or for a provider that does not touch the GPU,
+// this is byte-for-byte the previous behaviour.
+//
+// `gpu_in_flight` is the executor's OWN count of what it started, not the
+// runtime's `slots_busy`, and the difference matters: a supervised task
+// between model turns holds no slot while still owning its share of the
+// shared KV pool. Trusting slots_busy would admit a second task into a pool
+// the first has not finished with.
+function needsGpu(task) {
+  if (!task || !task.provider) return false;
+  var impl = PROVIDERS[task.provider];
+  return !!(impl && impl.PROVIDER_ID === 'haddad-agent');
+}
+
+function guardGate(status, task) {
   if (!guardEnabled()) return ADMIT_ANYWAY;
   try {
-    return resourceGuard.admission(status || resourceGuard.current(guardOptions()));
+    var opts = {};
+    if (needsGpu(task)) {
+      opts.needs_gpu = true;
+      try { opts.gpu_signal = resourceGuard.gpuSlots.read(); } catch (e) { opts.gpu_signal = null; }
+      opts.gpu_in_flight = runningCount();
+    }
+    return resourceGuard.admission(status || resourceGuard.current(guardOptions()), opts);
   } catch (e) { return ADMIT_ANYWAY; }
 }
 
@@ -1333,7 +1356,9 @@ function tick(now) {
     // GitHub bridge (requested_by='github-bridge'), which never passes
     // through dispatchTask/drainQueue and would otherwise be admitted
     // straight into a host that is running out of memory.
-    var gate = guardGate(guard);
+    // V2.3: the head of the queue is what would start, so the GPU question
+    // is asked about THAT task rather than in the abstract.
+    var gate = guardGate(guard, state.readJSON(queued[0].task_id, 'task.json'));
     if (!gate.admit) {
       var logged = noteDeferred(queued[0].task_id, gate, now);
       actions.push({
@@ -1441,7 +1466,7 @@ function dispatchTask(taskId) {
 
   // Host safety is checked before capacity: a free slot on a host that is
   // out of memory is not a slot. The task stays QUEUED and drains later.
-  var gate = guardGate();
+  var gate = guardGate(null, state.readJSON(taskId, 'task.json'));
   if (!gate.admit) {
     noteDeferred(taskId, gate, Date.now());
     return Promise.resolve({
@@ -1735,6 +1760,8 @@ module.exports = {
   acquireDaemonLock: acquireDaemonLock,
   dispatchTask: dispatchTask,
   providerEvidence: providerEvidence,
+  needsGpu: needsGpu,
+  guardGate: guardGate,
   drainQueue: drainQueue,
   dispatcherStatus: dispatcherStatus,
   // Deliberately NOT folded into dispatcherStatus(): the console asserts

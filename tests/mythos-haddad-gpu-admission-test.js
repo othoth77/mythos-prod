@@ -97,6 +97,28 @@ console.log('# E. absent where there is no runtime');
   ok(/\/slots$/.test(gpu.slotsUrl('http://127.0.0.1:8600/v1')), 'E4 the /v1 base resolves to /slots');
 })();
 
+console.log('# F. the executor actually ASKS the GPU question');
+(function () {
+  var home = fs.mkdtempSync(path.join(os.homedir(), 'haddad-gw-'));
+  process.env.MYTHOS_EXECUTOR_HOME = home;
+  var executor = require(path.join(EXEC, 'executor.js'));
+  // The rule existing is not the same as the rule being consulted. Before
+  // this, `needs_gpu` was supported by admission() and passed by nobody, so
+  // the signal was dormant in the live path.
+  ok(typeof executor.needsGpu === 'function', 'F1 the executor decides whether work needs the GPU');
+  ok(executor.needsGpu({ provider: 'haddad-agent' }) === true, 'F2 the local Qwen provider needs it');
+  ok(executor.needsGpu({ provider: 'claude-code' }) === false, 'F3 claude-code does not');
+  ok(executor.needsGpu({ provider: 'openai-compat' }) === false, 'F4 nor an advisory provider');
+  ok(executor.needsGpu(null) === false && executor.needsGpu({}) === false, 'F5 and no task means no GPU claim');
+  var src = fs.readFileSync(path.join(EXEC, 'executor.js'), 'utf8');
+  ok(/guardGate\(guard, state\.readJSON\(queued\[0\]\.task_id/.test(src),
+    'F6 tick() asks about the task at the head of the queue, not in the abstract');
+  ok(/guardGate\(null, state\.readJSON\(taskId/.test(src), 'F7 dispatchTask() asks about the task it is dispatching');
+  ok(/opts\.gpu_in_flight = runningCount\(\)/.test(src),
+    'F8 in-flight is the executor\'s own count, not the runtime\'s slots_busy — a task between turns still owns the pool');
+  try { fs.rmSync(home, { recursive: true, force: true }); } catch (e) { /* best effort */ }
+})();
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 try { fs.rmSync(FIX, { recursive: true, force: true }); } catch (e) { /* best effort */ }
 process.exit(fail ? 1 : 0);
