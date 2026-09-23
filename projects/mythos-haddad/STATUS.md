@@ -219,7 +219,7 @@ task on RAM alone while the inference runtime had none. Detail and every measure
 | It does not use the OS VRAM query | DONE | that reader answers `vram_used_mib: 0.0` with a 3,883 MiB model resident — unreliable on NVK, and a confidently wrong number is worse than a missing one |
 | Capacity is budgeted against the SHARED pool | DONE | `kv_unified=true` means four slots share ONE 8192-token pool; capacity is `min(slots, floor(pool / task_ceiling))`, not the slot count |
 | **MAX_PARALLEL derived from measurement** | DONE | live: 1, 2 and 3 concurrent requests at real task-prompt size all succeeded (1,264 tokens each, +12 % wall clock at n=3). Capacity is still **1**, budgeted against the ~6,400-token ceiling a repair round reaches, because a task's size is not knowable at admission and `/slots` reports occupancy but not KV tokens |
-| Admission consults it | DONE | `admission(status, {needs_gpu})` — default false, so every existing call site is unchanged. The GPU rule only ever ADDS a denial |
+| Admission consults it, and the executor **asks** | DONE | `admission(status, {needs_gpu})` — default false, so every existing call site is unchanged — plus `guardGate(status, task)`, which asks the GPU question when the task's provider is the local Qwen runner. A rule nobody passes is dormant, which is what the first version of this change was |
 | Memory pressure still wins | DONE | `CRITICAL` denies GPU work regardless of room |
 | An unreadable signal admits | DONE | absent is not zero; telemetry we cannot read must never hold the queue shut |
 | Tests | DONE | `tests/mythos-haddad-gpu-admission-test.js` 24/0, every reading injected |
