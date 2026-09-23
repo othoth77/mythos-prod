@@ -182,6 +182,30 @@ finding from the live runs: [docs/AI_TEAM.md](docs/AI_TEAM.md).
 | Security boundary | RE-PROBED | tool-runner 64/0 on the final tree: real `sandboxArgv`, real `bwrap`, U1/U2/U2b/U3 and the escape probes |
 
 
+## MYTHOS HADDAD V2.2 — FABLE DELEGATION
+
+**Which provider runs a task is now a routed decision, not a configuration read.**
+`bridge/provider-selection.js` connects V2.1's roles to the existing `core/provider-router.js`
+and `core/agent-registry.js`: role → capability → agent → provider. It adds no routing logic of
+its own. Detail: [docs/DELEGATION.md](docs/DELEGATION.md).
+
+| V2.2 item | State | Evidence |
+|---|---|---|
+| Routing replaces the hardcoded provider | DONE | one expression at the bridge's seam becomes a decision; the pre-V2.2 expression survives as the pin |
+| Scoped to execution-worker instances | DONE | routing runs only when `MYTHOS_BRIDGE_EXEC_PROVIDER` is set; the VPS path is character-for-character unchanged, and an explicit `mock`/advisory pin is honoured, not overruled |
+| **Routing cannot widen authority** | DONE | runtime down → router prefers `claude-code` → the floor refuses it → **defer**, never substitute. Asserted for all five bridge actions |
+| A deferred task is deferred, not blocked | DONE | nothing is wrong with the task and a blocker is never retried; it stays PENDING and the next tick asks again |
+| The decision is auditable | DONE | the full decision (role, task_type, capabilities, router answer, allow-list, why) is persisted on the attempt |
+| Action → profile invariant untouched | DONE | routing chooses WHO; the action still chooses WHAT. The adapter never reads or writes `execution_profile` |
+| Real Issue routed end to end | DONE | [#401](https://github.com/othoth77/mythos-prod/issues/401) on an isolated label: classified `implement` → **debugger** role → `haddad-qwen` → `haddad-agent`, decision recorded, Qwen's fix verified passing |
+| `MYTHOS_CORE_ENABLED` | UNCHANGED (`false`) | measured: the four routing modules contain zero `coreEnabled()` checks, so routing never needed it — the plan's text is corrected in the doc |
+| Tests | DONE | `tests/mythos-haddad-delegation-test.js` 53/0, every probe injected |
+
+**Found by this stage's E2E and deliberately not fixed here:** a task retried after a transient
+failure can complete with the validator passing and deliver **nothing**, because the workspace
+snapshot is per-attempt and the previous attempt's work predates it. Same class as the bug
+`DELIVERY_FAILED` was added for. It is the next change, on its own.
+
 ## Next action
 
 **Restart `mythos-haddad-worker.service` once.** It is long-running and still holds pre-merge code;

@@ -2,6 +2,37 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-23 — MYTHOS HADDAD V2.2: FABLE DELEGATION (Opus 5)
+
+**Objective:** make the bridge's provider choice a routed decision — role → capability → agent →
+provider — without building a second router, and without letting routing widen authority.
+
+| Item | State |
+|---|---|
+| Branch | `mythos-haddad/v2-2-fable-delegation` on `main@d4f13d1b` |
+| The seam | one expression in `bridge/github-bridge.js` (`EXEC_WORKER_PROVIDER \|\| WORKER_PROVIDER \|\| (lane ? 'delegate' : 'claude-code')`) — the same provider for every task, whatever the task was |
+| ADDED | `bridge/provider-selection.js` (the connection, no routing logic of its own) · `tests/mythos-haddad-delegation-test.js` (53) · `docs/DELEGATION.md` |
+| ADAPTED | `bridge/github-bridge.js`: route before the worktree (deferring after it would leak one per tick), consume the decision at the seam, persist it on the attempt, and defer rather than block |
+| REUSED unmodified | `core/provider-router.js`, `core/agent-registry.js`, `lib/roles.js` (V2.1), `bridge/action-resolution.js` |
+| **The property that matters** | Runtime down → the router legitimately prefers `claude-code` → the fail-closed floor refuses it → **DEFER**. Substituting a permitted provider for a refused one is how a routing layer becomes a silent widening of authority, so it does not. Asserted for all five bridge actions |
+| Scope | Routing runs ONLY where `MYTHOS_BRIDGE_EXEC_PROVIDER` is set. The VPS path is character-for-character unchanged; an explicit `mock` or advisory pin is honoured, not overruled. Getting this wrong was the first thing the bridge suites caught (14 and 23 failures) |
+| Real E2E | Issue [#401](https://github.com/othoth77/mythos-prod/issues/401), isolated label `mythos:haddad-v22`, own control dir and executor home so the production bridge could not collide: classified `implement` → **debugger** role by instruction text → `haddad-qwen` → `haddad-agent`, decision recorded on the attempt, Qwen's fix independently verified passing (4/4) |
+
+**Two corrections to the master plan §11, both measured against the code:** routing does **not**
+require `MYTHOS_CORE_ENABLED=true` (the four routing modules contain zero `coreEnabled()` checks;
+only the HTTP goal API is gated, and its closed `MISSION_KINDS` table cannot express a bridge
+coding task), and **`wait_for_quota` is unreachable** — nothing in production builds the router's
+`quota_state` map, so a down runtime yields `no_provider`, not a quota wait. The gate item is
+restated as what the code now guarantees: defer on no permitted provider.
+
+**Found by this E2E, NOT V2.2's, and split out rather than fixed here:** a task retried after a
+transient failure can COMPLETE with the validator passing and deliver **nothing** — attempt 1
+wrote the fix and died on `socket hang up`, attempt 2 resumed in the same workspace, truthfully
+reported no change was needed, and the per-attempt snapshot was therefore empty, so
+`deliverValidatedWork` committed nothing. The workspace differs from its base by exactly the fix
+and the test passes. Same class as the bug `DELIVERY_FAILED` exists for. Next change, on its own,
+per the #384/#385 precedent.
+
 ## 2026-09-22 — MYTHOS HADDAD V2.1: AI TEAM FOUNDATION (Opus 5)
 
 **Objective:** make the local Qwen worker a member of a team the existing orchestration core can

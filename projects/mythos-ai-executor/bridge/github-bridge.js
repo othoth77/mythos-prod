@@ -68,6 +68,7 @@ var reporting = require(path.join(EXEC_ROOT, 'lib', 'report'));
 // the executor). PROFILE_BY_ACTION is re-exported from here for callers that
 // imported it from the bridge; the map itself has exactly one home.
 var engine = require('./action-resolution');
+var providerSelection = require('./provider-selection');
 // Adapter only — it loads the orchestration core lazily and ONLY when the
 // review gate is switched on, so the default bridge path is unchanged.
 var reviewGate = require('./review-gate');
@@ -1082,6 +1083,45 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
   var block = preflight(cfg, task, existingTask, executor);
   if (block) return { blocked: block };
 
+  // V2.2 — DELEGATION. Which provider runs this task is now a routed
+  // decision (role -> capability -> agent -> provider) rather than a
+  // configuration read. It happens HERE, before `ensureTaskWorktree`, for a
+  // practical reason: a task that cannot be routed is deferred, and
+  // deferring after the worktree exists would leak one per tick.
+  //
+  // `EXEC_WORKER_PROVIDER_ALLOWED` remains the fail-closed floor. A routed
+  // provider outside it is refused, never substituted — which is what stops
+  // a Haddad Issue reaching Claude when the local runtime is down.
+  //
+  // SCOPE, deliberately narrow: routing runs ONLY on a bridge instance that
+  // is explicitly an execution worker (`MYTHOS_BRIDGE_EXEC_PROVIDER` set —
+  // today, Haddad). Everywhere else the previous expression is used
+  // character-for-character, so the production VPS path is untouched by
+  // V2.2. An explicit operator pin is a decision already taken, and a
+  // router that overrides one is not delegating, it is overruling: the mock
+  // pin the suites use and the advisory `MYTHOS_BRIDGE_WORKER_PROVIDER` pin
+  // are both honoured as written.
+  var pinnedProvider =
+    process.env.MYTHOS_EXECUTOR_ALLOW_MOCK === '1' && process.env.MYTHOS_BRIDGE_PROVIDER === 'mock'
+      ? 'mock'
+      : (EXEC_WORKER_PROVIDER || WORKER_PROVIDER || (task.lane ? 'delegate' : 'claude-code'));
+  var routing = EXEC_WORKER_PROVIDER && pinnedProvider !== 'mock'
+    ? providerSelection.selectProvider({
+      action: task.requested_action,
+      instruction: task.objective || task.title || '',
+      task_id: id,
+      project: task.project,
+      allowed: EXEC_WORKER_PROVIDER_ALLOWED,
+      fallback: pinnedProvider
+    })
+    : { action: providerSelection.ACTIONS.ROUTE, provider: pinnedProvider, agent: null,
+        reason: 'not_an_execution_worker_instance',
+        decision: { routed: false, provider: pinnedProvider,
+          why: 'this bridge instance is not an execution worker; the configured provider is used unchanged' } };
+  if (routing.action === providerSelection.ACTIONS.DEFER) {
+    return { deferred: { reason: routing.reason, decision: routing.decision } };
+  }
+
   var wt = ensureTaskWorktree(cfg, id);
   var exec = task.execution && typeof task.execution === 'object' ? task.execution : {};
   var modelHit = task.model ? modelPolicy.lookupKey(task.model) : null;
@@ -1103,6 +1143,10 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
     base_commit: wt.base,
     claimed_at: (cache[id] && cache[id].claimed_at) || nowIso(),
     claimed_by: cfg.claimedBy,
+    // V2.2: the routing decision, kept whole. "Why did this task go to this
+    // provider?" is answerable from the attempt record rather than by
+    // re-deriving it from configuration that may since have changed.
+    routing: routing.decision,
     fingerprint: taskFingerprint(task),
     executor_status: 'QUEUED',
     updated_at: nowIso()
@@ -1144,10 +1188,10 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
     // projects/mythos-haddad/docs/GITHUB_WORKER.md) send its tasks to a local
     // model instead. It is opt-in, allow-listed, and never consulted unless
     // the operator sets it, so no production path can reach it by accident.
-    var chosenProvider =
-      process.env.MYTHOS_EXECUTOR_ALLOW_MOCK === '1' && process.env.MYTHOS_BRIDGE_PROVIDER === 'mock'
-        ? 'mock'
-        : (EXEC_WORKER_PROVIDER || WORKER_PROVIDER || (task.lane ? 'delegate' : 'claude-code'));
+    // V2.2: decided above by providerSelection. With no role, no router
+    // answer or no allow-list this is character-for-character the previous
+    // expression, which is what keeps the VPS path unchanged.
+    var chosenProvider = routing.provider;
     var created = executor.createTask({
       project: task.project,
       stage: 'github:' + id,
@@ -1675,6 +1719,19 @@ function tick(executor, opts) {
         if (unmet.length) { actions.push({ action: 'wait_dependencies', task_id: t.task_id, unmet: unmet }); return; }
         try {
           var c = claimTask(cfg, executor, e, tasksById, runtime);
+          if (c.deferred) {
+            // V2.2: no permitted provider is available for this task right
+            // now. NOT a blocker — nothing is wrong with the task and a
+            // blocker is never retried. The task stays PENDING, nothing was
+            // created, and the next tick asks the router again.
+            actions.push({ action: 'defer', task_id: t.task_id, reason: c.deferred.reason,
+              routing: c.deferred.decision });
+            log('routing_deferred', { task_id: t.task_id, reason: c.deferred.reason,
+              role: c.deferred.decision.role || null, task_type: c.deferred.decision.task_type || null,
+              router_action: c.deferred.decision.router_action || null,
+              router_agent: c.deferred.decision.router_agent || null, why: c.deferred.decision.why });
+            return;
+          }
           if (c.blocked) {
             // The decision cannot run: BLOCKED with a structured report and no
             // executor task, no worktree, no provider. Never retried by itself.
