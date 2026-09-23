@@ -392,17 +392,23 @@ reason; the review gate still fires on every delivering task.
 validated, reviewed and reported — with the routing decision recorded in the Issue.
 
 **EXIT GATE**
-- [ ] core enabled on Haddad; planner/router/registry in the live path
-      — **RE-SCOPED in `docs/DELEGATION.md`, awaiting owner ratification (§25.3).** Measured:
-      routing needs no `coreEnabled()`; the flag stays `false`. Left unchecked deliberately —
-      ratifying a re-scope is the owner's, not an implementer's.
+- [x] **where the routing seam is active** — `EXEC_WORKER_PROVIDER` set, as on Haddad —
+      routing is decided by that seam with **no dependency on `MYTHOS_CORE_ENABLED`**: all four
+      capabilities route to `haddad-qwen`, never to `claude-code`, and the decision is recorded
+      per task. Where the seam is NOT active, `bridge/github-bridge.js` falls through to
+      `claude-code` as it always has, untouched by V2.2
+      *(RE-SCOPED from "core enabled on Haddad; planner/router/registry in the live path",
+      owner-ratified 2026-09-23. Measured in `docs/DELEGATION.md`: zero `coreEnabled()`
+      references in `provider-router`, `agent-registry`, `reputation`, `validation`; only
+      `core/core-wiring.js` gates, and it gates the HTTP goal API. The flag stays `false`.)*
 - [ ] routing decision is **recorded and auditable** per task
 - [ ] Claude is never selected as executor in any routing test
 - [ ] ambiguity stops for a human with a named reason
-- [ ] `wait_for_quota` observed live when the runtime is down
-      — **RE-SCOPED in `docs/DELEGATION.md`, awaiting owner ratification (§25.3).** The branch
-      is unreachable in production (nothing builds `quota_state`); restated as **defer on no
-      permitted provider**. Left unchecked for the same reason as the item above.
+- [x] a down runtime **defers on no permitted provider**, never silently falls back —
+      implemented and asserted by test
+      *(RE-SCOPED from "`wait_for_quota` observed live when the runtime is down",
+      owner-ratified 2026-09-23. That branch is unreachable in production: nothing builds
+      `quota_state`, so a down runtime yields `no_provider`.)*
 - [ ] STD-1, STD-2, STD-3
 
 ---
@@ -465,6 +471,19 @@ superseded entry is retained but not recalled first; context stays under budget 
 history; Qwen's prompt with context still fits 8192.
 
 **EXIT GATE**
+
+> **OWNER DECISION (a), 2026-09-23:** the VPS remains the single canonical OTHKM store. Haddad
+> creates **no** duplicate local store. Where the store is unreachable from Haddad the layer
+> fail-closes, does nothing, and **says so explicitly**.
+>
+> **The gate items below are deliberately left UNTICKED, and this note is the reason.** Item 1
+> reads "OTHKM read path live on Haddad". It is not live, by decision. A tick beside that
+> sentence asserts that sentence, and an annotation next to it does not travel with the
+> checkbox when somebody scans the list — which is exactly how the §11 matrix row misled an
+> audit on this same day. Either the item is restated to what was decided and *that* is ticked,
+> or it stays unticked. Restating them belongs with the V2.4 phase record and its enforcement
+> tests (`docs/KNOWLEDGE.md`, `othk-2w` §8), not here.
+
 - [ ] OTHKM read path live on Haddad with provenance and explicit `asOf`
 - [ ] memory written **only** from validated outcomes
 - [ ] secret-shaped content refused (test, not assertion)
@@ -478,9 +497,20 @@ history; Qwen's prompt with context still fits 8192.
 
 **ENTRY:** V2.3 exit checked (V2.4 not required).
 
-The Haddad Live Console (Track A) evolves into the AI Team Console. **It must consume the
-existing `haddad_health` MCP tool and the `core/events.js` stream — never scrape, never
-control.** Observation only; a console that can act is a second control plane.
+The Haddad Live Console (Track A) evolves into the AI Team Console. **It must consume what the
+node already publishes — the health document under schema `mythos-haddad-health/1` and the
+per-task `events.log` stream — never scrape, never control.** Observation only; a console that
+can act is a second control plane.
+
+> **Corrected 2026-09-23, owner-ratified.** This sentence read "the existing `haddad_health`
+> MCP tool and the `core/events.js` stream". Both named sources are unreachable from the host
+> the console is served from: `core/events.js` is produced only under `core/`, which is off,
+> and the VPS has no route to Haddad and no `OTH_MCP_HADDAD_HEALTH_FILE`, so `haddad_health`
+> is not a tool there at all. The console has in fact consumed `events.log` (via
+> `haddad-telemetry.js`) and `health-latest.json` — the same file the MCP tool reads, under the
+> same pinned schema — since Track A. The requirement was already met by live equivalents; only
+> the wording was stale. An audit reading the old sentence concluded the phase was half-blocked
+> on a governance decision. It was not.
 
 **In V2.5:** FABLE state, workers/roles, tasks, queue, waiting, review, repair, models, GPU,
 VRAM, RAM, CPU, failures, uptime, events.
@@ -640,12 +670,14 @@ never earlier.
 |---|---|---|---|---|---|---|---|
 | Roles/agents registry | **BUILD** | use | use | use | show | use | — |
 | Skills | wire | select | use | context | show | use | expand |
-| Core enabled | no | **YES** † | use | use | use | use | — |
+| Core enabled | no | no † | no | no | no | no | — |
 
-† **Stale.** V2.2 shipped with `MYTHOS_CORE_ENABLED=false` by a measured, recorded decision
-(`docs/DELEGATION.md`): routing does not require core, and the flag was deliberately not
-touched. This row is left as written pending the owner's ratification in §25.3, and should be
-read with that correction — it is the row that misled an audit on 2026-09-23.
+† **Corrected 2026-09-23, owner-ratified.** This row read **YES** for V2.2 and every phase
+after it. It was wrong from the moment V2.2 shipped: routing does not require core, so the flag
+was deliberately left `false` (`docs/DELEGATION.md`). No phase has turned it on, and none of
+V2.1-V2.6 needed it. The row is corrected rather than annotated, because an audit on
+2026-09-23 read it, believed it, and reported a skipped gate that had never been skipped — a
+stale row that misleads is worse than no row.
 | Delegation/routing | — | **BUILD** | use | use | show | use | — |
 | Parallelism | 1 | 1 | **MEASURE→1–2** | use | show | use | multi-host |
 | GPU resource signal | — | — | **BUILD** | use | show | use | — |
@@ -714,7 +746,9 @@ protocols; Browser Use, Jev, Herdr, delegate-skills, Kimi.
 | No cgroup limit on the sandbox | bwrap is the boundary; cgroup is depth | V2.3 with GPU signal |
 | Daemon has no systemd mount namespace | owner-approved; bwrap replaces it | keep; re-assert each gate |
 | PR #363 (report recovery), #332 (scope doc) open | not in V1 merge set | owner decision |
-| OTHKM knowledge tools UNCONFIGURED on Haddad | no local store | HAD-1 / Track E |
+| OTHKM knowledge tools UNCONFIGURED on Haddad | **RESOLVED 2026-09-23 — owner decision (a):** one canonical store on the VPS, no duplicate on Haddad. Closed state is now explicit (health check `knowledge`), not silent. | closed |
+| `lib/knowledge.js` is required by no executor code on ANY host | found by the V2.4 audit; decision (a) settles where the store lives, not whether anything reads it | V3 |
+| `core/context.js` / `core/memory.js` reachable only via `core/orchestrator.js` | core stays `false` by ratified decision; the mission/campaign path is the thing that would justify turning it on | V3 |
 
 ---
 
@@ -790,7 +824,31 @@ belongs in the bridge, not in a console phase.
 
 ---
 
-## 25. Open owner decisions (2026-09-23)
+## 25. Owner decisions — ANSWERED 2026-09-23
+
+> **All three were answered by the owner on 2026-09-23 and are recorded below with the
+> answer, not the question.** Kept in full rather than deleted: item 3 records an audit
+> finding that was wrong, and a withdrawn finding is only useful if it stays legible.
+
+**1. V2.5's event and health sources — ANSWERED: correct the sentence.** The console already
+consumes `events.log` and `health-latest.json` in production and has since Track A. The gate's
+`core/events.js` / `haddad_health` wording named sources unreachable from the console's host.
+Corrected where V2.5 is described; no build work followed, because none was needed.
+
+**2. V2.4's knowledge store — ANSWERED: option (a).** The VPS stays the single canonical OTHKM
+store. Haddad creates **no** duplicate local store. Where the store is unreachable, the layer
+fail-closes, does nothing, and reports that explicitly. V2.4's exit gate is re-scoped on the
+record under that decision; see the V2.4 section.
+
+**3. Core — ANSWERED: the two recorded re-scopes are RATIFIED.** `MYTHOS_CORE_ENABLED` stays
+`false`. V2.2's two affected gate items are now ticked as re-scoped, and the §11 matrix row
+that read `YES` is corrected to `no` for every phase. Turning core on remains available as a
+future decision, to be argued on the mission/campaign path it actually buys — not on routing,
+which demonstrably does not need it.
+
+---
+
+## 25a. The questions as they were asked (2026-09-23)
 
 Three questions that implementers should not answer for themselves. All three were found by
 auditing rather than by building, and **items 1 and 3 share a root**: both phases were planned
@@ -864,17 +922,19 @@ modules; it appears only in `server.js`, `core/core-wiring.js`, and — as a com
 **So V2.2 does not carry a silently unmet gate item.** Two items were consciously re-scoped,
 with measured reasons, in the phase's own record.
 
-**What is genuinely wrong is this file.** Its V2.2 EXIT GATE still lists both original items
-unchecked, and its §11 matrix still reads `Core enabled | V2.2 | YES`. The plan was never
-reconciled with the decision, so a reader trusting the plan reaches the wrong conclusion —
-which is exactly what happened here.
+**What was genuinely wrong was this file.** Its V2.2 EXIT GATE listed both original items
+unchecked, and its §11 matrix read `Core enabled | V2.2 | YES`. The plan had never been
+reconciled with the decision, so a reader trusting the plan reached the wrong conclusion —
+which is exactly what happened here. **Both are reconciled as of 2026-09-23:** the two items
+are restated to what was decided and ticked, and the matrix row now reads `no` for every phase.
+This paragraph is kept in the past tense rather than deleted, because the failure it describes
+is the reason §25 exists.
 
-**Question, now much narrower:** ratify the two recorded re-scopes and reconcile this file's
-V2.2 gate text and §11 matrix to match them. If instead core *should* be turned on, that is a
-separate decision to be argued on the mission/campaign path it actually buys — not on routing,
-which does not need it.
+**ANSWERED 2026-09-23 — ratified.** The two recorded re-scopes are accepted and this file is
+reconciled to them. Turning core on remains available as a *separate* future decision, to be
+argued on the mission/campaign path it actually buys — not on routing, which does not need it.
 
-**Bearing on a 100 % claim:** the blocker is no longer an unmet gate. It is (i) this
-reconciliation, and (ii) decision 2 above. V2.4's blocker 2 and V2.5's source sentence still
+**Bearing on a 100 % claim:** the blocker was never an unmet gate, and the reconciliation it
+did need is done. What remains is verification from `main`, not a decision. V2.4's blocker 2 and V2.5's source sentence still
 share the core assumption and are still worth settling once rather than per phase, but neither
 is evidence of a skipped gate.

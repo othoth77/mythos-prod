@@ -29,7 +29,8 @@
 #                         tool exists ONLY where OTH_MCP_HADDAD_HEALTH_FILE is set —
 #                         the VPS keeps its 8 tools.
 #   knowledge_search / knowledge_get
-#                      -> UNCONFIGURED until HAD-1 (a local OTHKM store). The server
+#                      -> UNCONFIGURED by design (owner decision (a), 2026-09-23: one
+#                      canonical OTHKM store on the VPS, none here). The server
 #                         answers UPSTREAM_UNCONFIGURED naming the owner; it never
 #                         guesses.
 #
@@ -82,7 +83,7 @@ OTH_MCP_OTHMODE_URL=$OTHMODE_URL
 # Haddad's own measured state (haddad-health.js report) -> tool haddad_health.
 OTH_MCP_HADDAD_HEALTH_FILE=$STATE_DIR/health-latest.json
 # OTH_MCP_STATUS_URL: server default (public Status Center).
-# OTH_MCP_KNOWLEDGE_URL / _TOKEN: deliberately unset until HAD-1 — the
+# OTH_MCP_KNOWLEDGE_URL / _TOKEN: deliberately unset, permanently (owner decision (a)) — the
 # knowledge tools answer UPSTREAM_UNCONFIGURED, never a guess.
 ENV
 )

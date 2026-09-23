@@ -69,6 +69,15 @@ as written. Getting this wrong was the first thing the bridge suites caught:
 
 ## Two corrections to the master plan, both measured
 
+> **RATIFIED BY THE OWNER 2026-09-23.** Both corrections below are accepted as the V2.2 record.
+> `MYTHOS_CORE_ENABLED` stays `false`. The master plan's V2.2 exit-gate items are ticked as
+> re-scoped, and its §11 matrix row (which read `Core enabled | V2.2 | YES`) is corrected to
+> `no` for every phase. Worth knowing why that mattered: an audit on 2026-09-23 read the stale
+> matrix row, searched the master plan and `STATUS.md` for a re-scope, did not search THIS
+> file, and reported a skipped gate that had never been skipped. The finding was withdrawn.
+> A phase's decisions live in the phase's own document — which is the first place to look, and
+> was the last.
+
 The plan's §11 V2.2 text does not survive reading the code, and both
 corrections are recorded here rather than quietly worked around.
 
