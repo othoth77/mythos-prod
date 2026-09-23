@@ -94,7 +94,9 @@ stdio, read-only) runs on Haddad over SSH-stdio with Haddad's configuration: the
 own executor (`127.0.0.1:8130`, bearer by reference from the executor's own 0600 file); OTHMODE/Status tools
 read the public estate models; **`haddad_health`** — the one Haddad-native tool the V1 scope asked for (health,
 GPU, AI runtime + model, worker, MCP) — is a 66-line env-gated read of `health-latest.json` inside the shared
-server, absent on the VPS (still 8 tools). Knowledge tools stay fail-closed until HAD-1. No port, no unit, no
+server, absent on the VPS (still 8 tools). Knowledge tools stay fail-closed **permanently on this node** (owner decision (a),
+2026-09-23: one canonical OTHKM store on the VPS, no duplicate here) — and the closed state is
+now reported rather than silent, by health check `knowledge`. No port, no unit, no
 root, no secret in git. Health gained `worker` and `mcp` checks (16/0/0). Real E2E: Claude Code over
 `ssh othman@100.78.7.10` → `execution_status` + `haddad_health` + `system_health` → every value matched the
 sources directly. Tests 17/0 (new), 58/0 + 168/0 + 37/0 (shared MCP suites), full regression green.
@@ -323,6 +325,8 @@ until then the merged classifier and the `.git` boundary are on disk but not in 
 The bridge is a per-tick process and already runs merged code.
 
 Re-run `haddad-mcp-setup.sh` with `HADDAD_MCP_REPO=$HOME/projects/mythos-prod` so the launcher
-and the health timer run from the merged checkout. Then HAD-1 (local OTHKM store) to configure the knowledge
-tools. Owner decision, deferred: registering Haddad in the VPS estate MCP registry (needs a VPS→Haddad SSH
+and the health timer run from the merged checkout. **HAD-1 (local OTHKM store) is CLOSED, not
+pending:** owner decision (a) of 2026-09-23 keeps one canonical store on the VPS and creates no
+duplicate here, so the knowledge tools stay fail-closed on this node by design. The state is
+reported every health run rather than inferred from an empty answer. Owner decision, deferred: registering Haddad in the VPS estate MCP registry (needs a VPS→Haddad SSH
 credential). Still pending from V0: add the Windows client's SSH key and set `PasswordAuthentication no`.

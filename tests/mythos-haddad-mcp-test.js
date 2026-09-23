@@ -327,7 +327,7 @@ at('fake executor up', function () { return fakeExecutor().then(function (e) { e
   });
 })
 .then(function () {
-  return at('knowledge tools stay UNCONFIGURED on Haddad until HAD-1 (never a guess)', function () {
+  return at('knowledge tools stay UNCONFIGURED on Haddad by design — owner decision (a) (never a guess)', function () {
     return client([INIT, call(3, 'knowledge_search', { query: 'anything' })]).then(function (r) {
       assert.ok(/^UPSTREAM_UNCONFIGURED: OTH Knowledge/.test(text(r.byId[3])), text(r.byId[3]));
     });
