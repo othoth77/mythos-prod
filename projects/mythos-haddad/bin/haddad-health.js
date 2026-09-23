@@ -201,7 +201,7 @@ check('ai_runtime', function () {
   // (bin/haddad-telemetry.js, runtimeLoadFacts), so this reads the pair the
   // same way rather than adding a timer, a retry loop or a state file.
   var show = sh('systemctl', ['--user', 'show', 'mythos-haddad-runtime.service',
-    '-p', 'ActiveEnterTimestamp', '-p', 'TimeoutStartUSec']);
+    '-p', 'ActiveEnterTimestamp', '-p', 'TimeoutStartUSec', '-p', 'ExecStart']);
   var props = {};
   show.out.split('\n').forEach(function (l) { var m = /^([A-Za-z]+)=(.*)$/.exec(l); if (m) props[m[1]] = m[2]; });
   var activeSinceMs = Date.parse(props.ActiveEnterTimestamp || '');
@@ -216,6 +216,23 @@ check('ai_runtime', function () {
     });
     budgetS = Math.round(budgetS) || null;
   }
+  // Whether THIS unit is supposed to use a GPU at all, taken from its own argv
+  // rather than assumed, so the offload assertion below holds a host to the
+  // configuration it actually declares instead of to a policy this check
+  // invented. Same principle as the startup budget above: the unit is the
+  // source of truth about itself.
+  //
+  // ONLY AN EXPLICIT OPT-OUT COUNTS. `--n-gpu-layers 0` is an operator saying
+  // "CPU on purpose", and failing that host would be wrong. Everything else —
+  // a flag with any other value, NO flag at all, or an unreadable ExecStart —
+  // means the assertion stays armed. That asymmetry is deliberate: reading a
+  // missing flag as "CPU intended" would mean this unit could silently lose
+  // its GPU assertion by losing a line, which is the same class of quiet
+  // regression the assertion exists to catch. A false FAIL is loud and
+  // explicable; a silently disabled check is neither.
+  var ngl = /--n-gpu-layers[= ]+(\S+)/.exec(props.ExecStart || '');
+  var gpuIntended = !(ngl && /^(0|off|none)$/i.test(ngl[1]));
+
   // Only a runtime that is genuinely inside its declared startup window may
   // report a non-failure without answering. Unknown timestamp or unknown
   // budget means no grace at all — an unreadable clock must never buy one.
@@ -253,18 +270,19 @@ check('ai_runtime', function () {
   // State 3: loaded. Nothing below this line is reachable while loading, so
   // a PASS here still means exactly what it meant before — the model answers.
   //
-  // KNOWN GAP, deliberately left to its owner: this PASS proves the endpoint
-  // answers, NOT that the model offloaded to the GPU. On 2026-09-22 the
-  // runtime came up with "ggml_vulkan: No devices found" and served entirely
-  // from CPU, and this check passed 16/16 twice against it (22:21:43,
-  // 22:24:46) — gpu_test probes the card in its own process and so saw a
-  // healthy GPU the runtime was not using. The offload assertion and the
-  // unit-ordering fix behind it (/dev/dri/renderD128 gets its logind seat ACL
-  // after the unit starts; the unit declares only After=network.target) are
-  // owned by the V2.1 stage. It hooks in HERE, on the facts llama-server
-  // already logs at load time — bin/haddad-telemetry.js:runtimeLoadFacts()
-  // parses `offloaded N/M layers to GPU` from the journal already, so that
-  // parse is the thing to reuse rather than write a second one.
+  // ...and that it answers FROM THE GPU. Answering was never enough: on
+  // 2026-09-22 the runtime came up with "ggml_vulkan: No devices found",
+  // served entirely from CPU, and this check passed 16/16 twice against it
+  // (22:21:43 and 22:24:46). gpu_test probes the card in its own process, so
+  // it saw a healthy GPU the runtime was not using — two checks that were
+  // each true and together said something false.
+  //
+  // The evidence is llama-server's own load accounting, and it is read
+  // through bin/haddad-telemetry.js's EXISTING parser rather than a second
+  // one written here: same regexes, same ActiveEnterTimestamp window, same
+  // cache keyed on the unit's start. No GPU probe of our own, no nvidia-smi,
+  // no Vulkan call — this check adds no GPU mechanism, it reads the one the
+  // runtime already prints.
   //
   // haddad-gpu-vram.py (VK_EXT_memory_budget) is NOT used here: verified on
   // this host to report 0 MiB used even with ~4.4 GB genuinely resident on
@@ -272,8 +290,37 @@ check('ai_runtime', function () {
   // confidently wrong number, worse than no number. See docs/AI_RUNTIME.md,
   // Measurements, for how VRAM was actually measured (the runtime's own
   // memory-fit log line, cross-checked against low process RSS).
-  add('ai_runtime', 'PASS', 'llama-server active, model "' + modelId + '" loaded, http://127.0.0.1:8600/v1 answers',
-    { model: modelId, ready: true, starting: false, active_for_s: activeForS, startup_budget_s: budgetS });
+  var facts = {};
+  try { facts = require('./haddad-telemetry.js').runtimeLoadFacts(props.ActiveEnterTimestamp || null) || {}; }
+  catch (e) { facts = { unreadable: e && e.message }; }
+  var layers = facts.gpu_layers, total = facts.gpu_layers_total;
+  var base = 'llama-server active, model "' + modelId + '" loaded, http://127.0.0.1:8600/v1 answers';
+  var data = { model: modelId, ready: true, starting: false, active_for_s: activeForS, startup_budget_s: budgetS,
+    gpu_layers: layers === undefined ? null : layers, gpu_layers_total: total === undefined ? null : total,
+    no_devices: facts.no_devices === undefined ? null : facts.no_devices, gpu_source: facts.source || null };
+
+  data.gpu_intended = gpuIntended;
+  // A unit that never asked for the GPU is not failing by not using it.
+  if (!gpuIntended) {
+    return add('ai_runtime', 'PASS', base + ', CPU-only by configuration (--n-gpu-layers ' + ngl[1] + ')', data);
+  }
+  // A runtime that found no device, or offloaded nothing, is a REAL failure:
+  // it is serving from CPU on a machine bought for the card, at a fraction of
+  // the speed, and the whole point of this node is that it does not.
+  if (facts.no_devices === true || layers === 0) {
+    return add('ai_runtime', 'FAIL', base + ', but it is running ON CPU — ' +
+      (facts.no_devices === true ? 'the runtime found no GPU device' : 'it offloaded 0 layers') +
+      '. Restart the runtime once /dev/dri/renderD128 is available: systemctl --user restart mythos-haddad-runtime',
+      data);
+  }
+  // Unproven is not the same as proven bad, and it is not the same as proven
+  // good either. Saying PASS here is exactly the false PASS this check exists
+  // to stop, so an unreadable journal is a WARN that says so.
+  if (typeof layers !== 'number' || layers <= 0) {
+    return add('ai_runtime', 'WARN', base + ', but GPU offload is NOT VERIFIED: no load accounting for this ' +
+      'instance in the journal' + (facts.unreadable ? ' (' + facts.unreadable + ')' : ''), data);
+  }
+  add('ai_runtime', 'PASS', base + ', ' + layers + '/' + (total || '?') + ' layers on the GPU', data);
 });
 
 // ---------- HAD-3: executor daemon (the GitHub worker, optional) ----------

@@ -229,12 +229,22 @@ function runAiRuntime(opts) {
     '#!/bin/sh\n' +
     'case " $* " in\n' +
     '  *" is-active "*) echo "' + opts.active + '" ;;\n' +
-    '  *" show "*) echo "ActiveEnterTimestamp=' + activeSince + '"; echo "TimeoutStartUSec=' + opts.budget + '" ;;\n' +
+    '  *" show "*) echo "ActiveEnterTimestamp=' + activeSince + '"; echo "TimeoutStartUSec=' + opts.budget + '";' +
+    (opts.exec_start === undefined ? ' echo "ExecStart={ argv[]=/usr/bin/llama-server --n-gpu-layers auto ; }"' :
+      opts.exec_start === null ? '' : ' echo "ExecStart=' + opts.exec_start + '"') + ' ;;\n' +
     '  *) echo "" ;;\n' +
     'esac\nexit 0\n', { mode: 0o755 });
   // The check asks curl for the body plus "\n%{http_code}"; reproduce both.
   fs.writeFileSync(path.join(stub, 'curl'),
     '#!/bin/sh\nprintf \'%s\\n%s\' \'' + opts.body.replace(/'/g, "'\\''") + '\' \'' + opts.code + '\'\nexit 0\n', { mode: 0o755 });
+  // The GPU-offload assertion reads llama-server's load accounting through
+  // haddad-telemetry.js's parser, which shells out to journalctl. Feed it a
+  // recorded boot so the assertion is tested against what the machine really
+  // printed, not against a paraphrase of it.
+  if (opts.journal !== undefined) {
+    fs.writeFileSync(path.join(stub, 'journalctl'),
+      '#!/bin/sh\ncat <<\'JEOF\'\n' + opts.journal + '\nJEOF\nexit 0\n', { mode: 0o755 });
+  }
 
   var r = cp.spawnSync(process.execPath, [path.join(BIN, 'haddad-health.js'), '--quick', '--json', '--no-log'],
     { encoding: 'utf8', timeout: 180000,
@@ -244,6 +254,16 @@ function runAiRuntime(opts) {
   fs.rmSync(tmp, { recursive: true, force: true });
   return rep.checks.filter(function (c) { return c.id === 'ai_runtime'; })[0];
 }
+
+var CPU_ONLY_BOOT = fs.readFileSync(path.join(__dirname, 'fixtures', 'haddad-runtime-cpu-only-boot.txt'), 'utf8').trim();
+var GPU_BOOT = [
+  '2026-09-22T22:40:52+00:00  load_backend: loaded Vulkan backend from /home/othman/.local/share/mythos-haddad/runtime/llama.cpp/usr/lib/x86_64-linux-gnu/ggml/backends0/libggml-vulkan.so',
+  '2026-09-22T22:41:20+00:00  llama_params_fit_impl: projected to use 4920 MiB of device memory vs. 5755 MiB of free device memory',
+  '2026-09-22T22:41:20+00:00  llama_model_load_from_file_impl: using device Vulkan0 (NVIDIA GeForce GTX 1660 SUPER (NVK TU116)) (0000:29:00.0) - 5755 MiB free',
+  '2026-09-22T22:41:21+00:00  load_tensors: offloaded 27/29 layers to GPU',
+  '2026-09-22T22:41:21+00:00  load_tensors:      Vulkan0 model buffer size =  3883.68 MiB',
+  '2026-09-22T22:42:54+00:00  main: server is listening on http://127.0.0.1:8600'
+].join('\n');
 
 var LOADING = '{"error":{"message":"Loading model","type":"unavailable_error","code":503}}';
 var LOADED = '{"object":"list","data":[{"id":"qwen2.5-7b-instruct-q4_k_m.gguf"}]}';
@@ -279,12 +299,14 @@ t('ai_runtime grace needs a known clock AND a known budget — never assumed', f
 });
 
 t('ai_runtime state 3: only a real model answer is a PASS', function () {
-  var c = runAiRuntime({ active: 'active', active_for_s: 5, budget: '10min', code: 200, body: LOADED });
+  // GPU_BOOT is defined below; a model that answers is necessary but, since
+  // the offload assertion, no longer sufficient — see the GPU section.
+  var c = runAiRuntime({ active: 'active', active_for_s: 5, budget: '10min', code: 200, body: LOADED, journal: GPU_BOOT });
   assert.strictEqual(c.status, 'PASS');
   assert.strictEqual(c.data.ready, true);
   assert.ok(/qwen2\.5-7b/.test(c.detail), c.detail);
   // An empty model list inside the window is STARTING, never PASS.
-  var d = runAiRuntime({ active: 'active', active_for_s: 5, budget: '10min', code: 200, body: '{"object":"list","data":[]}' });
+  var d = runAiRuntime({ active: 'active', active_for_s: 5, budget: '10min', code: 200, body: '{"object":"list","data":[]}', journal: GPU_BOOT });
   assert.strictEqual(d.status, 'WARN');
   assert.strictEqual(d.data.ready, false);
 });
@@ -303,6 +325,121 @@ t('health reports a timed-out probe as a timeout, not as an absent binary', func
   assert.ok(/npm\.timed_out \? 'NOT MEASURED/.test(src), 'a timed-out npm is not reported as MISSING');
 });
 
+
+
+// ── ai_runtime GPU offload assertion ───────────────────────────────
+// The 2026-09-22 false PASS: the runtime answered /v1/models perfectly while
+// running entirely on CPU, and health reported 16/16 twice. gpu_test probes
+// the card in its own process, so it was also right, and also irrelevant.
+
+t('ai_runtime FAILS a runtime that answers perfectly but runs on CPU', function () {
+  // Verbatim from the real 22:14:53 boot: "ggml_vulkan: No devices found",
+  // no "offloaded" line anywhere, and the model still answers /v1/models.
+  var c = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min',
+    code: 200, body: LOADED, journal: CPU_ONLY_BOOT });
+  assert.strictEqual(c.status, 'FAIL', 'a CPU-only runtime must not pass');
+  assert.ok(/running ON CPU/.test(c.detail), c.detail);
+  assert.ok(/found no GPU device/.test(c.detail), c.detail);
+  assert.strictEqual(c.data.no_devices, true);
+  assert.ok(/systemctl --user restart/.test(c.detail), 'the failure says what to do about it');
+});
+
+t('"loaded Vulkan backend" is NOT accepted as evidence of a GPU', function () {
+  // That line is present in the CPU-only fixture. Loading the backend is not
+  // using it, and matching it would re-create the exact bug being fixed.
+  assert.ok(/loaded Vulkan backend/.test(CPU_ONLY_BOOT), 'the fixture really does contain the trap line');
+  var c = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min',
+    code: 200, body: LOADED, journal: CPU_ONLY_BOOT });
+  assert.strictEqual(c.status, 'FAIL', 'the trap line did not buy a PASS');
+});
+
+t('ai_runtime PASSES on real offload, and reports the layer count', function () {
+  var c = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min',
+    code: 200, body: LOADED, journal: GPU_BOOT });
+  assert.strictEqual(c.status, 'PASS');
+  assert.strictEqual(c.data.gpu_layers, 27);
+  assert.strictEqual(c.data.gpu_layers_total, 29);
+  assert.strictEqual(c.data.no_devices, false);
+  assert.ok(/27\/29 layers on the GPU/.test(c.detail), c.detail);
+});
+
+t('unverifiable offload is WARN — never PASS, never invented', function () {
+  // An empty journal window: the model answers, but nothing proves where from.
+  var c = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min',
+    code: 200, body: LOADED, journal: '' });
+  assert.strictEqual(c.status, 'WARN', 'unproven is not proven-good');
+  assert.ok(/NOT VERIFIED/.test(c.detail), c.detail);
+  assert.strictEqual(c.data.gpu_layers, null);
+  assert.notStrictEqual(c.data.no_devices, false, 'silence is never read as "a device was found"');
+});
+
+t('offload evidence comes from the EXISTING telemetry parser, not a second one', function () {
+  var health = read('bin/haddad-health.js');
+  assert.ok(/require\('\.\/haddad-telemetry\.js'\)\.runtimeLoadFacts/.test(health),
+    'health reuses runtimeLoadFacts rather than parsing the journal itself');
+  // No GPU subsystem of its own: the assertion must not shell out to a probe.
+  // Read the CODE, not the commentary: this file documents by name the probes
+  // it deliberately does NOT run, and a comment saying so must not read as a
+  // violation of the rule it is explaining.
+  var block = health.slice(health.indexOf("check('ai_runtime'"), health.indexOf("check('worker'"));
+  var code = block.split('\n').filter(function (l) { return !/^\s*\/\//.test(l); }).join('\n');
+  // Invocation, not mention: "journalctl --user -u ..." also appears inside a
+  // FAIL message as the command the OPERATOR should run, which is a hint, not
+  // a probe. Match the way this file actually starts a process — sh('<name>').
+  ['nvidia-smi', 'gpu-vulkan-test', 'haddad-gpu-vram', 'vulkaninfo', 'journalctl', 'python3'].forEach(function (p) {
+    assert.ok(code.indexOf("sh('" + p + "'") === -1,
+      'ai_runtime must not run ' + p + ' — it reads what the runtime already logged');
+  });
+  // ...and the only processes it does start are the two it needs.
+  var spawned = (code.match(/sh\('([a-z0-9_.-]+)'/g) || []).map(function (m) { return m.slice(4, -1); });
+  spawned.forEach(function (c) {
+    assert.ok(c === 'systemctl' || c === 'curl', 'ai_runtime starts only systemctl and curl, not ' + c);
+  });
+});
+
+t('the telemetry parser distinguishes no-device from unknown (tri-state)', function () {
+  var src = fs.readFileSync(path.join(BIN, 'haddad-telemetry.js'), 'utf8');
+  assert.ok(/no_devices: null/.test(src), 'no_devices starts unknown, not false');
+  assert.ok(/no devices with dedicated memory found/.test(src), 'the real second marker is matched too');
+  assert.ok(/runtimeLoadFacts: runtimeLoadFacts/.test(src), 'exported for reuse');
+});
+
+
+t('a unit that asked for CPU is not failed for using CPU', function () {
+  // --n-gpu-layers 0 is an operator saying "CPU on purpose". Failing that
+  // host would be this check inventing a policy nobody set.
+  var c = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 200, body: LOADED,
+    journal: CPU_ONLY_BOOT, exec_start: '{ argv[]=/usr/bin/llama-server --n-gpu-layers 0 ; }' });
+  assert.strictEqual(c.status, 'PASS', 'an explicit CPU-only unit passes on CPU');
+  assert.strictEqual(c.data.gpu_intended, false);
+  assert.ok(/CPU-only by configuration/.test(c.detail), c.detail);
+});
+
+t('only an EXPLICIT opt-out disarms the assertion — silence never does', function () {
+  // The asymmetry that matters: a missing flag must NOT read as "CPU
+  // intended", or this unit could lose its GPU assertion by losing a line.
+  var noFlag = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 200, body: LOADED,
+    journal: CPU_ONLY_BOOT, exec_start: '{ argv[]=/usr/bin/llama-server --ctx-size 8192 ; }' });
+  assert.strictEqual(noFlag.status, 'FAIL', 'no --n-gpu-layers flag still asserts the GPU');
+  assert.strictEqual(noFlag.data.gpu_intended, true);
+
+  var unreadable = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 200, body: LOADED,
+    journal: CPU_ONLY_BOOT, exec_start: null });
+  assert.strictEqual(unreadable.status, 'FAIL', 'an unreadable ExecStart never softens a real regression');
+  assert.strictEqual(unreadable.data.gpu_intended, true);
+
+  // ...and a non-zero value obviously keeps it armed.
+  var auto = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 200, body: LOADED,
+    journal: CPU_ONLY_BOOT, exec_start: '{ argv[]=/usr/bin/llama-server --n-gpu-layers auto ; }' });
+  assert.strictEqual(auto.status, 'FAIL', '--n-gpu-layers auto means the GPU is expected');
+});
+
+t('a CPU-only unit still has to actually answer', function () {
+  // Opting out of the GPU does not opt out of the readiness contract.
+  var c = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 503, body: LOADING,
+    journal: CPU_ONLY_BOOT, exec_start: '{ argv[]=/usr/bin/llama-server --n-gpu-layers 0 ; }' });
+  assert.strictEqual(c.status, 'FAIL', 'a stuck CPU-only runtime is still a failure');
+});
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
