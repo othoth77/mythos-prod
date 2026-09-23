@@ -230,6 +230,29 @@ overlapped with GPU work — that is a scheduler change and the signal here is i
 and no second full supervised task has been run end to end, only concurrent inference at
 task-prompt size.
 
+## MYTHOS HADDAD V2.3 — the scheduler half
+
+**GPU work is serialised by a lease held around a model TURN, so everything that is not
+inference overlaps freely.** Before this, `gpu_in_flight` counted RUNNING tasks — and a task is
+running for its whole life, including validation, the declared checks, the snapshot and the
+delivery commit, none of which touch the card. Detail: [docs/RESOURCE.md](docs/RESOURCE.md).
+
+| Item | State | Evidence |
+|---|---|---|
+| The lease exists and is per-turn | DONE | acquired immediately before the model call, released the moment it answers, and on the throw path too |
+| **It serialises, it does not merely count** | DONE | the first version recorded without enforcing: a live two-task run observed **2** concurrent leases. The turn now waits — `acquireWhenFree()` |
+| Waiting is bounded three ways | DONE | the task's own deadline · a TTL so a dead holder cannot wedge the card · re-entry is not a second claim, so a repair round cannot deadlock on itself |
+| A task that never gets the card fails loudly | DONE | `HADDAD_AGENT_GPU_BUSY`, named, not silent |
+| The gate counts leases, not running tasks | DONE | `gpu_in_flight = gpuSlots.heldCount()` |
+| **Measured live** | DONE | two supervised tasks, real runtime: max concurrent leases **1**, one recorded a `gpu_wait`, wall clock **148 s vs 232 s serial — 36 % saved** |
+| Tests | DONE | `tests/mythos-haddad-gpu-admission-test.js` **57/0**, including five contention tests |
+
+**Still not done:** `MYTHOS_MAX_PARALLEL` is 1 on this host — the mechanism now makes raising it
+safe, but the number itself is an operational change to `worker.env` that should follow a
+measurement of full supervised tasks in production. Grants are unordered; under sustained
+contention a turn could wait while later arrivals are served, and fixing that means building the
+queue this deliberately is not.
+
 ## Next action
 
 **Restart `mythos-haddad-worker.service` once.** It is long-running and still holds pre-merge code;

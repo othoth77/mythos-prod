@@ -2,6 +2,52 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-23 — MYTHOS HADDAD V2.3: the scheduler half, and the cold boot (Opus 5)
+
+**Objective:** let work that is not inference overlap work that is, on a machine that can only
+run one inference at a time.
+
+| Item | State |
+|---|---|
+| Branch | `mythos-haddad/v2-3-scheduler` on `main@aae49e79` |
+| ADDED | the GPU lease in `lib/gpu-slots.js` (`acquire`, `acquireWhenFree`, `release`, `heldCount`, TTL sweep) |
+| ADAPTED | `providers/haddad-agent.js` takes the lease around a model TURN and releases when the model answers · `executor.js` counts leases rather than running tasks |
+| The gap it closes | `gpu_in_flight` was `runningCount()`, and a task counts as running for its whole life — including validation, the declared checks, the snapshot and the delivery commit, none of which touch the card. With capacity 1 that made "one task at a time" and "one inference at a time" the same sentence |
+
+**COUNTING IS NOT SERIALISING, and a live run proved it.** The first version recorded the lease
+and stopped nobody: two tasks against the real runtime produced an observed maximum of **2
+concurrent leases**. Admission gates a task *once*, at its start; nothing then coordinates the
+turns it takes minutes later. The turn now waits — bounded by the task's own deadline, a TTL so a
+provider that dies mid-turn cannot wedge the card, and re-entry handling so a repair round cannot
+deadlock on itself. A task that never gets the card inside its deadline fails
+`HADDAD_AGENT_GPU_BUSY`, named rather than silent.
+
+**Measured live, two supervised tasks, real model:** max concurrent leases **1** · `overlap-B`
+recorded a `gpu_wait`, so the waiting path is real · wall clock **148 s against 232 s serial —
+36 % saved**. That saving is one task's validation, checks and git running during the other's
+turns, and it is near the ceiling for this shape of work rather than a floor.
+
+**THE COLD BOOT RAN, AND THE ORDERING GATE PASSED STRONGLY.** Gate 1 (node exists) waited 2 s;
+gate 2 (ACL readable) waited **75 s**, 07:03:21 → 07:04:36, releasing 0.15 s after the ACL landed
+at 07:04:35.85; llama-server started 07:04:36 and came up on `Vulkan0` with 27/29 layers. The unit
+was held 77 s until the GPU was genuinely usable — the distinguishing line (stop_time far from
+start_time) rather than the weak same-second pass. The worker is also live on `aae49e79`, so
+V2.1–V2.3 are running, not merely merged.
+
+**The boot report's `RESULT: FAIL (14/1/1)` is wrong on both non-passes**, and the root cause I
+gave for one of them was also wrong. `ai_runtime` "offload NOT VERIFIED" was **not** #399's
+instance scoping — I guessed that from a timestamp and it implicated another session's work
+incorrectly. It was the telemetry cursor caching a snapshot with `gpu_layers: null` sampled
+inside the 66 s load window, against the correct invocation. `claude_code` "not on PATH" was the
+collector unit declaring no `Environment=PATH`; the worker and health units both set
+`%h/.local/bin`. Both fixed in #407 by the session that owns them.
+
+**The pattern worth carrying, which indicts this stage's own first drafts:** five times tonight a
+mechanism existed and was never reached — npm reported MISSING under memory pressure,
+`ai_runtime` passing against a CPU-only runtime, the cursor freezing a null, `needs_gpu` that
+nothing passed, and a lease that recorded without enforcing. Grep for who *reaches* a thing
+immediately after calling it verified.
+
 ## 2026-09-23 — MYTHOS HADDAD V2.3: RESOURCE AWARENESS, the GPU half (Opus 5)
 
 **Objective:** give the resource guard a GPU signal, and derive the concurrency limit for GPU

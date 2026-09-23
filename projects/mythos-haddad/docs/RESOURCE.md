@@ -115,16 +115,100 @@ no task, it is byte-for-byte the previous behaviour. `tick()` asks about the
 task at the head of the queue — the one that would actually start — and
 `dispatchTask()` about the task it is dispatching.
 
+## The scheduler half: a lease held around a TURN, not around a task
+
+The signal above tells admission whether the card is free. It cannot by
+itself overlap anything, and the reason is a single line: `gpu_in_flight`
+was `runningCount()`, the number of RUNNING tasks. A task counts as running
+for its whole life — including the minutes it spends in validation, the
+declared checks in their sandbox, the workspace snapshot and the delivery
+commit, **none of which touch the GPU**. With capacity 1 that made "one task
+at a time" and "one inference at a time" the same sentence, and a second
+task was refused admission while the card sat idle.
+
+A lease separates them. It is taken around a model turn and released the
+moment the model answers:
+
+```
+task A:  [prompt]--GPU--[validate][checks][git]          lease released here
+task B:            waits ----------[prompt]--GPU--...    lease acquired here
+```
+
+GPU work stays strictly serialised, which is what the KV budget requires;
+everything that is not GPU work overlaps freely.
+
+### Counting is not serialising — and a live run proved it
+
+The first version recorded the lease and stopped nobody. Two tasks run
+against the real runtime showed the flaw immediately: **maximum concurrent
+leases observed = 2**, not 1. Admission gates a task *once*, at its start;
+nothing then coordinates the turns it takes minutes later. An overlap design
+that only counts is an overlap design that does not serialise.
+
+So the turn now **waits** for a free card — `acquireWhenFree()` — bounded
+three ways, because a turn that waits forever is worse than one that is
+refused:
+
+- the task's **own deadline**, so waiting can never outlast the work;
+- a **TTL** on every lease, swept lazily, so a provider that dies mid-turn
+  cannot wedge the card shut for the life of the daemon;
+- **re-entry is not a second claim**, so a repair round returning to the
+  model cannot deadlock against itself.
+
+A task that never gets the card inside its deadline fails with
+`HADDAD_AGENT_GPU_BUSY` — named, not silent. Grants are in no particular
+order: this is mutual exclusion, not fairness. Calling it a queue would be
+claiming a scheduler this does not build.
+
+It is **in-process on purpose**. `bin/mythos-ai-executor serve` runs the
+server and the executor in one process and the provider's `run()` is called
+there, so a module-level registry is a valid central gate for every
+inference this executor starts. It is not a cross-process lock and does not
+pretend to be — which is why the KV budget, not this, remains the real
+ceiling.
+
+### Measured live, two supervised tasks, real runtime
+
+Both tasks seeded with the same broken fixture and run concurrently through
+the real provider against the real model, with the lease sampled every
+150 ms:
+
+| | |
+|---|---|
+| `overlap-A` | validated, 17 tool calls, 0 GPU waits, 84 s |
+| `overlap-B` | validated, 14 tool calls, **1 GPU wait**, 148 s |
+| **max concurrent GPU leases** | **1** |
+| card utilisation | 100 % (no idle gap between turns) |
+| wall clock, both tasks | **148 s** |
+| sum if run back to back | 232 s |
+| **saved by overlapping** | **84 s (36 %)** |
+
+Three things are worth reading off that table. The maximum is **1**, so GPU
+work is genuinely serialised rather than merely counted — which is what the
+first version failed. `overlap-B` recorded a `gpu_wait` in its tool trace,
+so the waiting path is not theoretical: a turn really did block until the
+other task released the card. And the 36 % is the whole point of the stage —
+that is one task's validation, declared checks and git running during the
+other's model turns, on a machine that can only ever run one inference at a
+time.
+
+The saving is bounded by how much of a task is *not* inference. These tasks
+spend most of their time in model turns, so 36 % is near the ceiling for this
+shape of work, not a floor to extrapolate from.
+
 ## What V2.3 does NOT do
 
 Stated plainly rather than left to be discovered.
 
-- **`MYTHOS_MAX_PARALLEL` is unchanged at 1.** The measurement says the
-  budgeted capacity for GPU work is 1, so there is nothing to raise.
-- **Non-GPU work is not yet overlapped.** The plan's other half — letting
-  validation, declared checks, git and snapshots of one task run while
-  another occupies the GPU — is a scheduler change and is not in this
-  document. The signal this adds is the prerequisite for it.
+- **`MYTHOS_MAX_PARALLEL` is still 1 on this host.** The mechanism now
+  permits overlap, but raising the number is an operational change to
+  `worker.env`, not a repo change, and it should follow a measurement of
+  *full* supervised tasks overlapping in production rather than this
+  demonstration. The lease makes it safe to raise; it does not raise it.
+- **Grants are unordered.** Under sustained contention a turn could in
+  principle wait while later arrivals are served. With capacity 1 and two
+  tasks this is not observable, and fixing it means building the queue this
+  deliberately is not.
 - **No second concurrent supervised task has been run end to end.** What was
   measured is concurrent *inference* at task-prompt size, not two full
   supervised tasks with their sandboxes, validators and deliveries.

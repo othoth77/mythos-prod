@@ -1230,7 +1230,12 @@ function guardGate(status, task) {
     if (needsGpu(task)) {
       opts.needs_gpu = true;
       try { opts.gpu_signal = resourceGuard.gpuSlots.read(); } catch (e) { opts.gpu_signal = null; }
-      opts.gpu_in_flight = runningCount();
+      // V2.3 scheduler half: what occupies the GPU is a task IN A MODEL
+      // TURN, not a task that happens to be RUNNING. A task spends most of
+      // its life in validation, checks and git, none of which touch the
+      // card, so counting running tasks kept the GPU reserved for work that
+      // had finished using it.
+      opts.gpu_in_flight = resourceGuard.gpuSlots.heldCount();
     }
     return resourceGuard.admission(status || resourceGuard.current(guardOptions()), opts);
   } catch (e) { return ADMIT_ANYWAY; }
