@@ -242,6 +242,16 @@ var V21_ALLOWED = [
 var V22_ALLOWED = [
   'projects/mythos-ai-executor/bridge/provider-selection.js'
 ];
+// V2.3 (resource awareness) is the stage that gives the resource guard a GPU
+// signal, so its surface is the signal itself plus the one function in the
+// guard that consults it. Named, as every entry above is. The guard change is
+// additive and opt-in: `admission(status, opts)` gains `opts.needs_gpu`,
+// default false, so every existing call site is untouched — asserted by
+// tests/mythos-haddad-gpu-admission-test.js section D.
+var V23_ALLOWED = [
+  'projects/mythos-ai-executor/lib/gpu-slots.js',
+  'projects/mythos-ai-executor/lib/resource-guard.js'
+];
 var REGISTRY_ONLY = 'projects/mythos-ai-executor/bridge/action-resolution.js';
 
 function touchesHaddad(files) {
@@ -253,7 +263,7 @@ function executorFilesModified(files) {
   return files.filter(function (f) {
     return HAD3_ALLOWED.indexOf(f) === -1 && HAD4_ALLOWED.indexOf(f) === -1 &&
       V21_ALLOWED.indexOf(f) === -1 && V22_ALLOWED.indexOf(f) === -1 &&
-      /^projects\/mythos-ai-executor\//.test(f);
+      V23_ALLOWED.indexOf(f) === -1 && /^projects\/mythos-ai-executor\//.test(f);
   });
 }
 

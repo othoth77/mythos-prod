@@ -43,6 +43,11 @@
 var fs = require('fs');
 var path = require('path');
 
+// V2.3: the local GPU occupancy signal. Required here, used only when a
+// caller asks for it (`admission(status, {needs_gpu:true})`), and absent
+// everywhere there is no local runtime.
+var gpuSlots = require('./gpu-slots');
+
 var LEVELS = ['NORMAL', 'WARNING', 'CRITICAL'];
 
 // Thresholds derived from the gh-issue-101 replay over ~30h of
@@ -483,15 +488,42 @@ function current(opts) {
 // The one enforcement primitive: may a NEW task start right now?
 // WARNING deliberately still admits — it is the "watch it" band; only
 // CRITICAL, which is 2 confirmed samples or a real kill, closes the door.
-function admission(status) {
+// admission(status, opts)
+//
+// `opts.needs_gpu` (V2.3) — the caller says this work will occupy the local
+// inference runtime. DEFAULT FALSE, so every existing call site behaves
+// exactly as before and hosts with no GPU are unaffected.
+//
+// The GPU rule is deliberately separate from the RAM rule and cannot relax
+// it: memory pressure still denies everything at CRITICAL, and the GPU check
+// only ever ADDS a reason to deny. A GPU signal that cannot be read is
+// absent, not zero, and an absent signal admits — telemetry we cannot read
+// must never hold the queue shut, which is the same rule the memory path
+// already follows.
+function admission(status, opts) {
+  opts = opts || {};
   var level = (status && status.level) || 'NORMAL';
+  var signals = (status && status.signals) || null;
   if (level === 'CRITICAL') {
-    return {
-      admit: false, level: level, reason: 'resource_pressure',
-      signals: (status && status.signals) || null
-    };
+    return { admit: false, level: level, reason: 'resource_pressure', signals: signals };
   }
-  return { admit: true, level: level, reason: null, signals: (status && status.signals) || null };
+  if (opts.needs_gpu) {
+    var gpu = opts.gpu_signal !== undefined ? opts.gpu_signal : null;
+    if (gpu) {
+      var room = gpuSlots.roomForAnother(gpu, opts.gpu_in_flight);
+      if (room && room.room === false) {
+        return {
+          admit: false, level: level, reason: room.reason, signals: signals,
+          gpu: { capacity: room.capacity, in_flight: room.in_flight,
+            slots_total: gpu.slots_total, slots_busy: gpu.slots_busy,
+            kv_pool_tokens: gpu.kv_pool_tokens, task_kv_tokens: gpu.task_kv_tokens }
+        };
+      }
+      return { admit: true, level: level, reason: null, signals: signals,
+        gpu: room ? { capacity: room.capacity, in_flight: room.in_flight } : null };
+    }
+  }
+  return { admit: true, level: level, reason: null, signals: signals };
 }
 
 function describe(status) {
@@ -566,6 +598,7 @@ module.exports = {
   sample: sample,
   current: current,
   admission: admission,
+  gpuSlots: gpuSlots,
   describe: describe,
   replay: replay,
   parseMemwatchLine: parseMemwatchLine,

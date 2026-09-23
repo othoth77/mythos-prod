@@ -206,6 +206,30 @@ failure can complete with the validator passing and deliver **nothing**, because
 snapshot is per-attempt and the previous attempt's work predates it. Same class as the bug
 `DELIVERY_FAILED` was added for. It is the next change, on its own.
 
+## MYTHOS HADDAD V2.3 — RESOURCE AWARENESS (the GPU half)
+
+**The resource guard can now answer "is there room on the GPU?".** Before this it measured
+`MemAvailable`, PSI and `oom_kill` and knew nothing about the GPU, so it would admit a second
+task on RAM alone while the inference runtime had none. Detail and every measured number:
+[docs/RESOURCE.md](docs/RESOURCE.md).
+
+| V2.3 item | State | Evidence |
+|---|---|---|
+| A GPU signal exists | DONE | `lib/gpu-slots.js` reads llama-server's own `/slots`; returns **null** when it cannot answer honestly |
+| It does not use the OS VRAM query | DONE | that reader answers `vram_used_mib: 0.0` with a 3,883 MiB model resident — unreliable on NVK, and a confidently wrong number is worse than a missing one |
+| Capacity is budgeted against the SHARED pool | DONE | `kv_unified=true` means four slots share ONE 8192-token pool; capacity is `min(slots, floor(pool / task_ceiling))`, not the slot count |
+| **MAX_PARALLEL derived from measurement** | DONE | live: 1, 2 and 3 concurrent requests at real task-prompt size all succeeded (1,264 tokens each, +12 % wall clock at n=3). Capacity is still **1**, budgeted against the ~6,400-token ceiling a repair round reaches, because a task's size is not knowable at admission and `/slots` reports occupancy but not KV tokens |
+| Admission consults it | DONE | `admission(status, {needs_gpu})` — default false, so every existing call site is unchanged. The GPU rule only ever ADDS a denial |
+| Memory pressure still wins | DONE | `CRITICAL` denies GPU work regardless of room |
+| An unreadable signal admits | DONE | absent is not zero; telemetry we cannot read must never hold the queue shut |
+| Tests | DONE | `tests/mythos-haddad-gpu-admission-test.js` 24/0, every reading injected |
+
+**NOT done in V2.3, stated rather than left to be discovered:** `MYTHOS_MAX_PARALLEL` is
+unchanged at 1 (the measurement says there is nothing to raise); non-GPU work is **not** yet
+overlapped with GPU work — that is a scheduler change and the signal here is its prerequisite;
+and no second full supervised task has been run end to end, only concurrent inference at
+task-prompt size.
+
 ## Next action
 
 **Restart `mythos-haddad-worker.service` once.** It is long-running and still holds pre-merge code;
