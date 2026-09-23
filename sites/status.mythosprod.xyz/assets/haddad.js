@@ -383,6 +383,15 @@
           ['Project', val(task.project)],
           ['Action', val(task.action)],
           ['Profile', val(task.profile)],
+          // V2.1's role, with the reason beside it. Role and reason are shown
+          // together on one row because either alone invites the wrong read:
+          // a bare role looks like a label someone typed, and a bare reason
+          // says nothing about what ran. Absent on any task recorded before
+          // roles existed, and N/A is the honest answer there.
+          ['Role', task.role
+            ? el('span', {}, [txt(task.role), task.role_reason
+              ? el('span', { class: 'na', text: '  ' + task.role_reason }) : null])
+            : na()],
           ['Provider', val(task.provider)],
           ['Model', val(task.model)],
           ['Attempt', val(task.attempt)],

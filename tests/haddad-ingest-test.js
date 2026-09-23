@@ -554,6 +554,92 @@ console.log('§7 history is bounded — an unattended node cannot fill the disk'
   ok(src.indexOf("return reject(res, 500, 'publish_failed')") !== -1, 'a SNAPSHOT write failure still is fatal');
 }
 
+console.log('§8 V2.5 — the console shows WHICH ROLE ran the work, and can still only observe');
+{
+  // WHY THIS SECTION EXISTS. The V2.5 gate asks for "workers/roles". The
+  // console showed a task's provider and model — who ran it and with what —
+  // and nothing about the ROLE, which is the decision V2.1 was built to make.
+  // Measured on the live node before this change: haddad-telemetry.js
+  // contained zero occurrences of `role`, so the field could not have been
+  // shown however the page was written. The gap was in the publisher.
+
+  const withRole = nodeState.sanitize(envelope({
+    current_task: { task_id: 't-20260923075021-147rik', project: 'mythos-prod',
+      role: 'researcher', role_reason: 'action:investigate', provider: 'haddad-agent' }
+  }));
+  eq(withRole.current_task.role, 'researcher', 'the role survives the allow-list');
+  eq(withRole.current_task.role_reason, 'action:investigate', 'and so does the reason it was chosen');
+
+  // The allow-list is still an allow-list. Two new keys were added; nothing
+  // else became publishable alongside them.
+  const beside = nodeState.sanitize(envelope({
+    current_task: { task_id: 'x', role: 'reviewer', role_brief: 'a whole system prompt',
+      next_action: 'free text the owner excluded', role_token: 'sk-live-nope' }
+  }));
+  ok(beside.current_task.role_brief === undefined, 'the role BRIEF is not published — only the role name');
+  ok(beside.current_task.next_action === undefined, 'next_action is still excluded, as the owner asked');
+  ok(JSON.stringify(beside).indexOf('sk-live-nope') === -1, 'a secret wearing a role-shaped key is still dropped');
+
+  // This document is served without authentication, so both fields are
+  // bounded and scrubbed like every other published string.
+  const huge = nodeState.sanitize(envelope({
+    current_task: { task_id: 'x', role: 'r'.repeat(400), role_reason: 'z'.repeat(400) }
+  }));
+  // Read defensively: if the allow-list ever stops carrying these, the suite
+  // must REPORT that rather than die on a property of undefined and take the
+  // sections after it down with it.
+  const hRole = String(huge.current_task.role || ''), hWhy = String(huge.current_task.role_reason || '');
+  ok(hRole.length > 0 && hRole.length <= 40, 'role is bounded (' + hRole.length + ' chars)');
+  ok(hWhy.length > 0 && hWhy.length <= 80, 'role_reason is bounded (' + hWhy.length + ' chars)');
+  const ctrl = nodeState.sanitize(envelope({
+    current_task: { task_id: 'x', role: 'res\u0000ear\u001b[31mcher', role_reason: 'action:\ninvestigate' }
+  }));
+  ok(!/[\u0000-\u001f]/.test(String(ctrl.current_task.role || '') + String(ctrl.current_task.role_reason || '')),
+    'control characters cannot reach the DOM through a role');
+
+  // A task recorded before roles existed publishes null, never a guess. 46 of
+  // the 48 tasks in the live store are exactly this case.
+  const old = nodeState.sanitize(envelope({ current_task: { task_id: 'x', provider: 'openai-compat' } }));
+  ok(old.current_task.role === null || old.current_task.role === undefined,
+    'a pre-role task publishes no role rather than an invented one');
+
+  // The role must not reach the state machine. What a node IS doing decides
+  // its state; WHO decided the work must not.
+  const roleNow = Date.parse('2026-09-22T12:00:00Z');
+  function roleSnap(over) {
+    return Object.assign(nodeState.sanitize(envelope()), { received_at: new Date(roleNow - 5000).toISOString() }, over || {});
+  }
+  const asReviewer = roleSnap({ current_task: { task_id: 'x', role: 'reviewer', effective: 'COMPLETED' }, task_counts: { COMPLETED: 1 } });
+  const asCoder = roleSnap({ current_task: { task_id: 'x', role: 'implementer', effective: 'COMPLETED' }, task_counts: { COMPLETED: 1 } });
+  eq(nodeState.deriveState(asReviewer, roleNow).state, nodeState.deriveState(asCoder, roleNow).state,
+    'the role changes what is DISPLAYED and never what the node IS');
+
+  // GATE: zero write paths. Not "no write route was added" — no verb of any
+  // kind reaches the node, which is what makes this a console and not a
+  // second control plane.
+  const ingestSrc = fs.readFileSync(path.join(BASE, 'bin', 'haddad-ingest.js'), 'utf8');
+  ok(/req\.method !== 'POST'/.test(ingestSrc) && /405/.test(ingestSrc),
+    'anything but POST /ingest is refused');
+  ok(/url !== '\/ingest'/.test(ingestSrc) && /404/.test(ingestSrc),
+    'any path but /ingest and /health is 404 — there is no third route to grow a verb on');
+  // The direction itself: the receiver holds no address, credential or client
+  // for the node, so there is nothing for a write path to be built out of.
+  ok(!/https?\.request\(|https?\.get\(|net\.connect\(|child_process|execSync/.test(ingestSrc),
+    'the receiver opens no outbound connection and spawns nothing — it cannot reach the node at all');
+
+  // GATE: no second monitoring stack. The console renders the health report
+  // the node already produces; it does not compute a health of its own and it
+  // never reaches the node itself.
+  const pageSrc = fs.readFileSync(path.join(REPO, 'sites', 'status.mythosprod.xyz', 'assets', 'haddad.js'), 'utf8');
+  ok(!/100\.78\.7\.10|:8600|haddad_health/.test(pageSrc),
+    'the page holds no node address, no runtime port and no MCP tool name — it reads the published document only');
+  // Precisely `task.role`, not the `task.role_reason` that contains it as a
+  // substring — an indexOf here passed while the role row was mutated away,
+  // which is a check that cannot fail and therefore is not a check.
+  ok(/task\.role(?![_A-Za-z0-9])/.test(pageSrc), 'the page reads the published role rather than deriving one');
+  ok(/\['Role',/.test(pageSrc), 'and gives it a row of its own, beside the provider that V2.2 chose');
+}
+
 function report(dir) {
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) { /* best effort */ }

@@ -692,6 +692,14 @@ function collectTasks() {
       project: pick.task.project || null,
       action: pick.task.requested_action || pick.task.stage || null,
       profile: (pick.task.execution && pick.task.execution.execution_profile) || null,
+      // V2.1's decision, which the console could not see. It showed the
+      // provider and the model — WHO ran the work and with what — and said
+      // nothing about the ROLE, which is the thing V2.1 exists to decide and
+      // the thing the V2.5 field list asks for by name ("workers/roles").
+      // Both are read straight off task.json; nothing is derived here, so a
+      // task written before roles existed publishes null rather than a guess.
+      role: pick.task.role || null,
+      role_reason: pick.task.role_reason || null,
       provider: pick.task.provider || null,
       model: pick.status.model || pick.task.model || null,
       attempt: n(pick.status.retry_count) !== null ? pick.status.retry_count + 1 : null,

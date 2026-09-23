@@ -148,6 +148,12 @@ function sanitizeTask(v) {
     project: str(t.project, 80),
     action: str(t.action, 60),
     profile: str(t.profile, 60),
+    // V2.1's role and the one-token reason it was chosen. Bounded like every
+    // other published string: this document is served without authentication,
+    // and role_reason is written by the resolver as `action:<name>` — short,
+    // structural, and never free text from a task file.
+    role: str(t.role, 40),
+    role_reason: str(t.role_reason, 80),
     provider: str(t.provider, 60),
     model: str(t.model, 120),
     attempt: int(t.attempt),
