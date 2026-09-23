@@ -48,6 +48,11 @@
 [Unit]
 Description=MYTHOS Haddad — local AI runtime (llama-server, Vulkan GPU)
 Documentation=file:@HADDAD_DIR@/docs/AI_RUNTIME.md
+# NOTE: in a systemd --user manager on this host `network.target` does not
+# exist (`systemctl --user list-units --type=target` reports it not-found),
+# so this line orders against nothing here. It is kept because it is correct
+# where the target does exist, and it is NOT what makes the GPU work — see
+# the ExecStartPre gate below, which is.
 After=network.target
 
 [Service]
@@ -78,6 +83,45 @@ ExecStart=@RUNTIME_PREFIX@/bin/llama-server \
   --ctx-size 8192 \
   --n-gpu-layers auto \
   --api-key-file %h/.config/mythos-haddad/runtime.key
+# THE GPU ORDERING GATE. Without it this unit wins a race it must lose and
+# then runs the whole model on the CPU, silently, until someone restarts it.
+#
+# MEASURED on this host, boot of 2026-09-22:
+#   22:14:53  unit starts
+#   22:14:57  ggml_vulkan: No devices found
+#             warning: no usable GPU found, --gpu-layers option will be ignored
+#   22:15:31  CPU_Mapped 3802.54 MiB + 585.07 MiB, CPU_REPACK 2976.75 MiB
+#   22:16:16  /dev/dri/card0 and renderD128 get their ACL (ctime), 83 s LATE
+# The nodes are mode 0660 root:render and this service's user is NOT in the
+# `render` group; systemd-logind grants access by setting an ACL when the
+# seat session comes up, and that happened 83 s after llama-server had
+# already enumerated Vulkan, found nothing and given up. The fallback is
+# permanent for the life of the process and it fails no check on its own:
+# gpu_test probes the card in a separate process (it passes), the endpoint
+# answers (ai_runtime passed 16/16 twice against exactly this). The cost was
+# ~60x — "Say OK" returned in 2.902 s on the GPU and not at all within 180 s
+# on the CPU. haddad-health.js now asserts the offload itself; this stops it
+# happening.
+#
+# There is nothing to order against: `graphical-session.target` is inactive
+# on a tty1 console login, and a user manager cannot order against the
+# system units that create the node. So the unit waits for the FACT it needs
+# — a render node this user can actually open — instead of for a proxy.
+#
+# Both waits are bounded, both are prefixed `-` so a timeout can never keep
+# the runtime down, and neither uses a shell variable (systemd would expand
+# `$n` itself). A host with NO render node at all falls straight through:
+# the second loop's `test -e` fails immediately, so a GPU-less machine waits
+# the 10 s existence grace and not a second more, and llama-server starts
+# CPU-only exactly as it should there.
+#
+# These run while the unit is still `activating`, so ActiveEnterTimestamp —
+# which haddad-health.js reads as the start of the readiness budget — still
+# marks llama-server's own start and not this wait. The wait does count
+# against TimeoutStartSec: 10 + 150 + a 208 s worst-case load is 368 s, well
+# inside the 600 s budget set below.
+ExecStartPre=-/usr/bin/timeout 10 /bin/sh -c 'until test -e /dev/dri/renderD128; do sleep 1; done'
+ExecStartPre=-/usr/bin/timeout 150 /bin/sh -c 'while test -e /dev/dri/renderD128 && ! test -r /dev/dri/renderD128; do sleep 1; done'
 Restart=on-failure
 RestartSec=10
 # The declared startup budget, and — because Type=simple makes systemd call

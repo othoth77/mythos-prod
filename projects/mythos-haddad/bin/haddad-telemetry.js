@@ -147,9 +147,26 @@ function loopbackGet(port, pathname, key, timeoutS) {
 // re-derive them would be the single most expensive thing this agent does,
 // for a value that is already known — so the result is cached against the
 // unit's ActiveEnterTimestamp and re-read only when that moves.
-function runtimeLoadFacts(activeSince) {
+// `invocationId` is systemd's InvocationID for the CURRENT start of the unit
+// — a new 128-bit value every start. When it is known it replaces the
+// timestamp window entirely, because the timestamp window has a hole: it
+// reads `--since (ActiveEnterTimestamp - 60s)` with no upper bound and walks
+// backwards to the newest match, so a restart inside that 60 s of slack lets
+// the PREVIOUS instance's `offloaded 27/29 layers to GPU` answer for a new
+// one that found no device at all. That is precisely the false GPU PASS
+// haddad-health.js's ai_runtime check now exists to prevent, so the one
+// window that cannot be fooled is the one that is used when available.
+// Verified on this host: the current instance's id returns its own 3,060
+// lines including its offload line, and ZERO lines of the CPU-only boot that
+// preceded it. The timestamp path stays as the fallback for a caller that
+// has no id (and for `last_restart`, which still needs the timestamp).
+function runtimeLoadFacts(activeSince, invocationId) {
   var cached = readJson(CURSOR_FILE);
-  if (cached && cached.runtime_active_since && activeSince && cached.runtime_active_since === activeSince && cached.facts) {
+  // Keyed on the INSTANCE when one is known, not only on its start time:
+  // caching on the timestamp alone would hand a new instance the previous
+  // one's facts whenever both became active within the same second.
+  if (cached && cached.runtime_active_since && activeSince && cached.runtime_active_since === activeSince &&
+      (cached.runtime_invocation || null) === (invocationId || null) && cached.facts) {
     return cached.facts;
   }
   // Two DIFFERENT quantities, kept in two fields rather than overloading one:
@@ -175,14 +192,22 @@ function runtimeLoadFacts(activeSince) {
   // back null on the real node), and on a quiet one it reads further back
   // than needed. ActiveEnterTimestamp is exactly the window containing the
   // current load and nothing else — cheaper AND correct.
-  var args = ['--user', '-u', 'mythos-haddad-runtime.service', '--no-pager', '-o', 'short-iso'];
-  var sinceMs = activeSince ? Date.parse(activeSince) : NaN;
-  if (isFinite(sinceMs)) {
-    // A minute of slack: the unit becomes active before it finishes loading,
-    // but the load lines can also just precede the timestamp by a hair.
-    args = args.concat(['--since', new Date(sinceMs - 60000).toISOString().replace('T', ' ').slice(0, 19), '--utc']);
+  var args = ['--user', '--no-pager', '-o', 'short-iso'];
+  // Shape-checked before it reaches a command line: systemd writes this as
+  // exactly 32 lowercase hex digits, and anything else is not an id we are
+  // willing to pass on.
+  if (typeof invocationId === 'string' && /^[0-9a-f]{32}$/.test(invocationId)) {
+    args = args.concat(['_SYSTEMD_INVOCATION_ID=' + invocationId]);
   } else {
-    args = args.concat(['-n', '4000']);
+    args = args.concat(['-u', 'mythos-haddad-runtime.service']);
+    var sinceMs = activeSince ? Date.parse(activeSince) : NaN;
+    if (isFinite(sinceMs)) {
+      // A minute of slack: the unit becomes active before it finishes loading,
+      // but the load lines can also just precede the timestamp by a hair.
+      args = args.concat(['--since', new Date(sinceMs - 60000).toISOString().replace('T', ' ').slice(0, 19), '--utc']);
+    } else {
+      args = args.concat(['-n', '4000']);
+    }
   }
   var r = sh('journalctl', args, { timeout: 8000 });
   if (!r.ok || !r.out) return facts;
@@ -243,7 +268,8 @@ function runtimeLoadFacts(activeSince) {
   if (activeSince && gotSomething) {
     try {
       fs.mkdirSync(STATE_DIR, { recursive: true });
-      fs.writeFileSync(CURSOR_FILE, JSON.stringify({ runtime_active_since: activeSince, facts: facts }), { mode: 0o600 });
+      fs.writeFileSync(CURSOR_FILE, JSON.stringify({ runtime_active_since: activeSince,
+        runtime_invocation: invocationId || null, facts: facts }), { mode: 0o600 });
     } catch (e) { /* an uncached run is slower, not wrong */ }
   }
   return facts;
@@ -281,11 +307,13 @@ function collectRuntime(units) {
   }
 
   var since = sh('systemctl', ['--user', 'show', 'mythos-haddad-runtime.service',
-    '-p', 'ActiveEnterTimestamp', '--value']);
-  var activeSince = (since.ok && since.out) ? since.out : null;
+    '-p', 'ActiveEnterTimestamp', '-p', 'InvocationID']);
+  var unitProps = {};
+  since.out.split('\n').forEach(function (l) { var pm = /^([A-Za-z]+)=(.*)$/.exec(l); if (pm) unitProps[pm[1]] = pm[2]; });
+  var activeSince = (since.ok && unitProps.ActiveEnterTimestamp) ? unitProps.ActiveEnterTimestamp : null;
   if (activeSince) { var t = Date.parse(activeSince); if (isFinite(t)) out.last_restart = new Date(t).toISOString(); }
 
-  var facts = runtimeLoadFacts(activeSince);
+  var facts = runtimeLoadFacts(activeSince, unitProps.InvocationID || null);
   out.gpu_layers = facts.gpu_layers;
   out.gpu_layers_total = facts.gpu_layers_total;
   out.vram_model_mib = facts.vram_model_mib;
