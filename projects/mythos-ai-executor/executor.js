@@ -532,7 +532,32 @@ function deliverValidatedWork(task, report, outcome) {
   if (!cwd || !gitlib.isRepo(cwd)) return null;
   var files = (v.evidence.changed.created || []).concat(v.evidence.changed.modified || []);
   var deleted = v.evidence.changed.deleted || [];
-  if (!files.length && !deleted.length) return null;
+  if (!files.length && !deleted.length) {
+    // The attempt changed nothing. Usually that is the truth and there is
+    // nothing to deliver. But the snapshot this is measured against is taken
+    // at ATTEMPT start, and a task that was retried after a transient
+    // failure resumes in the SAME worktree — so work the previous attempt
+    // did is older than the snapshot and invisible to it.
+    //
+    // Measured live (V2.2 E2E, task t-20260923012009-8th6dd): attempt 1
+    // wrote the fix and died on `socket hang up`; attempt 2 resumed, saw the
+    // check already passing, truthfully reported that no change was needed,
+    // and this function returned null. The task completed, the validator had
+    // passed, the workspace differed from its base by exactly the fix — and
+    // nothing was committed and nothing said so.
+    //
+    // Silence is the bug. If the worktree is dirty while the attempt claims
+    // it changed nothing, delivery is NOT a no-op: it is a delivery that did
+    // not happen, and it is reported as one. It is deliberately not
+    // auto-committed here — these files were never attributed by the
+    // validator's before/after measurement, and committing what was not
+    // measured is the one thing this path must not do.
+    if (gitlib.isDirty && gitlib.isDirty(cwd)) {
+      return { problem: 'delivery: the attempt measured no change, but its worktree differs from its base — ' +
+        'work from an earlier attempt of this task was never delivered. Re-run the task so the change is measured and committed.' };
+    }
+    return null;
+  }
   // Every git command here runs OUTSIDE the worker's sandbox, as the host
   // user, in a workspace the worker had write access to. A repository can
   // make git execute a script by configuration alone — core.hooksPath is
