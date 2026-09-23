@@ -641,11 +641,11 @@ console.log('§13 the load-facts cache must not freeze a mid-load snapshot');
   // 66 s to load (Started 07:04:36, "main loop" 07:05:42), so a sample landed
   // INSIDE the load. It saw the projection line and not the accounting lines.
   const src = fs.readFileSync(AGENT_PATH, 'utf8');
-  ok(/loadFinished/.test(src), 'a completeness marker gates the write');
-  ok(/facts\.last_ready !== null/.test(src),
-    'completeness is last_ready — printed after the whole load block, not invented');
-  const guard = /if \(activeSince && gotSomething && loadFinished\)/.test(src);
-  ok(guard, 'the cache write requires activeSince AND gotSomething AND loadFinished');
+  ok(/loadSettled/.test(src), 'a settled-fact marker gates the write');
+  ok(/facts\.gpu_layers !== null \|\| facts\.no_devices === true/.test(src),
+    'the condition is the FACT the cache remembers, not a proxy for it');
+  const guard = /if \(activeSince && gotSomething && loadSettled\)/.test(src);
+  ok(guard, 'the cache write requires activeSince AND gotSomething AND loadSettled');
 
   // The exact shape that was written to disk on that boot. gotSomething is
   // true here (vram_projected_mib is set), which is precisely why the old
@@ -657,16 +657,37 @@ console.log('§13 the load-facts cache must not freeze a mid-load snapshot');
     midLoad.vram_projected_mib !== null || midLoad.context !== null ||
     midLoad.last_ready !== null || midLoad.no_devices !== null;
   ok(gotSomething === true, 'the real mid-load snapshot DID satisfy the old all-null guard');
-  ok((gotSomething && midLoad.last_ready !== null) === false,
-    'and it is rejected once completeness is required — the regression, exactly');
+  const settled = x => x.gpu_layers !== null || x.no_devices === true;
+  ok(settled(midLoad) === false,
+    'and it is rejected once a settled fact is required — the regression, exactly');
+
+  // The two cases that killed the first attempt (`last_ready !== null`).
+  // Both are REJECTED here and both would have been CACHED there.
+  // Ordering measured on the 2026-09-23 boot, not assumed:
+  //   07:04:38 projected · 07:04:39 using device · 07:05:15 offloaded · 07:05:42 listening
+  const midAfterDevice = { gpu_layers: null, no_devices: false, last_ready: null };
+  ok(settled(midAfterDevice) === false,
+    'a sample in the 36 s gap after "using device" and before "offloaded" is NOT settled');
+  ok((midAfterDevice.last_ready !== null) === false,
+    'sanity: that one last_ready also rejects — it is the NEXT case that separates them');
+
+  const finishedButRotated = { gpu_layers: null, no_devices: null, last_ready: '2026-09-23T07:05:42.000Z' };
+  ok(settled(finishedButRotated) === false,
+    'load finished but accounting lines outside the window: still not settled');
+  ok(finishedButRotated.last_ready !== null,
+    'and last_ready WOULD have cached it — this is why the proxy was wrong');
+
+  // A device that is present but unused (--n-gpu-layers 0) never settles, and
+  // that is the accepted cost: re-read every tick rather than pin a null.
+  const nglZero = { gpu_layers: null, no_devices: false, last_ready: '2026-09-23T07:05:42.000Z' };
+  ok(settled(nglZero) === false, 'ngl=0 host never caches — bounded re-read, deliberately');
 
   // A finished load still caches, or the fix would just disable caching.
   const done = Object.assign({}, midLoad, { gpu_layers: 27, gpu_layers_total: 29,
     vram_model_mib: 3884, context: 8192, last_ready: '2026-09-23T07:05:42.000Z', no_devices: false });
-  const doneGot = done.gpu_layers !== null || done.vram_model_mib !== null ||
-    done.vram_projected_mib !== null || done.context !== null ||
-    done.last_ready !== null || done.no_devices !== null;
-  ok(doneGot && done.last_ready !== null, 'a completed load is still cached');
+  ok(settled(done), 'a real offload IS cached — the fix must not just disable caching');
+  const cpuOnly = { gpu_layers: null, no_devices: true, last_ready: '2026-09-22T22:18:21.000Z' };
+  ok(settled(cpuOnly), 'a settled no-device load is cached too — that is a real answer');
 }
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
