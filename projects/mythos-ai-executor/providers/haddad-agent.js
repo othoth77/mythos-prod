@@ -53,6 +53,7 @@ var path = require('path');
 
 var reporting = require('../lib/report');
 var policy = require('../lib/policy');
+var roles = require('../lib/roles');
 var adapter = require('../free-llm/adapter');
 var work = require('../lib/work-validation');
 
@@ -88,6 +89,38 @@ var MAX_REPAIR_ROUNDS = 2;
 // (gh-issue-375): an unbounded turn ran to ~3,800 tokens and past the
 // request timeout, losing the whole execution to a transient retry.
 var MAX_TOKENS_PER_TURN = 1536;
+// THE CONTEXT WINDOW, and the budget derived from it (V2.1, measured live:
+// a RESEARCHER task that read one 9 KB file and listed two directories sent
+// a 9,710-token request into an 8,192-token runtime and the whole attempt
+// failed PROVIDER_FAILED — no tool result had been too large on its own;
+// they simply accumulated). The window is a property of the runtime
+// deployment (`--ctx-size` in the runtime unit), so the host names it and
+// the default is that unit's value. Everything else is derived: a request
+// must leave MAX_TOKENS_PER_TURN for the answer, plus a margin for the
+// tokenizer's disagreement with the estimate below.
+var CONTEXT_WINDOW_TOKENS = (function () {
+  var raw = parseInt(process.env.HADDAD_AGENT_CONTEXT_TOKENS, 10);
+  return isNaN(raw) || raw < 2048 ? 8192 : raw;
+})();
+var CONTEXT_MARGIN_TOKENS = 384;
+var PROMPT_BUDGET_TOKENS = CONTEXT_WINDOW_TOKENS - MAX_TOKENS_PER_TURN - CONTEXT_MARGIN_TOKENS;
+// Chars per token, deliberately BELOW what this model actually does, so the
+// estimate errs toward refusing a request that would have fit rather than
+// sending one that cannot. Measured against the live runtime on 2026-09-22
+// (Qwen2.5-7B-Q4_K_M, real material): an executor task prompt 3.75, a JS
+// source file 3.86, a tool-result JSON 3.25 — JSON is the dense case because
+// of its escapes, and it is also the bulk of a long conversation. The
+// runtime's own `usage.prompt_tokens` re-anchors the estimate after every
+// answer, so this ratio only has to cover what was appended since.
+var CHARS_PER_TOKEN = 3;
+// A single tool result may not consume more than a third of the budget: a
+// 16 KB read is ~5k tokens, most of an 8k window, and the model then cannot
+// read a second file at all. Bounded by the window, not by a constant an
+// instruction could argue with.
+var MAX_TOOL_PAYLOAD_TOKENS = Math.floor(PROMPT_BUDGET_TOKENS / 3);
+var MAX_TOOL_PAYLOAD_CHARS = Math.min(MAX_TOOL_OUTPUT_BYTES, MAX_TOOL_PAYLOAD_TOKENS * CHARS_PER_TOKEN);
+var ELIDED_TOOL_STUB = JSON.stringify({ elided: 'this earlier tool result was removed to fit the context window; call the tool again if you still need it' });
+var ELIDED_ARGS = JSON.stringify({ elided: true });
 
 // THE CODE CEILING. The profile may permit git, ls, rg, cat and more; this
 // runner will execute none of them. Two programs, resolved to absolute paths
@@ -207,6 +240,42 @@ function available(opts) {
   return Object.keys(ALLOWED_PROGRAMS).length > 0;
 }
 
+// The registry's probe (V2.1). available() is the cheap, stat-only contract
+// the executor uses at startup; the AGENT REGISTRY needs the stronger
+// answer "would a task routed here run right now?", which on this host
+// means the local llama-server is answering. Its /health endpoint is public
+// (no key on the wire, nothing to leak) and answered by a resolved curl in a
+// bounded subprocess — the registry's health check is synchronous by
+// contract, exactly like claude-code's `claude --version` probe. Absent
+// marker or key short-circuits before any request; absent curl is
+// unavailable, never assumed up.
+var CURL_BIN = (function () {
+  var candidates = ['/usr/bin/curl', '/bin/curl', '/usr/local/bin/curl'];
+  for (var i = 0; i < candidates.length; i++) {
+    try { if (fs.statSync(candidates[i]).isFile()) return candidates[i]; } catch (e) { /* keep looking */ }
+  }
+  return null;
+})();
+
+function healthUrl(baseUrl) {
+  return String(baseUrl || DEFAULT_BASE_URL).replace(/\/v1\/?$/, '').replace(/\/$/, '') + '/health';
+}
+
+function runtimeAnswers(opts) {
+  opts = opts || {};
+  if (typeof opts.fetch === 'function') return opts.fetch(healthUrl(opts.baseUrl)) === 200; // test injection
+  if (!CURL_BIN) return false;
+  var r = cp.spawnSync(CURL_BIN, ['-s', '-m', '2', '-o', '/dev/null', '-w', '%{http_code}', healthUrl(opts.baseUrl)],
+    { encoding: 'utf8', timeout: 4000, env: { PATH: '/usr/bin:/bin' } });
+  return r.status === 0 && String(r.stdout || '').trim() === '200';
+}
+
+function probe(opts) {
+  opts = opts || {};
+  if (!available(opts)) return false;
+  return runtimeAnswers(opts);
+}
+
 // ---------------------------------------------------------------- workspace
 
 // The single containment primitive. Everything a tool touches goes through
@@ -278,10 +347,46 @@ function underGitDir(workspace, real) {
 var MAX_WRITE_BYTES = 256 * 1024;
 
 function toolWriteFile(ctx, args) {
+  // A path that ends in a separator names a DIRECTORY, and this runner
+  // creates none. `path.resolve` drops the trailing separator, so `lib/`
+  // resolved to `<ws>/lib` and was written as a zero-byte regular FILE —
+  // measured live (coder run t-20260922210225): every later write under
+  // `lib/` then failed with "parent is not a real directory", and the stray
+  // file was an out-of-scope change that cost the task its delivery. Refuse
+  // it, and say what to send instead.
+  if (args && typeof args.path === 'string' && /[\/\\]\s*$/.test(args.path)) {
+    return { error: 'REFUSED: "' + String(args.path).slice(0, 80) + '" names a directory; this runner writes files and creates no directories — give the full path of the file itself' };
+  }
   var r = resolveInside(ctx.workspace, args && args.path);
   if (!r.ok) return { error: 'REFUSED: ' + r.reason };
   if (underGitDir(ctx.workspace, r.path)) {
     return { error: 'REFUSED: .git is not writable — a hook or config written there would execute outside this task' };
+  }
+  // The task's DECLARED file scope, answered HERE so the model learns at the
+  // write instead of from a rejected attempt three executions later.
+  //
+  // This is FEEDBACK, not a boundary, and the difference is load-bearing:
+  // the validator still measures the whole workspace afterwards and still
+  // decides, which is what catches a write made by a script the model ran
+  // rather than by this tool (tests C1/C5 drive exactly that path). It uses
+  // work-validation's own `withinScope`, so the two cannot disagree about
+  // what "in scope" means, and it says nothing when the task declared no
+  // file scope — a prose-only constraint declares none, and then nothing is
+  // refused that was not refused before.
+  //
+  // Evidence, three independent live runs of round 2: the documenter wrote
+  // correct content to the right file AND a stray `NOTES.md` at the
+  // workspace root (t-20260922212316); the debugger wrote its fix to a root
+  // `pct.js` so the real one was never fixed (t-20260922213017); round 1's
+  // coder created a file called `lib` (t-20260922210225). Each produced
+  // correct-or-near-correct work and lost it to a sibling the model was told
+  // about only at the end.
+  if (ctx.scope && ctx.scope.length) {
+    var rel = path.relative(ctx.workspace, r.path);
+    if (!work.withinScope(rel, ctx.scope)) {
+      return { error: 'REFUSED: "' + rel + '" is outside the scope this task declared (' + ctx.scope.join(', ') +
+        '). The validator rejects the whole attempt for a file like this — write the file the task named, at the path it named.' };
+    }
   }
   var content = args && args.content;
   if (typeof content !== 'string') return { error: 'REFUSED: content must be a string' };
@@ -468,13 +573,29 @@ function toolSchemas(grant) {
 // Built from the grant, so the prompt never describes a capability the run
 // does not have — and never denies one it does. A model told it cannot write
 // and then handed a write tool is being set up to disobey one of the two.
-function systemPrompt(grant, schemas) {
+// `role` (V2.1) is the resolved config/roles.json entry, or null. Its brief
+// is one bounded line of role-shaped instruction; it names no tool the grant
+// did not offer and can never widen the grant — the grant is rendered first
+// and the brief is appended under it.
+function systemPrompt(grant, schemas, role, delivery) {
   var names = schemas.map(function (s) { return s.function.name; });
   var lines = [
     'You are a local worker for Mythos OS running on the Haddad machine. '
       + 'Your tools over a single task workspace are: ' + names.join(', ') + '. '
       + 'Everything outside that workspace is refused, and a refused tool call is final — adapt rather than retrying it.'
   ];
+  if (role && typeof role.brief === 'string' && role.brief.trim()) lines.push(role.brief.trim());
+  // The task's DELIVERY, stated as the fact it is — the same kind of
+  // statement as the tool list above, derived from the task rather than
+  // asked of the model. Measured live (tester run t-20260922230229): a
+  // report-delivery task reported commit `7a186fc1a7b0` and two changed
+  // files, having written nothing. The validator refused all three attempts
+  // over it and the model never withdrew the claim, because nothing had told
+  // it that a commit was not a thing this task could produce.
+  if (delivery === 'report') {
+    lines.push('This task delivers a REPORT, not a commit: there is no commit to make and none to mention. '
+      + 'Never put a commit hash or a changed-file list in your report — saying you changed something you did not is the one failure this system always catches.');
+  }
   if (grant.write_file) {
     lines.push('write_file replaces a whole file: read it first, then send the complete new content. '
       + 'Change only what the task asks for. Never weaken or delete a test to make it pass, and never '
@@ -484,7 +605,14 @@ function systemPrompt(grant, schemas) {
   }
   lines.push('Use the tools to establish facts rather than assuming them. '
     + 'End your final message with a fenced json block containing '
-    + '{"mythos_report": true, "status": "completed", "summary": "..."}.');
+    + '{"mythos_report": true, "status": "completed", "summary": "..."}. '
+    // Measured live (debugger run t-20260922210645): the model wrote a
+    // CORRECT fix, then wrote its report to `.mythos_report.json` instead of
+    // saying it — an out-of-scope file, so the validated work was refused
+    // delivery over a misunderstood channel. The report is a message, and
+    // saying so costs nothing.
+    + 'The report goes in that message, as text you write to me: never create a report file, '
+    + 'and never count writing one as reporting.');
   return lines.join(' ');
 }
 
@@ -533,12 +661,122 @@ function run(task, prompt, _sessionId, _mode, opts) {
   if (!model) return Promise.resolve(fail('HADDAD_AGENT_UNCONFIGURED', 'no model configured'));
 
   var deadline = started + (Number(task.timeout_seconds) || DEFAULT_TASK_TIMEOUT_S) * 1000;
-  var ctx = { workspace: workspace, grant: grant };
+  var ctx = { workspace: workspace, grant: grant, scope: work.declaredScope(task.constraints || []) };
   var messages = [
-    { role: 'system', content: systemPrompt(grant, schemas) },
+    { role: 'system', content: systemPrompt(grant, schemas, roles.getRole(task.role), task.expected_delivery) },
     { role: 'user', content: String(prompt) }
   ];
   var toolCallCount = 0;
+  // An identical call that returns an identical result tells the model
+  // nothing new, and a small model will repeat one until its turns are gone
+  // — measured live (coder run t-20260922210225: `node greet.test.js` run
+  // six times in a row, green every time, then the turn cap). Saying so is
+  // not a new permission and changes no result; it is the same thing the
+  // runner already does when a budget is spent.
+  var lastPayloadByCall = Object.create(null);
+  // Context accounting (see CONTEXT_WINDOW_TOKENS). `anchor` is the last
+  // prompt size the runtime itself reported and the conversation length it
+  // corresponded to; the estimate for the next request is that measurement
+  // plus the estimated cost of what was appended since.
+  var anchor = { tokens: 0, chars: 0 };
+  var toolSchemaChars = JSON.stringify(schemas).length;
+  function conversationChars() {
+    var n = 0;
+    for (var i = 0; i < messages.length; i++) {
+      var m = messages[i];
+      n += (typeof m.content === 'string' ? m.content.length : 0) + 16;
+      if (m.tool_calls) n += JSON.stringify(m.tool_calls).length;
+    }
+    return n;
+  }
+  function estimatePromptTokens() {
+    var chars = conversationChars();
+    var delta = chars - anchor.chars;
+    var base = anchor.tokens || Math.ceil(toolSchemaChars / CHARS_PER_TOKEN);
+    return Math.max(0, base + Math.ceil(delta / CHARS_PER_TOKEN));
+  }
+  // An elidable EXCHANGE is an assistant message carrying tool_calls plus the
+  // tool messages that answer it. Both halves go together, and both halves
+  // matter: a tool message is only valid while its assistant message still
+  // declares the same tool_call_id, and the ARGUMENTS of a write_file call
+  // carry a whole file — measured live (gh tester run t-20260922205205), an
+  // attempt whose tool results were all already elided still sat at ~6,700
+  // tokens because twelve assistant turns had never been touched. Eliding
+  // results alone is not compaction.
+  function isElidedExchange(m) {
+    return !!(m.tool_calls && m.tool_calls.length &&
+      m.tool_calls.every(function (c) { return c.function && c.function.arguments === ELIDED_ARGS; }));
+  }
+  function elideExchangeAt(i) {
+    var m = messages[i];
+    messages[i] = {
+      role: 'assistant',
+      content: m.content || null,
+      tool_calls: m.tool_calls.map(function (c) {
+        return { id: c.id, type: c.type || 'function',
+          function: { name: (c.function && c.function.name) || 'unknown', arguments: ELIDED_ARGS } };
+      })
+    };
+    for (var j = i + 1; j < messages.length && messages[j].role === 'tool'; j++) {
+      messages[j] = { role: 'tool', tool_call_id: messages[j].tool_call_id, content: ELIDED_TOOL_STUB };
+    }
+  }
+  // Drops the OLDEST exchange first. The system prompt, the task and the MOST
+  // RECENT exchange are never touched — eliding what the model just asked for
+  // would make it ask again forever, and the per-call payload cap already
+  // bounds that one result. Returns false when nothing else can go and the
+  // request still does not fit; the caller then stops with a named code
+  // instead of sending a request the runtime is known to refuse.
+  function fitContext() {
+    var elided = 0;
+    while (estimatePromptTokens() > PROMPT_BUDGET_TOKENS) {
+      var newest = -1;
+      for (var k = messages.length - 1; k >= 2; k--) {
+        if (messages[k].role === 'assistant' && messages[k].tool_calls) { newest = k; break; }
+      }
+      var victim = -1;
+      for (var i = 2; i < messages.length; i++) {
+        if (i === newest) break;
+        if (messages[i].role === 'assistant' && messages[i].tool_calls && !isElidedExchange(messages[i])) { victim = i; break; }
+      }
+      if (victim === -1) break;
+      elideExchangeAt(victim);
+      elided++;
+    }
+    // Eliding replaces an exchange with a stub, and a stub is not free: with
+    // every exchange already elided the floor is still system + task + N
+    // stubs + the newest exchange, and N grows with the run. Measured live
+    // (tester t-20260922230756): eleven elided exchanges left ~6,371 tokens
+    // against a 6,272 budget and the attempt died 99 tokens over. So once
+    // there is nothing left to elide, the oldest elided exchanges are
+    // DROPPED outright — assistant turn and its results together, which
+    // keeps the sequence valid — until the request fits or only the system
+    // prompt, the task and the newest exchange remain. That floor is fixed;
+    // the previous one was not.
+    var dropped = 0;
+    while (estimatePromptTokens() > PROMPT_BUDGET_TOKENS) {
+      var newestDrop = -1;
+      for (var d = messages.length - 1; d >= 2; d--) {
+        if (messages[d].role === 'assistant' && messages[d].tool_calls) { newestDrop = d; break; }
+      }
+      var target = -1;
+      for (var j = 2; j < messages.length; j++) {
+        if (j === newestDrop) break;
+        if (messages[j].role === 'assistant' && messages[j].tool_calls && isElidedExchange(messages[j])) { target = j; break; }
+      }
+      if (target === -1) break;
+      var end = target + 1;
+      while (end < messages.length && messages[end].role === 'tool') end++;
+      messages.splice(target, end - target);
+      dropped++;
+    }
+    if (elided || dropped) {
+      trace.push({ tool: 'context_compaction', refused: false, target: null,
+        detail: 'elided ' + elided + ' exchange(s)' + (dropped ? ', dropped ' + dropped + ' already-elided' : '') +
+          '; estimate now ~' + estimatePromptTokens() + ' of ' + PROMPT_BUDGET_TOKENS + ' prompt tokens' });
+    }
+    return estimatePromptTokens() <= PROMPT_BUDGET_TOKENS;
+  }
   var roundToolCalls = 0;
   var trace = [];
 
@@ -831,11 +1069,29 @@ function run(task, prompt, _sessionId, _mode, opts) {
       return step(0);
     }
 
+    if (!fitContext()) {
+      // Say WHICH of the two it is: a task whose own prompt cannot fit is an
+      // authoring problem, a conversation that outgrew what compaction may
+      // drop is a run that grew. They need different answers from a reader.
+      var why = messages.length > 2
+        ? 'the conversation still needs ~' + estimatePromptTokens() + ' prompt tokens after compacting every earlier exchange'
+        : 'the task prompt alone needs ~' + estimatePromptTokens() + ' prompt tokens';
+      return Promise.resolve(finish({
+        exit_code: 1, signal: null, timed_out: false, stdout: '',
+        stderr: 'HADDAD_AGENT_CONTEXT_EXHAUSTED: ' + why + ', over the ' + PROMPT_BUDGET_TOKENS +
+          ' available of this runtime\'s ' + CONTEXT_WINDOW_TOKENS + '-token window (the answer keeps ' + MAX_TOKENS_PER_TURN + ')',
+        parsed: { is_error: true, subtype: 'HADDAD_AGENT_CONTEXT_EXHAUSTED', result: why },
+        session_id: null, started_pid: null
+      }));
+    }
     return adapter.chatCompletion(
       { baseUrl: baseUrl, apiKey: apiKey, model: model, providerId: PROVIDER_ID },
       messages,
       { timeoutMs: Math.max(1000, Math.min(deadline - Date.now(), 300000)), tools: schemas, transport: opts.transport, maxTokens: MAX_TOKENS_PER_TURN }
     ).then(function (res) {
+      if (res && res.usage && Number(res.usage.prompt_tokens) > 0) {
+        anchor = { tokens: Number(res.usage.prompt_tokens), chars: conversationChars() };
+      }
       if (!res || !res.message) {
         return finish({
           exit_code: 1, signal: null, timed_out: !!(res && res.timed_out), stdout: '',
@@ -885,8 +1141,30 @@ function run(task, prompt, _sessionId, _mode, opts) {
             ? String(parsedArgs.path || (parsedArgs.program ? [parsedArgs.program].concat(parsedArgs.args || []).join(' ') : '')).slice(0, 80)
             : null });
         var payload = JSON.stringify(result);
-        if (payload.length > MAX_TOOL_OUTPUT_BYTES) {
+        if (payload.length > MAX_TOOL_PAYLOAD_CHARS && typeof result.content === 'string') {
+          // A file that fits the byte ceiling but not the context budget is
+          // handed over TRUNCATED and says so, rather than refused outright
+          // (the model can still work with the head of a long file) or sent
+          // whole (which would starve the rest of the conversation).
+          // Measured on the JSON the model receives (escapes count), not on
+          // the raw text, so the cap holds for a file full of newlines too.
+          var keep = Math.max(0, MAX_TOOL_PAYLOAD_CHARS - 160);
+          var total = Buffer.byteLength(result.content, 'utf8');
+          do {
+            payload = JSON.stringify({ content: result.content.slice(0, keep), truncated: true,
+              total_bytes: total, note: 'truncated to fit the context window' });
+            keep = Math.floor(keep * 0.9);
+          } while (payload.length > MAX_TOOL_PAYLOAD_CHARS && keep > 0);
+        } else if (payload.length > MAX_TOOL_OUTPUT_BYTES) {
           payload = JSON.stringify({ error: 'REFUSED: result exceeded ' + MAX_TOOL_OUTPUT_BYTES + ' bytes' });
+        } else if (payload.length > MAX_TOOL_PAYLOAD_CHARS) {
+          payload = JSON.stringify({ error: 'REFUSED: result exceeds the per-call context budget of ' + MAX_TOOL_PAYLOAD_CHARS + ' chars' });
+        }
+        var fingerprint = String(name) + ':' + ((c.function && c.function.arguments) || '');
+        if (lastPayloadByCall[fingerprint] === payload) {
+          payload = payload.slice(0, -1) + ',"note":"identical to your previous call, and nothing has changed since — do not repeat it; act on this result or write your final report"}';
+        } else {
+          lastPayloadByCall[fingerprint] = payload;
         }
         messages.push({ role: 'tool', tool_call_id: c.id, content: payload });
       }
@@ -903,6 +1181,8 @@ module.exports = {
   PROVIDER_ID: PROVIDER_ID,
   version: version,
   available: available,
+  probe: probe,
+  healthUrl: healthUrl,
   run: run,
   executionAuthority: true,
   // Exported for the invariant tests: these are the security surfaces, and a
@@ -921,5 +1201,10 @@ module.exports = {
   MAX_REPAIR_ROUNDS: MAX_REPAIR_ROUNDS,
   MAX_TOKENS_PER_TURN: MAX_TOKENS_PER_TURN,
   MAX_TOOL_CALLS: MAX_TOOL_CALLS,
-  MAX_TOOL_OUTPUT_BYTES: MAX_TOOL_OUTPUT_BYTES
+  MAX_TOOL_OUTPUT_BYTES: MAX_TOOL_OUTPUT_BYTES,
+  CONTEXT_WINDOW_TOKENS: CONTEXT_WINDOW_TOKENS,
+  PROMPT_BUDGET_TOKENS: PROMPT_BUDGET_TOKENS,
+  MAX_TOOL_PAYLOAD_CHARS: MAX_TOOL_PAYLOAD_CHARS,
+  ELIDED_TOOL_STUB: ELIDED_TOOL_STUB,
+  ELIDED_ARGS: ELIDED_ARGS
 };

@@ -321,6 +321,35 @@ Create the model/agent capability foundation:
 
 **Gate:** capabilities + tests + real E2E.
 
+### V2.1 — what it turned out to be
+
+The audit that opened V2 found the answer before the work started: **the AI
+team substrate already exists and was switched off.** `core/agent-registry.js`
+already catalogs agents by capability with probed availability;
+`core/provider-router.js` already chooses one and already refuses a fallback
+that would change execution authority; `core/validation.js` already refuses a
+reviewer that is the author, and already gates who may review a *sensitive*
+change; `lib/policy.js` already maps the three execution profiles to exact
+tool grants; `bridge/action-resolution.js` already maps the closed action set
+to those profiles. None of that was built again.
+
+So V2.1 is a **CONNECT** stage. What it added, in full: one entry in
+`config/agents.json` (`haddad-qwen`), a `config/roles.json` table of six
+roles, and `lib/roles.js` to validate and resolve it. What it wired: the
+registry now probes the local runtime; the executor derives a role from the
+action and selects the skill pack through it; the Haddad runner renders the
+role's brief under its tool grant; `report.json` keeps what the provider
+**measured** beside what the model **claimed**.
+
+Roles are `(action, task_type, capabilities_required, skill_category, brief)`.
+The execution profile is **derived** from the action, never stored on the
+role — a role that names a profile is refused by the validator in
+`lib/roles.js`, because a second action→profile table is exactly the drift
+this stage exists to avoid.
+
+Detail, evidence and every finding from the live runs:
+[docs/AI_TEAM.md](docs/AI_TEAM.md).
+
 ## V2.2 — FABLE Task Delegation
 
 FABLE should be able to:
