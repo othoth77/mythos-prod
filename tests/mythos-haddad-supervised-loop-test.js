@@ -23,6 +23,7 @@
 // =====================================================
 
 var assert = require('assert');
+var cp = require('child_process');
 var fs = require('fs');
 var os = require('os');
 var path = require('path');
@@ -30,6 +31,11 @@ var path = require('path');
 var EXEC = path.join(__dirname, '..', 'projects', 'mythos-ai-executor');
 var agent = require(path.join(EXEC, 'providers', 'haddad-agent.js'));
 var work = require(path.join(EXEC, 'lib', 'work-validation.js'));
+// R1-R3 exercise the executor's delivery gate directly. It needs a store
+// path, and it must not be a real one.
+process.env.MYTHOS_EXECUTOR_HOME = process.env.MYTHOS_EXECUTOR_HOME ||
+  fs.mkdtempSync(path.join(os.homedir(), 'haddad-sup-store-'));
+var executor = require(path.join(EXEC, 'executor.js'));
 
 var pass = 0, fail = 0, failures = [];
 var queue = [];
@@ -990,6 +996,70 @@ t('D10 compaction reaches a FIXED floor: a long run of small exchanges does not 
     assert.ok(o.tool_trace.some(function (e) { return e.tool === 'context_compaction' && /dropped/.test(e.detail || ''); }),
       'and once elision was exhausted the trace says stubs were DROPPED, which is what makes the floor fixed');
   });
+});
+
+// ------------------------------------------------- R. retry and delivery
+// Found by the V2.2 E2E (task t-20260923012009-8th6dd): a task retried after
+// a transient failure completed with the validator passing and delivered
+// NOTHING, because the workspace snapshot is taken at ATTEMPT start and the
+// previous attempt's work predates it. Silence was the bug.
+
+t('R1 an attempt that measured no change, in a worktree that is dirty, reports an undelivered delivery instead of silently skipping', function () {
+  var ws = newWorkspace('retry-delivery');
+  seedBrokenProject(ws);
+  cp.execFileSync('git', ['init', '--quiet', ws]);
+  cp.execFileSync('git', ['-C', ws, 'config', 'user.email', 'r@example.invalid']);
+  cp.execFileSync('git', ['-C', ws, 'config', 'user.name', 'r']);
+  cp.execFileSync('git', ['-C', ws, 'add', '-A']);
+  cp.execFileSync('git', ['-C', ws, '-c', 'core.hooksPath=/dev/null', 'commit', '--quiet', '-m', 'base']);
+  // A PREVIOUS attempt fixed the file; this attempt measured nothing.
+  fs.writeFileSync(path.join(ws, 'add.js'), FIXED);
+
+  var task = { task_id: 't-retry', working_directory: ws, expected_delivery: 'commit' };
+  var report = { status: 'completed', summary: 'no change was needed', commit: null };
+  var outcome = { validation: { passed: true, evidence: { changed: { created: [], modified: [], deleted: [] }, checks_run: [{ check: 'node add.test.js', passed: true }] } } };
+  var r = executor.deliverValidatedWork(task, report, outcome);
+  assert.ok(r && r.problem, 'a problem is reported rather than a silent null: ' + JSON.stringify(r));
+  assert.ok(/never delivered/.test(r.problem), 'and it says the work was never delivered: ' + r.problem);
+  assert.ok(/Re-run/.test(r.problem), 'and what to do about it');
+  // It must NOT commit what the validator never measured.
+  var log = cp.execFileSync('git', ['-C', ws, 'log', '--oneline'], { encoding: 'utf8' }).trim().split('\n');
+  assert.strictEqual(log.length, 1, 'nothing was committed (' + log.join(' | ') + ')');
+});
+
+t('R2 a genuinely clean worktree still delivers nothing, silently and correctly', function () {
+  var ws = newWorkspace('retry-clean');
+  seedBrokenProject(ws);
+  cp.execFileSync('git', ['init', '--quiet', ws]);
+  cp.execFileSync('git', ['-C', ws, 'config', 'user.email', 'r@example.invalid']);
+  cp.execFileSync('git', ['-C', ws, 'config', 'user.name', 'r']);
+  cp.execFileSync('git', ['-C', ws, 'add', '-A']);
+  cp.execFileSync('git', ['-C', ws, '-c', 'core.hooksPath=/dev/null', 'commit', '--quiet', '-m', 'base']);
+
+  var task = { task_id: 't-clean', working_directory: ws, expected_delivery: 'commit' };
+  var report = { status: 'completed', summary: 'nothing to do', commit: null };
+  var outcome = { validation: { passed: true, evidence: { changed: { created: [], modified: [], deleted: [] }, checks_run: [] } } };
+  assert.strictEqual(executor.deliverValidatedWork(task, report, outcome), null,
+    'a task that really changed nothing is still a silent no-op');
+});
+
+t('R3 the ordinary path is untouched: measured files are still committed', function () {
+  var ws = newWorkspace('retry-normal');
+  seedBrokenProject(ws);
+  cp.execFileSync('git', ['init', '--quiet', ws]);
+  cp.execFileSync('git', ['-C', ws, 'config', 'user.email', 'r@example.invalid']);
+  cp.execFileSync('git', ['-C', ws, 'config', 'user.name', 'r']);
+  cp.execFileSync('git', ['-C', ws, 'add', '-A']);
+  cp.execFileSync('git', ['-C', ws, '-c', 'core.hooksPath=/dev/null', 'commit', '--quiet', '-m', 'base']);
+  fs.writeFileSync(path.join(ws, 'add.js'), FIXED);
+
+  var task = { task_id: 't-normal', working_directory: ws, expected_delivery: 'commit' };
+  var report = { status: 'completed', summary: 'fixed add', commit: null };
+  var outcome = { validation: { passed: true, evidence: { changed: { created: [], modified: ['add.js'], deleted: [] }, checks_run: [{ check: 'node add.test.js', passed: true }] } } };
+  var r = executor.deliverValidatedWork(task, report, outcome);
+  assert.ok(r && r.commit, 'the measured file is committed: ' + JSON.stringify(r));
+  var log = cp.execFileSync('git', ['-C', ws, 'log', '--oneline'], { encoding: 'utf8' }).trim().split('\n');
+  assert.strictEqual(log.length, 2, 'exactly one delivery commit');
 });
 
 // ===========================================================================
