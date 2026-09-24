@@ -551,6 +551,55 @@ function recordProviderEvents(taskId, outcome) {
   return written;
 }
 
+// V3.2 EXECUTION INTELLIGENCE. core/reputation.js has always been the store
+// the router ranks by (provider-router rankWithReputation, same capability
+// key as below), but on the executor's live path nothing ever recorded an
+// outcome into it — measured 2026-09-24: the Haddad store was empty after 29
+// supervised tasks. This records ONE outcome per terminal report, as DATA:
+//   * only for a provider that maps to exactly one agent in config/agents.json
+//     (on Haddad the haddad-agent provider has exactly one agent);
+//   * capability = the resolved role's capabilities_required[0] || task_type,
+//     i.e. the key the router reads — anything else would be decoration;
+//   * success = the provider's own mechanical verdict (validation.passed);
+//     a non-transient terminal failure is a failure; a transient one, or a
+//     task with no verdict at all, records NOTHING — unknown is not failure.
+// Reputation can only reorder agents the registry already selected; the
+// bridge allow-list still refuses anything outside it (tests pin both).
+var AGENTS_BY_PROVIDER = null;
+function agentForProvider(providerId) {
+  if (!AGENTS_BY_PROVIDER) {
+    AGENTS_BY_PROVIDER = {};
+    try {
+      var cfg = JSON.parse(fs.readFileSync(path.join(__dirname, 'config', 'agents.json'), 'utf8'));
+      Object.keys(cfg).forEach(function (name) {
+        var p = cfg[name] && cfg[name].provider;
+        if (p) (AGENTS_BY_PROVIDER[p] = AGENTS_BY_PROVIDER[p] || []).push(name);
+      });
+    } catch (e) { AGENTS_BY_PROVIDER = {}; }
+  }
+  var list = AGENTS_BY_PROVIDER[providerId] || [];
+  return list.length === 1 ? list[0] : null;
+}
+function recordAgentOutcome(task, taskId, outcome, providerId, failureCategory) {
+  var success;
+  if (outcome && outcome.validation && typeof outcome.validation.passed === 'boolean') success = outcome.validation.passed;
+  else if (failureCategory && failureCategory !== 'transient') success = false;
+  else return null;
+  var agent = agentForProvider(providerId);
+  var role = task && task.role ? roles.getRole(task.role) : null;
+  if (!agent || !role) return null;
+  var capability = (role.capabilities_required || [])[0] || role.task_type;
+  if (!capability) return null;
+  try {
+    var rec = require('./core/reputation').recordOutcome(agent, capability, success);
+    state.appendEvent(taskId, 'outcome_recorded', { reason: capability + ':' + (success ? 'pass' : 'fail'), provider: agent });
+    return { agent: agent, capability: capability, success: success, n: rec.n };
+  } catch (e) {
+    // The report is already on disk; a learning record is not worth failing it.
+    return null;
+  }
+}
+
 // --- Git verification and report delivery -------------------------------------
 
 function deliverValidatedWork(task, report, outcome) {
@@ -963,6 +1012,7 @@ function handleSuccess(task, taskId, outcome, parsed) {
     evidence: providerEvidence(outcome)
   });
   recordProviderEvents(taskId, outcome);
+  recordAgentOutcome(task, taskId, outcome, status.provider_used || task.provider, null);
   var md = reporting.renderMarkdown(task, status, report || structured, extras);
   state.writeText(taskId, 'report.md', md);
   writeCheckpoint(task, status, {
@@ -1159,6 +1209,7 @@ function writeFailureReport(task, taskId, status, reportStatus, blocker, outcome
     evidence: providerEvidence(outcome)
   });
   recordProviderEvents(taskId, outcome);
+  recordAgentOutcome(task, taskId, outcome, status.provider_used || task.provider, (blocker && blocker.category) || 'unknown');
   state.writeText(taskId, 'report.md', reporting.renderMarkdown(task, status, structured, { report_problems: [blocker.code] }));
 }
 
@@ -1789,6 +1840,7 @@ module.exports = {
   daemon: daemon,
   writeCheckpoint: writeCheckpoint,
   recordProviderEvents: recordProviderEvents,
+  recordAgentOutcome: recordAgentOutcome,
   preflightBlocker: preflightBlocker,
   verifyGit: verifyGit,
   deliverValidatedWork: deliverValidatedWork,
