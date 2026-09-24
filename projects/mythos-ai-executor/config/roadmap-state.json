@@ -1,17 +1,18 @@
 {
   "capabilities": {
     "R": {
-      "status": "IN_PROGRESS",
+      "status": "IMPLEMENTED",
       "evidence": {
-        "commit": "6811c49b3961a1e942c77f66e523d3105cbf5a6c",
+        "commit": "7835d6ee7d060119dc9477e44ed891aa5edfd093",
         "tests": [
-          "tests/mcc-1-command-center-test.js: NOT RUN (blocked — no DB credential access in worktree sandbox; node/npm script execution requires unavailable approval)"
+          "tests/mythos-haddad-supervised-loop-test.js: 51/0",
+          "tests/mythos-haddad-multi-project-test.js: 73/0",
+          "tests/mythos-github-bridge-test.js: 150/0"
         ],
-        "mission_id": "m-msxnck4k-c73a6c",
-        "campaign_id": "c-msxnck3a-00282b",
-        "note": "Autonomously implemented on branch mythos/m-msxnck4k-c73a6c and reviewed, but the reported tests were NOT RUN. Downgraded from IMPLEMENTED when the acceptance gate was tightened; needs a real test run before it may be recorded implemented."
+        "recorded_by": "MYTHOS V3.2 audit (Opus 5.5 as director), 2026-09-25: code present at 7835d6ee, suites run on that tree",
+        "note": "Every bridge task runs in its own worktree on its own branch; delivery git hardened (core.hooksPath=/dev/null, .git read-only in the sandbox). Supersedes the 2026-08-17 IN_PROGRESS record, whose tests had not been run."
       },
-      "recorded_at": "2026-08-17T20:52:08.344Z"
+      "recorded_at": "2026-09-24T23:49:50.033Z"
     },
     "AF": {
       "status": "IMPLEMENTED",
@@ -127,7 +128,176 @@
         "recorded_by": "autonomous campaign"
       },
       "recorded_at": "2026-08-18T00:22:09.139Z"
+    },
+    "D": {
+      "status": "IMPLEMENTED",
+      "evidence": {
+        "commit": "7835d6ee7d060119dc9477e44ed891aa5edfd093",
+        "tests": [
+          "tests/mythos-orchestration-core-test.js: 255/257 (2 = VPS-only delivery-relay unit checks)",
+          "tests/mythos-github-bridge-test.js: 150/0",
+          "tests/mythos-haddad-multi-project-test.js: 73/0"
+        ],
+        "recorded_by": "MYTHOS V3.2 audit (Opus 5.5 as director), 2026-09-25: code present at 7835d6ee, suites run on that tree",
+        "note": "core/dag.js; the bridge parses depends_on and holds dependents (wait_dependencies) — exercised live by gh-issue-359..361 and 343..344."
+      },
+      "recorded_at": "2026-09-24T23:49:50.031Z"
+    },
+    "J": {
+      "status": "IMPLEMENTED",
+      "evidence": {
+        "commit": "7835d6ee7d060119dc9477e44ed891aa5edfd093",
+        "tests": [
+          "tests/mythos-haddad-ai-team-test.js: 153/0",
+          "tests/mythos-haddad-delegation-test.js: 53/0",
+          "tests/v32-execution-intelligence-test.js: 7/0"
+        ],
+        "recorded_by": "MYTHOS V3.2 audit (Opus 5.5 as director), 2026-09-25: code present at 7835d6ee, suites run on that tree",
+        "note": "core/agent-registry.js over config/agents.json, probed availability, capability selection; live on Haddad since V2.1."
+      },
+      "recorded_at": "2026-09-24T23:49:50.032Z"
+    },
+    "K": {
+      "status": "IMPLEMENTED",
+      "evidence": {
+        "commit": "7835d6ee7d060119dc9477e44ed891aa5edfd093",
+        "tests": [
+          "tests/mythos-governance-invariant-test.js: 111/0",
+          "tests/mythos-autonomous-campaign-test.js: 365/0",
+          "tests/mythos-unattended-policy-test.js: 136/0"
+        ],
+        "recorded_by": "MYTHOS V3.2 audit (Opus 5.5 as director), 2026-09-25: code present at 7835d6ee, suites run on that tree",
+        "note": "core/tool-registry.js over config/tools.json (permissions, risk)."
+      },
+      "recorded_at": "2026-09-24T23:49:50.032Z"
+    },
+    "L": {
+      "status": "IMPLEMENTED",
+      "evidence": {
+        "commit": "7835d6ee7d060119dc9477e44ed891aa5edfd093",
+        "tests": [
+          "tests/mcp-ecosystem-test.js: 168/0",
+          "tests/mythos-haddad-mcp-test.js: 22/0"
+        ],
+        "recorded_by": "MYTHOS V3.2 audit (Opus 5.5 as director), 2026-09-25: code present at 7835d6ee, suites run on that tree",
+        "note": "The vision line \"Mythos does not currently depend on MCP\" is superseded: oth-mcp (8 tools VPS, 9 Haddad), ContextForge federation at /mcp (17 tools), lib/mcp-invoke.js governed invoke, registry/mcp-permissions.json."
+      },
+      "recorded_at": "2026-09-24T23:49:50.032Z"
+    },
+    "W": {
+      "status": "IMPLEMENTED",
+      "evidence": {
+        "commit": "7835d6ee7d060119dc9477e44ed891aa5edfd093",
+        "tests": [
+          "tests/mythos-haddad-supervised-loop-test.js: 51/0",
+          "tests/mythos-haddad-ai-team-test.js: 153/0"
+        ],
+        "recorded_by": "MYTHOS V3.2 audit (Opus 5.5 as director), 2026-09-25: code present at 7835d6ee, suites run on that tree",
+        "note": "core/validation.js (reviewer-is-not-author, sensitivity) + lib/work-validation.js re-running every declared check against a pre-attempt snapshot; the report is never the evidence."
+      },
+      "recorded_at": "2026-09-24T23:49:50.034Z"
+    },
+    "AB": {
+      "status": "IMPLEMENTED",
+      "evidence": {
+        "commit": "7835d6ee7d060119dc9477e44ed891aa5edfd093",
+        "tests": [
+          "tests/v32-execution-intelligence-test.js: 7/0",
+          "tests/mythos-orchestration-core-test.js: 255/257"
+        ],
+        "recorded_by": "MYTHOS V3.2 audit (Opus 5.5 as director), 2026-09-25: code present at 7835d6ee, suites run on that tree",
+        "note": "core/reputation.js, consulted by provider-router; fed live by the executor since V3.2 (#439). Learned data reorders only within the registry selection; the bridge floor keeps authority."
+      },
+      "recorded_at": "2026-09-24T23:49:50.034Z"
+    },
+    "I": {
+      "status": "IMPLEMENTED",
+      "evidence": {
+        "commit": "7835d6ee7d060119dc9477e44ed891aa5edfd093",
+        "tests": [
+          "tests/othk-15-graph-context-test.js: 9/0",
+          "tests/othk-22-ecosystem-seed-test.js: 53/0"
+        ],
+        "recorded_by": "MYTHOS V3.2 audit (Opus 5.5 as director), 2026-09-25: code present at 7835d6ee, suites run on that tree",
+        "note": "Lightweight by design (no graph database): relationship records in OTHKM, projects/oth-knowledge/lib/graph.js walks them; typed relationships load from seeds since V3.2 (#437)."
+      },
+      "recorded_at": "2026-09-24T23:49:50.035Z"
+    },
+    "F": {
+      "status": "PARTIAL",
+      "evidence": {
+        "commit": "7835d6ee7d060119dc9477e44ed891aa5edfd093",
+        "tests": [
+          "tests/othk-22-ecosystem-seed-test.js: 53/0"
+        ],
+        "recorded_by": "MYTHOS V3.2 audit (Opus 5.5 as director), 2026-09-25: code present at 7835d6ee, suites run on that tree",
+        "note": "OTHKM namespaces projects/<slug> + othmode-memory binding + project seeds exist; the canonical store on the VPS has not ingested the 2026-09-24/25 seeds (owner step, no Haddad->VPS path)."
+      },
+      "recorded_at": "2026-09-24T23:49:50.035Z"
+    },
+    "Q": {
+      "status": "PARTIAL",
+      "evidence": {
+        "commit": "7835d6ee7d060119dc9477e44ed891aa5edfd093",
+        "tests": [
+          "tests/mythos-haddad-gpu-admission-test.js: 57/0",
+          "tests/mythos-haddad-multi-project-test.js: 73/0"
+        ],
+        "recorded_by": "MYTHOS V3.2 audit (Opus 5.5 as director), 2026-09-25: code present at 7835d6ee, suites run on that tree",
+        "note": "Independent projects/tasks proceed while others wait; GPU lease serialises inference; measured capacity on the 6 GB card is 1 concurrent execution (V2.3)."
+      },
+      "recorded_at": "2026-09-24T23:49:50.036Z"
+    },
+    "X": {
+      "status": "PARTIAL",
+      "evidence": {
+        "commit": "7835d6ee7d060119dc9477e44ed891aa5edfd093",
+        "tests": [
+          "tests/mythos-haddad-ai-team-test.js: 153/0"
+        ],
+        "recorded_by": "MYTHOS V3.2 audit (Opus 5.5 as director), 2026-09-25: code present at 7835d6ee, suites run on that tree",
+        "note": "Reviewer separation and sensitivity gating exist; an LLM review_fn has no production implementation by open owner decision — the review gate stops for a human."
+      },
+      "recorded_at": "2026-09-24T23:49:50.036Z"
+    },
+    "Y": {
+      "status": "PARTIAL",
+      "evidence": {
+        "commit": "7835d6ee7d060119dc9477e44ed891aa5edfd093",
+        "tests": [
+          "tests/haddad-telemetry-test.js: 180/0"
+        ],
+        "recorded_by": "MYTHOS V3.2 audit (Opus 5.5 as director), 2026-09-25: code present at 7835d6ee, suites run on that tree",
+        "note": "core/events.js exists but only on the core path (off); the live stream is per-task events.log + lib/lifecycle, published by Haddad telemetry."
+      },
+      "recorded_at": "2026-09-24T23:49:50.036Z"
+    },
+    "AE": {
+      "status": "PARTIAL",
+      "evidence": {
+        "commit": "7835d6ee7d060119dc9477e44ed891aa5edfd093",
+        "tests": [
+          "tests/haddad-telemetry-test.js: 180/0",
+          "tests/othmode-2-platform-test.js: 158/0"
+        ],
+        "recorded_by": "MYTHOS V3.2 audit (Opus 5.5 as director), 2026-09-25: code present at 7835d6ee, suites run on that tree",
+        "note": "Status Center (estate + Haddad console) and OTHMODE are live; the full Control Center product spec is not implemented."
+      },
+      "recorded_at": "2026-09-24T23:49:50.037Z"
+    },
+    "U": {
+      "status": "PARTIAL",
+      "evidence": {
+        "commit": "7835d6ee7d060119dc9477e44ed891aa5edfd093",
+        "tests": [
+          "tests/mythos-haddad-tool-runner-test.js: 64/0",
+          "tests/mythos-haddad-supervised-loop-test.js: 51/0"
+        ],
+        "recorded_by": "MYTHOS V3.2 audit (Opus 5.5 as director), 2026-09-25: code present at 7835d6ee, suites run on that tree",
+        "note": "bwrap per-command sandbox on Haddad (no network, workspace-only writes, no host secrets; adversarial probe 2026-09-24); the VPS claude-code path relies on the CLI permission profile."
+      },
+      "recorded_at": "2026-09-24T23:49:50.040Z"
     }
   },
-  "updated_at": "2026-08-18T00:22:09.139Z"
+  "updated_at": "2026-09-24T23:49:50.040Z"
 }
