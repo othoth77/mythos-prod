@@ -521,6 +521,36 @@ function providerEvidence(outcome) {
   };
 }
 
+// V3.1 OBSERVABILITY. The supervising provider's escalation decisions live in
+// its tool trace, which report.json keeps but the event stream does not read.
+// The console (Haddad telemetry → Status Center) shows per-task events.log,
+// so the three facts a person asks about a supervised task — was a diagnosis
+// asked for, at which tier, and did the report need a constrained turn — are
+// appended here as executor events with the executor's own controlled
+// vocabulary (structured keys only, no model prose). Bounded, and a missing
+// trace records nothing. Nothing else reads these; they are for the page.
+var MAX_PROVIDER_EVENTS = 12;
+function recordProviderEvents(taskId, outcome) {
+  var trace = outcome && Array.isArray(outcome.tool_trace) ? outcome.tool_trace : [];
+  var written = 0;
+  for (var i = 0; i < trace.length && written < MAX_PROVIDER_EVENTS; i++) {
+    var e = trace[i] || {};
+    var fields = null;
+    if (e.tool === 'escalation') {
+      var m = /tier requested (\w+), used (\w+)/.exec(String(e.detail || ''));
+      fields = { event: 'escalation', reason: m ? 'requested=' + m[1] + ' used=' + m[2] : 'tier', attempt: null };
+    } else if (e.tool === 'diagnose') {
+      fields = { event: 'diagnosis', reason: e.refused ? 'refused' : 'answered', model: e.target ? String(e.target).slice(0, 40) : null };
+    } else if (e.tool === 'report_turn') {
+      fields = { event: 'report_turn', reason: e.refused ? 'no_content' : 'answered' };
+    }
+    if (!fields) continue;
+    var name = fields.event; delete fields.event;
+    try { state.appendEvent(taskId, name, fields); written++; } catch (err) { /* the report is already on disk; an event is not worth failing it */ }
+  }
+  return written;
+}
+
 // --- Git verification and report delivery -------------------------------------
 
 function deliverValidatedWork(task, report, outcome) {
@@ -932,6 +962,7 @@ function handleSuccess(task, taskId, outcome, parsed) {
     // return none and the field is null. Bounded, never the raw transcript.
     evidence: providerEvidence(outcome)
   });
+  recordProviderEvents(taskId, outcome);
   var md = reporting.renderMarkdown(task, status, report || structured, extras);
   state.writeText(taskId, 'report.md', md);
   writeCheckpoint(task, status, {
@@ -1127,6 +1158,7 @@ function writeFailureReport(task, taskId, status, reportStatus, blocker, outcome
     git: { git_verified: null, remote_head: null, report_problems: [] }, provider_result_tail: '',
     evidence: providerEvidence(outcome)
   });
+  recordProviderEvents(taskId, outcome);
   state.writeText(taskId, 'report.md', reporting.renderMarkdown(task, status, structured, { report_problems: [blocker.code] }));
 }
 
@@ -1756,6 +1788,7 @@ module.exports = {
   health: health,
   daemon: daemon,
   writeCheckpoint: writeCheckpoint,
+  recordProviderEvents: recordProviderEvents,
   preflightBlocker: preflightBlocker,
   verifyGit: verifyGit,
   deliverValidatedWork: deliverValidatedWork,

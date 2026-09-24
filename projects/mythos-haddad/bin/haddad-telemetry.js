@@ -589,7 +589,9 @@ var SEVERITY_BY_EVENT = {
   transient_failure: 'WARNING', quota_exhausted: 'WARNING', session_recreated: 'WARNING',
   skill_instructions_unavailable: 'WARNING', failure_classified: 'ERROR',
   dispatch_error: 'ERROR', resume_error: 'ERROR', preflight_blocked: 'ERROR',
-  retries_exhausted: 'CRITICAL', hostops_invoked: 'WARNING'
+  retries_exhausted: 'CRITICAL', hostops_invoked: 'WARNING',
+  // V3.1: the supervising provider's escalation facts (executor.js recordProviderEvents)
+  escalation: 'WARNING', diagnosis: 'INFO', report_turn: 'INFO'
 };
 function severityFor(ev) {
   if (ev.event === 'transition') {
