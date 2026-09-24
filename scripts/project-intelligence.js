@@ -373,10 +373,15 @@ function printData(obj) { console.log(JSON.stringify(Object.assign({ kind: 'data
 
 function cmdReuse(need) {
   if (!need || !String(need).trim()) { console.log('Usage: node scripts/project-intelligence.js reuse "<capability you need>"'); process.exit(2); }
+  // `--limit N` (1-50, default 12) keeps the answer small enough for a
+  // worker with an 8k context; the text is shortened with it.
+  var lm = /(?:^|\s)--limit\s+(\d+)/.exec(need);
+  var limit = lm ? Math.max(1, Math.min(50, parseInt(lm[1], 10))) : 12;
+  need = String(need).replace(/(?:^|\s)--limit\s+\d+/, ' ').trim();
+  var textMax = limit <= 5 ? 200 : 600;
   var q = uniq(tokens(need));
-  var limit = 12;
   var matches = reuseCandidates().map(function (c) {
-    return { source: c.source, id: c.id, file: c.file, score: Math.round(score(q, c.text) * 100) / 100, text: c.text };
+    return { source: c.source, id: c.id, file: c.file, score: Math.round(score(q, c.text) * 100) / 100, text: c.text.slice(0, textMax) };
   }).filter(function (m) { return m.score > 0; })
     .sort(function (a, b) { return b.score - a.score || a.source.localeCompare(b.source) || String(a.id).localeCompare(String(b.id)); })
     .slice(0, limit);
@@ -440,7 +445,8 @@ function cmdOutcomes(argv) {
       mean_repair_rounds: g.with_evidence ? Math.round(g.repair_rounds_sum / g.with_evidence * 100) / 100 : null,
       diagnosis_requested: g.diagnosis, mechanically_verified: g.mechanically_verified, context_exhausted: g.context_exhausted };
   });
-  var reputation = j(path.join(store, 'reputation.json'));
+  // core/reputation.js keeps its file under core/store.root() = <store>/orchestration.
+  var reputation = j(path.join(store, 'orchestration', 'reputation.json'));
   printData({ store: store, groups: rows, reputation: reputation || {} });
   process.exit(0);
 }

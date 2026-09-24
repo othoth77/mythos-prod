@@ -59,6 +59,14 @@ t('P4 reuse with an empty need is a usage error, not a match-everything', functi
   assert.strictEqual(run(['reuse']).code, 2);
 });
 
+t('P4b --limit keeps the answer small for an 8k-context worker', function () {
+  var r = json(['reuse', 'seed typed relationships between projects', '--limit', '3']);
+  assert.strictEqual(r.data.matches.length, 3);
+  assert.ok(r.data.matches.every(function (m) { return m.text.length <= 200; }), 'short texts');
+  assert.ok(JSON.stringify(r.data).length < 2500, 'whole answer under 2.5 KB: ' + JSON.stringify(r.data).length);
+  assert.ok(r.data.terms.indexOf('limit') === -1, 'the flag is not treated as a search word');
+});
+
 t('P5 project answers deps, dependents, capabilities and seed relationships in both directions', function () {
   var r = json(['project', 'oth-knowledge']);
   assert.strictEqual(r.code, 0);
@@ -85,7 +93,9 @@ t('P6 outcomes summarises a store by provider × role, counts context exhaustion
   task('t-a', { role: 'coder', project: 'oth-knowledge', provider: 'haddad-agent' }, { status: 'COMPLETED', provider_used: 'haddad-agent' }, ev(0, false, true));
   task('t-b', { role: 'coder', project: 'oth-knowledge', provider: 'haddad-agent' }, { status: 'FAILED', provider_used: 'haddad-agent', last_error: 'HADDAD_AGENT_CONTEXT_EXHAUSTED: x' }, ev(2, true, false));
   task('t-c', { role: 'researcher', project: 'mythos-haddad', provider: 'haddad-agent' }, { status: 'COMPLETED', provider_used: 'haddad-agent' }, ev(0, false, false));
-  fs.writeFileSync(path.join(store, 'reputation.json'), JSON.stringify({ 'haddad-qwen': { coding: { n: 2, successes: 1 } } }));
+  fs.mkdirSync(path.join(store, 'orchestration'));
+  // where core/reputation.js really writes (core/store.root())
+  fs.writeFileSync(path.join(store, 'orchestration', 'reputation.json'), JSON.stringify({ 'haddad-qwen': { coding: { n: 2, successes: 1 } } }));
   var r = json(['outcomes', '--store', store]);
   assert.strictEqual(r.code, 0);
   var coder = r.data.groups.filter(function (g) { return g.provider_role === 'haddad-agent × coder'; })[0];
@@ -94,6 +104,10 @@ t('P6 outcomes summarises a store by provider × role, counts context exhaustion
   assert.strictEqual(coder.mechanically_verified, 1); assert.strictEqual(coder.context_exhausted, 1);
   assert.strictEqual(r.data.reputation['haddad-qwen'].coding.n, 2, 'reputation passed through as data');
   assert.strictEqual(json(['outcomes', '--store', path.join(store, 'nope')]).code, 1);
+  var prev = process.env.MYTHOS_EXECUTOR_HOME; process.env.MYTHOS_EXECUTOR_HOME = store;
+  var coreStore = require(path.join(ROOT, 'projects', 'mythos-ai-executor', 'core', 'store.js'));
+  assert.strictEqual(coreStore.root(), path.join(store, 'orchestration'), 'the path read is the path core/reputation.js writes');
+  if (prev === undefined) delete process.env.MYTHOS_EXECUTOR_HOME; else process.env.MYTHOS_EXECUTOR_HOME = prev;
   fs.rmSync(store, { recursive: true, force: true });
 });
 
