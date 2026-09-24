@@ -506,7 +506,10 @@
         "append-only JSONL store with provenance, conflicts, bitemporal history",
         "seed loader for reviewed structured knowledge (lib/seed.js, seeds/*.json)",
         "propose → promotion gate → operator promote (lib/propose.js, lib/promotion-gate.js)",
-        "HTTP read facade (service/othk-http.js, :8150) consumed by oth-mcp"
+        "HTTP read facade (service/othk-http.js, :8150) consumed by oth-mcp",
+        "entity/relationship knowledge graph over OTHKM records (lib/graph.js: neighbors, walk, aliases) — typed relationships loadable from seeds since V3.2",
+        "compact context builder for an AI provider (lib/context.js: namespace, bi-temporal asOf, trust-ranked, bounded)",
+        "memory namespaces global / personal / projects/<slug> (lib/namespace.js, lib/othmode-memory.js)"
       ],
       "notes": "The single memory layer of the ecosystem; no second memory system exists by rule. AI layers only READ (executor lib/knowledge.js, oth-mcp knowledge_* tools) or PROPOSE; ingestion/curation stay on the operator CLI.",
       "last_verified_at": "2026-09-24T00:00:00Z"

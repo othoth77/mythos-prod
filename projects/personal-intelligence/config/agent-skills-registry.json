@@ -2,11 +2,11 @@
   "schema_version": "1.0.0",
   "generated_at": "2026-08-07T00:00:00Z",
   "source_commit": "d0a4cbb464d78b56a546a0d60543e871c77579d5",
-  "total_skills": 20,
+  "total_skills": 26,
   "classification_counts": {
     "UPSTREAM_ORIGINAL": 0,
-    "MYTHOS_WRAPPER": 0,
-    "MYTHOS_ORIGINAL": 20
+    "MYTHOS_WRAPPER": 2,
+    "MYTHOS_ORIGINAL": 24
   },
   "skills": [
     {
@@ -583,6 +583,183 @@
       ],
       "runtime_skill": false,
       "notes": "New skill."
+    },
+    {
+      "skill_id": "search-first",
+      "path": ".claude/skills/search-first/SKILL.md",
+      "classification": "MYTHOS_WRAPPER",
+      "purpose": "Before building anything, search existing sources in order and record an Adopt/Extend/Compose/Connect/Build verdict with evidence",
+      "category": "orchestration",
+      "status": "ACTIVE",
+      "introduced_stage": "OTHMODE-SKILLS (2026-08-26, commit 552d99b1)",
+      "version": "1.0.0",
+      "last_reviewed_at": "2026-09-24T00:00:00Z",
+      "source_reference": "shimo4228/search-first (MIT)",
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [
+        "mythos-intent-architect",
+        "graphify"
+      ],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "Registered 2026-09-24 (MYTHOS V3.2): present on disk since 552d99b1 but never registered, which failed project-intelligence validate. The V3.2 `reuse` query in scripts/project-intelligence.js is the mechanical first step this skill asks for."
+    },
+    {
+      "skill_id": "graphify",
+      "path": ".claude/skills/graphify/SKILL.md",
+      "classification": "MYTHOS_WRAPPER",
+      "purpose": "Use the Graphify open-source tool for code/project/knowledge relationship graphs instead of building a graph engine",
+      "category": "knowledge",
+      "status": "ACTIVE",
+      "introduced_stage": "OTHMODE-SKILLS (2026-08-26, commit 552d99b1)",
+      "version": "1.0.0",
+      "last_reviewed_at": "2026-09-24T00:00:00Z",
+      "source_reference": "PyPI graphifyy",
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [
+        "search-first"
+      ],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "Registered 2026-09-24 (MYTHOS V3.2). OTHKM's own lightweight graph (projects/oth-knowledge/lib/graph.js) covers the ecosystem graph; this skill is for code-level graphs."
+    },
+    {
+      "skill_id": "preflight",
+      "path": ".claude/skills/preflight/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Surface repository state, OthMode flag, health and current context in one pass before a task",
+      "category": "orchestration",
+      "status": "ACTIVE",
+      "introduced_stage": "OTHMODE-SKILLS (2026-08-26, commit 552d99b1)",
+      "version": "1.0.0",
+      "last_reviewed_at": "2026-09-24T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [
+        "mythos-project-context",
+        "mythos-repo-guardian"
+      ],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "Registered 2026-09-24 (MYTHOS V3.2)."
+    },
+    {
+      "skill_id": "postflight",
+      "path": ".claude/skills/postflight/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "After a task, verify claims against Git/tests, sync documentation, record outcomes and leave an honest handover",
+      "category": "orchestration",
+      "status": "ACTIVE",
+      "introduced_stage": "OTHMODE-SKILLS (2026-08-26, commit 552d99b1)",
+      "version": "1.0.0",
+      "last_reviewed_at": "2026-09-24T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [
+        "mythos-doc-sync",
+        "session-handoff"
+      ],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "Registered 2026-09-24 (MYTHOS V3.2)."
+    },
+    {
+      "skill_id": "session-handoff",
+      "path": ".claude/skills/session-handoff/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Durable, evidence-linked continuity between sessions via docs/AI_HANDOVER.md",
+      "category": "orchestration",
+      "status": "ACTIVE",
+      "introduced_stage": "OTHMODE-SKILLS (2026-08-26, commit 552d99b1)",
+      "version": "1.0.0",
+      "last_reviewed_at": "2026-09-24T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [
+        "postflight"
+      ],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "Registered 2026-09-24 (MYTHOS V3.2)."
+    },
+    {
+      "skill_id": "status-sync",
+      "path": ".claude/skills/status-sync/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Keep the Status Center the single execution truth; reconcile through its own review engine, never a second status writer",
+      "category": "observability",
+      "status": "ACTIVE",
+      "introduced_stage": "OTHMODE-SKILLS (2026-08-26, commit 552d99b1)",
+      "version": "1.0.0",
+      "last_reviewed_at": "2026-09-24T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [
+        "mythos-project-context"
+      ],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "Registered 2026-09-24 (MYTHOS V3.2)."
     }
   ]
 }
