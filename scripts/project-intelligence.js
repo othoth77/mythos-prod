@@ -276,6 +276,175 @@ function cmdSummary() {
 }
 
 // -------------------------------------------------------------------------
+// MYTHOS V3.2 — ecosystem intelligence, read-only.
+//
+//   reuse "<need>"            do we already have this? scores the need
+//                             against every registry the ecosystem keeps
+//   project <id>              one project: deps, dependents, capabilities,
+//                             OTHKM seed relationships (both directions)
+//   outcomes [--store <dir>]  what an executor task store says about how
+//                             each provider × role actually performed
+//
+// Everything printed is DATA with a `kind: "data"` envelope and a file
+// citation per match. Nothing here is an instruction to the reader, nothing
+// is written, nothing touches the network: this tool answers a question the
+// director (or a sandboxed worker) asks before it builds; it decides nothing.
+// -------------------------------------------------------------------------
+
+var STOP = { the: 1, and: 1, for: 1, with: 1, that: 1, this: 1, from: 1, into: 1, are: 1, any: 1, can: 1, have: 1, already: 1, something: 1, what: 1, does: 1, our: 1 };
+function tokens(s) {
+  return String(s || '').toLowerCase().split(/[^a-z0-9]+/).filter(function (t) { return t.length >= 3 && !STOP[t]; });
+}
+function uniq(a) { return a.filter(function (x, i) { return a.indexOf(x) === i; }); }
+
+// Share of the need's distinct words present in the text (prefix-tolerant, so
+// "validate" finds "validation"). 0 when nothing matches.
+function score(needTokens, text) {
+  var hay = ' ' + tokens(text).join(' ') + ' ';
+  var hit = 0;
+  needTokens.forEach(function (t) {
+    var stem = t.length > 6 ? t.slice(0, 6) : t;
+    if (hay.indexOf(' ' + stem) !== -1) hit++;
+  });
+  return needTokens.length ? hit / needTokens.length : 0;
+}
+
+function seedFiles() {
+  var dir = path.join(BASE, 'projects/oth-knowledge/seeds');
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter(function (f) { return /\.json$/.test(f); }).sort()
+    .map(function (f) { return 'projects/oth-knowledge/seeds/' + f; });
+}
+
+// Every candidate the ecosystem already records, as {source, id, file, text}.
+function reuseCandidates() {
+  var out = [];
+  function add(source, id, file, text) { if (text) out.push({ source: source, id: id, file: file, text: String(text).replace(/\s+/g, ' ').slice(0, 600) }); }
+
+  var reg = readJSON('projects/meta/portfolio-registry.json');
+  (reg.tracks || []).forEach(function (t) {
+    add('portfolio-track', t.id, 'projects/meta/portfolio-registry.json', [t.name, t.current_stage, t.notes].filter(Boolean).join(' — '));
+    (t.shared_platform_capabilities || []).forEach(function (c, i) {
+      add('portfolio-capability', t.id + '#' + i, 'projects/meta/portfolio-registry.json', t.name + ': ' + c);
+    });
+  });
+
+  var sreg = readJSON('projects/personal-intelligence/config/agent-skills-registry.json');
+  (sreg.skills || []).forEach(function (s) { add('skill', s.skill_id, s.path, s.skill_id + ': ' + s.purpose); });
+
+  var EX = 'projects/mythos-ai-executor/config/';
+  var agents = readJSON(EX + 'agents.json');
+  Object.keys(agents.__missing ? {} : agents).forEach(function (k) {
+    var a = agents[k];
+    add('agent', k, EX + 'agents.json', k + ' (' + a.provider + '): ' + (a.capabilities || []).join(', ') + '. ' + (a.note || ''));
+  });
+  var roles = readJSON(EX + 'roles.json');
+  Object.keys((roles && roles.roles) || {}).forEach(function (k) { add('role', k, EX + 'roles.json', k + ': ' + roles.roles[k].brief); });
+  var packs = readJSON(EX + 'skills.json');
+  Object.keys(packs.__missing ? {} : packs).forEach(function (k) {
+    var p = packs[k] || {};
+    add('skill-pack', k, EX + 'skills.json', k + ': ' + [p.description, p.category, (p.task_categories || []).join(' ')].filter(Boolean).join(' '));
+  });
+  var tools = readJSON(EX + 'tools.json');
+  Object.keys(tools.__missing ? {} : tools).forEach(function (k) { add('tool', k, EX + 'tools.json', k + ': ' + ((tools[k] || {}).description || '')); });
+  var mcp = readJSON(EX + 'mcp-capabilities.json');
+  Object.keys((mcp && mcp.servers) || {}).forEach(function (k) {
+    var s = mcp.servers[k];
+    add('mcp-server', k, EX + 'mcp-capabilities.json', k + ': ' + (s.description || '') + ' ' + JSON.stringify(s.tools || '').slice(0, 300));
+  });
+
+  seedFiles().forEach(function (file) {
+    var seed = readJSON(file);
+    if (seed.__missing || seed.__parseError) return;
+    var nameByKey = {};
+    (seed.entities || []).forEach(function (e) {
+      nameByKey[e.key] = e.name;
+      add('othkm-entity', e.key, file, e.name + ' (' + e.entity_type + ') ' + JSON.stringify(e.metadata || {}));
+    });
+    (seed.claims || []).forEach(function (c) { add('othkm-claim', c.key, file, c.statement); });
+    (seed.relationships || []).forEach(function (r, i) {
+      add('othkm-relationship', r.from + '>' + r.to, file, (nameByKey[r.from] || r.from) + ' ' + r.rel_type + ' ' + (nameByKey[r.to] || r.to) + ' — ' + (r.asserted_by || ''));
+    });
+  });
+  return out;
+}
+
+function printData(obj) { console.log(JSON.stringify(Object.assign({ kind: 'data', note: 'data from committed registries and seeds; cite the file, decide nothing from it alone' }, obj), null, 2)); }
+
+function cmdReuse(need) {
+  if (!need || !String(need).trim()) { console.log('Usage: node scripts/project-intelligence.js reuse "<capability you need>"'); process.exit(2); }
+  var q = uniq(tokens(need));
+  var limit = 12;
+  var matches = reuseCandidates().map(function (c) {
+    return { source: c.source, id: c.id, file: c.file, score: Math.round(score(q, c.text) * 100) / 100, text: c.text };
+  }).filter(function (m) { return m.score > 0; })
+    .sort(function (a, b) { return b.score - a.score || a.source.localeCompare(b.source) || String(a.id).localeCompare(String(b.id)); })
+    .slice(0, limit);
+  printData({ query: String(need).slice(0, 200), terms: q, sources_searched: ['portfolio-registry', 'agent-skills-registry', 'executor agents/roles/skill-packs/tools/mcp', 'othkm seeds'], matches: matches });
+  process.exit(0);
+}
+
+function cmdProject(id) {
+  var reg = readJSON('projects/meta/portfolio-registry.json');
+  var t = (reg.tracks || []).filter(function (x) { return x.id === id; })[0];
+  if (!t) { printData({ project: id, found: false, known: (reg.tracks || []).map(function (x) { return x.id; }) }); process.exit(1); }
+  var dependents = (reg.tracks || []).filter(function (x) { return (x.dependencies || []).indexOf(id) !== -1; }).map(function (x) { return x.id; });
+  var relationships = [];
+  seedFiles().forEach(function (file) {
+    var seed = readJSON(file);
+    if (seed.__missing || seed.__parseError) return;
+    var byKey = {};
+    (seed.entities || []).forEach(function (e) { byKey[e.key] = e; });
+    var mine = Object.keys(byKey).filter(function (k) { var e = byKey[k]; return (e.metadata && e.metadata.registry_id === id) || e.name === id; });
+    (seed.relationships || []).forEach(function (r) {
+      if (mine.indexOf(r.from) !== -1) relationships.push({ dir: 'out', rel_type: r.rel_type, other: byKey[r.to] ? byKey[r.to].name : r.to, asserted_by: r.asserted_by || null, file: file });
+      else if (mine.indexOf(r.to) !== -1) relationships.push({ dir: 'in', rel_type: r.rel_type, other: byKey[r.from] ? byKey[r.from].name : r.from, asserted_by: r.asserted_by || null, file: file });
+    });
+  });
+  printData({
+    project: id, found: true, name: t.name, category: t.category, implementation_status: t.implementation_status,
+    current_stage: t.current_stage, next_stage: t.next_stage, repository_paths: t.repository_paths,
+    dependencies: t.dependencies || [], dependents: dependents,
+    shared_platform_capabilities: t.shared_platform_capabilities || [], notes: t.notes || null,
+    relationships: relationships
+  });
+  process.exit(0);
+}
+
+function cmdOutcomes(argv) {
+  var i = argv.indexOf('--store');
+  var store = i !== -1 ? argv[i + 1] : (process.env.MYTHOS_EXECUTOR_HOME || path.join(require('os').homedir(), 'mythos-ai-executor-haddad'));
+  var tasksDir = path.join(store, 'tasks');
+  if (!fs.existsSync(tasksDir)) { printData({ store: store, found: false }); process.exit(1); }
+  function j(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (e) { return null; } }
+  var groups = {};
+  fs.readdirSync(tasksDir).forEach(function (id) {
+    var d = path.join(tasksDir, id);
+    var task = j(path.join(d, 'task.json')), st = j(path.join(d, 'status.json'));
+    if (!task || !st) return;
+    var rep = j(path.join(d, 'report.json')) || {};
+    var ev = rep.evidence || {};
+    var key = (st.provider_used || task.provider || 'unknown') + ' × ' + (task.role || '(no role)');
+    var g = groups[key] = groups[key] || { n: 0, status: {}, with_evidence: 0, repair_rounds_sum: 0, diagnosis: 0, mechanically_verified: 0, context_exhausted: 0, projects: {} };
+    g.n++;
+    g.status[st.status] = (g.status[st.status] || 0) + 1;
+    g.projects[task.project || 'unknown'] = (g.projects[task.project || 'unknown'] || 0) + 1;
+    if (typeof ev.repair_rounds === 'number') { g.with_evidence++; g.repair_rounds_sum += ev.repair_rounds; }
+    if (ev.diagnosis_requested) g.diagnosis++;
+    if (ev.validation && ev.validation.evidence && ev.validation.evidence.mechanically_verified) g.mechanically_verified++;
+    if (/CONTEXT_EXHAUSTED/.test(String(st.last_error || ''))) g.context_exhausted++;
+  });
+  var rows = Object.keys(groups).sort().map(function (k) {
+    var g = groups[k];
+    return { provider_role: k, n: g.n, status: g.status, projects: g.projects,
+      mean_repair_rounds: g.with_evidence ? Math.round(g.repair_rounds_sum / g.with_evidence * 100) / 100 : null,
+      diagnosis_requested: g.diagnosis, mechanically_verified: g.mechanically_verified, context_exhausted: g.context_exhausted };
+  });
+  var reputation = j(path.join(store, 'reputation.json'));
+  printData({ store: store, groups: rows, reputation: reputation || {} });
+  process.exit(0);
+}
+
 var command = process.argv[2];
 switch (command) {
   case 'validate': cmdValidate(); break;
@@ -283,8 +452,11 @@ switch (command) {
   case 'history-check': cmdHistoryCheck(); break;
   case 'ledger-check': cmdLedgerCheck(); break;
   case 'summary': cmdSummary(); break;
+  case 'reuse': cmdReuse(process.argv.slice(3).join(' ')); break;
+  case 'project': cmdProject(process.argv[3]); break;
+  case 'outcomes': cmdOutcomes(process.argv.slice(3)); break;
   default:
-    console.log('Usage: node scripts/project-intelligence.js <validate|stats|history-check|ledger-check|summary>');
+    console.log('Usage: node scripts/project-intelligence.js <validate|stats|history-check|ledger-check|summary|reuse "<need>"|project <id>|outcomes [--store <dir>]>');
     console.log('This tool is read-only against Git metadata; it never modifies Git history, auto-commits, or connects to any external provider.');
     process.exit(command ? 1 : 0);
 }
