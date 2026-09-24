@@ -1,0 +1,120 @@
+{
+  "format": "othk-seed",
+  "version": 1,
+  "title": "Haddad AI node - runtime facts as of 2026-09-24",
+  "source_class": "mythos-repo",
+  "source_collection": "mythos-haddad-node-2026-09-24",
+  "source_reference": "mythos-repo/projects/mythos-haddad/STATUS.md",
+  "captured_at": "2026-09-24T20:00:00Z",
+  "observed_at": "2026-09-24T20:00:00Z",
+  "actor": "haddad-qwen (Qwen2.5-7B on the Haddad node, task gh-issue)",
+  "confidence": "HIGH",
+  "entities": [
+    {
+      "key": "haddad",
+      "entity_type": "host",
+      "name": "haddad",
+      "metadata": {
+        "tailscale": "100.78.7.10",
+        "role": "on-prem MYTHOS AI node"
+      }
+    },
+    {
+      "key": "gpu",
+      "entity_type": "device",
+      "name": "NVIDIA GeForce GTX 1660 SUPER",
+      "metadata": {
+        "vram_mib": 6144,
+        "driver": "nouveau/NVK",
+        "api": "Vulkan"
+      }
+    },
+    {
+      "key": "runtime",
+      "entity_type": "service",
+      "name": "mythos-haddad-runtime",
+      "metadata": {
+        "binary": "llama-server",
+        "endpoint": "http://127.0.0.1:8600/v1",
+        "ctx_size": 8192
+      }
+    },
+    {
+      "key": "worker",
+      "entity_type": "service",
+      "name": "mythos-haddad-worker",
+      "metadata": {
+        "endpoint": "http://127.0.0.1:8130",
+        "provider": "haddad-agent"
+      }
+    },
+    {
+      "key": "qwen",
+      "entity_type": "model",
+      "name": "Qwen2.5-7B-Instruct-Q4_K_M",
+      "metadata": {
+        "agent": "haddad-qwen"
+      }
+    }
+  ],
+  "claims": [
+    {
+      "key": "c1",
+      "statement": "The Haddad node runs llama.cpp on the Vulkan backend with one pinned model, Qwen2.5-7B-Instruct-Q4_K_M, on 127.0.0.1:8600; at ctx-size 8192 it offloads 27 of 29 layers to the GPU.",
+      "asserted_by": "projects/mythos-haddad/STATUS.md",
+      "entities": [
+        "haddad",
+        "gpu",
+        "runtime",
+        "qwen"
+      ],
+      "tags": [
+        "runtime",
+        "v3.1"
+      ]
+    },
+    {
+      "key": "c2",
+      "statement": "The Haddad worker is the existing Mythos AI Executor daemon (bin/mythos-ai-executor serve) with an isolated store, and its only execution provider is haddad-agent; Claude is never the executor on this node.",
+      "asserted_by": "projects/mythos-haddad/ARCHITECTURE_REUSE_STATUS.md",
+      "entities": [
+        "haddad",
+        "worker",
+        "qwen"
+      ],
+      "tags": [
+        "executor",
+        "v3.1"
+      ]
+    },
+    {
+      "key": "c3",
+      "statement": "There is no CUDA on the Haddad node: the GPU runs on the open nouveau/NVK stack, so only Vulkan-capable runtimes such as llama.cpp can use it.",
+      "asserted_by": "projects/mythos-haddad/docs/AI_RUNTIME.md",
+      "entities": [
+        "haddad",
+        "gpu"
+      ],
+      "tags": [
+        "hardware",
+        "v3.1"
+      ]
+    }
+  ],
+  "observations": [
+    {
+      "key": "o1",
+      "statement": "MEASURED 2026-09-24: this seed was written by the local Qwen worker itself through the supervised Haddad execution loop and validated by the OTH Knowledge seed loader inside the sandbox.",
+      "entities": [
+        "haddad",
+        "worker",
+        "qwen"
+      ],
+      "tags": [
+        "TEST-RESULT",
+        "v3.1"
+      ]
+    }
+  ],
+  "events": []
+}
