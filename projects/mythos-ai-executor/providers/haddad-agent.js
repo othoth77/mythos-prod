@@ -427,6 +427,14 @@ function toolWriteFile(ctx, args) {
         '). The validator rejects the whole attempt for a file like this — write the file the task named, at the path it named.' };
     }
   }
+  // V3.2: the project's own write scope, refused at the tool with the same
+  // matcher the validator uses (feedback; the validator still decides).
+  if (ctx.projectScope && ctx.projectScope.length) {
+    var prel = path.relative(ctx.workspace, r.path);
+    if (!work.withinScope(prel, ctx.projectScope)) {
+      return { error: 'REFUSED: "' + prel + '" is outside this project (it may only write under ' + ctx.projectScope.join(', ') + ')' };
+    }
+  }
   var content = args && args.content;
   if (typeof content !== 'string') return { error: 'REFUSED: content must be a string' };
   if (Buffer.byteLength(content, 'utf8') > MAX_WRITE_BYTES) {
@@ -732,7 +740,7 @@ function run(task, prompt, _sessionId, _mode, opts) {
   if (!model) return Promise.resolve(fail('HADDAD_AGENT_UNCONFIGURED', 'no model configured'));
 
   var deadline = started + (Number(task.timeout_seconds) || DEFAULT_TASK_TIMEOUT_S) * 1000;
-  var ctx = { workspace: workspace, grant: grant, scope: work.declaredScope(task.constraints || []) };
+  var ctx = { workspace: workspace, grant: grant, scope: work.declaredScope(task.constraints || []), projectScope: Array.isArray(task.project_write_scope) ? task.project_write_scope : [] };
   var messages = [
     { role: 'system', content: systemPrompt(grant, schemas, roles.getRole(task.role), task.expected_delivery) },
     { role: 'user', content: String(prompt) }
@@ -1081,6 +1089,7 @@ function run(task, prompt, _sessionId, _mode, opts) {
       workspace: workspace, before: before, after: after,
       checks: task.required_tests || [],
       scope: task.constraints || [],
+      projectScope: task.project_write_scope || [],
       requiredFiles: [],
       runCommand: validatorRunCommand
     });
@@ -1102,6 +1111,7 @@ function run(task, prompt, _sessionId, _mode, opts) {
       // working, and treating them as the permitted scope would mean "you
       // may only edit the test" — the precise opposite of the intent.
       scope: task.constraints || [],
+      projectScope: task.project_write_scope || [],
       requiredFiles: [],
       runCommand: validatorRunCommand
     });
