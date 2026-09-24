@@ -103,6 +103,32 @@ function loadSeed(store, classes, seedPath) {
     }));
     created.events++;
   }
+  // Typed relationships between records this seed already loaded (V3.2):
+  // `{ from, to, rel_type, asserted_by?, metadata? }` with seed keys. The
+  // model's `relationship` kind and extract.addRelationship() existed; only
+  // this path to them was missing, so "A uses B" could be written as prose
+  // but never walked by graph.js. A relationship carries no provenance field
+  // of its own, so the seed's reference (and who asserted it) travels in its
+  // metadata — traceable like every other seeded record. Loaded last, so it
+  // may join any two records above; an unknown key is refused.
+  created.relationships = 0;
+  for (const r of seed.relationships || []) {
+    const from = byKey.get(r.from), to = byKey.get(r.to);
+    if (!from || !to) throw fail('OTHK_SEED_INPUT', 'relationship references an unknown seed key: ' + (!from ? r.from : r.to));
+    if (typeof r.rel_type !== 'string' || !/^[a-z][a-z_]{1,39}$/.test(r.rel_type)) {
+      throw fail('OTHK_SEED_INPUT', 'relationship rel_type must be a lowercase identifier: ' + String(r.rel_type).slice(0, 40));
+    }
+    extract.addRelationship(store, {
+      rel_type: r.rel_type, from_id: from.id, to_id: to.id,
+      metadata: Object.assign({}, r.metadata || {}, {
+        source_class: seed.source_class,
+        source_reference: seed.source_reference || (seed.source_class + '/' + (seed.source_collection || 'default')),
+        asserted_by: typeof r.asserted_by === 'string' && r.asserted_by ? r.asserted_by : null,
+        captured_at: seed.captured_at,
+      }),
+    });
+    created.relationships++;
+  }
   return created;
 }
 

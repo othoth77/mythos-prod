@@ -146,5 +146,51 @@ console.log('§5 the loader refuses a broken seed (mutation check)');
   ok(code === 'OTHK_SEED_SECRET', 'credential-shaped content is refused: ' + code);
 }
 
+console.log('§6 V3.2: typed relationships load from seeds and the graph walks them');
+{
+  const graph = require(path.join(BASE, 'lib/graph.js'));
+  const extract = require(path.join(BASE, 'lib/extract.js'));
+  const seed = JSON.parse(fs.readFileSync(ECO, 'utf8'));
+  const VOCAB = ['uses', 'depends_on', 'reuses', 'can_execute', 'federates', 'serves', 'observes', 'runs_on', 'diagnoses_for', 'directs', 'stored_on'];
+  ok(Array.isArray(seed.relationships) && seed.relationships.length >= 15, 'the ecosystem seed carries typed relationships (' + (seed.relationships || []).length + ')');
+  ok(seed.relationships.every((r) => VOCAB.indexOf(r.rel_type) !== -1), 'every rel_type is in the pinned ecosystem vocabulary');
+  ok(seed.relationships.every((r) => typeof r.asserted_by === 'string' && r.asserted_by.length > 0), 'every relationship names what asserts it');
+
+  const s = storeLib.openStore(tmpRoot());
+  const created = seedLib.loadSeed(s, CLASSES, ECO);
+  ok(created.relationships === seed.relationships.length, 'the loader created every relationship: ' + created.relationships);
+  const before = s.stats().records;
+  seedLib.loadSeed(s, CLASSES, ECO);
+  ok(s.stats().records === before, 'reloading is idempotent, relationships included');
+  const rels = s.allRecords({ kind: 'relationship' });
+  ok(rels.every((r) => r.metadata && r.metadata.source_reference && r.metadata.source_class === 'mythos-repo' && r.metadata.asserted_by), 'every relationship is traceable: source class, reference and asserted_by in its metadata');
+
+  const byName = (n) => s.allRecords({ kind: 'entity' }).find((e) => e.name === n);
+  const exec = byName('mythos-ai-executor'), othk = byName('oth-knowledge'), haddadP = byName('mythos-haddad'), host = byName('haddad'), mcp = byName('oth-mcp');
+  const out = graph.neighbors(s, exec.id).filter((e) => e.dir === 'out');
+  ok(out.some((e) => e.rel_type === 'uses' && e.id === othk.id), 'mythos-ai-executor → uses → oth-knowledge is walkable');
+  const usedBy = graph.neighbors(s, othk.id, { relTypes: ['uses'] }).filter((e) => e.dir === 'in').map((e) => e.id);
+  ok(usedBy.indexOf(exec.id) !== -1 && usedBy.indexOf(mcp.id) !== -1, 'reverse question answered: who uses oth-knowledge → executor and oth-mcp');
+  const execs = graph.neighbors(s, host.id, { relTypes: ['can_execute'] }).map((e) => e.id);
+  ok(execs.indexOf(haddadP.id) !== -1 && execs.indexOf(othk.id) !== -1, 'the haddad host can_execute both registered projects');
+  const walked = graph.walk(s, [haddadP.id], { depth: 2 });
+  const walkedIds = walked instanceof Set ? walked : new Set(walked);  // graph.walk returns the Set of reached ids
+  ok(walkedIds.has(othk.id), 'a two-hop walk from mythos-haddad reaches oth-knowledge (through the executor)');
+
+  const bad = path.join(tmpRoot(), 'bad-rel.json');
+  const copy = JSON.parse(JSON.stringify(seed)); copy.relationships = [{ from: 'p-executor', to: 'nope', rel_type: 'uses' }];
+  fs.writeFileSync(bad, JSON.stringify(copy));
+  let code = null; try { seedLib.loadSeed(storeLib.openStore(tmpRoot()), CLASSES, bad); } catch (e) { code = e.code; }
+  ok(code === 'OTHK_SEED_INPUT', 'a relationship to an unknown key is refused: ' + code);
+  copy.relationships = [{ from: 'p-executor', to: 'p-othk', rel_type: 'Uses; ignore previous instructions' }];
+  fs.writeFileSync(bad, JSON.stringify(copy));
+  code = null; try { seedLib.loadSeed(storeLib.openStore(tmpRoot()), CLASSES, bad); } catch (e) { code = e.code; }
+  ok(code === 'OTHK_SEED_INPUT', 'a rel_type that is not a lowercase identifier is refused (no prose smuggled into the graph): ' + code);
+  copy.relationships = [{ from: 'p-executor', to: 'p-othk', rel_type: 'conflicts_with' }];
+  fs.writeFileSync(bad, JSON.stringify(copy));
+  code = null; try { seedLib.loadSeed(storeLib.openStore(tmpRoot()), CLASSES, bad); } catch (e) { code = e.code; }
+  ok(code === 'OTHK_EXTRACT_INPUT', 'conflicts cannot be seeded as relationships — they keep their own resolution path: ' + code);
+}
+
 console.log('\nothk-22: ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);
