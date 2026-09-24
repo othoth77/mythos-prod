@@ -599,5 +599,121 @@
         "v3.1"
       ]
     }
+  ],
+  "relationships": [
+    {
+      "from": "p-executor",
+      "to": "p-othk",
+      "rel_type": "uses",
+      "asserted_by": "projects/mythos-ai-executor/lib/knowledge.js"
+    },
+    {
+      "from": "p-executor",
+      "to": "p-orchestrator",
+      "rel_type": "depends_on",
+      "asserted_by": "projects/mythos-ai-executor/lib/report.js (requires mythos-orchestrator/lib/redact.js)"
+    },
+    {
+      "from": "p-haddad",
+      "to": "p-executor",
+      "rel_type": "reuses",
+      "asserted_by": "projects/mythos-haddad/ARCHITECTURE_REUSE_STATUS.md"
+    },
+    {
+      "from": "haddad",
+      "to": "p-haddad",
+      "rel_type": "can_execute",
+      "asserted_by": "projects/mythos-ai-executor/config/projects.json"
+    },
+    {
+      "from": "haddad",
+      "to": "p-othk",
+      "rel_type": "can_execute",
+      "asserted_by": "projects/mythos-ai-executor/config/projects.json (oth-knowledge, second bridge instance)"
+    },
+    {
+      "from": "p-haddad",
+      "to": "p-mcp",
+      "rel_type": "reuses",
+      "asserted_by": "projects/mythos-haddad/docs/HADDAD_MCP.md"
+    },
+    {
+      "from": "p-haddad",
+      "to": "p-gateway",
+      "rel_type": "reuses",
+      "asserted_by": "projects/mythos-gateway/mcp-http-bridge.js run byte-identical on Haddad"
+    },
+    {
+      "from": "p-gateway",
+      "to": "p-mcp",
+      "rel_type": "federates",
+      "asserted_by": "projects/mythos-haddad/docs/MCP_FEDERATION_CLOSEOUT_2026-09-24.md"
+    },
+    {
+      "from": "p-mcp",
+      "to": "p-othk",
+      "rel_type": "uses",
+      "asserted_by": "projects/oth-mcp/README.md (knowledge_* tools)"
+    },
+    {
+      "from": "p-mcp",
+      "to": "p-othmode",
+      "rel_type": "uses",
+      "asserted_by": "projects/oth-mcp/README.md (project_context, capability_registry)"
+    },
+    {
+      "from": "p-mcp",
+      "to": "p-executor",
+      "rel_type": "uses",
+      "asserted_by": "projects/oth-mcp/README.md (execution_*, budget_status)"
+    },
+    {
+      "from": "p-mcp",
+      "to": "p-status",
+      "rel_type": "uses",
+      "asserted_by": "projects/oth-mcp/README.md (system_health)"
+    },
+    {
+      "from": "p-othmode",
+      "to": "p-meta",
+      "rel_type": "serves",
+      "asserted_by": "projects/command-center/reference/othmode/registries.js"
+    },
+    {
+      "from": "p-status",
+      "to": "p-haddad",
+      "rel_type": "observes",
+      "asserted_by": "projects/mythos-haddad/docs/TELEMETRY.md"
+    },
+    {
+      "from": "m-qwen",
+      "to": "haddad",
+      "rel_type": "runs_on",
+      "asserted_by": "projects/mythos-haddad/docs/AI_RUNTIME.md"
+    },
+    {
+      "from": "m-sonnet",
+      "to": "p-haddad",
+      "rel_type": "diagnoses_for",
+      "asserted_by": "HADDAD_AGENT_DIAGNOSER (standard tier)"
+    },
+    {
+      "from": "m-opus",
+      "to": "p-haddad",
+      "rel_type": "diagnoses_for",
+      "asserted_by": "HADDAD_AGENT_DIAGNOSER_DEEP (deep tier)"
+    },
+    {
+      "from": "m-fable",
+      "to": "repo",
+      "rel_type": "directs",
+      "asserted_by": "projects/mythos-haddad/docs/V3_1.md §2"
+    },
+    {
+      "from": "p-othk",
+      "to": "vps",
+      "rel_type": "stored_on",
+      "asserted_by": "config/knowledge.json store_root /home/deploy/othk-store"
+    }
   ]
 }
