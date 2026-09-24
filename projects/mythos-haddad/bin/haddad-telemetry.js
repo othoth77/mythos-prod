@@ -265,7 +265,45 @@ function runtimeLoadFacts(activeSince, invocationId) {
   var gotSomething = facts.gpu_layers !== null || facts.vram_model_mib !== null ||
     facts.vram_projected_mib !== null || facts.context !== null || facts.last_ready !== null ||
     facts.no_devices !== null;
-  if (activeSince && gotSomething) {
+
+  // ...AND NEVER CACHE A PARTIAL ONE EITHER, which is the harder case and the
+  // one that actually bit. MEASURED on the 2026-09-23 cold boot: llama-server
+  // was Started 07:04:36 and finished loading 07:05:42, and this agent — which
+  // runs every 10 s — sampled inside that 66 s window. It found the projection
+  // line ("projected to use 4920 MiB") but not the accounting lines that come
+  // later, so `gotSomething` was true on a snapshot whose gpu_layers was still
+  // null. That froze against the live invocation, and haddad-health.js's
+  // ai_runtime then reported "GPU offload is NOT VERIFIED" for the whole life
+  // of a runtime that had 27/29 layers genuinely on the card. It failed safe —
+  // a WARN, never a false PASS — but it was wrong, and it would have recurred
+  // on every boot.
+  //
+  // The condition is the FACT the cache exists to remember, not a proxy for
+  // it: either we know the layer count, or the runtime told us there was no
+  // device. Those are the only two real answers. Anything else is "we have
+  // not found out yet", and the next reader re-reads a journal that by then
+  // has settled.
+  //
+  // "The load finished" (last_ready, from "server is listening") was tried
+  // first and is WRONG, in two directions found by running both against the
+  // same journals rather than reasoning about them:
+  //   * load finished but the accounting lines are outside the window —
+  //     rotated out, truncated, a clipped --since — and last_ready would
+  //     cache gpu_layers: null against a live invocation. Same bug, narrower
+  //     door.
+  //   * worse, it does not even exclude the mid-load case it was written for.
+  //     MEASURED ordering on the 2026-09-23 boot: "using device Vulkan0"
+  //     07:04:39, "offloaded 27/29 layers" 07:05:15. A sample in that 36 s
+  //     gap has no_devices=false and gpu_layers=null, so any condition keyed
+  //     on "we saw SOMETHING about the device" caches the poison too.
+  //
+  // The cost, which is real: on a host that prints neither line (a device
+  // present but --n-gpu-layers 0) this never caches and re-reads every tick.
+  // That read is bounded — invocation-scoped, a few hundred lines, 8 s
+  // timeout — and paying it every tick beats pinning a wrong answer for the
+  // life of the instance.
+  var loadSettled = facts.gpu_layers !== null || facts.no_devices === true;
+  if (activeSince && gotSomething && loadSettled) {
     try {
       fs.mkdirSync(STATE_DIR, { recursive: true });
       fs.writeFileSync(CURSOR_FILE, JSON.stringify({ runtime_active_since: activeSince,

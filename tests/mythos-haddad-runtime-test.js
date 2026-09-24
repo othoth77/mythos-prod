@@ -667,5 +667,19 @@ t('a CPU-only unit still has to actually answer', function () {
   assert.strictEqual(c.status, 'FAIL', 'a stuck CPU-only runtime is still a failure');
 });
 
+
+t('claude_code resolves the way the UNITS do, not the way the caller was launched', function () {
+  var src = read('bin/haddad-health.js');
+  var block = src.slice(src.indexOf("check('claude_code'"), src.indexOf("check('gpu'"));
+  assert.ok(/\.local', 'bin', 'claude'/.test(block),
+    'falls back to the path every unit declares on its PATH');
+  assert.ok(/resolved_via/.test(block), 'the report says WHICH one answered, never silently');
+  // The fallback must not paper over a real absence or a timeout.
+  assert.ok(/!v\.ok && !v\.timed_out && fs\.existsSync/.test(block),
+    'a timed-out probe never reaches the fallback — it stays a timeout, not a miss');
+  assert.ok(/neither PATH nor/.test(block),
+    'genuinely absent is still FAIL, and says both places were checked');
+});
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
