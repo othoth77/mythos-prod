@@ -185,7 +185,12 @@ function validateWork(input) {
     // same downstream. Recorded for the same reason mechanically_verified
     // is: the difference travels to the reviewer instead of being lost.
     scope_enforced: scope.length > 0,
-    out_of_scope: []
+    out_of_scope: [],
+    // V3.2: the PROJECT's write scope (config/projects.json write_scope,
+    // passed by the executor), enforced in addition to — never instead of —
+    // whatever the task declared. Empty = the project declares none.
+    project_scope: Array.isArray(input.projectScope) ? input.projectScope.slice() : [],
+    out_of_project: []
   };
 
   // --- 1. the report's own shape and admissions -----------------------------
@@ -253,6 +258,13 @@ function validateWork(input) {
     evidence.out_of_scope = touched.filter(function (f) { return !withinScope(f, scope); });
     evidence.out_of_scope.forEach(function (f) {
       rejections.push('scope: ' + f + ' was changed but is not inside the declared scope (' + scope.join(', ') + ')');
+    });
+  }
+
+  if (evidence.project_scope.length) {
+    evidence.out_of_project = touched.filter(function (f) { return !withinScope(f, evidence.project_scope); });
+    evidence.out_of_project.forEach(function (f) {
+      rejections.push('project: ' + f + ' was changed but this project may only write under ' + evidence.project_scope.join(', '));
     });
   }
 

@@ -788,6 +788,22 @@ function notify(event, stage, detail) {
 
 // --- Execution ------------------------------------------------------------------
 
+function projectWriteScope(project) {
+  var cfg = PROJECTS[project] || {};
+  if (!Array.isArray(cfg.write_scope) || !cfg.write_scope.length) return null;
+  var clean = cfg.write_scope.filter(function (x) {
+    return typeof x === 'string' && x && !/^\//.test(x) && x.split('/').indexOf('..') === -1;
+  }).map(function (x) { return x.replace(/\/+$/, ''); });
+  return clean.length ? clean : null;
+}
+function withProjectScope(task) {
+  var scope = projectWriteScope(task && task.project);
+  var copy = Object.assign({}, task);
+  delete copy.project_write_scope;   // only config decides it
+  if (scope) copy.project_write_scope = scope;
+  return copy;
+}
+
 function tailOf(text, n) {
   if (typeof text !== 'string') return '';
   return text.length > n ? text.slice(-n) : text;
@@ -867,7 +883,12 @@ function runTaskCore(taskId, opts) {
   var prompt = buildPrompt(task, status, resumeNote);
   state.writeText(taskId, 'prompt.md', prompt);
 
-  return provider.run(task, prompt, sessionId, mode, {}, function onSpawn(childPid) {
+  // V3.2 PROJECT ISOLATION. A project may declare `write_scope` in
+  // config/projects.json; the provider receives it as project_write_scope,
+  // derived HERE from config at launch — never read from task.json, so
+  // nothing a task file or an Issue carries can widen it. A project without
+  // one behaves exactly as before.
+  return provider.run(withProjectScope(task), prompt, sessionId, mode, {}, function onSpawn(childPid) {
     var st = state.readStatus(taskId);
     st.pid = childPid;
     state.writeJSON(taskId, 'status.json', st);
@@ -1841,6 +1862,8 @@ module.exports = {
   writeCheckpoint: writeCheckpoint,
   recordProviderEvents: recordProviderEvents,
   recordAgentOutcome: recordAgentOutcome,
+  projectWriteScope: projectWriteScope,
+  withProjectScope: withProjectScope,
   preflightBlocker: preflightBlocker,
   verifyGit: verifyGit,
   deliverValidatedWork: deliverValidatedWork,
