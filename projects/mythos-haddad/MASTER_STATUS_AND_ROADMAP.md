@@ -4,7 +4,10 @@
 >
 > Read this file first before working on Mythos Haddad.
 >
-> **Current main:** `d79de7f57ffb30c0d084beaa4f271a36d9be5d59`
+> **Current main:** `34798aba0b9768e9a77822084e2c21eef79fe2e1` (2026-09-24)
+>
+> **V2 is COMPLETE (all six phases merged 2026-09-23). V3.1 is IN PROGRESS — read
+> [docs/V3_1.md](docs/V3_1.md) for the definition, the capability map and the completion checklist.**
 >
 > **Core rule:** SEARCH → REUSE → ADAPT → CONNECT → BUILD LAST.
 
@@ -305,6 +308,26 @@ Future: multiple local/API/specialist models.
 Minimize Claude token usage while selecting the right capability for each stage.
 
 ---
+
+# 6b. V3.1 — ONE COHERENT ECOSYSTEM (2026-09-24 →)
+
+V2 delivered the Haddad AI team, delegation, resource awareness, the console and unattended
+operation. **V3.1 is not a new platform:** it connects what exists into one operated system.
+Definition, audit and checklist: [docs/V3_1.md](docs/V3_1.md).
+
+| V3.1 element | Where | State 2026-09-24 |
+|---|---|---|
+| FABLE 5.1 as Director | the Claude session + GitHub + `docs/AI_HANDOVER.md` + 17 federated MCP tools | defined and exercised |
+| Qwen as default executor | `haddad-agent`, allow-list `['haddad-agent']`, capability routing | live (Issues #426, #427) |
+| Sonnet escalation (standard tier) | `HADDAD_AGENT_DIAGNOSER`, last repair round | live since V1 |
+| Opus escalation (deep tier) | `HADDAD_AGENT_DIAGNOSER_DEEP`; tier from `lib/model-policy.js` signals; one deep round | implemented + tested; owner enables the env line |
+| Qwen structured output | `response_format: json_schema` on one constrained report turn; parser/validator unchanged | implemented + tested; verified on the live runtime |
+| OTHKM as the single memory | canonical VPS store; ecosystem seed `seeds/mythos-ecosystem-2026-09-24.json` | seed written + tested; VPS ingest is an owner step |
+| projects understood + related | `projects/meta/portfolio-registry.json` — 36 tracks with dependencies and reusable components | done |
+| change recording | GitHub, handover, events.log, telemetry, seeds — nothing new | reused |
+
+Jev, Browser Use, delegate-skills, Kimi, Herdr, a second local model and CUDA remain outside
+V3.1: not needed, or incompatible with the nouveau/NVK hardware.
 
 # 7. V2 ROADMAP
 
@@ -904,4 +927,4 @@ Then, when implementation details are needed, read:
 
 This document is the **high-level navigation and architecture source**, while STATUS and implementation docs remain the detailed operational sources.
 
-Last consolidated: 2026-09-22. Live Console PR #390 and production verification incorporated.
+Last consolidated: 2026-09-24. V3.1 section added (docs/V3_1.md); 2026-09-22 consolidation retained below it.

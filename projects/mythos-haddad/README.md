@@ -1,5 +1,8 @@
 # Mythos Haddad — on-premises AI server
 
+> **V3.1 (2026-09-24 →): ecosystem integration — definition, capability map and completion checklist in [docs/V3_1.md](docs/V3_1.md). Navigation: [MASTER_STATUS_AND_ROADMAP.md](MASTER_STATUS_AND_ROADMAP.md).**
+
+
 > **Master entry point:** [MASTER_STATUS_AND_ROADMAP.md](MASTER_STATUS_AND_ROADMAP.md) — current status, architecture, V1/V2 roadmap, Jev design, model pools, priorities and deferred items. **Read this first when starting work.**
 
 Mythos Haddad is the on-premises AI server of the Mythos ecosystem: a single Ubuntu machine with a GPU,

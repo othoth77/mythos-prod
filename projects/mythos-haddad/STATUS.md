@@ -1,5 +1,7 @@
 # Mythos Haddad — status
 
+**V3.1 (ecosystem integration): IN PROGRESS since 2026-09-24 — definition, capability map and checklist in [docs/V3_1.md](docs/V3_1.md). V2.1–V2.6: COMPLETE, merged 2026-09-23.**
+
 **V0: COMPLETE — verified 2026-09-21 (issue #328). Delivered: PR #330 merged into `main` as `670b4268`; issues #328 and #329 closed.**
 
 **HAD-2 (first local AI runtime, V1): COMPLETE — verified 2026-09-21.** llama.cpp on the Vulkan backend,

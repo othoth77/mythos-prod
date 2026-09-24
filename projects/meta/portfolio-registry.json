@@ -226,7 +226,8 @@
       "current_stage": null,
       "next_stage": null,
       "repository_paths": [
-        "projects/infrastructure/cloudflare/domain-inventory.json"
+        "projects/infrastructure/cloudflare/domain-inventory.json",
+        "projects/ssangyong-autos/"
       ],
       "domain_pack": null,
       "dependencies": [],
@@ -417,6 +418,360 @@
       "shared_platform_capabilities": [],
       "notes": "Explicitly deferred in docs/MYTHOS_DOMAIN_PACKS.md: 'only if legally appropriate in a future stage; not defined here'.",
       "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "mythos-ai-executor",
+      "name": "Mythos AI Executor + GitHub Bridge",
+      "category": "PLATFORM_CORE",
+      "strategic_parent": null,
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "ACTIVE",
+      "current_stage": "V2 (Haddad AI team, delegation, resource, unattended) merged 2026-09-23; MYTHOS_CORE_ENABLED stays false by ratified decision",
+      "next_stage": "V3.1 — ecosystem integration (projects/mythos-haddad/docs/V3_1.md)",
+      "repository_paths": [
+        "projects/mythos-ai-executor/",
+        "projects/mythos-ai-executor/bridge/",
+        "docs/MODEL_ROUTING_ARCHITECTURE.md"
+      ],
+      "domain_pack": null,
+      "dependencies": [
+        "oth-knowledge",
+        "mythos-orchestrator"
+      ],
+      "shared_platform_capabilities": [
+        "executor daemon + task store (executor.js, lib/state.js): fencing, retries, crash recovery, delivery",
+        "GitHub bridge: Issue → task → validation → report (bridge/github-bridge.js, bridge/review-gate.js)",
+        "agent registry + capability router + fail-closed allow-list floor (core/agent-registry.js, core/provider-router.js, bridge/provider-selection.js)",
+        "Claude model policy — explicit wins, scored haiku/sonnet/opus, fable never auto (lib/model-policy.js)",
+        "mechanical validation, reviewer-is-not-author, bounded repair (core/validation.js, lib/work-validation.js)",
+        "resource guard + GPU slot lease (lib/resource-guard.js, lib/gpu-slots.js)",
+        "deny-only unattended policy (core/unattended.js)",
+        "skills + trust ledger (lib/skills.js, config/skill-trust.json)",
+        "free-LLM pool + OpenAI-compatible provider (free-llm/, providers/openai-compat.js)",
+        "OTHKM read boundary, fail-closed (lib/knowledge.js, config/knowledge.json)"
+      ],
+      "notes": "Runs on the VPS (claude-code executor) and on Haddad (haddad-agent executor, isolated MYTHOS_EXECUTOR_HOME). Uses oth-knowledge through lib/knowledge.js and mythos-orchestrator/lib/redact. The Haddad instance is the same code, separated by environment, never a second executor.",
+      "last_verified_at": "2026-09-24T00:00:00Z"
+    },
+    {
+      "id": "mythos-haddad",
+      "name": "Mythos Haddad — on-prem AI execution node",
+      "category": "PLATFORM_CORE",
+      "strategic_parent": null,
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "ACTIVE",
+      "current_stage": "V0, V1 (HAD-2/2b/3/4), V2.1–V2.6 merged 2026-09-23; HAD-3b MCP federation (17 tools) verified 2026-09-24",
+      "next_stage": "V3.1 — FABLE director, Qwen default executor, Sonnet/Opus escalation, OTHKM as central memory (projects/mythos-haddad/docs/V3_1.md)",
+      "repository_paths": [
+        "projects/mythos-haddad/",
+        "projects/mythos-haddad/docs/",
+        "projects/mythos-haddad/MASTER_STATUS_AND_ROADMAP.md"
+      ],
+      "domain_pack": null,
+      "dependencies": [
+        "mythos-ai-executor",
+        "oth-mcp",
+        "mythos-gateway",
+        "status-center"
+      ],
+      "shared_platform_capabilities": [
+        "local runtime: llama.cpp on Vulkan/NVK, Qwen2.5-7B-Instruct-Q4_K_M, 127.0.0.1:8600, ctx 8192 (GTX 1660 SUPER 6 GB, no CUDA)",
+        "haddad-agent provider: sandboxed (bwrap) tool runner with mechanical validation and bounded repair",
+        "haddad-health.js 17-check report + telemetry agent → Status Center /haddad/",
+        "Haddad MCP = oth-mcp server.js unchanged, over stdio, loopback HTTP and Tailscale HTTPS; federated as haddad-* through mythos-gateway"
+      ],
+      "notes": "Executes GitHub Issues labelled mythos:haddad for project mythos-haddad (config/projects.json); other projects need an entry there before Haddad can execute them. Claude is never the executor on this node (bridge allow-list = haddad-agent); Sonnet is diagnosis-only escalation. OTHKM store deliberately absent here (decision (a), 2026-09-23).",
+      "last_verified_at": "2026-09-24T00:00:00Z"
+    },
+    {
+      "id": "oth-knowledge",
+      "name": "OTH Knowledge (OTHKM) — canonical MYTHOS memory",
+      "category": "PLATFORM_CORE",
+      "strategic_parent": null,
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "ACTIVE",
+      "current_stage": "OTH-K2/K3 canonical; Phase 16 propose → promotion gate; canonical store /home/deploy/othk-store on the VPS (activated 2026-08-20)",
+      "next_stage": "V3.1 — ecosystem/project knowledge seeded (projects/oth-knowledge/seeds/)",
+      "repository_paths": [
+        "projects/oth-knowledge/",
+        "oth-knowledge/README.md",
+        "docs/OTH_KNOWLEDGE_ARCHITECTURE.md",
+        "docs/OTH_KNOWLEDGE_INTEGRATION.md",
+        "docs/PRIVATE_STORE_ARCHITECTURE.md"
+      ],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [
+        "read-only knowledge-service boundary (lib/knowledge-service.js)",
+        "append-only JSONL store with provenance, conflicts, bitemporal history",
+        "seed loader for reviewed structured knowledge (lib/seed.js, seeds/*.json)",
+        "propose → promotion gate → operator promote (lib/propose.js, lib/promotion-gate.js)",
+        "HTTP read facade (service/othk-http.js, :8150) consumed by oth-mcp"
+      ],
+      "notes": "The single memory layer of the ecosystem; no second memory system exists by rule. AI layers only READ (executor lib/knowledge.js, oth-mcp knowledge_* tools) or PROPOSE; ingestion/curation stay on the operator CLI.",
+      "last_verified_at": "2026-09-24T00:00:00Z"
+    },
+    {
+      "id": "oth-mcp",
+      "name": "OTH MCP — controlled read interface",
+      "category": "PLATFORM_CORE",
+      "strategic_parent": null,
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "ACTIVE",
+      "current_stage": "8 read-only tools on the VPS + haddad_health on Haddad; federated 17 tools via mythos-gateway (2026-09-24)",
+      "next_stage": null,
+      "repository_paths": [
+        "projects/oth-mcp/"
+      ],
+      "domain_pack": null,
+      "dependencies": [
+        "oth-knowledge",
+        "othmode",
+        "mythos-ai-executor",
+        "status-center"
+      ],
+      "shared_platform_capabilities": [
+        "knowledge_search/get, project_context, capability_registry, execution_status/report, budget_status, system_health, haddad_health"
+      ],
+      "notes": "Holds no data; every tool resolves to a system that already owns it. The same server.js runs on the VPS and on Haddad (HAD-3).",
+      "last_verified_at": "2026-09-24T00:00:00Z"
+    },
+    {
+      "id": "mythos-gateway",
+      "name": "MYTHOS Gateway (ContextForge MCP federation)",
+      "category": "PLATFORM_CORE",
+      "strategic_parent": null,
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "ACTIVE",
+      "current_stage": "one public /mcp behind nginx + mcp-auth-proxy + ContextForge; mythos-mcp (8) + haddad (9) gateways registered",
+      "next_stage": null,
+      "repository_paths": [
+        "projects/mythos-gateway/"
+      ],
+      "domain_pack": null,
+      "dependencies": [
+        "oth-mcp"
+      ],
+      "shared_platform_capabilities": [
+        "Streamable-HTTP bridge for stdio MCP servers (mcp-http-bridge.js) — reused byte-identical on Haddad",
+        "MCP permission matrix + registry check (registry/mcp-permissions.json, lib/mcp-policy.js)"
+      ],
+      "notes": "Federates; does not reimplement. Registration of Haddad is scripted in projects/mythos-haddad/bin/haddad-cf-register.sh (PR #425).",
+      "last_verified_at": "2026-09-24T00:00:00Z"
+    },
+    {
+      "id": "status-center",
+      "name": "Mythos Status Center (observability)",
+      "category": "PLATFORM_CORE",
+      "strategic_parent": null,
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "ACTIVE",
+      "current_stage": "STC-1 review engine, STC-2 live monitor, Haddad telemetry ingest + console (2026-09-22)",
+      "next_stage": null,
+      "repository_paths": [
+        "projects/status-center/",
+        "sites/status.mythosprod.xyz/"
+      ],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [
+        "estate monitor (27 checks) → /api/status.json",
+        "signed node telemetry receiver + /haddad/ console"
+      ],
+      "notes": "Read-only observability, never a control surface. Haddad pushes signed telemetry every 10 s; nothing on the VPS polls Haddad.",
+      "last_verified_at": "2026-09-24T00:00:00Z"
+    },
+    {
+      "id": "othmode",
+      "name": "OTHMODE — Mythos control platform (command center)",
+      "category": "PLATFORM_CORE",
+      "strategic_parent": null,
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "ACTIVE",
+      "current_stage": "OTHMODE V2 merged and production-verified 2026-09-17 (main@4c2f7d7a)",
+      "next_stage": null,
+      "repository_paths": [
+        "projects/command-center/",
+        "projects/othmode/"
+      ],
+      "domain_pack": null,
+      "dependencies": [
+        "oth-knowledge",
+        "mythos-ai-executor"
+      ],
+      "shared_platform_capabilities": [
+        "unified read models: project-context, capability-registry, mcp view (reference/othmode/registries.js) — served through oth-mcp",
+        "OTHMODE tasks, memory and evolution records"
+      ],
+      "notes": "Served at othmode.mythosprod.xyz. mythos-control-center (CONCEPT) is the product spec; OTHMODE is the implemented control platform. Reads projects/meta/*.json for the portfolio view.",
+      "last_verified_at": "2026-09-24T00:00:00Z"
+    },
+    {
+      "id": "mythos-orchestrator",
+      "name": "Mythos Orchestrator (provider-neutral delegation runtime)",
+      "category": "PLATFORM_CORE",
+      "strategic_parent": null,
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "ACTIVE",
+      "current_stage": "MYTHOS-MULTI-AGENT-ORCHESTRATOR-0 done 2026-08-12 (ledger track mythos-devx)",
+      "next_stage": null,
+      "repository_paths": [
+        "projects/mythos-orchestrator/"
+      ],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [
+        "delegate/status/inspect/cancelSafe/doctor API, deterministic work-class router",
+        "shared redaction (lib/redact.js) reused by the executor's reporting"
+      ],
+      "notes": "Claude orchestrates, a worker provider implements, Git is the truth. Predates the executor's own provider system; its redact library is the shared piece the executor depends on.",
+      "last_verified_at": "2026-09-24T00:00:00Z"
+    },
+    {
+      "id": "mythos-delegate",
+      "name": "MYTHOS Delegate (V1 delegation boundary)",
+      "category": "PLATFORM_CORE",
+      "strategic_parent": null,
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "FOUNDATION",
+      "current_stage": "MYTHOS-V1-DELEGATE 2026-09-06",
+      "next_stage": null,
+      "repository_paths": [
+        "projects/mythos-delegate/"
+      ],
+      "domain_pack": null,
+      "dependencies": [
+        "mythos-ai-executor"
+      ],
+      "shared_platform_capabilities": [
+        "lane resolution and relay through the vendor delegate-skills (config-declared, fail-closed)"
+      ],
+      "notes": "The vendor (amElnagdy/delegate-skills) is not installed on Haddad and is not needed for V3.1; the executor's `delegate` provider stays unavailable there.",
+      "last_verified_at": "2026-09-24T00:00:00Z"
+    },
+    {
+      "id": "mythos-vault",
+      "name": "MYTHOS Vault (credential inventory)",
+      "category": "PLATFORM_CORE",
+      "strategic_parent": null,
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "FOUNDATION",
+      "current_stage": "credential inventory + registry checks",
+      "next_stage": null,
+      "repository_paths": [
+        "projects/mythos-vault/",
+        "docs/MYTHOS_VAULT_ARCHITECTURE.md"
+      ],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [
+        "credential-inventory.json consumed by the MCP registry check"
+      ],
+      "notes": "Inventory of where credentials live and their expected mode/owner; returns no values.",
+      "last_verified_at": "2026-09-24T00:00:00Z"
+    },
+    {
+      "id": "mythos-wp",
+      "name": "MYTHOS WP (WhatsApp control-center bridge and notifications)",
+      "category": "PLATFORM_CORE",
+      "strategic_parent": null,
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "ACTIVE",
+      "current_stage": "production; PR #326 (inbound holding inbox) open",
+      "next_stage": null,
+      "repository_paths": [
+        "projects/mythos-wp/"
+      ],
+      "domain_pack": null,
+      "dependencies": [
+        "mythos-ai-executor"
+      ],
+      "shared_platform_capabilities": [
+        "bridge notifications (bridge/notify, WhatsApp active, Telegram off)"
+      ],
+      "notes": "Notification policy recorded in docs/AI_HANDOVER.md (2026-09-05).",
+      "last_verified_at": "2026-09-24T00:00:00Z"
+    },
+    {
+      "id": "meta-ads-monitor",
+      "name": "Facebook Ads Monitor (read-only)",
+      "category": "BUSINESS_ADMIN",
+      "strategic_parent": null,
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "FOUNDATION",
+      "current_stage": "META-ADS-MONITOR-0",
+      "next_stage": null,
+      "repository_paths": [
+        "projects/meta-ads-monitor/"
+      ],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [],
+      "notes": "READ-ONLY by design: GET-only Graph client, no write path, no ads_management token (CLAUDE.md).",
+      "last_verified_at": "2026-09-24T00:00:00Z"
+    },
+    {
+      "id": "mythos-research-intelligence",
+      "name": "Mythos Research Intelligence",
+      "category": "PLATFORM_CORE",
+      "strategic_parent": null,
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "FOUNDATION",
+      "current_stage": "RES-0 free-first foundation (PR #5)",
+      "next_stage": null,
+      "repository_paths": [
+        "projects/research-intelligence/",
+        "docs/RESEARCH_ROADMAP.md"
+      ],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [],
+      "notes": "Registry id matches the ledger track so its stages join in project-context.",
+      "last_verified_at": "2026-09-24T00:00:00Z"
+    },
+    {
+      "id": "mythos-devx",
+      "name": "Mythos Development Acceleration (DevX)",
+      "category": "PLATFORM_CORE",
+      "strategic_parent": null,
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "FOUNDATION",
+      "current_stage": "DEVX-0 MVP (PR #6); stage runner + test intelligence",
+      "next_stage": null,
+      "repository_paths": [
+        "projects/devx/",
+        "docs/DEVELOPMENT_ACCELERATION_ARCHITECTURE.md",
+        "scripts/mythos-stage.js"
+      ],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [
+        "stage templates + test-impact selection (scripts/mythos-stage.js)"
+      ],
+      "notes": "Registry id matches the ledger track so its stages join in project-context.",
+      "last_verified_at": "2026-09-24T00:00:00Z"
+    },
+    {
+      "id": "mythos-os-console",
+      "name": "MYTHOS OS Command Center (console)",
+      "category": "PLATFORM_CORE",
+      "strategic_parent": "mythos-os",
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "FOUNDATION",
+      "current_stage": null,
+      "next_stage": null,
+      "repository_paths": [
+        "projects/mythos-os-console/"
+      ],
+      "domain_pack": null,
+      "dependencies": [
+        "mythos-os"
+      ],
+      "shared_platform_capabilities": [],
+      "notes": "Console deployment/reference for Mythos OS; sign-in secret from a 0600 file, never from the repo.",
+      "last_verified_at": "2026-09-24T00:00:00Z"
     }
-  ]
+  ],
+  "amended_at": "2026-09-24T00:00:00Z",
+  "amendment_note": "2026-09-24 (MYTHOS V3.1 phase 4): 15 AI-operating-layer and platform tracks added from repository evidence (projects/*/README.md, docs, tests), each with dependencies and reusable capabilities, so the portfolio describes the ecosystem rather than isolated repositories. The 21 original tracks are unchanged."
 }

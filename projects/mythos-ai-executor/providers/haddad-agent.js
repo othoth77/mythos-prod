@@ -57,6 +57,7 @@ var roles = require('../lib/roles');
 var gpuSlots = require('../lib/gpu-slots');
 var adapter = require('../free-llm/adapter');
 var work = require('../lib/work-validation');
+var modelPolicy = require('../lib/model-policy');
 
 var PROVIDER_ID = 'haddad-agent';
 
@@ -85,6 +86,43 @@ var DEFAULT_TASK_TIMEOUT_S = 900;
 // executions total — the first plus two repairs — then the task stops for a
 // person. A loop whose bound an instruction could raise is not a bound.
 var MAX_REPAIR_ROUNDS = 2;
+// V3.1 ESCALATION, second tier. When the last standard repair round carried
+// a STANDARD-tier diagnosis (Sonnet) and validation still failed, ONE more
+// round may run with the DEEP-tier diagnoser (Opus) — the owner's chain
+// Qwen → Sonnet → Opus → Qwen executes. It exists only when the host names
+// a deep diagnoser (HADDAD_AGENT_DIAGNOSER_DEEP); otherwise the loop is the
+// three-execution loop it always was. A task whose signals already scored
+// `deep` (lib/model-policy.js) gets the deep diagnoser on the standard last
+// round and no extra round: Opus is asked at most once per task either way.
+var MAX_DEEP_ROUNDS = 1;
+// V3.1 STRUCTURED REPORT. When the model's final message carries no readable
+// report, one CONSTRAINED turn asks for the report as a JSON document whose
+// shape the runtime enforces (llama-server: response_format json_schema →
+// grammar at the sampler). The schema mirrors lib/report.js's contract; the
+// parser and the validator still decide, so this narrows what the model can
+// emit and vouches for nothing. At most one such turn per execution.
+var REPORT_RESPONSE_FORMAT = {
+  type: 'json_schema',
+  json_schema: {
+    name: 'mythos_report',
+    strict: true,
+    schema: {
+      type: 'object',
+      properties: {
+        mythos_report: { type: 'boolean', 'const': true },
+        status: { type: 'string', 'enum': ['completed', 'failed', 'blocked'] },
+        summary: { type: 'string' },
+        files_changed: { type: 'array', items: { type: 'string' } },
+        tests: { type: 'array', items: { type: 'string' } },
+        commit: { type: ['string', 'null'] },
+        residual_risks: { type: 'array', items: { type: 'string' } }
+      },
+      required: ['mythos_report', 'status', 'summary', 'files_changed', 'tests', 'commit', 'residual_risks'],
+      additionalProperties: false
+    }
+  }
+};
+var MAX_REPORT_TURNS_PER_EXECUTION = 1;
 // One model turn is a tool call or a short answer plus a report; a file of
 // the size the runner accepts plus a report fits comfortably. Measured live
 // (gh-issue-375): an unbounded turn ran to ~3,800 tokens and past the
@@ -628,6 +666,38 @@ function fail(code, message) {
 
 // run(task, prompt, sessionId, mode, opts) -> Promise<outcome>. Resolves a
 // failure rather than rejecting, exactly like every other provider.
+// V3.1: which diagnoser tier a task's escalation should reach first. No new
+// table: the decision is lib/model-policy.js's own — an explicit `Model:` on
+// the task wins (a task that names opus gets the deep tier), otherwise the
+// deterministic signal score that already decides haiku/sonnet/opus for the
+// VPS executor decides standard/deep here. `deep` means the task carries the
+// architecture/security/complexity signals the owner reserved Opus for.
+// Pure and exported: the tests drive it directly and the trace records it.
+function escalationTier(task) {
+  task = task || {};
+  var choice;
+  try {
+    choice = modelPolicy.selectModel({
+      requested: task.model || null,
+      execution_profile: task.execution_profile || null,
+      task_category: task.task_category || null,
+      priority: task.priority || 'normal',
+      instruction: task.instruction || '',
+      constraints: task.constraints || [],
+      required_tests: task.required_tests || []
+    });
+  } catch (e) {
+    return { tier: 'standard', reason: 'policy_error:' + String(e && e.message).slice(0, 80) };
+  }
+  if (!choice || !choice.ok) {
+    // A named model this host does not know is not a reason to escalate
+    // further: the standard tier, and the reason recorded.
+    return { tier: 'standard', reason: 'unresolved:' + String(choice && choice.error).slice(0, 80) };
+  }
+  var deep = choice.key === 'opus';
+  return { tier: deep ? 'deep' : 'standard', reason: choice.reason, key: choice.key, mode: choice.mode, score: choice.score };
+}
+
 function run(task, prompt, _sessionId, _mode, opts) {
   opts = opts || {};
   var started = Date.now();
@@ -789,8 +859,13 @@ function run(task, prompt, _sessionId, _mode, opts) {
   // second execution reached 6,400 of 8,192 tokens and the runtime dropped
   // the request. Bounded context per execution is what makes three
   // executions possible at all.
+  // V3.1 constrained report turn — per-execution state (see settle below).
+  var reportTurnsThisRound = 0;
+  var reportTurnPending = null;   // the final message text awaiting its report
   function compactForRepair(lastText, brief) {
     roundToolCalls = 0;
+    reportTurnsThisRound = 0;
+    reportTurnPending = null;
     messages = [messages[0], messages[1]];
     if (lastText && String(lastText).trim()) messages.push({ role: 'assistant', content: String(lastText).slice(0, 2000) });
     messages.push({ role: 'user', content: brief });
@@ -806,9 +881,30 @@ function run(task, prompt, _sessionId, _mode, opts) {
   // host names a diagnoser (HADDAD_AGENT_DIAGNOSER, a command line; or
   // opts.diagnose in tests). Bounded, and fail-open: no diagnosis means the
   // mechanical brief goes alone, exactly as before.
-  function diagnosisFor(verdict, brief) {
-    var diagnose = opts.diagnose || diagnoserFromEnv();
+  // Which tier this task's FIRST diagnosis goes to (V3.1). Decided once from
+  // the task's own signals, recorded in the trace with the reason, never
+  // raised by anything the model says.
+  var tierChoice = escalationTier(task);
+  var deepRoundsUsed = 0;
+  var lastDiagnosisTier = null;
+  function diagnoserFor(tier) {
+    if (tier === 'deep') return opts.diagnoseDeep || diagnoserFromEnv('HADDAD_AGENT_DIAGNOSER_DEEP');
+    return opts.diagnose || diagnoserFromEnv('HADDAD_AGENT_DIAGNOSER');
+  }
+  function diagnosisFor(verdict, brief, tier) {
+    var diagnose = diagnoserFor(tier);
+    var used = tier;
+    if (!diagnose && tier === 'deep') {
+      // No deep diagnoser on this host: the standard one, and the record
+      // says the deep tier was asked for and not available — fail-open
+      // toward the behaviour that existed before, never toward silence.
+      diagnose = diagnoserFor('standard');
+      used = 'standard';
+    }
     if (!diagnose) return null;
+    trace.push({ tool: 'escalation', refused: false, target: null,
+      detail: 'tier requested ' + tier + ', used ' + used + ' (' + String(tierChoice.reason || '').slice(0, 120) + ')' });
+    lastDiagnosisTier = used;
     var files = work.declaredScope(task.constraints || []).slice(0, 4).map(function (rel) {
       var content = '';
       try { content = fs.readFileSync(path.join(workspace, rel), 'utf8').slice(0, 8000); } catch (e) { content = '(unreadable)'; }
@@ -826,8 +922,8 @@ function run(task, prompt, _sessionId, _mode, opts) {
     if (!out || !String(out).trim()) return null;
     return String(out).slice(0, 6000);
   }
-  function diagnoserFromEnv() {
-    var cmdline = process.env.HADDAD_AGENT_DIAGNOSER;
+  function diagnoserFromEnv(varName) {
+    var cmdline = process.env[varName || 'HADDAD_AGENT_DIAGNOSER'];
     if (!cmdline) return null;
     var argv = cmdline.split(/\s+/).filter(Boolean);
     return function (ask) {
@@ -845,9 +941,19 @@ function run(task, prompt, _sessionId, _mode, opts) {
   }
   function withDiagnosis(verdict, brief) {
     if (repairRound < MAX_REPAIR_ROUNDS) return brief;   // not the last round: the local model gets another measured try first
-    var d = diagnosisFor(verdict, brief);
+    // The last standard round takes the task's own tier; a deep round (past
+    // MAX_REPAIR_ROUNDS) is, by construction, the deep tier.
+    var tier = repairRound > MAX_REPAIR_ROUNDS ? 'deep' : tierChoice.tier;
+    var d = diagnosisFor(verdict, brief, tier);
     if (!d) return brief;
-    return brief + '\n\n### Diagnosis (escalated — follow it exactly, as tool calls)\n' + d;
+    return brief + '\n\n### Diagnosis (escalated' + (tier === 'deep' ? ', deep tier' : '') + ' — follow it exactly, as tool calls)\n' + d;
+  }
+  // V3.1: may the loop take one more round with the DEEP diagnoser? Only
+  // when the round that just failed carried a STANDARD diagnosis, a deep
+  // diagnoser is actually configured, and none has been spent yet.
+  function deepRoundAvailable() {
+    return repairRound >= MAX_REPAIR_ROUNDS && deepRoundsUsed < MAX_DEEP_ROUNDS &&
+      lastDiagnosisTier === 'standard' && !!diagnoserFor('deep');
   }
   // Taken BEFORE the model is called even once, so "what changed" is
   // measured against the state the task actually started from.
@@ -1018,10 +1124,13 @@ function run(task, prompt, _sessionId, _mode, opts) {
 
     if (repairRound >= MAX_REPAIR_ROUNDS) {
       if (verifiedWithoutReport(verdict)) return finishVerified(text, verdict);
-      // The budget is spent. This is a stop for a person, not a crash and
-      // not another try.
-      return stopForHuman(text, verdict,
-        'validation still failing after ' + (repairRound + 1) + ' attempt(s); the repair budget is spent');
+      if (!deepRoundAvailable()) {
+        // The budget is spent. This is a stop for a person, not a crash and
+        // not another try.
+        return stopForHuman(text, verdict,
+          'validation still failing after ' + (repairRound + 1) + ' attempt(s); the repair budget is spent');
+      }
+      deepRoundsUsed++;
     }
 
     var callsThisRound = trace.length - traceMarkAtRoundStart;
@@ -1056,8 +1165,11 @@ function run(task, prompt, _sessionId, _mode, opts) {
       // person. Three executions in total either way.
       if (repairRound >= MAX_REPAIR_ROUNDS) {
         if (verifiedWithoutReport(capVerdict)) return Promise.resolve(finishVerified('', capVerdict));
-        return Promise.resolve(stopForHuman('', capVerdict,
-          'stopped after ' + MAX_ITERATIONS + ' model turns without a final answer; the repair budget is spent'));
+        if (!deepRoundAvailable()) {
+          return Promise.resolve(stopForHuman('', capVerdict,
+            'stopped after ' + MAX_ITERATIONS + ' model turns without a final answer; the repair budget is spent'));
+        }
+        deepRoundsUsed++;
       }
       var callsThisRound = trace.length - traceMarkAtRoundStart;
       repairRound++;
@@ -1123,12 +1235,32 @@ function run(task, prompt, _sessionId, _mode, opts) {
       });
 
     function turn() {
+    // A constrained REPORT turn offers no tool and pins the answer to the
+    // report schema; every other turn is exactly what it was.
+    var constrained = reportTurnPending !== null;
+    var turnOpts = { timeoutMs: Math.max(1000, Math.min(deadline - Date.now(), 300000)), transport: opts.transport, maxTokens: MAX_TOKENS_PER_TURN };
+    if (constrained) turnOpts.responseFormat = REPORT_RESPONSE_FORMAT;
+    else turnOpts.tools = schemas;
     return adapter.chatCompletion(
       { baseUrl: baseUrl, apiKey: apiKey, model: model, providerId: PROVIDER_ID },
       messages,
-      { timeoutMs: Math.max(1000, Math.min(deadline - Date.now(), 300000)), tools: schemas, transport: opts.transport, maxTokens: MAX_TOKENS_PER_TURN }
+      turnOpts
     ).then(function (res) {
       gpuSlots.release(leaseId);
+      if (constrained) {
+        // Whatever came back, the pending text is settled now: with the
+        // constrained answer appended as the fenced report when there is
+        // one, alone when the runtime gave nothing. The parser decides.
+        var pendingText = reportTurnPending;
+        reportTurnPending = null;
+        var reportText = res && res.message && typeof res.message.content === 'string' ? res.message.content.trim() : '';
+        trace.push({ tool: 'report_turn', refused: !reportText, target: null,
+          detail: reportText ? 'constrained json_schema report turn answered (' + reportText.length + ' chars)' : 'constrained report turn returned no content' });
+        // The two messages the report turn added are dropped again: a
+        // repair round compacts anyway, and a settled execution is over.
+        messages.splice(messages.length - 2, 2);
+        return settleOrRepair(reportText ? pendingText + '\n\n```json\n' + reportText + '\n```\n' : pendingText);
+      }
       if (res && res.usage && Number(res.usage.prompt_tokens) > 0) {
         anchor = { tokens: Number(res.usage.prompt_tokens), chars: conversationChars() };
       }
@@ -1149,6 +1281,20 @@ function run(task, prompt, _sessionId, _mode, opts) {
         // snapshot taken before the attempt started. If the evidence
         // disagrees with the claim, the claim loses.
         var text = String(msg.content || '');
+        // V3.1: a final message without a readable report costs ONE
+        // constrained turn before it costs a repair round. The model gets
+        // its own message back and is asked for the report only, with the
+        // runtime holding it to the schema. Bounded per execution; off when
+        // the caller says so (opts.structuredReport === false) or when the
+        // turn budget is already spent.
+        if (!reporting.extractReport(text).report && opts.structuredReport !== false &&
+            reportTurnsThisRound < MAX_REPORT_TURNS_PER_EXECUTION && iteration + 1 < MAX_ITERATIONS) {
+          reportTurnsThisRound++;
+          reportTurnPending = text;
+          messages.push({ role: 'assistant', content: text });
+          messages.push({ role: 'user', content: 'Your final message carried no structured report. Emit the report now as ONE JSON object and nothing else: {"mythos_report": true, "status": "completed"|"failed"|"blocked", "summary": "...", "files_changed": [...], "tests": [...], "commit": null, "residual_risks": [...]}. Describe only what you actually did.' });
+          return step(iteration + 1);
+        }
         return settleOrRepair(text);
       }
 
@@ -1243,6 +1389,10 @@ module.exports = {
   TOOL_IMPL: TOOL_IMPL,
   MAX_ITERATIONS: MAX_ITERATIONS,
   MAX_REPAIR_ROUNDS: MAX_REPAIR_ROUNDS,
+  MAX_DEEP_ROUNDS: MAX_DEEP_ROUNDS,
+  MAX_REPORT_TURNS_PER_EXECUTION: MAX_REPORT_TURNS_PER_EXECUTION,
+  REPORT_RESPONSE_FORMAT: REPORT_RESPONSE_FORMAT,
+  escalationTier: escalationTier,
   MAX_TOKENS_PER_TURN: MAX_TOKENS_PER_TURN,
   MAX_TOOL_CALLS: MAX_TOOL_CALLS,
   MAX_TOOL_OUTPUT_BYTES: MAX_TOOL_OUTPUT_BYTES,
