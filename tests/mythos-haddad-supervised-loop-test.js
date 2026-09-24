@@ -672,7 +672,7 @@ t('C6 an unreadable report is a rejection with a named reason', function () {
   var ws = newWorkspace('no-report');
   seedBrokenProject(ws);
   fs.writeFileSync(path.join(ws, 'add.js'), FIXED);
-  return runTask(ws, [say('I think I am finished but here is no structured block.')]).then(function (o) {
+  return runTask(ws, [say('I think I am finished but here is no structured block.')], {}, { structuredReport: false }).then(function (o) {
     assert.strictEqual(o.validation.passed, false, 'passing checks do not excuse an unreadable report');
     assert.ok(/report: no fenced/.test(rejections(o)), rejections(o));
   });
@@ -727,7 +727,7 @@ t('C7 a report survives a rejection that quotes a code fence', function () {
   var ws = newWorkspace('fence-in-rejection');
   seedBrokenProject(ws);
   fs.writeFileSync(path.join(ws, 'add.js'), FIXED);
-  return runTask(ws, [say('no structured block here.')]).then(function (o) {
+  return runTask(ws, [say('no structured block here.')], {}, { structuredReport: false }).then(function (o) {
     var r = blockedReport(o);
     assert.ok(/no fenced/.test(r.residual_risks.join(' ')), 'the diagnosis survived');
     assert.ok(!/```/.test(JSON.stringify(r)), 'with no fence left inside the report to break it');
@@ -1060,6 +1060,221 @@ t('R3 the ordinary path is untouched: measured files are still committed', funct
   assert.ok(r && r.commit, 'the measured file is committed: ' + JSON.stringify(r));
   var log = cp.execFileSync('git', ['-C', ws, 'log', '--oneline'], { encoding: 'utf8' }).trim().split('\n');
   assert.strictEqual(log.length, 2, 'exactly one delivery commit');
+});
+
+
+// ===========================================================================
+// S. V3.1 — the constrained report turn (structured output)
+// ===========================================================================
+// A final message without a readable report costs ONE constrained turn —
+// no tools, response_format pinned to the report schema — before it costs a
+// repair round. The parser and the validator are the same as before.
+
+function constrainedRequests(o) { return o._sent.filter(function (r) { return !!r.response_format; }); }
+function validReportJson(status, files) {
+  return JSON.stringify({ mythos_report: true, status: status || 'completed', summary: 'measured', files_changed: files || [], tests: ['node add.test.js'], commit: null, residual_risks: [] });
+}
+
+t('S1 a report-less final message gets one constrained turn; the constrained answer is parsed as the report and validated', function () {
+  var ws = newWorkspace('s1-report-turn');
+  seedBrokenProject(ws);
+  fs.writeFileSync(path.join(ws, 'add.js'), FIXED);
+  return runTask(ws, [say('I looked at add.js and it already returns a + b, so nothing to do.'), say(validReportJson('completed'))]).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, false, o.stderr);
+    assert.strictEqual(o.validation.passed, true, 'validated on the constrained report: ' + JSON.stringify(o.validations[0].rejections));
+    assert.strictEqual(o.validation.attempts, 1, 'no repair round was spent');
+    assert.strictEqual(o._sent.length, 2, 'exactly two requests: the answer and the report turn');
+    var first = o._sent[0], second = o._sent[1];
+    assert.ok(Array.isArray(first.tools) && first.tools.length && !first.response_format, 'the working turn offers tools and no constraint');
+    assert.ok(!second.tools && second.response_format, 'the report turn offers NO tool and carries the constraint');
+    assert.deepStrictEqual(second.response_format, agent.REPORT_RESPONSE_FORMAT, 'the constraint is the report schema');
+    assert.strictEqual(second.response_format.json_schema.strict, true);
+    assert.strictEqual(second.response_format.json_schema.schema.properties.mythos_report['const'], true, 'the schema pins mythos_report: true');
+    assert.strictEqual(second.messages.slice(-2)[0].content, 'I looked at add.js and it already returns a + b, so nothing to do.', 'the model is shown its own final message');
+    assert.ok(/no structured report/.test(second.messages.slice(-1)[0].content), 'and asked for the report only');
+    var rt = o.tool_trace.filter(function (e) { return e.tool === 'report_turn'; });
+    assert.strictEqual(rt.length, 1, 'the report turn is in the trace');
+    assert.strictEqual(rt[0].refused, false);
+  });
+});
+
+t('S2 the constraint narrows what the model can say and vouches for nothing: a constrained answer that is not a report is the same named rejection, once per execution', function () {
+  var ws = newWorkspace('s2-not-a-report');
+  seedBrokenProject(ws);
+  fs.writeFileSync(path.join(ws, 'add.js'), FIXED);
+  // Every reply is prose: the working turn AND the constrained turn, in every execution.
+  return runTask(ws, [say('finished, honestly.'), say('still prose, not a report')]).then(function (o) {
+    assert.ok(/none parsed as valid JSON|no fenced/.test(rejections(o)), 'the parser named the failure: ' + rejections(o));
+    var rt = o.tool_trace.filter(function (e) { return e.tool === 'report_turn'; });
+    assert.strictEqual(rt.length, agent.MAX_REPAIR_ROUNDS + 1, 'one report turn per execution, ' + rt.length);
+    assert.strictEqual(constrainedRequests(o).length, agent.MAX_REPAIR_ROUNDS + 1, 'one constrained request per execution');
+    assert.strictEqual(o.validation.attempts, agent.MAX_REPAIR_ROUNDS + 1, 'the repair budget is what it was');
+    assert.strictEqual(o.validation.passed, false);
+  });
+});
+
+t('S3 the constrained turn vouches for nothing: a well-formed report that claims a change the workspace does not show is still rejected', function () {
+  var ws = newWorkspace('s3-claim-loses');
+  seedBrokenProject(ws);
+  return runTask(ws, [say('I fixed add.js.'), say(validReportJson('completed', ['add.js']))]).then(function (o) {
+    assert.strictEqual(o.validation.passed, false, 'the check still fails, so the claim loses');
+    assert.ok(/add\(2,2\) returned 0|check|byte-identical|claims/.test(rejections(o)), rejections(o));
+  });
+});
+
+t('S4 tool turns never carry the constraint; the report turn follows the last tool turn; opting out sends no constrained request at all', function () {
+  var ws = newWorkspace('s4-tools-unconstrained');
+  seedBrokenProject(ws);
+  return runTask(ws, [
+    callTool('c1', 'write_file', { path: 'add.js', content: FIXED }),
+    say('written and done'),
+    say(validReportJson('completed', ['add.js']))
+  ]).then(function (o) {
+    assert.strictEqual(o.validation.passed, true, JSON.stringify(o.validations));
+    assert.strictEqual(o._sent.length, 3);
+    assert.ok(!o._sent[0].response_format && !o._sent[1].response_format, 'no constraint on the working turns');
+    assert.ok(o._sent[2].response_format && !o._sent[2].tools, 'the constraint only on the report turn');
+    var ws2 = newWorkspace('s4-opt-out'); seedBrokenProject(ws2);
+    fs.writeFileSync(path.join(ws2, 'add.js'), FIXED);
+    return runTask(ws2, [say('done, no report')], {}, { structuredReport: false });
+  }).then(function (o) {
+    assert.strictEqual(constrainedRequests(o).length, 0, 'opted out: no constrained request');
+    assert.ok(/no fenced/.test(rejections(o)), 'and the pre-V3.1 rejection is unchanged');
+  });
+});
+
+// ===========================================================================
+// E. V3.1 — escalation tiers: Qwen → Sonnet (standard) → Opus (deep) → Qwen
+// ===========================================================================
+// The tier is lib/model-policy.js's decision, not a table here. A deep-scored
+// task gets the deep diagnoser on its last standard round; a standard task
+// whose standard diagnosis still fails gets ONE extra deep round. Opus is
+// asked at most once per task; without a deep diagnoser nothing changes.
+
+var DEEP_INSTRUCTION = 'Refactor the architecture for security: a vulnerability in the encryption protocol, a race condition and a deadlock; migrate the schema.';
+function deepTask() { return { execution_profile: 'repo-write', task_category: 'implement', priority: 'high', instruction: DEEP_INSTRUCTION }; }
+function diag(asks) { return function (ask) { asks.push(ask); return 'Cause: add subtracts. Write add.js as:\n```javascript\n' + FIXED + '```'; }; }
+function diagFail(asks) { return function (ask) { asks.push(ask); return 'Cause: unknown. Try harder.'; }; }
+var FAIL_TWICE_THEN_FIX = [
+  say(report('completed', 'Done.')),                                   // attempt 1: nothing done
+  say(report('completed', 'Done again.')),                             // repair 1: nothing done
+  callTool('w', 'write_file', { path: 'add.js', content: FIXED }),     // after the diagnosis
+  say(report('completed', 'fixed as diagnosed', ['add.js']))
+];
+
+t('E1 escalationTier is the model policy\'s own decision: explicit wins, signals score, unknown stays standard', function () {
+  delete process.env.HADDAD_AGENT_DIAGNOSER; delete process.env.HADDAD_AGENT_DIAGNOSER_DEEP;
+  var plain = agent.escalationTier({ execution_profile: 'repo-write', task_category: 'implement', instruction: 'fix the typo in add.js' });
+  assert.strictEqual(plain.tier, 'standard', JSON.stringify(plain));
+  assert.ok(/^auto:/.test(plain.reason), 'scored: ' + plain.reason);
+  var deep = agent.escalationTier(deepTask());
+  assert.strictEqual(deep.tier, 'deep', JSON.stringify(deep));
+  assert.ok(/complexity_terms/.test(deep.reason), 'the deep tier names the signals that earned it: ' + deep.reason);
+  assert.strictEqual(agent.escalationTier({ model: 'opus', instruction: 'x' }).tier, 'deep', 'a task that names opus is deep');
+  assert.strictEqual(agent.escalationTier({ model: 'haiku', instruction: DEEP_INSTRUCTION }).tier, 'standard', 'an explicit model wins over the signals');
+  var unknown = agent.escalationTier({ model: 'gpt-9000', instruction: DEEP_INSTRUCTION });
+  assert.strictEqual(unknown.tier, 'standard', 'a model this host does not know is not a reason to escalate');
+  assert.ok(/^unresolved:/.test(unknown.reason), unknown.reason);
+  assert.strictEqual(agent.escalationTier(null).tier, 'standard');
+  assert.strictEqual(agent.MAX_DEEP_ROUNDS, 1, 'Opus is asked at most once per task');
+});
+
+t('E2 a deep-scored task gets the DEEP diagnoser on its last standard round, the standard one is never asked, and no extra round is spent', function () {
+  var ws = newWorkspace('e2-deep-by-signal');
+  seedBrokenProject(ws);
+  var std = [], deep = [];
+  return runTask(ws, FAIL_TWICE_THEN_FIX, deepTask(), { diagnose: diag(std), diagnoseDeep: diag(deep) }).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, false, o.stderr);
+    assert.strictEqual(o.validation.passed, true);
+    assert.strictEqual(deep.length, 1, 'the deep diagnoser was asked exactly once');
+    assert.strictEqual(std.length, 0, 'the standard diagnoser was not asked');
+    assert.strictEqual(o.validation.attempts, agent.MAX_REPAIR_ROUNDS + 1, 'three executions, as always');
+    var esc = o.tool_trace.filter(function (e) { return e.tool === 'escalation'; });
+    assert.strictEqual(esc.length, 1);
+    assert.ok(/tier requested deep, used deep/.test(esc[0].detail) && /complexity_terms/.test(esc[0].detail), 'the trace says why: ' + esc[0].detail);
+    var brief = o._sent[2].messages.slice(-1)[0].content;
+    assert.ok(/### Diagnosis \(escalated, deep tier — follow it exactly, as tool calls\)/.test(brief), 'the brief names the tier');
+    assert.strictEqual(fs.readFileSync(path.join(ws, 'add.js'), 'utf8'), FIXED, 'the LOCAL model still did the work');
+  });
+});
+
+t('E3 a standard task whose Sonnet-diagnosed round still fails gets ONE more round with the DEEP diagnoser, and Qwen executes it', function () {
+  var ws = newWorkspace('e3-deep-round');
+  seedBrokenProject(ws);
+  var std = [], deep = [];
+  return runTask(ws, [
+    say(report('completed', 'Done.')),          // attempt 1
+    say(report('completed', 'Done again.')),    // repair 1
+    say(report('completed', 'I followed it.')), // repair 2 (standard diagnosis) — still nothing done
+    callTool('w', 'write_file', { path: 'add.js', content: FIXED }),   // deep round
+    say(report('completed', 'fixed as diagnosed', ['add.js']))
+  ], {}, { diagnose: diagFail(std), diagnoseDeep: diag(deep) }).then(function (o) {
+    assert.strictEqual(o.parsed.is_error, false, o.stderr);
+    assert.strictEqual(o.validation.passed, true, JSON.stringify(o.validations.map(function (v) { return v.rejections; })));
+    assert.strictEqual(std.length, 1, 'Sonnet was asked once');
+    assert.strictEqual(deep.length, 1, 'then Opus once');
+    assert.strictEqual(o.validation.attempts, agent.MAX_REPAIR_ROUNDS + 2, 'four executions: three standard plus the deep round');
+    assert.strictEqual(o.repair_rounds, agent.MAX_REPAIR_ROUNDS + 1);
+    var esc = o.tool_trace.filter(function (e) { return e.tool === 'escalation'; }).map(function (e) { return e.detail; });
+    assert.ok(/requested standard, used standard/.test(esc[0]) && /requested deep, used deep/.test(esc[1]), esc.join(' || '));
+    var deepBrief = o._sent[3].messages.slice(-1)[0].content;
+    assert.ok(/REPAIR REQUIRED \(attempt 3\)/.test(deepBrief) && /deep tier/.test(deepBrief), 'the deep round carries its own brief and diagnosis');
+    assert.ok(/## Measured failures/.test(deep[0]), 'Opus was given the measured evidence, not the story');
+  });
+});
+
+t('E4 without a deep diagnoser the loop is exactly what it was: three executions, one Sonnet ask, then a stop for a person', function () {
+  var ws = newWorkspace('e4-no-deep');
+  seedBrokenProject(ws);
+  delete process.env.HADDAD_AGENT_DIAGNOSER_DEEP;
+  var std = [];
+  return runTask(ws, [say(report('completed', 'x')), say(report('completed', 'y')), say(report('completed', 'z'))], {}, { diagnose: diagFail(std) }).then(function (o) {
+    assert.strictEqual(std.length, 1);
+    assert.strictEqual(o.validation.attempts, agent.MAX_REPAIR_ROUNDS + 1, 'no fourth execution');
+    var r = blockedReport(o);
+    assert.ok(/repair budget is spent/.test(r.summary), r.summary);
+    assert.strictEqual(o.tool_trace.filter(function (e) { return e.tool === 'escalation'; }).length, 1);
+  });
+});
+
+t('E5 the deep round is spent at most once: when Opus\'s diagnosis also fails, the task stops for a person after four executions', function () {
+  var ws = newWorkspace('e5-deep-once');
+  seedBrokenProject(ws);
+  var std = [], deep = [];
+  return runTask(ws, [say(report('completed', 'x'))], {}, { diagnose: diagFail(std), diagnoseDeep: diagFail(deep) }).then(function (o) {
+    assert.strictEqual(std.length, 1); assert.strictEqual(deep.length, 1, 'Opus asked once, never twice');
+    assert.strictEqual(o.validation.attempts, agent.MAX_REPAIR_ROUNDS + 2);
+    var r = blockedReport(o);
+    assert.ok(/after 4 attempt/.test(r.summary), r.summary);
+  });
+});
+
+t('E6 a deep-scored task on a host with no deep diagnoser falls back to the standard one and SAYS so in the trace', function () {
+  var ws = newWorkspace('e6-deep-unavailable');
+  seedBrokenProject(ws);
+  delete process.env.HADDAD_AGENT_DIAGNOSER_DEEP;
+  var std = [];
+  return runTask(ws, FAIL_TWICE_THEN_FIX, deepTask(), { diagnose: diag(std) }).then(function (o) {
+    assert.strictEqual(o.validation.passed, true);
+    assert.strictEqual(std.length, 1, 'the standard diagnoser stood in');
+    var esc = o.tool_trace.filter(function (e) { return e.tool === 'escalation'; });
+    assert.ok(/tier requested deep, used standard/.test(esc[0].detail), esc[0].detail);
+    assert.strictEqual(o.validation.attempts, agent.MAX_REPAIR_ROUNDS + 1, 'and no deep round is taken with a stand-in');
+  });
+});
+
+t('E7 the deep diagnoser is read from HADDAD_AGENT_DIAGNOSER_DEEP as a command line, fail-open like the standard one', function () {
+  var ws = newWorkspace('e7-deep-env');
+  seedBrokenProject(ws);
+  process.env.HADDAD_AGENT_DIAGNOSER = '/bin/false';
+  process.env.HADDAD_AGENT_DIAGNOSER_DEEP = '/bin/false';
+  return runTask(ws, [say(report('completed', 'x'))]).then(function (o) {
+    delete process.env.HADDAD_AGENT_DIAGNOSER; delete process.env.HADDAD_AGENT_DIAGNOSER_DEEP;
+    var d = o.tool_trace.filter(function (e) { return e.tool === 'diagnose'; });
+    assert.strictEqual(d.length, 2, 'standard then deep, both attempted from the environment: ' + JSON.stringify(d));
+    assert.ok(d.every(function (e) { return e.refused && /diagnoser exit 1/.test(e.detail); }), 'both failures are in the trace');
+    assert.strictEqual(o.validation.attempts, agent.MAX_REPAIR_ROUNDS + 2, 'a configured deep diagnoser buys the round even when it answers nothing');
+  });
 });
 
 // ===========================================================================
