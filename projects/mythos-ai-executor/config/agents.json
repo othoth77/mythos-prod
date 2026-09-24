@@ -9,6 +9,7 @@
     "risk_level": "high",
     "cost": { "tier": "subscription" },
     "latency": { "class": "slow" },
+    "locality": "api",
     "enabled": true
   },
   "omniroute-advisory": {
@@ -21,6 +22,7 @@
     "risk_level": "low",
     "cost": { "tier": "metered" },
     "latency": { "class": "fast" },
+    "locality": "api",
     "enabled": true
   },
   "gemini-advisor": {
@@ -33,6 +35,7 @@
     "risk_level": "low",
     "cost": { "tier": "unknown" },
     "latency": { "class": "fast" },
+    "locality": "api",
     "enabled": true,
     "note": "Registered architecturally. Reports unavailable until ~/.config/mythos-ai-executor/gemini.env provides MYTHOS_GEMINI_API_KEY — a Gemini Plus subscription is NOT an API credential and none is invented."
   },
@@ -46,6 +49,7 @@
     "risk_level": "low",
     "cost": { "tier": "free" },
     "latency": { "class": "unknown" },
+    "locality": "api",
     "enabled": true,
     "note": "Meta-agent over free-llm/catalog.json — selects and auto-falls-back across free-tier LLM services discovered from raullenchai/free-llm-api-resources. Reports unavailable until an operator creates a credential file under ~/.config/mythos-ai-executor/free-llm/<provider>.env for at least one wired provider (see free-llm/README.md) — none is invented, and no key from the upstream list is ever used."
   },
@@ -59,6 +63,10 @@
     "risk_level": "medium",
     "cost": { "tier": "local" },
     "latency": { "class": "slow" },
+    "locality": "local",
+    "limits": { "context_window_tokens": 8192, "max_output_tokens_per_turn": 1536, "prompt_budget_tokens": 6272, "max_repair_rounds": 2, "max_deep_rounds": 1 },
+    "hardware": "GTX 1660 SUPER 6 GB, nouveau/NVK Vulkan, llama.cpp; 27/29 layers offloaded at ctx 8192; ~17-33 tok/s",
+    "unit_of_work": "measured 2026-09-24: a new file under ~3 KB, or one read + one write with a quiet file-based acceptance; exact rewrites of ~3 KB files with chatty acceptance exhaust the window (gh-issue-432 r1/r2), the same edit with a one-line acceptance completes (r3)",
     "enabled": true,
     "note": "MYTHOS HADDAD V2.1: the local Qwen worker (providers/haddad-agent.js \u2014 tools in a per-command bwrap sandbox, mechanical validation, bounded repair). Availability is PROBED: the provider's enable marker + runtime key must exist AND the local llama-server must answer /health, so on the VPS \u2014 no marker, no runtime \u2014 it is unavailable and can never be selected. review_scope is deliberately [\"standard\"] only: core/validation.js refuses it as the reviewer of any sensitive (commit-producing) change. cost tier \"local\" ranks with \"free\" in the registry's ordering."
   }

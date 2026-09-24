@@ -591,7 +591,9 @@ var SEVERITY_BY_EVENT = {
   dispatch_error: 'ERROR', resume_error: 'ERROR', preflight_blocked: 'ERROR',
   retries_exhausted: 'CRITICAL', hostops_invoked: 'WARNING',
   // V3.1: the supervising provider's escalation facts (executor.js recordProviderEvents)
-  escalation: 'WARNING', diagnosis: 'INFO', report_turn: 'INFO'
+  escalation: 'WARNING', diagnosis: 'INFO', report_turn: 'INFO',
+  // V3.2: executor.js recordAgentOutcome — one learning record per terminal report
+  outcome_recorded: 'INFO'
 };
 function severityFor(ev) {
   if (ev.event === 'transition') {
