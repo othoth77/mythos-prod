@@ -128,6 +128,14 @@ function chatCompletion(spec, prompt, opts) {
   // ~3,800 tokens, past the request timeout) and the whole task is lost to
   // a timeout instead of ending in a bounded, readable turn.
   if (opts.maxTokens > 0) body.max_tokens = Math.floor(opts.maxTokens);
+  // Constrained output (MYTHOS HADDAD V3.1). A caller that needs the answer
+  // to be a JSON document of a declared shape says so, and an OpenAI-compatible
+  // runtime that supports it (llama-server builds a grammar from the schema
+  // and enforces it at the sampler) cannot emit anything else. Only sent when
+  // asked for, so no existing request shape changes. The constraint narrows
+  // what the model CAN say; it vouches for nothing about what it said — the
+  // caller's parser and validator still decide, as before.
+  if (opts.responseFormat && typeof opts.responseFormat === 'object') body.response_format = opts.responseFormat;
   var payload = JSON.stringify(body);
   var headers = Object.assign({
     'Content-Type': 'application/json',

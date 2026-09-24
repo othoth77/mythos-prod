@@ -73,6 +73,7 @@
       "server": "contextforge",
       "tools": [
         "mythos-mcp-*",
+        "haddad-*",
         "system_health",
         "knowledge_*",
         "project_context",
