@@ -14,5 +14,11 @@
     "path": "/home/othman/projects/mythos-prod",
     "default_branch": "main",
     "note": "Haddad-only. Used exclusively by the isolated Haddad bridge instance (label mythos:haddad, control branch mythos/control-haddad, its own MYTHOS_EXECUTOR_HOME). The VPS never creates a task for this project: its bridge filters on the `task` label, which Haddad issues do not carry. The path is Haddad's checkout and does not exist on the VPS, which is harmless because nothing there resolves it."
+  },
+  "oth-knowledge": {
+    "repository": "git@github.com:othoth77/mythos-prod.git",
+    "path": "/home/othman/projects/mythos-prod",
+    "default_branch": "main",
+    "note": "V3.1 cross-project execution on Haddad. A SECOND bridge instance (label mythos:haddad-othk, prefix haddad-othk:, its own control worktree mythos/control-haddad-othk, same executor store) feeds the same Haddad worker with tasks for this project; the mythos-haddad instance ignores them by label and vice versa, so a wait on one project never holds the other. Same repository and checkout as mythos-haddad on purpose: the project is the unit of intake, isolation and record, not a second clone. Does not exist on the VPS (its bridge filters on the `task` label)."
   }
 }
