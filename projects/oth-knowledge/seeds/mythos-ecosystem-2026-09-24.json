@@ -461,6 +461,78 @@
         "knowledge",
         "v3.1"
       ]
+    },
+    {
+      "key": "c-v32-scope",
+      "statement": "DECISION 2026-09-25 (V3.2): ecosystem intelligence is built by CONNECTING existing components, not new machinery — the audit found every candidate area already had a component; four were disconnected, stale or unable to hold their data (reputation never fed live, seed loader without relationships, roadmap state stale, project-intelligence failing its own validation).",
+      "asserted_by": "projects/mythos-haddad/docs/V3_2.md",
+      "entities": [
+        "p-executor",
+        "p-othk",
+        "p-meta"
+      ],
+      "tags": [
+        "decision",
+        "v3.2"
+      ]
+    },
+    {
+      "key": "c-v32-reuse-query",
+      "statement": "The question 'do we already have this?' is answered read-only by `node scripts/project-intelligence.js reuse \"<need>\" [--limit N]` over the portfolio registry and its capabilities, the skills registry, the executor's agents/roles/skill packs/tools/MCP configs, and the committed OTHKM seeds including typed relationships; output is labelled data with a file per match. `project <id>` gives deps, dependents, capabilities and relationships; `outcomes` summarises an executor store.",
+      "asserted_by": "scripts/project-intelligence.js",
+      "entities": [
+        "p-meta",
+        "p-othk",
+        "p-executor"
+      ],
+      "tags": [
+        "capability",
+        "reuse",
+        "v3.2"
+      ]
+    },
+    {
+      "key": "c-v32-learning",
+      "statement": "Execution outcomes are learned AS DATA: the executor records one outcome per terminal report into core/reputation.js with the router's own capability key; unknown outcomes record nothing; learned data can only reorder agents the registry already selected, and the bridge allow-list floor turns any preference for a non-permitted agent into DEFER (tests v32-execution-intelligence X6/X7).",
+      "asserted_by": "projects/mythos-ai-executor/executor.js (recordAgentOutcome)",
+      "entities": [
+        "p-executor",
+        "haddad"
+      ],
+      "tags": [
+        "decision",
+        "learning",
+        "v3.2"
+      ]
+    },
+    {
+      "key": "c-v32-continuation",
+      "statement": "Continuation rule: the authorized queue first (open Issues on an intake label, dependencies waited on by the bridge), then a RECOMMENDATION from core/roadmap.js selectNext() over the Master Vision, which a director may turn into an Issue; nothing files work by itself and governance capabilities are never selectable. The roadmap state was reconciled on 2026-09-25 with commit + test evidence (8 implemented, 6 partial).",
+      "asserted_by": "projects/mythos-haddad/docs/V3_2.md §4.4",
+      "entities": [
+        "p-executor",
+        "repo"
+      ],
+      "tags": [
+        "decision",
+        "continuation",
+        "v3.2"
+      ]
+    },
+    {
+      "key": "c-v32-isolation",
+      "statement": "Project isolation: a project may declare write_scope in config/projects.json (oth-knowledge -> projects/oth-knowledge); the executor derives it from config at launch (never from task.json), the runner refuses writes outside it and the validator rejects any touched file outside it, intersected with the Issue's declared scope (tests v32-project-isolation 8/0).",
+      "asserted_by": "projects/mythos-ai-executor/config/projects.json",
+      "entities": [
+        "p-executor",
+        "p-othk",
+        "haddad"
+      ],
+      "tags": [
+        "decision",
+        "security",
+        "v3.2"
+      ]
     }
   ],
   "observations": [
@@ -597,6 +669,20 @@
       "tags": [
         "milestone",
         "v3.1"
+      ]
+    },
+    {
+      "key": "e-v32",
+      "title": "MYTHOS V3.2 ecosystem intelligence: typed OTHKM relationships, reuse query, outcome learning as data, roadmap reconciled, project isolation",
+      "occurred_at": "2026-09-25T00:00:00Z",
+      "entities": [
+        "p-executor",
+        "p-othk",
+        "p-meta"
+      ],
+      "tags": [
+        "milestone",
+        "v3.2"
       ]
     }
   ],
