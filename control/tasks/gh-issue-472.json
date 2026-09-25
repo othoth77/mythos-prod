@@ -112,6 +112,16 @@
         "at": "2026-09-25T18:59:06.312Z",
         "existed": false,
         "executor_task_id": "t-20260925185901-ae69z4"
+      },
+      "report": {
+        "comment_id": 5837985732,
+        "url": "https://github.com/othoth77/mythos-prod/issues/472#issuecomment-5837985732",
+        "at": "2026-09-25T19:00:24.182Z",
+        "existed": false,
+        "status": "HUMAN_APPROVAL",
+        "control_status": "BLOCKED",
+        "report_file": "control/reports/gh-issue-472.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -119,7 +129,8 @@
         "mythos:queued"
       ],
       "removed": []
-    }
+    },
+    "issue_state": "HUMAN_APPROVAL"
   },
   "execution": {
     "executor_task_id": "t-20260925185901-ae69z4",
