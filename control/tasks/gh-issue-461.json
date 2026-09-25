@@ -19,7 +19,7 @@
     "notification failure cannot block execution",
     "existing Bridge/OTHMODE behavior has no regression"
   ],
-  "status": "CLAIMED",
+  "status": "FAILED",
   "created_at": "2026-09-25T08:33:07.453Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #461 https://github.com/othoth77/mythos-prod/issues/461 — \"V3.2.5 — WhatsApp + Telegram lifecycle notifications\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[mission]\nRestore and activate the existing MYTHOS operational notification system.\n\n[start gate — mandatory]\nDO NOT start or claim this mission while any V3.2 residual R1, R2, R3, R4, or R5 is still open, running, blocked, or unverified.\n\nStart automatically only after the Bridge can verify that ALL FIVE V3.2 residuals are COMPLETE and verified.\n\nThis is a predecessor gate, not a manual owner approval.\n\nCurrent V3.2 residual work includes the active R5 decomposed tasks #458 and #459. Wait for the complete V3.2 closure, not merely those two tasks.\n\n[messages]\nUse only the mission title. No Task ID and no technical details.\n\nSTART:\n🟢 بدأ العمل: {MISSION_TITLE}\n\nSTOP / FAILURE:\n🔴 توقف العمل: {MISSION_TITLE} — مشكلة\n\nSUCCESS:\n✅ اكتمل العمل: {MISSION_TITLE}\n\n[lifecycle]\nSTART → when the Bridge actually begins execution.\nSTOP → only for a genuine blocked/failed/stopped mission.\nSUCCESS → only after successful execution and validation.\n\nRetries/repairs must not create duplicate lifecycle notifications.\n\nNotification failure must NEVER block, fail, or change the underlying mission state.\n\n[reuse]\nFirst audit and reuse the existing notification components, formatter/event layer, WhatsApp integration, Telegram integration, deduplication and security controls.\n\nDo not create duplicate gateways, bots, services, credentials or notification infrastructure.\n\nPreserve the existing separation between operational notifications and customer WhatsApp/CRM.\n\n[delivery]\nUse normal governed workflow:\nimplemented → tested → committed → PR → merge → deploy → live verification → documentation.\n\nFABLE has autonomous engineering authority for normal technical decisions.\n\nUse:\n- Qwen = implementation\n- Sonnet = difficult diagnosis\n- Opus = architecture/security/deep issues\n\nDo not start V3.3 automatically after this mission. Stop after V3.2.5 is fully verified.\n\n[definition of done]\n- V3.2 predecessor gate verified\n- existing notification system reused/restored\n- WhatsApp START/STOP/SUCCESS verified\n- Telegram START/STOP/SUCCESS verified\n- deduplication verified\n- failure isolation verified\n- security verified\n- production deployed\n- live E2E verified\n- documentation updated\n- final commit/PR/production SHA recorded\n\nFinal report:\nSTATUS\nREUSED\nTESTS\nWhatsApp\nTelegram\nPR\nCOMMIT\nPRODUCTION SHA\nBLOCKERS",
@@ -153,8 +153,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "8bf343b9a155877e23989f9117f4ec73d078b8566557d4e41e28efed5eb957c1",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-25T14:33:29.847Z",
+    "executor_status": "FAILED",
+    "updated_at": "2026-09-25T14:34:49.082Z",
     "snapshot_sha256": "25daa92723ed7e783fbf86f96c75f47d12478a00f218b1a73649a4225e1f5ce3",
     "fence": 73481,
     "lease": {
@@ -182,7 +182,13 @@
       "measured_at": "2026-09-25T14:33:25.636Z"
     },
     "model": "claude-sonnet-5",
-    "model_selection_mode": "auto"
+    "model_selection_mode": "auto",
+    "blocker": {
+      "code": "PROVIDER_FAILED",
+      "reason": "d\":0,\"unset\":0},\"started_in_background\":0,\"max_depth\":0,\"spawned_by_subagents\":0,\"completed\":0,\"failed\":0,\"killed\":{\"parent\":0,\"user\":0,\"system\":0},\"refused\":{\"depth_limit\":0,\"concurrency_limit\":0,\"budget\":0},\"by_type\":{}},\"is_error\":true,\"num_turns\":1,\"subtype\":\"success\",\"api_error_status\":null,\"result\":\"Failed to authenticate: OAuth session expired and could not be refreshed\",\"type\":\"result\",\"duration_ms\":361,\"uuid\":\"dd24ba9f-4f1d-4560-a7df-b0b556c33a7a\",\"queued_turn_count\":0,\"result_index\":0}",
+      "retryable": true
+    },
+    "report_file": "control/reports/gh-issue-461.json"
   },
   "history": [
     {
@@ -191,6 +197,20 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260925143329-gs4ybe queued; OTHMODE OTH-2026-01900; action investigate (default) → repo-read; model claude-sonnet-5; fence 73481"
+    },
+    {
+      "at": "2026-09-25T14:34:48.469Z",
+      "from": "CLAIMED",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended FAILED; building report"
+    },
+    {
+      "at": "2026-09-25T14:34:49.082Z",
+      "from": "VALIDATING",
+      "to": "FAILED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 0 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
