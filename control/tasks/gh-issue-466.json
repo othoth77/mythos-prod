@@ -136,6 +136,16 @@
         "at": "2026-09-25T17:33:38.224Z",
         "existed": false,
         "executor_task_id": "t-20260925173333-z1ugg9"
+      },
+      "report": {
+        "comment_id": 5836722803,
+        "url": "https://github.com/othoth77/mythos-prod/issues/466#issuecomment-5836722803",
+        "at": "2026-09-25T17:34:55.960Z",
+        "existed": false,
+        "status": "COMPLETED",
+        "control_status": "COMPLETED",
+        "report_file": "control/reports/gh-issue-466.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -143,7 +153,8 @@
         "mythos:queued"
       ],
       "removed": []
-    }
+    },
+    "issue_state": "COMPLETED"
   },
   "execution": {
     "executor_task_id": "t-20260925173333-z1ugg9",
