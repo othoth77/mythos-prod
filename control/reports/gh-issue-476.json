@@ -1,0 +1,124 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-476",
+  "attempt_id": "gh-issue-476#1",
+  "status": "BLOCKED",
+  "summary": "Investigated gh-issue-476 (WhatsApp recipient change) under repo-read/investigate scope: no file edits or commits made. Confirmed FROM is the paired Evolution WhatsApp session (unchanged, no code path) and TO is read at runtime from MYTHOS_BRIDGE_WHATSAPP_TO, configured only in a host-only systemd drop-in (~/.config/systemd/user/mythos-github-bridge.service.d/20-whatsapp.conf) outside Git and outside this executor's sandbox — confirmed by an attempted read being denied. Per the task's own instruction, execution stops here because the owner has not yet supplied the new recipient number; no test message can be sent until it is confirmed.",
+  "resolution": {
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "default",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "model_requested": null,
+    "model_key": null,
+    "model": "claude-sonnet-5",
+    "model_source": "none",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=2 [complexity_terms(architecture,بنية)+2]",
+    "base_sha": "88de5f484788a82463d053a7bab31dfe3e67c307",
+    "branch": "mythos/gh/gh-issue-476",
+    "commit_sha": null
+  },
+  "blocker": {
+    "code": "HUMAN_APPROVAL",
+    "retryable": false,
+    "at": "2026-09-25T20:53:25.941Z",
+    "reason": "Investigated gh-issue-476 (WhatsApp recipient change) under repo-read/investigate scope: no file edits or commits made. Confirmed FROM is the paired Evolution WhatsApp session (unchanged, no code path) and TO is read at runtime from MYTHOS_BRIDGE_WHATSAPP_TO, configured only in a host-only systemd drop-in (~/.config/systemd/user/mythos-github-bridge.service.d/20-whatsapp.conf) outside Git and outside this executor's sandbox — confirmed by an attempted read being denied. Per the task's own instruction, execution stops here because the owner has not yet supplied the new recipient number; no test message can be sent until it is confirmed.",
+    "task_id": "t-20260925203311-pj2wlu",
+    "attempt_id": "gh-issue-476#1",
+    "requested_action": "investigate",
+    "execution_profile": "repo-read",
+    "model": "claude-sonnet-5"
+  },
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "88de5f484788a82463d053a7bab31dfe3e67c307",
+    "branch": "main",
+    "dirty_files": 1,
+    "base_ref": "origin/main",
+    "base_ref_head": "88de5f484788a82463d053a7bab31dfe3e67c307",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-25T20:33:09.706Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "blocked",
+    "summary": "Investigated gh-issue-476 (WhatsApp recipient change) under repo-read/investigate scope: no file edits or commits made. Confirmed FROM is the paired Evolution WhatsApp session (unchanged, no code path) and TO is read at runtime from MYTHOS_BRIDGE_WHATSAPP_TO, configured only in a host-only systemd drop-in (~/.config/systemd/user/mythos-github-bridge.service.d/20-whatsapp.conf) outside Git and outside this executor's sandbox — confirmed by an attempted read being denied. Per the task's own instruction, execution stops here because the owner has not yet supplied the new recipient number; no test message can be sent until it is confirmed.",
+    "tests": [],
+    "commit": null,
+    "remote_head": null,
+    "files_changed": [],
+    "residual_risks": [
+      "None introduced — read-only investigation. The change itself (editing the host drop-in and reloading systemd) is a host operation outside any agent sandbox by existing design."
+    ],
+    "next_stage": "Owner to provide the new WhatsApp recipient MSISDN; then owner/authorized host operator edits ~/.config/systemd/user/mythos-github-bridge.service.d/20-whatsapp.conf, reloads systemd, runs notify-config then the single human-invoked notify-test --confirm."
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [],
+  "validation": {
+    "git_verified": null,
+    "remote_head": "88de5f484788a82463d053a7bab31dfe3e67c307",
+    "report_problems": [],
+    "required_checks": []
+  },
+  "problems": [
+    "HUMAN_APPROVAL: Investigated gh-issue-476 (WhatsApp recipient change) under repo-read/investigate scope: no file edits or commits made. Confirmed FROM is the paired Evolution WhatsApp session (unchanged, no code path) and TO is read at runtime from MYTHOS_BRIDGE_WHATSAPP_TO, configured only in a host-only systemd drop-in (~/.config/systemd/user/mythos-github-bridge.service.d/20-whatsapp.conf) outside Git and outside this executor's sandbox — confirmed by an attempted read being denied. Per the task's own instruction, execution stops here because the owner has not yet supplied the new recipient number; no test message can be sent until it is confirmed."
+  ],
+  "risks": [
+    "None introduced — read-only investigation. The change itself (editing the host drop-in and reloading systemd) is a host operation outside any agent sandbox by existing design."
+  ],
+  "next_recommended_action": "Owner to provide the new WhatsApp recipient MSISDN; then owner/authorized host operator edits ~/.config/systemd/user/mythos-github-bridge.service.d/20-whatsapp.conf, reloads systemd, runs notify-config then the single human-invoked notify-test --confirm.",
+  "completed_at": "2026-09-25T20:54:28.713Z",
+  "execution": {
+    "executor_task_id": "t-20260925203311-pj2wlu",
+    "othmode_task_id": "OTH-2026-01913",
+    "execution_profile": "repo-read",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": null,
+    "model_source": "none",
+    "action_source": "default",
+    "action_raw": "investigate",
+    "attempt_id": "gh-issue-476#1",
+    "fence": 74330,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:4009111",
+      "fence": 74330,
+      "acquired_at": "2026-09-25T20:33:11.467Z",
+      "expires_at": "2026-09-25T22:03:11.467Z"
+    },
+    "snapshot_sha256": "c34804347c3ce70a26b0a1817ea27bc4652eed811a496ba45a4c8fa29c8b2036",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=2 [complexity_terms(architecture,بنية)+2]",
+    "claude_session_id": "4cfda991-d762-4ef2-98dd-c47cbfbe070f",
+    "executor_status": "BLOCKED",
+    "started_at": "2026-09-25T20:51:37.799Z",
+    "ended_at": "2026-09-25T20:53:25.941Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 0.6299448000000001,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-476",
+    "branch": "mythos/gh/gh-issue-476",
+    "base_commit": "88de5f484788a82463d053a7bab31dfe3e67c307",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-476",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}

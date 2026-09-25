@@ -1,15 +1,15 @@
 # MYTHOS control — current state
 
-Generated 2026-09-25T20:51:55.737Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
+Generated 2026-09-25T20:54:28.858Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
 
 | Status | Count |
 |---|---|
 | PENDING | 10 |
 | CLAIMED | 0 |
-| IN_PROGRESS | 1 |
+| IN_PROGRESS | 0 |
 | VALIDATING | 0 |
 | COMPLETED | 59 |
-| BLOCKED | 29 |
+| BLOCKED | 30 |
 | FAILED | 2 |
 | CANCELLED | 2 |
 
@@ -20,7 +20,7 @@ Generated 2026-09-25T20:51:55.737Z by the bridge on branch `mythos/control` (pro
 | `gh-issue-99` | **COMPLETED** | investigate | normal | 2026-09-02T22:42:59.761Z | 2026-09-02T22:49:32.431Z | `t-20260902224306-vaqeia` | `control/reports/gh-issue-99.json` |
 | `gh-issue-97` | **BLOCKED** | investigate | normal | 2026-09-02T22:34:21.352Z | 2026-09-02T22:43:04.917Z | `t-20260902223428-31m0o4` | `control/reports/gh-issue-97.json` |
 | `gh-issue-95` | **COMPLETED** | investigate | normal | 2026-09-02T22:34:19.628Z | 2026-09-02T22:40:52.170Z | `t-20260902223426-ipld9w` | `control/reports/gh-issue-95.json` |
-| `gh-issue-476` | **IN_PROGRESS** | investigate | normal | 2026-09-25T20:33:07.527Z | 2026-09-25T20:51:49.106Z | `t-20260925203311-pj2wlu` | — |
+| `gh-issue-476` | **BLOCKED** | investigate | normal | 2026-09-25T20:33:07.527Z | 2026-09-25T20:54:28.844Z | `t-20260925203311-pj2wlu` | `control/reports/gh-issue-476.json` |
 | `gh-issue-475` | **BLOCKED** | implement | normal | 2026-09-25T20:27:47.644Z | 2026-09-25T20:51:49.088Z | `t-20260925202751-bm40fw` | `control/reports/gh-issue-475.json` |
 | `gh-issue-474` | **COMPLETED** | implement | normal | 2026-09-25T19:51:25.681Z | 2026-09-25T20:11:09.532Z | `t-20260925195129-86oc93` | `control/reports/gh-issue-474.json` |
 | `gh-issue-473` | **BLOCKED** | investigate | normal | 2026-09-25T19:16:46.814Z | 2026-09-25T19:20:48.834Z | `t-20260925191651-tilx5s` | `control/reports/gh-issue-473.json` |
