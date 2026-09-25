@@ -120,6 +120,16 @@
         "at": "2026-09-25T14:33:35.289Z",
         "existed": false,
         "executor_task_id": "t-20260925143329-gs4ybe"
+      },
+      "report": {
+        "comment_id": 5834171172,
+        "url": "https://github.com/othoth77/mythos-prod/issues/461#issuecomment-5834171172",
+        "at": "2026-09-25T14:34:53.051Z",
+        "existed": false,
+        "status": "FAILED",
+        "control_status": "FAILED",
+        "report_file": "control/reports/gh-issue-461.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -127,7 +137,8 @@
         "mythos:queued"
       ],
       "removed": []
-    }
+    },
+    "issue_state": "FAILED"
   },
   "execution": {
     "executor_task_id": "t-20260925143329-gs4ybe",
