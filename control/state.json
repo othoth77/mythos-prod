@@ -1,12 +1,12 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-25T17:39:57.894Z",
+  "generated_at": "2026-09-25T17:40:00.078Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
-    "PENDING": 11,
-    "CLAIMED": 0,
+    "PENDING": 10,
+    "CLAIMED": 1,
     "IN_PROGRESS": 0,
     "VALIDATING": 0,
     "COMPLETED": 54,
@@ -24,10 +24,11 @@
     "gh-issue-217",
     "gh-issue-220",
     "gh-issue-228",
-    "gh-issue-389",
+    "gh-issue-389"
+  ],
+  "active": [
     "gh-issue-469"
   ],
-  "active": [],
   "awaiting_review": [
     "gh-20260902-bridge-smoke-01",
     "gh-20260902-chatgpt-safe-test-01",
@@ -2147,18 +2148,18 @@
     },
     {
       "task_id": "gh-issue-469",
-      "status": "PENDING",
+      "status": "CLAIMED",
       "priority": "normal",
       "requested_action": "investigate",
       "action_source": "explicit_current_issue",
-      "execution_profile": null,
-      "model": "haiku",
+      "execution_profile": "repo-read",
+      "model": "claude-haiku-4-5",
       "blocker": null,
       "created_at": "2026-09-25T17:39:55.900Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-25T17:39:55.900Z",
-      "executor_task_id": null,
-      "branch": null,
+      "updated_at": "2026-09-25T17:40:00.054Z",
+      "executor_task_id": "t-20260925174000-fidnpl",
+      "branch": "mythos/gh/gh-issue-469",
       "task_file": "control/tasks/gh-issue-469.json",
       "report_file": null,
       "source": {
