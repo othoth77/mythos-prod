@@ -845,7 +845,15 @@ t('D5 context budget: a task prompt that cannot fit even alone stops with a name
   var transport = function () { calls++; return Promise.resolve({ status: 200, body: JSON.stringify({ choices: [{ message: say('x') }] }) }); };
   var task = { task_id: 't-huge', working_directory: ws, execution_profile: 'repo-write', timeout_seconds: 600, required_tests: [], constraints: [] };
   var huge = new Array(agent.PROMPT_BUDGET_TOKENS * 4).join('word ');
+  // V3.2: the sizing preflight now refuses such a task FIRST, as a structured
+  // TASK_TOO_LARGE report, before any GPU time; the runner's own guard below
+  // it is still exercised with sizing off.
   return agent.run(task, huge, null, 'start', { apiKey: 'k', model: 'm', transport: transport }).then(function (o) {
+    assert.strictEqual(calls, 0, 'sizing: the runtime was never asked');
+    var r = reporting.extractReport(o.stdout).report;
+    assert.ok(r && r.status === 'blocked' && /TASK_TOO_LARGE/.test(r.summary) && /decompose/.test(r.next_stage), 'a structured too-large report: ' + (r && r.summary));
+    return agent.run(task, huge, null, 'start', { apiKey: 'k', model: 'm', transport: transport, sizing: false });
+  }).then(function (o) {
     assert.strictEqual(calls, 0, 'the runtime was never asked');
     assert.strictEqual(o.parsed.subtype, 'HADDAD_AGENT_CONTEXT_EXHAUSTED');
     assert.strictEqual(o.exit_code, 1);

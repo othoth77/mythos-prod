@@ -45,6 +45,15 @@ var gitlib = require('../mythos-orchestrator/lib/git');
 
 var TASK_SCHEMA = JSON.parse(fs.readFileSync(path.join(__dirname, 'schemas', 'task.schema.json'), 'utf8'));
 var PROMPT_TEMPLATE = fs.readFileSync(path.join(__dirname, 'templates', 'task-prompt.md'), 'utf8');
+// V3.2 (residual 5): the local supervised runner (haddad-agent) gets a compact
+// prompt. It does not resume CLI sessions (Continuity), cannot commit or push
+// (Execution contract — the executor delivers validated files), and carries
+// its own report contract in its system prompt plus a constrained report turn
+// (Mandatory final report). Those sections cost ~2 KB of an 8k-token window
+// and are omitted; the objective, constraints, tests and the attested skill
+// section are kept verbatim. Every other provider is unchanged.
+var LOCAL_PROMPT_TEMPLATE = fs.readFileSync(path.join(__dirname, 'templates', 'task-prompt-local.md'), 'utf8');
+var LOCAL_PROMPT_PROVIDERS = ['haddad-agent'];
 var PROJECTS = JSON.parse(fs.readFileSync(path.join(__dirname, 'config', 'projects.json'), 'utf8'));
 
 var PROVIDERS = {
@@ -482,7 +491,7 @@ function skillSectionFor(task) {
 function buildPrompt(task, status, resumeNote) {
   var checkpoint = state.readJSON(task.task_id, 'checkpoint.json');
   var prevReport = state.readJSON(task.task_id, 'report.json');
-  return fill(PROMPT_TEMPLATE, {
+  return fill(LOCAL_PROMPT_PROVIDERS.indexOf(task.provider) !== -1 ? LOCAL_PROMPT_TEMPLATE : PROMPT_TEMPLATE, {
     TASK_ID: task.task_id,
     PROJECT: task.project,
     REPOSITORY: task.repository,
