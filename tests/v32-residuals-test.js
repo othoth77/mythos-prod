@@ -113,6 +113,27 @@ t('Z3 a task that fits runs as before, with the sizing numbers in its trace', fu
   });
 });
 
+t('Z4 a retry does not size its OWN earlier output as a pre-existing target (gh-issue-454 shape)', function () {
+  var d = ws('retry-sizing');
+  var work = require(path.join(EXEC, 'lib', 'work-validation.js'));
+  var base = work.snapshot(d);                         // attempt baseline: no seed yet
+  base.working_directory = d;
+  fs.writeFileSync(path.join(d, 'out.json'), '{' + new Array(8200).join(' ') + '}');   // execution 1 wrote ~8 KB, then timed out
+  var tk = task(d, { constraints: ['Only change out.json'], required_tests: [] });
+  var refusedWithout, callsWith = 0;
+  return agent.run(tk, 'Create out.json.', null, 'start', { apiKey: 'k', model: 'm',
+    transport: function () { return Promise.resolve({ status: 200, body: JSON.stringify({ choices: [{ message: say('x') }] }) }); } }).then(function (o) {
+    refusedWithout = o.tool_trace.some(function (e) { return e.tool === 'task_sizing' && e.refused; });
+    assert.ok(refusedWithout, 'without the attempt baseline the leftover is sized as a target (the live defect)');
+    return agent.run(tk, 'Create out.json.', null, 'start', { apiKey: 'k', model: 'm', baseline: base, structuredReport: false,
+      transport: function () { callsWith++; return Promise.resolve({ status: 200, body: JSON.stringify({ choices: [{ message: say(report()) }] }) }); } });
+  }).then(function (o) {
+    var s = o.tool_trace.filter(function (e) { return e.tool === 'task_sizing'; })[0];
+    assert.ok(s && !s.refused && /files 0/.test(s.detail), 'with it, the file is the task\'s output, not a target: ' + (s && s.detail));
+    assert.ok(callsWith > 0, 'and the task runs');
+  });
+});
+
 // ---------------------------------------------------------------- R4: envelope
 t('E1 the prompt budget is capped by the measured safe envelope (5000), never above the window budget', function () {
   assert.strictEqual(agent.SAFE_PROMPT_TOKENS, 5000);

@@ -1,0 +1,9 @@
+{"format": "othk-seed", "version": 1, "title": "MYTHOS dependency graph - C", "source_class": "mythos-repo", "source_collection": "mythos-dep-graph-c-2026-09-25", "source_reference": "mythos-repo/projects/meta/portfolio-registry.json", "captured_at": "2026-09-25T00:00:00Z", "observed_at": "2026-09-25T00:00:00Z", "actor": "haddad-qwen (V3.2 residual 5)", "confidence": "HIGH", "entities": [
+{"key": "mythosaiexecut", "entity_type": "project", "name": "mythos-ai-executor", "metadata": {"registry_id": "mythos-ai-executor"}}, 
+{"key": "mythosdelegate", "entity_type": "project", "name": "mythos-delegate", "metadata": {"registry_id": "mythos-delegate"}}, 
+{"key": "mythosos", "entity_type": "project", "name": "mythos-os", "metadata": {"registry_id": "mythos-os"}}, 
+{"key": "mythososconsol", "entity_type": "project", "name": "mythos-os-console", "metadata": {"registry_id": "mythos-os-console"}}, 
+{"key": "mythoswp", "entity_type": "project", "name": "mythos-wp", "metadata": {"registry_id": "mythos-wp"}}], "relationships": [
+{"from": "mythosdelegate", "to": "mythosaiexecut", "rel_type": "depends_on"}, 
+{"from": "mythoswp", "to": "mythosaiexecut", "rel_type": "depends_on"}, 
+{"from": "mythososconsol", "to": "mythosos", "rel_type": "depends_on"}]}

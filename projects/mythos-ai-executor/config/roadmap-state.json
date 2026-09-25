@@ -251,14 +251,14 @@
     "X": {
       "status": "PARTIAL",
       "evidence": {
-        "commit": "7835d6ee7d060119dc9477e44ed891aa5edfd093",
+        "commit": "0b94e5ed9206449e4fae4189d5898d9a6ace5dfb",
         "tests": [
-          "tests/mythos-haddad-ai-team-test.js: 153/0"
+          "tests/v32-residuals-test.js: 10/0 (V1 pins the review decision)"
         ],
-        "recorded_by": "MYTHOS V3.2 audit (Opus 5.5 as director), 2026-09-25: code present at 7835d6ee, suites run on that tree",
-        "note": "Reviewer separation and sensitivity gating exist; an LLM review_fn has no production implementation by open owner decision — the review gate stops for a human."
+        "recorded_by": "MYTHOS V3.2 residual 3, 2026-09-25",
+        "note": "Reviewer separation and sensitivity gating exist; review_fn (an LLM reviewer) is NOT REQUIRED for V3.2: it is reachable only on the core path (off by ratified decision), the live review gate holds commit work for a human continuation and the director reviews and merges. Wiring it would change who may approve — an owner-level change, not a V3.2 capability."
       },
-      "recorded_at": "2026-09-24T23:49:50.036Z"
+      "recorded_at": "2026-09-25T07:18:35.018Z"
     },
     "Y": {
       "status": "PARTIAL",
@@ -299,5 +299,5 @@
       "recorded_at": "2026-09-24T23:49:50.040Z"
     }
   },
-  "updated_at": "2026-09-24T23:49:50.040Z"
+  "updated_at": "2026-09-25T07:18:35.018Z"
 }
