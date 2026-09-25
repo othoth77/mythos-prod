@@ -79,7 +79,15 @@ var KINDS = ['COMPLETED', 'FAILED', 'BLOCKED', 'HUMAN_APPROVAL'];
 // same ledger, the same flush, the same provider adapters, the same
 // breaker, the same redaction — see onMissionEvent() below.
 var MISSION_KINDS = ['MISSION_START', 'MISSION_STOP', 'MISSION_SUCCESS'];
-var LEDGER_STATES = ['PENDING', 'SENDING', 'SENT', 'EXHAUSTED'];
+// SENT     = the provider ACCEPTED the message for every recipient and
+//            returned its message id (the strongest evidence this Evolution
+//            deployment can give — see docs §6.4). Terminal.
+// EXHAUSTED = the provider REJECTED this message itself (4xx, or refused
+//            locally as unsendable) maxAttempts times. Terminal. A provider
+//            OUTAGE never leads here (V3.2.5 durable outbox).
+// EXPIRED  = still undelivered after maxAgeMs (default 7 days): recorded,
+//            visible, never sent late. Terminal.
+var LEDGER_STATES = ['PENDING', 'SENDING', 'SENT', 'EXHAUSTED', 'EXPIRED'];
 // task_id is 6-64 chars (github-bridge.js TASK_ID_RE); the ledger key must
 // accept every valid task_id or a notification silently vanishes in
 // onReport()'s try/catch for any task_id over the old 40-char cap.
@@ -108,6 +116,13 @@ var DEFAULT_FLUSH_BUDGET_MS = 60000;
 // never trips it.
 var DEFAULT_BREAKER_THRESHOLD = 3;
 var DEFAULT_BREAKER_COOLDOWN_MS = 5 * 60 * 1000;
+// While the circuit is open, the provider's read-only connection state is
+// checked at most this often; a connected gateway half-opens the circuit at
+// once instead of waiting out a cooldown of up to MAX_BACKOFF_MS.
+var DEFAULT_HEALTH_INTERVAL_MS = 60 * 1000;
+// A notification that could not be delivered for this long is EXPIRED
+// rather than sent days late.
+var DEFAULT_MAX_AGE_HOURS = 168;
 
 var MARK = { COMPLETED: '✅', FAILED: '❌', BLOCKED: '⛔', HUMAN_APPROVAL: '🙋' };
 
@@ -168,6 +183,8 @@ function config() {
     breakerEnabled: process.env.MYTHOS_BRIDGE_WHATSAPP_BREAKER !== 'off',
     breakerThreshold: Math.max(1, parseInt(process.env.MYTHOS_BRIDGE_WHATSAPP_BREAKER_THRESHOLD || String(DEFAULT_BREAKER_THRESHOLD), 10)),
     breakerCooldownMs: Math.max(1000, parseInt(process.env.MYTHOS_BRIDGE_WHATSAPP_BREAKER_COOLDOWN_MS || String(DEFAULT_BREAKER_COOLDOWN_MS), 10)),
+    healthIntervalMs: Math.max(1000, parseInt(process.env.MYTHOS_BRIDGE_WHATSAPP_HEALTH_INTERVAL_MS || String(DEFAULT_HEALTH_INTERVAL_MS), 10)),
+    maxAgeMs: Math.max(60000, (parseFloat(process.env.MYTHOS_BRIDGE_WHATSAPP_MAX_AGE_HOURS || String(DEFAULT_MAX_AGE_HOURS)) || DEFAULT_MAX_AGE_HOURS) * 3600 * 1000),
     providerOptions: providerOptions(),
     home: home,
     ledgerDir: path.join(home, 'ledger'),
@@ -339,14 +356,34 @@ function describe() {
 // Only provider-level failures count: a transport error, a timeout, or a 5xx.
 // A 4xx is the gateway rejecting THIS message (bad recipient, bad body) and
 // says nothing about the gateway's health, so it never opens the circuit.
+function isLocalRefusal(result) {
+  return !!(result && !result.ok && /^CONFIG:/.test(String(result.error || '')));
+}
+
 function isProviderFailure(result) {
   if (!result || result.ok) return false;
+  // A message the adapter refused before any request was made (bad
+  // recipient, empty text) says nothing about the gateway's health.
+  if (isLocalRefusal(result)) return false;
   if (result.status === null || result.status === undefined) return true;   // transport / timeout
   return result.status >= 500;
 }
 
+// The only failures that count towards maxAttempts: the provider (or the
+// adapter, before sending) rejected THIS message. Retrying the same bytes
+// cannot fix it, so it is bounded. A provider OUTAGE (transport, timeout,
+// 5xx) is not the message's fault and never exhausts it — it only backs off
+// and is gated by the circuit breaker, so no notification is ever destroyed
+// by a gateway that was merely down (V3.2.5: gh-issue-461__FAILED was lost
+// that way on 2026-09-25 while the WhatsApp session was disconnected).
+function isMessageFailure(result) {
+  if (!result || result.ok) return false;
+  if (isLocalRefusal(result)) return true;
+  return typeof result.status === 'number' && result.status >= 400 && result.status < 500;
+}
+
 function readBreaker(cfg) {
-  var empty = { state: 'closed', failures: 0, opened_at: null, open_until: null, cooldown_ms: cfg.breakerCooldownMs, last_error: null, probes: 0 };
+  var empty = { state: 'closed', failures: 0, opened_at: null, open_until: null, cooldown_ms: cfg.breakerCooldownMs, last_error: null, probes: 0, last_health_at: null, last_health_state: null };
   try {
     var raw = JSON.parse(fs.readFileSync(cfg.breakerFile, 'utf8'));
     if (!raw || typeof raw !== 'object') return empty;
@@ -357,7 +394,9 @@ function readBreaker(cfg) {
       open_until: raw.open_until || null,
       cooldown_ms: Math.max(1000, parseInt(raw.cooldown_ms, 10) || cfg.breakerCooldownMs),
       last_error: raw.last_error || null,
-      probes: Math.max(0, parseInt(raw.probes, 10) || 0)
+      probes: Math.max(0, parseInt(raw.probes, 10) || 0),
+      last_health_at: raw.last_health_at || null,
+      last_health_state: raw.last_health_state || null
     };
   } catch (e) {
     // An unreadable or corrupt breaker file must never suppress delivery:
@@ -431,8 +470,45 @@ function breakerStatus(cfg) {
     threshold: cfg.breakerThreshold,
     open_until: b.open_until,
     cooldown_ms: b.cooldown_ms,
-    last_error: b.last_error
+    last_error: b.last_error,
+    last_health_at: b.last_health_at,
+    last_health_state: b.last_health_state
   };
+}
+
+// Recovery without waiting out the cooldown. Only while the circuit is OPEN,
+// at most once per healthIntervalMs, and only when the adapter implements the
+// optional read-only connectionState(): if the gateway says its WhatsApp
+// session is connected, the circuit goes half-open NOW (the next entry is the
+// probe). The health answer never marks anything delivered and never closes
+// the circuit by itself — only a real accepted send does that.
+function healthRecover(cfg, provider, apiKey, nowMs) {
+  if (!cfg.breakerEnabled || !provider || typeof provider.connectionState !== 'function') return Promise.resolve(null);
+  var b = readBreaker(cfg);
+  if (b.state !== 'open') return Promise.resolve(null);
+  var until = Date.parse(b.open_until || 0) || 0;
+  if (nowMs >= until) return Promise.resolve(null);   // already half-open by time
+  // Counted from the later of the last check and the moment the circuit
+  // opened: an outage that was just detected is not polled straight away.
+  var last = Math.max(Date.parse(b.last_health_at || 0) || 0, Date.parse(b.opened_at || 0) || 0);
+  if (nowMs - last < cfg.healthIntervalMs) return Promise.resolve({ checked: false, state: b.last_health_state });
+  var p;
+  try {
+    p = Promise.resolve(provider.connectionState({ baseUrl: cfg.baseUrl, instance: cfg.instance, apiKey: apiKey, timeoutMs: Math.min(cfg.timeoutMs, 5000) }));
+  } catch (e) {
+    p = Promise.resolve({ ok: false, state: null, error: String(e && e.message) });
+  }
+  return p.then(function (h) { return h || { ok: false, state: null }; }, function (e) { return { ok: false, state: null, error: String(e && e.message) }; })
+    .then(function (h) {
+      var fresh = readBreaker(cfg);
+      if (fresh.state !== 'open') return { checked: true, state: h.state, note: 'circuit changed meanwhile' };
+      fresh.last_health_at = new Date(nowMs).toISOString();
+      fresh.last_health_state = h.ok ? (h.state || 'unknown') : ('unreachable' + (h.error ? ': ' + String(h.error).slice(0, 80) : ''));
+      var connected = h.ok && h.state === 'open';
+      if (connected) fresh.open_until = new Date(nowMs).toISOString();   // half-open now
+      writeBreaker(cfg, fresh);
+      return { checked: true, state: h.state, connected: connected };
+    });
 }
 
 // --- Which report states notify -------------------------------------------------
@@ -501,6 +577,17 @@ function buildMessage(report, kind) {
 // never task.task_id (explicitly forbidden in a message body by gh-issue-461).
 // A task not sourced from a GitHub Issue has no mission title and is
 // deliberately never messaged by this layer.
+// A mission is the GitHub Issue, not one attempt at it: gh-issue-461 and its
+// rerun gh-issue-461-r2 are the same mission, so a retry/repair can never
+// produce a second START/STOP/SUCCESS (gh-issue-461: "Retries/repairs must
+// not create duplicate lifecycle notifications"). The attempt id is still
+// recorded on the entry as evidence.
+function missionIdOf(task) {
+  var id = String((task && task.task_id) || '');
+  var m = /^(gh-issue-[0-9]+)(?:-r[0-9]+)?$/.exec(id);
+  return m ? m[1] : id;
+}
+
 function missionTitleOf(task) {
   var src = task && task.source;
   if (!src || src.kind !== 'github-issue') return null;
@@ -718,7 +805,8 @@ function onMissionEvent(kind, task) {
     // or a rerun that reuses continues.task_id) finds this entry already
     // here and sends nothing a second time — the same property section 5 of
     // tests/mythos-bridge-whatsapp-notify-test.js proves for onReport().
-    var key = ledgerKey(task.task_id, kind);
+    var missionId = missionIdOf(task);
+    var key = ledgerKey(missionId, kind);
     var existing = readEntry(cfg, key);
     if (existing) {
       return { queued: false, key: key, kind: kind, skipped: 'already in the ledger (' + existing.state + ')', state: existing.state };
@@ -729,6 +817,7 @@ function onMissionEvent(kind, task) {
     writeEntry(cfg, {
       key: key,
       task_id: task.task_id,
+      mission_id: missionId,
       kind: kind,
       report_status: null,
       state: 'PENDING',
@@ -836,7 +925,7 @@ function deliverEntry(cfg, entry, provider, apiKey, deadlineMs) {
         apiVersion: cfg.apiVersion,
         options: selectedOptions(cfg)
       }).then(function (r) {
-        results.push({ ok: !!r.ok, status: r.status || null, provider_message_id: r.provider_message_id || null, error: r.error ? redact.redact(String(r.error)).slice(0, 300) : null });
+        results.push({ ok: !!r.ok, status: r.status || null, provider_message_id: r.provider_message_id || null, provider_status: r.provider_status || null, error: r.error ? redact.redact(String(r.error)).slice(0, 300) : null });
         if (r.ok) {
           fresh.delivered_to = (fresh.delivered_to || []).concat([to]);
           fresh.updated_at = new Date().toISOString();
@@ -881,15 +970,19 @@ function deliverEntry(cfg, entry, provider, apiKey, deadlineMs) {
       return { key: fresh.key, sent: false, deferred: remaining.length, budget_exhausted: true, kind: fresh.kind, task_id: fresh.task_id, attempts: fresh.attempts, recipients: results.length };
     }
     fresh.last_error = failed[0].error || ('HTTP ' + failed[0].status);
-    if (fresh.attempts >= cfg.maxAttempts) {
+    var rejected = failed.some(isMessageFailure);
+    if (rejected) fresh.message_failures = (fresh.message_failures || 0) + 1;
+    else fresh.provider_failures = (fresh.provider_failures || 0) + 1;
+    if (rejected && fresh.message_failures >= cfg.maxAttempts) {
       fresh.state = 'EXHAUSTED';
       fresh.exhausted_at = now;
       writeEntry(cfg, fresh);
       releaseKeyLock(lock);
       return { key: fresh.key, sent: false, exhausted: true, kind: fresh.kind, task_id: fresh.task_id, attempts: fresh.attempts, error: fresh.last_error };
     }
+    // Outage or not-yet-exhausted rejection: stay PENDING, back off (capped).
     fresh.state = 'PENDING';
-    fresh.next_attempt_at = new Date(Date.now() + backoffFor(cfg, fresh.attempts)).toISOString();
+    fresh.next_attempt_at = new Date(Date.now() + backoffFor(cfg, rejected ? fresh.message_failures : fresh.provider_failures)).toISOString();
     writeEntry(cfg, fresh);
     releaseKeyLock(lock);
     return { key: fresh.key, sent: false, retry_at: fresh.next_attempt_at, kind: fresh.kind, task_id: fresh.task_id, attempts: fresh.attempts, error: fresh.last_error };
@@ -898,8 +991,10 @@ function deliverEntry(cfg, entry, provider, apiKey, deadlineMs) {
     // does, treat it exactly like a failed attempt rather than losing the
     // entry or propagating into the caller.
     var now = new Date().toISOString();
-    fresh.state = fresh.attempts >= cfg.maxAttempts ? 'EXHAUSTED' : 'PENDING';
-    fresh.next_attempt_at = new Date(Date.now() + backoffFor(cfg, fresh.attempts)).toISOString();
+    // An adapter that rejects is a provider-level fault: never exhausting.
+    fresh.provider_failures = (fresh.provider_failures || 0) + 1;
+    fresh.state = 'PENDING';
+    fresh.next_attempt_at = new Date(Date.now() + backoffFor(cfg, fresh.provider_failures)).toISOString();
     fresh.last_error = redact.redact(String(err && err.message)).slice(0, 300);
     fresh.updated_at = now;
     delete fresh.sending_pid;
@@ -921,7 +1016,10 @@ function reclaimStale(cfg) {
     var age = Date.now() - Date.parse(e.updated_at || e.created_at || 0);
     if (age < cfg.leaseMs) return;
     if (e.sending_pid && state.processAlive(e.sending_pid)) return;
-    e.state = e.attempts >= cfg.maxAttempts ? 'EXHAUSTED' : 'PENDING';
+    // An interrupted send is the bridge's fault, not the message's: it is
+    // requeued, never exhausted. Recipients already in delivered_to are not
+    // sent again (pendingRecipients()).
+    e.state = 'PENDING';
     e.next_attempt_at = new Date().toISOString();
     e.last_error = 'interrupted mid-send (lease expired); requeued';
     e.updated_at = new Date().toISOString();
@@ -950,7 +1048,71 @@ function flush(opts) {
 
   var reclaimed = 0;
   try { reclaimed = reclaimStale(cfg); } catch (e) { /* a reclaim failure must not stop delivery */ }
+  var expired = 0;
+  try { expired = expireStale(cfg, Date.now()); } catch (e) { /* an expiry failure must not stop delivery */ }
 
+  // Recovery first: while the circuit is open, a connected gateway half-opens
+  // it now instead of after the cooldown. Never throws, never sends.
+  return healthRecover(cfg, provider, apiKey, Date.now()).then(null, function () { return null; }).then(function (health) {
+    return flushDue(cfg, provider, apiKey, opts, reclaimed, expired, health);
+  }).then(null, function (e) {
+    // flush() never rejects: the tick chains it without a guard.
+    return { ok: false, enabled: true, reclaimed: reclaimed, expired: expired, error: redact.redact(String(e && e.message)).slice(0, 300), results: [] };
+  });
+}
+
+// Moves PENDING entries older than maxAgeMs to EXPIRED, under the key lock.
+function expireStale(cfg, nowMs) {
+  var n = 0;
+  listEntries(cfg).forEach(function (e) {
+    if (e.state !== 'PENDING') return;
+    var age = nowMs - (Date.parse(e.created_at || 0) || nowMs);
+    if (age < cfg.maxAgeMs) return;
+    var lock = acquireKeyLock(cfg, e.key);
+    if (!lock) return;
+    try {
+      var fresh = readEntry(cfg, e.key);
+      if (!fresh || fresh.state !== 'PENDING') return;
+      fresh.state = 'EXPIRED';
+      fresh.expired_at = new Date(nowMs).toISOString();
+      fresh.updated_at = fresh.expired_at;
+      fresh.last_error = 'not deliverable within ' + Math.round(cfg.maxAgeMs / 3600000) + ' h; expired, never sent late';
+      writeEntry(cfg, fresh);
+      n++;
+    } finally { releaseKeyLock(lock); }
+  });
+  return n;
+}
+
+// Per-mission order: a lifecycle event may be sent only after every EARLIER
+// event of the same mission is SENT, so SUCCESS can never overtake a START
+// that is backing off. If the earlier event is due now too, both are in the
+// batch and the later one carries `_after` (checked right before its send);
+// if the earlier one is not due, the later one waits. Report kinds are
+// independent of this.
+function orderedDue(cfg, nowMs) {
+  var all = listEntries(cfg);   // sorted by created_at
+  var blocked = {};   // mission -> true: an earlier undelivered event is NOT due now
+  var lastDue = {};   // mission -> key of the latest earlier event that IS due now
+  var out = [];
+  all.forEach(function (e) {
+    var mission = MISSION_KINDS.indexOf(e.kind) !== -1 ? (e.mission_id || e.task_id) : null;
+    var undelivered = e.state === 'PENDING' || e.state === 'SENDING';
+    if (mission && blocked[mission]) return;
+    var isDue = due(e, nowMs);
+    if (isDue) {
+      var item = Object.assign({}, e);
+      if (mission && lastDue[mission]) item._after = lastDue[mission];
+      out.push(item);
+      if (mission) lastDue[mission] = e.key;
+    } else if (mission && undelivered) {
+      blocked[mission] = true;
+    }
+  });
+  return out;
+}
+
+function flushDue(cfg, provider, apiKey, opts, reclaimed, expired, health) {
   var now = Date.now();
 
   // The provider circuit. While it is open nothing is attempted, no attempt
@@ -959,20 +1121,22 @@ function flush(opts) {
   var gate = breakerGate(cfg, now);
   if (!gate.allow) {
     return Promise.resolve({
-      ok: true, enabled: true, reclaimed: reclaimed, attempted: 0, sent: 0, failed: 0,
-      skipped: 'provider circuit breaker is open', breaker: gate, results: []
+      ok: true, enabled: true, reclaimed: reclaimed, expired: expired, attempted: 0, sent: 0, failed: 0,
+      skipped: 'provider circuit breaker is open', breaker: gate, health: health, results: []
     });
   }
 
+  // Half-open: the first entry is the probe. The per-entry breaker re-check
+  // below stops the batch if the probe fails; if it succeeds the circuit is
+  // closed and the rest of the batch drains in this same flush.
   var limit = opts.limit || cfg.flushLimit;
-  if (gate.probe) limit = 1;   // half-open: exactly one entry decides the circuit
   var batch;
   try {
-    batch = listEntries(cfg).filter(function (e) { return due(e, now); }).slice(0, limit);
+    batch = orderedDue(cfg, now).slice(0, limit);
   } catch (e) {
     return Promise.resolve({ ok: false, enabled: true, error: redact.redact(String(e && e.message)).slice(0, 300), results: [] });
   }
-  if (!batch.length) return Promise.resolve({ ok: true, enabled: true, reclaimed: reclaimed, attempted: 0, sent: 0, failed: 0, breaker: breakerStatus(cfg), results: [] });
+  if (!batch.length) return Promise.resolve({ ok: true, enabled: true, reclaimed: reclaimed, expired: expired, attempted: 0, sent: 0, failed: 0, breaker: breakerStatus(cfg), health: health, results: [] });
 
   // Wall-clock ceiling for the whole flush. `tick` waits for this before it
   // exits, so it must be bounded independently of how many recipients or
@@ -993,6 +1157,13 @@ function flush(opts) {
         results.push({ key: entry.key, skipped: 'provider circuit breaker is open' });
         return null;
       }
+      if (entry._after) {
+        var prior = readEntry(cfg, entry._after);
+        if (!prior || prior.state !== 'SENT') {
+          results.push({ key: entry.key, skipped: 'waiting for an earlier event of the same mission' });
+          return null;
+        }
+      }
       return deliverEntry(cfg, entry, provider, apiKey, deadline).then(function (r) { results.push(r); }, function (e) {
         results.push({ key: entry.key, sent: false, error: redact.redact(String(e && e.message)).slice(0, 300) });
       });
@@ -1003,6 +1174,9 @@ function flush(opts) {
       ok: true,
       enabled: true,
       reclaimed: reclaimed,
+      expired: expired,
+      probe: !!gate.probe,
+      health: health,
       attempted: results.filter(function (r) { return !r.skipped; }).length,
       sent: results.filter(function (r) { return r.sent; }).length,
       // A budget cut is not a failure: nothing failed, the flush simply ran
@@ -1097,6 +1271,10 @@ module.exports = {
   buildMessage: buildMessage,
   missionTitleOf: missionTitleOf,
   buildLifecycleMessage: buildLifecycleMessage,
+  missionIdOf: missionIdOf,
+  isMessageFailure: isMessageFailure,
+  expireStale: expireStale,
+  healthRecover: healthRecover,
   ledgerKey: ledgerKey,
   readEntry: readEntry,
   listEntries: listEntries,

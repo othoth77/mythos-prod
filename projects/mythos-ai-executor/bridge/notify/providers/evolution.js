@@ -16,15 +16,22 @@
 //   id            string, matches the MYTHOS_BRIDGE_WHATSAPP_PROVIDER value
 //   requirements  array of config keys that must be present before enabling
 //   describe()    { id, transport, endpoint_shape, notes } — no secrets
-//   sendText(o)   Promise<{ ok, status, provider_message_id, error }>
+//   sendText(o)   Promise<{ ok, status, provider_message_id, provider_status, error }>
 //                 o = { baseUrl, instance, apiKey, to, text, timeoutMs,
 //                       apiVersion }
 //                 MUST NOT throw for an HTTP error status, MUST NOT return
 //                 or log the credential, MUST NOT retry internally (retry
 //                 and idempotency belong to the ledger in whatsapp.js).
+//   connectionState(o)  OPTIONAL. Promise<{ ok, state, error }> — a read-only
+//                 probe of whether the gateway can deliver right now
+//                 (o = { baseUrl, instance, apiKey, timeoutMs }). Used only
+//                 while the circuit breaker is open, to recover as soon as the
+//                 gateway is back instead of waiting out the cooldown. It
+//                 never sends anything. MUST NOT throw.
 //
-// Endpoint used (self-hosted Evolution API, private network):
+// Endpoints used (self-hosted Evolution API, private network):
 //   POST {baseUrl}/message/sendText/{instance}
+//   GET  {baseUrl}/instance/connectionState/{instance}   (health, read-only)
 //   header: apikey: <instance or global key>
 //   body v2: { number, text }
 //   body v1: { number, textMessage: { text } }
@@ -53,7 +60,7 @@ function describe() {
     transport: 'HTTP POST (JSON) over the private network',
     endpoint_shape: 'POST {baseUrl}/message/sendText/{instance}',
     auth: 'apikey request header, read at send time from a 0600 file or the environment; never stored, never logged',
-    capabilities: ['sendText'],
+    capabilities: ['sendText', 'connectionState'],
     not_implemented: ['instance lifecycle', 'QR / pairing', 'media', 'groups', 'inbound webhooks', 'chat state']
   };
 }
@@ -67,6 +74,17 @@ function messageId(body) {
     if (parsed && parsed.key && typeof parsed.key.id === 'string') return parsed.key.id.slice(0, 120);
     if (parsed && typeof parsed.id === 'string') return parsed.id.slice(0, 120);
   } catch (e) { /* a non-JSON body is not an error here */ }
+  return null;
+}
+
+// Evolution echoes the WhatsApp message it built; its `status` is the
+// provider's own view at acceptance time (e.g. "PENDING" = handed to the
+// WhatsApp socket, before any server/device ACK). Evidence only.
+function messageStatus(body) {
+  try {
+    var parsed = JSON.parse(body);
+    if (parsed && typeof parsed.status === 'string') return parsed.status.slice(0, 40);
+  } catch (e) { /* evidence only */ }
   return null;
 }
 
@@ -99,6 +117,7 @@ function sendText(o) {
       ok: res.ok,
       status: res.statusCode,
       provider_message_id: res.ok ? messageId(res.body) : null,
+      provider_status: res.ok ? messageStatus(res.body) : null,
       // The body is already redacted by http-json; truncate again for the ledger.
       error: res.ok ? null : ('HTTP ' + res.statusCode + ': ' + String(res.body || '').slice(0, 300))
     };
@@ -107,10 +126,31 @@ function sendText(o) {
   });
 }
 
+// Read-only: is the WhatsApp session of this instance connected right now?
+// Evolution v2: { instance: { instanceName, state: "open" | "connecting" | "close" } }.
+function connectionState(o) {
+  o = o || {};
+  if (!o.baseUrl || !INSTANCE_RE.test(String(o.instance || '')) || !o.apiKey) {
+    return Promise.resolve({ ok: false, state: null, error: 'CONFIG: incomplete' });
+  }
+  var target = String(o.baseUrl).replace(/\/+$/, '') + '/instance/connectionState/' + encodeURIComponent(o.instance);
+  return httpJson.getJson(target, { headers: { apikey: o.apiKey }, timeoutMs: o.timeoutMs || 5000 }).then(function (res) {
+    var st = null;
+    try {
+      var j = JSON.parse(res.body);
+      st = (j && j.instance && j.instance.state) || (j && j.state) || null;
+    } catch (e) { st = null; }
+    return { ok: res.ok, state: st ? String(st).slice(0, 20) : null, error: res.ok ? null : ('HTTP ' + res.statusCode) };
+  }, function (err) {
+    return { ok: false, state: null, error: 'TRANSPORT: ' + String(err.message).slice(0, 200) };
+  });
+}
+
 module.exports = {
   id: ID,
   requirements: ['baseUrl', 'instance', 'apiKey', 'recipients'],
   describe: describe,
   isValidRecipient: isValidRecipient,
-  sendText: sendText
+  sendText: sendText,
+  connectionState: connectionState
 };

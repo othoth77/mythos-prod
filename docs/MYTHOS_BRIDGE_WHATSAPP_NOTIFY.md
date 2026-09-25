@@ -411,16 +411,32 @@ The ledger is the executor store convention already used by the bridge's
 claims cache — one small atomic JSON file per notification, `0600`, under
 `$MYTHOS_BRIDGE_HOME/notify/ledger/`. **No database is added.**
 
-Key: `<task_id>__<KIND>`. States:
+Key: `<task_id>__<KIND>` for report kinds, `<mission_id>__<KIND>` for the
+mission lifecycle kinds (§6.5). States:
 
 | State | Meaning | Next |
 |---|---|---|
 | `PENDING` | queued, or a failed attempt awaiting backoff | retried when `next_attempt_at` passes |
-| `SENDING` | a live process holds the claim | reclaimed only if the holder dies and the lease expires |
-| `SENT` | delivered to every recipient | **never attempted again**, never pruned |
-| `EXHAUSTED` | `MAX_ATTEMPTS` reached | never attempted again; visible in `notify-status` |
+| `SENDING` | a live process holds the claim | reclaimed (→ `PENDING`, never `EXHAUSTED`) only if the holder dies and the lease expires |
+| `SENT` | the provider **accepted** it for every recipient and returned its message id (§6.4) | **never attempted again**, never pruned |
+| `EXHAUSTED` | the provider **rejected this message** (4xx, or refused locally as unsendable) `MAX_ATTEMPTS` times | never attempted again; visible in `notify-status` |
+| `EXPIRED` | still undelivered after `MAX_AGE_HOURS` (default 168 h) | never sent late; visible in `notify-status` |
 
-- **Backoff:** `BACKOFF_MS × 2^(attempt-1)`, capped at 30 minutes.
+- **An outage never exhausts a notification (V3.2.5).** Failures are
+  classified: a *message* failure (4xx, or a local `CONFIG:` refusal such as a
+  bad recipient) counts in `message_failures` and is bounded by
+  `MAX_ATTEMPTS`; a *provider* failure (transport, timeout, 5xx — e.g.
+  Evolution's `500 Connection Closed` while the WhatsApp session is
+  disconnected) counts in `provider_failures`, backs off and is gated by the
+  breaker, and **never** leads to `EXHAUSTED`. Before V3.2.5 every failure
+  consumed the same budget, so any outage longer than the backoff window
+  destroyed the queued notifications: the ledger holds seven such `EXHAUSTED`
+  entries (2026-09-05/07, and `gh-issue-461__FAILED` on 2026-09-25, lost at
+  16:36 UTC minutes before the session was re-paired).
+- **Backoff:** `BACKOFF_MS × 2^(n-1)` with `n` the count of the failure's own
+  class, capped at 30 minutes — so recovery is never pushed out indefinitely.
+- **Bounded pending:** a notification cannot stay `PENDING` for ever:
+  after `MAX_AGE_HOURS` it becomes `EXPIRED` instead of arriving days late.
 - **Partial delivery:** each recipient that succeeded is written to
   `delivered_to` **immediately**, right after that recipient's own send is
   acknowledged — not batched until the whole attempt (every recipient)
@@ -473,10 +489,23 @@ the messages, it destroyed them (`EXHAUSTED`, never sent).
 
 After `BREAKER_THRESHOLD` consecutive **provider-level** failures the circuit
 opens for `BREAKER_COOLDOWN_MS`, doubling per consecutive open, capped at 30
-minutes. While open a flush touches nothing: zero requests, zero attempts
-consumed, every entry left `PENDING`. On expiry it is half-open and lets
-**exactly one** entry through as a probe — success closes it, failure re-opens
-it with a doubled cooldown. The circuit is re-checked between entries inside a
+minutes. While open a flush **sends** nothing and every entry stays `PENDING`.
+It becomes half-open when the cooldown expires **or earlier, as soon as the
+gateway is back** (V3.2.5): while open, at most once per
+`HEALTH_INTERVAL_MS` (default 60 s, counted from the moment it opened) the
+adapter's optional read-only `connectionState()` is asked whether the
+WhatsApp session is connected (`GET /instance/connectionState/{instance}` on
+Evolution); `open` half-opens the circuit immediately. In half-open the first
+due entry is the probe — a failure re-opens it with a doubled cooldown and
+nothing else is attempted; **a success closes it and the rest of the batch
+drains in the same flush**. A health answer never marks anything delivered
+and never closes the circuit by itself: only a real accepted send does. The
+breaker is not the source of truth for any notification — the ledger is.
+
+Measured on 2026-09-25 (gh-issue-464): the session was re-paired, the circuit
+stayed open until its cooldown expired at 17:06:16 and the three queued
+messages left at 17:08. With the health check they leave on the first tick
+after the session is connected. The circuit is re-checked between entries inside a
 single flush, so the first flush of an outage costs `THRESHOLD` timeouts, not
 one per due entry.
 
@@ -485,8 +514,9 @@ one per due entry.
 - **It fails closed.** A missing, unreadable or corrupt breaker file reads as
   "closed", i.e. *towards* attempting delivery — it can never silently
   suppress a notification.
-- **Nothing is lost.** No attempt is consumed while it is open, so an outage
-  postpones notifications instead of exhausting them.
+- **Nothing is lost.** Provider-level failures — including the ones before the
+  circuit opens and every failed half-open probe — never exhaust an entry
+  (§6); an outage only postpones notifications.
 - Kill switch `MYTHOS_BRIDGE_WHATSAPP_BREAKER=off` restores the exact previous
   behaviour. State lives in `$MYTHOS_BRIDGE_WHATSAPP_HOME/breaker.json`.
 
@@ -516,6 +546,43 @@ A REPORT is written once and never revisited, so `onReport()` was the only
 moment a notification could ever be created. Requiring the credential there
 meant an unreadable `0600` file destroyed the notification permanently. It is
 now re-read on every flush, where being unreadable costs a retry.
+
+## 6.4 What counts as delivery proof
+
+`SENT` records the strongest evidence this deployment can produce, and no
+more:
+
+1. HTTP `201` from `POST /message/sendText/{instance}` — Evolution accepted
+   the message;
+2. `provider_message_id` — the WhatsApp message key (`key.id`) Evolution
+   built for it;
+3. `provider_status` — Evolution's own status at acceptance (`PENDING`:
+   handed to the WhatsApp socket, before any server/device acknowledgement).
+
+**Recipient-level delivery confirmation (server ACK / delivered / read) is
+NOT available from this Evolution deployment.** Checked on 2026-09-25:
+`DATABASE_SAVE_DATA_NEW_MESSAGE=false`, `DATABASE_SAVE_MESSAGE_UPDATE=false`
+and no webhook is configured, so `findMessages` / `findStatusMessage` return
+nothing for these ids. Enabling message persistence would store message
+contents of every instance on this gateway — a privacy decision outside
+V3.2.5, not taken here. Until then, "delivered to the phone" is confirmed by
+the owner seeing the message, and the ledger says **accepted**, never
+**read**.
+
+## 6.5 Mission identity and order (lifecycle kinds)
+
+- **Identity is the mission, not the attempt.** `gh-issue-461` and its rerun
+  `gh-issue-461-r2` share `mission_id = gh-issue-461`; the key is
+  `gh-issue-461__MISSION_START`, so a retry or rerun can never produce a second
+  START, STOP or SUCCESS. The entry records both `mission_id` and the attempt's
+  `task_id`. (Report kinds stay per attempt: each attempt has its own report.)
+- **Order per mission.** A lifecycle event is sent only after every earlier
+  event of the same mission is `SENT`: SUCCESS never overtakes a START that is
+  backing off. When both are due they go in the same flush, in order.
+- **Duplicates.** One key per (mission, kind), an `O_EXCL` lock per key, and
+  `SENT` is terminal: repeated ticks, repeated flushes and two flushing
+  processes at once send each event once (tests, §8). The irreducible
+  at-least-once window of §6 still applies.
 
 ---
 
@@ -575,7 +642,7 @@ passing.** No real WhatsApp message is sent: the far end is a local
 | 4 | end-to-end delivery of all four kinds; endpoint shape, `apikey` header, v2 body |
 | 5 | duplicate polling and repeated flushes → exactly one message |
 | 6 | four parallel in-process flushes **and** four concurrent OS processes → exactly one message |
-| 7 | gateway 500 → retryable, backoff respected, recovery succeeds once, attempts bounded → `EXHAUSTED` |
+| 7 | gateway 500 → retryable, backoff respected, recovery succeeds once; a message the provider **rejects** (4xx) is bounded → `EXHAUSTED` (an outage never is, see the durable suite) |
 | 8 | partial multi-recipient delivery: the recipient that succeeded is not messaged twice |
 | 9 | crash mid-send reclaimed and delivered once; a live sender never reclaimed; restart re-sends nothing |
 | 10 | a real bridge tick: `COMPLETED` and `HUMAN_APPROVAL` end to end; a failing gateway leaves the TASK and REPORT **byte-identical** and produces no control commit |
@@ -583,6 +650,22 @@ passing.** No real WhatsApp message is sent: the far end is a local
 | 12 | the adapter contract, and refusal of injecting recipients/instance names |
 | 13 | task_id length: a 64-char id (the bridge's own max) reaches the ledger and is delivered; a 65-char id is refused by `ledgerKey()` |
 | 14 | the crash/failure window: a recipient's success is durable on disk before the rest of the attempt finishes; a simulated crash + reclaim retries only the recipient still missing, never re-sending to one already recorded |
+
+`node tests/mythos-bridge-whatsapp-durable-test.js` — **53 checks** (V3.2.5):
+provider timeout and repeated `500 Connection Closed` never exhaust; retry
+after recovery delivers once with the provider message id; 4xx rejections are
+bounded and never trip the breaker; breaker open → zero sends, rate-limited
+read-only health checks, automatic half-open on a connected gateway, probe
+success drains the backlog in the same flush (the gh-issue-464 scenario, no
+reset, no human step); a lying health answer costs one probe and marks
+nothing delivered; restart with `PENDING`; a real `SIGKILL` of a flushing
+process recovered after the lease; concurrent flushes in one process and in
+two processes → each event once; eight simultaneous missions; per-mission
+order; rerun identity; `EXPIRED`; and real bridge ticks with the gateway down
+for a whole mission lifecycle — outcomes exactly the executor's, START /
+SUCCESS / STOP delivered after recovery in order, no duplicate on repeated
+ticks, an unwritable ledger never failing a claim, the next mission claimed
+normally.
 
 This suite runs with `MYTHOS_BRIDGE_WHATSAPP_BREAKER=off`, deliberately:
 sections 7–9 drive the gateway into repeated failures to prove retry, backoff,

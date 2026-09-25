@@ -357,9 +357,11 @@ function run() {
       }).then(function () {
         ok(received.length === 3, 'retry: a SENT entry is never attempted again');
 
-        // Exhaustion: attempts are bounded, and the bridge is never blocked.
+        // Exhaustion: a message the provider REJECTS (4xx) is bounded, and the
+        // bridge is never blocked. (V3.2.5: a provider OUTAGE — 5xx, timeout,
+        // transport — never exhausts; tests/mythos-bridge-whatsapp-durable-test.js.)
         resetGateway();
-        gateway.status = 500;
+        gateway.status = 400;
         whatsapp.onReport(mkReport('gh-wa-exha-0001', 'FAILED'), {});
         var seq = Promise.resolve();
         [0, 1, 2].forEach(function () {
@@ -375,7 +377,7 @@ function run() {
         return seq;
       }).then(function () {
         var e = entriesByKey()['gh-wa-exha-0001__FAILED'];
-        ok(e.state === 'EXHAUSTED' && e.attempts === 3, 'retry: attempts are bounded by MAX_ATTEMPTS, then EXHAUSTED');
+        ok(e.state === 'EXHAUSTED' && e.attempts === 3, 'retry: a message REJECTED by the provider (4xx) is bounded by MAX_ATTEMPTS, then EXHAUSTED');
         return whatsapp.flush().then(function () {
           ok(received.length === 3, 'retry: an EXHAUSTED entry is never attempted again');
         });
