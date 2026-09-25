@@ -81,7 +81,7 @@ t('Z1 sizeTask: fits a small task; refuses an oversized one with numbers; the hi
   var twoFiles = agent.sizeTask({ baseChars: 8000, scopeFiles: [{ path: 'a.js', bytes: 1800 }, { path: 'b.js', bytes: 1800 }], largestFenceChars: 0, budget: 5000 });
   assert.strictEqual(twoFiles.fits, false); assert.ok(/split per file/.test(twoFiles.hint), twoFiles.hint);
   var fence = agent.sizeTask({ baseChars: 9000, scopeFiles: [], largestFenceChars: 6000, budget: 5000 });
-  assert.strictEqual(fence.fits, false); assert.ok(/content spelled out/.test(fence.hint), fence.hint);
+  assert.strictEqual(fence.fits, false); assert.ok(/content spelled out|spelled-out content/.test(fence.hint), fence.hint);
   var fixed = agent.sizeTask({ baseChars: 12000, scopeFiles: [], largestFenceChars: 0, budget: 5000 });
   assert.ok(fixed.reasons.some(function (r) { return /fixed prompt alone/.test(r); }), 'a prompt eating > 75 % is refused on its own');
 });
@@ -132,6 +132,18 @@ t('Z4 a retry does not size its OWN earlier output as a pre-existing target (gh-
     assert.ok(s && !s.refused && /files 0/.test(s.detail), 'with it, the file is the task\'s output, not a target: ' + (s && s.detail));
     assert.ok(callsWith > 0, 'and the task runs');
   });
+});
+
+t('Z5 the reliable-write limit: content a single write must carry above ~1.6 KB is refused with a split hint, even when the token budget would fit', function () {
+  assert.strictEqual(agent.MAX_RELIABLE_WRITE_CHARS, 1600);
+  var ok = agent.sizeTask({ baseChars: 6000, scopeFiles: [], largestFenceChars: 1500, budget: 5000 });
+  assert.strictEqual(ok.fits, true, JSON.stringify(ok));
+  var big = agent.sizeTask({ baseChars: 6000, scopeFiles: [], largestFenceChars: 1950, budget: 5000 });
+  assert.ok(big.need < 5000, 'within the token budget (' + big.need + ')');
+  assert.strictEqual(big.fits, false, 'yet refused: gh-issue-454-r2 truncated a 1.9 KB write');
+  assert.ok(/split the spelled-out content/.test(big.hint), big.hint);
+  var rewrite = agent.sizeTask({ baseChars: 6000, scopeFiles: [{ path: 'x.json', bytes: 2000 }], largestFenceChars: 0, budget: 8000 });
+  assert.strictEqual(rewrite.fits, false, 'a whole-file rewrite of 2 KB is one 2 KB write');
 });
 
 // ---------------------------------------------------------------- R4: envelope
