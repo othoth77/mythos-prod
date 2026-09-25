@@ -788,6 +788,22 @@ function notify(event, stage, detail) {
 
 // --- Execution ------------------------------------------------------------------
 
+function attemptBaseline(task, taskId) {
+  // Only for a provider that measures the workspace itself (it reads the
+  // baseline); anything else never pays for a snapshot.
+  if (!task || task.provider !== 'haddad-agent' || !task.working_directory) return null;
+  try {
+    var existing = state.readJSON(taskId, 'baseline.json');
+    if (existing && existing.files && existing.working_directory === task.working_directory) return existing;
+  } catch (e) { /* first execution of this attempt */ }
+  try {
+    var snap = require('./lib/work-validation').snapshot(task.working_directory);
+    snap.working_directory = task.working_directory;
+    state.writeJSON(taskId, 'baseline.json', snap);
+    return snap;
+  } catch (e) { return null; }   // no baseline: the provider takes its own, as before
+}
+
 function projectWriteScope(project) {
   var cfg = PROJECTS[project] || {};
   if (!Array.isArray(cfg.write_scope) || !cfg.write_scope.length) return null;
@@ -888,7 +904,14 @@ function runTaskCore(taskId, opts) {
   // derived HERE from config at launch — never read from task.json, so
   // nothing a task file or an Issue carries can widen it. A project without
   // one behaves exactly as before.
-  return provider.run(withProjectScope(task), prompt, sessionId, mode, {}, function onSpawn(childPid) {
+  // V3.2 ATTEMPT BASELINE. A transient retry starts the provider over in the
+  // SAME worktree; a baseline taken per execution would count the previous
+  // execution's writes as the starting state — hiding them from the
+  // validator and turning a file the attempt CREATED into one it "modified"
+  // (measured live, gh-issue-441: a false integrity rejection that spent
+  // the repair budget). The baseline is taken once per attempt and reused
+  // by every later execution of it.
+  return provider.run(withProjectScope(task), prompt, sessionId, mode, { baseline: attemptBaseline(task, taskId) }, function onSpawn(childPid) {
     var st = state.readStatus(taskId);
     st.pid = childPid;
     state.writeJSON(taskId, 'status.json', st);
@@ -1863,6 +1886,7 @@ module.exports = {
   recordProviderEvents: recordProviderEvents,
   recordAgentOutcome: recordAgentOutcome,
   projectWriteScope: projectWriteScope,
+  attemptBaseline: attemptBaseline,
   withProjectScope: withProjectScope,
   preflightBlocker: preflightBlocker,
   verifyGit: verifyGit,
