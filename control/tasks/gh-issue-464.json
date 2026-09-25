@@ -17,7 +17,7 @@
   "action_raw": "investigate",
   "action_source": "default",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-25T16:59:07.433Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #464 https://github.com/othoth77/mythos-prod/issues/464 — \"V3.2.9 — WhatsApp E2E smoke test\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[purpose]\nTemporary smoke test for the V3.2.5 WhatsApp lifecycle notification implementation.\n\n[test]\nRun one controlled mission and verify the three lifecycle notifications arrive on WhatsApp without duplicates.\n\n[done]\n- START received\n- STOP/FAILURE received\n- SUCCESS received\n- No duplicate notifications\n- Underlying mission state unaffected by notification delivery\n\nAfter the test, report the result and stop. Do not automatically start any later phase.",
@@ -151,8 +151,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "9f1d8599da3263d291bbd9962d6552c1306cd3b0ab0f39d25cb045b69cbf48fb",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-25T17:00:28.683Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-25T17:01:49.796Z",
     "snapshot_sha256": "734851c9f4ca20645827eafdb6538e802b986a952a35e839be8d88bb57b87873",
     "fence": 73826,
     "lease": {
@@ -181,7 +181,8 @@
     },
     "model": "claude-haiku-4-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "0e74f728-c8b1-46aa-97cc-9e7a1fef4b24"
+    "claude_session_id": "0e74f728-c8b1-46aa-97cc-9e7a1fef4b24",
+    "report_file": "control/reports/gh-issue-464.json"
   },
   "history": [
     {
@@ -197,6 +198,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-25T17:01:49.199Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-25T17:01:49.796Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 1 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }

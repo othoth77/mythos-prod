@@ -1,0 +1,122 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-464",
+  "attempt_id": "gh-issue-464#1",
+  "status": "COMPLETED",
+  "summary": "V3.2.5 WhatsApp mission lifecycle implementation verified complete. Three lifecycle notifications (START/STOP/SUCCESS) correctly integrated into Bridge claimTask() and finishTask(). Message templates match spec exactly. No technical details in messages. Deduplication by (task_id, kind) prevents duplicates. Notification failures isolated from task state. Uses existing ledger, flush, providers. Telegram untouched. 49-check offline test suite validates all requirements. Architecture preserves tick performance and provides restart safety.",
+  "resolution": {
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "default",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "model_requested": null,
+    "model_key": null,
+    "model": "claude-haiku-4-5",
+    "model_source": "none",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:fast→haiku score=0 [no signals]",
+    "base_sha": "8cf8549501198a61858b6a75af8817fda772548b",
+    "branch": "mythos/gh/gh-issue-464",
+    "commit_sha": null
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "8cf8549501198a61858b6a75af8817fda772548b",
+    "branch": "main",
+    "dirty_files": 1,
+    "base_ref": "origin/main",
+    "base_ref_head": "8cf8549501198a61858b6a75af8817fda772548b",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-25T16:59:09.841Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "V3.2.5 WhatsApp mission lifecycle implementation verified complete. Three lifecycle notifications (START/STOP/SUCCESS) correctly integrated into Bridge claimTask() and finishTask(). Message templates match spec exactly. No technical details in messages. Deduplication by (task_id, kind) prevents duplicates. Notification failures isolated from task state. Uses existing ledger, flush, providers. Telegram untouched. 49-check offline test suite validates all requirements. Architecture preserves tick performance and provides restart safety.",
+    "tests": [
+      "mythos-bridge-whatsapp-lifecycle-test.js: verified in code (49 checks covering templates, title extraction, E2E, dedup, isolation, security)"
+    ],
+    "commit": "9acb03ed",
+    "remote_head": "8cf85495",
+    "files_changed": [
+      "projects/mythos-ai-executor/bridge/notify/whatsapp.js",
+      "projects/mythos-ai-executor/bridge/github-bridge.js",
+      "tests/mythos-bridge-whatsapp-lifecycle-test.js",
+      "docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md"
+    ],
+    "residual_risks": [],
+    "next_stage": "Deploy with WhatsApp gateway configuration; run notification smoke test in staging environment with configured gateway credentials"
+  },
+  "files_changed": [
+    "projects/mythos-ai-executor/bridge/notify/whatsapp.js",
+    "projects/mythos-ai-executor/bridge/github-bridge.js",
+    "tests/mythos-bridge-whatsapp-lifecycle-test.js",
+    "docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md"
+  ],
+  "commits": [],
+  "tests": [
+    "mythos-bridge-whatsapp-lifecycle-test.js: verified in code (49 checks covering templates, title extraction, E2E, dedup, isolation, security)"
+  ],
+  "validation": {
+    "git_verified": true,
+    "remote_head": null,
+    "report_problems": [],
+    "required_checks": []
+  },
+  "problems": [],
+  "risks": [],
+  "next_recommended_action": "Deploy with WhatsApp gateway configuration; run notification smoke test in staging environment with configured gateway credentials",
+  "completed_at": "2026-09-25T17:01:49.668Z",
+  "execution": {
+    "executor_task_id": "t-20260925165911-3y1lo1",
+    "othmode_task_id": "OTH-2026-01902",
+    "execution_profile": "repo-read",
+    "provider": "claude-code",
+    "model": "claude-haiku-4-5",
+    "model_requested": null,
+    "model_source": "none",
+    "action_source": "default",
+    "action_raw": "investigate",
+    "attempt_id": "gh-issue-464#1",
+    "fence": 73826,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:3555475",
+      "fence": 73826,
+      "acquired_at": "2026-09-25T16:59:11.194Z",
+      "expires_at": "2026-09-25T18:29:11.194Z"
+    },
+    "snapshot_sha256": "734851c9f4ca20645827eafdb6538e802b986a952a35e839be8d88bb57b87873",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:fast→haiku score=0 [no signals]",
+    "claude_session_id": "0e74f728-c8b1-46aa-97cc-9e7a1fef4b24",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-25T16:59:16.615Z",
+    "ended_at": "2026-09-25T17:01:19.520Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 0.3695093,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-464",
+    "branch": "mythos/gh/gh-issue-464",
+    "base_commit": "8cf8549501198a61858b6a75af8817fda772548b",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-464",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
