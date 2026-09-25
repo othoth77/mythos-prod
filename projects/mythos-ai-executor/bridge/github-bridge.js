@@ -72,6 +72,7 @@ var providerSelection = require('./provider-selection');
 // Adapter only — it loads the orchestration core lazily and ONLY when the
 // review gate is switched on, so the default bridge path is unchanged.
 var reviewGate = require('./review-gate');
+var startGates = require('./start-gates');
 var schema = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'schema'));
 var redact = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'redact'));
 // Notification sink. It is enqueue-only inside the tick (synchronous, local,
@@ -613,7 +614,10 @@ function continuationSatisfies(original, candidate) {
 // never spin here.
 var MAX_CONTINUATION_HOPS = 10;
 
-function dependencySatisfied(depId, tasksById) {
+function dependencySatisfied(depId, tasksById, gateCtx) {
+  // A `gate-<name>` dependency is never a task: it is proven by
+  // bridge/start-gates.js or it is unmet (no context → unmet, fail-closed).
+  if (startGates.isGateId(depId)) return !!gateCtx && startGates.evaluate(gateCtx, depId).satisfied;
   var dep = tasksById[depId];
   if (!dep) return false;
   if (dep.status === 'COMPLETED') return true;
@@ -669,6 +673,9 @@ function validateTask(cfg, task, file) {
     errors.push('status "' + String(task.status).slice(0, 20) + '" cannot be set by the creator (only PENDING or CANCELLED)');
   }
   if (Array.isArray(task.depends_on) && task.depends_on.indexOf(task.task_id) !== -1) errors.push('a task cannot depend on itself');
+  // `gate-*` ids name start gates (bridge/start-gates.js); a task holding one
+  // could otherwise be mistaken for the gate it names.
+  if (startGates.isGateId(task.task_id)) errors.push('task_id may not start with "' + startGates.GATE_PREFIX + '" (reserved for start gates)');
   // Issue #100: an unusable `model` is caught here, where the reason reaches
   // the creator on the Issue, instead of throwing inside executor.createTask.
   if (task.model !== undefined && task.model !== null && String(task.model).trim() !== '') {
@@ -1638,6 +1645,7 @@ function tick(executor, opts) {
     actions.push({ action: 'sync', result: sync });
     heartbeatLock(cfg);
     var claimsAllowed = sync.ok;
+    var gateCtx = null; // start gates, built lazily once per tick
     var deferReason = sync.ok ? null : 'sync';
     if (!sync.ok) { notes.push('control branch not reconciled: ' + sync.reason + ' — no new claims this tick'); log('sync_failed', { reason: sync.reason }); }
     var runtime = runtimeIdentity(cfg);
@@ -1726,8 +1734,19 @@ function tick(executor, opts) {
           actions.push({ action: 'defer', task_id: t.task_id, reason: 'claim limit' });
           return;
         }
-        var unmet = (t.depends_on || []).filter(function (d) { return !dependencySatisfied(d, tasksById); });
-        if (unmet.length) { actions.push({ action: 'wait_dependencies', task_id: t.task_id, unmet: unmet }); return; }
+        // Start gates: the task's own depends_on plus any gate an owner-reviewed
+        // manifest puts in front of it (add-only). One context per tick.
+        if (!gateCtx) gateCtx = startGates.context(cfg);
+        var deps = startGates.effectiveDepends(gateCtx, t);
+        var unmet = deps.filter(function (d) { return !dependencySatisfied(d, tasksById, gateCtx); });
+        if (unmet.length) {
+          var gateWait = unmet.filter(startGates.isGateId).map(function (g) { var ev = startGates.evaluate(gateCtx, g); return { gate: g, reasons: ev.reasons.slice(0, 6) }; });
+          actions.push({ action: 'wait_dependencies', task_id: t.task_id, unmet: unmet, gates: gateWait });
+          if (gateWait.length) log('gate_wait', { task_id: t.task_id, gates: gateWait });
+          return;
+        }
+        var gatesMet = deps.filter(startGates.isGateId);
+        if (gatesMet.length) log('gate_satisfied', { task_id: t.task_id, gates: gatesMet.map(function (g) { var ev = startGates.evaluate(gateCtx, g); return { gate: g, requirements: ev.requirements.map(function (r) { return r.id; }) }; }) });
         try {
           var c = claimTask(cfg, executor, e, tasksById, runtime);
           if (c.deferred) {

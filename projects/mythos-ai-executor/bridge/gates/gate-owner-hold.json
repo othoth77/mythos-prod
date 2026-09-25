@@ -1,0 +1,8 @@
+{
+  "gate": "gate-owner-hold",
+  "project": "mythos-prod",
+  "description": "Queued tasks that predate the push-guard repair and must not start merely because claims work again. A hold never opens by itself.",
+  "hold": true,
+  "release": "owner decision: remove the task id from applies_to in a reviewed PR (merged to main and deployed); the task then becomes eligible on the next tick",
+  "applies_to": ["gh-issue-196", "gh-issue-389"]
+}
