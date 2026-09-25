@@ -3,8 +3,9 @@
 // MYTHOS — Executor -> hostops adapter tests (HOSTOPS-1, HOSTOPS-2R)
 // tests/mythos-hostops-executor-test.js
 //
-// Proves the governed order (allowlist -> class READ -> args -> Resource
-// Guard -> boundary), the failure behaviours, identity/audit propagation
+// Proves the governed order (allowlist -> tier gate [READ | CONTROLLED;
+// OWNER / DESTRUCTIVE / highly-sensitive refused] -> attribution for
+// CONTROLLED -> args -> Resource Guard (READ) -> boundary), the failure behaviours, identity/audit propagation
 // and the no-shell/no-sudo invariant of lib/hostops.js — with an injected
 // boundary, so no live socket, daemon or root is needed. Real socket I/O
 // against the actual daemon is covered separately by
@@ -108,16 +109,43 @@ t('2b arbitrary shell shapes are not operations', function () {
   })).then(function () { assert.strictEqual(calls.length, 0); });
 });
 
-// ---- 3. governance denial (class gate, declared policy) ----------------
-t('3 WRITE / RESTART / DEPLOY refused by name with class, before any boundary call', function () {
+// ---- 3. governance denial (tier gate, declared policy) — HostOps v0.2 --
+var REPO_CATALOG = path.join(__dirname, '..', 'ops', 'dagu-poc', 'hostops-allowlist.json');
+t('3 OWNER / DESTRUCTIVE / highly-sensitive refused by name, before any boundary call', function () {
   var calls = [];
-  return Promise.all([['host.file.write', 'WRITE'], ['file-write', 'WRITE'], ['docker-restart', 'RESTART'], ['systemd-restart', 'RESTART'], ['compose-up', 'DEPLOY'], ['host.docker.rollback', 'DEPLOY']].map(function (pair) {
-    return hostops.invoke({ operation: pair[0] }, { guardGate: ADMIT, callBoundary: okBoundary(calls) }).then(function (r) {
-      assert.strictEqual(r.code, 'HOSTOPS_NOT_READ', pair[0]);
+  var owner = [['host.file.write', 'OWNER'], ['file-write', 'OWNER'], ['compose-up', 'OWNER'], ['host.docker.rollback', 'OWNER']];
+  return Promise.all(owner.map(function (pair) {
+    return hostops.invoke({ operation: pair[0] }, { guardGate: ADMIT, callBoundary: okBoundary(calls), allowlist_path: REPO_CATALOG }).then(function (r) {
+      assert.strictEqual(r.code, 'HOSTOPS_OWNER_ONLY', pair[0]);
       assert.strictEqual(r.class, pair[1], pair[0]);
+      assert.strictEqual(r.tier, 'HIGHLY_SENSITIVE');
       assert.strictEqual(r.http_status, 403);
     });
-  })).then(function () { assert.strictEqual(calls.length, 0); });
+  }).concat(['host.ssh.change', 'host.secret.read', 'host.sudoers.change', 'host.policy.change'].map(function (op) {
+    return hostops.invoke({ operation: op, task_id: 't-x' }, { guardGate: ADMIT, callBoundary: okBoundary(calls), allowlist_path: REPO_CATALOG }).then(function (r) {
+      assert.strictEqual(r.code, 'HOSTOPS_HIGHLY_SENSITIVE', op);
+      assert.strictEqual(r.http_status, 403);
+    });
+  })).concat([hostops.invoke({ operation: 'systemd-restart' }, { guardGate: ADMIT, callBoundary: okBoundary(calls), allowlist_path: REPO_CATALOG }).then(function (r) {
+    assert.strictEqual(r.code, 'HOSTOPS_UNKNOWN_OPERATION', 'the v0.1 systemd-restart verb is retired');
+  })])).then(function () { assert.strictEqual(calls.length, 0); });
+});
+t('3a CONTROLLED needs attribution; with it, it reaches the boundary with the catalog timeout', function () {
+  var calls = [];
+  var seen = null;
+  function spy(verb, args, ids, opts) { seen = opts.timeoutMs; calls.push(verb); return Promise.resolve({ status: 0, stdout: JSON.stringify({ ok: true, audit_id: 'hostops-abc123-0a0b0c', tier: 'CONTROLLED', result: { outcome: 'changed' } }), stderr: '' }); }
+  var DENY = function () { return { admit: false, level: 'CRITICAL', reason: 'test' }; };
+  return hostops.invoke({ operation: 'config-set', arguments: { key: 'bridge.whatsapp.to', value: '+21690001921' } }, { guardGate: ADMIT, callBoundary: spy, allowlist_path: REPO_CATALOG }).then(function (r) {
+    assert.strictEqual(r.code, 'HOSTOPS_ATTRIBUTION_REQUIRED');
+    assert.strictEqual(calls.length, 0);
+    return hostops.invoke({ operation: 'config-set', arguments: { key: 'bridge.whatsapp.to', value: '+21690001921' }, github_task_id: 'gh-issue-477' }, { guardGate: DENY, callBoundary: spy, allowlist_path: REPO_CATALOG });
+  }).then(function (r) {
+    assert.strictEqual(r.ok, true, 'CONTROLLED admission is delegated to the helper (recovery must run under pressure)');
+    assert.strictEqual(r.class, 'CONTROLLED');
+    assert.strictEqual(r.tier, 'CONTROLLED');
+    assert.deepStrictEqual(calls, ['config-set']);
+    assert.ok(seen >= 60000, 'catalog timeout + margin, not the READ 20 s');
+  });
 });
 t('3b allowlist unavailable fails closed', function () {
   var calls = [];
