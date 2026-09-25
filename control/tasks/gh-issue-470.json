@@ -1,0 +1,141 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-470",
+  "project": "mythos-prod",
+  "objective": "Final controlled end-to-end test of V3.2.5 recovery (#461, PRs #465 and #468). During this mission the bridge's WhatsApp provider is deliberately unreachable (a temporary bridge-side setting); the lifecycle notifications must stay queued, never be lost, and be delivered automatically and promptly once the provider is restored. Report the current HEAD commit of this repository and nothing else.",
+  "scope": [
+    "read-only: `git rev-parse HEAD`"
+  ],
+  "constraints": [
+    "read-only; change no file, no branch, no configuration",
+    "do not send any message; the bridge's lifecycle layer does that"
+  ],
+  "priority": "normal",
+  "requested_action": "investigate",
+  "action_raw": "investigate",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "the report names the HEAD commit"
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-25T18:38:28.306Z",
+  "created_by": "github-issue:othoth77",
+  "timeout_seconds": 600,
+  "max_turns": 10,
+  "model": "haiku",
+  "model_raw": "Haiku",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #470 https://github.com/othoth77/mythos-prod/issues/470 — \"V3.2.5 E2E — final recovery after WhatsApp outage (controlled test)\"\n\nrequested_action: investigate — source explicit_current_issue (written as \"investigate\") → execution profile repo-read\n\nmodel: haiku — source explicit_current_issue (written as \"Haiku\")",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 470,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/470",
+    "issue_id": 5586977397,
+    "issue_node_id": "I_kwDOTnlaF88AAAABTQKCdQ",
+    "issue_title": "V3.2.5 E2E — final recovery after WhatsApp outage (controlled test)",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-25T18:38:09Z",
+    "issue_updated_at": "2026-09-25T18:38:09Z",
+    "issue_labels": [
+      "task"
+    ],
+    "content_sha256": "4bc2bc6355559a4d2806d0dfa2d28ac6465e326bc8637f760cd2750146ea1d05",
+    "attempt": 1,
+    "attempt_id": "gh-issue-470#1",
+    "idempotency_key": "9fff00d99d4cbc447a57600f061cf749eba8a9a87fe9e2fc8600a7f94da2e980",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "investigate",
+      "action_raw": "investigate",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": "inline",
+          "line": 14
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "model_key": "haiku",
+      "model_id": "claude-haiku-4-5",
+      "model_raw": "Haiku",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:haiku (requested \"Haiku\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-25T18:38:28.307Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-25T18:38:28.307Z",
+        "event": "issue_received",
+        "reason": "open Issue #470 with label task",
+        "content_sha256": "4bc2bc6355559a4d2806d0dfa2d28ac6465e326bc8637f760cd2750146ea1d05"
+      },
+      {
+        "at": "2026-09-25T18:38:28.307Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → investigate (raw \"investigate\")"
+      },
+      {
+        "at": "2026-09-25T18:38:28.307Z",
+        "event": "profile_resolved",
+        "reason": "investigate → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-25T18:38:28.307Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → haiku (available)"
+      },
+      {
+        "at": "2026-09-25T18:38:30.092Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-470.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-25T18:38:28.307Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5837634048,
+        "url": "https://github.com/othoth77/mythos-prod/issues/470#issuecomment-5837634048",
+        "at": "2026-09-25T18:38:29.238Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}

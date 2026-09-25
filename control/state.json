@@ -1,11 +1,11 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-25T17:46:36.666Z",
+  "generated_at": "2026-09-25T18:38:30.157Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
-    "PENDING": 10,
+    "PENDING": 11,
     "CLAIMED": 0,
     "IN_PROGRESS": 0,
     "VALIDATING": 0,
@@ -24,7 +24,8 @@
     "gh-issue-217",
     "gh-issue-220",
     "gh-issue-228",
-    "gh-issue-389"
+    "gh-issue-389",
+    "gh-issue-470"
   ],
   "active": [],
   "awaiting_review": [
@@ -2190,6 +2191,29 @@
         "issue_number": 469,
         "issue_url": "https://github.com/othoth77/mythos-prod/issues/469",
         "issue_state": "COMPLETED"
+      }
+    },
+    {
+      "task_id": "gh-issue-470",
+      "status": "PENDING",
+      "priority": "normal",
+      "requested_action": "investigate",
+      "action_source": "explicit_current_issue",
+      "execution_profile": null,
+      "model": "haiku",
+      "blocker": null,
+      "created_at": "2026-09-25T18:38:28.306Z",
+      "created_by": "github-issue:othoth77",
+      "updated_at": "2026-09-25T18:38:28.306Z",
+      "executor_task_id": null,
+      "branch": null,
+      "task_file": "control/tasks/gh-issue-470.json",
+      "report_file": null,
+      "source": {
+        "kind": "github-issue",
+        "issue_number": 470,
+        "issue_url": "https://github.com/othoth77/mythos-prod/issues/470",
+        "issue_state": null
       }
     },
     {
