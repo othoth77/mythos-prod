@@ -25,7 +25,7 @@
     "Existing START/STOP/SUCCESS lifecycle remains unchanged.",
     "No duplicate notification is created."
   ],
-  "status": "IN_PROGRESS",
+  "status": "BLOCKED",
   "created_at": "2026-09-25T21:13:27.683Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #477 https://github.com/othoth77/mythos-prod/issues/477 — \"V3.2.5 — Execute WhatsApp recipient change on host\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\n[owner-approved execution task]\nIssue #476 established that the WhatsApp recipient is a host-only systemd setting and cannot be changed by the repo-read executor.\n\n[required operation]\nUse the existing MYTHOS host-operation mechanism for this task:\n1. Edit `~/.config/systemd/user/mythos-github-bridge.service.d/20-whatsapp.conf`.\n2. Set `MYTHOS_BRIDGE_WHATSAPP_TO=+21621821921`.\n3. Do not change FROM or any other WhatsApp setting.\n4. Run `systemctl --user daemon-reload`.\n5. Run the existing `notify-config` command to verify the masked recipient.\n6. Run exactly one human-approved `notify-test --confirm` to the new recipient.\n7. Verify successful acceptance/delivery using the existing notification infrastructure.",
@@ -169,8 +169,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "ca3723e73e8aad23056c14ae944c8421fc9a20720eeef377c811dba04ee69517",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-25T21:14:48.396Z",
+    "executor_status": "BLOCKED",
+    "updated_at": "2026-09-25T21:17:18.747Z",
     "snapshot_sha256": "d47d65923fb65af30f6cf12592183bc2a6d993435b8dc71549ccf32eba8e263b",
     "fence": 74426,
     "lease": {
@@ -199,7 +199,13 @@
     },
     "model": "claude-opus-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "44669690-06d6-4893-9252-44c762b0dd15"
+    "claude_session_id": "44669690-06d6-4893-9252-44c762b0dd15",
+    "blocker": {
+      "code": "HUMAN_APPROVAL",
+      "reason": "Objective was to set MYTHOS_BRIDGE_WHATSAPP_TO to the owner-confirmed number (+216****1921, masked) in the systemd user drop-in ~/.config/systemd/user/mythos-github-bridge.service.d/20-whatsapp.conf, daemon-reload, verify via notify-config and send exactly one notify-test --confirm. I located and used the existing MYTHOS host-operation mechanism read-only (ops/hostops, docs/MYTHOS_HOSTOPS_INTERFACE.md, ops/dagu-poc/hostops-allowlist.json) rather than inventing a path. The boundary is live and re",
+      "retryable": false
+    },
+    "report_file": "control/reports/gh-issue-477.json"
   },
   "history": [
     {
@@ -215,6 +221,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-25T21:17:18.122Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended BLOCKED; building report"
+    },
+    {
+      "at": "2026-09-25T21:17:18.747Z",
+      "from": "VALIDATING",
+      "to": "BLOCKED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 13 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
