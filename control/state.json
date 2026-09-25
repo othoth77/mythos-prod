@@ -1,11 +1,11 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-25T17:01:55.402Z",
+  "generated_at": "2026-09-25T17:33:31.028Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
-    "PENDING": 10,
+    "PENDING": 12,
     "CLAIMED": 0,
     "IN_PROGRESS": 0,
     "VALIDATING": 0,
@@ -24,7 +24,9 @@
     "gh-issue-217",
     "gh-issue-220",
     "gh-issue-228",
-    "gh-issue-389"
+    "gh-issue-389",
+    "gh-issue-466",
+    "gh-issue-467"
   ],
   "active": [],
   "awaiting_review": [
@@ -2094,6 +2096,52 @@
         "issue_number": 464,
         "issue_url": "https://github.com/othoth77/mythos-prod/issues/464",
         "issue_state": "COMPLETED"
+      }
+    },
+    {
+      "task_id": "gh-issue-466",
+      "status": "PENDING",
+      "priority": "normal",
+      "requested_action": "investigate",
+      "action_source": "explicit_current_issue",
+      "execution_profile": null,
+      "model": "haiku",
+      "blocker": null,
+      "created_at": "2026-09-25T17:33:27.738Z",
+      "created_by": "github-issue:othoth77",
+      "updated_at": "2026-09-25T17:33:27.738Z",
+      "executor_task_id": null,
+      "branch": null,
+      "task_file": "control/tasks/gh-issue-466.json",
+      "report_file": null,
+      "source": {
+        "kind": "github-issue",
+        "issue_number": 466,
+        "issue_url": "https://github.com/othoth77/mythos-prod/issues/466",
+        "issue_state": null
+      }
+    },
+    {
+      "task_id": "gh-issue-467",
+      "status": "PENDING",
+      "priority": "normal",
+      "requested_action": "investigate",
+      "action_source": "explicit_current_issue",
+      "execution_profile": null,
+      "model": "haiku",
+      "blocker": null,
+      "created_at": "2026-09-25T17:33:29.220Z",
+      "created_by": "github-issue:othoth77",
+      "updated_at": "2026-09-25T17:33:29.220Z",
+      "executor_task_id": null,
+      "branch": null,
+      "task_file": "control/tasks/gh-issue-467.json",
+      "report_file": null,
+      "source": {
+        "kind": "github-issue",
+        "issue_number": 467,
+        "issue_url": "https://github.com/othoth77/mythos-prod/issues/467",
+        "issue_state": null
       }
     },
     {
