@@ -1,0 +1,124 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-475",
+  "project": "mythos-prod",
+  "objective": "Execute the complete SPY V2 Master Task #1 through the newly completed cross-repository delegation lane from `mythos-prod` to `othoth77/spy`.",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implement",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-25T20:27:47.644Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #475 https://github.com/othoth77/mythos-prod/issues/475 — \"[SPY V2] Master Task #1 — Execute via Cross-Repo Delegation\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\n[execution]\n- execution profile: `repo-write`\n- target_repository: `othoth77/spy`\n- target workspace: delegated `othoth77/spy` workspace\n- task type: implementation\n- do not execute SPY application work in the `mythos-prod` worktree\n\n[prerequisite]\nCross-repository delegation infrastructure was completed by gh-issue-474:\n- controlled target allowlist\n- target identity verification\n- isolated delegated workspace\n- task contract validation\n- implementation/repo-read profile enforcement\n- safety checks\n- delegation tests\n\nUse that lane. Do not recreate the old gh-issue-473 path.\n\n[phase 0 — baseline]\nInspect the current `othoth77/spy` state:\n- repository/default branch\n- current branches and PRs\n- existing SPY V2 implementation\n- tests\n- production/service state\n- existing documentation\n- previous SPY work already completed\n\nDo not duplicate existing completed work.\n\n[phase 1 — requirements and gap analysis]\nMap the complete SPY V2 requirements to:\n- existing implementation\n- missing implementation\n- tests\n- integrations\n- deployment\n- documentation\n\nCreate an executable checklist and acceptance criteria before making broad changes.\n\n[phase 2 — implementation]\nImplement all applicable SPY V2 engineering requirements in `othoth77/spy`, including as applicable:\n- core/backend functionality\n- agent orchestration\n- role separation\n- research/execution/review flows\n- Reach/integrations\n- persistence/state handling\n- recovery/error handling\n- security/operational safeguards\n- configuration\n- documentation\n\nPreserve existing working behavior and backward compatibility.\n\n[phase 3 — testing]\n- Run the existing complete test suite.\n- Add/repair tests for all changed behavior.\n- Run integration/E2E tests.\n- Verify failure/recovery paths.\n- Investigate and resolve regressions.\n- Record exact test counts/results.\n\n[phase 4 — integration]\n- Work on a dedicated SPY V2 branch.\n- Commit logical changes.\n- Push through the authorized delegation path if available.\n- Create/update the appropriate PR.\n- Resolve review findings.\n- Keep all SPY implementation commits inside `othoth77/spy`.\n\n[phase 5 — production]\nAfter successful preflight/testing:\n- deploy applicable changes\n- verify service health\n- verify configuration\n- inspect logs\n- verify integrations\n- run production smoke/E2E checks\n- verify recovery/rollback readiness\n\nDo not claim production completion without evidence.\n\n[phase 6 — final acceptance]\nComplete only when:\n- applicable SPY V2 requirements are implemented or precisely isolated as external blockers\n- tests pass\n- deployment status is verified\n- production health is verified\n- documentation is updated\n- commit/PR references are recorded\n- final evidence is returned through the Bridge\n\n[external authorization handling]\nIf push/write delivery to `othoth77/spy` is unavailable because of the governance boundary:\n1. Continue all work that can be completed safely in the delegated workspace.\n2. Do not invent credentials or bypass the guard.\n3. Report the exact delivery dependency.\n4. Keep the implementation state and commit SHA traceable.\n5. Do not mark the entire SPY V2 program blocked merely because delivery requires owner action.\n\n[required final report]\nReturn:\n- baseline\n- requirements/gap analysis\n- implementation completed\n- files/components changed\n- tests and exact results\n- branch\n- commit SHA(s)\n- PR\n- deployment status\n- production verification\n- remaining external blockers\n- exact owner action, if any\n\n[critical routing rule]\nThis task explicitly targets `othoth77/spy`.\n\nThe `mythos-prod` repository is the Bridge/control repository only. Never write SPY V2 implementation into `mythos-prod`.\n\nUse the cross-repo delegation lane implemented by gh-issue-474.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 475,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/475",
+    "issue_id": 5588103286,
+    "issue_node_id": "I_kwDOTnlaF88AAAABTROwdg",
+    "issue_title": "[SPY V2] Master Task #1 — Execute via Cross-Repo Delegation",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-25T20:26:47Z",
+    "issue_updated_at": "2026-09-25T20:26:47Z",
+    "issue_labels": [
+      "task",
+      "SPY V2"
+    ],
+    "content_sha256": "d97adf163a8697144bb834d45482731eef2a1255555cbdcbbf5630d6a3b389c7",
+    "attempt": 1,
+    "attempt_id": "gh-issue-475#1",
+    "idempotency_key": "5022dde698216476289f7f8286602dd406925733b44f9f6cc51bc475b86a0a7d",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implement",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "implement",
+          "action": "implement",
+          "form": "bullet",
+          "line": 7
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-25T20:27:47.646Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-25T20:27:47.646Z",
+        "event": "issue_received",
+        "reason": "open Issue #475 with label task",
+        "content_sha256": "d97adf163a8697144bb834d45482731eef2a1255555cbdcbbf5630d6a3b389c7"
+      },
+      {
+        "at": "2026-09-25T20:27:47.646Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → implement (raw \"implement\")"
+      },
+      {
+        "at": "2026-09-25T20:27:47.646Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-25T20:27:47.647Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-25T20:27:49.240Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-475.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-25T20:27:47.647Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5839107446,
+        "url": "https://github.com/othoth77/mythos-prod/issues/475#issuecomment-5839107446",
+        "at": "2026-09-25T20:27:48.496Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
