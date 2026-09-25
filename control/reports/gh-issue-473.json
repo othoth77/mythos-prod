@@ -1,0 +1,130 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-473",
+  "attempt_id": "gh-issue-473#1",
+  "status": "BLOCKED",
+  "summary": "Investigated the SPY V2 Bridge-orchestration objective under the task's actual investigate/repo-read profile: no edits or commits were made, per the Bridge's non-negotiable constraints. Found that Mythos has no authorized executor with access to othoth77/spy — the only existing delegation runtime (projects/mythos-orchestrator) is schema-locked to othoth77/mythos-prod only, the alternative boundary (projects/mythos-delegate) is repo-path-agnostic but has no local spy checkout to target, and no local clone of othoth77/spy exists anywhere on this host. Live GitHub/gh-cli verification of othoth77/spy state and the OTHMODE task update (OTH-2026-01910) both required interactive approval unavailable in this autonomous run, so neither was performed. This mirrors the sibling task gh-issue-472 (same objective shape, same day), which was already BLOCKED for the same external-repo-access gap; no SPY V2 implementation occurred or is claimed.",
+  "resolution": {
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "default",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "model_requested": null,
+    "model_key": null,
+    "model": "claude-sonnet-5",
+    "model_source": "none",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=2 [instruction_length>=6000+1 complexity_terms(security)+1]",
+    "base_sha": "88de5f484788a82463d053a7bab31dfe3e67c307",
+    "branch": "mythos/gh/gh-issue-473",
+    "commit_sha": null
+  },
+  "blocker": {
+    "code": "HUMAN_APPROVAL",
+    "retryable": false,
+    "at": "2026-09-25T19:20:28.537Z",
+    "reason": "Investigated the SPY V2 Bridge-orchestration objective under the task's actual investigate/repo-read profile: no edits or commits were made, per the Bridge's non-negotiable constraints. Found that Mythos has no authorized executor with access to othoth77/spy — the only existing delegation runtime (projects/mythos-orchestrator) is schema-locked to othoth77/mythos-prod only, the alternative boundary (projects/mythos-delegate) is repo-path-agnostic but has no local spy checkout to target, and no local clone of othoth77/spy exists anywhere on this host. Live GitHub/gh-cli verification of othoth77/spy state and the OTHMODE task update (OTH-2026-01910) both required interactive approval unavailable in this autonomous run, so neither was performed. This mirrors the sibling task gh-issue-472 (same",
+    "task_id": "t-20260925191651-tilx5s",
+    "attempt_id": "gh-issue-473#1",
+    "requested_action": "investigate",
+    "execution_profile": "repo-read",
+    "model": "claude-sonnet-5"
+  },
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "88de5f484788a82463d053a7bab31dfe3e67c307",
+    "branch": "main",
+    "dirty_files": 1,
+    "base_ref": "origin/main",
+    "base_ref_head": "88de5f484788a82463d053a7bab31dfe3e67c307",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-25T19:16:49.556Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "blocked",
+    "summary": "Investigated the SPY V2 Bridge-orchestration objective under the task's actual investigate/repo-read profile: no edits or commits were made, per the Bridge's non-negotiable constraints. Found that Mythos has no authorized executor with access to othoth77/spy — the only existing delegation runtime (projects/mythos-orchestrator) is schema-locked to othoth77/mythos-prod only, the alternative boundary (projects/mythos-delegate) is repo-path-agnostic but has no local spy checkout to target, and no local clone of othoth77/spy exists anywhere on this host. Live GitHub/gh-cli verification of othoth77/spy state and the OTHMODE task update (OTH-2026-01910) both required interactive approval unavailable in this autonomous run, so neither was performed. This mirrors the sibling task gh-issue-472 (same objective shape, same day), which was already BLOCKED for the same external-repo-access gap; no SPY V2 implementation occurred or is claimed.",
+    "tests": [
+      "none run — no code changed; read-only repository/schema/filesystem inspection only"
+    ],
+    "commit": null,
+    "remote_head": null,
+    "files_changed": [],
+    "residual_risks": [
+      "othoth77/spy discovery data in the Status Center registry is stale (last refreshed 2026-09-03) and was not re-verified live this run",
+      "OTHMODE task OTH-2026-01910 was not updated with these findings because the CLI call required approval unavailable in this unattended dispatch"
+    ],
+    "next_stage": "Owner decision required: either (a) open a new mythos-prod task with requested_action=implement scoped to building the othoth77/spy cross-repo delegation path (local checkout + credentials + a mythos-delegate lane), or (b) have a human/agent that already has direct othoth77/spy access execute SPY V2 Master Task #1 there directly and report back, since no automatic Bridge path to that repository exists yet."
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "none run — no code changed; read-only repository/schema/filesystem inspection only"
+  ],
+  "validation": {
+    "git_verified": null,
+    "remote_head": null,
+    "report_problems": [],
+    "required_checks": []
+  },
+  "problems": [
+    "HUMAN_APPROVAL: Investigated the SPY V2 Bridge-orchestration objective under the task's actual investigate/repo-read profile: no edits or commits were made, per the Bridge's non-negotiable constraints. Found that Mythos has no authorized executor with access to othoth77/spy — the only existing delegation runtime (projects/mythos-orchestrator) is schema-locked to othoth77/mythos-prod only, the alternative boundary (projects/mythos-delegate) is repo-path-agnostic but has no local spy checkout to target, and no local clone of othoth77/spy exists anywhere on this host. Live GitHub/gh-cli verification of othoth77/spy state and the OTHMODE task update (OTH-2026-01910) both required interactive approval unavailable in this autonomous run, so neither was performed. This mirrors the sibling task gh-issue-472 (same"
+  ],
+  "risks": [
+    "othoth77/spy discovery data in the Status Center registry is stale (last refreshed 2026-09-03) and was not re-verified live this run",
+    "OTHMODE task OTH-2026-01910 was not updated with these findings because the CLI call required approval unavailable in this unattended dispatch"
+  ],
+  "next_recommended_action": "Owner decision required: either (a) open a new mythos-prod task with requested_action=implement scoped to building the othoth77/spy cross-repo delegation path (local checkout + credentials + a mythos-delegate lane), or (b) have a human/agent that already has direct othoth77/spy access execute SPY V2 Master Task #1 there directly and report back, since no automatic Bridge path to that repository exists yet.",
+  "completed_at": "2026-09-25T19:20:48.710Z",
+  "execution": {
+    "executor_task_id": "t-20260925191651-tilx5s",
+    "othmode_task_id": "OTH-2026-01910",
+    "execution_profile": "repo-read",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": null,
+    "model_source": "none",
+    "action_source": "default",
+    "action_raw": "investigate",
+    "attempt_id": "gh-issue-473#1",
+    "fence": 74150,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:3866932",
+      "fence": 74150,
+      "acquired_at": "2026-09-25T19:16:51.058Z",
+      "expires_at": "2026-09-25T20:46:51.058Z"
+    },
+    "snapshot_sha256": "9bca9305f0d7ffa0272859c929fa50b01aaea6cb3914ef0c0c70d1baab05b898",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=2 [instruction_length>=6000+1 complexity_terms(security)+1]",
+    "claude_session_id": "21f34508-bfcb-41ca-82bd-b2e6b99bf273",
+    "executor_status": "BLOCKED",
+    "started_at": "2026-09-25T19:17:05.370Z",
+    "ended_at": "2026-09-25T19:20:28.537Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 0.6718366,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-473",
+    "branch": "mythos/gh/gh-issue-473",
+    "base_commit": "88de5f484788a82463d053a7bab31dfe3e67c307",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-473",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
