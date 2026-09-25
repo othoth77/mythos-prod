@@ -25,7 +25,7 @@
   "action_raw": "investigate",
   "action_source": "default",
   "validation_requirements": [],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-25T21:01:57.602Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #476 https://github.com/othoth77/mythos-prod/issues/476 — \"V3.2.5 — WhatsApp recipient change\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). — not inherited: previous attempt gh-issue-476 was defaulted, not decided — a default is not inherited → execution profile repo-read\n\n[التنفيذ]\n1. افحص الإعداد الحالي لـ FROM/TO وEvolution.\n2. حدّد مكان إعداد رقم TO المستخدم فعليًا.\n3. غيّر TO فقط بعد توفر الرقم الجديد.\n4. أعد تشغيل/تحقق من الخدمة بالطريقة الموجودة فقط إذا لزم.\n5. نفّذ اختبارًا قصيرًا حقيقيًا.\n6. تأكد أن الرسالة تصل إلى الرقم الجديد وأن lifecycle لا يزال يعمل.\n7. لا تغيّر أي شيء خارج نطاق المهمة.\n\n[القبول]\n- FROM = رقم Mythos Bridge.\n- TO = الرقم الجديد الذي يحدده المالك.\n- START وSUCCESS يعملان.\n- لا duplicate messages.\n- فشل WhatsApp لا يوقف المهمة.\n- توثيق الإعداد النهائي دون كشف الرقم كاملًا (masking).",
@@ -145,5 +145,69 @@
         "mythos:human-approval"
       ]
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260925210203-2bxtat",
+    "othmode_task_id": "OTH-2026-01914",
+    "attempt_id": "gh-issue-476-r2#2",
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "default",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "expected_delivery": "report",
+    "model_key": null,
+    "model_requested": null,
+    "model_source": "none",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-476-r2",
+    "branch": "mythos/gh/gh-issue-476-r2",
+    "base_commit": "88de5f484788a82463d053a7bab31dfe3e67c307",
+    "claimed_at": "2026-09-25T21:02:03.080Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "routing": {
+      "routed": false,
+      "provider": "claude-code",
+      "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
+    },
+    "fingerprint": "8212b66965a83fea1fc503c947fc5316f60bfb0fdc9303e23fa7e4e687628c5d",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-25T21:02:03.081Z",
+    "snapshot_sha256": "b641a33df25c0395a8eab3419a239af5221fe1438c0846f520db57121dbe6766",
+    "fence": 74399,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:4061891",
+      "fence": 74399,
+      "acquired_at": "2026-09-25T21:02:03.080Z",
+      "expires_at": "2026-09-25T22:32:03.080Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/projects/mythos-prod",
+      "head": "88de5f484788a82463d053a7bab31dfe3e67c307",
+      "branch": "main",
+      "dirty_files": 1,
+      "base_ref": "origin/main",
+      "base_ref_head": "88de5f484788a82463d053a7bab31dfe3e67c307",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": false,
+      "code": null,
+      "reason": null,
+      "measured_at": "2026-09-25T21:02:01.748Z"
+    },
+    "model": "claude-sonnet-5",
+    "model_selection_mode": "auto"
+  },
+  "history": [
+    {
+      "at": "2026-09-25T21:02:03.177Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260925210203-2bxtat queued; OTHMODE OTH-2026-01914; action investigate (default) → repo-read; model claude-sonnet-5; fence 74399"
+    }
+  ]
 }
