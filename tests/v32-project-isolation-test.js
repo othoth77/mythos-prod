@@ -21,6 +21,7 @@ var fs = require('fs');
 var os = require('os');
 var path = require('path');
 
+var OWN_STORE = !process.env.MYTHOS_EXECUTOR_HOME;
 process.env.MYTHOS_EXECUTOR_HOME = process.env.MYTHOS_EXECUTOR_HOME || fs.mkdtempSync(path.join(os.homedir(), 'v32-iso-store-'));
 var EXEC = path.join(__dirname, '..', 'projects', 'mythos-ai-executor');
 var agent = require(path.join(EXEC, 'providers', 'haddad-agent.js'));
@@ -152,7 +153,7 @@ t('S7 the validator alone (no provider) rejects an out-of-project change', funct
 });
 
 queue.reduce(function (c, s) { return c.then(s); }, Promise.resolve()).then(function () {
-  try { fs.rmSync(ROOT, { recursive: true, force: true }); } catch (e) { /* best effort */ }
+  try { fs.rmSync(ROOT, { recursive: true, force: true }); if (OWN_STORE) fs.rmSync(process.env.MYTHOS_EXECUTOR_HOME, { recursive: true, force: true }); } catch (e) { /* best effort */ }
   console.log('\n' + pass + ' passed, ' + fail + ' failed');
   process.exit(fail ? 1 : 0);
 });
