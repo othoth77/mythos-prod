@@ -136,6 +136,16 @@
         "at": "2026-09-25T17:40:04.953Z",
         "existed": false,
         "executor_task_id": "t-20260925174000-fidnpl"
+      },
+      "report": {
+        "comment_id": 5836806476,
+        "url": "https://github.com/othoth77/mythos-prod/issues/469#issuecomment-5836806476",
+        "at": "2026-09-25T17:41:24.162Z",
+        "existed": false,
+        "status": "COMPLETED",
+        "control_status": "COMPLETED",
+        "report_file": "control/reports/gh-issue-469.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -143,7 +153,8 @@
         "mythos:queued"
       ],
       "removed": []
-    }
+    },
+    "issue_state": "COMPLETED"
   },
   "execution": {
     "executor_task_id": "t-20260925174000-fidnpl",
