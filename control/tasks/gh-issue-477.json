@@ -134,6 +134,16 @@
         "at": "2026-09-25T21:13:36.805Z",
         "existed": false,
         "executor_task_id": "t-20260925211332-0r8vau"
+      },
+      "report": {
+        "comment_id": 5839754716,
+        "url": "https://github.com/othoth77/mythos-prod/issues/477#issuecomment-5839754716",
+        "at": "2026-09-25T21:17:22.615Z",
+        "existed": false,
+        "status": "HUMAN_APPROVAL",
+        "control_status": "BLOCKED",
+        "report_file": "control/reports/gh-issue-477.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -143,7 +153,8 @@
       "removed": [
         "mythos:invalid"
       ]
-    }
+    },
+    "issue_state": "HUMAN_APPROVAL"
   },
   "execution": {
     "executor_task_id": "t-20260925211332-0r8vau",
