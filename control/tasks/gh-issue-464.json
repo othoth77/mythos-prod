@@ -1,0 +1,123 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-464",
+  "project": "mythos-prod",
+  "objective": "V3.2.9 — WhatsApp E2E smoke test",
+  "scope": [
+    "WhatsApp only.",
+    "Verify START / STOP / SUCCESS delivery through the existing Bridge lifecycle.",
+    "No Telegram.",
+    "No new infrastructure.",
+    "No changes to V3.2.5 implementation unless the test exposes a real defect.",
+    "Do not start V3.3."
+  ],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "investigate",
+  "action_raw": "investigate",
+  "action_source": "default",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-25T16:59:07.433Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #464 https://github.com/othoth77/mythos-prod/issues/464 — \"V3.2.9 — WhatsApp E2E smoke test\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[purpose]\nTemporary smoke test for the V3.2.5 WhatsApp lifecycle notification implementation.\n\n[test]\nRun one controlled mission and verify the three lifecycle notifications arrive on WhatsApp without duplicates.\n\n[done]\n- START received\n- STOP/FAILURE received\n- SUCCESS received\n- No duplicate notifications\n- Underlying mission state unaffected by notification delivery\n\nAfter the test, report the result and stop. Do not automatically start any later phase.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 464,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/464",
+    "issue_id": 5585862067,
+    "issue_node_id": "I_kwDOTnlaF88AAAABTPF9sw",
+    "issue_title": "V3.2.9 — WhatsApp E2E smoke test",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-25T16:57:09Z",
+    "issue_updated_at": "2026-09-25T16:58:49Z",
+    "issue_labels": [
+      "task"
+    ],
+    "content_sha256": "a9823d1b3592a82d23b768d83a9d196e80cc4e89f0aded4041288e65b0007714",
+    "attempt": 1,
+    "attempt_id": "gh-issue-464#1",
+    "idempotency_key": "0f9fb7ed9d33554f753281308a5c9be6d7e52e77faa1de6565546f5a92887344",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "investigate",
+      "action_raw": "investigate",
+      "action_source": "default",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-25T16:59:07.436Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-25T16:59:07.436Z",
+        "event": "issue_received",
+        "reason": "open Issue #464 with label task",
+        "content_sha256": "a9823d1b3592a82d23b768d83a9d196e80cc4e89f0aded4041288e65b0007714"
+      },
+      {
+        "at": "2026-09-25T16:59:07.436Z",
+        "event": "action_resolved",
+        "reason": "default → investigate (raw \"investigate\")"
+      },
+      {
+        "at": "2026-09-25T16:59:07.436Z",
+        "event": "profile_resolved",
+        "reason": "investigate → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-25T16:59:07.436Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-25T16:59:09.091Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-464.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-25T16:59:07.436Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5836232140,
+        "url": "https://github.com/othoth77/mythos-prod/issues/464#issuecomment-5836232140",
+        "at": "2026-09-25T16:59:08.241Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
