@@ -582,8 +582,14 @@ function agentForProvider(providerId) {
 }
 function recordAgentOutcome(task, taskId, outcome, providerId, failureCategory) {
   var success;
+  // A failure without a verdict counts only for a provider that SUPERVISES
+  // (it measures the workspace and returns evidence: tool_trace/validation).
+  // A provider that never reports a verdict would otherwise record every
+  // failure and no success — failure-only data that ranks it as always
+  // failing (found before the VPS pull: claude-code maps to one agent there).
+  var supervised = !!(outcome && (outcome.validation || Array.isArray(outcome.tool_trace)));
   if (outcome && outcome.validation && typeof outcome.validation.passed === 'boolean') success = outcome.validation.passed;
-  else if (failureCategory && failureCategory !== 'transient') success = false;
+  else if (supervised && failureCategory && failureCategory !== 'transient') success = false;
   else return null;
   var agent = agentForProvider(providerId);
   var role = task && task.role ? roles.getRole(task.role) : null;
