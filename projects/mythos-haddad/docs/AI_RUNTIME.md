@@ -342,3 +342,18 @@ nouveau/NVK throughout.
   further buys window by moving more of the model off the card and slowing generation — it will
   not fail cleanly at some limit. Anything above 8192 needs a fresh measurement on this hardware,
   not an extrapolation.
+
+## Safe operating envelope (measured 2026-09-25, V3.2 residual 4)
+
+The nouveau/NVK stack drops the Vulkan device (`vk::DeviceLostError`, llama-server aborts, systemd restarts it after 10 s, ~40–90 s to reload) with a probability that rises with prompt size. From every prompt in the runtime journal, 2026-09-22..25:
+
+| prompt tokens | served | DeviceLost | rate |
+|---|---|---|---|
+| < 2k | 1,068 | 1 | 0.09 % |
+| 2–3k | 242 | 0 | 0 % |
+| 3–4k | 384 | 0 | 0 % |
+| 4–5k | 250 | 2 | 0.8 % |
+| 5–6k | 218 | 4 | 1.8 % |
+| 6–7k | 42 | 2 | 4.8 % |
+
+The Haddad runner therefore never builds a request above **5,000 prompt tokens** (`HADDAD_AGENT_SAFE_PROMPT_TOKENS`, default 5000; a host with another card sets its own), refuses tasks that cannot fit before any GPU time, and when the runtime is lost under a turn it waits for the restart and replays that turn in the same execution. Proven live on #451. No driver, CUDA or runtime change was made: nothing measured calls for one.

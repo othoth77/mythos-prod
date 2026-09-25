@@ -908,7 +908,14 @@ function run(task, prompt, _sessionId, _mode, opts) {
   // Sizing preflight (V3.2, residual 5) — before the GPU lease, before any turn.
   var sizing = (function () {
     var scope = work.declaredScope(task.constraints || []);
+    // Size files as they were when the ATTEMPT began: a file an earlier
+    // execution of this same attempt created is the task's output, not a
+    // target it must read and rewrite (measured live, gh-issue-454: the
+    // retry counted its own half-written seed and refused itself).
+    var attemptFiles = opts.baseline && opts.baseline.files && typeof opts.baseline.files === 'object' &&
+      (!opts.baseline.working_directory || opts.baseline.working_directory === workspace) ? opts.baseline.files : null;
     var scopeFiles = scope.map(function (rel) {
+      if (attemptFiles && !Object.prototype.hasOwnProperty.call(attemptFiles, rel)) return null;
       try { var st = fs.statSync(path.join(workspace, rel)); return st.isFile() ? { path: rel, bytes: st.size } : null; } catch (e) { return null; }
     }).filter(Boolean);
     var fences = String(prompt).match(/```[a-z]*\n[\s\S]*?```/g) || [];
