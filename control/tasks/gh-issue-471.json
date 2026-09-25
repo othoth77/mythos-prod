@@ -16,7 +16,7 @@
   "action_raw": "investigate",
   "action_source": "default",
   "validation_requirements": [],
-  "status": "CLAIMED",
+  "status": "COMPLETED",
   "created_at": "2026-09-25T18:49:47.571Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #471 https://github.com/othoth77/mythos-prod/issues/471 — \"V3.2.5 — Final short task test\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[purpose]\nFinal short production test after V3.2.5 completion.\n\n[task]\nنفّذ مهمة قصيرة جدًا للقراءة فقط:\n\nتحقق من اسم الـbranch الحالي وHEAD commit، ثم أرجع النتيجة فقط.\n\n[expected lifecycle]\nPENDING → CLAIM → START → execution → SUCCESS → COMPLETED\n\n[whatsapp]\nVerify:\n- START notification\n- SUCCESS notification\n- No duplicate notifications\n\n[done]\nTask completed successfully with no repository changes.",
@@ -150,8 +150,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "234943c2de612e8e9ae4902b372f052fdeb0594b56a9a1fee3d0928e433b29e3",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-25T18:49:51.334Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-25T18:51:09.726Z",
     "snapshot_sha256": "c874e52b8b180a20464233f969b122519b8cbb166bfd051893f9729635679d91",
     "fence": 74087,
     "lease": {
@@ -179,7 +179,8 @@
       "measured_at": "2026-09-25T18:49:49.925Z"
     },
     "model": "claude-haiku-4-5",
-    "model_selection_mode": "auto"
+    "model_selection_mode": "auto",
+    "report_file": "control/reports/gh-issue-471.json"
   },
   "history": [
     {
@@ -188,6 +189,20 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260925184951-mflhfe queued; OTHMODE OTH-2026-01908; action investigate (default) → repo-read; model claude-haiku-4-5; fence 74087"
+    },
+    {
+      "at": "2026-09-25T18:51:09.049Z",
+      "from": "CLAIMED",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-25T18:51:09.726Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 3 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
