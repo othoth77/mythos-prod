@@ -459,7 +459,14 @@ mission lifecycle kinds (§6.5). States:
   describe this layer as exactly-once in any report, doc or message — it is
   at-least-once delivery with best-effort de-duplication, and the window
   above is the reason.
-- **Concurrency:** `O_EXCL` lock per key. A lock is considered stale only
+- **Concurrency:** one lock file per key, **published atomically**: the lock
+  is written complete (holder pid) under a private name and `link()`ed into
+  place, which fails if the lock exists. (V3.2.5: it used to be created empty
+  with `O_EXCL` and filled afterwards; a racing process read the empty lock as
+  stale, deleted it and took its own, so two processes could hold one key —
+  reproduced as 2 overlapping holds in 450 contended keys, 0 after the fix.)
+  Taking over a dead holder's lock is serialised by a short take-over guard.
+  A lock is considered stale only
   when its holder is demonstrably not running (age alone is not enough — a
   slow provider is not a dead process, and stealing a live claim is exactly
   how a duplicate gets sent).
@@ -655,7 +662,9 @@ passing.** No real WhatsApp message is sent: the far end is a local
 | 13 | task_id length: a 64-char id (the bridge's own max) reaches the ledger and is delivered; a 65-char id is refused by `ledgerKey()` |
 | 14 | the crash/failure window: a recipient's success is durable on disk before the rest of the attempt finishes; a simulated crash + reclaim retries only the recipient still missing, never re-sending to one already recorded |
 
-`node tests/mythos-bridge-whatsapp-durable-test.js` — **57 checks** (V3.2.5):
+`node tests/mythos-bridge-whatsapp-durable-test.js` — **62 checks** (V3.2.5):
+four processes racing for the same 30 locks over 8 rounds never overlap; a
+dead holder's lock is taken over, a live one never, a fresh empty lock never;
 recovery does not wait for an entry's own outage backoff (production-sized
 60 s backoff, found while preparing the live E2E);
 provider timeout and repeated `500 Connection Closed` never exhaust; retry

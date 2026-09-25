@@ -688,7 +688,11 @@ function lockIsStale(cfg, file) {
   try {
     var st = fs.statSync(file);
     var pid = parseInt(fs.readFileSync(file, 'utf8'), 10);
-    if (!pid) return true;
+    // A lock is published complete (link() of a file that already holds the
+    // pid), so an empty one can only be a leftover from an older writer that
+    // crashed between create and write — never a lock being written right
+    // now. It is stale only once it is clearly old.
+    if (!pid) return (Date.now() - st.mtimeMs) > 5000;
     if (!state.processAlive(pid)) return true;
     return (Date.now() - st.mtimeMs) > cfg.leaseMs * 10;
   } catch (e) {
@@ -696,20 +700,51 @@ function lockIsStale(cfg, file) {
   }
 }
 
+function tryLink(src, dst) {
+  try { fs.linkSync(src, dst); return true; } catch (e) {
+    if (e.code === 'EEXIST') return false;
+    throw e;
+  }
+}
+
+// V3.2.5: the lock used to be created empty with O_EXCL and filled with the
+// pid afterwards. A second process arriving in that gap read an empty lock,
+// judged it stale (no pid), deleted it and took its own — both then held the
+// "same" lock and could send the same message twice (reproduced: 16 of 600
+// keys under 4 concurrent processes). Now the lock file is written complete
+// under a private name and published with link(), which is atomic and fails
+// if the lock exists: nobody can ever observe a half-written lock. Taking
+// over a stale lock is serialised by a short take-over mutex, so two
+// processes can never both replace the same dead holder's lock.
 function acquireKeyLock(cfg, key) {
   ensureLedger(cfg);
   var file = lockFile(cfg, key);
-  var fd = null;
+  var tmp = file + '.' + process.pid + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
   try {
-    fd = fs.openSync(file, 'wx', 0o600);
+    fs.writeFileSync(tmp, String(process.pid), { mode: 0o600, flag: 'wx' });
   } catch (e) {
-    if (e.code !== 'EEXIST') throw e;
-    if (!lockIsStale(cfg, file)) return null;
-    try { fs.unlinkSync(file); } catch (e2) { /* another process reclaimed it first */ }
-    try { fd = fs.openSync(file, 'wx', 0o600); } catch (e3) { return null; }
+    return null;
   }
-  try { fs.writeSync(fd, String(process.pid)); } finally { try { fs.closeSync(fd); } catch (e) { /* closed */ } }
-  return file;
+  try {
+    if (tryLink(tmp, file)) return file;
+    if (!lockIsStale(cfg, file)) return null;
+    var guard = file + '.takeover';
+    if (!tryLink(tmp, guard)) {
+      // Someone else is taking it over; a take-over guard left by a crashed
+      // process is cleared once it is clearly old, and this call gives up.
+      try { if (Date.now() - fs.statSync(guard).mtimeMs > 30000) fs.unlinkSync(guard); } catch (e) { /* gone */ }
+      return null;
+    }
+    try {
+      if (!lockIsStale(cfg, file)) return null;   // re-check under the guard
+      try { fs.unlinkSync(file); } catch (e) { /* already gone */ }
+      return tryLink(tmp, file) ? file : null;
+    } finally {
+      try { fs.unlinkSync(guard); } catch (e) { /* gone */ }
+    }
+  } finally {
+    try { fs.unlinkSync(tmp); } catch (e) { /* gone */ }
+  }
 }
 
 function releaseKeyLock(file) { try { if (file) fs.unlinkSync(file); } catch (e) { /* already gone */ } }
@@ -1265,6 +1300,8 @@ function smokeTest(opts) {
 }
 
 module.exports = {
+  _acquireKeyLock: acquireKeyLock,
+  _releaseKeyLock: releaseKeyLock,
   KINDS: KINDS,
   MISSION_KINDS: MISSION_KINDS,
   PROVIDERS: PROVIDERS,

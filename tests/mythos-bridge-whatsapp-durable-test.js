@@ -332,6 +332,61 @@ function part1() {
     });
   });
 
+  // Lock race (found by an intermittent failure of the cross-process test):
+  // the per-key lock used to be created empty and filled with the pid
+  // afterwards; a racing process read the empty lock as stale and took it
+  // too. Four processes race for the same 30 locks, 8 rounds; a violation is
+  // two holds of one key whose [acquire, release] intervals overlap.
+  chain = chain.then(function () {
+    section('lockrace', {});
+    var home = process.env.MYTHOS_BRIDGE_WHATSAPP_HOME;
+    var child = 'var wa=require(' + JSON.stringify(WA) + ');var cfg=wa.config();var fs=require("fs");var keys=JSON.parse(process.argv[1]);var go=Number(process.argv[2]);while(Date.now()<go){}' +
+      'var held=[];keys.forEach(function(k){var f=wa._acquireKeyLock(cfg,k);if(f)held.push([k,f,process.hrtime.bigint()])});' +
+      'var t=Date.now()+150;while(Date.now()<t){}' +
+      'held.forEach(function(h){var rel=process.hrtime.bigint();fs.appendFileSync(cfg.ledgerDir+"/"+h[0]+".iv",h[2]+" "+rel+"\\n");wa._releaseKeyLock(h[1])});';
+    var violations = 0, holds = 0, keysTotal = 0;
+    var rounds = Promise.resolve();
+    for (var r = 0; r < 8; r++) (function (r) {
+      rounds = rounds.then(function () {
+        var keys = [];
+        for (var i = 0; i < 30; i++) keys.push('gh-issue-' + (5000 + r * 100 + i) + '__MISSION_START');
+        var go = Date.now() + 1200;
+        var ps = [0, 1, 2, 3].map(function () { return cp.spawn(process.execPath, ['-e', child, JSON.stringify(keys), String(go)], { env: process.env, stdio: 'ignore' }); });
+        return Promise.all(ps.map(function (p) { return new Promise(function (res) { p.on('exit', res); }); })).then(function () {
+          keys.forEach(function (k) {
+            keysTotal++;
+            var f = path.join(home, 'ledger', k + '.iv');
+            if (!fs.existsSync(f)) return;
+            var iv = fs.readFileSync(f, 'utf8').trim().split('\n').map(function (l) { return l.split(' ').map(BigInt); });
+            holds += iv.length;
+            for (var a = 0; a < iv.length; a++) for (var b = a + 1; b < iv.length; b++) if (iv[a][0] < iv[b][1] && iv[b][0] < iv[a][1]) violations++;
+          });
+        });
+      });
+    })(r);
+    return rounds.then(function () {
+      ok(violations === 0 && holds >= keysTotal, 'lock race: 4 processes x 30 keys x 8 rounds — no key is ever held by two processes at once (' + violations + ' overlaps, ' + holds + ' holds / ' + keysTotal + ' keys)');
+      var leftovers = fs.readdirSync(path.join(home, 'ledger')).filter(function (n) { return /\.(lock|tmp|takeover)$/.test(n); });
+      ok(leftovers.length === 0, 'lock race: no lock, temp or take-over file is left behind');
+    });
+  });
+
+  // A dead holder's lock is taken over; a live holder's is never stolen.
+  chain = chain.then(function () {
+    section('lockstale', {});
+    var cfg = W().config();
+    fs.mkdirSync(cfg.ledgerDir, { recursive: true });
+    var dead = cp.spawnSync(process.execPath, ['-e', 'process.stdout.write(String(process.pid))'], { encoding: 'utf8' }).stdout;
+    fs.writeFileSync(path.join(cfg.ledgerDir, 'gh-issue-5999__MISSION_START.lock'), dead);
+    var got = W()._acquireKeyLock(cfg, 'gh-issue-5999__MISSION_START');
+    ok(!!got && fs.readFileSync(got, 'utf8') === String(process.pid), 'lock: a dead holder\'s lock is taken over');
+    var second = W()._acquireKeyLock(cfg, 'gh-issue-5999__MISSION_START');
+    ok(second === null, 'lock: a live holder\'s lock (this process) is never stolen');
+    W()._releaseKeyLock(got);
+    fs.writeFileSync(path.join(cfg.ledgerDir, 'gh-issue-5998__MISSION_START.lock'), '');
+    ok(W()._acquireKeyLock(cfg, 'gh-issue-5998__MISSION_START') === null, 'lock: a fresh EMPTY lock is never judged stale (the old race)');
+  });
+
   // 16 + 17. many missions at once, and per-mission order.
   chain = chain.then(function () {
     section('order', { MYTHOS_BRIDGE_WHATSAPP_BREAKER: 'off', MYTHOS_BRIDGE_WHATSAPP_FLUSH_LIMIT: '20' });
