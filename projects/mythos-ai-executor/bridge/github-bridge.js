@@ -1278,6 +1278,18 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
   log('claimed', { task_id: id, attempt_id: attemptId, executor_task_id: exec.executor_task_id, othmode_task_id: exec.othmode_task_id, recovered: recovered, worktree: wt.dir,
     requested_action: task.requested_action, action_source: exec.action_source, action_raw: task.action_raw || null, execution_profile: exec.execution_profile,
     model: exec.model || null, model_requested: exec.model_requested, fence: exec.fence, runtime_head: exec.runtime ? exec.runtime.head : null, runtime_code: exec.runtime ? exec.runtime.code : null });
+  // V3.2.5 (gh-issue-461): the bridge has just begun execution — the
+  // executor task is queued and task.status is CLAIMED above. Same
+  // two-phase discipline as the existing report notifications: this only
+  // appends a durable ledger entry (or does nothing — disabled, not a
+  // github-issue task, or already notified for this task+kind); the message
+  // itself leaves the host later, from flushNotifications(). Wrapped in its
+  // own try/catch even though onMissionEvent() never throws, so a defect in
+  // this call can never turn a successful claim into a failed one.
+  try {
+    var missionStart = whatsapp.onMissionEvent('MISSION_START', task);
+    if (missionStart.queued || missionStart.error) log('whatsapp_mission_queued', { task_id: id, kind: 'MISSION_START', result: missionStart });
+  } catch (e) { /* a lifecycle notification can never fail a claim */ }
   return { file: taskFile(cfg, id), recovered: recovered };
 }
 
@@ -1611,6 +1623,21 @@ function finishTask(cfg, task, finalStatus, opts, changed) {
     notified = { queued: false, error: String(e && e.message).slice(0, 200) };
   }
   if (notified.queued || notified.error) log('whatsapp_queued', { task_id: task.task_id, result: notified });
+  // V3.2.5 (gh-issue-461): the mission-lifecycle ping — MISSION_SUCCESS for
+  // COMPLETED, MISSION_STOP for a genuine FAILED/BLOCKED stop. CANCELLED
+  // (the human's own action) and anything else maps to nothing, exactly
+  // like the existing notificationKind() rule onReport() above already
+  // follows. Same try/catch discipline as onReport(): a defect here can
+  // never turn a decided finalStatus into something else.
+  var missionKind = finalStatus === 'COMPLETED' ? 'MISSION_SUCCESS'
+    : (finalStatus === 'FAILED' || finalStatus === 'BLOCKED') ? 'MISSION_STOP'
+      : null;
+  if (missionKind) {
+    try {
+      var missionNotified = whatsapp.onMissionEvent(missionKind, task);
+      if (missionNotified.queued || missionNotified.error) log('whatsapp_mission_queued', { task_id: task.task_id, kind: missionKind, result: missionNotified });
+    } catch (e) { /* a lifecycle notification can never alter finalStatus */ }
+  }
   pushHistory(task, 'VALIDATING', finalStatus, 'report written (' + report.commits.length + ' commit(s), ' + report.tests.length + ' test line(s)); OTHMODE ' +
     (oth.updated ? 'closed by the bridge' : (oth.premature ? 'CLOSED PREMATURELY by the session (recorded as a problem)' : 'not updated: ' + oth.reason)));
   task.status = finalStatus;

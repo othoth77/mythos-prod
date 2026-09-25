@@ -1,10 +1,84 @@
 # MYTHOS GitHub bridge — WhatsApp notification layer
 
-**Stage:** `gh-20260902-wa-bridge-notify-01` (2026-09-02), hardened by `gh-issue-147` (2026-09-03)
+**Stage:** `gh-20260902-wa-bridge-notify-01` (2026-09-02), hardened by `gh-issue-147` (2026-09-03), extended by `gh-issue-461` (V3.2.5, 2026-09-25 — mission lifecycle, §0)
 **Code:** `projects/mythos-ai-executor/bridge/notify/` (`whatsapp.js`, `http-json.js`, `providers/evolution.js`, `providers/generic.js`)
-**Wiring:** `projects/mythos-ai-executor/bridge/github-bridge.js` (2 call sites), CLI `bin/mythos-github-bridge`
-**Suites:** `tests/mythos-bridge-whatsapp-notify-test.js` — 131 checks · `tests/mythos-bridge-whatsapp-resilience-test.js` — 101 checks. Both offline, no real message.
-**Default state:** **DISABLED.** Nothing is sent, no ledger is created, no request is made, until it is explicitly configured *and* `MYTHOS_BRIDGE_WHATSAPP_ENABLED=1`.
+**Wiring:** `projects/mythos-ai-executor/bridge/github-bridge.js` (4 call sites: `claimTask()` → `onReport`-style report notifications do not fire here, only `onMissionEvent('MISSION_START', ...)`; `finishTask()` → both `onReport()` and `onMissionEvent('MISSION_STOP'|'MISSION_SUCCESS', ...)`), CLI `bin/mythos-github-bridge`
+**Suites:** `tests/mythos-bridge-whatsapp-notify-test.js` — 131 checks · `tests/mythos-bridge-whatsapp-resilience-test.js` — 101 checks · `tests/mythos-bridge-whatsapp-lifecycle-test.js` — 49 checks (§0). All offline, no real message.
+**Default state:** **DISABLED.** Nothing is sent, no ledger is created, no request is made, until it is explicitly configured *and* `MYTHOS_BRIDGE_WHATSAPP_ENABLED=1`. Both notification layers below (technical and mission-lifecycle) share this one switch — there is no separate flag for §0.
+
+---
+
+## 0. V3.2.5 — mission lifecycle (gh-issue-461)
+
+A second, much smaller message on the SAME channel: a plain "work started /
+stopped / finished" ping carrying **only the mission title**, for the
+owner's own awareness — distinct from §1–§11 below, which stay the
+detailed, technical, review-oriented messages (task id, branch, commits —
+what a human needs to act on a PR) and are **completely unchanged** by this
+stage. Both kinds can fire for the same task; they are independent, on the
+same ledger, same flush, same provider, same breaker, same redaction.
+
+**Code:** `MISSION_KINDS`, `missionTitleOf()`, `buildLifecycleMessage()`,
+`onMissionEvent()` — all in `bridge/notify/whatsapp.js`, added next to the
+existing `KINDS`/`buildMessage()`/`onReport()` they parallel. Nothing in
+`flush()`, the ledger, the provider adapters or the breaker changed at all:
+the message is built once at enqueue time and stored verbatim in the ledger
+entry, so phase 2 needed zero changes to deliver a second kind of message.
+
+**Templates** (`buildLifecycleMessage`, verbatim — nothing else is ever appended):
+
+| Kind | Fires from | Template |
+|---|---|---|
+| `MISSION_START` | `claimTask()`, the moment the bridge has queued the executor task (`task.status = 'CLAIMED'`) | `🟢 بدأ العمل: {MISSION_TITLE}` |
+| `MISSION_STOP` | `finishTask()`, `finalStatus` is `FAILED` or `BLOCKED` | `🔴 توقف العمل: {MISSION_TITLE} — مشكلة` |
+| `MISSION_SUCCESS` | `finishTask()`, `finalStatus` is `COMPLETED` | `✅ اكتمل العمل: {MISSION_TITLE}` |
+
+`CANCELLED` and every non-terminal status notify nothing — same rule
+`notificationKind()` already applies to §2's kinds.
+
+**MISSION_TITLE** is `task.source.issue_title` — the GitHub Issue's own
+title, captured once by `bridge/github-issues.js` (capped at 300 chars
+there; `buildLifecycleMessage` clips again independently). A task that is
+not sourced from a GitHub Issue (`task.source.kind !== 'github-issue'`) has
+no mission title and `onMissionEvent()` sends nothing for it — this layer
+never falls back to `task.objective` (long, freeform, effectively untrusted)
+or to `task.task_id` (explicitly forbidden in a message body by gh-issue-461).
+The title still passes through `redact.redact()` before it leaves
+`buildLifecycleMessage()`, as defense in depth.
+
+**Guarantees, and where each is proven** (`tests/mythos-bridge-whatsapp-lifecycle-test.js`):
+
+- **No technical details, ever.** §1 asserts every template output contains
+  no `task_id`, `branch`, `commit` or `OTHMODE` substring; the §4 e2e section
+  asserts the same against the real messages a real bridge tick produced.
+- **Dedup by mission identity.** One ledger entry per `(task_id, kind)`,
+  exactly like §2's kinds — `onMissionEvent()` reuses `ledgerKey()`,
+  `readEntry()` and `writeEntry()` unchanged. §5 retries a `MISSION_START`
+  and a `MISSION_SUCCESS` against an already-`SENT` entry and asserts
+  neither queues anything, then asserts an idempotent re-tick creates no new
+  entries for missions already notified.
+- **A notification failure can never alter mission/task state.** Both call
+  sites (`claimTask()`, `finishTask()`) wrap `whatsapp.onMissionEvent(...)`
+  in their own `try/catch`, in addition to `onMissionEvent()`'s internal one
+  — defense in depth matching the existing `onReport()` call site. §6 proves
+  it directly: `whatsapp.onMissionEvent` is monkey-patched to throw
+  synchronously, and a claim and a finish both still complete normally (the
+  task is still `CLAIMED`/`COMPLETED`, the control commit still happens).
+- **No secret ever leaves this layer.** §7 greps every ledger entry and the
+  bridge's own event log for the test credential: zero hits. (The event log
+  legitimately carries `task_id` in its own diagnostic lines — e.g.
+  `whatsapp_mission_queued` — which is not a WhatsApp message body and is
+  the same pre-existing pattern `whatsapp_queued` already used.)
+- **Out of scope, by design.** gh-issue-461 named WhatsApp only. This stage
+  touches nothing outside `bridge/notify/whatsapp.js` and the two
+  `github-bridge.js` call sites listed above — no other notification
+  channel's code, config or files were read, imported or modified.
+
+**Not built:** no new gateway, provider, service, credential, ledger,
+config flag, or CLI command. `notify-config` / `notify-status` /
+`notify-flush` / `notify-breaker-reset` operate on both kinds together
+because they always operated on "the ledger", which now simply holds two
+kinds of entry.
 
 > **gh-issue-147 changed four things** (rationale, evidence and the provider
 > decision: `docs/MYTHOS_WHATSAPP_PROVIDER_STRATEGY.md`):
