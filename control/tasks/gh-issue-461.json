@@ -19,7 +19,7 @@
     "notification failure cannot block execution",
     "existing Bridge/OTHMODE behavior has no regression"
   ],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-25T08:33:07.453Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #461 https://github.com/othoth77/mythos-prod/issues/461 — \"V3.2.5 — WhatsApp + Telegram lifecycle notifications\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[mission]\nRestore and activate the existing MYTHOS operational notification system.\n\n[start gate — mandatory]\nDO NOT start or claim this mission while any V3.2 residual R1, R2, R3, R4, or R5 is still open, running, blocked, or unverified.\n\nStart automatically only after the Bridge can verify that ALL FIVE V3.2 residuals are COMPLETE and verified.\n\nThis is a predecessor gate, not a manual owner approval.\n\nCurrent V3.2 residual work includes the active R5 decomposed tasks #458 and #459. Wait for the complete V3.2 closure, not merely those two tasks.\n\n[messages]\nUse only the mission title. No Task ID and no technical details.\n\nSTART:\n🟢 بدأ العمل: {MISSION_TITLE}\n\nSTOP / FAILURE:\n🔴 توقف العمل: {MISSION_TITLE} — مشكلة\n\nSUCCESS:\n✅ اكتمل العمل: {MISSION_TITLE}\n\n[lifecycle]\nSTART → when the Bridge actually begins execution.\nSTOP → only for a genuine blocked/failed/stopped mission.\nSUCCESS → only after successful execution and validation.\n\nRetries/repairs must not create duplicate lifecycle notifications.\n\nNotification failure must NEVER block, fail, or change the underlying mission state.\n\n[reuse]\nFirst audit and reuse the existing notification components, formatter/event layer, WhatsApp integration, Telegram integration, deduplication and security controls.\n\nDo not create duplicate gateways, bots, services, credentials or notification infrastructure.\n\nPreserve the existing separation between operational notifications and customer WhatsApp/CRM.\n\n[delivery]\nUse normal governed workflow:\nimplemented → tested → committed → PR → merge → deploy → live verification → documentation.\n\nFABLE has autonomous engineering authority for normal technical decisions.\n\nUse:\n- Qwen = implementation\n- Sonnet = difficult diagnosis\n- Opus = architecture/security/deep issues\n\nDo not start V3.3 automatically after this mission. Stop after V3.2.5 is fully verified.\n\n[definition of done]\n- V3.2 predecessor gate verified\n- existing notification system reused/restored\n- WhatsApp START/STOP/SUCCESS verified\n- Telegram START/STOP/SUCCESS verified\n- deduplication verified\n- failure isolation verified\n- security verified\n- production deployed\n- live E2E verified\n- documentation updated\n- final commit/PR/production SHA recorded\n\nFinal report:\nSTATUS\nREUSED\nTESTS\nWhatsApp\nTelegram\nPR\nCOMMIT\nPRODUCTION SHA\nBLOCKERS",
@@ -121,5 +121,69 @@
       ],
       "removed": []
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260925143329-gs4ybe",
+    "othmode_task_id": "OTH-2026-01900",
+    "attempt_id": "gh-issue-461#1",
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "default",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "expected_delivery": "report",
+    "model_key": null,
+    "model_requested": null,
+    "model_source": "none",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-461",
+    "branch": "mythos/gh/gh-issue-461",
+    "base_commit": "2ab1512f04db0d5709692f9575815f27eac22f30",
+    "claimed_at": "2026-09-25T14:33:29.846Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "routing": {
+      "routed": false,
+      "provider": "claude-code",
+      "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
+    },
+    "fingerprint": "8bf343b9a155877e23989f9117f4ec73d078b8566557d4e41e28efed5eb957c1",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-25T14:33:29.847Z",
+    "snapshot_sha256": "25daa92723ed7e783fbf86f96c75f47d12478a00f218b1a73649a4225e1f5ce3",
+    "fence": 73481,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:3317660",
+      "fence": 73481,
+      "acquired_at": "2026-09-25T14:33:29.846Z",
+      "expires_at": "2026-09-25T16:03:29.846Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/projects/mythos-prod",
+      "head": "5e868e949578bf10d9ddf49847dbf930c87b1ea5",
+      "branch": "main",
+      "dirty_files": 1,
+      "base_ref": "origin/main",
+      "base_ref_head": "5e868e949578bf10d9ddf49847dbf930c87b1ea5",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": false,
+      "code": null,
+      "reason": null,
+      "measured_at": "2026-09-25T14:33:25.636Z"
+    },
+    "model": "claude-sonnet-5",
+    "model_selection_mode": "auto"
+  },
+  "history": [
+    {
+      "at": "2026-09-25T14:33:29.943Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260925143329-gs4ybe queued; OTHMODE OTH-2026-01900; action investigate (default) → repo-read; model claude-sonnet-5; fence 73481"
+    }
+  ]
 }
