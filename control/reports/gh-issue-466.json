@@ -1,0 +1,114 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-466",
+  "attempt_id": "gh-issue-466#1",
+  "status": "COMPLETED",
+  "summary": "Read-only verification task executed successfully. Current HEAD commit is 2cca2af0974b9865a9d813ba0d3b9f854ade3936, which is the merge commit for PR #465 (bridge/notify: durable WhatsApp lifecycle outbox — outages never destroy a notification, V3.2.5). No file changes were made; validation requirement satisfied.",
+  "resolution": {
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "model_requested": "Haiku",
+    "model_key": "haiku",
+    "model": "claude-haiku-4-5",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:haiku (requested \"haiku\")",
+    "base_sha": "2cca2af0974b9865a9d813ba0d3b9f854ade3936",
+    "branch": "mythos/gh/gh-issue-466",
+    "commit_sha": null
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "2cca2af0974b9865a9d813ba0d3b9f854ade3936",
+    "branch": "main",
+    "dirty_files": 1,
+    "base_ref": "origin/main",
+    "base_ref_head": "2cca2af0974b9865a9d813ba0d3b9f854ade3936",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-25T17:33:31.670Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Read-only verification task executed successfully. Current HEAD commit is 2cca2af0974b9865a9d813ba0d3b9f854ade3936, which is the merge commit for PR #465 (bridge/notify: durable WhatsApp lifecycle outbox — outages never destroy a notification, V3.2.5). No file changes were made; validation requirement satisfied.",
+    "tests": [
+      "HEAD commit reported: pass"
+    ],
+    "commit": "2cca2af0974b9865a9d813ba0d3b9f854ade3936",
+    "remote_head": null,
+    "files_changed": [],
+    "residual_risks": [],
+    "next_stage": "Task complete; bridge handles GitHub reporting"
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "HEAD commit reported: pass"
+  ],
+  "validation": {
+    "git_verified": true,
+    "remote_head": null,
+    "report_problems": [],
+    "required_checks": [
+      "the report names the HEAD commit"
+    ]
+  },
+  "problems": [],
+  "risks": [],
+  "next_recommended_action": "Task complete; bridge handles GitHub reporting",
+  "completed_at": "2026-09-25T17:34:50.993Z",
+  "execution": {
+    "executor_task_id": "t-20260925173333-z1ugg9",
+    "othmode_task_id": "OTH-2026-01903",
+    "execution_profile": "repo-read",
+    "provider": "claude-code",
+    "model": "claude-haiku-4-5",
+    "model_requested": "Haiku",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "investigate",
+    "attempt_id": "gh-issue-466#1",
+    "fence": 73907,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:3626466",
+      "fence": 73907,
+      "acquired_at": "2026-09-25T17:33:33.014Z",
+      "expires_at": "2026-09-25T18:13:33.014Z"
+    },
+    "snapshot_sha256": "defed8a03b36b12f6d2adf4d66915141c8222882e2d404edeadc594f0b275701",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:haiku (requested \"haiku\")",
+    "claude_session_id": "326a8183-5f1b-41bd-8279-266ad4aa8585",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-25T17:33:47.534Z",
+    "ended_at": "2026-09-25T17:34:06.620Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 0.0382807,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-466",
+    "branch": "mythos/gh/gh-issue-466",
+    "base_commit": "2cca2af0974b9865a9d813ba0d3b9f854ade3936",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-466",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
