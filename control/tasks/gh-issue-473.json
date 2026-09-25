@@ -112,6 +112,16 @@
         "at": "2026-09-25T19:16:55.280Z",
         "existed": false,
         "executor_task_id": "t-20260925191651-tilx5s"
+      },
+      "report": {
+        "comment_id": 5838243901,
+        "url": "https://github.com/othoth77/mythos-prod/issues/473#issuecomment-5838243901",
+        "at": "2026-09-25T19:20:53.366Z",
+        "existed": false,
+        "status": "HUMAN_APPROVAL",
+        "control_status": "BLOCKED",
+        "report_file": "control/reports/gh-issue-473.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -119,7 +129,8 @@
         "mythos:queued"
       ],
       "removed": []
-    }
+    },
+    "issue_state": "HUMAN_APPROVAL"
   },
   "execution": {
     "executor_task_id": "t-20260925191651-tilx5s",
