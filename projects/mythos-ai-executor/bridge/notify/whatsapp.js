@@ -69,14 +69,28 @@ var generic = require('./providers/generic');
 var PROVIDERS = { evolution: evolution, generic: generic };
 
 var KINDS = ['COMPLETED', 'FAILED', 'BLOCKED', 'HUMAN_APPROVAL'];
+// V3.2.5 (gh-issue-461): a second, much smaller notification kind — a plain
+// "work started / stopped / finished" ping using ONLY the mission title,
+// for the owner's own awareness. Deliberately NOT the same kind space as
+// KINDS above: those stay the detailed, technical, review-oriented messages
+// (task id, branch, commits — everything a human needs to act on a PR) and
+// are unchanged by this stage. MISSION_KINDS is the fixed-template layer
+// gh-issue-461 asks for. Both share every other line of this module: the
+// same ledger, the same flush, the same provider adapters, the same
+// breaker, the same redaction — see onMissionEvent() below.
+var MISSION_KINDS = ['MISSION_START', 'MISSION_STOP', 'MISSION_SUCCESS'];
 var LEDGER_STATES = ['PENDING', 'SENDING', 'SENT', 'EXHAUSTED'];
 // task_id is 6-64 chars (github-bridge.js TASK_ID_RE); the ledger key must
 // accept every valid task_id or a notification silently vanishes in
 // onReport()'s try/catch for any task_id over the old 40-char cap.
-var KEY_RE = /^[a-z0-9][a-z0-9-]{4,62}[a-z0-9]__(?:COMPLETED|FAILED|BLOCKED|HUMAN_APPROVAL)$/;
+var KEY_RE = /^[a-z0-9][a-z0-9-]{4,62}[a-z0-9]__(?:COMPLETED|FAILED|BLOCKED|HUMAN_APPROVAL|MISSION_START|MISSION_STOP|MISSION_SUCCESS)$/;
 
 var MAX_MESSAGE = 3500;          // WhatsApp text limit is ~4096; stay well under
 var MAX_SUMMARY = 700;
+// gh-issue-461: matches LIMITS.title in bridge/github-issues.js — the Issue
+// title is already capped there; this is a second, independent bound on the
+// value this module actually puts in a message body.
+var MAX_TITLE = 300;
 var MAX_BACKOFF_MS = 30 * 60 * 1000;
 var DEFAULT_LEASE_MS = 120000;   // a SENDING claim older than this is stale
 // Deliveries per flush. Kept small on purpose: `mythos-github-bridge tick`
@@ -476,6 +490,37 @@ function buildMessage(report, kind) {
   return redact.redact(lines.join('\n')).slice(0, MAX_MESSAGE);
 }
 
+// --- Mission lifecycle (gh-issue-461) ---------------------------------------
+//
+// A "mission" is a GitHub-Issue-driven control task. The only trustworthy,
+// human-meaningful title for one is the Issue's own title
+// (task.source.issue_title, set once by github-issues.js from `issue.title`
+// and already capped at LIMITS.title=300 there) — never task.objective
+// (the parsed instruction body: long, freeform, and exactly the kind of
+// technical/untrusted text the fixed templates below must never carry) and
+// never task.task_id (explicitly forbidden in a message body by gh-issue-461).
+// A task not sourced from a GitHub Issue has no mission title and is
+// deliberately never messaged by this layer.
+function missionTitleOf(task) {
+  var src = task && task.source;
+  if (!src || src.kind !== 'github-issue') return null;
+  var t = String(src.issue_title || '').trim();
+  return t ? t : null;
+}
+
+// The three fixed templates from gh-issue-461, verbatim — emoji, punctuation
+// and Arabic wording exactly as specified. Nothing else is ever appended:
+// no task id, no branch, no commit, no error detail, no file path.
+function buildLifecycleMessage(kind, title) {
+  var t = redact.redact(clip(title, MAX_TITLE));
+  var text;
+  if (kind === 'MISSION_START') text = '🟢 بدأ العمل: ' + t;
+  else if (kind === 'MISSION_STOP') text = '🔴 توقف العمل: ' + t + ' — مشكلة';
+  else if (kind === 'MISSION_SUCCESS') text = '✅ اكتمل العمل: ' + t;
+  else return null;
+  return text.slice(0, MAX_MESSAGE);
+}
+
 // --- Ledger ------------------------------------------------------------------
 
 function ledgerKey(taskId, kind) {
@@ -640,6 +685,71 @@ function onReport(report, opts) {
   } catch (e) {
     // A notification is never allowed to interrupt the bridge, not even by
     // throwing out of its own bookkeeping.
+    return { queued: false, error: redact.redact(String(e && e.message)).slice(0, 300) };
+  }
+}
+
+// Phase 1 for the mission-lifecycle kinds (gh-issue-461). Same contract as
+// onReport() above — synchronous, local filesystem only, never network,
+// never throws — reusing the SAME config(), ledger, flush(), provider
+// adapters and breaker; only the readiness check and the message differ.
+// Called from claimTask() (MISSION_START, the moment the bridge begins
+// execution) and from finishTask() (MISSION_STOP for FAILED/BLOCKED,
+// MISSION_SUCCESS for COMPLETED — CANCELLED and every non-terminal status
+// still notify nothing, exactly like the existing kinds).
+function onMissionEvent(kind, task) {
+  var cfg;
+  try {
+    cfg = config();
+    if (!cfg.enabled) return { queued: false, skipped: 'whatsapp notifications disabled' };
+    if (MISSION_KINDS.indexOf(kind) === -1) return { queued: false, skipped: 'not a mission kind' };
+    if (!task || typeof task !== 'object' || !task.task_id) return { queued: false, skipped: 'no task' };
+
+    var title = missionTitleOf(task);
+    if (!title) return { queued: false, kind: kind, skipped: 'no mission title (not a github-issue task)' };
+
+    // Queue-scope readiness only, exactly like onReport(): the credential is
+    // re-checked on every flush, never here.
+    var problems = queueReadiness(cfg);
+    if (problems.length) return { queued: false, kind: kind, skipped: 'not configured', problems: problems };
+
+    // Dedup by mission identity: one ledger entry per (task_id, kind), ever.
+    // A retry/repair of the same task_id (claimTask()'s own "recovered" path,
+    // or a rerun that reuses continues.task_id) finds this entry already
+    // here and sends nothing a second time — the same property section 5 of
+    // tests/mythos-bridge-whatsapp-notify-test.js proves for onReport().
+    var key = ledgerKey(task.task_id, kind);
+    var existing = readEntry(cfg, key);
+    if (existing) {
+      return { queued: false, key: key, kind: kind, skipped: 'already in the ledger (' + existing.state + ')', state: existing.state };
+    }
+
+    var message = buildLifecycleMessage(kind, title);
+    var now = new Date().toISOString();
+    writeEntry(cfg, {
+      key: key,
+      task_id: task.task_id,
+      kind: kind,
+      report_status: null,
+      state: 'PENDING',
+      provider: cfg.provider,
+      attempts: 0,
+      recipients: cfg.recipients.slice(),
+      delivered_to: [],
+      message: message,
+      message_sha256: crypto.createHash('sha256').update(message).digest('hex'),
+      created_at: now,
+      updated_at: now,
+      next_attempt_at: now,
+      created_by: 'github-bridge@' + os.hostname(),
+      last_error: null,
+      results: []
+    });
+    return { queued: true, key: key, kind: kind, recipients: cfg.recipients.length };
+  } catch (e) {
+    // Never allowed to interrupt the bridge — claimTask()/finishTask() call
+    // this wrapped in their own try/catch too (defense in depth, matching
+    // the existing onReport() call site), but this must not throw either.
     return { queued: false, error: redact.redact(String(e && e.message)).slice(0, 300) };
   }
 }
@@ -972,6 +1082,7 @@ function smokeTest(opts) {
 
 module.exports = {
   KINDS: KINDS,
+  MISSION_KINDS: MISSION_KINDS,
   PROVIDERS: PROVIDERS,
   config: config,
   describe: describe,
@@ -984,11 +1095,14 @@ module.exports = {
   isPrivateHost: isPrivateHost,
   notificationKind: notificationKind,
   buildMessage: buildMessage,
+  missionTitleOf: missionTitleOf,
+  buildLifecycleMessage: buildLifecycleMessage,
   ledgerKey: ledgerKey,
   readEntry: readEntry,
   listEntries: listEntries,
   reclaimStale: reclaimStale,
   onReport: onReport,
+  onMissionEvent: onMissionEvent,
   flush: flush,
   ledgerStatus: ledgerStatus,
   smokeTest: smokeTest
