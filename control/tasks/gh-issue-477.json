@@ -1,0 +1,141 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-477",
+  "project": "mythos-prod",
+  "objective": "Change the Mythos Bridge WhatsApp recipient to the owner-confirmed number:\n\n**TO: +21621821921**",
+  "scope": [],
+  "constraints": [
+    "Owner-authorized host configuration change.",
+    "No Git/code changes, PR, or commit required.",
+    "No Telegram.",
+    "No Evolution re-pairing.",
+    "No architecture changes.",
+    "Do not expose the full phone number in the report; mask it.",
+    "If the required host-operation capability is unavailable, report BLOCKED and do not modify anything."
+  ],
+  "priority": "high",
+  "requested_action": "implement",
+  "action_raw": "implement",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "TO is the new owner-confirmed number (masked in report).",
+    "FROM remains unchanged.",
+    "notify-config confirms the new recipient.",
+    "One test notification succeeds.",
+    "Existing START/STOP/SUCCESS lifecycle remains unchanged.",
+    "No duplicate notification is created."
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-25T21:13:27.683Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #477 https://github.com/othoth77/mythos-prod/issues/477 — \"V3.2.5 — Execute WhatsApp recipient change on host\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\n[owner-approved execution task]\nIssue #476 established that the WhatsApp recipient is a host-only systemd setting and cannot be changed by the repo-read executor.\n\n[required operation]\nUse the existing MYTHOS host-operation mechanism for this task:\n1. Edit `~/.config/systemd/user/mythos-github-bridge.service.d/20-whatsapp.conf`.\n2. Set `MYTHOS_BRIDGE_WHATSAPP_TO=+21621821921`.\n3. Do not change FROM or any other WhatsApp setting.\n4. Run `systemctl --user daemon-reload`.\n5. Run the existing `notify-config` command to verify the masked recipient.\n6. Run exactly one human-approved `notify-test --confirm` to the new recipient.\n7. Verify successful acceptance/delivery using the existing notification infrastructure.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 477,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/477",
+    "issue_id": 5588519998,
+    "issue_node_id": "I_kwDOTnlaF88AAAABTRoMPg",
+    "issue_title": "V3.2.5 — Execute WhatsApp recipient change on host",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-25T21:06:21Z",
+    "issue_updated_at": "2026-09-25T21:12:12Z",
+    "issue_labels": [
+      "task",
+      "mythos:invalid"
+    ],
+    "content_sha256": "a996aff731dffc18229c03acf16afebd4877255ffff36a1943cd0b5eaa2fec54",
+    "attempt": 1,
+    "attempt_id": "gh-issue-477#1",
+    "idempotency_key": "37614aa74a02c2be4ec94c8266b83d4bb010b7d532f417d9a2751ce11c0a5288",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implement",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "implement",
+          "action": "implement",
+          "form": "inline",
+          "line": 37
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-25T21:13:27.685Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-25T21:13:27.685Z",
+        "event": "issue_received",
+        "reason": "open Issue #477 with label task",
+        "content_sha256": "a996aff731dffc18229c03acf16afebd4877255ffff36a1943cd0b5eaa2fec54"
+      },
+      {
+        "at": "2026-09-25T21:13:27.685Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → implement (raw \"implement\")"
+      },
+      {
+        "at": "2026-09-25T21:13:27.685Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-25T21:13:27.685Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-25T21:13:30.085Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-477.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-25T21:13:27.685Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5839705986,
+        "url": "https://github.com/othoth77/mythos-prod/issues/477#issuecomment-5839705986",
+        "at": "2026-09-25T21:13:28.510Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:invalid"
+      ]
+    }
+  }
+}
