@@ -731,6 +731,13 @@ function escalationTier(task) {
 // escalating and cheaper than three executions that end CONTEXT_EXHAUSTED
 // (measured: 3 of 7 coder tasks, 2026-09-24/25).
 var SIZING_RESERVE_TOKENS = 300;          // one tool exchange of framing
+// The second limit of this model: how much it can WRITE reliably in one
+// call. Measured on real tasks 2026-09-24/25: whole-file writes of 2.4-2.9 KB
+// came out truncated (gh-issue-432, 441 r1/r2), 1.9 KB went both ways (451
+// passed, 454-r2 truncated to invalid JSON), everything <= 1.6 KB succeeded
+// (441-r3, 447, 453, 455). A task whose single write must exceed this is
+// refused like an over-budget one: split the content.
+var MAX_RELIABLE_WRITE_CHARS = 1600;
 function sizeTask(input) {
   input = input || {};
   var cpt = CHARS_PER_TOKEN;
@@ -741,11 +748,18 @@ function sizeTask(input) {
   var need = base + fileTokens + fence + SIZING_RESERVE_TOKENS;
   var budget = Number(input.budget) || PROMPT_BUDGET_TOKENS;
   var reasons = [];
+  var fenceChars = Number(input.largestFenceChars) || 0;
+  var biggestFile = files.reduce(function (a, f) { return Math.max(a, f.bytes); }, 0);
+  var writeChars = Math.max(fenceChars, biggestFile);
+  if (writeChars > MAX_RELIABLE_WRITE_CHARS) {
+    reasons.push('one write must carry ~' + writeChars + ' chars, over the ~' + MAX_RELIABLE_WRITE_CHARS + ' this model writes reliably in one call');
+  }
   if (base > budget * 0.75) reasons.push('the fixed prompt alone needs ~' + base + ' of ' + budget + ' tokens');
   if (need > budget) reasons.push('the expected peak is ~' + need + ' tokens (prompt ' + base + ' + files ' + fileTokens + ' + spelled-out content ' + fence + ' + ' + SIZING_RESERVE_TOKENS + ') over the ' + budget + '-token budget');
   // The hint names the LARGEST contributor, so the director fixes the cause.
   var hint;
-  if (files.length > 1 && fileTokens >= fence) hint = 'split per file: one task per file (' + files.map(function (f) { return f.path; }).join(', ') + ')';
+  if (writeChars > MAX_RELIABLE_WRITE_CHARS && fenceChars >= biggestFile) hint = 'split the spelled-out content into parts of at most ~' + MAX_RELIABLE_WRITE_CHARS + ' chars, one file (one task) each';
+  else if (files.length > 1 && fileTokens >= fence) hint = 'split per file: one task per file (' + files.map(function (f) { return f.path; }).join(', ') + ')';
   else if (fileTokens >= fence && fileTokens > 0) hint = 'the target file is too large to read and rewrite whole (' + files.map(function (f) { return f.path + ' ' + f.bytes + ' B'; }).join(', ') + '): use a smaller file, split it, or give this edit to the director';
   else if (fence > 0) hint = 'shrink the content spelled out in the task (compact it, or write it in two smaller files)';
   else hint = 'shorten the task text: fewer sections, no pasted history, a quieter acceptance check';
@@ -1538,6 +1552,7 @@ module.exports = {
   REPORT_RESPONSE_FORMAT: REPORT_RESPONSE_FORMAT,
   escalationTier: escalationTier,
   sizeTask: sizeTask,
+  MAX_RELIABLE_WRITE_CHARS: MAX_RELIABLE_WRITE_CHARS,
   SAFE_PROMPT_TOKENS: SAFE_PROMPT_TOKENS,
   MAX_TOKENS_PER_TURN: MAX_TOKENS_PER_TURN,
   MAX_TOOL_CALLS: MAX_TOOL_CALLS,
