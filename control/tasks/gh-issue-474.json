@@ -1,0 +1,138 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-474",
+  "project": "mythos-prod",
+  "objective": "Implement the missing execution path that allows the **mythos-prod Bridge** to delegate engineering work to the separate repository **othoth77/spy**.\n\nThis task exists specifically to remove the blocker reported by SPY V2 Bridge task #473.",
+  "scope": [
+    "Correct repository identity verification.",
+    "Deterministic target path/workspace.",
+    "No accidental execution against `mythos-prod`.",
+    "Clean separation between control-repo files and target-repo files."
+  ],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implement",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "A controlled cross-repository delegation path exists.",
+    "`othoth77/spy` is an explicitly authorized target.",
+    "A real delegate workspace/checkout can be resolved.",
+    "The task contract correctly distinguishes `implement` from `investigate/repo-read`.",
+    "Safety checks prevent unintended repositories/workspaces.",
+    "Tests pass.",
+    "Changes are committed and traceable.",
+    "The Bridge can use the new lane to launch SPY V2 Master Task #1 without reproducing gh-issue-473."
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-25T19:51:25.681Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #474 https://github.com/othoth77/mythos-prod/issues/474 — \"[SPY V2] Enable Cross-Repo Delegation to othoth77/spy\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\n[required execution mode]\n- execution profile: implementation/edit-capable\n- GitHub task type/tag: `task`\n- This is an engineering task. Edits, commits, tests, and deployment/verification are expected where applicable.\n\n[control repository]\n`othoth77/mythos-prod`\n\n[target repository]\n`othoth77/spy`\n\nThe Bridge itself remains scoped to its own worktree. The implementation must create a safe, explicit delegation lane for an authorized executor to operate on the target repository.\n\n[current blocker]\nThe existing Bridge investigation found:\n1. `projects/mythos-orchestrator` is schema-locked to `othoth77/mythos-prod`.\n2. `projects/mythos-delegate` is repo-path-agnostic but has no local `othoth77/spy` checkout.\n3. No local clone of `othoth77/spy` exists on the host.\n4. The current Bridge execution path therefore cannot perform delegated implementation against `othoth77/spy`.\n\n[1. inspect existing delegation architecture]\n- Audit `projects/mythos-orchestrator`.\n- Audit `projects/mythos-delegate`.\n- Identify the exact schema/configuration/allowlist that restricts the orchestrator to `mythos-prod`.\n- Preserve existing single-repository behavior.\n\n[2. build an explicit cross-repository delegation lane]\nImplement a controlled mechanism allowing the Bridge to delegate to an explicitly authorized target repository.\n\nThe target repository must be represented explicitly as:\n`othoth77/spy`\n\nDo not create unrestricted arbitrary-repository execution.\n\n[3. target checkout]\nProvide a deterministic mechanism for the delegate executor to obtain/use a checkout of `othoth77/spy`.\n\n[4. github authorization]\nImplement or document the exact authorization path required for the delegate to:\n- read `othoth77/spy`\n- create branches\n- commit\n- push\n- create/update PRs where permitted\n\nDo not hard-code credentials or secrets.\nIf an interactive owner approval is required, isolate that as the only external dependency and complete all other engineering work.\n\n[5. delegate contract]\nDefine/implement the task payload contract so a delegated task contains at minimum:\n- target repository\n- target branch/worktree\n- requested action\n- execution profile\n- task ID\n- acceptance criteria\n- test requirements\n- deployment requirements where applicable\n\nPrevent the previous mismatch where a task says `investigate/repo-read` while the objective requires implementation.\n\n[6. safety controls]\nThe delegate must reject:\n- missing target repository\n- unauthorized target repository\n- `repo-read` tasks that request edits\n- ambiguous repository routing\n- execution outside the authorized target workspace\n\n[7. tests]\nAdd tests covering:\n- existing mythos-prod-only orchestration\n- authorized `othoth77/spy` delegation\n- unauthorized repository rejection\n- target workspace isolation\n- implementation vs repo-read profile enforcement\n- task payload validation\n- failure/recovery behavior\n\nRun the relevant existing suite plus all new tests.\n\n[8. verification]\nAfter implementation:\n- verify the Bridge can construct a valid delegated task for `othoth77/spy`\n- verify the delegate resolves the correct target repository\n- verify no SPY code is accidentally written into `mythos-prod`\n- verify GitHub access as far as current credentials permit\n- record any remaining owner-only authentication step precisely\n\n[handoff]\nAfter this task is complete, reopen/retry **SPY V2 Master Task #1** using the new delegated execution lane.\n\nDo not implement SPY V2 application features in this task. This task only enables the infrastructure required for the Bridge to delegate that work safely to `othoth77/spy`.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 474,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/474",
+    "issue_id": 5587720808,
+    "issue_node_id": "I_kwDOTnlaF88AAAABTQ3aaA",
+    "issue_title": "[SPY V2] Enable Cross-Repo Delegation to othoth77/spy",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-25T19:50:41Z",
+    "issue_updated_at": "2026-09-25T19:50:41Z",
+    "issue_labels": [
+      "task",
+      "SPY V2"
+    ],
+    "content_sha256": "b07c9a3689d912a4fef5a9a598be24c7b91837b61c216535079d09e3fc9fe22b",
+    "attempt": 1,
+    "attempt_id": "gh-issue-474#1",
+    "idempotency_key": "0766c2f933ea94a1dbb9e47a86ae5a1cb5d7b950fd4ec3fa5710678f05eac740",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implement",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "implement",
+          "action": "implement",
+          "form": "bullet",
+          "line": 9
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-25T19:51:25.682Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-25T19:51:25.682Z",
+        "event": "issue_received",
+        "reason": "open Issue #474 with label task",
+        "content_sha256": "b07c9a3689d912a4fef5a9a598be24c7b91837b61c216535079d09e3fc9fe22b"
+      },
+      {
+        "at": "2026-09-25T19:51:25.682Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → implement (raw \"implement\")"
+      },
+      {
+        "at": "2026-09-25T19:51:25.682Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-25T19:51:25.682Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-25T19:51:27.238Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-474.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-25T19:51:25.682Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5838616616,
+        "url": "https://github.com/othoth77/mythos-prod/issues/474#issuecomment-5838616616",
+        "at": "2026-09-25T19:51:26.490Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
