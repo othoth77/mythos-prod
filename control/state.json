@@ -1,16 +1,16 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-25T20:33:18.880Z",
+  "generated_at": "2026-09-25T20:51:49.110Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
     "PENDING": 10,
-    "CLAIMED": 1,
+    "CLAIMED": 0,
     "IN_PROGRESS": 1,
     "VALIDATING": 0,
     "COMPLETED": 59,
-    "BLOCKED": 28,
+    "BLOCKED": 29,
     "FAILED": 2,
     "CANCELLED": 2
   },
@@ -27,7 +27,6 @@
     "gh-issue-389"
   ],
   "active": [
-    "gh-issue-475",
     "gh-issue-476"
   ],
   "awaiting_review": [
@@ -115,6 +114,7 @@
     "gh-issue-472",
     "gh-issue-473",
     "gh-issue-474",
+    "gh-issue-475",
     "gh-issue-95",
     "gh-issue-97",
     "gh-issue-99",
@@ -2317,20 +2317,20 @@
     },
     {
       "task_id": "gh-issue-475",
-      "status": "IN_PROGRESS",
+      "status": "BLOCKED",
       "priority": "normal",
       "requested_action": "implement",
       "action_source": "explicit_current_issue",
       "execution_profile": "repo-write",
       "model": "claude-opus-5",
-      "blocker": null,
+      "blocker": "HUMAN_APPROVAL",
       "created_at": "2026-09-25T20:27:47.644Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-25T20:29:08.344Z",
+      "updated_at": "2026-09-25T20:51:49.088Z",
       "executor_task_id": "t-20260925202751-bm40fw",
       "branch": "mythos/gh/gh-issue-475",
       "task_file": "control/tasks/gh-issue-475.json",
-      "report_file": null,
+      "report_file": "control/reports/gh-issue-475.json",
       "source": {
         "kind": "github-issue",
         "issue_number": 475,
@@ -2340,7 +2340,7 @@
     },
     {
       "task_id": "gh-issue-476",
-      "status": "CLAIMED",
+      "status": "IN_PROGRESS",
       "priority": "normal",
       "requested_action": "investigate",
       "action_source": "default",
@@ -2349,7 +2349,7 @@
       "blocker": null,
       "created_at": "2026-09-25T20:33:07.527Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-25T20:33:11.551Z",
+      "updated_at": "2026-09-25T20:51:49.106Z",
       "executor_task_id": "t-20260925203311-pj2wlu",
       "branch": "mythos/gh/gh-issue-476",
       "task_file": "control/tasks/gh-issue-476.json",

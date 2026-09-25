@@ -10,7 +10,7 @@
   "action_raw": "implement",
   "action_source": "explicit_current_issue",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "BLOCKED",
   "created_at": "2026-09-25T20:27:47.644Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #475 https://github.com/othoth77/mythos-prod/issues/475 — \"[SPY V2] Master Task #1 — Execute via Cross-Repo Delegation\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\n[execution]\n- execution profile: `repo-write`\n- target_repository: `othoth77/spy`\n- target workspace: delegated `othoth77/spy` workspace\n- task type: implementation\n- do not execute SPY application work in the `mythos-prod` worktree\n\n[prerequisite]\nCross-repository delegation infrastructure was completed by gh-issue-474:\n- controlled target allowlist\n- target identity verification\n- isolated delegated workspace\n- task contract validation\n- implementation/repo-read profile enforcement\n- safety checks\n- delegation tests\n\nUse that lane. Do not recreate the old gh-issue-473 path.\n\n[phase 0 — baseline]\nInspect the current `othoth77/spy` state:\n- repository/default branch\n- current branches and PRs\n- existing SPY V2 implementation\n- tests\n- production/service state\n- existing documentation\n- previous SPY work already completed\n\nDo not duplicate existing completed work.\n\n[phase 1 — requirements and gap analysis]\nMap the complete SPY V2 requirements to:\n- existing implementation\n- missing implementation\n- tests\n- integrations\n- deployment\n- documentation\n\nCreate an executable checklist and acceptance criteria before making broad changes.\n\n[phase 2 — implementation]\nImplement all applicable SPY V2 engineering requirements in `othoth77/spy`, including as applicable:\n- core/backend functionality\n- agent orchestration\n- role separation\n- research/execution/review flows\n- Reach/integrations\n- persistence/state handling\n- recovery/error handling\n- security/operational safeguards\n- configuration\n- documentation\n\nPreserve existing working behavior and backward compatibility.\n\n[phase 3 — testing]\n- Run the existing complete test suite.\n- Add/repair tests for all changed behavior.\n- Run integration/E2E tests.\n- Verify failure/recovery paths.\n- Investigate and resolve regressions.\n- Record exact test counts/results.\n\n[phase 4 — integration]\n- Work on a dedicated SPY V2 branch.\n- Commit logical changes.\n- Push through the authorized delegation path if available.\n- Create/update the appropriate PR.\n- Resolve review findings.\n- Keep all SPY implementation commits inside `othoth77/spy`.\n\n[phase 5 — production]\nAfter successful preflight/testing:\n- deploy applicable changes\n- verify service health\n- verify configuration\n- inspect logs\n- verify integrations\n- run production smoke/E2E checks\n- verify recovery/rollback readiness\n\nDo not claim production completion without evidence.\n\n[phase 6 — final acceptance]\nComplete only when:\n- applicable SPY V2 requirements are implemented or precisely isolated as external blockers\n- tests pass\n- deployment status is verified\n- production health is verified\n- documentation is updated\n- commit/PR references are recorded\n- final evidence is returned through the Bridge\n\n[external authorization handling]\nIf push/write delivery to `othoth77/spy` is unavailable because of the governance boundary:\n1. Continue all work that can be completed safely in the delegated workspace.\n2. Do not invent credentials or bypass the guard.\n3. Report the exact delivery dependency.\n4. Keep the implementation state and commit SHA traceable.\n5. Do not mark the entire SPY V2 program blocked merely because delivery requires owner action.\n\n[required final report]\nReturn:\n- baseline\n- requirements/gap analysis\n- implementation completed\n- files/components changed\n- tests and exact results\n- branch\n- commit SHA(s)\n- PR\n- deployment status\n- production verification\n- remaining external blockers\n- exact owner action, if any\n\n[critical routing rule]\nThis task explicitly targets `othoth77/spy`.\n\nThe `mythos-prod` repository is the Bridge/control repository only. Never write SPY V2 implementation into `mythos-prod`.\n\nUse the cross-repo delegation lane implemented by gh-issue-474.",
@@ -152,8 +152,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "fe87be6ff14e2e7422e048a577aaf64afde1ddf96715bd21cedfa3c7544ec78d",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-25T20:29:08.344Z",
+    "executor_status": "BLOCKED",
+    "updated_at": "2026-09-25T20:51:49.088Z",
     "snapshot_sha256": "f3b61fd664538babdd3bcfd79d3389ba9f98426d2db6605313ec603c95495206",
     "fence": 74318,
     "lease": {
@@ -182,7 +182,13 @@
     },
     "model": "claude-opus-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "f37c5b6b-1cfb-473a-ba0b-f157c7360cbd"
+    "claude_session_id": "f37c5b6b-1cfb-473a-ba0b-f157c7360cbd",
+    "blocker": {
+      "code": "HUMAN_APPROVAL",
+      "reason": "Issue #475 asks for SPY V2 Master Task #1 to be executed in othoth77/spy through the gh-issue-474 cross-repository delegation lane, and forbids writing SPY implementation into mythos-prod. The lane was not available to this attempt and the attempt was never routed through it, verified five ways: the running bridge checkout /home/deploy/projects/mythos-prod is on main@88de5f484788 and contains no projects/mythos-delegate/lib/cross-repo.js; ce505b53 (gh-issue-474) is not an ancestor of origin/main",
+      "retryable": false
+    },
+    "report_file": "control/reports/gh-issue-475.json"
   },
   "history": [
     {
@@ -198,6 +204,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-25T20:51:48.437Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended BLOCKED; building report"
+    },
+    {
+      "at": "2026-09-25T20:51:49.088Z",
+      "from": "VALIDATING",
+      "to": "BLOCKED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 7 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }

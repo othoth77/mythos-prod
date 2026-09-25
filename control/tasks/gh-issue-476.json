@@ -25,7 +25,7 @@
   "action_raw": "investigate",
   "action_source": "default",
   "validation_requirements": [],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-25T20:33:07.527Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #476 https://github.com/othoth77/mythos-prod/issues/476 — \"V3.2.5 — WhatsApp recipient change\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[التنفيذ]\n1. افحص الإعداد الحالي لـ FROM/TO وEvolution.\n2. حدّد مكان إعداد رقم TO المستخدم فعليًا.\n3. غيّر TO فقط بعد توفر الرقم الجديد.\n4. أعد تشغيل/تحقق من الخدمة بالطريقة الموجودة فقط إذا لزم.\n5. نفّذ اختبارًا قصيرًا حقيقيًا.\n6. تأكد أن الرسالة تصل إلى الرقم الجديد وأن lifecycle لا يزال يعمل.\n7. لا تغيّر أي شيء خارج نطاق المهمة.\n\n[القبول]\n- FROM = رقم Mythos Bridge.\n- TO = الرقم الجديد الذي يحدده المالك.\n- START وSUCCESS يعملان.\n- لا duplicate messages.\n- فشل WhatsApp لا يوقف المهمة.\n- توثيق الإعداد النهائي دون كشف الرقم كاملًا (masking).",
@@ -159,8 +159,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "6de520c417e67722b59c0f2c9832e6864dec8c2de50e890c9ff4ce4c85e0f95d",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-25T20:33:11.468Z",
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-25T20:51:49.106Z",
     "snapshot_sha256": "c34804347c3ce70a26b0a1817ea27bc4652eed811a496ba45a4c8fa29c8b2036",
     "fence": 74330,
     "lease": {
@@ -188,7 +188,8 @@
       "measured_at": "2026-09-25T20:33:09.706Z"
     },
     "model": "claude-sonnet-5",
-    "model_selection_mode": "auto"
+    "model_selection_mode": "auto",
+    "claude_session_id": "4cfda991-d762-4ef2-98dd-c47cbfbe070f"
   },
   "history": [
     {
@@ -197,6 +198,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260925203311-pj2wlu queued; OTHMODE OTH-2026-01913; action investigate (default) → repo-read; model claude-sonnet-5; fence 74330"
+    },
+    {
+      "at": "2026-09-25T20:51:49.106Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
