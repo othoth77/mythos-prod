@@ -129,6 +129,13 @@
         "url": "https://github.com/othoth77/mythos-prod/issues/466#issuecomment-5836703193",
         "at": "2026-09-25T17:33:28.587Z",
         "existed": false
+      },
+      "claimed": {
+        "comment_id": 5836705225,
+        "url": "https://github.com/othoth77/mythos-prod/issues/466#issuecomment-5836705225",
+        "at": "2026-09-25T17:33:38.224Z",
+        "existed": false,
+        "executor_task_id": "t-20260925173333-z1ugg9"
       }
     },
     "labels": {
