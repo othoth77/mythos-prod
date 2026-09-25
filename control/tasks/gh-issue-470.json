@@ -17,7 +17,7 @@
   "validation_requirements": [
     "the report names the HEAD commit"
   ],
-  "status": "CLAIMED",
+  "status": "COMPLETED",
   "created_at": "2026-09-25T18:38:28.306Z",
   "created_by": "github-issue:othoth77",
   "timeout_seconds": 600,
@@ -169,8 +169,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "34565e37ab02a76385c21bb6ad6361286abff9d00d83c3ae7ebab168b1725034",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-25T18:38:32.157Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-25T18:39:49.765Z",
     "snapshot_sha256": "cbf3e7034fb39772092012d03e453d882025362d338b49606102b7a433b6b2de",
     "fence": 74060,
     "lease": {
@@ -198,7 +198,8 @@
       "measured_at": "2026-09-25T18:38:30.786Z"
     },
     "model": "claude-haiku-4-5",
-    "model_selection_mode": "explicit"
+    "model_selection_mode": "explicit",
+    "report_file": "control/reports/gh-issue-470.json"
   },
   "history": [
     {
@@ -207,6 +208,20 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260925183832-qg0a33 queued; OTHMODE OTH-2026-01907; action investigate (explicit_current_issue) → repo-read; model claude-haiku-4-5; fence 74060"
+    },
+    {
+      "at": "2026-09-25T18:39:49.105Z",
+      "from": "CLAIMED",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-25T18:39:49.765Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 0 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
