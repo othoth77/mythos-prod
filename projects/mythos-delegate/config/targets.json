@@ -1,0 +1,18 @@
+{
+  "schema": "mythos.delegate.targets.v1",
+  "workspaces_root": "/home/deploy/mythos-ai-executor/delegate-workspaces",
+  "control_repository": "othoth77/mythos-prod",
+  "description": "The CLOSED allowlist of repositories the MYTHOS bridge may delegate work to OTHER than the control repository. A target that is not spelled out here does not exist for the delegation lane: there is no wildcard, no pattern and no environment override. The control repository is refused as a target by construction (it is the bridge's own checkout and runs through the normal worktree path). No credential of any kind belongs in this file — the host's own Git identity authenticates, and lib/cross-repo.js refuses a remote that carries userinfo.",
+  "targets": {
+    "othoth77/spy": {
+      "remote": "git@github.com:othoth77/spy.git",
+      "default_branch": "master",
+      "branch_prefix": "mythos/spy/",
+      "allowed_actions": ["investigate", "review", "test", "document", "implement"],
+      "push_enabled": false,
+      "authorized_by": "github-issue:othoth77#474",
+      "authorized_at": "2026-09-25",
+      "description": "SPY V2. Default branch is master, NOT main — the lane reads it from here rather than assuming. push_enabled is false: the governance relay (mythos-git-push.timer) delivers refs/heads/mythos/* of the CONTROL repository only, so a delegated run commits in its own workspace and delivery to GitHub is the owner step documented in docs/MYTHOS_CROSS_REPO_DELEGATION.md. While it is false the lane installs a no-push guard on the workspace remote, so an instructed or accidental `git push` cannot reach GitHub."
+    }
+  }
+}

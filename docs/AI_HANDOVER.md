@@ -2,6 +2,62 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-25 — Cross-repository delegation: the `othoth77/spy` lane (gh-issue-474, Opus 5)
+
+**Objective:** remove the blocker gh-issue-473 reported — the bridge could only execute inside a
+worktree of its own checkout, so work belonging to `othoth77/spy` had nowhere to run.
+
+| Item | State |
+|---|---|
+| Branch | `mythos/gh/gh-issue-474` on `main@88de5f48` |
+| ADDED | `projects/mythos-delegate/lib/cross-repo.js` (the lane) · `config/targets.json` (the closed allowlist) · `docs/MYTHOS_CROSS_REPO_DELEGATION.md` · `tests/mythos-delegate-cross-repo-test.js` |
+| ADAPTED | `bridge/github-bridge.js` — `preflight()` authorizes a target, the new `resolveWorkspace()` is the one place an attempt's workspace is decided · `bridge/schemas/task.schema.json` — optional `target_repository` · `bridge/action-resolution.js` — the `TARGET_*` blocker codes and `target_repository` in the attempt snapshot · `bin/mythos-delegate` — `targets`/`authorization`/`workspace`/`contract` |
+| UNCHANGED, deliberately | the orchestrator stays pinned to `othoth77/mythos-prod` (`repository` enum, `project` enum). A task that names no `target_repository` takes the pre-474 `ensureTaskWorktree` path character for character; every existing control task file stays valid |
+
+**`target_repository` grants nothing.** It is the same kind of choice as `model` (Issue #100) and
+`lane` (V1): it selects an entry in a CLOSED server-side allowlist. The execution profile still
+comes from `requested_action`, the workspace path is computed server-side and can never be
+supplied, the control repository is refused as a target by construction, and an unknown value is
+`TARGET_REPOSITORY_UNAUTHORIZED` — raised in `preflight()`, before a workspace, before the OTHMODE
+record, before a provider.
+
+**A path is a claim, so the lane proves it.** On a fresh clone *and* on every reuse it reads the
+checkout's own `origin` and toplevel and refuses unless both are the authorized target
+(`TARGET_IDENTITY_MISMATCH`). The workspace is a pure function of
+(root, repository, task id) — `<workspaces_root>/<owner>__<repo>/<task-id>` — validated to be
+outside this repository, so target-repo files and control-repo files never share a tree.
+
+**The gh-issue-473 mismatch is refused in both directions.** `mythos.delegate.task.v1` *imports*
+the action → profile map from `bridge/action-resolution.js` instead of restating it: a `repo-read`
+payload that requires a commit and an `implement` payload that requires none are both
+`ACTION_PROFILE_MISMATCH`, and an implementation payload with no acceptance criterion or no test
+requirement is refused outright.
+
+**Verified against the real repository, not a fixture:** `git ls-remote` resolves
+`git@github.com:othoth77/spy.git` from this host (default branch **`master`**, not `main` — the
+registry states it, the lane never assumes), and a real workspace now exists at
+`/home/deploy/mythos-ai-executor/delegate-workspaces/othoth77__spy/spy-v2-master-1`, proven to be
+`othoth77/spy`, on `mythos/spy/spy-v2-master-1`, base `67d3a417`, with the no-push guard in force
+(effective push url `no_push://owner-authorization-required`, fetch url unchanged).
+
+**ONE OWNER STEP REMAINS, AND IT IS THE ONLY ONE.** `push_enabled` is false for `othoth77/spy`
+because the governance relay delivers `refs/heads/mythos/*` of the **control** repository only.
+Extending it is a governance decision, not a task side effect, so the lane refuses rather than
+inventing a delivery path — and installs the no-push guard so an instructed push cannot reach
+GitHub. Authorization, workspace resolution, identity proof, branch creation, commits, the payload
+contract and the tests all work today with no human in the loop. Read/clone access is already
+granted by the host's own Git identity; no credential is read, stored or passed anywhere.
+
+**Tests:** `mythos-delegate-cross-repo-test.js` **133/0** (offline — the fixtures carry the real
+`github.com` remote because that is what the identity check reads, with `GIT_SSH_COMMAND=/bin/false`
+so nothing can reach the network). Regression: `mythos-delegate` 68/0 · `bridge-action-resolution`
+88/0 · `mythos-github-bridge` 150/0 · `mythos-github-issues` 208/0 · `mythos-bridge-push-guard`
+23/0 · `mythos-ai-executor` 395/0.
+
+**Next stage:** relaunch **SPY V2 Master Task #1** through this lane — a control task with
+`Action: implement` and `"target_repository": "othoth77/spy"`. This task deliberately implements no
+SPY V2 application feature.
+
 ## 2026-09-23 — MYTHOS HADDAD V2.6: unattended operation, proven on the production label (Opus 5)
 
 **Objective:** prove the unattended loop rather than build one. The loop is the existing bridge

@@ -13,11 +13,25 @@
 //   mythos-delegate lanes [--repo <dir>]         effective lane map
 //   mythos-delegate dispatch --lane <name> --repo <dir> --brief <file>
 //                            [--read-only] [--timeout 45m] [--task <id>]
+//
+// Cross-repository delegation (gh-issue-474). These commands read the
+// closed target allowlist; none of them can add to it, and only
+// `workspace --clone` touches the disk:
+//
+//   mythos-delegate targets                      the authorized targets
+//   mythos-delegate authorization --repository <owner/repo>
+//                                                what GitHub access is needed,
+//                                                and the one owner-only step
+//   mythos-delegate workspace --repository <owner/repo> --task <id>
+//                            --action <implement|investigate|…> [--clone]
+//   mythos-delegate contract  --repository <owner/repo> --task <id>
+//                            --action <…> [--accept <text>] [--test <cmd>]
 // =====================================================
 
 var fs = require('fs');
 var path = require('path');
 var delegate = require(path.join(__dirname, '..', 'lib', 'delegate.js'));
+var crossRepo = require(path.join(__dirname, '..', 'lib', 'cross-repo.js'));
 
 function out(obj) { process.stdout.write(JSON.stringify(obj, null, 2) + '\n'); }
 function die(msg, code) {
@@ -25,12 +39,23 @@ function die(msg, code) {
   process.exit(code === undefined ? 1 : code);
 }
 
+// `--accept` and `--test` may be repeated: acceptance criteria and test
+// requirements are lists, and a second one must add rather than replace.
+var REPEATABLE = { accept: 'acceptance_criteria', test: 'test_requirements', constraint: 'constraints' };
+
 function parseArgs(argv) {
-  var o = { _: [] };
+  var o = { _: [], acceptance_criteria: [], test_requirements: [], constraints: [] };
   for (var i = 0; i < argv.length; i++) {
     var a = argv[i];
     if (a === '--read-only') { o.readOnly = true; continue; }
-    if (a.indexOf('--') === 0) { o[a.slice(2)] = argv[++i]; continue; }
+    if (a === '--clone') { o.clone = true; continue; }
+    if (a.indexOf('--') === 0) {
+      var key = a.slice(2);
+      var value = argv[++i];
+      if (REPEATABLE[key]) { o[REPEATABLE[key]].push(value); continue; }
+      o[key] = value;
+      continue;
+    }
     o._.push(a);
   }
   return o;
@@ -50,6 +75,76 @@ if (cmd === 'status' || !cmd) {
     vendor_root: cfg.vendorRoot || null,
     artifacts_root: cfg.artifactsRoot || null
   });
+}
+
+// --- Cross-repository delegation (gh-issue-474) ----------------------------------
+//
+// Deliberately ABOVE the vendor-layer gate: which repositories are
+// authorized, and where their workspaces are, is a question worth
+// answering on a host where no implementer CLI is installed at all.
+
+var CROSS_REPO_COMMANDS = ['targets', 'authorization', 'workspace', 'contract'];
+
+if (CROSS_REPO_COMMANDS.indexOf(cmd) !== -1) {
+  var registry = crossRepo.loadTargets(args.targets);
+
+  if (cmd === 'targets') {
+    return out({
+      schema: 'mythos.delegate.targets.status.v1',
+      available: registry.available === true,
+      reason: registry.available ? null : registry.reason,
+      registry_path: registry.registryPath || crossRepo.DEFAULT_TARGETS_PATH,
+      control_repository: registry.controlRepository || null,
+      workspaces_root: registry.workspacesRoot || null,
+      targets: crossRepo.listTargets(registry).map(function (slug) {
+        var t = registry.targets[slug];
+        return {
+          repository: t.repository, default_branch: t.default_branch, branch_prefix: t.branch_prefix,
+          allowed_actions: t.allowed_actions, push_enabled: t.push_enabled,
+          authorized_by: t.authorized_by, authorized_at: t.authorized_at
+        };
+      })
+    });
+  }
+
+  if (!args.repository) die('--repository <owner/repo> is required', 2);
+
+  if (cmd === 'authorization') {
+    var plan = crossRepo.authorizationPlan(registry, args.repository);
+    out(plan);
+    process.exit(plan.ok ? 0 : 4);
+  }
+
+  if (!args.task) die('--task <id> is required', 2);
+  if (!args.action) die('--action <' + ['investigate', 'review', 'test', 'document', 'implement'].join('|') + '> is required', 2);
+
+  if (cmd === 'workspace') {
+    var ws = crossRepo.ensureWorkspace(registry, {
+      repository: args.repository, taskId: args.task,
+      requested_action: args.action, allowClone: args.clone === true
+    });
+    out(ws);
+    process.exit(ws.ok ? 0 : 4);
+  }
+
+  if (cmd === 'contract') {
+    var built;
+    try {
+      built = crossRepo.buildDelegatedTask(registry, {
+        task_id: args.task, target_repository: args.repository, requested_action: args.action,
+        objective: args.objective || null, lane: args.lane || null,
+        acceptance_criteria: args.acceptance_criteria, test_requirements: args.test_requirements,
+        constraints: args.constraints, deployment: args.deployment || null
+      });
+    } catch (e) {
+      out({ ok: false, code: e.code || 'MYTHOS_CROSSREPO_INPUT', reason: e.message });
+      process.exit(4);
+    }
+    // Never emit a payload that would be refused at the other end.
+    var verdict = crossRepo.validateDelegatedTask(registry, built);
+    out({ ok: verdict.ok, code: verdict.code || null, reason: verdict.reason || null, task: built });
+    process.exit(verdict.ok ? 0 : 4);
+  }
 }
 
 if (!cfg.enabled) die('delegation layer disabled: ' + cfg.reason, 3);
@@ -77,7 +172,7 @@ try {
     process.exit(result.ok ? 0 : 1);
   }
 
-  die('unknown command: ' + cmd + ' (status | discover | lanes | dispatch)', 2);
+  die('unknown command: ' + cmd + ' (status | discover | lanes | dispatch | targets | authorization | workspace | contract)', 2);
 } catch (e) {
   die((e && e.message) || String(e), e && e.code === 'MYTHOS_DELEGATE_INPUT' ? 2 : 1);
 }

@@ -344,7 +344,7 @@ var SECTION_ALIASES = {
   model: ['model', 'claude model', 'النموذج', 'نموذج'],
   review: ['review', 'review required', 'needs review', 'independent review', 'مراجعة مطلوبة', 'يتطلب مراجعة', 'تحتاج مراجعة']
 };
-var SCALAR_KEYS = ['action', 'priority', 'depends_on', 'timeout', 'max_turns', 'model', 'lane', 'review'];
+var SCALAR_KEYS = ['action', 'priority', 'depends_on', 'timeout', 'max_turns', 'model', 'lane', 'review', 'target_repository'];
 
 // Size limits applied to Issue-derived text. They exist so a task file stays
 // a reviewable record and the executor prompt stays within its schema — NOT
@@ -667,6 +667,20 @@ function issueToTask(cfg, issue, attempt, previous) {
       task.lane = laneVal;
     } else {
       notesParts.push('lane: ignored — "' + short(laneVal, 40) + '" is not a valid lane name');
+    }
+  }
+  // gh-issue-474 — an optional `Target repository:` routes the task
+  // through the CROSS-REPOSITORY delegation lane. Kept exactly as
+  // written and never resolved here: whether that repository is
+  // authorized is a server-side decision the bridge takes in preflight
+  // (TARGET_REPOSITORY_UNAUTHORIZED), so an Issue can ask, never grant.
+  var targetRaw = scalar(fields, 'target_repository');
+  if (targetRaw) {
+    var targetVal = String(targetRaw).trim().replace(/^`|`$/g, '');
+    if (/^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(targetVal) && targetVal.length <= 140) {
+      task.target_repository = targetVal;
+    } else {
+      notesParts.push('target repository: ignored — "' + short(targetVal, 60) + '" is not an owner/repo reference');
     }
   }
   task.notes = cut('notes', notesParts.join('\n\n'), LIMITS.notes);

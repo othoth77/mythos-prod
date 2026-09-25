@@ -35,8 +35,11 @@ MYTHOS / OTHMODE          delegate-skills              implementer
 
 ```text
 config/delegate.json   vendor root + artifact root wiring (closed field set)
+config/targets.json    the CLOSED cross-repository allowlist (gh-issue-474)
 lib/delegate.js        the boundary: load / discover / lanes / resolve / dispatch
-bin/mythos-delegate    operator CLI (status | discover | lanes | dispatch)
+lib/cross-repo.js      the cross-repository lane: authorize / resolve / verify / contract
+bin/mythos-delegate    operator CLI (status | discover | lanes | dispatch
+                                     | targets | authorization | workspace | contract)
 ```
 
 ## Usage
@@ -47,7 +50,7 @@ node projects/mythos-delegate/bin/mythos-delegate discover
 node projects/mythos-delegate/bin/mythos-delegate lanes --repo /path/to/repo
 node projects/mythos-delegate/bin/mythos-delegate dispatch \
   --lane tests --repo /path/to/repo --brief brief.txt --timeout 45m
-node tests/mythos-delegate-test.js     # 53 assertions, offline
+node tests/mythos-delegate-test.js     # 68 assertions, offline
 ```
 
 `dispatch` exits non-zero when the delegation was not successful, while the full
@@ -64,6 +67,44 @@ are covered by the suite:
 - `ok` is true only when the status is a terminal `completed` **and** the process
   exited zero. A terminal `completed` alone is a claim, not a success — and
   `touched_files` is the whole final tree, not attribution. Review the diff.
+
+## Cross-repository delegation (gh-issue-474)
+
+`lib/cross-repo.js` is the lane that lets the bridge delegate work to a
+repository **other than** `othoth77/mythos-prod` — the blocker gh-issue-473
+reported. It is a separate concern from the vendor boundary above and works on
+a host where no implementer CLI is installed at all.
+
+```bash
+node projects/mythos-delegate/bin/mythos-delegate targets
+node projects/mythos-delegate/bin/mythos-delegate authorization --repository othoth77/spy
+node projects/mythos-delegate/bin/mythos-delegate workspace \
+  --repository othoth77/spy --task <id> --action implement [--clone]
+node projects/mythos-delegate/bin/mythos-delegate contract \
+  --repository othoth77/spy --task <id> --action implement --accept "…" --test "…"
+node tests/mythos-delegate-cross-repo-test.js   # 133 assertions, offline
+```
+
+Four guarantees, each refused rather than repaired:
+
+1. **closed allowlist** — `config/targets.json` names `othoth77/spy` explicitly;
+   no wildcard, no pattern, no environment variable adds a repository, and the
+   control repository is refused as a target by construction;
+2. **deterministic workspace** — `<workspaces_root>/<owner>__<repo>/<task-id>`,
+   proven to be outside this repository, so target-repo files and control-repo
+   files never share a tree;
+3. **proven identity** — the checkout's own `origin` and toplevel must agree
+   with the authorized target, on a fresh clone *and* on every reuse;
+4. **`mythos.delegate.task.v1`** — a payload that states target, branch,
+   workspace, action, profile, delivery, acceptance criteria and tests once, and
+   where the action → profile map is *imported* from
+   `bridge/action-resolution.js` rather than restated.
+
+A target grants a **workspace**, never a profile, a model, a tool or a
+permission. `push_enabled` is false for `othoth77/spy`: the lane installs a
+no-push guard on the workspace remote and delivery is an owner step. The full
+model, and the exact GitHub authorization path, are in
+[`docs/MYTHOS_CROSS_REPO_DELEGATION.md`](../../docs/MYTHOS_CROSS_REPO_DELEGATION.md).
 
 ## Lane configuration
 

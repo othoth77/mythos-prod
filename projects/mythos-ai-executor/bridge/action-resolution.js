@@ -77,6 +77,11 @@ var FIELD_ALIASES = {
   // MYTHOS V1 — which delegation lane runs this task. Like `model`, it
   // selects an entry in a server-side catalog and grants no authority.
   lane: ['lane', 'delegate lane', 'delegate_lane', 'المسار', 'مسار'],
+  // gh-issue-474 — which repository the work belongs to. Deliberately NOT
+  // aliased to a bare "repository": an Issue that merely mentions its own
+  // control repository must not become a cross-repository delegation.
+  target_repository: ['target repository', 'target_repository', 'target-repository',
+    'target repo', 'target_repo', 'delegate repository', 'المستودع الهدف'],
   // Asks for an independent review of the result (bridge/review-gate.js).
   // Escalation only: no value of this field waives a review the policy
   // requires, so it grants nothing and can only raise the bar.
@@ -107,12 +112,29 @@ var BLOCKER_CODES = {
   // PROVIDER_FAILED on purpose: the provider did its part, the delivery is
   // what broke, and attributing it to the worker would send the next
   // attempt looking in the wrong place. Retryable.
-  DELIVERY_FAILED: 'DELIVERY_FAILED'
+  DELIVERY_FAILED: 'DELIVERY_FAILED',
+  // Cross-repository delegation (gh-issue-474). Raised by
+  // projects/mythos-delegate/lib/cross-repo.js and reported by the bridge
+  // before a workspace, an OTHMODE record or a provider exists. None of
+  // them is transient: retrying cannot authorize a repository, cannot make
+  // a wrong checkout right, and cannot grant a delivery nobody authorized.
+  TARGET_REGISTRY_UNAVAILABLE: 'TARGET_REGISTRY_UNAVAILABLE',
+  TARGET_REPOSITORY_MISSING: 'TARGET_REPOSITORY_MISSING',
+  TARGET_REPOSITORY_UNAUTHORIZED: 'TARGET_REPOSITORY_UNAUTHORIZED',
+  TARGET_ACTION_NOT_ALLOWED: 'TARGET_ACTION_NOT_ALLOWED',
+  TARGET_DELIVERY_NOT_AUTHORIZED: 'TARGET_DELIVERY_NOT_AUTHORIZED',
+  TARGET_WORKSPACE_UNAVAILABLE: 'TARGET_WORKSPACE_UNAVAILABLE',
+  TARGET_IDENTITY_MISMATCH: 'TARGET_IDENTITY_MISMATCH',
+  TARGET_CONTRACT_INVALID: 'TARGET_CONTRACT_INVALID'
 };
 var NON_RETRYABLE = [
   BLOCKER_CODES.ACTION_PROFILE_MISMATCH, BLOCKER_CODES.MODEL_UNAVAILABLE, BLOCKER_CODES.ATTEMPT_SNAPSHOT_MUTATED,
   BLOCKER_CODES.PERMISSION_DENIED, BLOCKER_CODES.GOVERNANCE_DENIED, BLOCKER_CODES.HUMAN_APPROVAL,
-  BLOCKER_CODES.STALE_WORKER, BLOCKER_CODES.PROVIDER_BLOCKED
+  BLOCKER_CODES.STALE_WORKER, BLOCKER_CODES.PROVIDER_BLOCKED,
+  BLOCKER_CODES.TARGET_REGISTRY_UNAVAILABLE, BLOCKER_CODES.TARGET_REPOSITORY_MISSING,
+  BLOCKER_CODES.TARGET_REPOSITORY_UNAUTHORIZED, BLOCKER_CODES.TARGET_ACTION_NOT_ALLOWED,
+  BLOCKER_CODES.TARGET_DELIVERY_NOT_AUTHORIZED, BLOCKER_CODES.TARGET_WORKSPACE_UNAVAILABLE,
+  BLOCKER_CODES.TARGET_IDENTITY_MISMATCH, BLOCKER_CODES.TARGET_CONTRACT_INVALID
 ];
 
 function isRetryable(code) { return NON_RETRYABLE.indexOf(String(code || '')) === -1; }
@@ -395,8 +417,14 @@ function resolveModel(input) {
 
 // --- Attempt snapshot (immutability) ---------------------------------------------------
 
+// `target_repository` (gh-issue-474) joins the immutable set: which
+// repository an attempt runs against is exactly the kind of decision a
+// later edit of the control file must be able to be NOTICED changing.
+// Adding it is backward compatible — a snapshot omits every field the
+// object does not carry, so every pre-474 hash is unchanged.
 var SNAPSHOT_FIELDS = ['task_id', 'attempt_id', 'requested_action', 'action_raw', 'action_source', 'execution_profile', 'model', 'model_key',
-  'objective', 'instruction', 'scope', 'constraints', 'validation_requirements', 'required_tests', 'notes', 'working_directory', 'branch'];
+  'objective', 'instruction', 'scope', 'constraints', 'validation_requirements', 'required_tests', 'notes', 'working_directory', 'branch',
+  'target_repository'];
 
 function canonical(v) {
   if (Array.isArray(v)) return v.map(canonical);

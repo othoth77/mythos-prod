@@ -225,6 +225,15 @@
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
       "description": "Optional. Names the delegation lane that runs this task (delegate-skills chooses the implementer CLI from it). Like `model`, it selects an entry in a server-side catalog and grants NO authority: execution_profile still comes from requested_action. A lane that is not configured on the host stops the attempt as LANE_UNAVAILABLE before any provider starts; it is never replaced by another lane."
     },
+    "target_repository": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 140,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "description": "Optional (gh-issue-474). Sends this task through the CROSS-REPOSITORY delegation lane: the work runs in a deterministic workspace of the named repository instead of a worktree of the control repository. Exactly the same kind of choice as `model` and `lane` — it selects an entry in a CLOSED server-side allowlist (projects/mythos-delegate/config/targets.json) and grants NO authority whatsoever: execution_profile still comes from requested_action, the workspace path is computed server-side and never supplied, and a repository that is not on that allowlist stops the attempt as TARGET_REPOSITORY_UNAUTHORIZED before a workspace, an OTHMODE record or a provider exists. The control repository is refused as a target by construction. Omit it and the task runs in the normal bridge worktree, unchanged."
+    },
     "source": {
       "type": "object",
       "description": "Origin of the task when an adapter converted it from another surface (a GitHub Issue, written by bridge/github-issues.js, or a Telegram private message, written by bridge/telegram.js). Informational for the executor; the adapter records its Issue notifications under `notifications`. A planner writing tasks by hand omits it.",

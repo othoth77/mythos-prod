@@ -75,6 +75,12 @@ var reviewGate = require('./review-gate');
 var startGates = require('./start-gates');
 var schema = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'schema'));
 var redact = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'redact'));
+// gh-issue-474 — the cross-repository delegation lane. It is consulted ONLY
+// for a task that names a `target_repository`; every other task takes the
+// unchanged `ensureTaskWorktree` path, character for character. The lane
+// owns the allowlist, the deterministic workspace and the identity proof;
+// the bridge owns nothing of that and cannot widen any of it.
+var crossRepo = require(path.join(EXEC_ROOT, '..', 'mythos-delegate', 'lib', 'cross-repo'));
 // Notification sink. It is enqueue-only inside the tick (synchronous, local,
 // no network) and delivers out of band from flushNotifications(), so no
 // provider outage can reach the execution path. Disabled unless configured.
@@ -157,7 +163,17 @@ function config() {
     // configured HEAD) makes no new claims — a task must never run on code
     // nobody can name. MYTHOS_BRIDGE_ALLOW_UNVERIFIED_RUNTIME=1 is the
     // explicit opt-out for an installation outside a git checkout.
-    allowUnverifiedRuntime: process.env.MYTHOS_BRIDGE_ALLOW_UNVERIFIED_RUNTIME === '1'
+    allowUnverifiedRuntime: process.env.MYTHOS_BRIDGE_ALLOW_UNVERIFIED_RUNTIME === '1',
+    // gh-issue-474 — cross-repository delegation. HOST configuration, never
+    // task-selectable: the path names WHICH allowlist is in force, and the
+    // allowlist itself is still closed. Absent file ⇒ the lane reports
+    // itself unavailable and only tasks that ask for it are affected.
+    targetsPath: process.env.MYTHOS_DELEGATE_TARGETS || null,
+    // A delegated workspace is a full clone of another repository. Cloning
+    // it automatically is convenient but it is also a network write to the
+    // host's disk on behalf of a task file, so it is opt-in; without it an
+    // absent workspace is reported with the exact command that creates it.
+    allowTargetClone: process.env.MYTHOS_DELEGATE_ALLOW_CLONE === '1'
   };
 }
 
@@ -739,8 +755,12 @@ function buildInstruction(cfg, task, exec, provider) {
     '',
     '## Bridge constraints (non-negotiable)',
     '',
-    '- Work ONLY inside ' + exec.worktree + ' on branch `' + exec.branch + '` (based on ' + String(exec.base_commit).slice(0, 12) + '). Never touch the shared checkout ' + cfg.repo + ' or any other worktree.',
-    '- Never run `git push`. Delivery to GitHub is performed by the governance relay (mythos-git-push.timer, fast-forward only); committing on your branch is enough. Never merge to main.',
+    exec.target_repository
+      ? '- CROSS-REPOSITORY DELEGATION (gh-issue-474). This task runs against `' + exec.target_repository + '`, NOT against the control repository. Work ONLY inside ' + exec.worktree + ' on branch `' + exec.branch + '` (based on ' + String(exec.base_commit).slice(0, 12) + '), which is a verified checkout of ' + exec.target_repository + '. Never touch ' + cfg.repo + ', the control repository, or any other workspace, and never write control-repository files into this workspace or target-repository files into the control repository.'
+      : '- Work ONLY inside ' + exec.worktree + ' on branch `' + exec.branch + '` (based on ' + String(exec.base_commit).slice(0, 12) + '). Never touch the shared checkout ' + cfg.repo + ' or any other worktree.',
+    exec.target_repository
+      ? '- Never run `git push`. There is NO automated delivery path for ' + exec.target_repository + ': the governance relay is scoped to the control repository, the workspace remote carries a no-push guard, and delivery is an owner step recorded in docs/MYTHOS_CROSS_REPO_DELEGATION.md. Commit on your branch and report the commits; never merge to `' + (exec.target_default_branch || 'the default branch') + '`.'
+      : '- Never run `git push`. Delivery to GitHub is performed by the governance relay (mythos-git-push.timer, fast-forward only); committing on your branch is enough. Never merge to main.',
     '- Do not edit anything under `' + cfg.prefix + '/` and do not touch the `' + cfg.branch + '` branch: the bridge writes the report from your structured final report.',
     '- Do not modify governance-protected paths (executor policy/budget/service files, redact.js, .github/, anything matching credential/secret/.env). If the objective requires it, stop and report `blocked`.',
     '- Read-only requested_action (investigate, review, test) means NO file edits and NO commits; report findings only.',
@@ -1084,7 +1104,62 @@ function preflight(cfg, task, existingExecTask, executor) {
       });
     }
   }
+
+  // gh-issue-474 — cross-repository authorization, evaluated HERE so an
+  // unauthorized target never reaches a workspace, an OTHMODE record or a
+  // provider. A task that names no target_repository skips this entirely.
+  if (task.target_repository !== undefined && task.target_repository !== null && String(task.target_repository).trim() !== '') {
+    var registry = crossRepo.loadTargets(cfg.targetsPath);
+    var targetAuth = crossRepo.authorize(registry, {
+      repository: task.target_repository,
+      requested_action: task.requested_action,
+      execution_profile: expected,
+      delivery: { push_required: false }
+    });
+    if (!targetAuth.ok) {
+      return engine.blocker(targetAuth.code, {
+        reason: targetAuth.reason,
+        requested_action: task.requested_action, action_raw: task.action_raw || null,
+        action_source: task.action_source || 'task_file', execution_profile: expected, expected_profile: expected,
+        target_repository: String(task.target_repository).slice(0, 140),
+        authorized_repositories: targetAuth.authorized_repositories || crossRepo.listTargets(registry),
+        task_id: task.task_id, attempt_id: attemptId
+      });
+    }
+  }
   return null;
+}
+
+// gh-issue-474 — the ONE place the bridge decides where an attempt runs.
+// Without `target_repository` this is the pre-474 call, unchanged. With it
+// the cross-repository lane resolves a deterministic, identity-verified
+// workspace of the authorized target, and the bridge adds nothing of its
+// own: it cannot choose the path, the branch or the allowlist.
+function resolveWorkspace(cfg, task) {
+  var id = task.task_id;
+  if (task.target_repository === undefined || task.target_repository === null || String(task.target_repository).trim() === '') {
+    var wt = ensureTaskWorktree(cfg, id);
+    wt.target_repository = null;
+    return { ok: true, workspace: wt };
+  }
+  var registry = crossRepo.loadTargets(cfg.targetsPath);
+  var r = crossRepo.ensureWorkspace(registry, {
+    repository: task.target_repository,
+    taskId: id,
+    requested_action: task.requested_action,
+    execution_profile: engine.profileFor(task.requested_action),
+    delivery: { push_required: false },
+    allowClone: cfg.allowTargetClone === true
+  });
+  if (!r.ok) return { ok: false, blocked: r };
+  return {
+    ok: true,
+    workspace: {
+      dir: r.workspace, branch: r.branch, base: r.base_commit, reused: r.reused,
+      target_repository: r.repository, target_remote: r.remote,
+      target_default_branch: r.default_branch, target_push_enabled: r.push_enabled
+    }
+  };
 }
 
 function claimTask(cfg, executor, entry, tasksById, runtime) {
@@ -1140,7 +1215,20 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
     return { deferred: { reason: routing.reason, decision: routing.decision } };
   }
 
-  var wt = ensureTaskWorktree(cfg, id);
+  var resolved = resolveWorkspace(cfg, task);
+  if (!resolved.ok) {
+    return { blocked: engine.blocker(resolved.blocked.code, {
+      reason: resolved.blocked.reason,
+      requested_action: task.requested_action, action_raw: task.action_raw || null,
+      action_source: task.action_source || 'task_file',
+      execution_profile: expectedProfile, expected_profile: expectedProfile,
+      target_repository: String(task.target_repository).slice(0, 140),
+      workspace: resolved.blocked.workspace || null,
+      clone_command: resolved.blocked.clone_command || null,
+      task_id: id, attempt_id: attemptId
+    }) };
+  }
+  var wt = resolved.workspace;
   var exec = task.execution && typeof task.execution === 'object' ? task.execution : {};
   var modelHit = task.model ? modelPolicy.lookupKey(task.model) : null;
   exec = {
@@ -1159,6 +1247,13 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
     worktree: wt.dir,
     branch: wt.branch,
     base_commit: wt.base,
+    // gh-issue-474. null for every ordinary task: the attempt ran in a
+    // worktree of the control repository, exactly as before. A non-null
+    // value names the authorized target the workspace was PROVEN to be.
+    target_repository: wt.target_repository || null,
+    target_remote: wt.target_remote || null,
+    target_default_branch: wt.target_default_branch || null,
+    target_push_enabled: wt.target_repository ? wt.target_push_enabled === true : null,
     claimed_at: (cache[id] && cache[id].claimed_at) || nowIso(),
     claimed_by: cfg.claimedBy,
     // V2.2: the routing decision, kept whole. "Why did this task go to this
@@ -1175,7 +1270,11 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
   exec.snapshot_sha256 = engine.attemptSnapshot({
     task_id: id, attempt_id: attemptId, requested_action: task.requested_action, action_raw: task.action_raw || null, action_source: exec.action_source,
     execution_profile: exec.execution_profile, model: task.model || null, objective: task.objective, scope: task.scope, constraints: task.constraints,
-    validation_requirements: task.validation_requirements, notes: task.notes || null
+    validation_requirements: task.validation_requirements, notes: task.notes || null,
+    // Which repository an attempt runs against is immutable for that
+    // attempt. Omitted (null) for every single-repository task, so no
+    // pre-474 snapshot hash changes.
+    target_repository: exec.target_repository
   });
   exec.fence = currentFence();
   exec.lease = {
@@ -2230,6 +2329,8 @@ module.exports = {
   syncControl: syncControl,
   commitControl: commitControl,
   ensureTaskWorktree: ensureTaskWorktree,
+  resolveWorkspace: resolveWorkspace,
+  crossRepo: crossRepo,
   buildReport: buildReport,
   renderReportMarkdown: renderReportMarkdown,
   writeIndex: writeIndex,
