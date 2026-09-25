@@ -695,8 +695,18 @@ function bullets(list, empty) {
 // Claude session runs under the OTHMODE control contract (CLAUDE.md), and
 // names the OTHMODE Task record the bridge already opened so the session
 // updates it instead of creating a second one.
-function buildInstruction(cfg, task, exec) {
-  return [
+function buildInstruction(cfg, task, exec, provider) {
+  // V3.2 (residual 5): the local Haddad runner has an 8k-token window, no
+  // network in its sandbox and no OTHMODE store ("record nothing"), so the
+  // OTHMODE record paragraph below costs it ~1 KB for instructions it cannot
+  // act on. It gets a one-line header instead; every other provider gets the
+  // paragraph character for character.
+  var header = provider === 'haddad-agent'
+    ? ['Task ' + task.task_id + ' (project ' + task.project + ', requested_action ' + task.requested_action + ' → execution profile ' +
+        (exec.execution_profile || engine.profileFor(task.requested_action)) + ')' +
+        (task.source && task.source.kind === 'github-issue' ? ' from GitHub Issue #' + task.source.issue_number + ' — the Issue is the human interface; do not edit it.' : '.'), '']
+    : null;
+  return (header || []).concat(header ? [] : [
     'othmode — GitHub control task ' + task.task_id + ' (project ' + task.project + ', requested_action ' + task.requested_action +
       ' [source ' + (task.action_source || 'task_file') + (task.action_raw ? ', written "' + task.action_raw + '"' : '') + '] → execution profile ' + (exec.execution_profile || engine.profileFor(task.requested_action)) + ').',
     '',
@@ -706,7 +716,8 @@ function buildInstruction(cfg, task, exec) {
       '. You MAY advance its `phase` and add `sections`/`evidence_texts` with `node projects/command-center/cli/othmode-cli.js task update <id> \'<json>\'`, ' +
       'but you MUST NOT set a terminal `status` (COMPLETED/FAILED/BLOCKED/CANCELLED/REJECTED) and MUST NOT create a second record: ' +
       'the bridge is the only component that closes this record, after it has verified your commits and tests against Git. Your structured final report block is the evidence it uses.',
-    '',
+    ''
+  ]).concat([
     '## Objective',
     '',
     task.objective,
@@ -733,7 +744,7 @@ function buildInstruction(cfg, task, exec) {
     '',
     continuationSection(cfg, task),
     task.notes ? '## Notes from the creator\n\n' + task.notes + '\n' : ''
-  ].join('\n');
+  ]).join('\n');
 }
 
 // A rerun is a NEW task with a new single-use id, but it is not a fresh
@@ -1195,7 +1206,7 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
     var created = executor.createTask({
       project: task.project,
       stage: 'github:' + id,
-      instruction: buildInstruction(cfg, task, exec),
+      instruction: buildInstruction(cfg, task, exec, chosenProvider),
       priority: task.priority,
       requested_by: BY,
       mode: 'autonomous',
@@ -2128,6 +2139,7 @@ function daemon(executor) {
 }
 
 module.exports = {
+  buildInstruction: buildInstruction,
   PROTOCOL: PROTOCOL,
   TASK_STATUSES: TASK_STATUSES,
   TERMINAL: TERMINAL,

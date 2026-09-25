@@ -45,6 +45,15 @@ var gitlib = require('../mythos-orchestrator/lib/git');
 
 var TASK_SCHEMA = JSON.parse(fs.readFileSync(path.join(__dirname, 'schemas', 'task.schema.json'), 'utf8'));
 var PROMPT_TEMPLATE = fs.readFileSync(path.join(__dirname, 'templates', 'task-prompt.md'), 'utf8');
+// V3.2 (residual 5): the local supervised runner (haddad-agent) gets a compact
+// prompt. It does not resume CLI sessions (Continuity), cannot commit or push
+// (Execution contract — the executor delivers validated files), and carries
+// its own report contract in its system prompt plus a constrained report turn
+// (Mandatory final report). Those sections cost ~2 KB of an 8k-token window
+// and are omitted; the objective, constraints, tests and the attested skill
+// section are kept verbatim. Every other provider is unchanged.
+var LOCAL_PROMPT_TEMPLATE = fs.readFileSync(path.join(__dirname, 'templates', 'task-prompt-local.md'), 'utf8');
+var LOCAL_PROMPT_PROVIDERS = ['haddad-agent'];
 var PROJECTS = JSON.parse(fs.readFileSync(path.join(__dirname, 'config', 'projects.json'), 'utf8'));
 
 var PROVIDERS = {
@@ -482,7 +491,7 @@ function skillSectionFor(task) {
 function buildPrompt(task, status, resumeNote) {
   var checkpoint = state.readJSON(task.task_id, 'checkpoint.json');
   var prevReport = state.readJSON(task.task_id, 'report.json');
-  return fill(PROMPT_TEMPLATE, {
+  return fill(LOCAL_PROMPT_PROVIDERS.indexOf(task.provider) !== -1 ? LOCAL_PROMPT_TEMPLATE : PROMPT_TEMPLATE, {
     TASK_ID: task.task_id,
     PROJECT: task.project,
     REPOSITORY: task.repository,
@@ -582,8 +591,14 @@ function agentForProvider(providerId) {
 }
 function recordAgentOutcome(task, taskId, outcome, providerId, failureCategory) {
   var success;
+  // A failure without a verdict counts only for a provider that SUPERVISES
+  // (it measures the workspace and returns evidence: tool_trace/validation).
+  // A provider that never reports a verdict would otherwise record every
+  // failure and no success — failure-only data that ranks it as always
+  // failing (found before the VPS pull: claude-code maps to one agent there).
+  var supervised = !!(outcome && (outcome.validation || Array.isArray(outcome.tool_trace)));
   if (outcome && outcome.validation && typeof outcome.validation.passed === 'boolean') success = outcome.validation.passed;
-  else if (failureCategory && failureCategory !== 'transient') success = false;
+  else if (supervised && failureCategory && failureCategory !== 'transient') success = false;
   else return null;
   var agent = agentForProvider(providerId);
   var role = task && task.role ? roles.getRole(task.role) : null;

@@ -142,7 +142,22 @@ var CONTEXT_WINDOW_TOKENS = (function () {
   return isNaN(raw) || raw < 2048 ? 8192 : raw;
 })();
 var CONTEXT_MARGIN_TOKENS = 384;
-var PROMPT_BUDGET_TOKENS = CONTEXT_WINDOW_TOKENS - MAX_TOKENS_PER_TURN - CONTEXT_MARGIN_TOKENS;
+// V3.2 (residual 4) THE SAFE ENVELOPE OF THIS GPU. The window is what the
+// runtime accepts; the envelope is what the nouveau/NVK stack survives.
+// Measured over every prompt in the runtime journal (2026-09-22..25): 0
+// vk::DeviceLostError in 626 prompts of 2-4k tokens; 0.8 % at 4-5k, 1.8 %
+// at 5-6k, 4.8 % at 6-7k (the smallest prompt in flight at a real crash:
+// 4,178). The cap is 5,000, not 4,000, on purpose: a coding task's fixed
+// prompt alone is ~3.1-3.9k, so 4,000 would leave Qwen no room to work,
+// while below 5,000 a crash is rare (<=0.8 %/prompt) and — with the runtime
+// recovery below — costs one replayed turn, not the task. Above 5,000 the
+// runner compacts, or the task is refused up front (sizing below). A host
+// with a different card sets its own value.
+var SAFE_PROMPT_TOKENS = (function () {
+  var raw = parseInt(process.env.HADDAD_AGENT_SAFE_PROMPT_TOKENS, 10);
+  return isNaN(raw) || raw < 1024 ? 5000 : raw;
+})();
+var PROMPT_BUDGET_TOKENS = Math.min(CONTEXT_WINDOW_TOKENS - MAX_TOKENS_PER_TURN - CONTEXT_MARGIN_TOKENS, SAFE_PROMPT_TOKENS);
 // Chars per token, deliberately BELOW what this model actually does, so the
 // estimate errs toward refusing a request that would have fit rather than
 // sending one that cannot. Measured against the live runtime on 2026-09-22
@@ -706,6 +721,37 @@ function escalationTier(task) {
   return { tier: deep ? 'deep' : 'standard', reason: choice.reason, key: choice.key, mode: choice.mode, score: choice.score };
 }
 
+// V3.2 (residual 5) TASK SIZING. Before any GPU time: will this task fit?
+// The prompt is known; the files the task constrains itself to are known;
+// a whole-file writer must read a file and write it back, and a file whose
+// content the Issue spells out is written once more in a tool call. If the
+// expected peak cannot fit the budget, or the fixed prompt alone leaves
+// less than a quarter of it for work, the task is refused with the numbers
+// and a decomposition hint — the director splits it, which is cheaper than
+// escalating and cheaper than three executions that end CONTEXT_EXHAUSTED
+// (measured: 3 of 7 coder tasks, 2026-09-24/25).
+var SIZING_RESERVE_TOKENS = 300;          // one tool exchange of framing
+function sizeTask(input) {
+  input = input || {};
+  var cpt = CHARS_PER_TOKEN;
+  var base = Math.ceil((Number(input.baseChars) || 0) / cpt);
+  var files = (input.scopeFiles || []).map(function (f) { return { path: f.path, bytes: Number(f.bytes) || 0 }; });
+  var fileTokens = files.reduce(function (a, f) { return a + Math.ceil(f.bytes / cpt) * 2; }, 0);   // read + rewrite
+  var fence = Math.ceil((Number(input.largestFenceChars) || 0) / cpt);                            // content spelled out, written again
+  var need = base + fileTokens + fence + SIZING_RESERVE_TOKENS;
+  var budget = Number(input.budget) || PROMPT_BUDGET_TOKENS;
+  var reasons = [];
+  if (base > budget * 0.75) reasons.push('the fixed prompt alone needs ~' + base + ' of ' + budget + ' tokens');
+  if (need > budget) reasons.push('the expected peak is ~' + need + ' tokens (prompt ' + base + ' + files ' + fileTokens + ' + spelled-out content ' + fence + ' + ' + SIZING_RESERVE_TOKENS + ') over the ' + budget + '-token budget');
+  // The hint names the LARGEST contributor, so the director fixes the cause.
+  var hint;
+  if (files.length > 1 && fileTokens >= fence) hint = 'split per file: one task per file (' + files.map(function (f) { return f.path; }).join(', ') + ')';
+  else if (fileTokens >= fence && fileTokens > 0) hint = 'the target file is too large to read and rewrite whole (' + files.map(function (f) { return f.path + ' ' + f.bytes + ' B'; }).join(', ') + '): use a smaller file, split it, or give this edit to the director';
+  else if (fence > 0) hint = 'shrink the content spelled out in the task (compact it, or write it in two smaller files)';
+  else hint = 'shorten the task text: fewer sections, no pasted history, a quieter acceptance check';
+  return { fits: reasons.length === 0, base: base, files: fileTokens, fence: fence, need: need, budget: budget, reasons: reasons, hint: hint };
+}
+
 function run(task, prompt, _sessionId, _mode, opts) {
   opts = opts || {};
   var started = Date.now();
@@ -859,6 +905,66 @@ function run(task, prompt, _sessionId, _mode, opts) {
   var roundToolCalls = 0;
   var trace = [];
 
+  // Sizing preflight (V3.2, residual 5) — before the GPU lease, before any turn.
+  var sizing = (function () {
+    var scope = work.declaredScope(task.constraints || []);
+    var scopeFiles = scope.map(function (rel) {
+      try { var st = fs.statSync(path.join(workspace, rel)); return st.isFile() ? { path: rel, bytes: st.size } : null; } catch (e) { return null; }
+    }).filter(Boolean);
+    var fences = String(prompt).match(/```[a-z]*\n[\s\S]*?```/g) || [];
+    var largest = fences.reduce(function (a, f) { return Math.max(a, f.length); }, 0);
+    return sizeTask({
+      baseChars: conversationChars() + toolSchemaChars,
+      scopeFiles: scopeFiles, largestFenceChars: largest, budget: PROMPT_BUDGET_TOKENS
+    });
+  })();
+  trace.push({ tool: 'task_sizing', refused: !sizing.fits, target: null,
+    detail: 'need ~' + sizing.need + ' of ' + sizing.budget + ' tokens (prompt ' + sizing.base + ', files ' + sizing.files + ', content ' + sizing.fence + ')' });
+  if (!sizing.fits && opts.sizing !== false) {
+    var tooLarge = {
+      mythos_report: true, status: 'blocked',
+      summary: 'TASK_TOO_LARGE for the local runner: ' + sizing.reasons.join('; ') + '. Nothing was executed and no GPU time was used.',
+      files_changed: [], tests: [], commit: null,
+      residual_risks: sizing.reasons.slice(),
+      next_stage: 'decompose — ' + sizing.hint + '; then file the parts as separate tasks'
+    };
+    var txt = '```json\n' + JSON.stringify(tooLarge, null, 2) + '\n```\n';
+    return Promise.resolve({
+      exit_code: 0, signal: null, timed_out: false, stdout: txt, stderr: '',
+      parsed: { is_error: false, result: txt },
+      duration_ms: Date.now() - started, tool_calls: 0, tool_trace: trace, validations: [], repair_rounds: 0,
+      sizing: sizing, session_id: null, started_pid: null
+    });
+  }
+
+  // Runtime recovery (V3.2, residual 4): when the local runtime dies under a
+  // turn (vk::DeviceLostError → systemd restarts it, ~100 s to reload), wait
+  // for it within this execution and replay THAT turn, instead of ending the
+  // execution and spending a transient retry that restarts from nothing.
+  // Only network-shaped failures qualify; bounded per execution and by the
+  // task's own deadline. A replayed turn is safe: a turn that never answered
+  // ran no tool.
+  var MAX_RUNTIME_RECOVERIES = 2;
+  var RUNTIME_WAIT_MS = typeof opts.runtimeWaitMs === 'number' ? opts.runtimeWaitMs : 240000;   // tests shorten it
+  var runtimeRecoveries = 0;
+  function runtimeWasLost(res) {
+    return /socket hang up|ECONNREFUSED|ECONNRESET|EPIPE|HTTP 503|Loading model/i.test(String((res && res.stderr) || ''));
+  }
+  function waitForRuntime(limitMs) {
+    var until = Date.now() + limitMs;
+    var probeFn = typeof opts.runtimeProbe === 'function' ? opts.runtimeProbe : function () { return runtimeAnswers({ baseUrl: baseUrl }); };
+    var pollMs = typeof opts.runtimePollMs === 'number' ? opts.runtimePollMs : 5000;
+    return new Promise(function (resolve) {
+      (function poll() {
+        var ok = false;
+        try { ok = !!probeFn(); } catch (e) { ok = false; }
+        if (ok) return resolve(true);
+        if (Date.now() >= until) return resolve(false);
+        setTimeout(poll, pollMs);
+      })();
+    });
+  }
+
   // A repair round starts from a COMPACT conversation: system, the task, the
   // rejected answer (bounded) and the brief. The previous round's tool
   // chatter is dropped on purpose — the brief carries the measured state
@@ -971,7 +1077,7 @@ function run(task, prompt, _sessionId, _mode, opts) {
     (!opts.baseline.working_directory || opts.baseline.working_directory === workspace);
   var before = carried ? { files: opts.baseline.files, truncated: !!opts.baseline.truncated, at: opts.baseline.at || null } : work.snapshot(workspace);
   var repairRound = 0;
-  var traceMarkAtRoundStart = 0;
+  var traceMarkAtRoundStart = trace.length;   // the sizing entry is not a call the worker made
   var validations = [];
 
   function finish(outcome) {
@@ -1279,6 +1385,23 @@ function run(task, prompt, _sessionId, _mode, opts) {
         anchor = { tokens: Number(res.usage.prompt_tokens), chars: conversationChars() };
       }
       if (!res || !res.message) {
+        var room = deadline - Date.now();
+        if (runtimeWasLost(res) && runtimeRecoveries < MAX_RUNTIME_RECOVERIES && room > 20000) {
+          runtimeRecoveries++;
+          var t0 = Date.now();
+          return waitForRuntime(Math.min(RUNTIME_WAIT_MS, room - 10000)).then(function (back) {
+            trace.push({ tool: 'runtime_recovered', refused: !back, target: null,
+              detail: (back ? 'runtime answered again after ' : 'runtime still down after ') + (Date.now() - t0) + ' ms; ' +
+                String((res && res.stderr) || '').slice(0, 80) });
+            if (back) return step(iteration);   // replay this turn; iteration count unchanged
+            return finish({
+              exit_code: 1, signal: null, timed_out: false, stdout: '',
+              stderr: 'HADDAD_AGENT_RUNTIME: runtime did not come back within the wait; ' + String((res && res.stderr) || '').slice(0, 200),
+              parsed: { is_error: true, subtype: 'HADDAD_AGENT_RUNTIME', result: 'local runtime did not answer' },
+              session_id: null, started_pid: null
+            });
+          });
+        }
         return finish({
           exit_code: 1, signal: null, timed_out: !!(res && res.timed_out), stdout: '',
           stderr: 'HADDAD_AGENT_RUNTIME: ' + String((res && res.stderr) || 'no message from the runtime').slice(0, 300),
@@ -1407,6 +1530,8 @@ module.exports = {
   MAX_REPORT_TURNS_PER_EXECUTION: MAX_REPORT_TURNS_PER_EXECUTION,
   REPORT_RESPONSE_FORMAT: REPORT_RESPONSE_FORMAT,
   escalationTier: escalationTier,
+  sizeTask: sizeTask,
+  SAFE_PROMPT_TOKENS: SAFE_PROMPT_TOKENS,
   MAX_TOKENS_PER_TURN: MAX_TOKENS_PER_TURN,
   MAX_TOOL_CALLS: MAX_TOOL_CALLS,
   MAX_TOOL_OUTPUT_BYTES: MAX_TOOL_OUTPUT_BYTES,

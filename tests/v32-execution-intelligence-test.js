@@ -69,6 +69,8 @@ t('X3 unknown is not failure: transient failures, missing verdicts, unmapped pro
   assert.strictEqual(executor.recordAgentOutcome({ role: 'coder' }, mkTask('t-v32-exec-x3d'), PASSED, 'no-such-provider', null), null);
   assert.strictEqual(executor.recordAgentOutcome({}, mkTask('t-v32-exec-x3e'), PASSED, 'haddad-agent', null), null);
   assert.strictEqual(executor.recordAgentOutcome({ role: 'not-a-role' }, mkTask('t-v32-exec-x3f'), PASSED, 'haddad-agent', null), null);
+  // A provider that reports no verdict (claude-code) must not accumulate failure-only data.
+  assert.strictEqual(executor.recordAgentOutcome({ role: 'coder' }, mkTask('t-v32-exec-x3g'), { stdout: 'x', exit_code: 1 }, 'claude-code', 'permanent'), null, 'no verdict, no supervision evidence: nothing');
   assert.ok(!fs.existsSync(repFile()), 'nothing was written at all');
 });
 
