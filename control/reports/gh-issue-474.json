@@ -95,7 +95,7 @@
       "sha": "ce505b53edf1f3d4ea43401a6d812cebe8c84bed",
       "subject": "delegate: a controlled cross-repository lane — the bridge can reach othoth77/spy (gh-issue-474)",
       "branch": "mythos/gh/gh-issue-474",
-      "on_origin": false
+      "on_origin": true
     }
   ],
   "tests": [
@@ -172,7 +172,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-issue-474",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-25T20:15:08.688Z"
   }
 }

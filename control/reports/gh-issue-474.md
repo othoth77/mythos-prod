@@ -12,7 +12,7 @@
 | Runtime | `88de5f484788` on `main` |
 | Model | `claude-opus-5` (auto:deep→opus score=9 [execution_profile:repo-write+2 task_category:implement+3 instruction_length>=6000+1 complexity_terms(architecture,schema)+2 required_tests>=3+1]) |
 | Branch | `mythos/gh/gh-issue-474` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ Implemented the cross-repository delegation lane that gh-issue-473 was blocked o
 
 ## Commits
 
-- `ce505b53edf1f3d4ea43401a6d812cebe8c84bed` delegate: a controlled cross-repository lane — the bridge can reach othoth77/spy (gh-issue-474) (awaiting relay)
+- `ce505b53edf1f3d4ea43401a6d812cebe8c84bed` delegate: a controlled cross-repository lane — the bridge can reach othoth77/spy (gh-issue-474) (on origin)
 
 ## Files changed
 
