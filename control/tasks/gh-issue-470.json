@@ -17,7 +17,7 @@
   "validation_requirements": [
     "the report names the HEAD commit"
   ],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-25T18:38:28.306Z",
   "created_by": "github-issue:othoth77",
   "timeout_seconds": 600,
@@ -137,5 +137,69 @@
       ],
       "removed": []
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260925183832-qg0a33",
+    "othmode_task_id": "OTH-2026-01907",
+    "attempt_id": "gh-issue-470#1",
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "expected_delivery": "report",
+    "model_key": "haiku",
+    "model_requested": "Haiku",
+    "model_source": "explicit_current_issue",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-470",
+    "branch": "mythos/gh/gh-issue-470",
+    "base_commit": "88de5f484788a82463d053a7bab31dfe3e67c307",
+    "claimed_at": "2026-09-25T18:38:32.157Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "routing": {
+      "routed": false,
+      "provider": "claude-code",
+      "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
+    },
+    "fingerprint": "34565e37ab02a76385c21bb6ad6361286abff9d00d83c3ae7ebab168b1725034",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-25T18:38:32.157Z",
+    "snapshot_sha256": "cbf3e7034fb39772092012d03e453d882025362d338b49606102b7a433b6b2de",
+    "fence": 74060,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:3789933",
+      "fence": 74060,
+      "acquired_at": "2026-09-25T18:38:32.157Z",
+      "expires_at": "2026-09-25T19:18:32.157Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/projects/mythos-prod",
+      "head": "88de5f484788a82463d053a7bab31dfe3e67c307",
+      "branch": "main",
+      "dirty_files": 1,
+      "base_ref": "origin/main",
+      "base_ref_head": "88de5f484788a82463d053a7bab31dfe3e67c307",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": false,
+      "code": null,
+      "reason": null,
+      "measured_at": "2026-09-25T18:38:30.786Z"
+    },
+    "model": "claude-haiku-4-5",
+    "model_selection_mode": "explicit"
+  },
+  "history": [
+    {
+      "at": "2026-09-25T18:38:32.242Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260925183832-qg0a33 queued; OTHMODE OTH-2026-01907; action investigate (explicit_current_issue) → repo-read; model claude-haiku-4-5; fence 74060"
+    }
+  ]
 }
