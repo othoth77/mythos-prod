@@ -1,0 +1,178 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-474",
+  "attempt_id": "gh-issue-474#1",
+  "status": "COMPLETED",
+  "summary": "Implemented the cross-repository delegation lane that gh-issue-473 was blocked on. New projects/mythos-delegate/lib/cross-repo.js owns four refusals: a CLOSED allowlist (config/targets.json authorizes othoth77/spy explicitly; no wildcard, no pattern, no env override, and the control repository is refused as a target by construction), a deterministic workspace path proven to sit outside this repository so target-repo and control-repo files never share a tree, an identity proof that reads the checkout's own origin and toplevel on a fresh clone AND on every reuse, and the mythos.delegate.task.v1 contract which imports the action->profile map from bridge/action-resolution.js so both directions of the gh-issue-473 mismatch (repo-read requiring a commit, implement requiring none) are refused. The bridge consults the lane only for a task that names target_repository: preflight() authorizes before a workspace/OTHMODE record/provider exists, and the new resolveWorkspace() is the one place an attempt's workspace is decided; every other task takes the pre-474 ensureTaskWorktree path unchanged and the orchestrator stays pinned to othoth77/mythos-prod. target_repository grants no authority (same pattern as `model` and `lane`) and is optional, so every existing control task file stays valid. An Issue may now ask for a target via `Target repository:`; the server still decides. Verified against the real repository: SSH read access to git@github.com:othoth77/spy.git resolves from this host, default branch is master (not main), and a real workspace was created and identity-proven at delegate-workspaces/othoth77__spy/spy-v2-master-1 on mythos/spy/spy-v2-master-1 with base 67d3a417 and the no-push guard in force. push_enabled is false because the governance relay is scoped to the control repository; that delivery is the single, explicitly isolated owner step and the lane refuses to invent one. No credential is read, stored or passed. Commit ce505b53 on mythos/gh/gh-issue-474; not pushed (the relay delivers), so origin was still at the base commit at report time.",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": null,
+    "model_key": null,
+    "model": "claude-opus-5",
+    "model_source": "none",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:deep→opus score=9 [execution_profile:repo-write+2 task_category:implement+3 instruction_length>=6000+1 complexity_terms(architecture,schema)+2 required_tests>=3+1]",
+    "base_sha": "88de5f484788a82463d053a7bab31dfe3e67c307",
+    "branch": "mythos/gh/gh-issue-474",
+    "commit_sha": "ce505b53edf1f3d4ea43401a6d812cebe8c84bed"
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "88de5f484788a82463d053a7bab31dfe3e67c307",
+    "branch": "main",
+    "dirty_files": 1,
+    "base_ref": "origin/main",
+    "base_ref_head": "88de5f484788a82463d053a7bab31dfe3e67c307",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-25T19:51:27.981Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Implemented the cross-repository delegation lane that gh-issue-473 was blocked on. New projects/mythos-delegate/lib/cross-repo.js owns four refusals: a CLOSED allowlist (config/targets.json authorizes othoth77/spy explicitly; no wildcard, no pattern, no env override, and the control repository is refused as a target by construction), a deterministic workspace path proven to sit outside this repository so target-repo and control-repo files never share a tree, an identity proof that reads the checkout's own origin and toplevel on a fresh clone AND on every reuse, and the mythos.delegate.task.v1 contract which imports the action->profile map from bridge/action-resolution.js so both directions of the gh-issue-473 mismatch (repo-read requiring a commit, implement requiring none) are refused. The bridge consults the lane only for a task that names target_repository: preflight() authorizes before a workspace/OTHMODE record/provider exists, and the new resolveWorkspace() is the one place an attempt's workspace is decided; every other task takes the pre-474 ensureTaskWorktree path unchanged and the orchestrator stays pinned to othoth77/mythos-prod. target_repository grants no authority (same pattern as `model` and `lane`) and is optional, so every existing control task file stays valid. An Issue may now ask for a target via `Target repository:`; the server still decides. Verified against the real repository: SSH read access to git@github.com:othoth77/spy.git resolves from this host, default branch is master (not main), and a real workspace was created and identity-proven at delegate-workspaces/othoth77__spy/spy-v2-master-1 on mythos/spy/spy-v2-master-1 with base 67d3a417 and the no-push guard in force. push_enabled is false because the governance relay is scoped to the control repository; that delivery is the single, explicitly isolated owner step and the lane refuses to invent one. No credential is read, stored or passed. Commit ce505b53 on mythos/gh/gh-issue-474; not pushed (the relay delivers), so origin was still at the base commit at report time.",
+    "tests": [
+      "tests/mythos-delegate-cross-repo-test.js: 146 passed, 0 failed (offline, GIT_SSH_COMMAND=/bin/false)",
+      "tests/mythos-delegate-test.js: 68 passed, 0 failed",
+      "tests/bridge-action-resolution-test.js: 88 passed, 0 failed",
+      "tests/mythos-github-bridge-test.js: 150 passed, 0 failed",
+      "tests/mythos-github-issues-test.js: 208 passed, 0 failed",
+      "tests/mythos-bridge-push-guard-test.js: 23 passed, 0 failed",
+      "tests/mythos-ai-executor-test.js: 395 passed, 0 failed",
+      "real-target check: git ls-remote git@github.com:othoth77/spy.git resolves (default branch master, head 67d3a417)",
+      "real-workspace check: mythos-delegate workspace --repository othoth77/spy --task spy-v2-master-1 --action implement --clone → ok, identity proven, push url no_push://owner-authorization-required"
+    ],
+    "commit": "ce505b53edf1f3d4ea43401a6d812cebe8c84bed",
+    "remote_head": "88de5f484788a82463d053a7bab31dfe3e67c307",
+    "files_changed": [
+      "projects/mythos-delegate/lib/cross-repo.js",
+      "projects/mythos-delegate/config/targets.json",
+      "projects/mythos-delegate/bin/mythos-delegate",
+      "projects/mythos-delegate/README.md",
+      "projects/mythos-ai-executor/bridge/github-bridge.js",
+      "projects/mythos-ai-executor/bridge/schemas/task.schema.json",
+      "projects/mythos-ai-executor/bridge/action-resolution.js",
+      "projects/mythos-ai-executor/bridge/github-issues.js",
+      "tests/mythos-delegate-cross-repo-test.js",
+      "docs/MYTHOS_CROSS_REPO_DELEGATION.md",
+      "docs/AI_HANDOVER.md"
+    ],
+    "residual_risks": [
+      "Delivery of a delegated othoth77/spy branch to GitHub is an owner-only step: the governance relay delivers refs/heads/mythos/* of the control repository only, push_enabled is false and the lane installs a no-push guard instead of inventing a delivery path. Documented precisely in docs/MYTHOS_CROSS_REPO_DELEGATION.md.",
+      "Write access of the host Git identity to othoth77/spy was NOT probed: verifying it requires a push (even --dry-run), which the bridge constraints forbid. Read/clone access is verified; write remains the owner's to confirm when the delivery path is agreed.",
+      "The bridge does not clone an absent delegated workspace unless MYTHOS_DELEGATE_ALLOW_CLONE=1; without it a first-run cross-repo task is BLOCKED with the exact git clone command rather than running. This is deliberate (a network clone on behalf of a task file is opt-in), but the operator must set it or pre-create the workspace before the SPY task is dispatched.",
+      "The workspace for spy-v2-master-1 already exists on this host from the verification run; a task using that exact id will reuse it (identity is re-proven on reuse) rather than starting from a fresh clone."
+    ],
+    "next_stage": "Relaunch SPY V2 Master Task #1 through the new lane: a control task with `Action: implement` and `\"target_repository\": \"othoth77/spy\"`. Before dispatching, either set MYTHOS_DELEGATE_ALLOW_CLONE=1 on the bridge unit or pre-create the workspace with `node projects/mythos-delegate/bin/mythos-delegate workspace --repository othoth77/spy --task <id> --action implement --clone`."
+  },
+  "files_changed": [
+    "projects/mythos-delegate/lib/cross-repo.js",
+    "projects/mythos-delegate/config/targets.json",
+    "projects/mythos-delegate/bin/mythos-delegate",
+    "projects/mythos-delegate/README.md",
+    "projects/mythos-ai-executor/bridge/github-bridge.js",
+    "projects/mythos-ai-executor/bridge/schemas/task.schema.json",
+    "projects/mythos-ai-executor/bridge/action-resolution.js",
+    "projects/mythos-ai-executor/bridge/github-issues.js",
+    "tests/mythos-delegate-cross-repo-test.js",
+    "docs/MYTHOS_CROSS_REPO_DELEGATION.md",
+    "docs/AI_HANDOVER.md"
+  ],
+  "commits": [
+    {
+      "sha": "ce505b53edf1f3d4ea43401a6d812cebe8c84bed",
+      "subject": "delegate: a controlled cross-repository lane — the bridge can reach othoth77/spy (gh-issue-474)",
+      "branch": "mythos/gh/gh-issue-474",
+      "on_origin": false
+    }
+  ],
+  "tests": [
+    "tests/mythos-delegate-cross-repo-test.js: 146 passed, 0 failed (offline, GIT_SSH_COMMAND=/bin/false)",
+    "tests/mythos-delegate-test.js: 68 passed, 0 failed",
+    "tests/bridge-action-resolution-test.js: 88 passed, 0 failed",
+    "tests/mythos-github-bridge-test.js: 150 passed, 0 failed",
+    "tests/mythos-github-issues-test.js: 208 passed, 0 failed",
+    "tests/mythos-bridge-push-guard-test.js: 23 passed, 0 failed",
+    "tests/mythos-ai-executor-test.js: 395 passed, 0 failed",
+    "real-target check: git ls-remote git@github.com:othoth77/spy.git resolves (default branch master, head 67d3a417)",
+    "real-workspace check: mythos-delegate workspace --repository othoth77/spy --task spy-v2-master-1 --action implement --clone → ok, identity proven, push url no_push://owner-authorization-required"
+  ],
+  "validation": {
+    "git_verified": false,
+    "remote_head": "88de5f484788a82463d053a7bab31dfe3e67c307",
+    "report_problems": [],
+    "required_checks": [
+      "A controlled cross-repository delegation path exists.",
+      "`othoth77/spy` is an explicitly authorized target.",
+      "A real delegate workspace/checkout can be resolved.",
+      "The task contract correctly distinguishes `implement` from `investigate/repo-read`.",
+      "Safety checks prevent unintended repositories/workspaces.",
+      "Tests pass.",
+      "Changes are committed and traceable.",
+      "The Bridge can use the new lane to launch SPY V2 Master Task #1 without reproducing gh-issue-473."
+    ]
+  },
+  "problems": [],
+  "risks": [
+    "Delivery of a delegated othoth77/spy branch to GitHub is an owner-only step: the governance relay delivers refs/heads/mythos/* of the control repository only, push_enabled is false and the lane installs a no-push guard instead of inventing a delivery path. Documented precisely in docs/MYTHOS_CROSS_REPO_DELEGATION.md.",
+    "Write access of the host Git identity to othoth77/spy was NOT probed: verifying it requires a push (even --dry-run), which the bridge constraints forbid. Read/clone access is verified; write remains the owner's to confirm when the delivery path is agreed.",
+    "The bridge does not clone an absent delegated workspace unless MYTHOS_DELEGATE_ALLOW_CLONE=1; without it a first-run cross-repo task is BLOCKED with the exact git clone command rather than running. This is deliberate (a network clone on behalf of a task file is opt-in), but the operator must set it or pre-create the workspace before the SPY task is dispatched.",
+    "The workspace for spy-v2-master-1 already exists on this host from the verification run; a task using that exact id will reuse it (identity is re-proven on reuse) rather than starting from a fresh clone."
+  ],
+  "next_recommended_action": "Relaunch SPY V2 Master Task #1 through the new lane: a control task with `Action: implement` and `\"target_repository\": \"othoth77/spy\"`. Before dispatching, either set MYTHOS_DELEGATE_ALLOW_CLONE=1 on the bridge unit or pre-create the workspace with `node projects/mythos-delegate/bin/mythos-delegate workspace --repository othoth77/spy --task <id> --action implement --clone`.",
+  "completed_at": "2026-09-25T20:11:09.318Z",
+  "execution": {
+    "executor_task_id": "t-20260925195129-86oc93",
+    "othmode_task_id": "OTH-2026-01911",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-opus-5",
+    "model_requested": null,
+    "model_source": "none",
+    "action_source": "explicit_current_issue",
+    "action_raw": "implement",
+    "attempt_id": "gh-issue-474#1",
+    "fence": 74231,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:3920834",
+      "fence": 74231,
+      "acquired_at": "2026-09-25T19:51:29.628Z",
+      "expires_at": "2026-09-25T21:21:29.628Z"
+    },
+    "snapshot_sha256": "04bf0c7bb6cf86a2103e743e11c1a49537f05c2fa0e46e91cb66ed75e879809d",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:deep→opus score=9 [execution_profile:repo-write+2 task_category:implement+3 instruction_length>=6000+1 complexity_terms(architecture,schema)+2 required_tests>=3+1]",
+    "claude_session_id": "50d7514c-8cd4-420d-891f-11092faca01f",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-25T19:51:36.196Z",
+    "ended_at": "2026-09-25T20:10:09.189Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 10.883045499999998,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-474",
+    "branch": "mythos/gh/gh-issue-474",
+    "base_commit": "88de5f484788a82463d053a7bab31dfe3e67c307",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-474",
+    "commits_on_origin": false,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}

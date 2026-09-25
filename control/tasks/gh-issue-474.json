@@ -24,7 +24,7 @@
     "Changes are committed and traceable.",
     "The Bridge can use the new lane to launch SPY V2 Master Task #1 without reproducing gh-issue-473."
   ],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-25T19:51:25.681Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #474 https://github.com/othoth77/mythos-prod/issues/474 — \"[SPY V2] Enable Cross-Repo Delegation to othoth77/spy\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\n[required execution mode]\n- execution profile: implementation/edit-capable\n- GitHub task type/tag: `task`\n- This is an engineering task. Edits, commits, tests, and deployment/verification are expected where applicable.\n\n[control repository]\n`othoth77/mythos-prod`\n\n[target repository]\n`othoth77/spy`\n\nThe Bridge itself remains scoped to its own worktree. The implementation must create a safe, explicit delegation lane for an authorized executor to operate on the target repository.\n\n[current blocker]\nThe existing Bridge investigation found:\n1. `projects/mythos-orchestrator` is schema-locked to `othoth77/mythos-prod`.\n2. `projects/mythos-delegate` is repo-path-agnostic but has no local `othoth77/spy` checkout.\n3. No local clone of `othoth77/spy` exists on the host.\n4. The current Bridge execution path therefore cannot perform delegated implementation against `othoth77/spy`.\n\n[1. inspect existing delegation architecture]\n- Audit `projects/mythos-orchestrator`.\n- Audit `projects/mythos-delegate`.\n- Identify the exact schema/configuration/allowlist that restricts the orchestrator to `mythos-prod`.\n- Preserve existing single-repository behavior.\n\n[2. build an explicit cross-repository delegation lane]\nImplement a controlled mechanism allowing the Bridge to delegate to an explicitly authorized target repository.\n\nThe target repository must be represented explicitly as:\n`othoth77/spy`\n\nDo not create unrestricted arbitrary-repository execution.\n\n[3. target checkout]\nProvide a deterministic mechanism for the delegate executor to obtain/use a checkout of `othoth77/spy`.\n\n[4. github authorization]\nImplement or document the exact authorization path required for the delegate to:\n- read `othoth77/spy`\n- create branches\n- commit\n- push\n- create/update PRs where permitted\n\nDo not hard-code credentials or secrets.\nIf an interactive owner approval is required, isolate that as the only external dependency and complete all other engineering work.\n\n[5. delegate contract]\nDefine/implement the task payload contract so a delegated task contains at minimum:\n- target repository\n- target branch/worktree\n- requested action\n- execution profile\n- task ID\n- acceptance criteria\n- test requirements\n- deployment requirements where applicable\n\nPrevent the previous mismatch where a task says `investigate/repo-read` while the objective requires implementation.\n\n[6. safety controls]\nThe delegate must reject:\n- missing target repository\n- unauthorized target repository\n- `repo-read` tasks that request edits\n- ambiguous repository routing\n- execution outside the authorized target workspace\n\n[7. tests]\nAdd tests covering:\n- existing mythos-prod-only orchestration\n- authorized `othoth77/spy` delegation\n- unauthorized repository rejection\n- target workspace isolation\n- implementation vs repo-read profile enforcement\n- task payload validation\n- failure/recovery behavior\n\nRun the relevant existing suite plus all new tests.\n\n[8. verification]\nAfter implementation:\n- verify the Bridge can construct a valid delegated task for `othoth77/spy`\n- verify the delegate resolves the correct target repository\n- verify no SPY code is accidentally written into `mythos-prod`\n- verify GitHub access as far as current credentials permit\n- record any remaining owner-only authentication step precisely\n\n[handoff]\nAfter this task is complete, reopen/retry **SPY V2 Master Task #1** using the new delegated execution lane.\n\nDo not implement SPY V2 application features in this task. This task only enables the infrastructure required for the Bridge to delegate that work safely to `othoth77/spy`.",
@@ -166,8 +166,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "69afef4ee74452991fb63a7f485d1e5af4f3feacef37cdaaf5561a8548fbbb79",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-25T19:52:42.745Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-25T20:11:09.532Z",
     "snapshot_sha256": "04bf0c7bb6cf86a2103e743e11c1a49537f05c2fa0e46e91cb66ed75e879809d",
     "fence": 74231,
     "lease": {
@@ -196,7 +196,8 @@
     },
     "model": "claude-opus-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "50d7514c-8cd4-420d-891f-11092faca01f"
+    "claude_session_id": "50d7514c-8cd4-420d-891f-11092faca01f",
+    "report_file": "control/reports/gh-issue-474.json"
   },
   "history": [
     {
@@ -212,6 +213,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-25T20:11:08.809Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-25T20:11:09.532Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (1 commit(s), 9 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
