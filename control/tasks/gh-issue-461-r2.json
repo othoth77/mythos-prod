@@ -1,0 +1,143 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-461-r2",
+  "project": "mythos-prod",
+  "objective": "Reuse the existing notification implementation previously built and tested. Do NOT build a second notification architecture.\n\nConnect the existing lifecycle events to:\n- WhatsApp\n- Telegram",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "investigate",
+  "action_raw": "investigate",
+  "action_source": "default",
+  "validation_requirements": [
+    "START → WhatsApp + Telegram",
+    "controlled STOP/FAILURE → WhatsApp + Telegram",
+    "SUCCESS → WhatsApp + Telegram",
+    "no duplicate messages",
+    "retry/recovery does not spam",
+    "secrets never appear in messages/logs",
+    "notification failure cannot block execution",
+    "existing Bridge/OTHMODE behavior has no regression"
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-25T14:49:57.829Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #461 https://github.com/othoth77/mythos-prod/issues/461 — \"V3.2.5 — WhatsApp + Telegram lifecycle notifications\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). — not inherited: previous attempt gh-issue-461 was defaulted, not decided — a default is not inherited → execution profile repo-read\n\n[mission]\nRestore and activate the existing MYTHOS operational notification system.\n\n[start gate — mandatory]\nDO NOT start or claim this mission while any V3.2 residual R1, R2, R3, R4, or R5 is still open, running, blocked, or unverified.\n\nStart automatically only after the Bridge can verify that ALL FIVE V3.2 residuals are COMPLETE and verified.\n\nThis is a predecessor gate, not a manual owner approval.\n\nCurrent V3.2 residual work includes the active R5 decomposed tasks #458 and #459. Wait for the complete V3.2 closure, not merely those two tasks.\n\n[messages]\nUse only the mission title. No Task ID and no technical details.\n\nSTART:\n🟢 بدأ العمل: {MISSION_TITLE}\n\nSTOP / FAILURE:\n🔴 توقف العمل: {MISSION_TITLE} — مشكلة\n\nSUCCESS:\n✅ اكتمل العمل: {MISSION_TITLE}\n\n[lifecycle]\nSTART → when the Bridge actually begins execution.\nSTOP → only for a genuine blocked/failed/stopped mission.\nSUCCESS → only after successful execution and validation.\n\nRetries/repairs must not create duplicate lifecycle notifications.\n\nNotification failure must NEVER block, fail, or change the underlying mission state.\n\n[reuse]\nFirst audit and reuse the existing notification components, formatter/event layer, WhatsApp integration, Telegram integration, deduplication and security controls.\n\nDo not create duplicate gateways, bots, services, credentials or notification infrastructure.\n\nPreserve the existing separation between operational notifications and customer WhatsApp/CRM.\n\n[delivery]\nUse normal governed workflow:\nimplemented → tested → committed → PR → merge → deploy → live verification → documentation.\n\nFABLE has autonomous engineering authority for normal technical decisions.\n\nUse:\n- Qwen = implementation\n- Sonnet = difficult diagnosis\n- Opus = architecture/security/deep issues\n\nDo not start V3.3 automatically after this mission. Stop after V3.2.5 is fully verified.\n\n[definition of done]\n- V3.2 predecessor gate verified\n- existing notification system reused/restored\n- WhatsApp START/STOP/SUCCESS verified\n- Telegram START/STOP/SUCCESS verified\n- deduplication verified\n- failure isolation verified\n- security verified\n- production deployed\n- live E2E verified\n- documentation updated\n- final commit/PR/production SHA recorded\n\nFinal report:\nSTATUS\nREUSED\nTESTS\nWhatsApp\nTelegram\nPR\nCOMMIT\nPRODUCTION SHA\nBLOCKERS",
+  "continues": {
+    "task_id": "gh-issue-461",
+    "status": "FAILED",
+    "reason": "failed"
+  },
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 461,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/461",
+    "issue_id": 5580353028,
+    "issue_node_id": "I_kwDOTnlaF88AAAABTJ1uBA",
+    "issue_title": "V3.2.5 — WhatsApp + Telegram lifecycle notifications",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-25T08:31:47Z",
+    "issue_updated_at": "2026-09-25T14:49:38Z",
+    "issue_labels": [
+      "task",
+      "rerun",
+      "mythos:failed"
+    ],
+    "content_sha256": "26781e4e335d23093d78bd2a874b7a934bad61107df71909a365409e33166670",
+    "attempt": 2,
+    "attempt_id": "gh-issue-461-r2#2",
+    "idempotency_key": "3ad66bafbe5e71a57ce4e54e769943b30ee5b2a576654590c6d0c49d8591f604",
+    "rerun_of": "gh-issue-461",
+    "inherited_from": "gh-issue-461",
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "investigate",
+      "action_raw": "investigate",
+      "action_source": "default",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "inherited_previous_attempt",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null,
+          "eligible": false,
+          "ignored_reason": "previous attempt gh-issue-461 was defaulted, not decided — a default is not inherited"
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-25T14:49:57.830Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-25T14:49:57.830Z",
+        "event": "issue_received",
+        "reason": "open Issue #461 with label task and label rerun (attempt 2)",
+        "content_sha256": "26781e4e335d23093d78bd2a874b7a934bad61107df71909a365409e33166670"
+      },
+      {
+        "at": "2026-09-25T14:49:57.830Z",
+        "event": "action_resolved",
+        "reason": "default → investigate (raw \"investigate\")"
+      },
+      {
+        "at": "2026-09-25T14:49:57.830Z",
+        "event": "profile_resolved",
+        "reason": "investigate → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-25T14:49:57.831Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-25T14:50:00.511Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-461-r2.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-25T14:49:57.831Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5834392895,
+        "url": "https://github.com/othoth77/mythos-prod/issues/461#issuecomment-5834392895",
+        "at": "2026-09-25T14:49:58.752Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:failed"
+      ]
+    }
+  }
+}
