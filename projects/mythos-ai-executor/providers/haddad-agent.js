@@ -964,8 +964,12 @@ function run(task, prompt, _sessionId, _mode, opts) {
       lastDiagnosisTier === 'standard' && !!diagnoserFor('deep');
   }
   // Taken BEFORE the model is called even once, so "what changed" is
-  // measured against the state the task actually started from.
-  var before = work.snapshot(workspace);
+  // measured against the state the task actually started from. When the
+  // executor carries the ATTEMPT's baseline (V3.2) that is the start state —
+  // a retried execution must not treat its predecessor's writes as given.
+  var carried = opts.baseline && opts.baseline.files && typeof opts.baseline.files === 'object' &&
+    (!opts.baseline.working_directory || opts.baseline.working_directory === workspace);
+  var before = carried ? { files: opts.baseline.files, truncated: !!opts.baseline.truncated, at: opts.baseline.at || null } : work.snapshot(workspace);
   var repairRound = 0;
   var traceMarkAtRoundStart = 0;
   var validations = [];
