@@ -57,6 +57,7 @@ function ok(cond, name) { if (cond) passed++; else { failed++; console.error('FA
 var received = [];
 var gateway = { status: 200, body: '{"key":{"id":"MOCK-1"},"status":"PENDING"}', delayMs: 0 };
 
+var healthChecks = [];
 var server = http.createServer(function (req, res) {
   var chunks = [];
   req.on('data', function (c) { chunks.push(c); });
@@ -64,6 +65,14 @@ var server = http.createServer(function (req, res) {
     var raw = Buffer.concat(chunks).toString('utf8');
     var body = null;
     try { body = JSON.parse(raw); } catch (e) { /* recorded as null */ }
+    // V3.2.5: the read-only connection-state health check is recorded
+    // apart from sends, so "zero sends while open" stays exact.
+    if (req.method === 'GET') {
+      healthChecks.push({ url: req.url });
+      res.writeHead(gateway.healthStatus || 200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ instance: { instanceName: 'x', state: gateway.healthState || 'close' } }));
+      return;
+    }
     received.push({ url: req.url, headers: req.headers, body: body, raw: raw });
     setTimeout(function () {
       res.writeHead(gateway.status, { 'content-type': 'application/json' });
@@ -129,8 +138,11 @@ function run() {
       ok(typeof p.describe === 'function' && typeof p.isValidRecipient === 'function' && typeof p.sendText === 'function',
         'contract[' + name + ']: implements describe / isValidRecipient / sendText');
       var d = p.describe();
-      ok(d && d.id === name && Array.isArray(d.capabilities) && d.capabilities.length === 1 && d.capabilities[0] === 'sendText',
-        'contract[' + name + ']: describes exactly one capability, sendText — the scope fence holds for every adapter');
+      // V3.2.5: sendText is the only capability that acts; the only other one
+      // allowed is the optional READ-ONLY connectionState health probe.
+      ok(d && d.id === name && Array.isArray(d.capabilities) && d.capabilities[0] === 'sendText' &&
+         d.capabilities.slice(1).every(function (c) { return c === 'connectionState'; }) && d.capabilities.length <= 2,
+        'contract[' + name + ']: sendText is the only acting capability (plus at most the read-only connectionState probe) — the scope fence holds for every adapter');
       ok(JSON.stringify(d).indexOf(API_KEY) === -1, 'contract[' + name + ']: describe() carries no credential');
       ok(p.isValidRecipient('21620000000') && p.isValidRecipient('21620000000@s.whatsapp.net'),
         'contract[' + name + ']: MSISDN and JID recipients accepted');
@@ -314,7 +326,8 @@ function run() {
 
       // While open, further flushes are free and change nothing.
       return whatsapp.flush().then(function (r2) {
-        ok(r2.attempted === 0 && received.length === 2, 'breaker: while open, a flush reaches the gateway zero times');
+        ok(r2.attempted === 0 && received.length === 2, 'breaker: while open, a flush SENDS to the gateway zero times');
+        ok(healthChecks.length <= 1, 'breaker: while open, at most one read-only health check per interval reaches the gateway');
         ok(r2.skipped === 'provider circuit breaker is open', 'breaker: the flush reports why it did nothing');
         ok(entriesIn().filter(function (e) { return e.attempts === 0; }).length === 3, 'breaker: still no attempt consumed');
       });
@@ -326,7 +339,7 @@ function run() {
       ok(whatsapp.breakerStatus().state === 'half-open', 'breaker: the circuit reports half-open once the cooldown expires');
       gateway.status = 500;
       return whatsapp.flush().then(function () {
-        ok(received.length === 3, 'breaker: a half-open flush sends exactly ONE probe, not a whole batch');
+        ok(received.length === 3, 'breaker: a half-open flush against a still-failing gateway sends exactly ONE probe, not a whole batch');
         ok(whatsapp.breakerStatus().state === 'open', 'breaker: a failed probe re-opens the circuit');
         var st = whatsapp.breakerStatus();
         ok(st.cooldown_ms === 3000, 'breaker: each consecutive open doubles the cooldown');
