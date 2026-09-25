@@ -10,7 +10,7 @@
   "action_raw": "investigate",
   "action_source": "default",
   "validation_requirements": [],
-  "status": "CLAIMED",
+  "status": "BLOCKED",
   "created_at": "2026-09-25T18:58:57.701Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #472 https://github.com/othoth77/mythos-prod/issues/472 — \"SPY V2 — Execute Master Task #1 A→Z\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[fable 5.1]\n**Orchestrator / Supervisor**\n- controls the complete execution\n- assigns tasks\n- checks evidence\n- resolves conflicts\n- protects V1.5\n- decides phase completion\n- performs final audit\n- approves production readiness\n\n[qwen local]\n**Coder / Executor / Fast Research**\nUse for implementation, tests, repository exploration, repetitive engineering, debugging, documentation, Git/deployment work, and fast technical research.\n\n[sonnet]\n**Researcher / Assessor / Reviewer / Coder**\nUse for external research, open-source comparison, code review, architecture assessment, medium-complexity implementation, edge-case review, and documentation review.\n\n[opus]\n**Reasoning / Architect / Security Review / Assessor / Complex Tasks**\nUse selectively for architecture, difficult reasoning, complex bugs, browser architecture, security, resource-risk analysis, production-risk review, and final high-risk assessment.\n\n---\n\n[execution order]\nUse:\n\n**SEARCH FIRST → REUSE → ADAPT → CONNECT → BUILD LAST**\n\nThen:\n\n**RESEARCH → ARCHITECT → IMPLEMENT → REVIEW → TEST → SHADOW → VALIDATE → HARDEN → DEPLOY → VERIFY → DOCUMENT → RELEASE**\n\nDo not stop after research, design, coding, or tests. Continue through the entire Master Task.\n\n---\n\n[spy v1.5 protection]\nThe existing SPY V1.5 release is the protected baseline.\n\nKnown baseline:\n- V1.5 complete\n- Real Operation mode\n- 887/887 tests at V1.5 completion\n- production healthy\n- existing competitor intelligence pipeline\n- observations/events/corrections\n- sitemap discovery\n- scheduler\n- Agent Reach\n- backups and DB integrity\n\nKnown release commit: `2c67d400d03c92e6ff0dd1635ff8a98b154faeed`\nOperational baseline: `9ebb6cc`\n\n**V2 must not break V1.5.**\n\nIf a V2 change creates risk, preserve V1.5 and redesign the V2 change.\n\n---\n\n[v2 scope to execute]\nRead Master Task #1 and execute all of its child tasks, including:\n\n1. Repository and architecture reconnaissance\n2. External project research\n3. Apify/Crawlee-inspired collection architecture\n4. Lightweight Actor model\n5. Intelligent collection router\n6. Smart pagination\n7. API / JSON discovery\n8. Browser / JavaScript fallback\n9. Dataset / run layer\n10. Smart field-level change detection\n11. Source strategy\n12. Operator observability\n13. Resource hardening\n14. Security review\n15. Complete regression testing\n16. V1.5 vs V2 shadow comparison\n17. Real competitor validation\n18. Controlled production rollout\n19. Operator UI updates where justified\n20. Documentation\n21. Final multi-agent audit\n22. Release and rollback verification\n\nDo not add unrelated features merely to make the scope larger.\nDo not clone Apify.\nUse mature external projects only when they materially improve SPY.\n\n---\n\n[important safety / security rules]\n- Browser is a fallback, not the default.\n- Prefer HTTP/API/Sitemap when reliable.\n- No authentication bypass.\n- No CAPTCHA bypass.\n- No unauthorized access.\n- No arbitrary code execution through untrusted URLs/content.\n- Protect against SSRF.\n- Protect VPS memory and CPU.\n- Limit browser concurrency.\n- Limit retries/timeouts/pages.\n- Prevent zombie browser processes.\n- Never manufacture production events.\n- Never force production crawls just to demonstrate a feature.\n- Existing observations/events/corrections remain authoritative.\n\n---\n\n[required implementation validation]\nEvery major component must be:\n\n**IMPLEMENTED**  \n**TESTED**  \n**VERIFIED**  \n**PRODUCTION STATUS**\n\nHistorical regressions that must remain covered include:\n- autopart `/fiche/`\n- monauto pagination\n- tomobile fake prices\n- sitemap 45k false event incident\n- IPv6 performance issue\n- zero-product successful run\n- stale observations\n- correction cleanup\n\nTarget: **100% tests passing**.\n\nDo not declare V2 complete with known critical failures.\n\n---\n\n[controlled production]\nUse feature flags / source-level activation where appropriate.\n\nPreferred initial state:\n`SPY_V2_COLLECTION_ENABLED=false`\n\nThen enable selectively after shadow validation.\n\nCompare V1.5 vs V2 on real sources before broad activation.\n\nImportant: more collected data does NOT automatically mean better intelligence. Accuracy, stability, and evidence come first.\n\n---\n\n[documentation]\nEnsure SPY contains and/or updates the appropriate V2 documents:\n- `docs/SPY_V2_ARCHITECTURE.md`\n- `docs/SPY_V2_EXTERNAL_PROJECT_RESEARCH.md`\n- `docs/SPY_V2_ACTORS.md`\n- `docs/SPY_V2_COLLECTION_ROUTER.md`\n- `docs/SPY_V2_BROWSER.md`\n- `docs/SPY_V2_DATASETS.md`\n- `docs/SPY_V2_OPERATIONS.md`\n- `docs/SPY_V2_ROLLBACK.md`\n- `docs/SPY_V2_RELEASE.md`\n\nOnly document what is actually implemented and verified.\n\n---\n\n[github tracking]\nUse the existing SPY Master Task #1 and child tasks as the authoritative V2 work breakdown:\nhttps://github.com/othoth77/spy/issues/1\n\nThe Mythos issue exists to trigger and track execution.\n\nKeep SPY issue/task state synchronized with actual implementation progress.\n\nUse label: `SPY-V2`\n\nDo not close the Mythos execution task until:\n- all justified child tasks are completed\n- tests pass\n- shadow validation is complete\n- production verification succeeds\n- rollback is verified\n- final multi-agent review passes\n- documentation is complete\n- GitHub is synchronized\n\n---\n\n[final report required]\nAt the end, report:\n1. SPY V2 final commit\n2. GitHub state\n3. Tests passed / total\n4. V1.5 compatibility\n5. Architecture implemented\n6. External projects researched and actually reused\n7. Actors\n8. Collection router\n9. Pagination\n10. API / JSON discovery\n11. Browser fallback\n12. Dataset / run layer\n13. Change detection\n14. Resource usage\n15. Security review\n16. Real competitor validation\n17. V1.5 vs V2 comparison\n18. Rollback verification\n19. Documentation\n20. Remaining justified limitations\n21. Final production status\n\nDo not claim completion without evidence.\n\n---\n\n[final objective]\nDeliver:\n\n**SPY V2 — INTELLIGENT COLLECTION LAYER**\n\nCOMPLETE  \nTESTED  \nSECURE  \nRESOURCE-SAFE  \nV1.5-COMPATIBLE  \nPRODUCTION-READY\n\nFABLE = ORCHESTRATOR  \nQWEN = CODER / EXECUTOR  \nSONNET = RESEARCH / REVIEW / EXECUTION  \nOPUS = ARCHITECT / SECURITY / COMPLEX REASONING\n\n**START FROM MASTER TASK #1 AND EXECUTE THE ENTIRE V2 PROGRAM A→Z.**",
@@ -145,8 +145,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "98fde3fe0dcbf96eb1d6efc7126a22dd8ce2571156bf7f5813e10573e75981fc",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-25T18:59:01.912Z",
+    "executor_status": "BLOCKED",
+    "updated_at": "2026-09-25T19:00:19.029Z",
     "snapshot_sha256": "2155004833e2ab69b27af3e6bb5815eed6a475c08ff0cf0d49247f34d3ec0c7b",
     "fence": 74108,
     "lease": {
@@ -174,7 +174,13 @@
       "measured_at": "2026-09-25T18:59:00.503Z"
     },
     "model": "claude-sonnet-5",
-    "model_selection_mode": "auto"
+    "model_selection_mode": "auto",
+    "blocker": {
+      "code": "HUMAN_APPROVAL",
+      "reason": "Task t-20260925185901-ae69z4 declares requested_action=investigate / execution profile=repo-read, which per repository bridge constraints means no file edits and no commits, report-only. The embedded Objective text instead demands a full multi-week implementation-through-production-release program (SPY V2 Master Task #1) against an entirely different repository, othoth77/spy, which is not part of this mythos-prod worktree (bridge constraints restrict work to this worktree only). These two direct",
+      "retryable": false
+    },
+    "report_file": "control/reports/gh-issue-472.json"
   },
   "history": [
     {
@@ -183,6 +189,20 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260925185901-ae69z4 queued; OTHMODE OTH-2026-01909; action investigate (default) → repo-read; model claude-sonnet-5; fence 74108"
+    },
+    {
+      "at": "2026-09-25T19:00:18.376Z",
+      "from": "CLAIMED",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended BLOCKED; building report"
+    },
+    {
+      "at": "2026-09-25T19:00:19.029Z",
+      "from": "VALIDATING",
+      "to": "BLOCKED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 0 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
