@@ -19,7 +19,7 @@
     "notification failure cannot block execution",
     "existing Bridge/OTHMODE behavior has no regression"
   ],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-25T14:49:57.829Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #461 https://github.com/othoth77/mythos-prod/issues/461 — \"V3.2.5 — WhatsApp + Telegram lifecycle notifications\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). — not inherited: previous attempt gh-issue-461 was defaulted, not decided — a default is not inherited → execution profile repo-read\n\n[mission]\nRestore and activate the existing MYTHOS operational notification system.\n\n[start gate — mandatory]\nDO NOT start or claim this mission while any V3.2 residual R1, R2, R3, R4, or R5 is still open, running, blocked, or unverified.\n\nStart automatically only after the Bridge can verify that ALL FIVE V3.2 residuals are COMPLETE and verified.\n\nThis is a predecessor gate, not a manual owner approval.\n\nCurrent V3.2 residual work includes the active R5 decomposed tasks #458 and #459. Wait for the complete V3.2 closure, not merely those two tasks.\n\n[messages]\nUse only the mission title. No Task ID and no technical details.\n\nSTART:\n🟢 بدأ العمل: {MISSION_TITLE}\n\nSTOP / FAILURE:\n🔴 توقف العمل: {MISSION_TITLE} — مشكلة\n\nSUCCESS:\n✅ اكتمل العمل: {MISSION_TITLE}\n\n[lifecycle]\nSTART → when the Bridge actually begins execution.\nSTOP → only for a genuine blocked/failed/stopped mission.\nSUCCESS → only after successful execution and validation.\n\nRetries/repairs must not create duplicate lifecycle notifications.\n\nNotification failure must NEVER block, fail, or change the underlying mission state.\n\n[reuse]\nFirst audit and reuse the existing notification components, formatter/event layer, WhatsApp integration, Telegram integration, deduplication and security controls.\n\nDo not create duplicate gateways, bots, services, credentials or notification infrastructure.\n\nPreserve the existing separation between operational notifications and customer WhatsApp/CRM.\n\n[delivery]\nUse normal governed workflow:\nimplemented → tested → committed → PR → merge → deploy → live verification → documentation.\n\nFABLE has autonomous engineering authority for normal technical decisions.\n\nUse:\n- Qwen = implementation\n- Sonnet = difficult diagnosis\n- Opus = architecture/security/deep issues\n\nDo not start V3.3 automatically after this mission. Stop after V3.2.5 is fully verified.\n\n[definition of done]\n- V3.2 predecessor gate verified\n- existing notification system reused/restored\n- WhatsApp START/STOP/SUCCESS verified\n- Telegram START/STOP/SUCCESS verified\n- deduplication verified\n- failure isolation verified\n- security verified\n- production deployed\n- live E2E verified\n- documentation updated\n- final commit/PR/production SHA recorded\n\nFinal report:\nSTATUS\nREUSED\nTESTS\nWhatsApp\nTelegram\nPR\nCOMMIT\nPRODUCTION SHA\nBLOCKERS",
@@ -171,8 +171,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "8745643a55d557ab770114605ca2f5cd4be9a42283f3d1bcd6ba959787424e81",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-25T14:50:03.408Z",
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-25T14:51:18.404Z",
     "snapshot_sha256": "2809a5c73b5032f9519191b53360aa350adc1507045b0e6bf3d2a30668d4aefc",
     "fence": 73520,
     "lease": {
@@ -200,7 +200,8 @@
       "measured_at": "2026-09-25T14:50:01.864Z"
     },
     "model": "claude-sonnet-5",
-    "model_selection_mode": "auto"
+    "model_selection_mode": "auto",
+    "claude_session_id": "72bbde85-d029-470a-adce-d8f50b005aad"
   },
   "history": [
     {
@@ -209,6 +210,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260925145003-svual4 queued; OTHMODE OTH-2026-01901; action investigate (default) → repo-read; model claude-sonnet-5; fence 73520"
+    },
+    {
+      "at": "2026-09-25T14:51:18.404Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
