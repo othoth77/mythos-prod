@@ -110,7 +110,7 @@ REL="$(node -e '
   console.log(s.allRecords({kind:"relationship"}).length);' "$REPO" "$STORE")"
 # 19 (ecosystem) + 7 (project graph) - 1 asserted by both (executor depends_on orchestrator;
 # relationship ids are deterministic, entities merge across seeds) = 25 distinct.
-[ "$REL" -ge 25 ] || fail "expected >= 25 typed relationships in the store, found $REL"
+[ "$REL" -ge 40 ] || fail "expected >= 40 typed relationships in the store, found $REL"
 say "   typed relationships in the store: $REL"
 TRACKS="$(OTHMODE_REPO_ROOT="$REPO" node -e '
   const r=require(process.argv[1]+"/projects/command-center/reference/othmode/registries.js");
