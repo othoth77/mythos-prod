@@ -142,6 +142,16 @@
         "at": "2026-09-25T21:02:07.340Z",
         "existed": false,
         "executor_task_id": "t-20260925210203-2bxtat"
+      },
+      "report": {
+        "comment_id": 5839602227,
+        "url": "https://github.com/othoth77/mythos-prod/issues/476#issuecomment-5839602227",
+        "at": "2026-09-25T21:04:32.779Z",
+        "existed": false,
+        "status": "HUMAN_APPROVAL",
+        "control_status": "BLOCKED",
+        "report_file": "control/reports/gh-issue-476-r2.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -151,7 +161,8 @@
       "removed": [
         "mythos:human-approval"
       ]
-    }
+    },
+    "issue_state": "HUMAN_APPROVAL"
   },
   "execution": {
     "executor_task_id": "t-20260925210203-2bxtat",
