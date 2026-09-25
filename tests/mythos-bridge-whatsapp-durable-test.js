@@ -128,6 +128,12 @@ function makeDue() {
     fs.writeFileSync(path.join(cfg.ledgerDir, e.key + '.json'), JSON.stringify(e, null, 2));
   });
 }
+function makeDueKey(key) {
+  var cfg = W().config();
+  var e = W().readEntry(cfg, key);
+  e.next_attempt_at = new Date(Date.now() - 1000).toISOString();
+  fs.writeFileSync(path.join(cfg.ledgerDir, key + '.json'), JSON.stringify(e, null, 2));
+}
 function issueTask(n, title, attempt) {
   return { task_id: 'gh-issue-' + n + (attempt > 1 ? '-r' + attempt : ''), source: { kind: 'github-issue', issue_number: n, issue_title: title } };
 }
@@ -212,6 +218,40 @@ function part1() {
       ok(r.probe === true && st.state === 'closed', '10 recovery: connected gateway → half-open NOW (cooldown not waited out) → probe accepted → circuit closed');
       ok(['gh-issue-464', 'gh-issue-465', 'gh-issue-466'].every(function (m) { return entry(m + '__MISSION_START').state === 'SENT'; }) && accepted.length === 3,
         '18 + #464: every pending event is flushed in the SAME flush as the successful probe — no human step, no resetBreaker');
+    });
+  });
+
+  // Recovery must not wait for each entry's own OUTAGE backoff (production
+  // backoff: 60 s doubling to 30 min). Found while preparing the real E2E:
+  // with a 1 s test backoff the gap was invisible.
+  chain = chain.then(function () {
+    section('recovery-backoff', { MYTHOS_BRIDGE_WHATSAPP_BACKOFF_MS: '60000', MYTHOS_BRIDGE_WHATSAPP_BREAKER_THRESHOLD: '3',
+      MYTHOS_BRIDGE_WHATSAPP_BREAKER_COOLDOWN_MS: '600000', MYTHOS_BRIDGE_WHATSAPP_HEALTH_INTERVAL_MS: '1000' });
+    W().onMissionEvent('MISSION_START', issueTask(790, 'Backoff mission'));
+    W().onMissionEvent('MISSION_START', issueTask(791, 'Rejected earlier'));
+    gw.mode = 'reject';
+    return W().flush().then(function () {        // 791 and 790 both rejected once (4xx: message class)
+      var cfg = W().config();
+      var e790 = entry('gh-issue-790__MISSION_START');
+      // 790 then suffers an outage three times (provider class) and opens the circuit.
+      e790.message_failures = 0; e790.last_failure_class = null;
+      fs.writeFileSync(path.join(cfg.ledgerDir, e790.key + '.json'), JSON.stringify(e790, null, 2));
+      gw.mode = 'closed';
+      var seq = Promise.resolve();
+      for (var i = 0; i < 3; i++) seq = seq.then(function () { makeDueKey('gh-issue-790__MISSION_START'); return W().flush(); });
+      return seq;
+    }).then(function () {
+      var e790 = entry('gh-issue-790__MISSION_START');
+      var e791 = entry('gh-issue-791__MISSION_START');
+      ok(W().breakerStatus().state === 'open' && e790.last_failure_class === 'provider' && Date.parse(e790.next_attempt_at) - Date.now() > 60000,
+        'recovery/backoff: after 3 outage failures the circuit is open and the entry is backing off for minutes');
+      ok(e791.last_failure_class === 'message' && Date.parse(e791.next_attempt_at) > Date.now(), 'recovery/backoff: a rejected entry is backing off from a MESSAGE failure');
+      gw.mode = 'ok'; gw.health = 'open';
+      return wait(1100).then(function () { return W().flush(); });
+    }).then(function (r) {
+      ok(r.probe === true && entry('gh-issue-790__MISSION_START').state === 'SENT' && W().breakerStatus().state === 'closed',
+        'recovery/backoff: the recovered gateway delivers the outage-delayed entry NOW, not after its own multi-minute backoff');
+      ok(entry('gh-issue-791__MISSION_START').state === 'PENDING', 'recovery/backoff: an entry backing off from a message REJECTION keeps its schedule');
     });
   });
 

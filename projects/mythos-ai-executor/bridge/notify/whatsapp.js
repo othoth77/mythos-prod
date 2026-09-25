@@ -845,8 +845,15 @@ function onMissionEvent(kind, task) {
 
 // --- Phase 2: flush (asynchronous, called AFTER the tick returned) -----------------
 
-function due(entry, nowMs) {
+// `recovering`: the circuit is half-open because the gateway is back (or the
+// cooldown ran out). An entry that is only waiting out OUTAGE backoff is due
+// at once — otherwise a recovered gateway would still sit idle for up to
+// MAX_BACKOFF_MS until each entry's own backoff expired. An entry backing off
+// from a message REJECTION keeps its schedule.
+function due(entry, nowMs, recovering) {
   if (entry.state !== 'PENDING') return false;
+  if (recovering && (entry.last_failure_class === 'provider' ||
+      (!entry.last_failure_class && entry.provider_failures > 0 && !entry.message_failures))) return true;
   return !entry.next_attempt_at || Date.parse(entry.next_attempt_at) <= nowMs;
 }
 
@@ -858,7 +865,7 @@ function pendingRecipients(entry) {
 // Sends one entry. The lock is held for the whole attempt, and the entry is
 // marked SENDING on disk first, so a crash mid-send leaves a claim that the
 // next flush reclaims (lease expiry) instead of a silent duplicate.
-function deliverEntry(cfg, entry, provider, apiKey, deadlineMs) {
+function deliverEntry(cfg, entry, provider, apiKey, deadlineMs, recovering) {
   var lock = acquireKeyLock(cfg, entry.key);
   if (!lock) return Promise.resolve({ key: entry.key, skipped: 'locked by another process' });
 
@@ -869,7 +876,7 @@ function deliverEntry(cfg, entry, provider, apiKey, deadlineMs) {
     releaseKeyLock(lock);
     return Promise.resolve({ key: fresh.key, skipped: 'already ' + fresh.state });
   }
-  if (!due(fresh, Date.now()) && fresh.state !== 'SENDING') {
+  if (!due(fresh, Date.now(), recovering) && fresh.state !== 'SENDING') {
     releaseKeyLock(lock);
     return Promise.resolve({ key: fresh.key, skipped: 'not due' });
   }
@@ -951,6 +958,7 @@ function deliverEntry(cfg, entry, provider, apiKey, deadlineMs) {
     var remaining = pendingRecipients(fresh);
     if (!failed.length && !remaining.length) {
       fresh.state = 'SENT';
+      delete fresh.last_failure_class;
       fresh.sent_at = now;
       fresh.last_error = null;
       writeEntry(cfg, fresh);
@@ -973,6 +981,7 @@ function deliverEntry(cfg, entry, provider, apiKey, deadlineMs) {
     var rejected = failed.some(isMessageFailure);
     if (rejected) fresh.message_failures = (fresh.message_failures || 0) + 1;
     else fresh.provider_failures = (fresh.provider_failures || 0) + 1;
+    fresh.last_failure_class = rejected ? 'message' : 'provider';
     if (rejected && fresh.message_failures >= cfg.maxAttempts) {
       fresh.state = 'EXHAUSTED';
       fresh.exhausted_at = now;
@@ -993,6 +1002,7 @@ function deliverEntry(cfg, entry, provider, apiKey, deadlineMs) {
     var now = new Date().toISOString();
     // An adapter that rejects is a provider-level fault: never exhausting.
     fresh.provider_failures = (fresh.provider_failures || 0) + 1;
+    fresh.last_failure_class = 'provider';
     fresh.state = 'PENDING';
     fresh.next_attempt_at = new Date(Date.now() + backoffFor(cfg, fresh.provider_failures)).toISOString();
     fresh.last_error = redact.redact(String(err && err.message)).slice(0, 300);
@@ -1090,7 +1100,7 @@ function expireStale(cfg, nowMs) {
 // batch and the later one carries `_after` (checked right before its send);
 // if the earlier one is not due, the later one waits. Report kinds are
 // independent of this.
-function orderedDue(cfg, nowMs) {
+function orderedDue(cfg, nowMs, recovering) {
   var all = listEntries(cfg);   // sorted by created_at
   var blocked = {};   // mission -> true: an earlier undelivered event is NOT due now
   var lastDue = {};   // mission -> key of the latest earlier event that IS due now
@@ -1099,7 +1109,7 @@ function orderedDue(cfg, nowMs) {
     var mission = MISSION_KINDS.indexOf(e.kind) !== -1 ? (e.mission_id || e.task_id) : null;
     var undelivered = e.state === 'PENDING' || e.state === 'SENDING';
     if (mission && blocked[mission]) return;
-    var isDue = due(e, nowMs);
+    var isDue = due(e, nowMs, recovering);
     if (isDue) {
       var item = Object.assign({}, e);
       if (mission && lastDue[mission]) item._after = lastDue[mission];
@@ -1132,7 +1142,7 @@ function flushDue(cfg, provider, apiKey, opts, reclaimed, expired, health) {
   var limit = opts.limit || cfg.flushLimit;
   var batch;
   try {
-    batch = orderedDue(cfg, now).slice(0, limit);
+    batch = orderedDue(cfg, now, !!gate.probe).slice(0, limit);
   } catch (e) {
     return Promise.resolve({ ok: false, enabled: true, error: redact.redact(String(e && e.message)).slice(0, 300), results: [] });
   }
@@ -1164,7 +1174,7 @@ function flushDue(cfg, provider, apiKey, opts, reclaimed, expired, health) {
           return null;
         }
       }
-      return deliverEntry(cfg, entry, provider, apiKey, deadline).then(function (r) { results.push(r); }, function (e) {
+      return deliverEntry(cfg, entry, provider, apiKey, deadline, !!gate.probe).then(function (r) { results.push(r); }, function (e) {
         results.push({ key: entry.key, sent: false, error: redact.redact(String(e && e.message)).slice(0, 300) });
       });
     });

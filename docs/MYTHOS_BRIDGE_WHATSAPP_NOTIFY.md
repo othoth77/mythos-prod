@@ -498,7 +498,11 @@ WhatsApp session is connected (`GET /instance/connectionState/{instance}` on
 Evolution); `open` half-opens the circuit immediately. In half-open the first
 due entry is the probe — a failure re-opens it with a doubled cooldown and
 nothing else is attempted; **a success closes it and the rest of the batch
-drains in the same flush**. A health answer never marks anything delivered
+drains in the same flush**. In half-open, an entry that is only waiting out
+**outage** backoff (`last_failure_class = provider`, up to 30 min) is due at
+once — a recovered gateway never sits idle behind its own backoff; an entry
+backing off from a message **rejection** keeps its schedule. A health answer
+never marks anything delivered
 and never closes the circuit by itself: only a real accepted send does. The
 breaker is not the source of truth for any notification — the ledger is.
 
@@ -651,7 +655,9 @@ passing.** No real WhatsApp message is sent: the far end is a local
 | 13 | task_id length: a 64-char id (the bridge's own max) reaches the ledger and is delivered; a 65-char id is refused by `ledgerKey()` |
 | 14 | the crash/failure window: a recipient's success is durable on disk before the rest of the attempt finishes; a simulated crash + reclaim retries only the recipient still missing, never re-sending to one already recorded |
 
-`node tests/mythos-bridge-whatsapp-durable-test.js` — **53 checks** (V3.2.5):
+`node tests/mythos-bridge-whatsapp-durable-test.js` — **57 checks** (V3.2.5):
+recovery does not wait for an entry's own outage backoff (production-sized
+60 s backoff, found while preparing the live E2E);
 provider timeout and repeated `500 Connection Closed` never exhaust; retry
 after recovery delivers once with the provider message id; 4xx rejections are
 bounded and never trip the breaker; breaker open → zero sends, rate-limited
