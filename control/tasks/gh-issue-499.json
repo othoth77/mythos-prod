@@ -20,7 +20,7 @@
     "check:status_completed",
     "check:tests_pass"
   ],
-  "status": "CLAIMED",
+  "status": "FAILED",
   "created_at": "2026-09-26T19:24:08.059Z",
   "created_by": "github-issue:othoth77",
   "timeout_seconds": 600,
@@ -174,8 +174,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "537d887d0ecef934aafe7c8688b7e8ad2df3bbf6b02c860320b900828bc93506",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-26T19:24:12.174Z",
+    "executor_status": "FAILED",
+    "updated_at": "2026-09-26T19:25:28.833Z",
     "snapshot_sha256": "167e53bee581a5cc8890a550d6be85ab4d89d1e0325366b015d7457857e0aab4",
     "fence": 77588,
     "lease": {
@@ -203,7 +203,13 @@
       "measured_at": "2026-09-26T19:24:10.782Z"
     },
     "model": "claude-fable-5-1",
-    "model_selection_mode": "explicit"
+    "model_selection_mode": "explicit",
+    "blocker": {
+      "code": "PROVIDER_FAILED",
+      "reason": "Ran exactly `node tests/mythos-report-normalization.js` from the worktree root /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-499 on branch mythos/gh/gh-issue-499 (fe315aeb395e). The command exited with code 1: Node.js v22.22.1 reported MODULE_NOT_FOUND for /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-499/tests/mythos-report-normalization.js. As instructed, the path was not corrected, no other command or file was run or read, and nothing was created, modified, staged, committed o",
+      "retryable": true
+    },
+    "report_file": "control/reports/gh-issue-499.json"
   },
   "history": [
     {
@@ -212,6 +218,20 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260926192412-b3g3e8 queued; OTHMODE OTH-2026-01930; action test (explicit_current_issue) → repo-test; model claude-fable-5-1; fence 77588"
+    },
+    {
+      "at": "2026-09-26T19:25:28.255Z",
+      "from": "CLAIMED",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended FAILED; building report"
+    },
+    {
+      "at": "2026-09-26T19:25:28.833Z",
+      "from": "VALIDATING",
+      "to": "FAILED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 1 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }

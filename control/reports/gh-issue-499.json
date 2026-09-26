@@ -1,0 +1,129 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-499",
+  "attempt_id": "gh-issue-499#1",
+  "status": "FAILED",
+  "summary": "Ran exactly `node tests/mythos-report-normalization.js` from the worktree root /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-499 on branch mythos/gh/gh-issue-499 (fe315aeb395e). The command exited with code 1: Node.js v22.22.1 reported MODULE_NOT_FOUND for /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-499/tests/mythos-report-normalization.js. As instructed, the path was not corrected, no other command or file was run or read, and nothing was created, modified, staged, committed or pushed.",
+  "resolution": {
+    "requested_action": "test",
+    "action_raw": "test",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-test",
+    "expected_profile": "repo-test",
+    "model_requested": "Fable 5.1",
+    "model_key": "fable-5.1",
+    "model": "claude-fable-5-1",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "base_sha": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "branch": "mythos/gh/gh-issue-499",
+    "commit_sha": null
+  },
+  "blocker": {
+    "code": "PROVIDER_FAILED",
+    "retryable": true,
+    "at": "2026-09-26T19:24:37.829Z",
+    "reason": "Ran exactly `node tests/mythos-report-normalization.js` from the worktree root /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-499 on branch mythos/gh/gh-issue-499 (fe315aeb395e). The command exited with code 1: Node.js v22.22.1 reported MODULE_NOT_FOUND for /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-499/tests/mythos-report-normalization.js. As instructed, the path was not corrected, no other command or file was run or read, and nothing was created, modified, staged, committed or pushed.",
+    "task_id": "t-20260926192412-b3g3e8",
+    "attempt_id": "gh-issue-499#1"
+  },
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "b2487ee1a5ba6b22c834f3ba2f0ce49fed2732de",
+    "branch": "main",
+    "dirty_files": 1,
+    "base_ref": "origin/main",
+    "base_ref_head": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": true,
+    "code": "RUNTIME_STALE_CHECKOUT",
+    "reason": "checkout HEAD b2487ee1a5ba is behind origin/main fe315aeb395e — the running bridge is older than what is delivered",
+    "measured_at": "2026-09-26T19:24:10.782Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "failed",
+    "summary": "Ran exactly `node tests/mythos-report-normalization.js` from the worktree root /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-499 on branch mythos/gh/gh-issue-499 (fe315aeb395e). The command exited with code 1: Node.js v22.22.1 reported MODULE_NOT_FOUND for /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-499/tests/mythos-report-normalization.js. As instructed, the path was not corrected, no other command or file was run or read, and nothing was created, modified, staged, committed or pushed.",
+    "tests": [
+      "node tests/mythos-report-normalization.js: FAILED (exit code 1) — first output line: node:internal/modules/cjs/loader:1386"
+    ],
+    "commit": null,
+    "remote_head": null,
+    "files_changed": [],
+    "residual_risks": [
+      "node:internal/modules/cjs/loader:1386"
+    ],
+    "next_stage": "Bridge closes OTH-2026-01930 from this report; the requester may re-issue the task with the correct suite path if intended."
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "node tests/mythos-report-normalization.js: FAILED (exit code 1) — first output line: node:internal/modules/cjs/loader:1386"
+  ],
+  "validation": {
+    "git_verified": null,
+    "remote_head": null,
+    "report_problems": [],
+    "required_checks": [
+      "The tests list contains the command's first output line verbatim.",
+      "check:status_completed",
+      "check:tests_pass"
+    ]
+  },
+  "problems": [
+    "PROVIDER_FAILED: Ran exactly `node tests/mythos-report-normalization.js` from the worktree root /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-499 on branch mythos/gh/gh-issue-499 (fe315aeb395e). The command exited with code 1: Node.js v22.22.1 reported MODULE_NOT_FOUND for /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-499/tests/mythos-report-normalization.js. As instructed, the path was not corrected, no other command or file was run or read, and nothing was created, modified, staged, committed or pushed."
+  ],
+  "risks": [
+    "node:internal/modules/cjs/loader:1386"
+  ],
+  "next_recommended_action": "Bridge closes OTH-2026-01930 from this report; the requester may re-issue the task with the correct suite path if intended.",
+  "completed_at": "2026-09-26T19:25:28.716Z",
+  "execution": {
+    "executor_task_id": "t-20260926192412-b3g3e8",
+    "othmode_task_id": "OTH-2026-01930",
+    "execution_profile": "repo-test",
+    "provider": "claude-code",
+    "model": "claude-fable-5-1",
+    "model_requested": "Fable 5.1",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "test",
+    "attempt_id": "gh-issue-499#1",
+    "fence": 77588,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:2307436",
+      "fence": 77588,
+      "acquired_at": "2026-09-26T19:24:12.174Z",
+      "expires_at": "2026-09-26T20:04:12.174Z"
+    },
+    "snapshot_sha256": "167e53bee581a5cc8890a550d6be85ab4d89d1e0325366b015d7457857e0aab4",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "claude_session_id": "441373b1-33db-47ab-8606-9e45864e6cf2",
+    "executor_status": "FAILED",
+    "started_at": "2026-09-26T19:24:15.917Z",
+    "ended_at": "2026-09-26T19:24:37.829Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 0.52558675,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-499",
+    "branch": "mythos/gh/gh-issue-499",
+    "base_commit": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-499",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
