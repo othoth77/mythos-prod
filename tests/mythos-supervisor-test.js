@@ -1144,7 +1144,7 @@ async function main() {
   var templateLine = reqT4.objective.split('\n').filter(function (l) { return /^QDIAG\/1 /.test(l); })[0] || '';
   ok(/only your final mythos_report block is delivered/.test(reqT4.objective) && /Do NOT put the diagnosis in a separate JSON block/.test(reqT4.objective) &&
     /"summary" field of that mythos_report block MUST be exactly ONE line/.test(reqT4.objective) && /no double quotes/.test(reqT4.objective) &&
-    /action is "test" or less privileged/.test(reqT4.objective) && /mythos_report\.summary/.test(reqT4.constraints[0]) && !/serialized as JSON text/.test(reqT4.objective) &&
+    /for this task it must be one of: investigate, review, test \(no more privileged than "test"\)/.test(reqT4.objective) && /mythos_report\.summary/.test(reqT4.constraints[0]) && !/serialized as JSON text/.test(reqT4.objective) &&
     templateLine && consultOutcome(finalMsg(templateLine)) === 'QWEN_MALFORMED',
     '19 the consult objective names mythos_report.summary as the only channel; echoing its QDIAG template verbatim is refused (QWEN_MALFORMED)');
   ok(cO.parsed && cO.parsed.task && cO.parsed.task.objective.indexOf('DELIVERY: only your final mythos_report block is delivered') !== -1 && cO.parsed.task.objective.indexOf('QDIAG/1 classification=<class>') !== -1,
@@ -1214,6 +1214,26 @@ async function main() {
     qd({ classification: 'HUMAN_REQUIRED' })].map(function (l) { return consultOutcome(finalMsg(l)); });
   ok(JSON.stringify(gateOut) === JSON.stringify(['QWEN_INVALID', 'QWEN_INVALID', 'QWEN_UNCERTAIN', 'QWEN_NOT_RECOVERABLE', 'QWEN_NOT_RECOVERABLE']),
     '20 QDIAG answers still face the schema and the escalation rules: the live class MODULE_NOT_FOUND is QWEN_INVALID; low confidence / not recoverable / HUMAN_REQUIRED escalate ' + JSON.stringify(gateOut));
+  // (7b) the action word: the prompt names the five allowed actions and this task's permitted subset;
+  // an invented word (live T6 SUP-VZMS87P5 answered action=read) is QWEN_INVALID; all five parse.
+  // Parsing is not permission: the privilege guard in createChild still refuses a wider action.
+  var ALL_ACTIONS = ['investigate', 'review', 'test', 'document', 'implement'];
+  var promptT4 = qwenMod.request(t4Task, { cls: 'TEST_FAILURE', kind: 'EXECUTION_FAILED', detail: 'x' }, [], BASE_CFG).objective;
+  var promptImpl = qwenMod.request({ task_id: 'SUP-IMPL', spec: { objective: 'o', action: 'implement', acceptance_criteria: ['check:status_completed'], timeout_seconds: 600 } },
+    { cls: 'TEST_FAILURE', kind: 'EXECUTION_FAILED', detail: 'x' }, [], BASE_CFG).objective;
+  ok(JSON.stringify(qwenMod.qdiagActions()) === JSON.stringify(ALL_ACTIONS) &&
+    promptT4.indexOf('action is exactly one of these words: investigate, review, test, document, implement') !== -1 &&
+    promptT4.indexOf('for this task it must be one of: investigate, review, test (no more privileged than "test")') !== -1 &&
+    promptImpl.indexOf('for this task it must be one of: investigate, review, test, document, implement (no more privileged than "implement")') !== -1,
+    '20 the QDIAG contract lists the five allowed actions (schema order by privilege) and the permitted subset for the task');
+  var badActions = ['read', 'fix', 'write', 'Test', 'run', 'root'].map(function (a) { return consultOutcome(finalMsg(qd({ action: a }))); });
+  ok(badActions.every(function (r) { return r === 'QWEN_INVALID'; }), '20 an action outside the five (read, fix, write, Test, run, root) is QWEN_INVALID ' + JSON.stringify(badActions));
+  var goodActions = ALL_ACTIONS.map(function (a) {
+    var n = qwenMod.normalizeAnswer(haddadComment(finalMsg(qd({ action: a }))));
+    var p = n.ok ? qwenMod.parseAnswer(n.answer, t4Task) : { ok: false, reason: n.reason };
+    return p.ok ? p.decision.recovery_task.action : p.reason;
+  });
+  ok(JSON.stringify(goodActions) === JSON.stringify(ALL_ACTIONS), '20 each of the five allowed actions is accepted by the QDIAG parser ' + JSON.stringify(goodActions));
   // (8) one answer only: QDIAG vs a different JSON diagnosis, or two different QDIAG lines → AMBIGUOUS; an identical repeat is one answer
   ok(qwenMod.normalizeAnswer('#### Summary\n\n' + qd({}) + '\n' + JSON.stringify(t4Diag) + '\n').reason.indexOf('QWEN_AMBIGUOUS') === 0 &&
     qwenMod.normalizeAnswer('#### Summary\n\n' + qd({}) + '\n' + qd({ diagnosis: 'another cause' }) + '\n').reason.indexOf('QWEN_AMBIGUOUS') === 0 &&
