@@ -1,0 +1,146 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-499",
+  "project": "mythos-prod",
+  "objective": "Run the report-normalization test suite and report its result. Test suites in this repository live in tests/ and are named <suite>-test.js. Run exactly this command from the repository root, and no other command or file: node tests/mythos-report-normalization.js . Do not correct the path yourself. Put the command's first output line verbatim in the report tests list. If the command fails, report the task as failed and quote that line as the only problem. Change nothing.",
+  "scope": [
+    "tests/ (read and run only)"
+  ],
+  "constraints": [
+    "Read-only: do not create, modify, delete, stage, commit or push anything.",
+    "Do not print secrets or credentials.",
+    "Supervised task: the MYTHOS supervisor verifies this report against the acceptance criteria below. Report exactly what you ran and observed; never claim a check you did not run."
+  ],
+  "priority": "normal",
+  "requested_action": "test",
+  "action_raw": "test",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "The tests list contains the command's first output line verbatim.",
+    "check:status_completed",
+    "check:tests_pass"
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-26T19:24:08.059Z",
+  "created_by": "github-issue:othoth77",
+  "timeout_seconds": 600,
+  "model": "fable-5.1",
+  "model_raw": "Fable 5.1",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #499 https://github.com/othoth77/mythos-prod/issues/499 — \"[supervised] E2E-5 Qwen deadline: report-normalization suite path\"\n\nrequested_action: test — source explicit_current_issue (written as \"test\") → execution profile repo-test\n\nmodel: fable-5.1 — source explicit_current_issue (written as \"Fable 5.1\")",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 499,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/499",
+    "issue_id": 5596659351,
+    "issue_node_id": "I_kwDOTnlaF88AAAABTZY-lw",
+    "issue_title": "TASK: [supervised] E2E-5 Qwen deadline: report-normalization suite path",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-26T19:23:36Z",
+    "issue_updated_at": "2026-09-26T19:23:36Z",
+    "issue_labels": [
+      "task",
+      "mythos:supervised"
+    ],
+    "content_sha256": "fc74d6442d9a78214ce3b4427a7d52d8ace843516cfb6ec8882b6eb1d303c4b4",
+    "attempt": 1,
+    "attempt_id": "gh-issue-499#1",
+    "idempotency_key": "ec8c72cb9b71a0a20ea022ebaed47356db05a694dc91ac7d38bc16402f2da6ea",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "test",
+      "action_raw": "test",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "test",
+          "action": "test",
+          "form": "inline",
+          "line": 21
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-test",
+      "expected_delivery": "report",
+      "model_key": "fable-5.1",
+      "model_id": "claude-fable-5-1",
+      "model_raw": "Fable 5.1",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:fable-5.1 (requested \"Fable 5.1\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-26T19:24:08.060Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-26T19:24:08.060Z",
+        "event": "issue_received",
+        "reason": "open Issue #499 with label task",
+        "content_sha256": "fc74d6442d9a78214ce3b4427a7d52d8ace843516cfb6ec8882b6eb1d303c4b4"
+      },
+      {
+        "at": "2026-09-26T19:24:08.060Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → test (raw \"test\")"
+      },
+      {
+        "at": "2026-09-26T19:24:08.060Z",
+        "event": "profile_resolved",
+        "reason": "test → repo-test (server-side map)"
+      },
+      {
+        "at": "2026-09-26T19:24:08.060Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → fable-5.1 (available)"
+      },
+      {
+        "at": "2026-09-26T19:24:10.090Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-499.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-26T19:24:08.060Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5849153332,
+        "url": "https://github.com/othoth77/mythos-prod/issues/499#issuecomment-5849153332",
+        "at": "2026-09-26T19:24:08.778Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:supervised"
+      ]
+    }
+  }
+}
