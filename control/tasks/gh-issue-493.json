@@ -20,7 +20,7 @@
     "check:status_completed",
     "check:tests_pass"
   ],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-26T18:05:47.735Z",
   "created_by": "github-issue:othoth77",
   "timeout_seconds": 600,
@@ -142,5 +142,69 @@
         "mythos:supervised"
       ]
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260926180552-eslfn6",
+    "othmode_task_id": "OTH-2026-01926",
+    "attempt_id": "gh-issue-493#1",
+    "requested_action": "test",
+    "action_raw": "test",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-test",
+    "expected_profile": "repo-test",
+    "expected_delivery": "report",
+    "model_key": "fable-5.1",
+    "model_requested": "Fable 5.1",
+    "model_source": "explicit_current_issue",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-493",
+    "branch": "mythos/gh/gh-issue-493",
+    "base_commit": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "claimed_at": "2026-09-26T18:05:52.135Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "routing": {
+      "routed": false,
+      "provider": "claude-code",
+      "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
+    },
+    "fingerprint": "768cbacb9238f971d86c44e550d946ba3a9a3885cd277cc692b1942691de9821",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-26T18:05:52.135Z",
+    "snapshot_sha256": "f2a41356e4060f57fd6785699eea6e76ea9514a1f94a19a505ae7744222c2954",
+    "fence": 77402,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:2173879",
+      "fence": 77402,
+      "acquired_at": "2026-09-26T18:05:52.135Z",
+      "expires_at": "2026-09-26T18:45:52.135Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/projects/mythos-prod",
+      "head": "b2487ee1a5ba6b22c834f3ba2f0ce49fed2732de",
+      "branch": "main",
+      "dirty_files": 1,
+      "base_ref": "origin/main",
+      "base_ref_head": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": true,
+      "code": "RUNTIME_STALE_CHECKOUT",
+      "reason": "checkout HEAD b2487ee1a5ba is behind origin/main fe315aeb395e — the running bridge is older than what is delivered",
+      "measured_at": "2026-09-26T18:05:50.964Z"
+    },
+    "model": "claude-fable-5-1",
+    "model_selection_mode": "explicit"
+  },
+  "history": [
+    {
+      "at": "2026-09-26T18:05:52.238Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260926180552-eslfn6 queued; OTHMODE OTH-2026-01926; action test (explicit_current_issue) → repo-test; model claude-fable-5-1; fence 77402"
+    }
+  ]
 }
