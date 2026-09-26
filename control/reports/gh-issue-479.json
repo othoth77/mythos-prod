@@ -1,0 +1,142 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-479",
+  "attempt_id": "gh-issue-479#1",
+  "status": "BLOCKED",
+  "summary": "requested_action resolved to investigate (execution profile repo-read), so per the non-negotiable bridge constraint this run performed read-only code analysis only, no edits/commits/privileged execution. Root cause identified in ops/hostops/mythos-hostops.js worker(): the root daemon (mythos-hostops.service, ProtectSystem=strict, a private static mount namespace) drops to deploy's uid via a bare setuid()/setgid() and connects to a hardcoded /run/user/1001/bus, but that path is a live per-session mount created by pam_systemd/logind with non-shared propagation by design, so the sandboxed daemon's view of it is stale/absent, producing ENOTCONN (\"Transport endpoint is not connected\") and, on the sibling code path, EPERM. Direct deploy-shell execution works because it isn't namespaced away. Recommended smallest safe fix: reach deploy's user manager via systemd's machine transport (systemd-run --user --machine=deploy@.host ...) over the system bus, which needs no setuid drop and no relaxed sandboxing, keeping every v0.2 CONTROLLED-tier safeguard (audit, backup, CAS, verification, rollback, lock, rate limits, kill switch, HIGHLY_SENSITIVE owner-only) untouched. Could not implement or run the live self-test under this profile; could not update OTH-2026-01916 (node invocation needs interactive approval unavailable in this run) so this message is the full record.",
+  "resolution": {
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "default",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "model_requested": null,
+    "model_key": null,
+    "model": "claude-sonnet-5",
+    "model_source": "none",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=3 [complexity_terms(architectural,security)+2 required_tests>=3+1]",
+    "base_sha": "b2487ee1a5ba6b22c834f3ba2f0ce49fed2732de",
+    "branch": "mythos/gh/gh-issue-479",
+    "commit_sha": null
+  },
+  "blocker": {
+    "code": "HUMAN_APPROVAL",
+    "retryable": false,
+    "at": "2026-09-26T07:09:08.333Z",
+    "reason": "requested_action resolved to investigate (execution profile repo-read), so per the non-negotiable bridge constraint this run performed read-only code analysis only, no edits/commits/privileged execution. Root cause identified in ops/hostops/mythos-hostops.js worker(): the root daemon (mythos-hostops.service, ProtectSystem=strict, a private static mount namespace) drops to deploy's uid via a bare setuid()/setgid() and connects to a hardcoded /run/user/1001/bus, but that path is a live per-session mount created by pam_systemd/logind with non-shared propagation by design, so the sandboxed daemon's view of it is stale/absent, producing ENOTCONN (\"Transport endpoint is not connected\") and, on the sibling code path, EPERM. Direct deploy-shell execution works because it isn't namespaced away. Rec",
+    "task_id": "t-20260926070231-xpoxzx",
+    "attempt_id": "gh-issue-479#1",
+    "requested_action": "investigate",
+    "execution_profile": "repo-read",
+    "model": "claude-sonnet-5"
+  },
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "b2487ee1a5ba6b22c834f3ba2f0ce49fed2732de",
+    "branch": "main",
+    "dirty_files": 1,
+    "base_ref": "origin/main",
+    "base_ref_head": "b2487ee1a5ba6b22c834f3ba2f0ce49fed2732de",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-26T07:02:29.718Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "blocked",
+    "summary": "requested_action resolved to investigate (execution profile repo-read), so per the non-negotiable bridge constraint this run performed read-only code analysis only, no edits/commits/privileged execution. Root cause identified in ops/hostops/mythos-hostops.js worker(): the root daemon (mythos-hostops.service, ProtectSystem=strict, a private static mount namespace) drops to deploy's uid via a bare setuid()/setgid() and connects to a hardcoded /run/user/1001/bus, but that path is a live per-session mount created by pam_systemd/logind with non-shared propagation by design, so the sandboxed daemon's view of it is stale/absent, producing ENOTCONN (\"Transport endpoint is not connected\") and, on the sibling code path, EPERM. Direct deploy-shell execution works because it isn't namespaced away. Recommended smallest safe fix: reach deploy's user manager via systemd's machine transport (systemd-run --user --machine=deploy@.host ...) over the system bus, which needs no setuid drop and no relaxed sandboxing, keeping every v0.2 CONTROLLED-tier safeguard (audit, backup, CAS, verification, rollback, lock, rate limits, kill switch, HIGHLY_SENSITIVE owner-only) untouched. Could not implement or run the live self-test under this profile; could not update OTH-2026-01916 (node invocation needs interactive approval unavailable in this run) so this message is the full record.",
+    "tests": [
+      "sudo node ops/hostops/live-selftest.js --mode socket: not run (repo-read profile forbids privileged execution)"
+    ],
+    "commit": null,
+    "remote_head": "b2487ee1a5ba6b22c834f3ba2f0ce49fed2732de",
+    "files_changed": [],
+    "residual_risks": [
+      "Root cause is a well-supported code-level hypothesis, not live-verified on the VPS",
+      "F1 (deploy in docker group), F2, F3, F5 (docs/MYTHOS_PERMISSION_MODEL.md) remain open and are unaffected by this investigation",
+      "#477 remains blocked pending a real 9/9 live self-test, which this task did not run",
+      "OTH-2026-01916 could not be updated from this session; findings exist only in this report"
+    ],
+    "next_stage": "dispatch a follow-up gh-issue-479 task with requested_action=implement to change worker() in ops/hostops/mythos-hostops.js to use the --machine=deploy@.host transport, add a regression test for the exact EPERM/ENOTCONN failure mode, then requested_action=test to run sudo node ops/hostops/live-selftest.js --mode socket on the VPS and confirm 9/9"
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "sudo node ops/hostops/live-selftest.js --mode socket: not run (repo-read profile forbids privileged execution)"
+  ],
+  "validation": {
+    "git_verified": null,
+    "remote_head": "b2487ee1a5ba6b22c834f3ba2f0ce49fed2732de",
+    "report_problems": [],
+    "required_checks": [
+      "`sudo node ops/hostops/live-selftest.js --mode socket` reports **9 passed, 0 failed**.",
+      "Controlled operations no longer fail with `HOSTOPS_EXEC_FAILED`, `EPERM`, or `Transport endpoint is not connected`.",
+      "Rollback test passes.",
+      "No weakening of `mythos-hostops.service` sandboxing is required.",
+      "No new broad privilege is granted to `deploy`, `dagu`, or the HostOps daemon.",
+      "Existing F1/F2/F3/F5 findings are not silently reclassified as resolved.",
+      "#477 remains blocked until this task is complete and the 9/9 live self-test passes."
+    ]
+  },
+  "problems": [
+    "HUMAN_APPROVAL: requested_action resolved to investigate (execution profile repo-read), so per the non-negotiable bridge constraint this run performed read-only code analysis only, no edits/commits/privileged execution. Root cause identified in ops/hostops/mythos-hostops.js worker(): the root daemon (mythos-hostops.service, ProtectSystem=strict, a private static mount namespace) drops to deploy's uid via a bare setuid()/setgid() and connects to a hardcoded /run/user/1001/bus, but that path is a live per-session mount created by pam_systemd/logind with non-shared propagation by design, so the sandboxed daemon's view of it is stale/absent, producing ENOTCONN (\"Transport endpoint is not connected\") and, on the sibling code path, EPERM. Direct deploy-shell execution works because it isn't namespaced away. Rec"
+  ],
+  "risks": [
+    "Root cause is a well-supported code-level hypothesis, not live-verified on the VPS",
+    "F1 (deploy in docker group), F2, F3, F5 (docs/MYTHOS_PERMISSION_MODEL.md) remain open and are unaffected by this investigation",
+    "#477 remains blocked pending a real 9/9 live self-test, which this task did not run",
+    "OTH-2026-01916 could not be updated from this session; findings exist only in this report"
+  ],
+  "next_recommended_action": "dispatch a follow-up gh-issue-479 task with requested_action=implement to change worker() in ops/hostops/mythos-hostops.js to use the --machine=deploy@.host transport, add a regression test for the exact EPERM/ENOTCONN failure mode, then requested_action=test to run sudo node ops/hostops/live-selftest.js --mode socket on the VPS and confirm 9/9",
+  "completed_at": "2026-09-26T07:10:05.232Z",
+  "execution": {
+    "executor_task_id": "t-20260926070231-xpoxzx",
+    "othmode_task_id": "OTH-2026-01916",
+    "execution_profile": "repo-read",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": null,
+    "model_source": "none",
+    "action_source": "default",
+    "action_raw": "investigate",
+    "attempt_id": "gh-issue-479#1",
+    "fence": 75827,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:858950",
+      "fence": 75827,
+      "acquired_at": "2026-09-26T07:02:31.236Z",
+      "expires_at": "2026-09-26T08:32:31.236Z"
+    },
+    "snapshot_sha256": "df1e09bb72d9490abd10637075756649cfe7af08652385217582e1513ee14c8e",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=3 [complexity_terms(architectural,security)+2 required_tests>=3+1]",
+    "claude_session_id": "4eaba3bb-aff4-4a07-9204-2d4c4df807b9",
+    "executor_status": "BLOCKED",
+    "started_at": "2026-09-26T07:02:41.792Z",
+    "ended_at": "2026-09-26T07:09:08.333Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 0.9705936,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-479",
+    "branch": "mythos/gh/gh-issue-479",
+    "base_commit": "b2487ee1a5ba6b22c834f3ba2f0ce49fed2732de",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-479",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}

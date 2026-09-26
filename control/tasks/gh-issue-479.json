@@ -29,7 +29,7 @@
     "Existing F1/F2/F3/F5 findings are not silently reclassified as resolved.",
     "#477 remains blocked until this task is complete and the 9/9 live self-test passes."
   ],
-  "status": "IN_PROGRESS",
+  "status": "BLOCKED",
   "created_at": "2026-09-26T07:02:27.442Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #479 https://github.com/othoth77/mythos-prod/issues/479 — \"HostOps v0.2 — Fix EPERM / Transport endpoint when root daemon launches deploy user worker\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[current production finding]\nHostOps v0.2 is installed on the VPS and the socket daemon is healthy, but live self-test is only **4/9 passing**.\n\nControlled operations fail with:\n\n`HOSTOPS_EXEC_FAILED`\n`user worker could not run: spawnSync /usr/bin/systemd-run EPERM`\n\nDirect execution as `deploy` works:\n\n`systemd-run --user --wait --pipe /usr/bin/true` → exit 0\n\nThe same operation from the root daemon context fails with:\n\n`Transport endpoint is not connected`\n\nThe failure was reproduced both directly and inside a transient sandbox matching the daemon's relevant hardening settings. This indicates a boundary/design problem, not a missing VPS permission that should be worked around.\n\n[relevant implementation]\nCurrent `mythos-hostops.js` launches the worker through:\n\n`/usr/bin/systemd-run --user --wait --pipe --quiet --collect ... /usr/bin/node /usr/local/lib/mythos-hostops/user-worker.js`\n\nThe intended security model is that deploy-owned state is modified only by the deploy user worker launched through the deploy user manager.\n\n[verification evidence]\n- `id deploy` includes `mythos-hostops` and also currently includes `docker` (F1 remains a separate security finding).\n- `user@1001.service` is active and `systemd-run --user` works when executed directly as deploy.\n- Root daemon/sandbox invocation of deploy's user manager fails with `Transport endpoint is not connected`.\n\n[deliverable]\nImplement the smallest safe architectural fix, test it on the VPS, report the exact boundary change, test results, and any remaining security findings.",
@@ -163,8 +163,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "33af9636c197c75f41af739200d70326982ca5b24dc51c10fe17d7535f69dec4",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-26T07:03:48.378Z",
+    "executor_status": "BLOCKED",
+    "updated_at": "2026-09-26T07:10:05.340Z",
     "snapshot_sha256": "df1e09bb72d9490abd10637075756649cfe7af08652385217582e1513ee14c8e",
     "fence": 75827,
     "lease": {
@@ -193,7 +193,13 @@
     },
     "model": "claude-sonnet-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "4eaba3bb-aff4-4a07-9204-2d4c4df807b9"
+    "claude_session_id": "4eaba3bb-aff4-4a07-9204-2d4c4df807b9",
+    "blocker": {
+      "code": "HUMAN_APPROVAL",
+      "reason": "requested_action resolved to investigate (execution profile repo-read), so per the non-negotiable bridge constraint this run performed read-only code analysis only, no edits/commits/privileged execution. Root cause identified in ops/hostops/mythos-hostops.js worker(): the root daemon (mythos-hostops.service, ProtectSystem=strict, a private static mount namespace) drops to deploy's uid via a bare setuid()/setgid() and connects to a hardcoded /run/user/1001/bus, but that path is a live per-session",
+      "retryable": false
+    },
+    "report_file": "control/reports/gh-issue-479.json"
   },
   "history": [
     {
@@ -209,6 +215,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-26T07:10:04.713Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended BLOCKED; building report"
+    },
+    {
+      "at": "2026-09-26T07:10:05.340Z",
+      "from": "VALIDATING",
+      "to": "BLOCKED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 1 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
