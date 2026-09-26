@@ -20,7 +20,7 @@
     "check:status_completed",
     "check:tests_pass_for:tests/invoice-total-test.js"
   ],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-26T21:32:37.610Z",
   "created_by": "github-issue:othoth77",
   "timeout_seconds": 600,
@@ -174,8 +174,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "9a86a0a633fe5b6157ec3785e5435c2003e5f0ddf86f7e5763cf239eddd0c454",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-26T21:32:41.721Z",
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-26T21:33:58.408Z",
     "snapshot_sha256": "2d5d08baee817b2032731802a18df4f733b899ac59c489dc974cc583b6b92355",
     "fence": 77894,
     "lease": {
@@ -203,7 +203,8 @@
       "measured_at": "2026-09-26T21:32:40.597Z"
     },
     "model": "claude-fable-5-1",
-    "model_selection_mode": "explicit"
+    "model_selection_mode": "explicit",
+    "claude_session_id": "fcffb9b3-5409-40e8-825f-c1b80645bdfd"
   },
   "history": [
     {
@@ -212,6 +213,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260926213241-ijjl63 queued; OTHMODE OTH-2026-01933; action test (explicit_current_issue) → repo-test; model claude-fable-5-1; fence 77894"
+    },
+    {
+      "at": "2026-09-26T21:33:58.408Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
