@@ -1,0 +1,146 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-483",
+  "project": "mythos-prod",
+  "objective": "Read projects/mythos-haddad/systemd/mythos-haddad-bridge.timer and quote, in the report summary, its OnUnitInactiveSec line exactly as it appears in the file, citing the file path. Change nothing.",
+  "scope": [
+    "projects/mythos-haddad/systemd/mythos-haddad-bridge.timer"
+  ],
+  "constraints": [
+    "Read-only: do not create, modify, delete, stage, commit or push anything.",
+    "Do not print secrets or credentials.",
+    "Supervised task: the MYTHOS supervisor verifies this report against the acceptance criteria below. Report exactly what you ran and observed; never claim a check you did not run."
+  ],
+  "priority": "normal",
+  "requested_action": "investigate",
+  "action_raw": "investigate",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "The quoted line matches the file byte for byte.",
+    "check:status_completed",
+    "check:mentions:OnUnitInactiveSec=1min"
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-26T15:45:57.564Z",
+  "created_by": "github-issue:othoth77",
+  "timeout_seconds": 600,
+  "model": "fable-5.1",
+  "model_raw": "Fable 5.1",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #483 https://github.com/othoth77/mythos-prod/issues/483 — \"[supervised] E2E-1 healthy: Haddad bridge timer interval\"\n\nrequested_action: investigate — source explicit_current_issue (written as \"investigate\") → execution profile repo-read\n\nmodel: fable-5.1 — source explicit_current_issue (written as \"Fable 5.1\")",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 483,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/483",
+    "issue_id": 5595222895,
+    "issue_node_id": "I_kwDOTnlaF88AAAABTYBTbw",
+    "issue_title": "TASK: [supervised] E2E-1 healthy: Haddad bridge timer interval",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-26T15:45:09Z",
+    "issue_updated_at": "2026-09-26T15:45:09Z",
+    "issue_labels": [
+      "task",
+      "mythos:supervised"
+    ],
+    "content_sha256": "4b4a12da61aa2a7778ed26610ed38732a6d706686c09c31d419c571d2e18a7ed",
+    "attempt": 1,
+    "attempt_id": "gh-issue-483#1",
+    "idempotency_key": "2638d2d44938671d18745bef08f5315e9c22e6f6c50a5fe692374016a88f12d9",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "investigate",
+      "action_raw": "investigate",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": "inline",
+          "line": 21
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "model_key": "fable-5.1",
+      "model_id": "claude-fable-5-1",
+      "model_raw": "Fable 5.1",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:fable-5.1 (requested \"Fable 5.1\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-26T15:45:57.566Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-26T15:45:57.566Z",
+        "event": "issue_received",
+        "reason": "open Issue #483 with label task",
+        "content_sha256": "4b4a12da61aa2a7778ed26610ed38732a6d706686c09c31d419c571d2e18a7ed"
+      },
+      {
+        "at": "2026-09-26T15:45:57.567Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → investigate (raw \"investigate\")"
+      },
+      {
+        "at": "2026-09-26T15:45:57.567Z",
+        "event": "profile_resolved",
+        "reason": "investigate → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-26T15:45:57.567Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → fable-5.1 (available)"
+      },
+      {
+        "at": "2026-09-26T15:45:59.942Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-483.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-26T15:45:57.567Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5847594204,
+        "url": "https://github.com/othoth77/mythos-prod/issues/483#issuecomment-5847594204",
+        "at": "2026-09-26T15:45:58.366Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:supervised"
+      ]
+    }
+  }
+}
