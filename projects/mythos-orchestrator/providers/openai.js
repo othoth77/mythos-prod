@@ -166,43 +166,93 @@ function parseResponse(statusCode, bodyText) {
   return Object.assign({ ok: true, advice: advice, error: null }, meta);
 }
 
+function codedError(code, message) {
+  var e = new Error(message);
+  e.code = code;
+  return e;
+}
+
 // Default transport: one HTTPS POST. Resolves { status, body } or rejects
-// with an Error carrying a `code` (ETIMEDOUT, ECONNRESET, ...).
-function httpsTransport(spec) {
+// with an Error carrying a `code`:
+//
+//   ETIMEDOUT           the HARD total deadline (spec.timeout_ms, measured
+//                       from the start of the call) passed — a slow-drip
+//                       response cannot extend it, unlike a socket idle timer
+//   RESPONSE_TRUNCATED  the connection closed before the full body arrived
+//   RESPONSE_TOO_LARGE  the body exceeded MAX_RESPONSE_BYTES
+//   (anything else)     the underlying request/socket error code
+//
+// Settles exactly once; every later event is ignored. `requestFn` defaults
+// to https.request (resolved at call time) and exists so the robustness
+// cases can be exercised offline with a scripted request/response pair.
+function httpsTransport(spec, requestFn) {
+  var request = requestFn || https.request;
   return new Promise(function (resolve, reject) {
+    var settled = false;
+    var req = null;
+    var timeoutMs = typeof spec.timeout_ms === 'number' && spec.timeout_ms > 0 ? spec.timeout_ms : 120000;
+
+    function finish(fn, value) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      fn(value);
+    }
+    function fail(err) {
+      if (settled) return;
+      finish(reject, err);
+      if (req) { try { req.destroy(); } catch (e) { /* already gone */ } }
+    }
+
+    var deadline = setTimeout(function () {
+      fail(codedError('ETIMEDOUT', 'request exceeded its total deadline of ' + timeoutMs + 'ms'));
+    }, timeoutMs);
+
     var endpoint = new URL(spec.url);
     var payload = JSON.stringify(spec.body);
     var headers = Object.assign({}, spec.headers, {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(payload)
     });
-    var req = https.request({
-      hostname: endpoint.hostname,
-      port: endpoint.port || 443,
-      path: endpoint.pathname + endpoint.search,
-      method: 'POST',
-      headers: headers
-    }, function (res) {
-      var chunks = [];
-      var size = 0;
-      res.on('data', function (d) {
-        size += d.length;
-        if (size > MAX_RESPONSE_BYTES) {
-          var tooBig = new Error('response exceeded size cap');
-          tooBig.code = 'RESPONSE_TOO_LARGE';
-          req.destroy(tooBig);
-          return;
+
+    try {
+      req = request({
+        hostname: endpoint.hostname,
+        port: endpoint.port || 443,
+        path: endpoint.pathname + endpoint.search,
+        method: 'POST',
+        headers: headers
+      }, function (res) {
+        var chunks = [];
+        var size = 0;
+        function truncated() {
+          fail(codedError('RESPONSE_TRUNCATED', 'connection closed before the full response arrived'));
         }
-        chunks.push(d);
+        res.on('data', function (d) {
+          if (settled) return;
+          size += d.length;
+          if (size > MAX_RESPONSE_BYTES) {
+            fail(codedError('RESPONSE_TOO_LARGE', 'response exceeded size cap'));
+            return;
+          }
+          chunks.push(d);
+        });
+        res.on('end', function () {
+          if (res.complete === false) return truncated();
+          finish(resolve, { status: res.statusCode, body: Buffer.concat(chunks).toString('utf8') });
+        });
+        // A mid-body close surfaces as 'aborted' and/or 'error' and always
+        // as 'close' without a complete message. Listening to 'error' also
+        // keeps an unhandled stream error from crashing the process.
+        res.on('aborted', truncated);
+        res.on('error', truncated);
+        res.on('close', function () { if (!res.complete) truncated(); });
       });
-      res.on('end', function () { resolve({ status: res.statusCode, body: Buffer.concat(chunks).toString('utf8') }); });
-    });
-    req.setTimeout(spec.timeout_ms, function () {
-      var t = new Error('request timed out');
-      t.code = 'ETIMEDOUT';
-      req.destroy(t);
-    });
-    req.on('error', reject);
+    } catch (e) {
+      fail(e);
+      return;
+    }
+    req.on('error', fail);
     req.end(payload);
   });
 }

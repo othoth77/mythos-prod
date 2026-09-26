@@ -309,16 +309,32 @@ Guarantees, each covered by `tests/mythos-orchestrator-openai-test.js`:
   `Authorization` header, never returned, logged, recorded or put in an
   error. Only OpenAI's error `type` and `code` are kept — an OpenAI 401
   message echoes part of the key, so it is discarded.
-- **Secret gate.** A question or context containing a credential pattern
-  (`lib/redact.js`) is refused before anything is sent.
+- **Secret gate.** A question or context containing a credential pattern is
+  refused before anything is sent. The gate is `lib/redact.js` (shared with
+  the task gate, unchanged) plus advisor-only patterns in `advisor.js`:
+  `Bearer` tokens, `Authorization: Basic` headers, Telegram bot tokens,
+  Stripe `sk_`/`rk_` live/test keys, bare 40-character AWS secret keys,
+  passwords stated in prose, and bare hex tokens of 32+ characters. Git
+  SHA-1s (exactly 40 hex) and labelled digests (`sha256:…`, `checksum …`)
+  are deliberately allowed, so ordinary GitHub context still passes. The
+  gate is pattern-based: never pass raw environment or log dumps.
+- **Untrusted context is fenced per call.** The context sits between
+  `BEGIN`/`END` lines carrying a fresh 128-bit random marker, so text inside
+  it cannot close the fence early.
 - **Never a false success.** HTTP errors, timeouts, truncated or refused
   answers, prose instead of JSON, and schema-invalid or over-long advice all
-  end `failed`, and a failed answer writes no record.
+  end `failed`, and a failed answer writes no record. If a VALID answer
+  cannot be recorded (`RECORD_WRITE_FAILED: <code>`), the outcome is
+  `failed` but still carries the answer, so a paid answer is never silently
+  lost; `advise()` never rejects.
 - **Risk floor.** `suggested_risk_class` is accepted only when it is at least
   as strict as `subject_risk_class` (approval-only > judgement >
   implementation). Advice can send work towards a human, never away from one.
-- **No retries, bounded output.** One request per call; `max_output_tokens`
-  and the timeout come from the role's config.
+- **No retries, bounded output, hard deadline.** One request per call;
+  `max_output_tokens` comes from the role's config. `timeout_seconds` is a
+  HARD total deadline from the start of the call — a slow-drip response
+  cannot extend it — and a connection that closes before the full body
+  arrives fails as `RESPONSE_TRUNCATED` at once.
 - **Upstream retention off.** Every request sets `store: false`.
 - **Context is not recorded.** The record keeps the question, the advice,
   usage and cost, plus the context's length and SHA-256 — not the context.
@@ -337,3 +353,6 @@ key file's presence and mode by `stat()` only (the file is never opened).
 | `failed` / `HTTP_401` | key revoked or wrong | owner rotates the key file |
 | `failed` / `INCOMPLETE` (`max_output_tokens`) | answer truncated | raise that role's `max_output_tokens` in config |
 | `rejected` / `SECRET_IN_REQUEST` | credential in question or context | remove it; never send secrets to the advisor |
+| `failed` / `TIMEOUT` | hard deadline (`timeout_seconds`) passed | retry later; raise `timeout_seconds` only with a reason |
+| `failed` / `NETWORK_ERROR` (`RESPONSE_TRUNCATED`) | connection closed mid-response | retry; nothing was recorded |
+| `failed` / `RECORD_WRITE_FAILED` | advice store not writable | the answer is in the outcome; fix the store permissions |

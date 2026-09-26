@@ -6,7 +6,7 @@
   "timeout_seconds": 120,
   "retries": 0,
   "roles": {
-    "smoke": { "model": "gpt-5.4-nano-2026-03-17", "reasoning": "low", "max_output_tokens": 200 },
+    "smoke": { "model": "gpt-5.4-nano-2026-03-17", "reasoning": "low", "max_output_tokens": 1000 },
     "triage": { "model": "gpt-5.4-mini-2026-03-17", "reasoning": "low", "max_output_tokens": 1500 },
     "plan": { "model": "gpt-5.5-2026-04-23", "reasoning": "medium", "max_output_tokens": 6000 },
     "review": { "model": "gpt-5.5-2026-04-23", "reasoning": "high", "max_output_tokens": 8000 }
