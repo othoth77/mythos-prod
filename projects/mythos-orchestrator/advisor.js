@@ -57,7 +57,18 @@ var ADVICE_SCHEMA = JSON.parse(fs.readFileSync(path.join(BASE, 'schemas', 'advic
 var SYSTEM_TEMPLATE_PATH = path.join(BASE, 'templates', 'advisor-system.md');
 
 var REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high'];
-var ROLES = ADVICE_SCHEMA.properties.role.enum;
+// Each role answers in its own strict schema. The four advice roles share
+// advice.schema.json; the supervisor roles (supervisor/) each have one.
+function loadSchema(name) { return JSON.parse(fs.readFileSync(path.join(BASE, 'schemas', name), 'utf8')); }
+var ROLE_SCHEMAS = {};
+ADVICE_SCHEMA.properties.role.enum.forEach(function (r) { ROLE_SCHEMAS[r] = ADVICE_SCHEMA; });
+['supervise-plan', 'supervise-review', 'supervise-diagnose'].forEach(function (name) {
+  var sch = loadSchema(name + '.schema.json');
+  sch.properties.role.enum.forEach(function (r) { ROLE_SCHEMAS[r] = sch; });
+});
+var ROLES = Object.keys(ROLE_SCHEMAS);
+
+function schemaFor(role) { return Object.prototype.hasOwnProperty.call(ROLE_SCHEMAS, role) ? ROLE_SCHEMAS[role] : null; }
 
 // Generic character caps — not a tokenizer, not a model limit.
 var LIMITS = {
@@ -108,7 +119,7 @@ function loadConfig(opts) {
   } else {
     Object.keys(roles).forEach(function (name) {
       var r = roles[name] || {};
-      if (ROLES.indexOf(name) === -1) errors.push('CONFIG_INVALID: role "' + name + '" is not in the advice schema');
+      if (ROLES.indexOf(name) === -1) errors.push('CONFIG_INVALID: role "' + name + '" has no answer schema');
       if (typeof r.model !== 'string' || !r.model) errors.push('CONFIG_INVALID: roles.' + name + '.model missing');
       if (REASONING_EFFORTS.indexOf(r.reasoning) === -1) errors.push('CONFIG_INVALID: roles.' + name + '.reasoning invalid');
       if (!Number.isInteger(r.max_output_tokens) || r.max_output_tokens < 16 || r.max_output_tokens > 32000) {
@@ -254,11 +265,32 @@ function applyRiskFloor(subjectClass, advice) {
 // Advice validation
 // ---------------------------------------------------------------------------
 
+// Generic caps for the supervisor schemas (the advice schema keeps its own).
+var GENERIC_LIMITS = { total_chars: 40000, array_items: 40, string_chars: 6000 };
+
+function genericCaps(value, where, errors) {
+  if (typeof value === 'string') {
+    if (value.length > GENERIC_LIMITS.string_chars) errors.push('ADVICE_TOO_LONG: ' + where);
+  } else if (Array.isArray(value)) {
+    if (value.length > GENERIC_LIMITS.array_items) errors.push('ADVICE_TOO_LONG: ' + where);
+    value.forEach(function (v, i) { genericCaps(v, where + '[' + i + ']', errors); });
+  } else if (value && typeof value === 'object') {
+    Object.keys(value).forEach(function (k) { genericCaps(value[k], where + '.' + k, errors); });
+  }
+}
+
 function validateAdvice(advice, role) {
-  var res = schema.validate(advice, ADVICE_SCHEMA);
+  var sch = schemaFor(role);
+  if (!sch) return ['ROLE_UNKNOWN: ' + role];
+  var res = schema.validate(advice, sch);
   var errors = res.valid ? [] : res.errors.slice();
   if (!res.valid) return errors;
   if (advice.role !== role) errors.push('ROLE_MISMATCH: asked for ' + role + ', advice claims ' + advice.role);
+  if (sch !== ADVICE_SCHEMA) {
+    if (JSON.stringify(advice).length > GENERIC_LIMITS.total_chars) errors.push('ADVICE_TOO_LONG: total');
+    genericCaps(advice, 'advice', errors);
+    return errors;
+  }
   if (advice.summary.length > LIMITS.summary_chars) errors.push('ADVICE_TOO_LONG: summary');
   if (advice.findings.length > LIMITS.findings) errors.push('ADVICE_TOO_LONG: findings');
   advice.findings.forEach(function (f, i) {
@@ -355,7 +387,7 @@ function advise(req, opts) {
   var roleCfg = cfg.roles[req.role];
   var built = openai.buildRequest(
     { role: req.role, instructions: renderInstructions(req.role), text: renderInput(req) },
-    roleCfg, cfg, ADVICE_SCHEMA);
+    roleCfg, cfg, schemaFor(req.role));
 
   // The shipped switch decides; a caller's config can only narrow it.
   var authoritative = shippedEnabled();
@@ -462,6 +494,8 @@ module.exports = {
   adviceRoot: adviceRoot,
   doctorInfo: doctorInfo,
   ADVICE_SCHEMA: ADVICE_SCHEMA,
+  ROLE_SCHEMAS: ROLE_SCHEMAS,
+  schemaFor: schemaFor,
   CONFIG_PATH: CONFIG_PATH,
   LIMITS: LIMITS
 };

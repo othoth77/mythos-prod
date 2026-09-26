@@ -1351,7 +1351,7 @@ function buildReport(cfg, task, finalStatus, opts) {
     task_id: task.task_id,
     attempt_id: exec.attempt_id || attemptIdOf(task),
     status: finalStatus,
-    summary: String(summary).slice(0, 20000),
+    summary: reporting.summaryText(summary, 20000), // never "[object Object]"
     resolution: {
       requested_action: task.requested_action,
       action_raw: task.action_raw || null,
