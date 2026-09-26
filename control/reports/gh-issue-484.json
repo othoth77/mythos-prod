@@ -1,0 +1,141 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-484",
+  "attempt_id": "gh-issue-484#1",
+  "status": "COMPLETED",
+  "summary": "Read-only investigate task. Read all six files in full with the Read tool (quota.js 301 lines, policy.js 205, report.js 234, state.js 229, model-policy.js 432, executor.js 1928 in two pages) and wrote a two-sentence summary of each. lib/quota.js: classifies every failed provider run into one of six categories (quota, transient, permission, governance, human, permanent) by matching ordered regex pattern sets over the provider's result text and logs, with quota winning over transient and governance over permission; it also parses quota reset times, schedules quota resumes with a grace period or stepped backoff, and computes bounded exponential retry delays with additive jitter, exposing the retry policy as data. lib/policy.js: defines the execution profile catalogue (repo-read, repo-write, repo-test, autonomous, disabled deploy), each mapping to an exact set of allowed/disallowed Claude Code tools and a permission mode with sudo never grantable; it renders a profile two ways from one source of truth, as claude CLI flags and as a parsed tool grant for an in-process runner, refusing unknown or disabled profiles loudly. lib/report.js: extracts the mandatory mythos_report from a provider's final message via fenced json blocks, bare JSON or balanced embedded objects, recovering a doubled object inside one fence while refusing anything not declaring mythos_report true, and returns a precise diagnosable error when none is found; it validates the minimal shape, renders the redacted Markdown report, and synthesises a marked structured report for runs that produced none or never reached the provider. lib/state.js: the persistent per-task store outside the source tree (task, status, checkpoint, report, prompt, logs, events) guarded against path traversal by a strict task-id slug and re-verified resolved paths; it writes atomically via tmp-plus-rename, redacts before persistence, defines the lifecycle statuses and legal transition table enforced by a single transition chokepoint that appends to events.log, and detects interrupted RUNNING tasks whose pid is gone. lib/model-policy.js: decides which Claude model runs, honouring or refusing an explicit request without substitution and otherwise scoring the task against a deterministic signal table onto the fast/balanced/deep tier so --model is always passed; it strictly validates config/model-policy.json, falls back loudly to a conservative built-in policy, and only regex-safe catalog model ids can reach argv, with fable never auto-selectable. executor.js: the core engine that creates validated task records (refusing forbidden capability fields, secrets, action/profile mismatches, disallowed models, malformed lanes), resolves role/skill/MCP capabilities server-side, and runs one task at a time through a provider with preflight invariant checks, prompt construction, checkpoints and lifecycle events; on completion it extracts and Git-verifies the report, delivers validator-measured work, settles the final state, classifies failures via quota.js into quota waits, bounded retries or terminal states, and hosts the daemon tick loop, resource-guard admission, capacity-gated dispatch and health. Worktree verified clean on mythos/gh/gh-issue-484 at fe315aeb before and after; no files created or changed. The optional OTHMODE task-record update (othmode-cli task update OTH-2026-01919) was not performed: running node under the repo-read profile required an approval that was not granted, so the record stays as the bridge created it. FILES-SUMMARISED-6",
+  "resolution": {
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "model_requested": "Fable 5.1",
+    "model_key": "fable-5.1",
+    "model": "claude-fable-5-1",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "base_sha": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "branch": "mythos/gh/gh-issue-484",
+    "commit_sha": null
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "b2487ee1a5ba6b22c834f3ba2f0ce49fed2732de",
+    "branch": "main",
+    "dirty_files": 1,
+    "base_ref": "origin/main",
+    "base_ref_head": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": true,
+    "code": "RUNTIME_STALE_CHECKOUT",
+    "reason": "checkout HEAD b2487ee1a5ba is behind origin/main fe315aeb395e — the running bridge is older than what is delivered",
+    "measured_at": "2026-09-26T15:54:57.143Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Read-only investigate task. Read all six files in full with the Read tool (quota.js 301 lines, policy.js 205, report.js 234, state.js 229, model-policy.js 432, executor.js 1928 in two pages) and wrote a two-sentence summary of each. lib/quota.js: classifies every failed provider run into one of six categories (quota, transient, permission, governance, human, permanent) by matching ordered regex pattern sets over the provider's result text and logs, with quota winning over transient and governance over permission; it also parses quota reset times, schedules quota resumes with a grace period or stepped backoff, and computes bounded exponential retry delays with additive jitter, exposing the retry policy as data. lib/policy.js: defines the execution profile catalogue (repo-read, repo-write, repo-test, autonomous, disabled deploy), each mapping to an exact set of allowed/disallowed Claude Code tools and a permission mode with sudo never grantable; it renders a profile two ways from one source of truth, as claude CLI flags and as a parsed tool grant for an in-process runner, refusing unknown or disabled profiles loudly. lib/report.js: extracts the mandatory mythos_report from a provider's final message via fenced json blocks, bare JSON or balanced embedded objects, recovering a doubled object inside one fence while refusing anything not declaring mythos_report true, and returns a precise diagnosable error when none is found; it validates the minimal shape, renders the redacted Markdown report, and synthesises a marked structured report for runs that produced none or never reached the provider. lib/state.js: the persistent per-task store outside the source tree (task, status, checkpoint, report, prompt, logs, events) guarded against path traversal by a strict task-id slug and re-verified resolved paths; it writes atomically via tmp-plus-rename, redacts before persistence, defines the lifecycle statuses and legal transition table enforced by a single transition chokepoint that appends to events.log, and detects interrupted RUNNING tasks whose pid is gone. lib/model-policy.js: decides which Claude model runs, honouring or refusing an explicit request without substitution and otherwise scoring the task against a deterministic signal table onto the fast/balanced/deep tier so --model is always passed; it strictly validates config/model-policy.json, falls back loudly to a conservative built-in policy, and only regex-safe catalog model ids can reach argv, with fable never auto-selectable. executor.js: the core engine that creates validated task records (refusing forbidden capability fields, secrets, action/profile mismatches, disallowed models, malformed lanes), resolves role/skill/MCP capabilities server-side, and runs one task at a time through a provider with preflight invariant checks, prompt construction, checkpoints and lifecycle events; on completion it extracts and Git-verifies the report, delivers validator-measured work, settles the final state, classifies failures via quota.js into quota waits, bounded retries or terminal states, and hosts the daemon tick loop, resource-guard admission, capacity-gated dispatch and health. Worktree verified clean on mythos/gh/gh-issue-484 at fe315aeb before and after; no files created or changed. The optional OTHMODE task-record update (othmode-cli task update OTH-2026-01919) was not performed: running node under the repo-read profile required an approval that was not granted, so the record stays as the bridge created it. FILES-SUMMARISED-6",
+    "tests": [
+      "Six summaries, one per listed file: done (quota.js, policy.js, report.js, state.js, model-policy.js, executor.js)",
+      "check:mentions:FILES-SUMMARISED-6: present in summary",
+      "git status --short in worktree: clean before and after (no changes made)",
+      "git rev-parse HEAD: fe315aeb395e58b3cb8bfbaeb759e81ff833af38 (unchanged base)",
+      "othmode-cli task update: NOT RUN (command required approval under repo-read profile)"
+    ],
+    "commit": null,
+    "remote_head": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "files_changed": [],
+    "residual_risks": [
+      "OTHMODE Task record OTH-2026-01919 was not advanced from this run; the bridge must close it from this report."
+    ],
+    "next_stage": "Bridge verifies this report against the acceptance criteria and closes OTH-2026-01919; no code follow-up required."
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "Six summaries, one per listed file: done (quota.js, policy.js, report.js, state.js, model-policy.js, executor.js)",
+    "check:mentions:FILES-SUMMARISED-6: present in summary",
+    "git status --short in worktree: clean before and after (no changes made)",
+    "git rev-parse HEAD: fe315aeb395e58b3cb8bfbaeb759e81ff833af38 (unchanged base)",
+    "othmode-cli task update: NOT RUN (command required approval under repo-read profile)"
+  ],
+  "validation": {
+    "git_verified": null,
+    "remote_head": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "report_problems": [],
+    "required_checks": [
+      "Six summaries, one per listed file.",
+      "check:status_completed",
+      "check:mentions:FILES-SUMMARISED-6"
+    ]
+  },
+  "problems": [],
+  "risks": [
+    "OTHMODE Task record OTH-2026-01919 was not advanced from this run; the bridge must close it from this report."
+  ],
+  "next_recommended_action": "Bridge verifies this report against the acceptance criteria and closes OTH-2026-01919; no code follow-up required.",
+  "completed_at": "2026-09-26T15:58:49.306Z",
+  "execution": {
+    "executor_task_id": "t-20260926155458-9leuyo",
+    "othmode_task_id": "OTH-2026-01919",
+    "execution_profile": "repo-read",
+    "provider": "claude-code",
+    "model": "claude-fable-5-1",
+    "model_requested": "Fable 5.1",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "investigate",
+    "attempt_id": "gh-issue-484#1",
+    "fence": 77093,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:1958111",
+      "fence": 77093,
+      "acquired_at": "2026-09-26T15:54:58.376Z",
+      "expires_at": "2026-09-26T16:25:58.376Z"
+    },
+    "snapshot_sha256": "2dd3fbc42d59fa8c733d5d4ab11d45b194482ed003cc545cec39de789396453d",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "claude_session_id": "eba147db-5045-458c-b97f-dc05bd05a6c2",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-26T15:55:06.209Z",
+    "ended_at": "2026-09-26T15:58:11.725Z",
+    "retries": 1,
+    "last_failure": {
+      "category": "transient",
+      "code": null,
+      "retryable": true,
+      "timed_out": true,
+      "classified_at": "2026-09-26T15:56:06.792Z"
+    },
+    "retry_backoff": {
+      "attempt": 1,
+      "max_retries": 2,
+      "base_ms": 60000,
+      "delay_ms": 71332,
+      "jitter": "additive",
+      "max_ms": 1800000
+    },
+    "transition_reason": "provider timed out — retry 1/2 after 71332 ms (base 60000 ms, additive jitter)",
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 2.6932065,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-484",
+    "branch": "mythos/gh/gh-issue-484",
+    "base_commit": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-484",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
