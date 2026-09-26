@@ -1,0 +1,15 @@
+{
+  "_comment": "OpenAI advisor model configuration. NO SECRETS: the key lives only in key_file (mode 0600, outside Git) and is read at call time. Shipped DISABLED: enabling is a separate owner-approved change. Models are dated snapshots so an upstream alias move cannot silently change behaviour. price_per_mtok stays null until the owner fills it from OpenAI's pricing page; until then cost is reported as tokens only.",
+  "enabled": false,
+  "key_file": "~/.config/mythos-orchestrator/openai.env",
+  "base_url": "https://api.openai.com/v1",
+  "timeout_seconds": 120,
+  "retries": 0,
+  "roles": {
+    "smoke": { "model": "gpt-5.4-nano-2026-03-17", "reasoning": "low", "max_output_tokens": 200 },
+    "triage": { "model": "gpt-5.4-mini-2026-03-17", "reasoning": "low", "max_output_tokens": 1500 },
+    "plan": { "model": "gpt-5.5-2026-04-23", "reasoning": "medium", "max_output_tokens": 6000 },
+    "review": { "model": "gpt-5.5-2026-04-23", "reasoning": "high", "max_output_tokens": 8000 }
+  },
+  "price_per_mtok": null
+}

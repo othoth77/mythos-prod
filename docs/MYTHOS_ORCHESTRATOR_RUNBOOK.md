@@ -258,3 +258,82 @@ stay within the structured-output subset: all properties required,
 | `PROVIDER_UNAVAILABLE` | CLI missing or not authenticated for `deploy` | run `doctor`; check `~/.codex/auth.json` exists for `deploy` |
 | `verification_failed` | Git disagrees with the worker's claims | **never** report complete; read `verification.failures` |
 | notify `send-failed-nonfatal` | notification endpoint unreachable | ignore; it cannot affect task status |
+
+---
+
+## 10. OpenAI advisor (reasoning, planning, review)
+
+The advisor asks OpenAI one question and returns a structured answer. It is
+**advisory only**: it never dispatches a task, never touches Git, never
+changes a routing decision and has no tools, shell or working directory.
+It is not a worker provider — `runner.PROVIDERS` is still exactly `codex` and
+`claude`, and the router is unchanged.
+
+| Piece | Where |
+|---|---|
+| Code | `advisor.js`, `providers/openai.js` |
+| Answer contract | `schemas/advice.schema.json` (also sent to OpenAI as a strict `json_schema`) |
+| System prompt | `templates/advisor-system.md` |
+| Models, limits, on/off switch | `config/openai.json` — no secrets |
+| Credential | `~/.config/mythos-orchestrator/openai.env` for `deploy`, mode 600, one line `OPENAI_API_KEY=<set by owner>` |
+| Recorded answers | `<orchestrator home>/advice/<advice-id>.json`, mode 600 |
+
+**Shipped disabled.** `config/openai.json` has `"enabled": false`; while it
+does, `advise` returns `disabled` and sends nothing. Enabling is a separate,
+owner-approved change to that one field. Rolling back is the same edit.
+
+A request:
+
+```json
+{ "advice_id": "review-pr-0001", "role": "review",
+  "question": "Is this change safe to merge?",
+  "context": "<diff or issue text>",
+  "subject_risk_class": "CODE_IMPLEMENTATION" }
+```
+
+```bash
+node scripts/mythos-orchestrate.js advise request.json --dry-run
+```
+
+```bash
+node scripts/mythos-orchestrate.js advise request.json
+```
+
+`--dry-run` prints the exact request body (never the key) and sends nothing.
+Exit codes: `0` completed or dry-run · `1` usage · `2` rejected · `3`
+disabled or blocked · `4` failed.
+
+Guarantees, each covered by `tests/mythos-orchestrator-openai-test.js`:
+
+- **Key handling.** Read from the key file at call time, used for one
+  `Authorization` header, never returned, logged, recorded or put in an
+  error. Only OpenAI's error `type` and `code` are kept — an OpenAI 401
+  message echoes part of the key, so it is discarded.
+- **Secret gate.** A question or context containing a credential pattern
+  (`lib/redact.js`) is refused before anything is sent.
+- **Never a false success.** HTTP errors, timeouts, truncated or refused
+  answers, prose instead of JSON, and schema-invalid or over-long advice all
+  end `failed`, and a failed answer writes no record.
+- **Risk floor.** `suggested_risk_class` is accepted only when it is at least
+  as strict as `subject_risk_class` (approval-only > judgement >
+  implementation). Advice can send work towards a human, never away from one.
+- **No retries, bounded output.** One request per call; `max_output_tokens`
+  and the timeout come from the role's config.
+- **Upstream retention off.** Every request sets `store: false`.
+- **Context is not recorded.** The record keeps the question, the advice,
+  usage and cost, plus the context's length and SHA-256 — not the context.
+
+Cost is reported as tokens. It is also reported in USD once `price_per_mtok`
+is filled in `config/openai.json` from OpenAI's pricing page, keyed by model:
+`{ "<model>": { "input": <usd per 1M>, "output": <usd per 1M> } }`.
+
+`doctor` shows the advisor's state — enabled flag, model per role, and the
+key file's presence and mode by `stat()` only (the file is never opened).
+
+| Symptom | Cause | Action |
+|---|---|---|
+| `disabled` / `ADVISOR_DISABLED` | shipped default | enabling is an owner decision |
+| `blocked` / `PROVIDER_UNAVAILABLE` | key file missing or empty for this user | check `doctor`; the owner writes the key file |
+| `failed` / `HTTP_401` | key revoked or wrong | owner rotates the key file |
+| `failed` / `INCOMPLETE` (`max_output_tokens`) | answer truncated | raise that role's `max_output_tokens` in config |
+| `rejected` / `SECRET_IN_REQUEST` | credential in question or context | remove it; never send secrets to the advisor |
