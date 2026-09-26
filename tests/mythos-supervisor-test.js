@@ -1068,6 +1068,98 @@ async function main() {
   ok(nRetries + 1 === BASE_CFG.haddad_max_attempts && worstBackoff <= BASE_CFG.haddad_retry_backoff_worst_seconds,
     '18 the Haddad retry budget matches the executor code (max_retries ' + nRetries + ', worst backoff ' + Math.round(worstBackoff) + ' s ≤ ' + BASE_CFG.haddad_retry_backoff_worst_seconds + ' s)');
 
+  section('19. Qwen consult contract — live E2E t4 (Issue #488)');
+  // What Haddad really delivers is its final {"mythos_report": true, ...}
+  // block; any other JSON block is dropped by extractReport and the summary is
+  // a STRING. The pipeline below is the real one for a string summary:
+  // lib/report.js extractReport (identical for strings to the Haddad runtime
+  // 2ab1512f) → the bridge's Summary rendering (github-issues.js:
+  // '#### Summary' + short(summary, 6000)) → normalizeAnswer → parseAnswer.
+  var T4_PROSE = 'The script is designed to run in strict mode, but was run with an unsupported mode (--mode=loose). The recovery task is to run the self-check command in strict mode to ensure the script runs correctly.';
+  function haddadComment(finalMessage, legacyString) {
+    var ex = legacyString ? { report: JSON.parse(/```json\n([\s\S]*?)```/.exec(finalMessage)[1]) } : R.extractReport(finalMessage);
+    if (!ex.report) return null;
+    var s = legacyString ? String(ex.report.summary) : String(ex.report.summary == null ? '' : ex.report.summary);
+    s = s.length > 6000 ? s.slice(0, 5999) + '…' : s;
+    return '<!-- mythos-control task_id=gh-issue-488 event=report status=COMPLETED -->\n### MYTHOS TASK COMPLETED — `gh-issue-488`\n\n| Report | x |\n\n#### Summary\n\n' + s +
+      '\n\n#### Files changed\n\n- none\n\n#### Problems / risks\n\n- no problems\n';
+  }
+  function finalMsg(summary, before) {
+    return (before === undefined ? 'Diagnosis complete.' : before) + '\n```json\n' +
+      JSON.stringify({ mythos_report: true, status: 'completed', summary: summary, files_changed: [], tests: [], commit: null, residual_risks: [] }) + '\n```';
+  }
+  var t4Task = { task_id: 'SUP-T4', spec: { objective: 'run the self-check', action: 'test', acceptance_criteria: ['check:status_completed'], timeout_seconds: 600 } };
+  function consultOutcome(finalMessage, legacyString) {
+    var body = haddadComment(finalMessage, legacyString);
+    if (body === null) return 'NO_REPORT';
+    var n = qwenMod.normalizeAnswer(body);
+    if (!n.ok) return n.reason.split(':')[0];
+    var p = qwenMod.parseAnswer(n.answer, t4Task);
+    return p.ok ? 'OK' : p.reason.split(':')[0];
+  }
+  var t4Diag = { classification: 'SPEC_ERROR', diagnosis: 'the objective passes --mode=loose but the self-check supports only --mode=strict', recoverable: true,
+    recovery_task: { title: 'Rerun the self-check in strict mode', objective: 'Run the self-check with --mode=strict and quote its output line verbatim.', scope: ['repository root'],
+      constraints: ['read-only'], validation: ['the output line is quoted verbatim'], acceptance_criteria: ['check:status_completed'], action: 'test', timeout_seconds: 600 },
+    what_changes: 'the mode argument', human_action: null, confidence: 'medium' };
+  function withDiag(o) { return Object.assign(JSON.parse(JSON.stringify(t4Diag)), o); }
+
+  // (1) the contract the consult now asks for is accepted end to end
+  var accepted = qwenMod.normalizeAnswer(haddadComment(finalMsg(JSON.stringify(t4Diag))));
+  ok(consultOutcome(finalMsg(JSON.stringify(t4Diag))) === 'OK' && consultOutcome(finalMsg(JSON.stringify(t4Diag, null, 2))) === 'OK' &&
+    accepted.ok && accepted.answer.classification === 'SPEC_ERROR' && accepted.answer.recovery_task.action === 'test',
+    '19 a diagnosis serialized as JSON text in mythos_report.summary (compact or pretty) survives Haddad extraction and is accepted');
+  // (2) the exact t4/#488 prose stays QWEN_NO_JSON — directly and through the pipeline
+  ok(qwenMod.normalizeAnswer(haddadComment(finalMsg(T4_PROSE))).reason === 'QWEN_NO_JSON: no diagnosis object in the summary' && consultOutcome(finalMsg(T4_PROSE)) === 'QWEN_NO_JSON',
+    '19 the exact live t4/#488 prose summary is still QWEN_NO_JSON (golden)');
+  // (3) plain prose is never a diagnosis, whatever it says
+  var proseOut = ['Classification: SPEC_ERROR. Recoverable: yes. Confidence: high. Recovery: rerun with --mode=strict.',
+    'The loose {mode} is unsupported; use {strict}.', 'classification SPEC_ERROR recoverable true', ''].map(function (s) { return consultOutcome(finalMsg(s)); });
+  ok(proseOut.every(function (r) { return r === 'QWEN_NO_JSON'; }), '19 plain prose (diagnosis-like, with braces, key words, empty) is rejected ' + JSON.stringify(proseOut));
+  // (4) the t4 failure mode: a correct diagnosis in a SEPARATE block is dropped by Haddad → still refused
+  ok(consultOutcome(finalMsg(T4_PROSE, 'Diagnosis:\n```json\n' + JSON.stringify(t4Diag) + '\n```\n')) === 'QWEN_NO_JSON',
+    '19 a diagnosis in a separate JSON block (discarded by Haddad) is not recovered from anywhere else — QWEN_NO_JSON');
+  // (5) malformed / truncated JSON text is refused
+  var malOut = ['{"classification": "SPEC_ERROR", "recoverable": true, oops}', JSON.stringify(t4Diag).slice(0, -12),
+    "{'classification': 'SPEC_ERROR', 'recoverable': true}"].map(function (s) { return consultOutcome(finalMsg(s)); });
+  ok(malOut[0] === 'QWEN_MALFORMED' && malOut.every(function (r) { return r === 'QWEN_MALFORMED' || r === 'QWEN_NO_JSON'; }),
+    '19 malformed, truncated or single-quoted diagnosis text is refused ' + JSON.stringify(malOut));
+  // (6) schema-invalid diagnoses are refused
+  var invOut = [withDiag({ classification: 'ROOT_ACCESS' }), withDiag({ extra_power: 'root' }), withDiag({ confidence: 'certain' }),
+    (function () { var d = withDiag({}); delete d.diagnosis; return d; })(), withDiag({ recoverable: 'yes' })].map(function (d) { return consultOutcome(finalMsg(JSON.stringify(d))); });
+  ok(invOut.every(function (r) { return r === 'QWEN_INVALID'; }), '19 schema-invalid diagnoses (unknown class, extra field, bad enum, missing field, wrong type) are refused ' + JSON.stringify(invOut));
+  // (7) more than one diagnosis is refused
+  ok(consultOutcome(finalMsg(JSON.stringify(t4Diag) + ' ' + JSON.stringify(withDiag({ classification: 'OTHER' })))) === 'QWEN_AMBIGUOUS' &&
+    consultOutcome(finalMsg(JSON.stringify(t4Diag) + '\n' + JSON.stringify(withDiag({ diagnosis: 'another cause' })))) === 'QWEN_AMBIGUOUS',
+    '19 two different diagnoses in the summary are refused (QWEN_AMBIGUOUS)');
+  // (8) low confidence / HUMAN_REQUIRED / not recoverable still escalate
+  var escOut = [withDiag({ confidence: 'low' }), withDiag({ classification: 'HUMAN_REQUIRED' }), withDiag({ recoverable: false, human_action: 'owner must choose the mode' })]
+    .map(function (d) { return consultOutcome(finalMsg(JSON.stringify(d))); });
+  ok(JSON.stringify(escOut) === JSON.stringify(['QWEN_UNCERTAIN', 'QWEN_NOT_RECOVERABLE', 'QWEN_NOT_RECOVERABLE']),
+    '19 low confidence, HUMAN_REQUIRED and recoverable:false still escalate ' + JSON.stringify(escOut));
+  // (9) why the channel must be a STRING: the live Haddad (2ab1512f) String()s an object summary
+  ok(consultOutcome(finalMsg(t4Diag), true) === 'QWEN_SUMMARY_LOST',
+    '19 an object summary under the live Haddad runtime renders as [object Object] and fails closed (QWEN_SUMMARY_LOST)');
+  // (10) the consult names the real channel, and its own illustrative example can never pass as an answer
+  var reqT4 = qwenMod.request(t4Task, { cls: 'TEST_FAILURE', kind: 'EXECUTION_FAILED', detail: 'selfcheck: 0 passed, 1 failed' }, [], BASE_CFG);
+  var exampleLine = reqT4.objective.split('\n').filter(function (l) { return /^Final block shape: /.test(l); })[0] || '';
+  var exampleSummary = exampleLine ? JSON.parse(exampleLine.replace(/^Final block shape: /, '')).summary : null;
+  ok(/only your final mythos_report block is delivered/.test(reqT4.objective) && /Do NOT put the diagnosis in a separate JSON block/.test(reqT4.objective) &&
+    /"summary" field of that mythos_report block MUST be a string/.test(reqT4.objective) && /serialized as JSON text/.test(reqT4.objective) &&
+    /no prose/.test(reqT4.objective) && /"action": "test"/.test(reqT4.objective) && /mythos_report\.summary/.test(reqT4.constraints[0]) &&
+    typeof exampleSummary === 'string' && consultOutcome(finalMsg(exampleSummary)) === 'QWEN_MALFORMED',
+    '19 the consult objective names mythos_report.summary as the only channel; echoing its example verbatim is refused (QWEN_MALFORMED)');
+  ok(cO.parsed && cO.parsed.task && cO.parsed.task.objective.indexOf('DELIVERY: only your final mythos_report block is delivered') !== -1,
+    '19 the new consult objective round-trips the REAL bridge Issue parser intact');
+  // (11) end to end in the simulated world: Qwen answers with the exact t4 prose → escalated once, never executed, consult closed
+  var eP = fresh(qScript, null, null, function () { return T4_PROSE; });
+  var tP = structured(eP.sup);
+  var rP = await runUntil(eP, tP.task_id, 30);
+  var cP = store.loadTask(tP.task_id).consult;
+  var escP = store.readJournal(function (e) { return e.task_id === tP.task_id && e.event === 'qwen_escalated'; });
+  ok(rP.t.status === 'COMPLETED' && oaCount(eP, 'supervise_diagnose') === 1 && escP.length === 1 && /^QWEN_NO_JSON/.test(escP[0].why) && cP.closed &&
+    eP.w.issues[cP.issue_number].state === 'closed' && !allTasks().some(function (t) { return t.diagnosis && t.diagnosis.tier === 'QWEN' && t.parent_task_id === tP.task_id; }),
+    '19 E2E: the t4 prose answer escalates to OpenAI exactly once, is never executed, and the consult is settled and closed' + dbg(eP, tP.task_id));
+
   section('13. Hygiene');
   var everything = JSON.stringify(allTasks()) + fs.readFileSync(path.join(process.env.MYTHOS_SUPERVISOR_HOME, 'journal.jsonl'), 'utf8');
   ok(everything.indexOf(FAKE_KEY) === -1, '13 no task file or journal line contains the key');
