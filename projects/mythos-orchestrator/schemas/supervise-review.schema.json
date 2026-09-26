@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mythos Supervisor Review",
+  "description": "OpenAI supervisor: verify an execution report against the task's acceptance criteria. ACCEPT is advisory until the supervisor's deterministic checks also pass (report COMPLETED, every criterion met, confidence not low). Process exit is never success on its own.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "role",
+    "verdict",
+    "criteria",
+    "findings",
+    "human_action",
+    "confidence"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "1.0.0"
+      ]
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "supervise_review"
+      ]
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "ACCEPT",
+        "REJECT",
+        "BLOCK"
+      ]
+    },
+    "criteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "criterion",
+          "met",
+          "evidence"
+        ],
+        "properties": {
+          "criterion": {
+            "type": "string"
+          },
+          "met": {
+            "type": "boolean"
+          },
+          "evidence": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "human_action": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    }
+  }
+}

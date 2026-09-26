@@ -1,0 +1,127 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mythos Supervisor Plan",
+  "description": "OpenAI supervisor: turn an owner objective into ONE executable bridge task for the FABLE executor. Also sent to OpenAI as a strict json_schema, so it stays inside the structured-output subset (all properties required, additionalProperties false, no pattern/min/max). The supervisor re-checks every field deterministically; nothing here grants authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "role",
+    "task",
+    "risk_class",
+    "requires_human_approval",
+    "human_reason",
+    "rationale"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "1.0.0"
+      ]
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "supervise_plan"
+      ]
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "objective",
+        "scope",
+        "constraints",
+        "validation",
+        "acceptance_criteria",
+        "action",
+        "timeout_seconds"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "objective": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "validation": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "acceptance_criteria": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "investigate",
+            "review",
+            "test",
+            "document",
+            "implement"
+          ]
+        },
+        "timeout_seconds": {
+          "type": "integer"
+        }
+      }
+    },
+    "risk_class": {
+      "type": "string",
+      "enum": [
+        "ARCHITECTURE",
+        "DESIGN",
+        "SECURITY_REVIEW",
+        "FINAL_REVIEW",
+        "PORTFOLIO_DECISION",
+        "AMBIGUOUS_REQUIREMENTS",
+        "CROSS_PROJECT_DECISION",
+        "CODE_IMPLEMENTATION",
+        "REFACTOR",
+        "TEST_IMPLEMENTATION",
+        "BUG_FIX",
+        "STATIC_ANALYSIS",
+        "MIGRATION_IMPLEMENTATION",
+        "CLI_TOOLING",
+        "REPETITIVE_CODE_CHANGES",
+        "HIGH_RISK_INFRA",
+        "PRODUCTION_DEPLOYMENT",
+        "AUTH",
+        "DNS_MUTATION",
+        "DESTRUCTIVE_DB",
+        "SECRET_ROTATION"
+      ]
+    },
+    "requires_human_approval": {
+      "type": "boolean"
+    },
+    "human_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rationale": {
+      "type": "string"
+    }
+  }
+}
