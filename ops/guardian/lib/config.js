@@ -157,6 +157,9 @@ var DEFAULTS = {
       { id: 'n8n', container: 'n8n-n8n-1', class: 'production' },
       { id: 'evolution-api', container: 'evolution-api', class: 'production' },
       { id: 'darhijama-app', container: 'dar-hijama-production-app-1', class: 'production' },
+      { id: 'darhijama-web', container: 'dar-hijama-production-web-1', class: 'production' },
+      { id: 'darhijama-queue', container: 'dar-hijama-production-queue-1', class: 'production' },
+      { id: 'darhijama-scheduler', container: 'dar-hijama-production-scheduler-1', class: 'production' },
       { id: 'omniroute', container: 'omniroute', class: 'support' }
     ]
   },
