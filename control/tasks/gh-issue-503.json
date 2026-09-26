@@ -20,7 +20,7 @@
     "check:status_completed",
     "check:tests_pass_for:tests/mythos-t6-loop-target.js"
   ],
-  "status": "IN_PROGRESS",
+  "status": "FAILED",
   "created_at": "2026-09-26T20:51:07.567Z",
   "created_by": "github-issue:othoth77",
   "timeout_seconds": 600,
@@ -174,8 +174,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "5efde36b571a799c65d3c7888042266435d1628f3c53fa4db48a5ed69c9f1d6f",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-26T20:52:28.218Z",
+    "executor_status": "FAILED",
+    "updated_at": "2026-09-26T20:53:39.143Z",
     "snapshot_sha256": "34f6baea8b8fe2f5c9ce1ce92df7a5ab3e432675e1d18bb22f42bc218126a2c7",
     "fence": 77795,
     "lease": {
@@ -204,7 +204,13 @@
     },
     "model": "claude-fable-5-1",
     "model_selection_mode": "explicit",
-    "claude_session_id": "addefa70-af40-4a16-af35-247d51a509ae"
+    "claude_session_id": "addefa70-af40-4a16-af35-247d51a509ae",
+    "blocker": {
+      "code": "PROVIDER_FAILED",
+      "reason": "Ran the guard command 'node tests/mythos-t6-loop-target.js' from the repository root of worktree /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-503 (branch mythos/gh/gh-issue-503, HEAD 4c15f1baa29449daf133ada7502721ed668f28ba, clean). It exited 1 with 2 passed, 1 failed; a second run gave the identical summary, so the failure is deterministic and PRE-EXISTING on the unmodified baseline (the fixture is the T6 loop-protection target from commit 6effe527, designed to be unrepairable). The te",
+      "retryable": true
+    },
+    "report_file": "control/reports/gh-issue-503.json"
   },
   "history": [
     {
@@ -220,6 +226,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-26T20:53:38.421Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended FAILED; building report"
+    },
+    {
+      "at": "2026-09-26T20:53:39.143Z",
+      "from": "VALIDATING",
+      "to": "FAILED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 5 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }

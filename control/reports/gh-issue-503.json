@@ -1,0 +1,139 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-503",
+  "attempt_id": "gh-issue-503#1",
+  "status": "FAILED",
+  "summary": "Ran the guard command 'node tests/mythos-t6-loop-target.js' from the repository root of worktree /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-503 (branch mythos/gh/gh-issue-503, HEAD 4c15f1baa29449daf133ada7502721ed668f28ba, clean). It exited 1 with 2 passed, 1 failed; a second run gave the identical summary, so the failure is deterministic and PRE-EXISTING on the unmodified baseline (the fixture is the T6 loop-protection target from commit 6effe527, designed to be unrepairable). The test file was not modified; no files were created, edited, staged, committed or pushed. OTHMODE task OTH-2026-01932 was advanced to phase VALIDATION with the full report and evidence text; no terminal status was set. Per the objective, the task is reported as failed with the output line as the only problem.",
+  "resolution": {
+    "requested_action": "test",
+    "action_raw": "test",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-test",
+    "expected_profile": "repo-test",
+    "model_requested": "Fable 5.1",
+    "model_key": "fable-5.1",
+    "model": "claude-fable-5-1",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "base_sha": "4c15f1baa29449daf133ada7502721ed668f28ba",
+    "branch": "mythos/gh/gh-issue-503",
+    "commit_sha": null
+  },
+  "blocker": {
+    "code": "PROVIDER_FAILED",
+    "retryable": true,
+    "at": "2026-09-26T20:52:35.752Z",
+    "reason": "Ran the guard command 'node tests/mythos-t6-loop-target.js' from the repository root of worktree /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-503 (branch mythos/gh/gh-issue-503, HEAD 4c15f1baa29449daf133ada7502721ed668f28ba, clean). It exited 1 with 2 passed, 1 failed; a second run gave the identical summary, so the failure is deterministic and PRE-EXISTING on the unmodified baseline (the fixture is the T6 loop-protection target from commit 6effe527, designed to be unrepairable). The test file was not modified; no files were created, edited, staged, committed or pushed. OTHMODE task OTH-2026-01932 was advanced to phase VALIDATION with the full report and evidence text; no terminal status was set. Per the objective, the task is reported as failed with the output line as the only pr",
+    "task_id": "t-20260926205111-m5f70a",
+    "attempt_id": "gh-issue-503#1"
+  },
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "b2487ee1a5ba6b22c834f3ba2f0ce49fed2732de",
+    "branch": "main",
+    "dirty_files": 1,
+    "base_ref": "origin/main",
+    "base_ref_head": "4c15f1baa29449daf133ada7502721ed668f28ba",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": true,
+    "code": "RUNTIME_STALE_CHECKOUT",
+    "reason": "checkout HEAD b2487ee1a5ba is behind origin/main 4c15f1baa294 — the running bridge is older than what is delivered",
+    "measured_at": "2026-09-26T20:51:10.424Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "failed",
+    "summary": "Ran the guard command 'node tests/mythos-t6-loop-target.js' from the repository root of worktree /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-503 (branch mythos/gh/gh-issue-503, HEAD 4c15f1baa29449daf133ada7502721ed668f28ba, clean). It exited 1 with 2 passed, 1 failed; a second run gave the identical summary, so the failure is deterministic and PRE-EXISTING on the unmodified baseline (the fixture is the T6 loop-protection target from commit 6effe527, designed to be unrepairable). The test file was not modified; no files were created, edited, staged, committed or pushed. OTHMODE task OTH-2026-01932 was advanced to phase VALIDATION with the full report and evidence text; no terminal status was set. Per the objective, the task is reported as failed with the output line as the only problem.",
+    "tests": [
+      "node tests/mythos-t6-loop-target.js: mythos-t6-loop-target: 2 passed, 1 failed",
+      "tests/mythos-t6-loop-target.js: FAIL (exit 1, deterministic, pre-existing by design)",
+      "problem: FAIL 3 E2E T6 contradiction: loopTargetValue(10) === 55 AND === 56 (unsatisfiable by design)",
+      "check:tests_pass_for:tests/mythos-t6-loop-target.js: FAIL",
+      "check:status_completed: not met (status failed)"
+    ],
+    "commit": null,
+    "remote_head": null,
+    "files_changed": [],
+    "residual_risks": [
+      "remote_head not verified: no local tracking ref for origin/mythos/gh/gh-issue-503 and the network ref lookup required an approval that was unavailable",
+      "the fixture fails by design on every run, so any supervisor expecting a green result for this file will always see a failure"
+    ],
+    "next_stage": "Bridge verifies this report against Git and closes OTH-2026-01932; no code action is possible because the guard fixture is unrepairable by design"
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "node tests/mythos-t6-loop-target.js: mythos-t6-loop-target: 2 passed, 1 failed",
+    "tests/mythos-t6-loop-target.js: FAIL (exit 1, deterministic, pre-existing by design)",
+    "problem: FAIL 3 E2E T6 contradiction: loopTargetValue(10) === 55 AND === 56 (unsatisfiable by design)",
+    "check:tests_pass_for:tests/mythos-t6-loop-target.js: FAIL",
+    "check:status_completed: not met (status failed)"
+  ],
+  "validation": {
+    "git_verified": null,
+    "remote_head": "4c15f1baa29449daf133ada7502721ed668f28ba",
+    "report_problems": [],
+    "required_checks": [
+      "The tests list contains the command's output line verbatim.",
+      "check:status_completed",
+      "check:tests_pass_for:tests/mythos-t6-loop-target.js"
+    ]
+  },
+  "problems": [
+    "PROVIDER_FAILED: Ran the guard command 'node tests/mythos-t6-loop-target.js' from the repository root of worktree /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-503 (branch mythos/gh/gh-issue-503, HEAD 4c15f1baa29449daf133ada7502721ed668f28ba, clean). It exited 1 with 2 passed, 1 failed; a second run gave the identical summary, so the failure is deterministic and PRE-EXISTING on the unmodified baseline (the fixture is the T6 loop-protection target from commit 6effe527, designed to be unrepairable). The test file was not modified; no files were created, edited, staged, committed or pushed. OTHMODE task OTH-2026-01932 was advanced to phase VALIDATION with the full report and evidence text; no terminal status was set. Per the objective, the task is reported as failed with the output line as the only pr"
+  ],
+  "risks": [
+    "remote_head not verified: no local tracking ref for origin/mythos/gh/gh-issue-503 and the network ref lookup required an approval that was unavailable",
+    "the fixture fails by design on every run, so any supervisor expecting a green result for this file will always see a failure"
+  ],
+  "next_recommended_action": "Bridge verifies this report against Git and closes OTH-2026-01932; no code action is possible because the guard fixture is unrepairable by design",
+  "completed_at": "2026-09-26T20:53:38.998Z",
+  "execution": {
+    "executor_task_id": "t-20260926205111-m5f70a",
+    "othmode_task_id": "OTH-2026-01932",
+    "execution_profile": "repo-test",
+    "provider": "claude-code",
+    "model": "claude-fable-5-1",
+    "model_requested": "Fable 5.1",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "test",
+    "attempt_id": "gh-issue-503#1",
+    "fence": 77795,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:2454906",
+      "fence": 77795,
+      "acquired_at": "2026-09-26T20:51:11.673Z",
+      "expires_at": "2026-09-26T21:31:11.673Z"
+    },
+    "snapshot_sha256": "34f6baea8b8fe2f5c9ce1ce92df7a5ab3e432675e1d18bb22f42bc218126a2c7",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "claude_session_id": "addefa70-af40-4a16-af35-247d51a509ae",
+    "executor_status": "FAILED",
+    "started_at": "2026-09-26T20:51:20.305Z",
+    "ended_at": "2026-09-26T20:52:35.753Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 1.0228855000000001,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-503",
+    "branch": "mythos/gh/gh-issue-503",
+    "base_commit": "4c15f1baa29449daf133ada7502721ed668f28ba",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-503",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
