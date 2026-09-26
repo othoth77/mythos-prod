@@ -1065,10 +1065,11 @@ startStub().then(function (stub) {
          dispatcherStatus.json.data.auto_routing.task_types.length > 0,
          'M-11: auto_routing.task_types is a non-empty array');
       ok(Array.isArray(dispatcherStatus.json.data.providers), 'MOS-3C C1: providers is an array');
-      eq(dispatcherStatus.json.data.providers.length, 2, 'MOS-3C C1: providers array has 2 entries');
+      eq(dispatcherStatus.json.data.providers.length, 3, 'MOS-3C C1: providers array has 3 entries');
       var providerNames = dispatcherStatus.json.data.providers.slice().sort();
       eq(providerNames[0], 'claude-code', 'MOS-3C C1: first provider is claude-code');
-      eq(providerNames[1], 'openai-compat', 'MOS-3C C1: second provider is openai-compat');
+      eq(providerNames[1], 'free-llm-pool', 'MOS-3C C1: second provider is free-llm-pool');
+      eq(providerNames[2], 'openai-compat', 'MOS-3C C1: third provider is openai-compat');
       ok(dispatcherStatus.text.indexOf(SECRET_TOKEN) === -1, 'MOS-3C C1: /api/dispatcher does not leak SECRET_TOKEN');
 
       // -----------------------------------------------------------------
@@ -1169,9 +1170,32 @@ startStub().then(function (stub) {
           });
         }
         var LONG_LINE = new Array(61).join('word '); // 300 chars once normalised
-        return startAndReadCreate({
-          instruction: 'Implement automatic title generation\nwhen the user does not specify one.',
-          provider: 'claude-code'
+        // Provider allowlist: every REAL_PROVIDERS entry is accepted and
+        // forwarded unchanged; an unknown name is refused before any relay.
+        function startWithProvider(provider) {
+          return startAndReadCreate({ title: 'p', instruction: 'provider check', provider: provider });
+        }
+        return startWithProvider('claude-code').then(function (p1) {
+          eq(p1.response.status, 200, 'provider allowlist: claude-code is accepted');
+          eq(p1.create.body.provider, 'claude-code', 'provider allowlist: claude-code is forwarded');
+          return startWithProvider('openai-compat');
+        }).then(function (p2) {
+          eq(p2.response.status, 200, 'provider allowlist: openai-compat is accepted');
+          eq(p2.create.body.provider, 'openai-compat', 'provider allowlist: openai-compat is forwarded');
+          return startWithProvider('free-llm-pool');
+        }).then(function (p3) {
+          eq(p3.response.status, 200, 'provider allowlist: free-llm-pool is accepted');
+          eq(p3.create.body.provider, 'free-llm-pool', 'provider allowlist: free-llm-pool is forwarded');
+          return startWithProvider('not-a-provider');
+        }).then(function (p4) {
+          eq(p4.response.status, 400, 'provider allowlist: an unknown provider is rejected');
+          eq(p4.response.json.error, 'bad_request', 'provider allowlist: unknown provider names bad_request');
+          eq(p4.create, undefined, 'provider allowlist: an unknown provider never reaches the executor');
+        }).then(function () {
+          return startAndReadCreate({
+            instruction: 'Implement automatic title generation\nwhen the user does not specify one.',
+            provider: 'claude-code'
+          });
         }).then(function (c1) {
           eq(c1.response.status, 200, 'auto-title: a titleless mission with a valid instruction is accepted');
           eq(c1.create.body.stage, 'Implement automatic title generation',
