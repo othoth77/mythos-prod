@@ -351,6 +351,12 @@ async function main() {
   ok(ex1.bridge_task_id === 'gh-issue-' + r1.t.issue_number && ex1.executor_task_id === 't-' + ex1.bridge_task_id && /^EXEC-/.test(ex1.execution_id) && /^COR-/.test(r1.t.correlation_id),
     '03 task_id, correlation_id, execution_id, bridge task and executor task are all linked');
 
+  var e1t = fresh();
+  var tto = e1t.sup.submitObjective({ objective: 'Report how many JavaScript files exist under projects/mythos-orchestrator.', timeout_seconds: 60 });
+  e1t.w.step(); await e1t.sup.tick();
+  var ttoNow = store.loadTask(tto.task_id);
+  ok(ttoNow.spec && ttoNow.spec.timeout_seconds === 60 && /Timeout: 60\b/.test(e1t.w.issues[ttoNow.issue_number].body), '03 an owner-set timeout overrides the plan for that task (and reaches the Issue)');
+
   section('4. Success exit is not success: a COMPLETED report that fails review does not complete');
   var e1b = fresh(null, { review: function (input) { return { schema_version: '1.0.0', role: 'supervise_review', verdict: 'REJECT', criteria: [{ criterion: 'count stated', met: false, evidence: 'the report does not state a number' }], findings: ['missing count'], human_action: null, confidence: 'high' }; } }, { max_recoveries_per_root: 0 });
   var r1bt = e1b.sup.submitObjective({ objective: 'Report how many JavaScript files exist under projects/mythos-orchestrator.' });

@@ -106,6 +106,9 @@ function create(deps) {
       objective: objective,
       owner_acceptance: (input.acceptance || []).map(String),
       requested_by: input.requested_by || 'owner',
+      // An owner-set timeout overrides the plan's for THIS task only (its
+      // recovery tasks are planned freely) — e.g. a deliberately short budget.
+      owner_timeout_seconds: input.timeout_seconds ? parseInt(input.timeout_seconds, 10) : null,
       scope: null,
       spec: null,
       status: 'PLANNED',
@@ -259,7 +262,7 @@ function create(deps) {
         return task;
       }
       var d = p.decision;
-      var spec = clampSpec(d.task, cfg);
+      var spec = clampSpec(task.owner_timeout_seconds ? Object.assign({}, d.task, { timeout_seconds: task.owner_timeout_seconds }) : d.task, cfg);
       var probs = specProblems(spec, cfg);
       task.decisions.push({ at: nowIso(), kind: 'plan', advice_id: p.advice_id, risk_class: d.risk_class, requires_human_approval: d.requires_human_approval });
       if (probs.length) return block(task, 'PLAN_INVALID', probs.join('; '), null);

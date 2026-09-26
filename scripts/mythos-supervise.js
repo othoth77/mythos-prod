@@ -4,7 +4,7 @@
 // MYTHOS — autonomous supervisor CLI
 // scripts/mythos-supervise.js
 //
-//   submit  --objective "…" [--accept "…"]…     record an objective (the timer does the rest)
+//   submit  --objective "…" [--accept "…"]… [--timeout S]   record an objective (the timer does the rest)
 //   tick                                         one supervision pass (systemd timer runs this)
 //   watch   <TASK_ID> [--interval S] [--max-minutes M]   tick until COMPLETED/BLOCKED
 //   status  [<TASK_ID>]                          task state (all tasks when omitted)
@@ -73,7 +73,7 @@ async function main() {
   if (cmd === 'submit') {
     var objective = flag(args, '--objective');
     if (!objective) { console.error('submit needs --objective'); process.exit(1); }
-    var t = build().submitObjective({ objective: objective, acceptance: flags(args, '--accept'), requested_by: flag(args, '--by') || 'owner' });
+    var t = build().submitObjective({ objective: objective, acceptance: flags(args, '--accept'), requested_by: flag(args, '--by') || 'owner', timeout_seconds: flag(args, '--timeout') });
     print(summary(t));
     return 0;
   }
