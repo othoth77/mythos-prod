@@ -1,0 +1,155 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-486",
+  "project": "mythos-prod",
+  "objective": "Produce the required lib/ line-count report using one deterministic read-only shell command, minimizing provider work. List every direct file under projects/mythos-ai-executor/lib/ with its wc -l count, include the total line from wc, and end the summary with exactly LIB-LISTED.",
+  "scope": [
+    "projects/mythos-ai-executor/lib/"
+  ],
+  "constraints": [
+    "Read-only: do not create, modify, delete, stage, commit, or push anything.",
+    "Do not print secrets or credentials.",
+    "Use a deterministic shell command rather than manual enumeration.",
+    "If the provider fails before command execution, report the provider failure; do not claim completion.",
+    "Supervised task: the MYTHOS supervisor verifies this report against the acceptance criteria below. Report exactly what you ran and observed; never claim a check you did not run."
+  ],
+  "priority": "normal",
+  "requested_action": "investigate",
+  "action_raw": "investigate",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "Run: find projects/mythos-ai-executor/lib -maxdepth 1 -type f -print0 | sort -z | xargs -0 wc -l",
+    "Confirm the output includes one wc -l row for each direct file and a final total row when more than one file is present.",
+    "Confirm the final summary line is exactly LIB-LISTED.",
+    "Also show evidence that: Report shows the exact command used.",
+    "Also show evidence that: Report includes the wc -l output for every direct file under projects/mythos-ai-executor/lib/.",
+    "Also show evidence that: Report states the total number of lines.",
+    "Also show evidence that: Report status is completed, with no files changed and no commits.",
+    "Also show evidence that: Final summary ends with LIB-LISTED.",
+    "check:status_completed",
+    "check:mentions:LIB-LISTED"
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-26T16:19:07.824Z",
+  "created_by": "github-issue:othoth77",
+  "timeout_seconds": 300,
+  "model": "fable-5.1",
+  "model_raw": "Fable 5.1",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #486 https://github.com/othoth77/mythos-prod/issues/486 — \"[supervised] Recover E2E-3 with deterministic shell-only line-count listing\"\n\nrequested_action: investigate — source explicit_current_issue (written as \"investigate\") → execution profile repo-read\n\nmodel: fable-5.1 — source explicit_current_issue (written as \"Fable 5.1\")",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 486,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/486",
+    "issue_id": 5595442752,
+    "issue_node_id": "I_kwDOTnlaF88AAAABTYOuQA",
+    "issue_title": "TASK: [supervised] Recover E2E-3 with deterministic shell-only line-count listing",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-26T16:18:34Z",
+    "issue_updated_at": "2026-09-26T16:18:34Z",
+    "issue_labels": [
+      "task",
+      "mythos:supervised"
+    ],
+    "content_sha256": "9349a5ac4b615834abb2e0353f3f793fb9c1599de58b24e31e90575d12e5bbcb",
+    "attempt": 1,
+    "attempt_id": "gh-issue-486#1",
+    "idempotency_key": "639e13cb501cdb9fbdc9af61dd44c8e7d25f148047e13acedfa82b2404275690",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "investigate",
+      "action_raw": "investigate",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": "inline",
+          "line": 31
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "model_key": "fable-5.1",
+      "model_id": "claude-fable-5-1",
+      "model_raw": "Fable 5.1",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:fable-5.1 (requested \"Fable 5.1\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-26T16:19:07.826Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-26T16:19:07.826Z",
+        "event": "issue_received",
+        "reason": "open Issue #486 with label task",
+        "content_sha256": "9349a5ac4b615834abb2e0353f3f793fb9c1599de58b24e31e90575d12e5bbcb"
+      },
+      {
+        "at": "2026-09-26T16:19:07.826Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → investigate (raw \"investigate\")"
+      },
+      {
+        "at": "2026-09-26T16:19:07.826Z",
+        "event": "profile_resolved",
+        "reason": "investigate → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-26T16:19:07.826Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → fable-5.1 (available)"
+      },
+      {
+        "at": "2026-09-26T16:19:10.531Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-486.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-26T16:19:07.826Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5847829288,
+        "url": "https://github.com/othoth77/mythos-prod/issues/486#issuecomment-5847829288",
+        "at": "2026-09-26T16:19:08.973Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:supervised"
+      ]
+    }
+  }
+}
