@@ -1,0 +1,146 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-490",
+  "project": "mythos-prod",
+  "objective": "Run exactly this self-check command from the repository root and put its single output line, verbatim, in the report tests list: node -e \"var m=process.argv[1]; if(m==='--mode=strict'){console.log('selfcheck: 1 passed, 0 failed')}else{console.log('selfcheck: 0 passed, 1 failed (unknown mode '+m+'; supported mode: --mode=strict)');process.exit(1)}\" -- --mode=loose . If the command fails, report the task as failed and quote the output line as the only problem.",
+  "scope": [
+    "repository root; the self-check command only"
+  ],
+  "constraints": [
+    "Read-only: do not create, modify, delete, stage, commit or push anything.",
+    "Do not print secrets or credentials.",
+    "Supervised task: the MYTHOS supervisor verifies this report against the acceptance criteria below. Report exactly what you ran and observed; never claim a check you did not run."
+  ],
+  "priority": "normal",
+  "requested_action": "test",
+  "action_raw": "test",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "The tests list contains the command's output line verbatim.",
+    "check:status_completed",
+    "check:tests_pass"
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-26T17:30:18.872Z",
+  "created_by": "github-issue:othoth77",
+  "timeout_seconds": 600,
+  "model": "fable-5.1",
+  "model_raw": "Fable 5.1",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #490 https://github.com/othoth77/mythos-prod/issues/490 — \"[supervised] E2E-4 Qwen recovery: self-check mode\"\n\nrequested_action: test — source explicit_current_issue (written as \"test\") → execution profile repo-test\n\nmodel: fable-5.1 — source explicit_current_issue (written as \"Fable 5.1\")",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 490,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/490",
+    "issue_id": 5595918970,
+    "issue_node_id": "I_kwDOTnlaF88AAAABTYryeg",
+    "issue_title": "TASK: [supervised] E2E-4 Qwen recovery: self-check mode",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-26T17:29:44Z",
+    "issue_updated_at": "2026-09-26T17:29:44Z",
+    "issue_labels": [
+      "task",
+      "mythos:supervised"
+    ],
+    "content_sha256": "25af8587bfd6be7acfc0ae6b863cb15c22caedfce9a7f908c85dbbf896271ab9",
+    "attempt": 1,
+    "attempt_id": "gh-issue-490#1",
+    "idempotency_key": "c335a6a7d698e52c2610bdf4830ee2e711678750a0f300c70126cd4434229ef0",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "test",
+      "action_raw": "test",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "test",
+          "action": "test",
+          "form": "inline",
+          "line": 21
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-test",
+      "expected_delivery": "report",
+      "model_key": "fable-5.1",
+      "model_id": "claude-fable-5-1",
+      "model_raw": "Fable 5.1",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:fable-5.1 (requested \"Fable 5.1\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-26T17:30:18.873Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-26T17:30:18.873Z",
+        "event": "issue_received",
+        "reason": "open Issue #490 with label task",
+        "content_sha256": "25af8587bfd6be7acfc0ae6b863cb15c22caedfce9a7f908c85dbbf896271ab9"
+      },
+      {
+        "at": "2026-09-26T17:30:18.873Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → test (raw \"test\")"
+      },
+      {
+        "at": "2026-09-26T17:30:18.873Z",
+        "event": "profile_resolved",
+        "reason": "test → repo-test (server-side map)"
+      },
+      {
+        "at": "2026-09-26T17:30:18.873Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → fable-5.1 (available)"
+      },
+      {
+        "at": "2026-09-26T17:30:21.164Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-490.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-26T17:30:18.873Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5848332863,
+        "url": "https://github.com/othoth77/mythos-prod/issues/490#issuecomment-5848332863",
+        "at": "2026-09-26T17:30:19.713Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:supervised"
+      ]
+    }
+  }
+}
