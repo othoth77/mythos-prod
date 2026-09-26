@@ -29,7 +29,7 @@
     "check:status_completed",
     "check:mentions:LIB-LISTED"
   ],
-  "status": "CLAIMED",
+  "status": "COMPLETED",
   "created_at": "2026-09-26T16:19:07.824Z",
   "created_by": "github-issue:othoth77",
   "timeout_seconds": 300,
@@ -183,8 +183,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "a270295b01e4917c5d1cbc1f82fd38d66db8985e41503d893c83ae0c2ac1344a",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-26T16:19:12.326Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-26T16:20:23.602Z",
     "snapshot_sha256": "d7990f6b8c0f357c849281d4edccb12a5abae0368950dcb54fa8f8e4e7dcd487",
     "fence": 77150,
     "lease": {
@@ -212,7 +212,8 @@
       "measured_at": "2026-09-26T16:19:11.199Z"
     },
     "model": "claude-fable-5-1",
-    "model_selection_mode": "explicit"
+    "model_selection_mode": "explicit",
+    "report_file": "control/reports/gh-issue-486.json"
   },
   "history": [
     {
@@ -221,6 +222,20 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260926161912-26aoch queued; OTHMODE OTH-2026-01921; action investigate (explicit_current_issue) → repo-read; model claude-fable-5-1; fence 77150"
+    },
+    {
+      "at": "2026-09-26T16:20:23.012Z",
+      "from": "CLAIMED",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-26T16:20:23.602Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 7 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }

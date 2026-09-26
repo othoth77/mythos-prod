@@ -1,0 +1,141 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-486",
+  "attempt_id": "gh-issue-486#1",
+  "status": "COMPLETED",
+  "summary": "Ran the single deterministic read-only command `find projects/mythos-ai-executor/lib -maxdepth 1 -type f -print0 | sort -z | xargs -0 wc -l` inside the gh-issue-486 worktree. It listed 16 direct files under projects/mythos-ai-executor/lib/ with their wc -l counts (gpu-slots.js 264, hostops.js 367, knowledge.js 207, mcp-capabilities.js 164, mcp-invoke.js 273, model-policy.js 432, policy.js 205, quota.js 301, report.js 234, resource-guard.js 610, roles.js 182, session-guard.js 1111, skill-trust.js 202, skills.js 443, state.js 229, work-validation.js 379) and a final wc total row of 5603 lines. git status --porcelain was empty and HEAD remained fe315aeb395e58b3cb8bfbaeb759e81ff833af38: no files created, modified, staged, committed or pushed. No secrets printed. OTHMODE Task OTH-2026-01921 left for the bridge to close. LIB-LISTED",
+  "resolution": {
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "model_requested": "Fable 5.1",
+    "model_key": "fable-5.1",
+    "model": "claude-fable-5-1",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "base_sha": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "branch": "mythos/gh/gh-issue-486",
+    "commit_sha": null
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "b2487ee1a5ba6b22c834f3ba2f0ce49fed2732de",
+    "branch": "main",
+    "dirty_files": 1,
+    "base_ref": "origin/main",
+    "base_ref_head": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": true,
+    "code": "RUNTIME_STALE_CHECKOUT",
+    "reason": "checkout HEAD b2487ee1a5ba is behind origin/main fe315aeb395e — the running bridge is older than what is delivered",
+    "measured_at": "2026-09-26T16:19:11.199Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Ran the single deterministic read-only command `find projects/mythos-ai-executor/lib -maxdepth 1 -type f -print0 | sort -z | xargs -0 wc -l` inside the gh-issue-486 worktree. It listed 16 direct files under projects/mythos-ai-executor/lib/ with their wc -l counts (gpu-slots.js 264, hostops.js 367, knowledge.js 207, mcp-capabilities.js 164, mcp-invoke.js 273, model-policy.js 432, policy.js 205, quota.js 301, report.js 234, resource-guard.js 610, roles.js 182, session-guard.js 1111, skill-trust.js 202, skills.js 443, state.js 229, work-validation.js 379) and a final wc total row of 5603 lines. git status --porcelain was empty and HEAD remained fe315aeb395e58b3cb8bfbaeb759e81ff833af38: no files created, modified, staged, committed or pushed. No secrets printed. OTHMODE Task OTH-2026-01921 left for the bridge to close. LIB-LISTED",
+    "tests": [
+      "find projects/mythos-ai-executor/lib -maxdepth 1 -type f -print0 | sort -z | xargs -0 wc -l: ran, 16 per-file rows + total row 5603",
+      "one wc -l row per direct file and final total row present: confirmed (16 files, total row present)",
+      "final summary line is exactly LIB-LISTED: confirmed",
+      "report shows exact command used: confirmed",
+      "report includes wc -l output for every direct file: confirmed",
+      "report states total number of lines: confirmed (5603)",
+      "git status --porcelain: clean, no files changed, no commits (HEAD fe315aeb395e58b3cb8bfbaeb759e81ff833af38)"
+    ],
+    "commit": null,
+    "remote_head": null,
+    "files_changed": [],
+    "residual_risks": [
+      "Listing is a point-in-time snapshot at commit fe315aeb395e; counts change if lib/ files are edited later.",
+      "OTHMODE task record OTH-2026-01921 was not advanced via CLI during this run to avoid any write in a read-only task; bridge closes it from this report."
+    ],
+    "next_stage": "Bridge verifies this report against the acceptance criteria and closes OTH-2026-01921; no further action required in the worktree. LIB-LISTED"
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "find projects/mythos-ai-executor/lib -maxdepth 1 -type f -print0 | sort -z | xargs -0 wc -l: ran, 16 per-file rows + total row 5603",
+    "one wc -l row per direct file and final total row present: confirmed (16 files, total row present)",
+    "final summary line is exactly LIB-LISTED: confirmed",
+    "report shows exact command used: confirmed",
+    "report includes wc -l output for every direct file: confirmed",
+    "report states total number of lines: confirmed (5603)",
+    "git status --porcelain: clean, no files changed, no commits (HEAD fe315aeb395e58b3cb8bfbaeb759e81ff833af38)"
+  ],
+  "validation": {
+    "git_verified": null,
+    "remote_head": null,
+    "report_problems": [],
+    "required_checks": [
+      "Run: find projects/mythos-ai-executor/lib -maxdepth 1 -type f -print0 | sort -z | xargs -0 wc -l",
+      "Confirm the output includes one wc -l row for each direct file and a final total row when more than one file is present.",
+      "Confirm the final summary line is exactly LIB-LISTED.",
+      "Also show evidence that: Report shows the exact command used.",
+      "Also show evidence that: Report includes the wc -l output for every direct file under projects/mythos-ai-executor/lib/.",
+      "Also show evidence that: Report states the total number of lines.",
+      "Also show evidence that: Report status is completed, with no files changed and no commits.",
+      "Also show evidence that: Final summary ends with LIB-LISTED.",
+      "check:status_completed",
+      "check:mentions:LIB-LISTED"
+    ]
+  },
+  "problems": [],
+  "risks": [
+    "Listing is a point-in-time snapshot at commit fe315aeb395e; counts change if lib/ files are edited later.",
+    "OTHMODE task record OTH-2026-01921 was not advanced via CLI during this run to avoid any write in a read-only task; bridge closes it from this report."
+  ],
+  "next_recommended_action": "Bridge verifies this report against the acceptance criteria and closes OTH-2026-01921; no further action required in the worktree. LIB-LISTED",
+  "completed_at": "2026-09-26T16:20:23.493Z",
+  "execution": {
+    "executor_task_id": "t-20260926161912-26aoch",
+    "othmode_task_id": "OTH-2026-01921",
+    "execution_profile": "repo-read",
+    "provider": "claude-code",
+    "model": "claude-fable-5-1",
+    "model_requested": "Fable 5.1",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "investigate",
+    "attempt_id": "gh-issue-486#1",
+    "fence": 77150,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:1996509",
+      "fence": 77150,
+      "acquired_at": "2026-09-26T16:19:12.326Z",
+      "expires_at": "2026-09-26T16:54:12.326Z"
+    },
+    "snapshot_sha256": "d7990f6b8c0f357c849281d4edccb12a5abae0368950dcb54fa8f8e4e7dcd487",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "claude_session_id": "426f7f3a-3f04-4ca2-aeef-df3a90e2cde0",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-26T16:19:22.398Z",
+    "ended_at": "2026-09-26T16:19:51.043Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 0.58389675,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-486",
+    "branch": "mythos/gh/gh-issue-486",
+    "base_commit": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-486",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
