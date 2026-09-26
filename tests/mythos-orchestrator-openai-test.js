@@ -64,7 +64,31 @@ var UNCAUGHT = [];
 process.on('uncaughtException', function (e) { UNCAUGHT.push(String(e && (e.code || e.message)).slice(0, 80)); });
 
 var openai = require(path.join(ORCH, 'providers', 'openai.js'));
-var advisor = require(path.join(ORCH, 'advisor.js'));
+// ---- Fixture module trees (R5). ----
+// The shipped config/openai.json is AUTHORITATIVE for `enabled` and ships
+// false, so no caller-supplied config can turn the real advisor on. The
+// send-path cases therefore run against a byte-identical COPY of the advisor
+// module tree whose own shipped config is enabled; `shippedAdvisor` is the
+// real module, used wherever the real switch itself is under test.
+var ADVISOR_FILES = ['advisor.js', 'router.js', 'providers/openai.js', 'schemas/advice.schema.json', 'templates/advisor-system.md']
+  .concat(fs.readdirSync(path.join(ORCH, 'lib')).filter(function (f) { return /\.js$/.test(f); }).map(function (f) { return 'lib/' + f; }));
+function buildFixture(name, configText) {
+  var root = path.join(TMP, name);
+  ADVISOR_FILES.forEach(function (rel) {
+    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    fs.copyFileSync(path.join(ORCH, rel), path.join(root, rel));
+  });
+  fs.mkdirSync(path.join(root, 'config'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'config', 'openai.json'), configText);
+  return root;
+}
+var SHIPPED_TEXT = fs.readFileSync(path.join(ORCH, 'config', 'openai.json'), 'utf8');
+var ENABLED_TEXT = JSON.stringify(Object.assign(JSON.parse(SHIPPED_TEXT), { enabled: true }), null, 2);
+var FIXTURE_ON = buildFixture('fixture-enabled', ENABLED_TEXT);
+var FIXTURE_BROKEN = buildFixture('fixture-broken', '{ "enabled": true, ');
+var advisor = require(path.join(FIXTURE_ON, 'advisor.js'));
+var shippedAdvisor = require(path.join(ORCH, 'advisor.js'));
+var brokenAdvisor = require(path.join(FIXTURE_BROKEN, 'advisor.js'));
 var router = require(path.join(ORCH, 'router.js'));
 var runner = require(path.join(ORCH, 'runner.js'));
 var orchestrator = require(path.join(ORCH, 'orchestrator.js'));
@@ -283,7 +307,7 @@ async function main() {
   var offT = fakeTransport({ status: 200, body: responseBody(goodAdvice('review')) });
   var off = await advisor.advise(req(), { config: cfg({ enabled: false }), transport: offT });
   ok(off.status === 'disabled' && /ADVISOR_DISABLED/.test(off.blockers[0]) && offT.calls.length === 0, '08 enabled=false -> disabled, nothing sent');
-  var shippedOff = await advisor.advise(req(), { transport: offT });
+  var shippedOff = await shippedAdvisor.advise(req(), { transport: offT });
   ok(shippedOff.status === 'disabled' && offT.calls.length === 0, '08 the SHIPPED config is disabled');
   var dry = await advisor.advise(req({ role: 'smoke' }), { config: cfg({ enabled: false }), dryRun: true, transport: offT });
   EVERYTHING.push(dry);
@@ -358,7 +382,7 @@ async function main() {
   ok(SHIPPED.roles.triage.max_output_tokens === 1500 && SHIPPED.roles.plan.max_output_tokens === 6000 &&
     SHIPPED.roles.review.max_output_tokens === 8000 && SHIPPED.timeout_seconds === 120, '12 other caps and the deadline are unchanged');
   ok(JSON.stringify(Object.keys(SHIPPED.roles).sort()) === JSON.stringify(advisor.ADVICE_SCHEMA.properties.role.enum.slice().sort()), '12 config roles == schema roles');
-  ok(advisor.loadConfig().valid === true, '12 shipped config passes validation');
+  ok(shippedAdvisor.loadConfig().valid === true, '12 shipped config passes validation');
   var classes = router.CLAUDE_CLASSES.concat(router.CODEX_CLASSES, router.APPROVAL_CLASSES);
   var schemaClasses = advisor.ADVICE_SCHEMA.properties.suggested_risk_class.enum.filter(function (x) { return x !== null; });
   ok(schemaClasses.length === classes.length && classes.every(function (c) { return schemaClasses.indexOf(c) !== -1; }) &&
@@ -621,6 +645,53 @@ async function main() {
   ok(ms && sentInput.slice(sentInput.indexOf('\nBEGIN ' + ms + '\n') + ('\nBEGIN ' + ms + '\n').length, sentInput.lastIndexOf('\nEND ' + ms)) === hostileSent,
     '20 the request actually sent wraps the hostile context intact under a fresh marker');
   ok(advisor.renderInstructions('review').indexOf('BEGIN') !== -1, '20 the system prompt explains the BEGIN/END marker');
+
+  // -------------------------------------------------------------------------
+  section('21. The shipped switch is authoritative (R5)');
+  ok(fs.readFileSync(path.join(FIXTURE_ON, 'advisor.js'), 'utf8') === fs.readFileSync(path.join(ORCH, 'advisor.js'), 'utf8'),
+    '21 the enabled fixture runs byte-identical advisor code (only its config differs)');
+  ok(JSON.parse(SHIPPED_TEXT).enabled === false, '21 the real shipped config is enabled:false');
+  var r5T = fakeTransport({ status: 200, body: responseBody(goodAdvice('review')) });
+  var onCfg = cfg({ enabled: true });
+  var b1 = await shippedAdvisor.advise(req(), { config: onCfg, transport: r5T, keyFile: KEY_FILE });
+  ok(b1.status === 'disabled' && /shipped, authoritative/.test(b1.blockers[0]), '21 opts.config {enabled:true} cannot enable the real advisor');
+  var onPath = path.join(TMP, 'caller-enabled.json');
+  fs.writeFileSync(onPath, ENABLED_TEXT);
+  var b2 = await shippedAdvisor.advise(req(), { configPath: onPath, transport: r5T, keyFile: KEY_FILE });
+  ok(b2.status === 'disabled', '21 opts.configPath to an enabled file cannot enable the real advisor');
+  var b3 = await shippedAdvisor.advise(req(), { config: onCfg, configPath: onPath, transport: r5T, keyFile: KEY_FILE, persist: false });
+  ok(b3.status === 'disabled', '21 config + configPath + keyFile + persist:false together cannot enable it');
+  var getterCfg = cfg();
+  Object.defineProperty(getterCfg, 'enabled', { get: function () { return true; }, enumerable: true });
+  var b4 = await shippedAdvisor.advise(req(), { config: getterCfg, transport: r5T, keyFile: KEY_FILE });
+  var proxyCfg = new Proxy(cfg(), { get: function (t, k) { return k === 'enabled' ? true : t[k]; } });
+  var b5 = await shippedAdvisor.advise(req(), { config: proxyCfg, transport: r5T, keyFile: KEY_FILE });
+  ok(b4.status === 'disabled' && b5.status === 'disabled', '21 a getter or Proxy that always answers enabled=true cannot enable it');
+  var savedPathExport = shippedAdvisor.CONFIG_PATH;
+  shippedAdvisor.CONFIG_PATH = onPath;
+  var b6 = await shippedAdvisor.advise(req(), { config: onCfg, transport: r5T, keyFile: KEY_FILE });
+  shippedAdvisor.CONFIG_PATH = savedPathExport;
+  ok(b6.status === 'disabled', '21 reassigning the exported CONFIG_PATH does not move the authoritative file');
+  var savedOrchHome = process.env.MYTHOS_ORCHESTRATOR_HOME;
+  process.env.MYTHOS_ORCHESTRATOR_HOME = FIXTURE_ON;
+  var b7 = await shippedAdvisor.advise(req(), { config: onCfg, transport: r5T, keyFile: KEY_FILE });
+  process.env.MYTHOS_ORCHESTRATOR_HOME = savedOrchHome;
+  ok(b7.status === 'disabled', '21 pointing MYTHOS_ORCHESTRATOR_HOME at an enabled tree does not enable it');
+  var b8 = await shippedAdvisor.advise(req({ role: 'smoke' }), { config: onCfg, dryRun: true, transport: r5T, keyFile: KEY_FILE });
+  ok(b8.status === 'dry-run' && /shipped, authoritative/.test(b8.warnings.join()), '21 a dry run under an enabling override still reports the advisor disabled');
+  ok(r5T.calls.length === 0, '21 no bypass attempt reached the transport (' + r5T.calls.length + ' calls)');
+  ok(shippedAdvisor.doctorInfo({ config: onCfg }).enabled === false && orchestrator.doctor().openai.enabled === false,
+    '21 doctor reports disabled whatever config the caller passes');
+  ok(fs.readFileSync(path.join(ORCH, 'config', 'openai.json'), 'utf8') === SHIPPED_TEXT, '21 the shipped config file was not modified by any attempt');
+  var narT = fakeTransport({ status: 200, body: responseBody(goodAdvice('review')) });
+  var n1 = await advisor.advise(req(), { config: cfg({ enabled: false }), transport: narT });
+  ok(n1.status === 'disabled' && /caller-supplied/.test(n1.blockers[0]) && narT.calls.length === 0, '21 a caller CAN narrow: enabled shipped + caller enabled:false -> disabled');
+  var n2 = await advisor.advise(req(), { transport: narT });
+  ok(n2.status === 'completed' && narT.calls.length === 1, '21 positive control: with the shipped switch on (fixture), the same call is sent');
+  var brT = fakeTransport({ status: 200, body: responseBody(goodAdvice('review')) });
+  var br = await brokenAdvisor.advise(req(), { config: onCfg, transport: brT, keyFile: KEY_FILE });
+  ok(br.status === 'disabled' && brT.calls.length === 0 && brokenAdvisor.doctorInfo({ config: onCfg }).enabled === false,
+    '21 a malformed shipped config fails closed (disabled) even with a valid enabling override');
 
   // -------------------------------------------------------------------------
   section('16. The key never escapes');

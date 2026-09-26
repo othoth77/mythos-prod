@@ -282,6 +282,13 @@ It is not a worker provider — `runner.PROVIDERS` is still exactly `codex` and
 does, `advise` returns `disabled` and sends nothing. Enabling is a separate,
 owner-approved change to that one field. Rolling back is the same edit.
 
+The shipped switch is **authoritative**: it is read from the
+`config/openai.json` next to `advisor.js`, at a path no caller can change.
+A caller's `opts.config` / `opts.configPath` may adjust other settings but
+can only turn the advisor **off**, never on (effective = shipped `enabled`
+AND caller `enabled`). An unreadable or malformed shipped file counts as
+disabled. `doctor` reports the same effective value.
+
 A request:
 
 ```json

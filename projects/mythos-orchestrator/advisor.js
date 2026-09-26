@@ -17,6 +17,15 @@
 //   { advice_id, role, question, context?, subject_risk_class? }
 //
 // Outcome status: completed | failed | rejected | disabled | blocked | dry-run
+//
+// The on/off switch is AUTHORITATIVE: `enabled` is read from the shipped
+// config/openai.json next to this file, at a path callers cannot change.
+// opts.config / opts.configPath may adjust other settings (tests use them)
+// but can only turn the advisor OFF, never on:
+//
+//   effective enabled = shipped enabled === true  AND  caller's enabled === true
+//
+// An unreadable or malformed shipped file counts as disabled (fail closed).
 // =====================================================
 
 var fs = require('fs');
@@ -31,6 +40,19 @@ var openai = require('./providers/openai');
 
 var BASE = __dirname;
 var CONFIG_PATH = path.join(BASE, 'config', 'openai.json');
+
+// Read from disk on every call (so an owner edit takes effect without a
+// restart) and never from opts, env or anything a caller supplies. Uses the
+// module-private CONFIG_PATH: reassigning the exported copy changes nothing.
+function shippedEnabled() {
+  try {
+    var shipped = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    return !!shipped && shipped.enabled === true;
+  } catch (e) {
+    return false;
+  }
+}
+
 var ADVICE_SCHEMA = JSON.parse(fs.readFileSync(path.join(BASE, 'schemas', 'advice.schema.json'), 'utf8'));
 var SYSTEM_TEMPLATE_PATH = path.join(BASE, 'templates', 'advisor-system.md');
 
@@ -335,14 +357,21 @@ function advise(req, opts) {
     { role: req.role, instructions: renderInstructions(req.role), text: renderInput(req) },
     roleCfg, cfg, ADVICE_SCHEMA);
 
+  // The shipped switch decides; a caller's config can only narrow it.
+  var authoritative = shippedEnabled();
+  var enabled = authoritative && cfg.enabled === true;
+  var disabledReason = !authoritative
+    ? 'ADVISOR_DISABLED: config/openai.json (shipped, authoritative) has enabled=false; enabling is an owner-approved change'
+    : 'ADVISOR_DISABLED: the caller-supplied config has enabled=false';
+
   if (opts.dryRun) {
     return Promise.resolve(outcome('dry-run', {
       request: { url: built.url, body: built.body },
-      warnings: cfg.enabled ? ['DRY_RUN: nothing sent'] : ['DRY_RUN: nothing sent', 'ADVISOR_DISABLED: config enabled=false']
+      warnings: enabled ? ['DRY_RUN: nothing sent'] : ['DRY_RUN: nothing sent', disabledReason]
     }));
   }
-  if (!cfg.enabled) {
-    return Promise.resolve(outcome('disabled', { blockers: ['ADVISOR_DISABLED: config/openai.json has enabled=false; enabling is an owner-approved change'] }));
+  if (!enabled) {
+    return Promise.resolve(outcome('disabled', { blockers: [disabledReason] }));
   }
   var keyFile = opts.keyFile || cfg.key_file;
   if (!openai.available({ keyFile: keyFile })) {
@@ -411,7 +440,8 @@ function doctorInfo(opts) {
   return {
     config_valid: loaded.valid,
     config_errors: loaded.errors,
-    enabled: cfg.enabled === true,
+    // Same rule as advise(): the shipped file is authoritative.
+    enabled: shippedEnabled() && cfg.enabled === true,
     roles: roles,
     key_file: openai.keyFileStatus(cfg.key_file),
     execution_authority: false
