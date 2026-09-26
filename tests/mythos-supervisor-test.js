@@ -1139,16 +1139,15 @@ async function main() {
   // (9) why the channel must be a STRING: the live Haddad (2ab1512f) String()s an object summary
   ok(consultOutcome(finalMsg(t4Diag), true) === 'QWEN_SUMMARY_LOST',
     '19 an object summary under the live Haddad runtime renders as [object Object] and fails closed (QWEN_SUMMARY_LOST)');
-  // (10) the consult names the real channel, and its own illustrative example can never pass as an answer
+  // (10) the consult names the real channel (QDIAG/1 since live t4 #2, section 20), and its own template can never pass as an answer
   var reqT4 = qwenMod.request(t4Task, { cls: 'TEST_FAILURE', kind: 'EXECUTION_FAILED', detail: 'selfcheck: 0 passed, 1 failed' }, [], BASE_CFG);
-  var exampleLine = reqT4.objective.split('\n').filter(function (l) { return /^Final block shape: /.test(l); })[0] || '';
-  var exampleSummary = exampleLine ? JSON.parse(exampleLine.replace(/^Final block shape: /, '')).summary : null;
+  var templateLine = reqT4.objective.split('\n').filter(function (l) { return /^QDIAG\/1 /.test(l); })[0] || '';
   ok(/only your final mythos_report block is delivered/.test(reqT4.objective) && /Do NOT put the diagnosis in a separate JSON block/.test(reqT4.objective) &&
-    /"summary" field of that mythos_report block MUST be a string/.test(reqT4.objective) && /serialized as JSON text/.test(reqT4.objective) &&
-    /no prose/.test(reqT4.objective) && /"action": "test"/.test(reqT4.objective) && /mythos_report\.summary/.test(reqT4.constraints[0]) &&
-    typeof exampleSummary === 'string' && consultOutcome(finalMsg(exampleSummary)) === 'QWEN_MALFORMED',
-    '19 the consult objective names mythos_report.summary as the only channel; echoing its example verbatim is refused (QWEN_MALFORMED)');
-  ok(cO.parsed && cO.parsed.task && cO.parsed.task.objective.indexOf('DELIVERY: only your final mythos_report block is delivered') !== -1,
+    /"summary" field of that mythos_report block MUST be exactly ONE line/.test(reqT4.objective) && /no double quotes/.test(reqT4.objective) &&
+    /action is "test" or less privileged/.test(reqT4.objective) && /mythos_report\.summary/.test(reqT4.constraints[0]) && !/serialized as JSON text/.test(reqT4.objective) &&
+    templateLine && consultOutcome(finalMsg(templateLine)) === 'QWEN_MALFORMED',
+    '19 the consult objective names mythos_report.summary as the only channel; echoing its QDIAG template verbatim is refused (QWEN_MALFORMED)');
+  ok(cO.parsed && cO.parsed.task && cO.parsed.task.objective.indexOf('DELIVERY: only your final mythos_report block is delivered') !== -1 && cO.parsed.task.objective.indexOf('QDIAG/1 classification=<class>') !== -1,
     '19 the new consult objective round-trips the REAL bridge Issue parser intact');
   // (11) end to end in the simulated world: Qwen answers with the exact t4 prose → escalated once, never executed, consult closed
   var eP = fresh(qScript, null, null, function () { return T4_PROSE; });
@@ -1159,6 +1158,90 @@ async function main() {
   ok(rP.t.status === 'COMPLETED' && oaCount(eP, 'supervise_diagnose') === 1 && escP.length === 1 && /^QWEN_NO_JSON/.test(escP[0].why) && cP.closed &&
     eP.w.issues[cP.issue_number].state === 'closed' && !allTasks().some(function (t) { return t.diagnosis && t.diagnosis.tier === 'QWEN' && t.parent_task_id === tP.task_id; }),
     '19 E2E: the t4 prose answer escalates to OpenAI exactly once, is never executed, and the consult is settled and closed' + dbg(eP, tP.task_id));
+
+  section('20. Qwen consult contract — live E2E t4 #2 (Issue #494): the escaped-JSON string broke');
+  // LIVE EVIDENCE (Issue #494, SUP-PVZYE3F2, Haddad runtime 2ab1512f): the
+  // Summary that reached the supervisor was these exact 182 bytes — a
+  // diagnosis whose summary string CLOSED after its second key; everything
+  // after it fell outside the string. Nothing on the Haddad/bridge path cuts
+  // a string (only length caps ≥ 72/800/1500/6000/20000).
+  var LIVE494 = '{"classification": "MODULE_NOT_FOUND", "diagnosis": "The file free-llm-parser.js is missing from the tests/ directory, causing the MODULE_NOT_FOUND error when the test suite is run."';
+  var LIVE494_SHA = 'a41a0eed704d';
+  function sha12(x) { return crypto.createHash('sha256').update(x).digest('hex').slice(0, 12); }
+  ok(LIVE494.length === 182 && sha12(LIVE494) === LIVE494_SHA, '20 fixture: the live #494 Summary is pinned byte-for-byte (182 chars, sha ' + LIVE494_SHA + ')');
+  // (1) mechanism, reproduced through the real extractReport + bridge Summary rendering
+  var restKeys = ', "recoverable": true, "recovery_task": {"title": "Run the parser suite", "objective": "Run node tests/free-llm-parser-test.js", "scope": ["tests/"], "constraints": ["read-only"], "validation": ["summary line"], "acceptance_criteria": ["check:tests_pass"], "action": "test", "timeout_seconds": 600}, "what_changes": "path", "human_action": null, "confidence": "high"';
+  var splitMsg = 'Done.\n```json\n{"mythos_report": true, "status": "completed", "summary": "{\\"classification\\": \\"MODULE_NOT_FOUND\\", \\"diagnosis\\": \\"The file free-llm-parser.js is missing from the tests/ directory, causing the MODULE_NOT_FOUND error when the test suite is run.\\"", "files_changed": [], "tests": [], "commit": null, "residual_risks": []' + restKeys + '}\n```';
+  var splitSum = qwenMod.summarySection(haddadComment(splitMsg));
+  ok(splitSum === LIVE494, '20 the live failure is reproduced byte-for-byte: a summary string closed after "diagnosis" (rest of the keys outside it) renders exactly the 182 live bytes');
+  // (2) it is refused — now named for what it is: a TRUNCATED diagnosis, not an absent one
+  ok(consultOutcome(splitMsg) === 'QWEN_MALFORMED' && qwenMod.normalizeAnswer(haddadComment(finalMsg(LIVE494))).reason.indexOf('QWEN_MALFORMED') === 0,
+    '20 the exact live #494 summary is refused as QWEN_MALFORMED (unterminated diagnosis object), never accepted');
+  // (3) why the preflight passed: it serialized with JSON.stringify — a perfect escaper — so it tested the pipe, not the producer
+  ok(consultOutcome(finalMsg(JSON.stringify(t4Diag))) === 'OK' && splitSum !== qwenMod.summarySection(haddadComment(finalMsg(JSON.stringify(t4Diag)))),
+    '20 a JSON.stringify-built summary (what preflight C7 used) passes, while the live hand-escaped one broke: C7 validated the channel, not the model');
+  // (4) the fixed contract: ONE quote-free QDIAG/1 line, written exactly as a model types it (no escaping anywhere)
+  var QD = 'QDIAG/1 classification=DEPENDENCY_MISSING | recoverable=true | confidence=high | action=test | title=Recovery: run the parser suite at its real path | ' +
+    'objective=From the repository root run: node tests/free-llm-parser-test.js . Put its final summary line verbatim in the report tests list. Change nothing. | ' +
+    'diagnosis=tests/free-llm-parser.js does not exist; the suite is tests/free-llm-parser-test.js (Cannot find module) | what_changes=the test file path | scope=tests/free-llm-parser-test.js';
+  var typedMsg = 'Diagnosis complete.\n```json\n{"mythos_report": true, "status": "completed", "summary": "' + QD + '", "files_changed": [], "tests": [], "commit": null, "residual_risks": []}\n```';
+  var qdNorm = qwenMod.normalizeAnswer(haddadComment(typedMsg));
+  var qdParsed = qdNorm.ok ? qwenMod.parseAnswer(qdNorm.answer, t4Task) : { ok: false };
+  ok(consultOutcome(typedMsg) === 'OK' && qdParsed.ok && qdParsed.decision.classification === 'DEPENDENCY_MISSING' && qdParsed.decision.recovery_task.action === 'test' &&
+    /node tests\/free-llm-parser-test\.js/.test(qdParsed.decision.recovery_task.objective) && qdParsed.decision.recovery_task.timeout_seconds === 600 &&
+    JSON.stringify(qdParsed.decision.recovery_task.scope) === '["tests/free-llm-parser-test.js"]',
+    '20 a QDIAG/1 line typed into mythos_report.summary with no escaping survives extractReport and becomes the same schema-valid diagnosis');
+  // (5) it also satisfies Haddad's grammar-constrained report turn (identical to the 2ab1512f runtime): summary is a plain string
+  var haddadAgent = require(path.join(BASE, 'projects', 'mythos-ai-executor', 'providers', 'haddad-agent.js'));
+  var gram = require(path.join(ORCH, 'lib', 'schema.js')).validate({ mythos_report: true, status: 'completed', summary: QD, files_changed: [], tests: [], commit: null, residual_risks: [] },
+    haddadAgent.REPORT_RESPONSE_FORMAT.json_schema.schema);
+  ok(gram.valid, '20 the QDIAG report is valid under Haddad\'s grammar-constrained report schema (summary:string, additionalProperties:false)' + (gram.valid ? '' : ' ' + gram.errors.join('; ')));
+  // (6) strict: every malformed QDIAG line is refused, never guessed around
+  function qd(over, drop) {
+    var f = { classification: 'DEPENDENCY_MISSING', recoverable: 'true', confidence: 'high', action: 'test', objective: 'Run node tests/free-llm-parser-test.js', diagnosis: 'wrong path', what_changes: 'the path' };
+    Object.keys(over || {}).forEach(function (k) { f[k] = over[k]; });
+    (drop || []).forEach(function (k) { delete f[k]; });
+    return 'QDIAG/1 ' + Object.keys(f).map(function (k) { return k + '=' + f[k]; }).join(' | ');
+  }
+  var strictOut = [qd({ extra_power: 'root' }), qd({}, ['objective']), qd({}, ['diagnosis']), qd({ recoverable: 'yes' }), qd({ objective: 'Run node "x.js"' }),
+    qd({ objective: 'Run {x}' }), qd({ objective: 'Run <file>' }), qd({ objective: 'node a.js | tee /tmp/x' }), qd({}) + ' | action=test', 'QDIAG/1 classification=TEST_FAILURE',
+    qd({ diagnosis: 'x\\u0007y' }).replace('\\u0007', '\u0007')].map(function (l) { return qwenMod.normalizeAnswer('#### Summary\n\n' + l + '\n').reason || 'OK'; });
+  ok(strictOut.every(function (r) { return /^QWEN_MALFORMED/.test(r); }),
+    '20 QDIAG is strict: unknown key, missing required, recoverable not true|false, double quote, brace, angle bracket, pipe in a value, duplicate key, truncated line, control char → all QWEN_MALFORMED ' +
+    JSON.stringify(strictOut.map(function (r) { return r.split(':')[0]; })));
+  // (7) QDIAG goes through the UNCHANGED schema and gates
+  var gateOut = [qd({ classification: 'MODULE_NOT_FOUND' }), qd({ confidence: 'sure' }), qd({ confidence: 'low' }), qd({ recoverable: 'false', human_action: 'owner decides' }),
+    qd({ classification: 'HUMAN_REQUIRED' })].map(function (l) { return consultOutcome(finalMsg(l)); });
+  ok(JSON.stringify(gateOut) === JSON.stringify(['QWEN_INVALID', 'QWEN_INVALID', 'QWEN_UNCERTAIN', 'QWEN_NOT_RECOVERABLE', 'QWEN_NOT_RECOVERABLE']),
+    '20 QDIAG answers still face the schema and the escalation rules: the live class MODULE_NOT_FOUND is QWEN_INVALID; low confidence / not recoverable / HUMAN_REQUIRED escalate ' + JSON.stringify(gateOut));
+  // (8) one answer only: QDIAG vs a different JSON diagnosis, or two different QDIAG lines → AMBIGUOUS; an identical repeat is one answer
+  ok(qwenMod.normalizeAnswer('#### Summary\n\n' + qd({}) + '\n' + JSON.stringify(t4Diag) + '\n').reason.indexOf('QWEN_AMBIGUOUS') === 0 &&
+    qwenMod.normalizeAnswer('#### Summary\n\n' + qd({}) + '\n' + qd({ diagnosis: 'another cause' }) + '\n').reason.indexOf('QWEN_AMBIGUOUS') === 0 &&
+    qwenMod.normalizeAnswer('#### Summary\n\n' + qd({}) + '\n' + qd({}) + '\n').ok,
+    '20 a QDIAG line plus a different diagnosis (JSON or QDIAG) is QWEN_AMBIGUOUS; an identical repeat is one answer');
+  // (9) E2E in the simulated world: Qwen answers with a QDIAG line → Qwen recovery, OpenAI=0, consult settled and closed
+  // the simulated root is an `investigate` task: the recovery may not be more privileged (see (11))
+  var eQ = fresh(qScript, null, null, function () { return qd({ title: 'Recovery via QDIAG', action: 'investigate' }); });
+  var tQ = structured(eQ.sup);
+  var rQ = await runUntil(eQ, tQ.task_id, 30);
+  var cQ = store.loadTask(tQ.task_id).consult;
+  ok(rQ.t.status === 'COMPLETED' && oaCount(eQ) === 0 && eQ.w.qwenAnswers === 1 && store.loadTask(tQ.task_id + '-R1').diagnosis.tier === 'QWEN' && cQ.closed && eQ.w.issues[cQ.issue_number].state === 'closed',
+    '20 E2E: a QDIAG/1 answer is accepted — Qwen recovery, OpenAI=0, consult settled once and closed' + dbg(eQ, tQ.task_id));
+  // (10) E2E: the exact live #494 summary → escalated once to OpenAI (QWEN_MALFORMED), never executed, consult closed
+  var eL = fresh(qScript, null, null, function () { return LIVE494; });
+  var tL = structured(eL.sup);
+  var rL = await runUntil(eL, tL.task_id, 30);
+  var cL = store.loadTask(tL.task_id).consult;
+  var escL = store.readJournal(function (e) { return e.task_id === tL.task_id && e.event === 'qwen_escalated'; });
+  ok(rL.t.status === 'COMPLETED' && oaCount(eL, 'supervise_diagnose') === 1 && escL.length === 1 && /^QWEN_MALFORMED/.test(escL[0].why) && cL.closed &&
+    !allTasks().some(function (t) { return t.parent_task_id === tL.task_id && t.diagnosis && t.diagnosis.tier === 'QWEN'; }),
+    '20 E2E: the live #494 summary escalates to OpenAI exactly once (QWEN_MALFORMED), is never executed, and the consult is closed' + dbg(eL, tL.task_id));
+  // (11) E2E: a QDIAG recovery asking for MORE privilege than the root is refused by the unchanged createChild gate
+  var eX = fresh(qScript, null, null, function () { return qd({ action: 'implement', title: 'Recovery wider' }); });
+  var tX = structured(eX.sup);
+  var rX = await runUntil(eX, tX.task_id, 30);
+  ok(rX.t.status === 'BLOCKED' && rX.t.blocked.code === 'PRIVILEGE_ESCALATION_REFUSED' && !allTasks().some(function (t) { return t.parent_task_id === tX.task_id; }),
+    '20 E2E: a QDIAG recovery with action=implement under an investigate/test root is refused (PRIVILEGE_ESCALATION_REFUSED), nothing dispatched' + dbg(eX, tX.task_id));
 
   section('13. Hygiene');
   var everything = JSON.stringify(allTasks()) + fs.readFileSync(path.join(process.env.MYTHOS_SUPERVISOR_HOME, 'journal.jsonl'), 'utf8');
