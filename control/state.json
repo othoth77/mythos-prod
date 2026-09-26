@@ -1,15 +1,15 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-26T15:46:08.065Z",
+  "generated_at": "2026-09-26T15:47:15.808Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
     "PENDING": 10,
-    "CLAIMED": 1,
+    "CLAIMED": 0,
     "IN_PROGRESS": 0,
     "VALIDATING": 0,
-    "COMPLETED": 60,
+    "COMPLETED": 61,
     "BLOCKED": 33,
     "FAILED": 2,
     "CANCELLED": 2
@@ -26,9 +26,7 @@
     "gh-issue-228",
     "gh-issue-389"
   ],
-  "active": [
-    "gh-issue-483"
-  ],
+  "active": [],
   "awaiting_review": [
     "gh-20260902-bridge-smoke-01",
     "gh-20260902-chatgpt-safe-test-01",
@@ -120,6 +118,7 @@
     "gh-issue-477",
     "gh-issue-479",
     "gh-issue-481",
+    "gh-issue-483",
     "gh-issue-95",
     "gh-issue-97",
     "gh-issue-99",
@@ -2460,7 +2459,7 @@
     },
     {
       "task_id": "gh-issue-483",
-      "status": "CLAIMED",
+      "status": "COMPLETED",
       "priority": "normal",
       "requested_action": "investigate",
       "action_source": "explicit_current_issue",
@@ -2469,11 +2468,11 @@
       "blocker": null,
       "created_at": "2026-09-26T15:45:57.564Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-26T15:46:01.957Z",
+      "updated_at": "2026-09-26T15:47:15.796Z",
       "executor_task_id": "t-20260926154601-etctww",
       "branch": "mythos/gh/gh-issue-483",
       "task_file": "control/tasks/gh-issue-483.json",
-      "report_file": null,
+      "report_file": "control/reports/gh-issue-483.json",
       "source": {
         "kind": "github-issue",
         "issue_number": 483,
@@ -2597,7 +2596,9 @@
       }
     }
   ],
-  "notes": [],
+  "notes": [
+    "runtime identity: RUNTIME_STALE_CHECKOUT — claims continue (recorded on each claim/report): checkout HEAD b2487ee1a5ba is behind origin/main fe315aeb395e — the running bridge is older than what is delivered"
+  ],
   "how_to": {
     "create_task": "Add control/tasks/<task_id>.json (schema: control/schemas/task.schema.json) with status PENDING on branch mythos/control.",
     "read_report": "control/reports/<task_id>.json (and .md) appears when the task reaches COMPLETED, BLOCKED, FAILED or CANCELLED.",

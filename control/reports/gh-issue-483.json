@@ -1,0 +1,126 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-483",
+  "attempt_id": "gh-issue-483#1",
+  "status": "COMPLETED",
+  "summary": "Read projects/mythos-haddad/systemd/mythos-haddad-bridge.timer (read-only). Line 15 of that file reads exactly: OnUnitInactiveSec=1min (verified with grep -n and cat -A: LF-terminated, no CR, no trailing whitespace; line sha256 f30c9009...bf8b71, file sha256 2baa7949...6638). The timer also sets OnBootSec=2min and AccuracySec=15s, with Persistent= deliberately absent per the file's own comment. No files were created, modified, staged, committed or pushed; git status is clean on branch mythos/gh/gh-issue-483 at fe315aeb395e58b3cb8bfbaeb759e81ff833af38. The optional othmode-cli task update for OTH-2026-01918 was attempted twice and denied (command requires approval), so the task record phase was not advanced by this run; no terminal status was set and no second record was created.",
+  "resolution": {
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "model_requested": "Fable 5.1",
+    "model_key": "fable-5.1",
+    "model": "claude-fable-5-1",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "base_sha": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "branch": "mythos/gh/gh-issue-483",
+    "commit_sha": null
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "b2487ee1a5ba6b22c834f3ba2f0ce49fed2732de",
+    "branch": "main",
+    "dirty_files": 1,
+    "base_ref": "origin/main",
+    "base_ref_head": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": true,
+    "code": "RUNTIME_STALE_CHECKOUT",
+    "reason": "checkout HEAD b2487ee1a5ba is behind origin/main fe315aeb395e — the running bridge is older than what is delivered",
+    "measured_at": "2026-09-26T15:46:00.638Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Read projects/mythos-haddad/systemd/mythos-haddad-bridge.timer (read-only). Line 15 of that file reads exactly: OnUnitInactiveSec=1min (verified with grep -n and cat -A: LF-terminated, no CR, no trailing whitespace; line sha256 f30c9009...bf8b71, file sha256 2baa7949...6638). The timer also sets OnBootSec=2min and AccuracySec=15s, with Persistent= deliberately absent per the file's own comment. No files were created, modified, staged, committed or pushed; git status is clean on branch mythos/gh/gh-issue-483 at fe315aeb395e58b3cb8bfbaeb759e81ff833af38. The optional othmode-cli task update for OTH-2026-01918 was attempted twice and denied (command requires approval), so the task record phase was not advanced by this run; no terminal status was set and no second record was created.",
+    "tests": [
+      "quoted line matches file byte for byte: pass (grep -n + cat -A shows '15:OnUnitInactiveSec=1min$')",
+      "check:mentions:OnUnitInactiveSec=1min: pass",
+      "check:status_completed: pass",
+      "git status --porcelain clean, no edits: pass"
+    ],
+    "commit": null,
+    "remote_head": null,
+    "files_changed": [],
+    "residual_risks": [
+      "OTHMODE task OTH-2026-01918 phase/sections were not updated by this run (CLI call needed approval); the bridge must close the record from this report alone."
+    ],
+    "next_stage": "Bridge verifies this report against acceptance criteria and closes OTH-2026-01918 as COMPLETED; no code follow-up required."
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "quoted line matches file byte for byte: pass (grep -n + cat -A shows '15:OnUnitInactiveSec=1min$')",
+    "check:mentions:OnUnitInactiveSec=1min: pass",
+    "check:status_completed: pass",
+    "git status --porcelain clean, no edits: pass"
+  ],
+  "validation": {
+    "git_verified": null,
+    "remote_head": null,
+    "report_problems": [],
+    "required_checks": [
+      "The quoted line matches the file byte for byte.",
+      "check:status_completed",
+      "check:mentions:OnUnitInactiveSec=1min"
+    ]
+  },
+  "problems": [],
+  "risks": [
+    "OTHMODE task OTH-2026-01918 phase/sections were not updated by this run (CLI call needed approval); the bridge must close the record from this report alone."
+  ],
+  "next_recommended_action": "Bridge verifies this report against acceptance criteria and closes OTH-2026-01918 as COMPLETED; no code follow-up required.",
+  "completed_at": "2026-09-26T15:47:15.699Z",
+  "execution": {
+    "executor_task_id": "t-20260926154601-etctww",
+    "othmode_task_id": "OTH-2026-01918",
+    "execution_profile": "repo-read",
+    "provider": "claude-code",
+    "model": "claude-fable-5-1",
+    "model_requested": "Fable 5.1",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "investigate",
+    "attempt_id": "gh-issue-483#1",
+    "fence": 77072,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:1944686",
+      "fence": 77072,
+      "acquired_at": "2026-09-26T15:46:01.839Z",
+      "expires_at": "2026-09-26T16:26:01.839Z"
+    },
+    "snapshot_sha256": "8ea12cd1adbce4a0fc6b3cdb33ef537ea84746e664e42e83c0538b5d130a565d",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "claude_session_id": "ce0e5c4e-b09b-4afe-9074-1a16b636cc36",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-26T15:46:05.798Z",
+    "ended_at": "2026-09-26T15:46:44.369Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 0.7070059999999999,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-483",
+    "branch": "mythos/gh/gh-issue-483",
+    "base_commit": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-483",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
