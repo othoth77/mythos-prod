@@ -1,0 +1,137 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-507",
+  "attempt_id": "gh-issue-507#1",
+  "status": "FAILED",
+  "summary": "Ran `node tests/invoice-total-test.js` from the repository root of worktree /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-507 on branch mythos/gh/gh-issue-507 at base commit 5d8ccb1e409e (clean tree). The test exited with code 1: checks 1 and 2 passed, check 3 failed. Failing check line, verbatim: 'FAIL 3 totalCents sums every line: expected 7500, got 5000 (rerun with --verbose for the per-line breakdown)'. A --verbose rerun reproduced it deterministically (sum of lines = 7500, totalCents = 5000). The failure is PRE-EXISTING on the unmodified baseline; this run made no changes. Observed cause: tests/fixtures/invoice/invoice.js line 11 starts the totalCents loop at index 1, skipping the first line (A-100, 2500 cents). Read-only task: no files created, modified, staged, committed or pushed; git status remained clean. OTHMODE task OTH-2026-01933 was advanced to phase VALIDATION with execution, validation, problems, git and outcome sections plus the verbatim test output as evidence; no terminal status was set.",
+  "resolution": {
+    "requested_action": "test",
+    "action_raw": "test",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-test",
+    "expected_profile": "repo-test",
+    "model_requested": "Fable 5.1",
+    "model_key": "fable-5.1",
+    "model": "claude-fable-5-1",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "base_sha": "5d8ccb1e409e706db045082826ab018760855142",
+    "branch": "mythos/gh/gh-issue-507",
+    "commit_sha": null
+  },
+  "blocker": {
+    "code": "PROVIDER_FAILED",
+    "retryable": true,
+    "at": "2026-09-26T21:34:12.024Z",
+    "reason": "Ran `node tests/invoice-total-test.js` from the repository root of worktree /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-507 on branch mythos/gh/gh-issue-507 at base commit 5d8ccb1e409e (clean tree). The test exited with code 1: checks 1 and 2 passed, check 3 failed. Failing check line, verbatim: 'FAIL 3 totalCents sums every line: expected 7500, got 5000 (rerun with --verbose for the per-line breakdown)'. A --verbose rerun reproduced it deterministically (sum of lines = 7500, totalCents = 5000). The failure is PRE-EXISTING on the unmodified baseline; this run made no changes. Observed cause: tests/fixtures/invoice/invoice.js line 11 starts the totalCents loop at index 1, skipping the first line (A-100, 2500 cents). Read-only task: no files created, modified, staged, committed or ",
+    "task_id": "t-20260926213241-ijjl63",
+    "attempt_id": "gh-issue-507#1"
+  },
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "b2487ee1a5ba6b22c834f3ba2f0ce49fed2732de",
+    "branch": "main",
+    "dirty_files": 1,
+    "base_ref": "origin/main",
+    "base_ref_head": "5d8ccb1e409e706db045082826ab018760855142",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": true,
+    "code": "RUNTIME_STALE_CHECKOUT",
+    "reason": "checkout HEAD b2487ee1a5ba is behind origin/main 5d8ccb1e409e — the running bridge is older than what is delivered",
+    "measured_at": "2026-09-26T21:32:40.597Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "failed",
+    "summary": "Ran `node tests/invoice-total-test.js` from the repository root of worktree /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-507 on branch mythos/gh/gh-issue-507 at base commit 5d8ccb1e409e (clean tree). The test exited with code 1: checks 1 and 2 passed, check 3 failed. Failing check line, verbatim: 'FAIL 3 totalCents sums every line: expected 7500, got 5000 (rerun with --verbose for the per-line breakdown)'. A --verbose rerun reproduced it deterministically (sum of lines = 7500, totalCents = 5000). The failure is PRE-EXISTING on the unmodified baseline; this run made no changes. Observed cause: tests/fixtures/invoice/invoice.js line 11 starts the totalCents loop at index 1, skipping the first line (A-100, 2500 cents). Read-only task: no files created, modified, staged, committed or pushed; git status remained clean. OTHMODE task OTH-2026-01933 was advanced to phase VALIDATION with execution, validation, problems, git and outcome sections plus the verbatim test output as evidence; no terminal status was set.",
+    "tests": [
+      "node tests/invoice-total-test.js: invoice-total: 2 passed, 1 failed",
+      "check:tests_pass_for:tests/invoice-total-test.js: FAIL (exit code 1; FAIL 3 totalCents sums every line: expected 7500, got 5000 (rerun with --verbose for the per-line breakdown))",
+      "node tests/invoice-total-test.js --verbose: invoice-total: 2 passed, 1 failed (sum of lines = 7500, totalCents = 5000)",
+      "check:status_completed: FAIL (task reported as failed because the required test does not pass)"
+    ],
+    "commit": null,
+    "remote_head": null,
+    "files_changed": [],
+    "residual_risks": [
+      "tests/fixtures/invoice/invoice.js totalCents skips the first invoice line (loop starts at i = 1); any consumer of this fixture undercounts totals until fixed",
+      "Status Center was not consulted for this read-only run; OTHMODE task record OTH-2026-01933 marks it UNREACHABLE"
+    ],
+    "next_stage": "Open a write-enabled task to change the loop start index from 1 to 0 in tests/fixtures/invoice/invoice.js, then rerun node tests/invoice-total-test.js and expect 'invoice-total: 3 passed, 0 failed'"
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "node tests/invoice-total-test.js: invoice-total: 2 passed, 1 failed",
+    "check:tests_pass_for:tests/invoice-total-test.js: FAIL (exit code 1; FAIL 3 totalCents sums every line: expected 7500, got 5000 (rerun with --verbose for the per-line breakdown))",
+    "node tests/invoice-total-test.js --verbose: invoice-total: 2 passed, 1 failed (sum of lines = 7500, totalCents = 5000)",
+    "check:status_completed: FAIL (task reported as failed because the required test does not pass)"
+  ],
+  "validation": {
+    "git_verified": null,
+    "remote_head": null,
+    "report_problems": [],
+    "required_checks": [
+      "The tests list contains the command's output line verbatim.",
+      "check:status_completed",
+      "check:tests_pass_for:tests/invoice-total-test.js"
+    ]
+  },
+  "problems": [
+    "PROVIDER_FAILED: Ran `node tests/invoice-total-test.js` from the repository root of worktree /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-507 on branch mythos/gh/gh-issue-507 at base commit 5d8ccb1e409e (clean tree). The test exited with code 1: checks 1 and 2 passed, check 3 failed. Failing check line, verbatim: 'FAIL 3 totalCents sums every line: expected 7500, got 5000 (rerun with --verbose for the per-line breakdown)'. A --verbose rerun reproduced it deterministically (sum of lines = 7500, totalCents = 5000). The failure is PRE-EXISTING on the unmodified baseline; this run made no changes. Observed cause: tests/fixtures/invoice/invoice.js line 11 starts the totalCents loop at index 1, skipping the first line (A-100, 2500 cents). Read-only task: no files created, modified, staged, committed or "
+  ],
+  "risks": [
+    "tests/fixtures/invoice/invoice.js totalCents skips the first invoice line (loop starts at i = 1); any consumer of this fixture undercounts totals until fixed",
+    "Status Center was not consulted for this read-only run; OTHMODE task record OTH-2026-01933 marks it UNREACHABLE"
+  ],
+  "next_recommended_action": "Open a write-enabled task to change the loop start index from 1 to 0 in tests/fixtures/invoice/invoice.js, then rerun node tests/invoice-total-test.js and expect 'invoice-total: 3 passed, 0 failed'",
+  "completed_at": "2026-09-26T21:35:05.740Z",
+  "execution": {
+    "executor_task_id": "t-20260926213241-ijjl63",
+    "othmode_task_id": "OTH-2026-01933",
+    "execution_profile": "repo-test",
+    "provider": "claude-code",
+    "model": "claude-fable-5-1",
+    "model_requested": "Fable 5.1",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "test",
+    "attempt_id": "gh-issue-507#1",
+    "fence": 77894,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:2520118",
+      "fence": 77894,
+      "acquired_at": "2026-09-26T21:32:41.720Z",
+      "expires_at": "2026-09-26T22:12:41.720Z"
+    },
+    "snapshot_sha256": "2d5d08baee817b2032731802a18df4f733b899ac59c489dc974cc583b6b92355",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "claude_session_id": "fcffb9b3-5409-40e8-825f-c1b80645bdfd",
+    "executor_status": "FAILED",
+    "started_at": "2026-09-26T21:32:52.043Z",
+    "ended_at": "2026-09-26T21:34:12.024Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 1.10125125,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-507",
+    "branch": "mythos/gh/gh-issue-507",
+    "base_commit": "5d8ccb1e409e706db045082826ab018760855142",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-507",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
