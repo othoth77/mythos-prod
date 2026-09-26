@@ -140,6 +140,16 @@
         "at": "2026-09-26T17:48:09.831Z",
         "existed": false,
         "executor_task_id": "t-20260926174805-4xnkdr"
+      },
+      "report": {
+        "comment_id": 5848486148,
+        "url": "https://github.com/othoth77/mythos-prod/issues/492#issuecomment-5848486148",
+        "at": "2026-09-26T17:52:02.726Z",
+        "existed": false,
+        "status": "HUMAN_APPROVAL",
+        "control_status": "BLOCKED",
+        "report_file": "control/reports/gh-issue-492.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -149,7 +159,8 @@
       "removed": [
         "mythos:supervised"
       ]
-    }
+    },
+    "issue_state": "HUMAN_APPROVAL"
   },
   "execution": {
     "executor_task_id": "t-20260926174805-4xnkdr",
