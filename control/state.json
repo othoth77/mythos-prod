@@ -1,17 +1,17 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-26T16:28:26.829Z",
+  "generated_at": "2026-09-26T16:29:33.583Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
     "PENDING": 10,
-    "CLAIMED": 1,
+    "CLAIMED": 0,
     "IN_PROGRESS": 0,
     "VALIDATING": 0,
     "COMPLETED": 63,
     "BLOCKED": 33,
-    "FAILED": 3,
+    "FAILED": 4,
     "CANCELLED": 2
   },
   "pending": [
@@ -26,9 +26,7 @@
     "gh-issue-228",
     "gh-issue-389"
   ],
-  "active": [
-    "gh-issue-487"
-  ],
+  "active": [],
   "awaiting_review": [
     "gh-20260902-bridge-smoke-01",
     "gh-20260902-chatgpt-safe-test-01",
@@ -124,6 +122,7 @@
     "gh-issue-484",
     "gh-issue-485",
     "gh-issue-486",
+    "gh-issue-487",
     "gh-issue-95",
     "gh-issue-97",
     "gh-issue-99",
@@ -2556,20 +2555,20 @@
     },
     {
       "task_id": "gh-issue-487",
-      "status": "CLAIMED",
+      "status": "FAILED",
       "priority": "normal",
       "requested_action": "test",
       "action_source": "explicit_current_issue",
       "execution_profile": "repo-test",
       "model": "claude-fable-5-1",
-      "blocker": null,
+      "blocker": "PROVIDER_FAILED",
       "created_at": "2026-09-26T16:28:17.513Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-26T16:28:21.886Z",
+      "updated_at": "2026-09-26T16:29:33.572Z",
       "executor_task_id": "t-20260926162821-pxyz5l",
       "branch": "mythos/gh/gh-issue-487",
       "task_file": "control/tasks/gh-issue-487.json",
-      "report_file": null,
+      "report_file": "control/reports/gh-issue-487.json",
       "source": {
         "kind": "github-issue",
         "issue_number": 487,
@@ -2693,7 +2692,9 @@
       }
     }
   ],
-  "notes": [],
+  "notes": [
+    "runtime identity: RUNTIME_STALE_CHECKOUT — claims continue (recorded on each claim/report): checkout HEAD b2487ee1a5ba is behind origin/main fe315aeb395e — the running bridge is older than what is delivered"
+  ],
   "how_to": {
     "create_task": "Add control/tasks/<task_id>.json (schema: control/schemas/task.schema.json) with status PENDING on branch mythos/control.",
     "read_report": "control/reports/<task_id>.json (and .md) appears when the task reaches COMPLETED, BLOCKED, FAILED or CANCELLED.",

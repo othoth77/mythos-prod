@@ -20,7 +20,7 @@
     "check:status_completed",
     "check:tests_pass"
   ],
-  "status": "CLAIMED",
+  "status": "FAILED",
   "created_at": "2026-09-26T16:28:17.513Z",
   "created_by": "github-issue:othoth77",
   "timeout_seconds": 600,
@@ -174,8 +174,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "f89aaa242d017f290aca8e212d1d2973e7f1e3347d577bd673dcec555fddbeab",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-26T16:28:21.764Z",
+    "executor_status": "FAILED",
+    "updated_at": "2026-09-26T16:29:33.572Z",
     "snapshot_sha256": "c8837a8caae0105f4804123e7dc3b1e9c58463487b37a5330ab597d0da69da47",
     "fence": 77171,
     "lease": {
@@ -203,7 +203,13 @@
       "measured_at": "2026-09-26T16:28:20.672Z"
     },
     "model": "claude-fable-5-1",
-    "model_selection_mode": "explicit"
+    "model_selection_mode": "explicit",
+    "blocker": {
+      "code": "PROVIDER_FAILED",
+      "reason": "Ran the exact self-check command from the repository root with the instructed argument --mode=loose. It printed one line, 'selfcheck: 0 passed, 1 failed (unknown mode --mode=loose; supported mode: --mode=strict)', and exited with code 1. Per the objective, a failing command means the task is reported as failed with that output line as the only problem. The task was read-only: no files were created, modified, staged, committed or pushed, and the worktree remains clean at fe315aeb395e58b3cb8bfbaeb",
+      "retryable": true
+    },
+    "report_file": "control/reports/gh-issue-487.json"
   },
   "history": [
     {
@@ -212,6 +218,20 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260926162821-pxyz5l queued; OTHMODE OTH-2026-01922; action test (explicit_current_issue) → repo-test; model claude-fable-5-1; fence 77171"
+    },
+    {
+      "at": "2026-09-26T16:29:32.940Z",
+      "from": "CLAIMED",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended FAILED; building report"
+    },
+    {
+      "at": "2026-09-26T16:29:33.572Z",
+      "from": "VALIDATING",
+      "to": "FAILED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 1 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
