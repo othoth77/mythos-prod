@@ -1,0 +1,16 @@
+# MYTHOS autonomous supervisor — one supervision pass (user unit, deploy).
+# Installed by projects/mythos-orchestrator/systemd/README (owner-visible, no secrets).
+# %h/deployments/mythos-supervisor is a detached git worktree pinned to a
+# reviewed commit; the unit never runs from the shared production checkout.
+[Unit]
+Description=MYTHOS supervisor — one tick (OpenAI plans/reviews/diagnoses; FABLE executes via the bridge)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/node %h/deployments/mythos-supervisor/scripts/mythos-supervise.js tick
+TimeoutStartSec=600
+Nice=10
+MemoryMax=256M

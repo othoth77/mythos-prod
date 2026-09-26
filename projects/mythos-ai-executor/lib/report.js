@@ -56,6 +56,47 @@ function balancedObjects(text) {
   return out;
 }
 
+// A report `summary` is TEXT. A model that writes it as an object or array
+// (a local model asked to answer "as one JSON object" did) must never reach
+// a reader as "[object Object]": it becomes bounded canonical JSON text —
+// keys sorted recursively, depth-limited — so the content survives
+// byte-for-byte reproducibly, and anything too large or too deep is replaced
+// by an explicit marker that no consumer can mistake for a real answer.
+var SUMMARY_MAX = 20000;
+var CANON_MAX_DEPTH = 8;
+
+function canonical(v, depth) {
+  if (depth > CANON_MAX_DEPTH) throw new Error('depth');
+  if (Array.isArray(v)) return v.map(function (x) { return canonical(x, depth + 1); });
+  if (v && typeof v === 'object') {
+    var out = {};
+    Object.keys(v).sort().forEach(function (k) { out[k] = canonical(v[k], depth + 1); });
+    return out;
+  }
+  if (typeof v === 'number' && !isFinite(v)) return null;
+  return v;
+}
+
+function summaryText(v, max) {
+  max = max || SUMMARY_MAX;
+  if (v === undefined || v === null) return '';
+  if (typeof v === 'string') return v.length > max ? v.slice(0, max) : v;
+  if (typeof v !== 'object') return String(v).slice(0, max);
+  var text;
+  var kind = Array.isArray(v) ? 'an array' : 'an object';
+  try { text = JSON.stringify(canonical(v, 0)); } catch (e) { return '[summary was ' + kind + ' nested deeper than ' + CANON_MAX_DEPTH + ' levels; not rendered]'; }
+  if (text.length > max) return '[summary was ' + kind + ' of ' + text.length + ' chars (limit ' + max + '); not rendered]';
+  return text;
+}
+
+function normalizeReport(report) {
+  if (report && typeof report === 'object' && report.summary !== undefined && report.summary !== null && typeof report.summary !== 'string') {
+    report.summary_type = Array.isArray(report.summary) ? 'array' : typeof report.summary;
+    report.summary = summaryText(report.summary);
+  }
+  return report;
+}
+
 function extractReport(text) {
   if (typeof text !== 'string' || !text || !text.trim()) {
     return { report: null, error: 'the provider ended with no final message text at all (empty result)' };
@@ -75,7 +116,7 @@ function extractReport(text) {
   // with a stray brace in it recovers nothing and falls to the error below.
   if (!fences.length) {
     var embedded = balancedObjects(text).filter(function (o) { return o && o.mythos_report === true; });
-    if (embedded.length) return { report: embedded[embedded.length - 1], error: null };
+    if (embedded.length) return { report: normalizeReport(embedded[embedded.length - 1]), error: null };
     return { report: null, error: 'no fenced ```json block (or bare JSON object) in the final message — last 200 chars: "' + tailSnippet(text, 200) + '"' };
   }
   var candidates = [];
@@ -105,7 +146,7 @@ function extractReport(text) {
     return { report: null, error: fences.length + ' fenced json block(s) found but none declared "mythos_report": true — last 200 chars: "' + tailSnippet(text, 200) + '"' };
   }
   // The last report block wins: providers sometimes emit a draft first.
-  return { report: candidates[candidates.length - 1], error: null };
+  return { report: normalizeReport(candidates[candidates.length - 1]), error: null };
 }
 
 // Minimal shape check. Missing fields are recorded as problems rather than
@@ -227,6 +268,7 @@ function synthesize(input) {
 
 module.exports = {
   extractReport: extractReport,
+  summaryText: summaryText,
   synthesize: synthesize,
   validateReport: validateReport,
   renderMarkdown: renderMarkdown,
