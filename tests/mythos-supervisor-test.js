@@ -232,7 +232,7 @@ World.prototype.step = function () {
     e.steps++;
     var p = e.plan;
     function finish(status, extra, markerStatus) { e.done = true; e.status = e.effective = (status === 'COMPLETED' ? 'COMPLETED' : status); w.writeReport(i, tid, status, extra, markerStatus); }
-    if (p.kind === 'success') return finish('COMPLETED', { summary: p.summary || 'done: ' + tid, tests: ['node tests/x-test.js: 5 passed, 0 failed'] });
+    if (p.kind === 'success') return finish('COMPLETED', { summary: p.summary || 'done: ' + tid, tests: p.tests || ['node tests/x-test.js: 5 passed, 0 failed'] });
     if (p.kind === 'failed') return finish('FAILED', { summary: p.summary || 'tests failed', problems: [p.problem || 'node tests/x-test.js: 3 passed, 2 failed'], tests: p.tests || [] });
     if (p.kind === 'human') return finish('BLOCKED', { summary: 'owner decision required: protected path' }, 'HUMAN_APPROVAL');
     if (p.kind === 'crash_then_success') {
@@ -1242,6 +1242,82 @@ async function main() {
   var rX = await runUntil(eX, tX.task_id, 30);
   ok(rX.t.status === 'BLOCKED' && rX.t.blocked.code === 'PRIVILEGE_ESCALATION_REFUSED' && !allTasks().some(function (t) { return t.parent_task_id === tX.task_id; }),
     '20 E2E: a QDIAG recovery with action=implement under an investigate/test root is refused (PRIVILEGE_ESCALATION_REFUSED), nothing dispatched' + dbg(eX, tX.task_id));
+
+  section('21. check:tests_pass_for:<path> — the target suite, not any suite');
+  // The T6 audit found that [check:status_completed, check:tests_pass] is met by
+  // ANY passing suite, so a recovery that runs a different suite completes the
+  // root. check:tests_pass_for pins the target: only lines of the report's
+  // tests list that name <path> as a whole token count, the summary is never
+  // searched, and a malformed <path> is free text (never auto-passed).
+  var V = verify;
+  var TGT = 'tests/free-llm-parser-test.js';
+  function tpf(tests, summary, crit) { return V.evaluate(['check:status_completed', crit || ('check:tests_pass_for:' + TGT)], { status: 'COMPLETED', tests: tests, summary: summary || '' }); }
+  // (1) argument validation
+  ok(['tests/a-test.js', 'a.js', '_x/y_z.js', 'tests/sub.dir/x-test.js', new Array(201).join('a')].every(function (a) { return V.parse('check:tests_pass_for:' + a) !== null; }),
+    '21 valid repo-relative paths (up to 200 chars) are accepted');
+  var badArgs = ['', ' ', '../x.js', 'tests/../x.js', '/abs/x.js', 'tests/a b.js', 'tests/"a".js', "tests/'a'.js", 'tests/a\nb.js', new Array(202).join('a'), '-x.js', '.hidden.js', 'tests\\a.js', 'tests/a;id.js'];
+  ok(badArgs.every(function (a) { return V.parse('check:tests_pass_for:' + a) === null; }) && V.parse('check:tests_pass_for') === null,
+    '21 invalid paths are rejected: empty, .., absolute, space, quotes, newline, >200 chars, bad first char, backslash, shell metacharacter');
+  ok(V.allDeterministic(['check:status_completed', 'check:tests_pass_for:' + TGT]) && V.allDeterministic(['check:tests_pass', 'check:tests_pass_for:' + TGT]) &&
+    !V.allDeterministic(['check:status_completed', 'check:tests_pass_for:../x.js']),
+    '21 a valid pin keeps the acceptance fully deterministic (verified locally); a malformed one does not');
+  // (2) evaluation
+  ok(tpf(['node ' + TGT + ': 30 passed, 0 failed (branch mythos/gh/gh-issue-498 at fe315aeb395e)']).passed,
+    '21 the target passes → accepted (the real live T4 recovery line)');
+  ok(!tpf(['node tests/mythos-report-normalization-test.js: 18 passed, 0 failed']).passed && V.evaluate(['check:status_completed', 'check:tests_pass'],
+    { status: 'COMPLETED', tests: ['node tests/mythos-report-normalization-test.js: 18 passed, 0 failed'] }).passed,
+    '21 only ANOTHER suite passes → rejected by tests_pass_for, while plain tests_pass would have accepted it (the substitution hole)');
+  ok(!tpf(['node ' + TGT + ': 28 passed, 2 failed']).passed && !tpf(['node ' + TGT + ': FAILED (exit 1) — first output line: node:internal/modules/cjs/loader:1386']).passed &&
+    !tpf(['node ' + TGT + ': 30 passed, 0 failed', 'node ' + TGT + ': ERROR in teardown']).passed && !tpf([TGT + ' failed with exit code 1']).passed,
+    '21 the target fails (counts, FAILED, ERROR, or an uncounted "failed") → rejected, even next to a passing line for it');
+  ok(!tpf(['node ' + TGT + ': 30 passed, 0 failed — ERROR in teardown']).passed && !tpf(['node ' + TGT + ': 30 passed, 0 failed, then FAILED on exit']).passed &&
+    !tpf(['node ' + TGT + ': 12 passed, 0 failed (FAIL: coverage gate)']).passed,
+    '21 a target line WITH passing counts that also reports FAIL/FAILED/ERROR → rejected (counts alone are not enough)');
+  ok(!tpf(['node tests/other-test.js: 5 passed, 0 failed'], 'I ran ' + TGT + ': 30 passed, 0 failed').passed,
+    '21 the target named only in the free-text summary → rejected (the summary is never searched)');
+  ok(!tpf(['node ' + TGT + ': 0 passed, 0 failed']).passed, '21 a vacuous "0 passed, 0 failed" for the target is not a pass');
+  // (3) whole-token matching
+  var tok = function (line, target) { return V.evaluate(['check:tests_pass_for:' + target], { tests: [line] }).passed; };
+  ok(!tok('node tests/a.js.bak: 5 passed, 0 failed', 'tests/a.js') && !tok('node xtests/a.js: 5 passed, 0 failed', 'tests/a.js') &&
+    !tok('node tests/a-test.js: 5 passed, 0 failed', 'tests/a.js') && !tok('node tests/free-llm-parser-test.js: 30 passed, 0 failed', 'tests/free-llm-parser.js') &&
+    !tok('node src/tests/a.js: 5 passed, 0 failed', 'tests/a.js') &&
+    tok('node tests/a.js: 5 passed, 0 failed', 'tests/a.js') && tok('`tests/a.js` → 5 passed, 0 failed', 'tests/a.js') &&
+    tok('ran tests/a.js. Result: 5 passed, 0 failed', 'tests/a.js') && tok('(tests/a.js) 5 passed, 0 failed', 'tests/a.js'),
+    '21 whole-token matching: tests/a.js ≠ tests/a.js.bak, xtests/a.js, tests/a-test.js, src/tests/a.js (and the T4 typo path ≠ the real suite); backticks, parentheses, a trailing period are fine');
+  // (4) target passes while another suite fails
+  var mix = ['node ' + TGT + ': 30 passed, 0 failed', 'node tests/other-test.js: 3 passed, 2 failed'];
+  ok(V.testsPassFor(mix, TGT).met && !V.testsPass(mix).met && !V.evaluate(['check:tests_pass', 'check:tests_pass_for:' + TGT], { tests: mix }).passed &&
+    V.evaluate(['check:tests_pass_for:' + TGT], { tests: mix }).passed,
+    '21 target passes while another suite fails: tests_pass_for met (other suites ignored), tests_pass unmet — the combination is judged per criterion');
+  // (5) malformed argument fails closed: never decided locally, never auto-passed
+  ok(V.evaluate(['check:tests_pass_for:../etc/passwd'], { status: 'COMPLETED', tests: ['../etc/passwd: 9 passed, 0 failed'] }).decided === false &&
+    V.evaluate(['check:status_completed', 'check:tests_pass_for:/abs/t.js'], { status: 'COMPLETED', tests: ['/abs/t.js: 9 passed, 0 failed'] }).decided === false,
+    '21 a malformed argument fails closed: the acceptance is not decided locally (free text → never auto-passed)');
+  // (6) existing kinds unchanged
+  ok(JSON.stringify(V.KINDS.slice(0, 6)) === JSON.stringify(['status_completed', 'tests_pass', 'no_problems', 'mentions', 'files_changed', 'commit_delivered']) &&
+    V.evaluate(['check:mentions:x-test'], { tests: ['node tests/x-test.js: 5 passed, 0 failed'] }).passed && V.parse('check:files_changed:') === null,
+    '21 existing check kinds and their parsing are unchanged');
+  // (7) real supervisor: the pin is inherited by recoveries and enforced on the parent
+  var PIN = ['check:status_completed', 'check:tests_pass_for:tests/target-test.js'];
+  var eS = fresh(function (i) { return /Recovery/.test(i.title) ? { kind: 'success', tests: ['node tests/other-test.js: 5 passed, 0 failed'] } : { kind: 'failed', tests: ['node tests/target-test.js: 0 passed, 1 failed'] }; });
+  var tS = structured(eS.sup, { acceptance: PIN });
+  var rS = await runUntil(eS, tS.task_id, 40);
+  var kidsS = allTasks().filter(function (t) { return t.root_task_id === tS.task_id && t.task_id !== tS.task_id; });
+  ok(rS.t.status !== 'COMPLETED' && rS.t.status === 'BLOCKED' && kidsS.length >= 1 && kidsS.every(function (k) { return k.spec.acceptance_criteria.indexOf('check:tests_pass_for:tests/target-test.js') !== -1; }) &&
+    kidsS.every(function (k) { return k.status !== 'COMPLETED'; }),
+    '21 E2E substitution: every recovery inherits the pin; recoveries that run ANOTHER passing suite never complete; the root ends BLOCKED, not COMPLETED' + dbg(eS, tS.task_id));
+  var eG = fresh(function (i) { return /Recovery/.test(i.title) ? { kind: 'success', tests: ['node tests/target-test.js: 5 passed, 0 failed'] } : { kind: 'failed', tests: ['node tests/target-test.js: 0 passed, 1 failed'] }; });
+  var tG = structured(eG.sup, { acceptance: PIN });
+  var rG = await runUntil(eG, tG.task_id, 30);
+  ok(rG.t.status === 'COMPLETED' && oaCount(eG) === 0 && store.loadTask(tG.task_id).verified_evidence && /tests\/target-test\.js/.test(JSON.stringify(store.loadTask(tG.task_id).verified_evidence.tests)),
+    '21 E2E genuine fix: a recovery whose report shows the TARGET passing completes the root, verified locally on the recovery evidence (OpenAI=0)' + dbg(eG, tG.task_id));
+  // every Issue body carries a 'Timeout: <s>' trailer — match the LOCAL rule's own constraint instead
+  var eT = fresh(function (i) { return /previous attempt timed out/i.test(i.body) ? { kind: 'success', tests: ['node tests/target-test.js: 5 passed, 0 failed'] } : { kind: 'timeout_exhaust' }; });
+  var tT = structured(eT.sup, { acceptance: PIN });
+  await runUntil(eT, tT.task_id, 30);
+  var kidT = allTasks().filter(function (t) { return t.root_task_id === tT.task_id && t.task_id !== tT.task_id; })[0];
+  ok(kidT && kidT.diagnosis.tier === 'LOCAL' && kidT.spec.acceptance_criteria.indexOf('check:tests_pass_for:tests/target-test.js') !== -1,
+    '21 a LOCAL (timeout) recovery keeps the pin as well' + dbg(eT, tT.task_id));
 
   section('13. Hygiene');
   var everything = JSON.stringify(allTasks()) + fs.readFileSync(path.join(process.env.MYTHOS_SUPERVISOR_HOME, 'journal.jsonl'), 'utf8');
