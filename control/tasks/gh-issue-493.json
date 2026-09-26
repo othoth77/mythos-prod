@@ -20,7 +20,7 @@
     "check:status_completed",
     "check:tests_pass"
   ],
-  "status": "CLAIMED",
+  "status": "FAILED",
   "created_at": "2026-09-26T18:05:47.735Z",
   "created_by": "github-issue:othoth77",
   "timeout_seconds": 600,
@@ -174,8 +174,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "768cbacb9238f971d86c44e550d946ba3a9a3885cd277cc692b1942691de9821",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-26T18:05:52.135Z",
+    "executor_status": "FAILED",
+    "updated_at": "2026-09-26T18:07:03.207Z",
     "snapshot_sha256": "f2a41356e4060f57fd6785699eea6e76ea9514a1f94a19a505ae7744222c2954",
     "fence": 77402,
     "lease": {
@@ -203,7 +203,13 @@
       "measured_at": "2026-09-26T18:05:50.964Z"
     },
     "model": "claude-fable-5-1",
-    "model_selection_mode": "explicit"
+    "model_selection_mode": "explicit",
+    "blocker": {
+      "code": "PROVIDER_FAILED",
+      "reason": "Ran exactly `node tests/free-llm-parser.js` from the repository root of the worktree on branch mythos/gh/gh-issue-493 (HEAD fe315aeb395e). The command exited with code 1: Node reported MODULE_NOT_FOUND for /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-493/tests/free-llm-parser.js. Per the task instruction the path was not corrected, no other command or file was touched, and nothing was created, modified, staged, committed or pushed. The first output line is quoted verbatim in the tests l",
+      "retryable": true
+    },
+    "report_file": "control/reports/gh-issue-493.json"
   },
   "history": [
     {
@@ -212,6 +218,20 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260926180552-eslfn6 queued; OTHMODE OTH-2026-01926; action test (explicit_current_issue) → repo-test; model claude-fable-5-1; fence 77402"
+    },
+    {
+      "at": "2026-09-26T18:07:02.621Z",
+      "from": "CLAIMED",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended FAILED; building report"
+    },
+    {
+      "at": "2026-09-26T18:07:03.207Z",
+      "from": "VALIDATING",
+      "to": "FAILED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 3 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }

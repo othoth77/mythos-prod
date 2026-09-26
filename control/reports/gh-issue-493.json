@@ -1,0 +1,133 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-493",
+  "attempt_id": "gh-issue-493#1",
+  "status": "FAILED",
+  "summary": "Ran exactly `node tests/free-llm-parser.js` from the repository root of the worktree on branch mythos/gh/gh-issue-493 (HEAD fe315aeb395e). The command exited with code 1: Node reported MODULE_NOT_FOUND for /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-493/tests/free-llm-parser.js. Per the task instruction the path was not corrected, no other command or file was touched, and nothing was created, modified, staged, committed or pushed. The first output line is quoted verbatim in the tests list and as the only problem.",
+  "resolution": {
+    "requested_action": "test",
+    "action_raw": "test",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-test",
+    "expected_profile": "repo-test",
+    "model_requested": "Fable 5.1",
+    "model_key": "fable-5.1",
+    "model": "claude-fable-5-1",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "base_sha": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "branch": "mythos/gh/gh-issue-493",
+    "commit_sha": null
+  },
+  "blocker": {
+    "code": "PROVIDER_FAILED",
+    "retryable": true,
+    "at": "2026-09-26T18:06:23.974Z",
+    "reason": "Ran exactly `node tests/free-llm-parser.js` from the repository root of the worktree on branch mythos/gh/gh-issue-493 (HEAD fe315aeb395e). The command exited with code 1: Node reported MODULE_NOT_FOUND for /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-493/tests/free-llm-parser.js. Per the task instruction the path was not corrected, no other command or file was touched, and nothing was created, modified, staged, committed or pushed. The first output line is quoted verbatim in the tests list and as the only problem.",
+    "task_id": "t-20260926180552-eslfn6",
+    "attempt_id": "gh-issue-493#1"
+  },
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "b2487ee1a5ba6b22c834f3ba2f0ce49fed2732de",
+    "branch": "main",
+    "dirty_files": 1,
+    "base_ref": "origin/main",
+    "base_ref_head": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": true,
+    "code": "RUNTIME_STALE_CHECKOUT",
+    "reason": "checkout HEAD b2487ee1a5ba is behind origin/main fe315aeb395e — the running bridge is older than what is delivered",
+    "measured_at": "2026-09-26T18:05:50.964Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "failed",
+    "summary": "Ran exactly `node tests/free-llm-parser.js` from the repository root of the worktree on branch mythos/gh/gh-issue-493 (HEAD fe315aeb395e). The command exited with code 1: Node reported MODULE_NOT_FOUND for /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-493/tests/free-llm-parser.js. Per the task instruction the path was not corrected, no other command or file was touched, and nothing was created, modified, staged, committed or pushed. The first output line is quoted verbatim in the tests list and as the only problem.",
+    "tests": [
+      "node tests/free-llm-parser.js: FAILED (exit code 1) — first output line: node:internal/modules/cjs/loader:1386",
+      "check:status_completed: not met (task failed)",
+      "check:tests_pass: not met (command failed with MODULE_NOT_FOUND)"
+    ],
+    "commit": null,
+    "remote_head": null,
+    "files_changed": [],
+    "residual_risks": [
+      "Problem: node:internal/modules/cjs/loader:1386"
+    ],
+    "next_stage": "Bridge closes OTH-2026-01926 as FAILED from this report; if the suite is meant to run, the issue author should re-issue the task with the correct tests/<suite>-test.js path."
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "node tests/free-llm-parser.js: FAILED (exit code 1) — first output line: node:internal/modules/cjs/loader:1386",
+    "check:status_completed: not met (task failed)",
+    "check:tests_pass: not met (command failed with MODULE_NOT_FOUND)"
+  ],
+  "validation": {
+    "git_verified": null,
+    "remote_head": null,
+    "report_problems": [],
+    "required_checks": [
+      "The tests list contains the command's first output line verbatim.",
+      "check:status_completed",
+      "check:tests_pass"
+    ]
+  },
+  "problems": [
+    "PROVIDER_FAILED: Ran exactly `node tests/free-llm-parser.js` from the repository root of the worktree on branch mythos/gh/gh-issue-493 (HEAD fe315aeb395e). The command exited with code 1: Node reported MODULE_NOT_FOUND for /home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-493/tests/free-llm-parser.js. Per the task instruction the path was not corrected, no other command or file was touched, and nothing was created, modified, staged, committed or pushed. The first output line is quoted verbatim in the tests list and as the only problem."
+  ],
+  "risks": [
+    "Problem: node:internal/modules/cjs/loader:1386"
+  ],
+  "next_recommended_action": "Bridge closes OTH-2026-01926 as FAILED from this report; if the suite is meant to run, the issue author should re-issue the task with the correct tests/<suite>-test.js path.",
+  "completed_at": "2026-09-26T18:07:03.067Z",
+  "execution": {
+    "executor_task_id": "t-20260926180552-eslfn6",
+    "othmode_task_id": "OTH-2026-01926",
+    "execution_profile": "repo-test",
+    "provider": "claude-code",
+    "model": "claude-fable-5-1",
+    "model_requested": "Fable 5.1",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "test",
+    "attempt_id": "gh-issue-493#1",
+    "fence": 77402,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:2173879",
+      "fence": 77402,
+      "acquired_at": "2026-09-26T18:05:52.135Z",
+      "expires_at": "2026-09-26T18:45:52.135Z"
+    },
+    "snapshot_sha256": "f2a41356e4060f57fd6785699eea6e76ea9514a1f94a19a505ae7744222c2954",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "claude_session_id": "c05301cc-2001-4669-bb76-209816c73ab2",
+    "executor_status": "FAILED",
+    "started_at": "2026-09-26T18:05:57.020Z",
+    "ended_at": "2026-09-26T18:06:23.974Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 0.5521624999999999,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-493",
+    "branch": "mythos/gh/gh-issue-493",
+    "base_commit": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-493",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
