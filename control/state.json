@@ -1,13 +1,13 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-26T19:01:47.792Z",
+  "generated_at": "2026-09-26T19:02:54.104Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
     "PENDING": 10,
-    "CLAIMED": 1,
-    "IN_PROGRESS": 0,
+    "CLAIMED": 0,
+    "IN_PROGRESS": 1,
     "VALIDATING": 0,
     "COMPLETED": 65,
     "BLOCKED": 34,
@@ -2724,7 +2724,7 @@
     },
     {
       "task_id": "gh-issue-498",
-      "status": "CLAIMED",
+      "status": "IN_PROGRESS",
       "priority": "normal",
       "requested_action": "test",
       "action_source": "explicit_current_issue",
@@ -2733,7 +2733,7 @@
       "blocker": null,
       "created_at": "2026-09-26T19:01:37.564Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-26T19:01:42.144Z",
+      "updated_at": "2026-09-26T19:02:54.095Z",
       "executor_task_id": "t-20260926190142-sk1j9c",
       "branch": "mythos/gh/gh-issue-498",
       "task_file": "control/tasks/gh-issue-498.json",
@@ -2861,7 +2861,9 @@
       }
     }
   ],
-  "notes": [],
+  "notes": [
+    "runtime identity: RUNTIME_STALE_CHECKOUT — claims continue (recorded on each claim/report): checkout HEAD b2487ee1a5ba is behind origin/main fe315aeb395e — the running bridge is older than what is delivered"
+  ],
   "how_to": {
     "create_task": "Add control/tasks/<task_id>.json (schema: control/schemas/task.schema.json) with status PENDING on branch mythos/control.",
     "read_report": "control/reports/<task_id>.json (and .md) appears when the task reaches COMPLETED, BLOCKED, FAILED or CANCELLED.",
