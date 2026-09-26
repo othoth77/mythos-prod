@@ -4,6 +4,35 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260926230206-yeu6ce` — COMPLETED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | Verify the actual current GitHub main HEAD and the deployed supervisor checkout. |
+| Provider / model | claude-code / claude-haiku-4-5 |
+| Execution profile | repo-read |
+| Started | 2026-09-26T23:02:06.621Z |
+| Ended | 2026-09-26T23:03:16.260Z |
+| Status | **COMPLETED** |
+| Claude session | `6b8ad74a-6d9b-4c3b-971b-b581f0c37e25` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `48dabe2ee2f9a9830e42ebd0020ba654fd390bce` |
+| Git verified | null |
+
+**Summary:** Verification complete. origin/main is at PR #482 merge (48dabe2e). Local main is 18 commits behind at 9259f1b6. Deployed supervisor (mythos-supervisor1 worktree) is at 864a0392 on mythos/openai-supervisor-20260926, not 135bc422 — it's one commit ahead including Qwen QDIAG contract fix.
+
+**Residual risks:**
+- Local main is behind origin/main by 18 commits (b2487ee1 → 48dabe2e)
+- Deployed supervisor is not at expected 135bc422 but at 864a0392
+
+**Next stage:** Coordinate supervisor deployment if sync to latest origin/main is required
+
+
+---
+
 ## Task `t-20260926225306-tgcbis` — COMPLETED
 
 | Field | Value |
