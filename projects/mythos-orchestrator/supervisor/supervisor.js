@@ -61,8 +61,10 @@ function create(deps) {
   var brain = deps.brain;
   var now = deps.now || function () { return Date.now(); };
 
+  // Core trace fields are applied LAST so no detail object can overwrite
+  // them (a detail key named `event` once hid a refused-comment record).
   function log(task, event, detail, exec) {
-    return store.journal(Object.assign({
+    return store.journal(Object.assign({}, detail || {}, {
       correlation_id: task.correlation_id,
       task_id: task.task_id,
       root_task_id: task.root_task_id,
@@ -72,7 +74,7 @@ function create(deps) {
       executor_task_id: exec ? exec.executor_task_id || null : null,
       status: task.status,
       event: event
-    }, detail || {}));
+    }));
   }
 
   function move(task, to, reason, actor) {
@@ -170,7 +172,10 @@ function create(deps) {
       'Automation has stopped for this task. It resumes only by an explicit human decision.'
     ].join('\n');
     return bridge.postOnce(task.issue_number, { event: 'blocked', task_id: task.task_id, code: code }, text)
-      .then(function () { return bridge.label(task.issue_number, ['mythos:supervisor-blocked']); })
+      .then(function (c) {
+        if (c && !c.ok) log(task, 'comment_refused', { comment: 'blocked', code: c.error && c.error.code });
+        return bridge.label(task.issue_number, ['mythos:supervisor-blocked']);
+      })
       .then(function () { return task; }, function () { return task; });
   }
 
@@ -234,6 +239,16 @@ function create(deps) {
   }
 
   function dispatchFailed(task, exec, error) {
+    if (error && (error.code === 'TASK_INTEGRITY' || error.code === 'OUTBOUND_SECRET')) {
+      exec.last_error = error;
+      task.last_error = error;
+      store.saveTask(task);
+      log(task, 'dispatch_refused', { code: error.code, detail: String(error.detail || '').slice(0, 300) }, exec);
+      return block(task, error.code, error.detail || error.code,
+        error.code === 'TASK_INTEGRITY'
+          ? 'The generated Issue did not round-trip through the bridge parser with the validated metadata; nothing was created. Review the plan/diagnosis text.'
+          : 'The generated Issue contained a credential-shaped string; nothing was sent to GitHub. Review the plan/diagnosis text.');
+    }
     exec.dispatch_failures = (exec.dispatch_failures || 0) + 1;
     exec.last_error = error;
     task.last_error = error;
@@ -392,6 +407,12 @@ function create(deps) {
       else if (exec.outcome && exec.outcome.kind !== 'REPORT') return task;
       var curated = brain.curateReport(report);
       task.last_result = curated;
+      task.last_delivery = {
+        commits: (report.commits || []).map(function (c) { return { sha: c.sha, branch: c.branch || null, on_origin: c.on_origin === true }; }),
+        delivery_branch: report.delivery && report.delivery.branch || null,
+        git_verified: !!(report.validation && report.validation.git_verified === true),
+        remote_head: report.validation && report.validation.remote_head || null
+      };
       task.progress_marker = sha([curated.files_changed, (curated.commits || []).map(function (c) { return c.sha; }), curated.tests, curated.status]);
       store.saveTask(task);
       if (report.status === 'COMPLETED') {
@@ -414,6 +435,25 @@ function create(deps) {
     var evidence = task.resume_pending ? { recovery_child_report: task.resume_evidence || null } : null;
     if (task.verified) return complete(task, task.verified.review, task.verified.advice_id); // close retry, no second review
     if (!task.resume_pending && r.status !== 'COMPLETED') return Promise.resolve(failTask(task, current(task), 'VERIFY_PRECONDITION', 'no COMPLETED report to verify'));
+    var writes = ['implement', 'document'].indexOf(task.spec.action) !== -1;
+    var exec = current(task);
+    var delivered = (writes && !task.resume_pending)
+      ? bridge.verifyDelivery(task.last_delivery, exec && exec.bridge_task_id)
+      : Promise.resolve({ ok: true, skipped: true });
+    return delivered.then(function (dv) {
+      if (!dv.ok) {
+        task.delivery_check = { at: nowIso(), pending: !!dv.pending, problems: dv.problems };
+        store.saveTask(task);
+        log(task, 'delivery_unverified', { pending: !!dv.pending, problems: dv.problems }, exec);
+        if (dv.pending && secondsSince(exec && exec.settled_at, now()) <= cfg.report_wait_seconds) return task; // relay not done yet; stay VERIFYING, no review, no close
+        return failTask(task, exec, dv.pending ? 'WRITE_NOT_DELIVERED' : 'WRITE_NOT_VERIFIED', dv.problems.join('; '));
+      }
+      if (!dv.skipped) { task.delivery_check = { at: nowIso(), verified: dv.verified, branch: dv.branch, head: dv.head }; store.saveTask(task); log(task, 'delivery_verified', { verified: dv.verified, branch: dv.branch }, exec); }
+      return review(task, r, evidence, writes);
+    });
+  }
+
+  function review(task, r, evidence, writes) {
     return brain.review(task, r, evidence).then(function (v) {
       if (!v.ok) {
         task.review_failures = (task.review_failures || 0) + 1;
@@ -424,7 +464,6 @@ function create(deps) {
       }
       var d = v.decision;
       var unmet = (d.criteria || []).filter(function (c) { return !c.met; });
-      var writes = ['implement', 'document'].indexOf(task.spec.action) !== -1;
       var mechanical = [];
       if (!task.resume_pending && r.status !== 'COMPLETED') mechanical.push('report status is ' + r.status);
       if (writes && !task.resume_pending && !(r.commits || []).length) mechanical.push('a ' + task.spec.action + ' task produced no commit');
@@ -495,6 +534,9 @@ function create(deps) {
       'Closing this Issue. Merging any task branch remains a human decision.'
     ]).join('\n');
     return bridge.postOnce(task.issue_number, { event: 'verified', task_id: task.task_id }, text).then(function (c) {
+      if (!c.ok && c.error && c.error.code === 'OUTBOUND_SECRET') {
+        return block(task, 'OUTBOUND_SECRET', 'the verification comment contained a credential-shaped string and was not posted; the Issue was NOT closed', null);
+      }
       if (!c.ok) { log(task, 'verify_comment_failed', { code: c.error && c.error.code }); return task; } // retried next tick, still VERIFYING
       return bridge.closeIssue(task.issue_number, 'completed').then(function (cl) {
         if (!cl.ok) { log(task, 'close_failed', { code: cl.error && cl.error.code }); return task; }
@@ -616,7 +658,8 @@ function create(deps) {
         'Recovery task `' + child.task_id + '` is being dispatched as a new Issue. This task resumes when it completes.'
       ].join('\n');
       return bridge.postOnce(task.issue_number, { event: 'recovery', task_id: task.task_id, child: child.task_id }, text)
-        .then(function () { return stepPlanned(child); }, function () { return stepPlanned(child); })
+        .then(function (c) { if (c && !c.ok) log(task, 'comment_refused', { comment: 'recovery', code: c.error && c.error.code }); return stepPlanned(child); },
+          function () { return stepPlanned(child); })
         .then(function () { return task; });
     });
   }

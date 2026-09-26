@@ -21,6 +21,7 @@ var cp = require('child_process');
 var redact = require('../lib/redact');
 
 var MAX_OUTPUT = 8 * 1024 * 1024;
+var SAFE_REF = /^[A-Za-z0-9][A-Za-z0-9._\/-]{0,200}$/;
 
 // Default runner: spawn gh with a hard deadline. Resolves, never rejects.
 function spawnRunner(args, stdinText, timeoutMs) {
@@ -105,6 +106,16 @@ function create(opts) {
     },
     recentTaskIssues: function (repo, label) {
       return api('GET', repoPath(repo, '/issues?labels=' + encodeURIComponent(label) + '&state=all&sort=created&direction=desc&per_page=50'));
+    },
+    // Branch names go into the path raw (GitHub expects the slashes), so they
+    // are validated strictly first; a commit id must be a full SHA.
+    getBranch: function (repo, branch) {
+      if (!SAFE_REF.test(String(branch))) return Promise.resolve({ ok: false, error: { code: 'GH_BAD_REF', detail: 'unsafe branch name' } });
+      return api('GET', repoPath(repo, '/branches/' + branch));
+    },
+    compare: function (repo, base, head) {
+      if (!/^[0-9a-f]{40}$/.test(String(base)) || !SAFE_REF.test(String(head))) return Promise.resolve({ ok: false, error: { code: 'GH_BAD_REF', detail: 'unsafe ref' } });
+      return api('GET', repoPath(repo, '/compare/' + base + '...' + head));
     },
     controlFile: function (repo, branch, file) {
       return api('GET', repoPath(repo, '/contents/' + file + '?ref=' + encodeURIComponent(branch)), undefined, { raw: true });
