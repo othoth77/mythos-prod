@@ -1,16 +1,16 @@
 # MYTHOS control — current state
 
-Generated 2026-09-26T18:45:18.262Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
+Generated 2026-09-26T18:46:29.209Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
 
 | Status | Count |
 |---|---|
 | PENDING | 10 |
-| CLAIMED | 1 |
+| CLAIMED | 0 |
 | IN_PROGRESS | 0 |
 | VALIDATING | 0 |
 | COMPLETED | 65 |
 | BLOCKED | 34 |
-| FAILED | 6 |
+| FAILED | 7 |
 | CANCELLED | 2 |
 
 | Task | Status | Action | Priority | Created | Updated | Executor task | Report |
@@ -20,7 +20,7 @@ Generated 2026-09-26T18:45:18.262Z by the bridge on branch `mythos/control` (pro
 | `gh-issue-99` | **COMPLETED** | investigate | normal | 2026-09-02T22:42:59.761Z | 2026-09-02T22:49:32.431Z | `t-20260902224306-vaqeia` | `control/reports/gh-issue-99.json` |
 | `gh-issue-97` | **BLOCKED** | investigate | normal | 2026-09-02T22:34:21.352Z | 2026-09-02T22:43:04.917Z | `t-20260902223428-31m0o4` | `control/reports/gh-issue-97.json` |
 | `gh-issue-95` | **COMPLETED** | investigate | normal | 2026-09-02T22:34:19.628Z | 2026-09-02T22:40:52.170Z | `t-20260902223426-ipld9w` | `control/reports/gh-issue-95.json` |
-| `gh-issue-496` | **CLAIMED** | test | normal | 2026-09-26T18:45:07.919Z | 2026-09-26T18:45:12.251Z | `t-20260926184512-9sb3mm` | — |
+| `gh-issue-496` | **FAILED** | test | normal | 2026-09-26T18:45:07.919Z | 2026-09-26T18:46:29.189Z | `t-20260926184512-9sb3mm` | `control/reports/gh-issue-496.json` |
 | `gh-issue-495` | **COMPLETED** | test | normal | 2026-09-26T18:14:33.457Z | 2026-09-26T18:15:59.619Z | `t-20260926181438-6fwhnj` | `control/reports/gh-issue-495.json` |
 | `gh-issue-493` | **FAILED** | test | normal | 2026-09-26T18:05:47.735Z | 2026-09-26T18:07:03.207Z | `t-20260926180552-eslfn6` | `control/reports/gh-issue-493.json` |
 | `gh-issue-492` | **BLOCKED** | test | normal | 2026-09-26T17:48:01.834Z | 2026-09-26T17:51:58.749Z | `t-20260926174805-4xnkdr` | `control/reports/gh-issue-492.json` |
@@ -133,3 +133,7 @@ Generated 2026-09-26T18:45:18.262Z by the bridge on branch `mythos/control` (pro
 | `gh-20260902-wa-bridge-notify-01` | **COMPLETED** | implement | normal | 2026-09-02T19:00:00Z | 2026-09-02T20:15:40.494Z | `t-20260902195620-d89com` | `control/reports/gh-20260902-wa-bridge-notify-01.json` |
 | `gh-20260902-chatgpt-safe-test-01` | **COMPLETED** | test | low | 2026-09-02T18:45:00Z | 2026-09-02T18:57:50.250Z | `t-20260902185120-7k6vik` | `control/reports/gh-20260902-chatgpt-safe-test-01.json` |
 | `gh-20260902-bridge-smoke-01` | **COMPLETED** | implement | normal | 2026-09-02T18:05:32Z | 2026-09-02T18:07:34.687Z | `t-20260902180610-c9x5d6` | `control/reports/gh-20260902-bridge-smoke-01.json` |
+
+## Notes
+
+- runtime identity: RUNTIME_STALE_CHECKOUT — claims continue (recorded on each claim/report): checkout HEAD b2487ee1a5ba is behind origin/main fe315aeb395e — the running bridge is older than what is delivered
