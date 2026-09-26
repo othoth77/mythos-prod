@@ -1,0 +1,130 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-501",
+  "attempt_id": "gh-issue-501#1",
+  "status": "COMPLETED",
+  "summary": "Read-only supervised test task. Verified from the repository root that tests/mythos-report-normalization-test.js exists (only tests/ entry matching report-normalization) and that the previously failed path tests/mythos-report-normalization.js is absent and was not run. Ran `node tests/mythos-report-normalization-test.js .` from the worktree root: exit code 0 (confirmed via spawnSync), stdout '\\n18 passed, 0 failed\\n', stderr empty. Suite PASSED. No files created, modified, staged, committed or pushed; worktree clean at fe315aeb395e. OTHMODE task OTH-2026-01931 advanced to phase VERIFICATION with preflight/execution/validation/outcome sections and evidence; terminal status left to the bridge.",
+  "resolution": {
+    "requested_action": "test",
+    "action_raw": "test",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-test",
+    "expected_profile": "repo-test",
+    "model_requested": "Fable 5.1",
+    "model_key": "fable-5.1",
+    "model": "claude-fable-5-1",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "base_sha": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "branch": "mythos/gh/gh-issue-501",
+    "commit_sha": null
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "b2487ee1a5ba6b22c834f3ba2f0ce49fed2732de",
+    "branch": "main",
+    "dirty_files": 1,
+    "base_ref": "origin/main",
+    "base_ref_head": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": true,
+    "code": "RUNTIME_STALE_CHECKOUT",
+    "reason": "checkout HEAD b2487ee1a5ba is behind origin/main fe315aeb395e — the running bridge is older than what is delivered",
+    "measured_at": "2026-09-26T19:40:51.938Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Read-only supervised test task. Verified from the repository root that tests/mythos-report-normalization-test.js exists (only tests/ entry matching report-normalization) and that the previously failed path tests/mythos-report-normalization.js is absent and was not run. Ran `node tests/mythos-report-normalization-test.js .` from the worktree root: exit code 0 (confirmed via spawnSync), stdout '\\n18 passed, 0 failed\\n', stderr empty. Suite PASSED. No files created, modified, staged, committed or pushed; worktree clean at fe315aeb395e. OTHMODE task OTH-2026-01931 advanced to phase VERIFICATION with preflight/execution/validation/outcome sections and evidence; terminal status left to the bridge.",
+    "tests": [
+      "node tests/mythos-report-normalization-test.js . : PASS (exit 0, 18 passed, 0 failed)",
+      "file-exists tests/mythos-report-normalization-test.js : PASS",
+      "old-path tests/mythos-report-normalization.js not run : PASS (absent)"
+    ],
+    "commit": null,
+    "remote_head": null,
+    "files_changed": [],
+    "residual_risks": [
+      "The suite's stdout begins with a blank line; a checker that takes the literal first line will see an empty string rather than '18 passed, 0 failed'."
+    ],
+    "next_stage": "Bridge verifies this report and closes OTH-2026-01931; no code follow-up required."
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "node tests/mythos-report-normalization-test.js . : PASS (exit 0, 18 passed, 0 failed)",
+    "file-exists tests/mythos-report-normalization-test.js : PASS",
+    "old-path tests/mythos-report-normalization.js not run : PASS (absent)"
+  ],
+  "validation": {
+    "git_verified": null,
+    "remote_head": null,
+    "report_problems": [],
+    "required_checks": [
+      "From the repository root, list or otherwise verify the matching report-normalization test file under tests/.",
+      "Run: node tests/mythos-report-normalization-test.js .",
+      "Report the command, exit code, and first output line.",
+      "Also show evidence that: The report shows that tests/mythos-report-normalization-test.js exists before running it, or clearly reports no matching file was found.",
+      "Also show evidence that: The previous missing path tests/mythos-report-normalization.js is not run again.",
+      "Also show evidence that: The report includes the exact command run, exit code, and first output line.",
+      "Also show evidence that: If the suite exists, the report shows whether node tests/mythos-report-normalization-test.js . passed or failed.",
+      "check:status_completed",
+      "check:tests_pass"
+    ]
+  },
+  "problems": [],
+  "risks": [
+    "The suite's stdout begins with a blank line; a checker that takes the literal first line will see an empty string rather than '18 passed, 0 failed'."
+  ],
+  "next_recommended_action": "Bridge verifies this report and closes OTH-2026-01931; no code follow-up required.",
+  "completed_at": "2026-09-26T19:43:17.063Z",
+  "execution": {
+    "executor_task_id": "t-20260926194053-267zs4",
+    "othmode_task_id": "OTH-2026-01931",
+    "execution_profile": "repo-test",
+    "provider": "claude-code",
+    "model": "claude-fable-5-1",
+    "model_requested": "Fable 5.1",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "test",
+    "attempt_id": "gh-issue-501#1",
+    "fence": 77627,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:2332922",
+      "fence": 77627,
+      "acquired_at": "2026-09-26T19:40:53.229Z",
+      "expires_at": "2026-09-26T20:20:53.229Z"
+    },
+    "snapshot_sha256": "240b34b3b2c291407ce602c0723371f4985648c58e309168a45407764ef5acc3",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "claude_session_id": "af6fa251-3472-4416-b078-0838928c3525",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-26T19:41:01.697Z",
+    "ended_at": "2026-09-26T19:42:27.030Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 1.0054239999999999,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-501",
+    "branch": "mythos/gh/gh-issue-501",
+    "base_commit": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-501",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
