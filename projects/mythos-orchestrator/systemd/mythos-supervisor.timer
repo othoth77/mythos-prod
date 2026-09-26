@@ -1,0 +1,10 @@
+[Unit]
+Description=MYTHOS supervisor — tick every 2 minutes while tasks are active
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+Persistent=false
+
+[Install]
+WantedBy=timers.target
