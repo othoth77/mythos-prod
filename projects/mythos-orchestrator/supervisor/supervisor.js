@@ -3,21 +3,34 @@
 // MYTHOS supervisor — the autonomous supervision loop
 // projects/mythos-orchestrator/supervisor/supervisor.js
 //
-//   OPENAI (brain.js)  plans · reviews · diagnoses — decides the next action
+//   ROUTER (escalation.js) deterministic LOCAL → QWEN → OPENAI → HUMAN ladder;
+//                      no model ever decides which model to call
+//   LOCAL (monitor.js, verify.js) process/heartbeat/timeout/exit/bridge/
+//                      service/resource state and machine-check verification
+//   QWEN  (qwen.js)    local model on Haddad, reached through a `mythos:haddad`
+//                      consult Issue served by Haddad's own bridge
+//   OPENAI (brain.js)  plans · reviews · diagnoses — only when LOCAL and QWEN
+//                      cannot decide; per-task/recovery/root/day call limits
 //   GITHUB (gh.js)     every task is an Issue: record, audit trail, history
 //   TASK   (this file) state machine (states.js), durable store (store.js),
-//                      parent/child recovery, loop protection
+//                      parent/child recovery, loop protection, cost accounting
 //   BRIDGE (bridge.js) the EXISTING Issues → control → executor pipeline
 //   FABLE              the executor the bridge dispatches to (Model: Fable 5.1)
 //   HOSTOPS            untouched: the supervisor never runs commands, never
 //                      pushes, never merges, never touches a protected path
 //
+// Monitoring is event-driven over local state: a tick reads GitHub/control
+// files and the executor record and calls a model ONLY on a decision point
+// that local rules cannot settle. A structured objective whose acceptance
+// criteria are all `check:` machine checks is planned and verified locally:
+// a normal success makes zero OpenAI calls.
+//
 // tick() is idempotent and restart-safe: every side effect is preceded by a
 // persisted intent carrying its execution_id, GitHub is searched for that id
 // before anything is created again, a report is settled once, and a task is
-// completed once. A COMPLETED report is not success: only OpenAI review plus
-// the deterministic checks can complete a task, and only then is the Issue
-// closed.
+// completed once. A COMPLETED report is not success: only machine checks (all
+// criteria `check:`) or OpenAI review plus the deterministic checks can
+// complete a task, and only then is the Issue closed.
 // =====================================================
 
 var crypto = require('crypto');
@@ -25,6 +38,9 @@ var states = require('./states');
 var store = require('./store');
 var router = require('../router');
 var advisor = require('../advisor');
+var escalation = require('./escalation');
+var verify = require('./verify');
+var qwen = require('./qwen');
 
 function sha(x) { return crypto.createHash('sha256').update(typeof x === 'string' ? x : JSON.stringify(x)).digest('hex').slice(0, 16); }
 function nowIso() { return new Date().toISOString(); }
@@ -93,7 +109,7 @@ function create(deps) {
     if (objective.length < 10) throw new Error('OBJECTIVE_TOO_SHORT');
     // Refuse at the door: a credential in an objective must never be stored
     // (it would be redacted into a different objective) nor sent anywhere.
-    var kinds = advisor.advisorSecretKinds(objective + '\n' + (input.acceptance || []).join('\n'));
+    var kinds = advisor.advisorSecretKinds([objective].concat(input.acceptance || [], input.scope || [], input.constraints || [], input.validation || [], [input.title || '']).join('\n'));
     if (kinds.length) {
       var se = new Error('SECRET_IN_OBJECTIVE: matches ' + kinds.join(', ') + ' — remove it; nothing was stored or sent');
       se.code = 'SECRET_IN_OBJECTIVE';
@@ -133,8 +149,25 @@ function create(deps) {
       created_at: nowIso(),
       updated_at: nowIso()
     };
+    // LOCAL planning: a structured submission (an action plus acceptance
+    // criteria) IS the plan — validated deterministically, no model asked.
+    if (input.action && (input.acceptance || []).length) {
+      var spec = clampSpec({
+        title: input.title || objective.slice(0, 80), objective: objective, scope: input.scope || [], constraints: input.constraints || [],
+        validation: input.validation || [], acceptance_criteria: input.acceptance, action: input.action,
+        timeout_seconds: input.timeout_seconds || cfg.default_timeout_seconds
+      }, cfg);
+      var probs = specProblems(spec, cfg);
+      if (probs.length) { var pe = new Error('INVALID_STRUCTURED_OBJECTIVE: ' + probs.join('; ')); pe.code = 'INVALID_STRUCTURED_OBJECTIVE'; throw pe; }
+      task.spec = spec;
+      task.scope = spec.scope;
+      task.decisions.push({ at: nowIso(), kind: 'plan', tier: 'LOCAL', reason: 'structured objective (action + acceptance criteria)' });
+      var cs = brain.ensureCosts(task);
+      cs.local += 1;
+      cs.escalations.push({ at: nowIso(), tier: 'LOCAL', purpose: 'plan', reason: 'structured objective' });
+    }
     store.saveTask(task);
-    log(task, 'objective_submitted', { objective: objective.slice(0, 300) });
+    log(task, 'objective_submitted', { objective: objective.slice(0, 300), plan_tier: task.spec ? 'LOCAL' : 'pending' });
     return task;
   }
 
@@ -313,7 +346,13 @@ function create(deps) {
   function failTask(task, exec, kind, detail) {
     if (exec && !exec.settled) settle(task, exec, { kind: kind, detail: String(detail || '').slice(0, 600) });
     task.last_error = { code: kind, detail: String(detail || '').slice(0, 600) };
-    task.last_failure = { kind: kind, detail: String(detail || '').slice(0, 600), monitor_state: exec && exec.monitor ? exec.monitor.monitor_state : null, execution_id: exec ? exec.execution_id : null };
+    task.last_failure = {
+      kind: kind, detail: String(detail || '').slice(0, 600),
+      monitor_state: exec && exec.monitor ? exec.monitor.monitor_state : null,
+      crashes_seen: exec ? exec.crashes_seen || 0 : 0,
+      resources: exec && exec.monitor && exec.monitor.resources ? exec.monitor.resources : (monitor.resources ? monitor.resources() : null),
+      execution_id: exec ? exec.execution_id : null
+    };
     move(task, 'FAILED', kind + ': ' + detail);
     return task;
   }
@@ -449,8 +488,34 @@ function create(deps) {
         return failTask(task, exec, dv.pending ? 'WRITE_NOT_DELIVERED' : 'WRITE_NOT_VERIFIED', dv.problems.join('; '));
       }
       if (!dv.skipped) { task.delivery_check = { at: nowIso(), verified: dv.verified, branch: dv.branch, head: dv.head }; store.saveTask(task); log(task, 'delivery_verified', { verified: dv.verified, branch: dv.branch }, exec); }
+      // LOCAL first: when every criterion is a machine check, no model is asked.
+      var det = verify.evaluate(task.spec.acceptance_criteria, task.resume_pending ? (task.resume_evidence || {}) : r,
+        task.resume_pending ? task.resume_delivery : task.delivery_check);
+      if (det.decided) {
+        var cs = brain.ensureCosts(task);
+        cs.local += 1;
+        cs.escalations.push({ at: nowIso(), tier: 'LOCAL', purpose: 'review', reason: 'every acceptance criterion is a machine check' });
+        log(task, 'verified_locally', { passed: det.passed, unmet: det.results.filter(function (x) { return !x.met; }).map(function (x) { return x.criterion; }) });
+        if (det.passed) {
+          task.verified = { advice_id: 'local-deterministic', review: { verdict: 'ACCEPT', criteria: det.results, findings: [], human_action: null, confidence: 'high' }, at: nowIso() };
+          keepEvidence(task, r);
+          store.saveTask(task);
+          return complete(task, task.verified.review, task.verified.advice_id);
+        }
+        var unmetWhy = det.results.filter(function (x) { return !x.met; }).map(function (x) { return 'unmet: ' + x.criterion + ' — ' + x.evidence; }).join('; ');
+        if (task.resume_pending) { task.resume_pending = false; store.saveTask(task); return dispatchResume(task, unmetWhy); }
+        return failTask(task, exec, 'VERIFICATION_FAILED', unmetWhy);
+      }
       return review(task, r, evidence, writes);
     });
+  }
+
+  // The evidence a task was actually verified on: its own report, or — when it
+  // completed through a recovery — the recovery's evidence. A parent resumes
+  // on THIS, never on the child's own last (failed) report.
+  function keepEvidence(task, r) {
+    task.verified_evidence = task.resume_pending ? (task.resume_evidence || null) : r;
+    task.verified_delivery = task.resume_pending ? (task.resume_delivery || null) : (task.delivery_check || null);
   }
 
   function review(task, r, evidence, writes) {
@@ -474,6 +539,7 @@ function create(deps) {
       if (d.verdict === 'BLOCK') return block(task, 'REVIEW_BLOCK', (d.findings || []).join('; ') || 'the reviewer requires a person', d.human_action);
       if (d.verdict === 'ACCEPT' && !unmet.length && d.confidence !== 'low' && !mechanical.length) {
         task.verified = { advice_id: v.advice_id, review: d, at: nowIso() };
+        keepEvidence(task, r);
         store.saveTask(task);
         return complete(task, d, v.advice_id);
       }
@@ -525,7 +591,9 @@ function create(deps) {
     var text = [
       '### MYTHOS supervisor — VERIFIED, task complete',
       '',
-      'OpenAI verification (`' + adviceId + '`, confidence ' + review.confidence + ') found every acceptance criterion met, and the deterministic checks passed.',
+      (adviceId === 'local-deterministic'
+        ? 'Local deterministic verification (machine checks, no model) found every acceptance criterion met.'
+        : 'OpenAI verification (`' + adviceId + '`, confidence ' + review.confidence + ') found every acceptance criterion met, and the deterministic checks passed.'),
       '',
       '| Criterion | Met | Evidence |', '|---|---|---|'
     ].concat(rows).concat([
@@ -555,6 +623,20 @@ function create(deps) {
     return sha([f.kind, r.status || null, r.blocker ? r.blocker.code : null, norm((r.problems || [])[0] || f.detail), f.monitor_state || null]);
   }
 
+  var HUMAN_ACTIONS = {
+    SERVICE_DOWN: 'Restore the executor service (as deploy: systemctl --user status/restart mythos-ai-executor.service), then resume this task.',
+    RESOURCE: 'Free host memory/disk (see /opt/mythos-memwatch/memwatch.log and df), then resume this task.',
+    STATE_LOST: 'Find out what removed the Issue or the executor record; resubmit the objective if it should still run.',
+    WRITE_UNDELIVERED: 'Check the governance relay (mythos-git-push) for the task branch; resume once the commit is on GitHub.'
+  };
+
+  function markTried(rt, task, key, tier) {
+    rt.escalations = rt.escalations || {};
+    rt.escalations[key] = (rt.escalations[key] || []).concat([tier]);
+    if (rt !== task) store.saveTask(rt);
+    store.saveTask(task);
+  }
+
   function stepFailed(task) {
     var rt = root(task);
     var sig = failureSignature(task);
@@ -562,9 +644,9 @@ function create(deps) {
     rt.failure_log = rt.failure_log || [];
     var curExec = (current(task) || {}).execution_id || null;
     var same = rt.failure_log.filter(function (f) { return f.signature === sig && f.progress_marker === (task.progress_marker || null) && f.execution_id !== curExec; });
-    if (!task.failure_logged_for || task.failure_logged_for !== (current(task) || {}).execution_id) {
-      rt.failure_log.push({ at: nowIso(), task_id: task.task_id, execution_id: (current(task) || {}).execution_id || null, signature: sig, progress_marker: task.progress_marker || null, kind: (task.last_failure || {}).kind });
-      task.failure_logged_for = (current(task) || {}).execution_id;
+    if (!task.failure_logged_for || task.failure_logged_for !== curExec) {
+      rt.failure_log.push({ at: nowIso(), task_id: task.task_id, execution_id: curExec, signature: sig, progress_marker: task.progress_marker || null, kind: (task.last_failure || {}).kind });
+      task.failure_logged_for = curExec;
       if (rt !== task) store.saveTask(rt);
       store.saveTask(task);
     }
@@ -575,93 +657,228 @@ function create(deps) {
     if ((rt.recovery_total || 0) >= cfg.max_recoveries_per_root) {
       return block(task, 'RECOVERY_LIMIT', 'the root task already used ' + rt.recovery_total + ' recovery tasks (limit ' + cfg.max_recoveries_per_root + ')', null);
     }
+    var c = escalation.classify(task, cfg);
+    var key = sig + '|' + (task.progress_marker || '');
+    if (task.consult && task.consult.key === key && !task.consult.done) return pollConsult(task, rt, c, key);
+    return decide(task, rt, c, key);
+  }
+
+  // The deterministic ladder for ONE unchanged failure: LOCAL → QWEN → OPENAI → HUMAN.
+  function decide(task, rt, c, key) {
+    var tried = (rt.escalations || {})[key] || [];
+    var r = escalation.route(c.cls, tried, cfg);
+    log(task, 'route', { cls: c.cls, why: c.why, tier: r.tier, reason: r.reason, tried: tried });
+    if (r.tier === 'HUMAN') {
+      return block(task, escalation.RULES[c.cls] === 'HUMAN' ? c.cls : 'ESCALATION_EXHAUSTED', r.reason + ' — ' + c.why,
+        HUMAN_ACTIONS[c.cls] || 'Diagnose manually; every automatic tier was already tried for this unchanged failure.', { classification: c.cls, tried: tried, failure: task.last_failure });
+    }
+    markTried(rt, task, key, r.tier);
+    if (r.tier === 'LOCAL') {
+      var spec = escalation.localRecovery(c.cls, task, cfg);
+      if (!spec) return decide(task, root(task), c, key); // no local rule after all → next tier
+      var cs = brain.ensureCosts(task);
+      cs.local += 1;
+      cs.escalations.push({ at: nowIso(), tier: 'LOCAL', purpose: 'diagnose', reason: r.reason });
+      return createChild(task, root(task), spec, { tier: 'LOCAL', classification: c.cls, diagnosis: 'deterministic rule: ' + c.why, what_changes: spec.constraints[spec.constraints.length - 1], advice_id: null, confidence: 'high' });
+    }
+    if (r.tier === 'QWEN') return requestConsult(task, rt, c, key, r.reason);
+    return openaiDiagnose(task, rt, c, key, r.reason);
+  }
+
+  function failureEvidence(task, c) {
     var exec = current(task) || {};
-    var failure = {
-      kind: (task.last_failure || {}).kind,
-      detail: (task.last_failure || {}).detail,
-      monitor: exec.monitor ? { monitor_state: exec.monitor.monitor_state, executor_effective: exec.monitor.executor_effective, retry_count: exec.monitor.retry_count, daemon_active: exec.monitor.daemon_active, crashes_seen: exec.crashes_seen || 0, resources: exec.monitor.resources } : { resources: monitor.resources ? monitor.resources() : null },
+    return {
+      cls: c.cls, kind: (task.last_failure || {}).kind, detail: (task.last_failure || {}).detail,
+      monitor_state: (task.last_failure || {}).monitor_state, crashes_seen: (task.last_failure || {}).crashes_seen || 0,
+      resources: (task.last_failure || {}).resources || null,
+      monitor: exec.monitor ? { monitor_state: exec.monitor.monitor_state, executor_effective: exec.monitor.executor_effective, retry_count: exec.monitor.retry_count, daemon_active: exec.monitor.daemon_active } : null,
       report: task.last_result
     };
-    var history = rt.failure_log.slice(-6).map(function (f) { return { task_id: f.task_id, kind: f.kind }; })
+  }
+
+  function history(rt) {
+    return (rt.failure_log || []).slice(-6).map(function (f) { return { task_id: f.task_id, kind: f.kind }; })
       .concat((rt.recovery_specs_seen || []).slice(-4).map(function (s) { return { previous_recovery: s }; }));
-    return brain.diagnose(task, failure, history).then(function (dg) {
+  }
+
+  // ---- QWEN tier: a read-only consult through Haddad's own bridge (async).
+  function requestConsult(task, rt, c, key, reason) {
+    if (!task.consult || task.consult.key !== key) {
+      task.consult = { key: key, execution_id: store.newId('EXEC-', 10), requested_at: nowIso(), issue_number: null, done: false, failures: 0, reason: reason };
+      store.saveTask(task); // intent before the side effect
+    }
+    var consultTask = { task_id: task.task_id, correlation_id: task.correlation_id, parent: null,
+      spec: clampSpec(qwen.request(task, failureEvidence(task, c), history(rt), cfg), cfg) };
+    var cexec = { execution_id: task.consult.execution_id, issue_number: task.consult.issue_number };
+    return bridge.submitTask(consultTask, cexec, { label: cfg.qwen_label, labels: [cfg.qwen_label, cfg.supervised_label], model: null, titlePrefix: 'CONSULT: [supervised] ' }).then(function (res) {
+      if (!res.ok) {
+        task.consult.failures += 1;
+        store.saveTask(task);
+        log(task, 'consult_failed', { code: res.error && res.error.code });
+        var hard = res.error && (res.error.code === 'TASK_INTEGRITY' || res.error.code === 'OUTBOUND_SECRET');
+        if (hard || task.consult.failures >= 3) return escalateFromQwen(task, rt, c, key, 'QWEN consult could not be sent: ' + (res.error && res.error.code));
+        return task;
+      }
+      if (!task.consult.issue_number) {
+        task.consult.issue_number = res.issue_number;
+        var cs = brain.ensureCosts(task);
+        cs.qwen += 1;
+        cs.escalations.push({ at: nowIso(), tier: 'QWEN', purpose: 'diagnose', reason: reason });
+        store.saveTask(task);
+        log(task, res.adopted ? 'consult_adopted' : 'consult_requested', { consult_issue: res.issue_number, cls: c.cls });
+      }
+      return task; // the answer arrives on a later tick — no model is polled
+    });
+  }
+
+  function pollConsult(task, rt, c, key) {
+    if (!task.consult.issue_number) return requestConsult(task, rt, c, key, task.consult.reason);
+    return bridge.readConsult({ issue_number: task.consult.issue_number }).then(function (st) {
+      if (!st.ok) return task; // GitHub blip: try again next tick
+      if (st.phase === 'PENDING') {
+        if (secondsSince(task.consult.requested_at, now()) > cfg.qwen_deadline_seconds) return escalateFromQwen(task, rt, c, key, 'QWEN_TIMEOUT: no answer within ' + cfg.qwen_deadline_seconds + ' s');
+        return task;
+      }
+      if (st.phase !== 'ANSWERED') return escalateFromQwen(task, rt, c, key, 'QWEN_CONSULT_' + (st.status || st.phase));
+      var parsed = qwen.parseAnswer(st.answer, task);
+      if (!parsed.ok) return escalateFromQwen(task, rt, c, key, parsed.reason);
+      finishConsult(task, 'answered');
+      var d = parsed.decision;
+      task.decisions.push({ at: nowIso(), kind: 'diagnosis', tier: 'QWEN', consult_issue: task.consult.issue_number, classification: d.classification, confidence: d.confidence });
+      log(task, 'diagnosed', { tier: 'QWEN', classification: d.classification, consult_issue: task.consult.issue_number });
+      return createChild(task, root(task), d.recovery_task, { tier: 'QWEN', classification: d.classification, diagnosis: d.diagnosis, what_changes: d.what_changes, advice_id: 'qwen-consult-#' + task.consult.issue_number, confidence: d.confidence });
+    });
+  }
+
+  function finishConsult(task, outcome) {
+    task.consult.done = true;
+    task.consult.outcome = outcome;
+    store.saveTask(task);
+    var n = task.consult.issue_number;
+    if (!n) return;
+    bridge.postOnce(n, { event: 'consult_consumed', task_id: task.task_id }, 'Consumed by the MYTHOS supervisor (' + outcome + ').')
+      .then(function () { return bridge.closeIssue(n, outcome === 'answered' ? 'completed' : 'not_planned'); })
+      .then(function () {}, function () {});
+  }
+
+  function escalateFromQwen(task, rt, c, key, why) {
+    finishConsult(task, 'escalated: ' + why);
+    log(task, 'qwen_escalated', { why: String(why).slice(0, 300) });
+    var rt2 = root(task);
+    var tried = (rt2.escalations || {})[key] || [];
+    var r = escalation.route(c.cls, tried, cfg);
+    if (r.tier !== 'OPENAI') return decide(task, rt2, c, key);
+    markTried(rt2, task, key, 'OPENAI');
+    return openaiDiagnose(task, rt2, c, key, 'QWEN could not resolve it (' + why + ')');
+  }
+
+  // ---- OPENAI tier: only when the ladder says so.
+  function openaiDiagnose(task, rt, c, key, reason) {
+    return brain.diagnose(task, failureEvidence(task, c), history(rt), reason).then(function (dg) {
       if (!dg.ok) {
         task.diagnosis_failures = (task.diagnosis_failures || 0) + 1;
         store.saveTask(task);
         log(task, 'diagnosis_failed', { code: dg.code, transient: dg.transient });
-        if (!dg.transient || task.diagnosis_failures >= 3) return block(task, 'DIAGNOSIS_UNAVAILABLE', 'OpenAI diagnosis failed: ' + dg.code + ' ' + (dg.detail || ''), null);
+        if (!dg.transient || task.diagnosis_failures >= 3) return block(task, /BUDGET/.test(dg.code) ? dg.code : 'DIAGNOSIS_UNAVAILABLE', 'OpenAI diagnosis failed: ' + dg.code + ' ' + (dg.detail || ''), null);
+        // Retry OpenAI next tick for the same failure without a new tier decision.
+        var rt3 = root(task);
+        rt3.escalations[key] = (rt3.escalations[key] || []).filter(function (t, i, a) { return !(t === 'OPENAI' && i === a.lastIndexOf('OPENAI')); });
+        if (rt3 !== task) store.saveTask(rt3);
+        store.saveTask(task);
         return task;
       }
       var d = dg.decision;
-      task.decisions.push({ at: nowIso(), kind: 'diagnosis', advice_id: dg.advice_id, classification: d.classification, recoverable: d.recoverable });
-      log(task, 'diagnosed', { advice_id: dg.advice_id, classification: d.classification, recoverable: d.recoverable });
+      task.decisions.push({ at: nowIso(), kind: 'diagnosis', tier: 'OPENAI', advice_id: dg.advice_id, classification: d.classification, recoverable: d.recoverable });
+      log(task, 'diagnosed', { tier: 'OPENAI', advice_id: dg.advice_id, classification: d.classification, recoverable: d.recoverable });
       if (!d.recoverable || d.classification === 'HUMAN_REQUIRED') {
-        return block(task, 'HUMAN_REQUIRED', d.diagnosis, d.human_action || null, { classification: d.classification, failure: failure.kind });
+        return block(task, 'HUMAN_REQUIRED', d.diagnosis, d.human_action || null, { classification: d.classification, failure: (task.last_failure || {}).kind });
       }
-      var spec = clampSpec(d.recovery_task, cfg);
-      var probs = specProblems(spec, cfg);
-      if (probs.length) return block(task, 'RECOVERY_INVALID', 'the proposed recovery task is not executable: ' + probs.join('; '), null);
-      var specHash = sha([norm(spec.objective), spec.action, spec.validation.map(norm), spec.scope.map(norm)]);
-      if ((rt.recovery_spec_hashes || []).indexOf(specHash) !== -1) {
-        return block(task, 'REPEATED_RECOVERY', 'the diagnosis proposed a recovery identical to one that already ran', 'Diagnose manually; the automatic recovery would repeat itself.');
-      }
-      var child = {
-        task_id: task.task_id + '-R' + (task.recovery_count + 1),
-        parent_task_id: task.task_id,
-        root_task_id: task.root_task_id,
-        correlation_id: task.correlation_id,
-        objective: spec.objective,
-        owner_acceptance: [],
-        requested_by: 'supervisor',
-        scope: spec.scope,
-        spec: spec,
-        diagnosis: { classification: d.classification, diagnosis: String(d.diagnosis).slice(0, 1200), what_changes: String(d.what_changes || '').slice(0, 600), advice_id: dg.advice_id },
-        parent: { task_id: task.task_id, issue_number: task.issue_number },
-        status: 'PLANNED',
-        executor: cfg.executor_model,
-        attempt_count: 0,
-        recovery_count: 0,
-        last_error: null,
-        last_result: null,
-        last_action: 'created_by_diagnosis',
-        progress_marker: null,
-        last_failure_signature: null,
-        executions: [],
-        failure_log: [],
-        children: [],
-        active_child: null,
-        decisions: [],
-        history: [],
-        created_at: nowIso(),
-        updated_at: nowIso()
-      };
-      if (store.loadTask(child.task_id)) child = store.loadTask(child.task_id); // idempotent across a crash here
-      else store.saveTask(child);
-      rt.recovery_total = (rt.recovery_total || 0) + 1;
-      rt.recovery_spec_hashes = (rt.recovery_spec_hashes || []).concat([specHash]);
-      rt.recovery_specs_seen = (rt.recovery_specs_seen || []).concat([{ classification: d.classification, objective: spec.objective.slice(0, 200), action: spec.action }]);
-      if (rt !== task) store.saveTask(rt);
-      else { task.recovery_total = rt.recovery_total; task.recovery_spec_hashes = rt.recovery_spec_hashes; task.recovery_specs_seen = rt.recovery_specs_seen; }
-      task.children.push(child.task_id);
-      task.active_child = child.task_id;
-      task.recovery_count += 1;
-      task.last_action = 'recovery_created';
-      log(task, 'recovery_created', { child: child.task_id, classification: d.classification });
-      move(task, 'RECOVERY', d.classification + ' → recovery task ' + child.task_id);
-      var text = [
-        '### MYTHOS supervisor — diagnosis and recovery',
-        '',
-        '**Failure:** `' + failure.kind + '`' + (failure.monitor && failure.monitor.monitor_state ? ' (monitor: `' + failure.monitor.monitor_state + '`)' : ''),
-        '**Diagnosis** (`' + dg.advice_id + '`, ' + d.classification + ', confidence ' + d.confidence + '): ' + String(d.diagnosis).slice(0, 1200),
-        '**What the recovery changes:** ' + String(d.what_changes || '').slice(0, 600),
-        '',
-        'Recovery task `' + child.task_id + '` is being dispatched as a new Issue. This task resumes when it completes.'
-      ].join('\n');
-      return bridge.postOnce(task.issue_number, { event: 'recovery', task_id: task.task_id, child: child.task_id }, text)
-        .then(function (c) { if (c && !c.ok) log(task, 'comment_refused', { comment: 'recovery', code: c.error && c.error.code }); return stepPlanned(child); },
-          function () { return stepPlanned(child); })
-        .then(function () { return task; });
+      return createChild(task, root(task), d.recovery_task, { tier: 'OPENAI', classification: d.classification, diagnosis: d.diagnosis, what_changes: d.what_changes, advice_id: dg.advice_id, confidence: d.confidence });
     });
+  }
+
+  // One recovery child, whatever tier produced it: validated, never more
+  // privileged than the root task, never a repeat of an earlier recovery.
+  function createChild(task, rt, rawSpec, meta) {
+    var spec = clampSpec(rawSpec, cfg);
+    // A model never weakens what counts as success: when the parent is
+    // verified by machine checks, the recovery inherits those checks as its
+    // acceptance; the model's free-text criteria become extra validation
+    // guidance for the executor, not acceptance.
+    if (verify.allDeterministic(task.spec.acceptance_criteria)) {
+      var modelChecks = spec.acceptance_criteria.filter(function (c) { return verify.parse(c) !== null; });
+      var guidance = spec.acceptance_criteria.filter(function (c) { return verify.parse(c) === null; }).map(function (c) { return 'Also show evidence that: ' + c; });
+      spec.acceptance_criteria = task.spec.acceptance_criteria.concat(modelChecks.filter(function (c) { return task.spec.acceptance_criteria.indexOf(c) === -1; }));
+      spec.validation = spec.validation.concat(guidance).slice(0, 15);
+    }
+    var probs = specProblems(spec, cfg);
+    if (probs.length) return block(task, 'RECOVERY_INVALID', 'the proposed recovery task is not executable: ' + probs.join('; '), null);
+    var rootAction = (rt.spec && rt.spec.action) || task.spec.action;
+    if (escalation.actionRank(spec.action) > escalation.actionRank(rootAction)) {
+      return block(task, 'PRIVILEGE_ESCALATION_REFUSED', 'the ' + meta.tier + ' recovery asked for "' + spec.action + '", more privileged than the original "' + rootAction + '"',
+        'Approve the wider action explicitly by submitting a new objective; recovery never widens privilege on its own.');
+    }
+    var specHash = sha([norm(spec.objective), spec.action, spec.validation.map(norm), spec.scope.map(norm), spec.constraints.map(norm), spec.timeout_seconds]);
+    if ((rt.recovery_spec_hashes || []).indexOf(specHash) !== -1) {
+      return block(task, 'REPEATED_RECOVERY', 'the ' + meta.tier + ' diagnosis proposed a recovery identical to one that already ran', 'Diagnose manually; the automatic recovery would repeat itself.');
+    }
+    var child = {
+      task_id: task.task_id + '-R' + (task.recovery_count + 1),
+      parent_task_id: task.task_id,
+      root_task_id: task.root_task_id,
+      correlation_id: task.correlation_id,
+      objective: spec.objective,
+      owner_acceptance: [],
+      requested_by: 'supervisor:' + meta.tier.toLowerCase(),
+      scope: spec.scope,
+      spec: spec,
+      diagnosis: { tier: meta.tier, classification: meta.classification, diagnosis: String(meta.diagnosis || '').slice(0, 1200), what_changes: String(meta.what_changes || '').slice(0, 600), advice_id: meta.advice_id || null },
+      parent: { task_id: task.task_id, issue_number: task.issue_number },
+      status: 'PLANNED',
+      executor: cfg.executor_model,
+      attempt_count: 0,
+      recovery_count: 0,
+      last_error: null,
+      last_result: null,
+      last_action: 'created_by_' + meta.tier.toLowerCase(),
+      progress_marker: null,
+      last_failure_signature: null,
+      executions: [],
+      failure_log: [],
+      children: [],
+      active_child: null,
+      decisions: [],
+      history: [],
+      created_at: nowIso(),
+      updated_at: nowIso()
+    };
+    if (store.loadTask(child.task_id)) child = store.loadTask(child.task_id); // idempotent across a crash here
+    else store.saveTask(child);
+    rt = root(task);
+    rt.recovery_total = (rt.recovery_total || 0) + 1;
+    rt.recovery_spec_hashes = (rt.recovery_spec_hashes || []).concat([specHash]);
+    rt.recovery_specs_seen = (rt.recovery_specs_seen || []).concat([{ tier: meta.tier, classification: meta.classification, objective: spec.objective.slice(0, 200), action: spec.action }]);
+    if (rt !== task) store.saveTask(rt);
+    else { task.recovery_total = rt.recovery_total; task.recovery_spec_hashes = rt.recovery_spec_hashes; task.recovery_specs_seen = rt.recovery_specs_seen; task.escalations = rt.escalations; }
+    task.children.push(child.task_id);
+    task.active_child = child.task_id;
+    task.recovery_count += 1;
+    task.last_action = 'recovery_created_' + meta.tier.toLowerCase();
+    log(task, 'recovery_created', { child: child.task_id, tier: meta.tier, classification: meta.classification });
+    move(task, 'RECOVERY', meta.tier + ' ' + meta.classification + ' → recovery task ' + child.task_id);
+    var text = [
+      '### MYTHOS supervisor — diagnosis and recovery (' + meta.tier + ')',
+      '',
+      '**Failure:** `' + ((task.last_failure || {}).kind || 'unknown') + '`' + ((task.last_failure || {}).monitor_state ? ' (monitor: `' + task.last_failure.monitor_state + '`)' : ''),
+      '**Diagnosis** (' + meta.tier + (meta.advice_id ? ', `' + meta.advice_id + '`' : '') + ', ' + meta.classification + ', confidence ' + (meta.confidence || 'n/a') + '): ' + String(meta.diagnosis || '').slice(0, 1200),
+      '**What the recovery changes:** ' + String(meta.what_changes || '').slice(0, 600),
+      '',
+      'Recovery task `' + child.task_id + '` is being dispatched as a new Issue. This task resumes when it completes.'
+    ].join('\n');
+    return bridge.postOnce(task.issue_number, { event: 'recovery', task_id: task.task_id, child: child.task_id }, text)
+      .then(function (cm) { if (cm && !cm.ok) log(task, 'comment_refused', { comment: 'recovery', code: cm.error && cm.error.code }); return stepPlanned(child); },
+        function () { return stepPlanned(child); })
+      .then(function () { return task; });
   }
 
   function stepRecovery(task) {
@@ -669,7 +886,8 @@ function create(deps) {
     if (!child) return block(task, 'TASK_STATE_LOST', 'recovery task ' + task.active_child + ' is missing from the store', null);
     if (child.status === 'COMPLETED') {
       task.resume_pending = true;
-      task.resume_evidence = child.last_result;
+      task.resume_evidence = child.verified_evidence || child.last_result;
+      task.resume_delivery = child.verified ? (child.verified_delivery || null) : (child.delivery_check || null);
       task.active_child = null;
       task.last_action = 'recovery_completed';
       move(task, 'VERIFYING', 'recovery ' + child.task_id + ' COMPLETED — re-verifying this task with its evidence');

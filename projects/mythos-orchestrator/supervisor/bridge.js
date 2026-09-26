@@ -138,7 +138,12 @@ function issueParts(task, cfg) {
   };
 }
 
-function renderFromParts(parts, task, exec, cfg) {
+// opts.model: undefined → the executor model (FABLE); null → no Model line
+// (a Qwen consult on Haddad, whose bridge only runs the local model).
+function modelFor(cfg, opts) { return opts && Object.prototype.hasOwnProperty.call(opts, 'model') ? opts.model : cfg.executor_model; }
+
+function renderFromParts(parts, task, exec, cfg, opts) {
+  var model = modelFor(cfg, opts);
   var lines = [
     supMarker({ task_id: task.task_id, execution_id: exec.execution_id, correlation_id: task.correlation_id })
   ];
@@ -152,21 +157,21 @@ function renderFromParts(parts, task, exec, cfg) {
     '## Acceptance criteria', parts.acceptance.map(function (x) { return '- ' + x; }).join('\n'), '',
     'Action: ' + parts.action,
     'Priority: normal',
-    'Timeout: ' + parts.timeout,
-    'Model: ' + cfg.executor_model
+    'Timeout: ' + parts.timeout
   );
-  var title = 'TASK: [supervised] ' + parts.title;
+  if (model) lines.push('Model: ' + model);
+  var title = (opts && opts.titlePrefix ? opts.titlePrefix : 'TASK: [supervised] ') + parts.title;
   return { title: title.length > 120 ? title.slice(0, 119) + '…' : title, body: lines.join('\n') };
 }
 
 // What the bridge must read back, from a FIXED reference trailer only —
 // never from model-authored text.
 var referenceCache = {};
-function reference(cfg, action, timeout) {
-  var key = action + '|' + timeout + '|' + cfg.executor_model;
+function reference(cfg, action, timeout, model) {
+  var key = action + '|' + timeout + '|' + model;
   if (referenceCache[key]) return referenceCache[key];
   var body = ['## Objective', 'Reference task used only to derive expected bridge metadata.', '',
-    'Action: ' + action, 'Priority: normal', 'Timeout: ' + timeout, 'Model: ' + cfg.executor_model].join('\n');
+    'Action: ' + action, 'Priority: normal', 'Timeout: ' + timeout].concat(model ? ['Model: ' + model] : []).join('\n');
   var r = issuesParser.issueToTask(issuesParser.config(), { number: 1, title: 'TASK: reference', body: body, html_url: 'https://github.com/' + cfg.repository + '/issues/1', labels: [{ name: cfg.task_label }] }, 1);
   referenceCache[key] = r.task ? { action: r.task.requested_action, model: r.task.model, timeout: r.task.timeout_seconds, priority: r.task.priority, max_turns: r.task.max_turns === undefined ? null : r.task.max_turns } : null;
   return referenceCache[key];
@@ -175,8 +180,8 @@ function reference(cfg, action, timeout) {
 function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
 
 // Parse `issue` with the REAL bridge parser and compare with `parts`.
-function checkIntegrity(issue, parts, cfg) {
-  var ref = reference(cfg, parts.action, parts.timeout);
+function checkIntegrity(issue, parts, cfg, opts) {
+  var ref = reference(cfg, parts.action, parts.timeout, modelFor(cfg, opts));
   if (!ref) return ['REFERENCE_UNPARSEABLE: the fixed trailer did not parse'];
   // Parsed twice under two different sentinel Issue numbers: the parser drops
   // a self-dependency, so an injected "Depends on: #N" could hide behind the
@@ -216,13 +221,13 @@ function specText(spec) {
 // Render + integrity + secret gate. { ok, issue } or { ok:false, error }.
 // `hooks.render` exists ONLY so tests can prove the round-trip check refuses
 // a renderer that drifts from the validated parts; production never passes it.
-function prepareIssue(task, exec, cfg, hooks) {
+function prepareIssue(task, exec, cfg, hooks, opts) {
   var rawKinds = outboundSecretKinds(specText(task.spec));
   if (rawKinds.length) return { ok: false, error: { code: 'OUTBOUND_SECRET', detail: 'task text matches ' + rawKinds.join(', ') + ' — refused before GitHub' } };
   var parts = issueParts(task, cfg);
   if (parts.problems.length) return { ok: false, error: { code: 'TASK_INTEGRITY', detail: parts.problems.join('; ') } };
-  var issue = (hooks && hooks.render ? hooks.render : renderFromParts)(parts, task, exec, cfg);
-  var mismatch = checkIntegrity(issue, parts, cfg);
+  var issue = (hooks && hooks.render ? hooks.render : renderFromParts)(parts, task, exec, cfg, opts);
+  var mismatch = checkIntegrity(issue, parts, cfg, opts);
   if (mismatch.length) return { ok: false, error: { code: 'TASK_INTEGRITY', detail: mismatch.join('; ').slice(0, 500) } };
   var kinds = outboundSecretKinds(issue.title + '\n' + issue.body);
   if (kinds.length) return { ok: false, error: { code: 'OUTBOUND_SECRET', detail: 'Issue text matches ' + kinds.join(', ') + ' — refused before GitHub' } };
@@ -230,32 +235,63 @@ function prepareIssue(task, exec, cfg, hooks) {
 }
 
 // Kept for callers/tests that only need the text.
-function renderIssue(task, exec, cfg) { return renderFromParts(issueParts(task, cfg), task, exec, cfg); }
+function renderIssue(task, exec, cfg, opts) { return renderFromParts(issueParts(task, cfg), task, exec, cfg, opts); }
+
+// The first ```json fenced block, else the first balanced {...} object.
+function extractJson(text) {
+  var t = String(text || '');
+  var fence = /```(?:json)?\s*\n([\s\S]*?)\n```/i.exec(t);
+  var candidates = [];
+  if (fence) candidates.push(fence[1]);
+  var start = t.indexOf('{');
+  while (start !== -1 && candidates.length < 4) {
+    var depth = 0, inStr = false, esc = false;
+    for (var i = start; i < t.length; i++) {
+      var ch = t[i];
+      if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
+      if (ch === '"') inStr = true;
+      else if (ch === '{') depth++;
+      else if (ch === '}') { depth--; if (depth === 0) { candidates.push(t.slice(start, i + 1)); break; } }
+    }
+    start = t.indexOf('{', start + 1);
+    if (candidates.length && !fence) break;
+  }
+  for (var k = 0; k < candidates.length; k++) {
+    try { var o = JSON.parse(candidates[k]); if (o && typeof o === 'object' && !Array.isArray(o)) return o; } catch (e) { /* next */ }
+  }
+  return null;
+}
 
 function create(gh, cfg) {
   var repo = cfg.repository;
 
+  // Bridge markers (claimed/report — and a Qwen consult's ANSWER, which only
+  // exists as a comment) count only when posted by the identity the bridges
+  // post as: anyone else able to comment cannot forge a report or a diagnosis.
+  var authors = Array.isArray(cfg.bridge_comment_authors) ? cfg.bridge_comment_authors : [];
   function comments(n) {
     return gh.listComments(repo, n).then(function (r) {
       if (!r.ok) return r;
       if (!Array.isArray(r.data)) return { ok: false, error: { code: 'GH_MALFORMED', detail: 'comments is not a list' } };
-      return { ok: true, data: r.data };
+      if (!authors.length) return { ok: false, error: { code: 'CONFIG_INVALID', detail: 'bridge_comment_authors is empty' } };
+      return { ok: true, data: r.data.filter(function (c) { return c && c.user && authors.indexOf(c.user.login) !== -1; }) };
     });
   }
 
   // Idempotent create: an Issue already carrying this execution_id is adopted,
   // so a response lost AFTER GitHub created the Issue never creates a second.
-  function submitTask(task, exec) {
+  // opts (consults): { label, labels, model:null, titlePrefix }.
+  function submitTask(task, exec, opts) {
     if (exec.issue_number) return Promise.resolve({ ok: true, issue_number: exec.issue_number, adopted: true });
-    var prep = prepareIssue(task, exec, cfg);
+    var prep = prepareIssue(task, exec, cfg, null, opts);
     if (!prep.ok) return Promise.resolve(prep); // TASK_INTEGRITY / OUTBOUND_SECRET: nothing reaches GitHub
-    return gh.recentTaskIssues(repo, cfg.task_label).then(function (found) {
+    return gh.recentTaskIssues(repo, (opts && opts.label) || cfg.task_label).then(function (found) {
       if (!found.ok) return found;
       var needle = 'execution_id=' + exec.execution_id + ' ';
       var hit = (found.data || []).filter(function (i) { return String(i.body || '').indexOf(needle) !== -1; })[0];
       if (hit) return { ok: true, issue_number: hit.number, url: hit.html_url, adopted: true };
       var issue = prep.issue;
-      return gh.createIssue(repo, issue.title, issue.body, [cfg.task_label, cfg.supervised_label]).then(function (r) {
+      return gh.createIssue(repo, issue.title, issue.body, (opts && opts.labels) || [cfg.task_label, cfg.supervised_label]).then(function (r) {
         if (!r.ok) return r;
         if (!r.data || typeof r.data.number !== 'number') return { ok: false, error: { code: 'GH_MALFORMED', detail: 'created issue has no number' } };
         return { ok: true, issue_number: r.data.number, url: r.data.html_url, adopted: false };
@@ -369,6 +405,25 @@ function create(gh, cfg) {
 
   function label(n, labels) { return gh.addLabels(repo, n, labels); }
 
+  // A consult (Qwen on Haddad) answers in its report comment: the structured
+  // answer is the JSON object in that comment. Returns
+  // { ok, phase: PENDING|ANSWERED|FAILED|LOST, status, answer }.
+  function readConsult(exec) {
+    return gh.getIssue(repo, exec.issue_number).then(function (iss) {
+      if (!iss.ok) return iss.error.code === 'GH_NOT_FOUND' ? { ok: true, phase: 'LOST' } : iss;
+      return comments(exec.issue_number).then(function (cm) {
+        if (!cm.ok) return cm;
+        var want = 'gh-issue-' + exec.issue_number;
+        var rep = cm.data.filter(function (c) { var m = bridgeMarker(c.body); return m && m.event === 'report' && m.task_id === want; }).pop();
+        var rejected = cm.data.some(function (c) { var m = bridgeMarker(c.body); return m && m.event === 'rejected'; });
+        if (!rep) return { ok: true, phase: rejected ? 'FAILED' : 'PENDING', status: rejected ? 'REJECTED' : null };
+        var status = bridgeMarker(rep.body).status || null;
+        if (status !== 'COMPLETED') return { ok: true, phase: 'FAILED', status: status };
+        return { ok: true, phase: 'ANSWERED', status: status, answer: extractJson(rep.body) };
+      });
+    });
+  }
+
   // Review blocker 3: a write task is accepted only when GitHub itself shows
   // its commits on the expected task branch of the expected repository. The
   // report's own claims (git_verified, on_origin) are necessary, not
@@ -424,13 +479,15 @@ function create(gh, cfg) {
     postOnce: postOnce,
     closeIssue: closeIssue,
     label: label,
-    verifyDelivery: verifyDelivery
+    verifyDelivery: verifyDelivery,
+    readConsult: readConsult
   };
 }
 
 module.exports = {
   create: create,
   renderIssue: renderIssue,
+  extractJson: extractJson,
   prepareIssue: prepareIssue,
   checkIntegrity: checkIntegrity,
   issueParts: issueParts,

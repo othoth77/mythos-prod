@@ -5,6 +5,8 @@
 // scripts/mythos-supervise.js
 //
 //   submit  --objective "…" [--accept "…"]… [--timeout S]   record an objective (the timer does the rest)
+//           structured (LOCAL plan, no model): --action A [--check kind[:arg]]… [--scope …] [--validation …] [--constraint …]
+//   costs   <TASK_ID>                            OpenAI / Qwen / local decisions for the whole lineage, with reasons
 //   tick                                         one supervision pass (systemd timer runs this)
 //   watch   <TASK_ID> [--interval S] [--max-minutes M]   tick until COMPLETED/BLOCKED
 //   status  [<TASK_ID>]                          task state (all tasks when omitted)
@@ -59,6 +61,8 @@ function summary(t) {
       return { execution_id: e.execution_id, issue: e.issue_number, bridge_task_id: e.bridge_task_id, executor_task_id: e.executor_task_id || null,
         dispatch: e.dispatch, settled: e.settled, outcome: e.outcome || null, monitor_state: e.monitor ? e.monitor.monitor_state : null };
     }),
+    costs: t.costs || null,
+    consult: t.consult || null,
     updated_at: t.updated_at
   };
 }
@@ -73,7 +77,11 @@ async function main() {
   if (cmd === 'submit') {
     var objective = flag(args, '--objective');
     if (!objective) { console.error('submit needs --objective'); process.exit(1); }
-    var t = build().submitObjective({ objective: objective, acceptance: flags(args, '--accept'), requested_by: flag(args, '--by') || 'owner', timeout_seconds: flag(args, '--timeout') });
+    var t = build().submitObjective({
+      objective: objective, title: flag(args, '--title'), acceptance: flags(args, '--accept').concat(flags(args, '--check').map(function (c) { return 'check:' + c; })),
+      action: flag(args, '--action'), scope: flags(args, '--scope'), constraints: flags(args, '--constraint'), validation: flags(args, '--validation'),
+      requested_by: flag(args, '--by') || 'owner', timeout_seconds: flag(args, '--timeout')
+    });
     print(summary(t));
     return 0;
   }
@@ -107,6 +115,19 @@ async function main() {
     var tr = store.loadTask(args[1]);
     if (!tr) return 1;
     print(store.readJournal(function (e) { return e.correlation_id === tr.correlation_id; }));
+    return 0;
+  }
+  if (cmd === 'costs') {
+    var ct0 = store.loadTask(args[1]);
+    if (!ct0) return 1;
+    var lineage = store.listTasks().filter(function (x) { return x.root_task_id === ct0.root_task_id; });
+    var tot = { openai: 0, qwen: 0, local: 0 };
+    var rows = lineage.map(function (x) {
+      var c = x.costs || { openai: { total: 0 }, qwen: 0, local: 0, escalations: [] };
+      tot.openai += c.openai.total; tot.qwen += c.qwen; tot.local += c.local;
+      return { task_id: x.task_id, status: x.status, recovery: !!x.parent_task_id, openai: c.openai, qwen: c.qwen, local: c.local, escalations: c.escalations };
+    });
+    print({ root: ct0.root_task_id, totals: tot, tasks: rows });
     return 0;
   }
   if (cmd === 'resume') {

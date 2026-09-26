@@ -58,15 +58,30 @@ function specView(spec) {
   };
 }
 
+// Per-task cost ledger: every model call and every local decision, with why.
+function ensureCosts(task) {
+  task.costs = task.costs || { openai: { total: 0, plan: 0, review: 0, diagnose: 0 }, qwen: 0, local: 0, escalations: [] };
+  return task.costs;
+}
+
 function create(cfg, opts) {
   opts = opts || {};
   var advise = opts.advise || advisor.advise;
 
-  function call(task, role, question, context) {
+  function call(task, role, question, context, reason) {
     var root = task.root_task_id || task.task_id;
     var b = store.budgetState(root);
+    var costs = ensureCosts(task);
+    var perTask = task.parent_task_id ? cfg.max_openai_calls_per_recovery : cfg.max_openai_calls_per_task;
     if (b.day >= cfg.max_openai_calls_per_day) return Promise.resolve({ ok: false, code: 'OPENAI_BUDGET_DAY', detail: b.day + ' calls today', transient: false });
     if (b.root >= cfg.max_openai_calls_per_root) return Promise.resolve({ ok: false, code: 'OPENAI_BUDGET_ROOT', detail: b.root + ' calls for ' + root, transient: false });
+    if (costs.openai.total >= perTask) {
+      return Promise.resolve({ ok: false, code: task.parent_task_id ? 'OPENAI_BUDGET_RECOVERY' : 'OPENAI_BUDGET_TASK', detail: costs.openai.total + ' calls for ' + task.task_id + ' (limit ' + perTask + ')', transient: false });
+    }
+    var purpose = role.replace('supervise_', '');
+    costs.openai.total += 1;
+    costs.openai[purpose] = (costs.openai[purpose] || 0) + 1;
+    costs.escalations.push({ at: new Date().toISOString(), tier: 'OPENAI', purpose: purpose, reason: String(reason || purpose).slice(0, 300) });
     task.openai_calls = (task.openai_calls || 0) + 1;
     // A random suffix keeps the id unique even if a crash lost the counter.
     var adviceId = ('sup-' + task.task_id.toLowerCase() + '-' + role.replace('supervise_', '') + '-' + task.openai_calls + '-' +
@@ -88,30 +103,31 @@ function create(cfg, opts) {
     });
   }
 
-  function plan(task) {
+  function plan(task, reason) {
     return call(task, 'supervise_plan',
       'Plan ONE executable task for this owner objective. The executor is FABLE (Claude, model ' + cfg.executor_model + ') working in a sandboxed worktree of ' +
       cfg.repository + ' through the MYTHOS bridge. Choose the least-privileged action: investigate/review (read-only report), test (run tests, read-only), ' +
       'document (docs commit), implement (code commit to a task branch; never merged automatically). Acceptance criteria must be checkable from the executor\'s report.',
       { objective: task.objective, owner_acceptance: task.owner_acceptance || [], allowed_actions: cfg.allowed_actions,
         timeout_bounds_seconds: [cfg.min_timeout_seconds, cfg.max_timeout_seconds],
-        never_automatic: ['deployment', 'credentials or secrets', 'DNS', 'destructive database work', 'privileged host operations', 'merging to main'] });
+        never_automatic: ['deployment', 'credentials or secrets', 'DNS', 'destructive database work', 'privileged host operations', 'merging to main'],
+        prefer_machine_checks: 'Where possible write acceptance criteria as machine checks the supervisor verifies without a model: check:status_completed, check:tests_pass, check:no_problems, check:mentions:<text>, check:files_changed:<path>, check:commit_delivered.' }, reason || 'unstructured objective needs planning');
   }
 
-  function review(task, report, evidence) {
+  function review(task, report, evidence, reason) {
     return call(task, 'supervise_review',
       'Verify this execution report against EVERY acceptance criterion. Use only the evidence given. A successful exit or a COMPLETED status is not proof by itself.',
-      { task: specView(task.spec), report: curateReport(report), additional_evidence: evidence || null });
+      { task: specView(task.spec), report: curateReport(report), additional_evidence: evidence || null }, reason || 'free-text acceptance criteria need judgement');
   }
 
-  function diagnose(task, failure, history) {
+  function diagnose(task, failure, history, reason) {
     return call(task, 'supervise_diagnose',
       'Diagnose this failed execution and propose ONE recovery task that changes something concrete. It must differ from every previous attempt listed. ' +
       'If only a person can fix it (credential, owner decision, governance, privileged host step), set recoverable=false and name the human action.',
-      { task: specView(task.spec), failure: failure, previous_attempts: history || [] });
+      { task: specView(task.spec), failure: failure, previous_attempts: history || [] }, reason || 'escalated diagnosis');
   }
 
-  return { plan: plan, review: review, diagnose: diagnose, curateReport: curateReport };
+  return { plan: plan, review: review, diagnose: diagnose, curateReport: curateReport, ensureCosts: ensureCosts };
 }
 
-module.exports = { create: create, curateReport: curateReport, maskHashes: maskHashes };
+module.exports = { create: create, curateReport: curateReport, maskHashes: maskHashes, ensureCosts: ensureCosts };

@@ -1,5 +1,5 @@
 {
-  "_comment": "MYTHOS supervisor settings. NO SECRETS. The supervisor plans/reviews/diagnoses with OpenAI (config/openai.json) and executes through the EXISTING GitHub Issues -> bridge -> executor (FABLE) pipeline; it never runs commands itself and never merges.",
+  "_comment": "MYTHOS supervisor settings. NO SECRETS. Decisions are routed LOCAL rules \u2192 QWEN (local model on Haddad, via its own bridge Issues) \u2192 OPENAI \u2192 HUMAN by a deterministic router (supervisor/escalation.js); monitoring is local and never calls a model. Execution goes through the EXISTING GitHub Issues -> bridge -> executor (FABLE) pipeline; the supervisor never runs commands itself and never merges.",
   "repository": "othoth77/mythos-prod",
   "task_label": "task",
   "supervised_label": "mythos:supervised",
@@ -26,5 +26,13 @@
   "max_openai_calls_per_root": 24,
   "gh_timeout_seconds": 45,
   "executor_timeout_seconds": 30,
-  "executor_bin": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bin/mythos-ai-executor"
+  "executor_bin": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bin/mythos-ai-executor",
+  "qwen_enabled": true,
+  "qwen_label": "mythos:haddad",
+  "bridge_comment_authors": ["othoth77"],
+  "qwen_timeout_seconds": 900,
+  "qwen_deadline_seconds": 2400,
+  "max_openai_calls_per_task": 4,
+  "max_openai_calls_per_recovery": 2,
+  "resource_floor_mib": 300
 }
