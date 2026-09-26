@@ -1,0 +1,130 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-498",
+  "attempt_id": "gh-issue-498#1",
+  "status": "COMPLETED",
+  "summary": "QDIAG/1 classification=SPEC_ERROR | recoverable=true | confidence=high | action=test | title=Run the free-LLM parser suite at its real path | objective=From the repository root run: node tests/free-llm-parser-test.js . Put its final summary line verbatim in the report tests list. Change nothing. | diagnosis=Issue 496 ran node tests/free-llm-parser.js exactly as instructed and Node reported MODULE_NOT_FOUND because that file does not exist; suites in tests/ are named suite-test.js and the real suite is tests/free-llm-parser-test.js, which passes on fe315aeb with 30 passed and 0 failed; the root objective itself named the wrong path and forbade correcting it | what_changes=the test path in the task objective: tests/free-llm-parser.js becomes tests/free-llm-parser-test.js | scope=tests/free-llm-parser-test.js",
+  "resolution": {
+    "requested_action": "test",
+    "action_raw": "test",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-test",
+    "expected_profile": "repo-test",
+    "model_requested": "Fable 5.1",
+    "model_key": "fable-5.1",
+    "model": "claude-fable-5-1",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "base_sha": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "branch": "mythos/gh/gh-issue-498",
+    "commit_sha": null
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "b2487ee1a5ba6b22c834f3ba2f0ce49fed2732de",
+    "branch": "main",
+    "dirty_files": 1,
+    "base_ref": "origin/main",
+    "base_ref_head": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": true,
+    "code": "RUNTIME_STALE_CHECKOUT",
+    "reason": "checkout HEAD b2487ee1a5ba is behind origin/main fe315aeb395e — the running bridge is older than what is delivered",
+    "measured_at": "2026-09-26T19:01:40.782Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "QDIAG/1 classification=SPEC_ERROR | recoverable=true | confidence=high | action=test | title=Run the free-LLM parser suite at its real path | objective=From the repository root run: node tests/free-llm-parser-test.js . Put its final summary line verbatim in the report tests list. Change nothing. | diagnosis=Issue 496 ran node tests/free-llm-parser.js exactly as instructed and Node reported MODULE_NOT_FOUND because that file does not exist; suites in tests/ are named suite-test.js and the real suite is tests/free-llm-parser-test.js, which passes on fe315aeb with 30 passed and 0 failed; the root objective itself named the wrong path and forbade correcting it | what_changes=the test path in the task objective: tests/free-llm-parser.js becomes tests/free-llm-parser-test.js | scope=tests/free-llm-parser-test.js",
+    "tests": [
+      "node tests/free-llm-parser-test.js: 30 passed, 0 failed (branch mythos/gh/gh-issue-498 at fe315aeb395e)",
+      "QDIAG/1 line validation against supervisor qwen.js normalizeAnswer + parseAnswer (read-only require from the mythos-supervisor worktree): ok=true, classification SPEC_ERROR, 817 chars, no forbidden characters",
+      "check:status_completed: evidence = this report status is completed; read-only test task, no edits, no commits, worktree clean before and after",
+      "check:tests_pass: evidence = the one suite run reports 30 passed, 0 failed"
+    ],
+    "commit": null,
+    "remote_head": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "files_changed": [],
+    "residual_risks": [
+      "The QDIAG/1 contract lives only on the mythos-supervisor branch worktree, not on main at fe315aeb; the line was validated against that copy.",
+      "OTHMODE Status Center and memory search were not reachable from the executor (external call requires approval); recorded as UNREACHABLE in OTH-2026-01929.",
+      "The Qwen consult on Issue #497 returned classification OTHER with a recovery objective that echoed the consult format instead of naming the real fix; this recovery report supplies that fix but the consult quality itself is unchanged."
+    ],
+    "next_stage": "Bridge verifies this report and closes OTH-2026-01929; supervisor may dispatch the named recovery (run node tests/free-llm-parser-test.js) or close SUP-57S5JP9L using this evidence"
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "node tests/free-llm-parser-test.js: 30 passed, 0 failed (branch mythos/gh/gh-issue-498 at fe315aeb395e)",
+    "QDIAG/1 line validation against supervisor qwen.js normalizeAnswer + parseAnswer (read-only require from the mythos-supervisor worktree): ok=true, classification SPEC_ERROR, 817 chars, no forbidden characters",
+    "check:status_completed: evidence = this report status is completed; read-only test task, no edits, no commits, worktree clean before and after",
+    "check:tests_pass: evidence = the one suite run reports 30 passed, 0 failed"
+  ],
+  "validation": {
+    "git_verified": null,
+    "remote_head": null,
+    "report_problems": [],
+    "required_checks": [
+      "State the evidence for every acceptance criterion in the report.",
+      "check:status_completed",
+      "check:tests_pass"
+    ]
+  },
+  "problems": [],
+  "risks": [
+    "The QDIAG/1 contract lives only on the mythos-supervisor branch worktree, not on main at fe315aeb; the line was validated against that copy.",
+    "OTHMODE Status Center and memory search were not reachable from the executor (external call requires approval); recorded as UNREACHABLE in OTH-2026-01929.",
+    "The Qwen consult on Issue #497 returned classification OTHER with a recovery objective that echoed the consult format instead of naming the real fix; this recovery report supplies that fix but the consult quality itself is unchanged."
+  ],
+  "next_recommended_action": "Bridge verifies this report and closes OTH-2026-01929; supervisor may dispatch the named recovery (run node tests/free-llm-parser-test.js) or close SUP-57S5JP9L using this evidence",
+  "completed_at": "2026-09-26T19:06:26.436Z",
+  "execution": {
+    "executor_task_id": "t-20260926190142-sk1j9c",
+    "othmode_task_id": "OTH-2026-01929",
+    "execution_profile": "repo-test",
+    "provider": "claude-code",
+    "model": "claude-fable-5-1",
+    "model_requested": "Fable 5.1",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "test",
+    "attempt_id": "gh-issue-498#1",
+    "fence": 77534,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:2270944",
+      "fence": 77534,
+      "acquired_at": "2026-09-26T19:01:42.031Z",
+      "expires_at": "2026-09-26T19:41:42.031Z"
+    },
+    "snapshot_sha256": "f1a5c080d1e694f146ca491c734d567e87025327a03231ebaa26d7bff0ae00bf",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "claude_session_id": "fa19caf0-a45b-4f59-b2b6-6e342839c0b0",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-26T19:01:44.735Z",
+    "ended_at": "2026-09-26T19:05:23.142Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 2.8732857499999995,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-498",
+    "branch": "mythos/gh/gh-issue-498",
+    "base_commit": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-498",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
