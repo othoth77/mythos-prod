@@ -1,14 +1,14 @@
 # MYTHOS control — current state
 
-Generated 2026-09-26T16:39:44.371Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
+Generated 2026-09-26T16:40:59.474Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
 
 | Status | Count |
 |---|---|
 | PENDING | 10 |
 | CLAIMED | 0 |
-| IN_PROGRESS | 1 |
+| IN_PROGRESS | 0 |
 | VALIDATING | 0 |
-| COMPLETED | 63 |
+| COMPLETED | 64 |
 | BLOCKED | 33 |
 | FAILED | 4 |
 | CANCELLED | 2 |
@@ -20,7 +20,7 @@ Generated 2026-09-26T16:39:44.371Z by the bridge on branch `mythos/control` (pro
 | `gh-issue-99` | **COMPLETED** | investigate | normal | 2026-09-02T22:42:59.761Z | 2026-09-02T22:49:32.431Z | `t-20260902224306-vaqeia` | `control/reports/gh-issue-99.json` |
 | `gh-issue-97` | **BLOCKED** | investigate | normal | 2026-09-02T22:34:21.352Z | 2026-09-02T22:43:04.917Z | `t-20260902223428-31m0o4` | `control/reports/gh-issue-97.json` |
 | `gh-issue-95` | **COMPLETED** | investigate | normal | 2026-09-02T22:34:19.628Z | 2026-09-02T22:40:52.170Z | `t-20260902223426-ipld9w` | `control/reports/gh-issue-95.json` |
-| `gh-issue-489` | **IN_PROGRESS** | test | normal | 2026-09-26T16:38:27.442Z | 2026-09-26T16:39:44.361Z | `t-20260926163831-umiqwx` | — |
+| `gh-issue-489` | **COMPLETED** | test | normal | 2026-09-26T16:38:27.442Z | 2026-09-26T16:40:59.455Z | `t-20260926163831-umiqwx` | `control/reports/gh-issue-489.json` |
 | `gh-issue-487` | **FAILED** | test | normal | 2026-09-26T16:28:17.513Z | 2026-09-26T16:29:33.572Z | `t-20260926162821-pxyz5l` | `control/reports/gh-issue-487.json` |
 | `gh-issue-486` | **COMPLETED** | investigate | normal | 2026-09-26T16:19:07.824Z | 2026-09-26T16:20:23.602Z | `t-20260926161912-26aoch` | `control/reports/gh-issue-486.json` |
 | `gh-issue-485` | **FAILED** | investigate | normal | 2026-09-26T16:11:27.463Z | 2026-09-26T16:12:49.148Z | `t-20260926161131-ml72yw` | `control/reports/gh-issue-485.json` |

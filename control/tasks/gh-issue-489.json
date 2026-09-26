@@ -25,7 +25,7 @@
     "check:status_completed",
     "check:tests_pass"
   ],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-26T16:38:27.442Z",
   "created_by": "github-issue:othoth77",
   "timeout_seconds": 300,
@@ -179,8 +179,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "4a6f6c0b034de3fb0013e580965bdb8fe7ef6b9d36d627aafbe75001b678803d",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-26T16:39:44.361Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-26T16:40:59.455Z",
     "snapshot_sha256": "1021fdaee15761e9ebad8f56bfaf03b7f4ea7a1171878891bd1b700b42c655ec",
     "fence": 77195,
     "lease": {
@@ -209,7 +209,8 @@
     },
     "model": "claude-fable-5-1",
     "model_selection_mode": "explicit",
-    "claude_session_id": "2e14b4b5-0be5-4881-adbf-4c80b9b94588"
+    "claude_session_id": "2e14b4b5-0be5-4881-adbf-4c80b9b94588",
+    "report_file": "control/reports/gh-issue-489.json"
   },
   "history": [
     {
@@ -225,6 +226,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-26T16:40:58.871Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-26T16:40:59.455Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 5 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
