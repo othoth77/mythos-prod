@@ -1,0 +1,129 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-490",
+  "attempt_id": "gh-issue-490#1",
+  "status": "FAILED",
+  "summary": "Ran the exact self-check command from the repository root (/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-490, branch mythos/gh/gh-issue-490 at fe315aeb) with argument --mode=loose. The command exited with code 1 and printed exactly one output line: selfcheck: 0 passed, 1 failed (unknown mode --mode=loose; supported mode: --mode=strict). Per the objective, the task is reported as failed with that output line as the only problem. The task was read-only: no files were created, modified, staged, committed or pushed; git status is clean. The OTHMODE task record OTH-2026-01924 was not modified and remains open for the bridge to close.",
+  "resolution": {
+    "requested_action": "test",
+    "action_raw": "test",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-test",
+    "expected_profile": "repo-test",
+    "model_requested": "Fable 5.1",
+    "model_key": "fable-5.1",
+    "model": "claude-fable-5-1",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "base_sha": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "branch": "mythos/gh/gh-issue-490",
+    "commit_sha": null
+  },
+  "blocker": {
+    "code": "PROVIDER_FAILED",
+    "retryable": true,
+    "at": "2026-09-26T17:30:55.127Z",
+    "reason": "Ran the exact self-check command from the repository root (/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-490, branch mythos/gh/gh-issue-490 at fe315aeb) with argument --mode=loose. The command exited with code 1 and printed exactly one output line: selfcheck: 0 passed, 1 failed (unknown mode --mode=loose; supported mode: --mode=strict). Per the objective, the task is reported as failed with that output line as the only problem. The task was read-only: no files were created, modified, staged, committed or pushed; git status is clean. The OTHMODE task record OTH-2026-01924 was not modified and remains open for the bridge to close.",
+    "task_id": "t-20260926173023-fuy4n6",
+    "attempt_id": "gh-issue-490#1"
+  },
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "b2487ee1a5ba6b22c834f3ba2f0ce49fed2732de",
+    "branch": "main",
+    "dirty_files": 1,
+    "base_ref": "origin/main",
+    "base_ref_head": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": true,
+    "code": "RUNTIME_STALE_CHECKOUT",
+    "reason": "checkout HEAD b2487ee1a5ba is behind origin/main fe315aeb395e — the running bridge is older than what is delivered",
+    "measured_at": "2026-09-26T17:30:21.911Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "failed",
+    "summary": "Ran the exact self-check command from the repository root (/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-490, branch mythos/gh/gh-issue-490 at fe315aeb) with argument --mode=loose. The command exited with code 1 and printed exactly one output line: selfcheck: 0 passed, 1 failed (unknown mode --mode=loose; supported mode: --mode=strict). Per the objective, the task is reported as failed with that output line as the only problem. The task was read-only: no files were created, modified, staged, committed or pushed; git status is clean. The OTHMODE task record OTH-2026-01924 was not modified and remains open for the bridge to close.",
+    "tests": [
+      "selfcheck: 0 passed, 1 failed (unknown mode --mode=loose; supported mode: --mode=strict)"
+    ],
+    "commit": null,
+    "remote_head": null,
+    "files_changed": [],
+    "residual_risks": [
+      "selfcheck: 0 passed, 1 failed (unknown mode --mode=loose; supported mode: --mode=strict)"
+    ],
+    "next_stage": "Bridge closes OTH-2026-01924 as FAILED from this report; if a passing self-check is wanted, a new task must run the command with --mode=strict."
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "selfcheck: 0 passed, 1 failed (unknown mode --mode=loose; supported mode: --mode=strict)"
+  ],
+  "validation": {
+    "git_verified": null,
+    "remote_head": null,
+    "report_problems": [],
+    "required_checks": [
+      "The tests list contains the command's output line verbatim.",
+      "check:status_completed",
+      "check:tests_pass"
+    ]
+  },
+  "problems": [
+    "PROVIDER_FAILED: Ran the exact self-check command from the repository root (/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-490, branch mythos/gh/gh-issue-490 at fe315aeb) with argument --mode=loose. The command exited with code 1 and printed exactly one output line: selfcheck: 0 passed, 1 failed (unknown mode --mode=loose; supported mode: --mode=strict). Per the objective, the task is reported as failed with that output line as the only problem. The task was read-only: no files were created, modified, staged, committed or pushed; git status is clean. The OTHMODE task record OTH-2026-01924 was not modified and remains open for the bridge to close."
+  ],
+  "risks": [
+    "selfcheck: 0 passed, 1 failed (unknown mode --mode=loose; supported mode: --mode=strict)"
+  ],
+  "next_recommended_action": "Bridge closes OTH-2026-01924 as FAILED from this report; if a passing self-check is wanted, a new task must run the command with --mode=strict.",
+  "completed_at": "2026-09-26T17:31:38.946Z",
+  "execution": {
+    "executor_task_id": "t-20260926173023-fuy4n6",
+    "othmode_task_id": "OTH-2026-01924",
+    "execution_profile": "repo-test",
+    "provider": "claude-code",
+    "model": "claude-fable-5-1",
+    "model_requested": "Fable 5.1",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "test",
+    "attempt_id": "gh-issue-490#1",
+    "fence": 77318,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:2113989",
+      "fence": 77318,
+      "acquired_at": "2026-09-26T17:30:23.262Z",
+      "expires_at": "2026-09-26T18:10:23.262Z"
+    },
+    "snapshot_sha256": "93d3a97f80b8db966d76e3b813ac93f1ef63f6161ca6aa01422002d6efd26858",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "claude_session_id": "52b2409c-7e82-4120-b853-7ab6b02cf5f6",
+    "executor_status": "FAILED",
+    "started_at": "2026-09-26T17:30:25.292Z",
+    "ended_at": "2026-09-26T17:30:55.127Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 0.58912125,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-490",
+    "branch": "mythos/gh/gh-issue-490",
+    "base_commit": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-490",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
