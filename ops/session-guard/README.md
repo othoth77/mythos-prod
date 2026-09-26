@@ -96,7 +96,7 @@ journal says `missing`.
 | `mythos-session-guard-run.js` | the root runner; requires only `fs`, `path` and its sibling `session-guard.js` |
 | `mythos-session-guard.service` | oneshot, `User=root`, `ProtectSystem=strict`, `CapabilityBoundingSet=CAP_KILL`, `MemoryMax=192M`. No `[Install]` — the timer drives it |
 | `mythos-session-guard.timer` | every 5 minutes |
-| `user-0.slice.d/memory.conf` | **optional, separate owner decision** — `MemoryHigh=2G` soft ceiling on the root login slice. No `MemoryMax`: a hard cap there would OOM-kill. Install/rollback in the file header |
+| `user-0.slice.d/memory.conf` | **LIVE since 2026-09-18** (applied with `systemctl set-property`) — `MemoryHigh=3584M` soft, `MemoryMax=4608M` hard, `MemorySwapMax=1G`. The original "no `MemoryMax`" stance was reversed after the 2026-09-18 global OOM storm; reasoning, and the rollback, in the file header and `docs/audits/VPS_MEMORY_PROTECTION_2026-09-18.md` |
 | `install-session-guard.sh` | the installer |
 
 ## Related, and deliberately not merged with this
