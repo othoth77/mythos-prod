@@ -258,3 +258,108 @@ stay within the structured-output subset: all properties required,
 | `PROVIDER_UNAVAILABLE` | CLI missing or not authenticated for `deploy` | run `doctor`; check `~/.codex/auth.json` exists for `deploy` |
 | `verification_failed` | Git disagrees with the worker's claims | **never** report complete; read `verification.failures` |
 | notify `send-failed-nonfatal` | notification endpoint unreachable | ignore; it cannot affect task status |
+
+---
+
+## 10. OpenAI advisor (reasoning, planning, review)
+
+The advisor asks OpenAI one question and returns a structured answer. It is
+**advisory only**: it never dispatches a task, never touches Git, never
+changes a routing decision and has no tools, shell or working directory.
+It is not a worker provider — `runner.PROVIDERS` is still exactly `codex` and
+`claude`, and the router is unchanged.
+
+| Piece | Where |
+|---|---|
+| Code | `advisor.js`, `providers/openai.js` |
+| Answer contract | `schemas/advice.schema.json` (also sent to OpenAI as a strict `json_schema`) |
+| System prompt | `templates/advisor-system.md` |
+| Models, limits, on/off switch | `config/openai.json` — no secrets |
+| Credential | `~/.config/mythos-orchestrator/openai.env` for `deploy`, mode 600, one line `OPENAI_API_KEY=<set by owner>` |
+| Recorded answers | `<orchestrator home>/advice/<advice-id>.json`, mode 600 |
+
+**Shipped disabled.** `config/openai.json` has `"enabled": false`; while it
+does, `advise` returns `disabled` and sends nothing. Enabling is a separate,
+owner-approved change to that one field. Rolling back is the same edit.
+
+The shipped switch is **authoritative**: it is read from the
+`config/openai.json` next to `advisor.js`, at a path no caller can change.
+A caller's `opts.config` / `opts.configPath` may adjust other settings but
+can only turn the advisor **off**, never on (effective = shipped `enabled`
+AND caller `enabled`). An unreadable or malformed shipped file counts as
+disabled. `doctor` reports the same effective value.
+
+A request:
+
+```json
+{ "advice_id": "review-pr-0001", "role": "review",
+  "question": "Is this change safe to merge?",
+  "context": "<diff or issue text>",
+  "subject_risk_class": "CODE_IMPLEMENTATION" }
+```
+
+```bash
+node scripts/mythos-orchestrate.js advise request.json --dry-run
+```
+
+```bash
+node scripts/mythos-orchestrate.js advise request.json
+```
+
+`--dry-run` prints the exact request body (never the key) and sends nothing.
+Exit codes: `0` completed or dry-run · `1` usage · `2` rejected · `3`
+disabled or blocked · `4` failed.
+
+Guarantees, each covered by `tests/mythos-orchestrator-openai-test.js`:
+
+- **Key handling.** Read from the key file at call time, used for one
+  `Authorization` header, never returned, logged, recorded or put in an
+  error. Only OpenAI's error `type` and `code` are kept — an OpenAI 401
+  message echoes part of the key, so it is discarded.
+- **Secret gate.** A question or context containing a credential pattern is
+  refused before anything is sent. The gate is `lib/redact.js` (shared with
+  the task gate, unchanged) plus advisor-only patterns in `advisor.js`:
+  `Bearer` tokens, `Authorization: Basic` headers, Telegram bot tokens,
+  Stripe `sk_`/`rk_` live/test keys, bare 40-character AWS secret keys,
+  passwords stated in prose, and bare hex tokens of 32+ characters. Git
+  SHA-1s (exactly 40 hex) and labelled digests (`sha256:…`, `checksum …`)
+  are deliberately allowed, so ordinary GitHub context still passes. The
+  gate is pattern-based: never pass raw environment or log dumps.
+- **Untrusted context is fenced per call.** The context sits between
+  `BEGIN`/`END` lines carrying a fresh 128-bit random marker, so text inside
+  it cannot close the fence early.
+- **Never a false success.** HTTP errors, timeouts, truncated or refused
+  answers, prose instead of JSON, and schema-invalid or over-long advice all
+  end `failed`, and a failed answer writes no record. If a VALID answer
+  cannot be recorded (`RECORD_WRITE_FAILED: <code>`), the outcome is
+  `failed` but still carries the answer, so a paid answer is never silently
+  lost; `advise()` never rejects.
+- **Risk floor.** `suggested_risk_class` is accepted only when it is at least
+  as strict as `subject_risk_class` (approval-only > judgement >
+  implementation). Advice can send work towards a human, never away from one.
+- **No retries, bounded output, hard deadline.** One request per call;
+  `max_output_tokens` comes from the role's config. `timeout_seconds` is a
+  HARD total deadline from the start of the call — a slow-drip response
+  cannot extend it — and a connection that closes before the full body
+  arrives fails as `RESPONSE_TRUNCATED` at once.
+- **Upstream retention off.** Every request sets `store: false`.
+- **Context is not recorded.** The record keeps the question, the advice,
+  usage and cost, plus the context's length and SHA-256 — not the context.
+
+Cost is reported as tokens. It is also reported in USD once `price_per_mtok`
+is filled in `config/openai.json` from OpenAI's pricing page, keyed by model:
+`{ "<model>": { "input": <usd per 1M>, "output": <usd per 1M> } }`.
+
+`doctor` shows the advisor's state — enabled flag, model per role, and the
+key file's presence and mode by `stat()` only (the file is never opened).
+
+| Symptom | Cause | Action |
+|---|---|---|
+| `disabled` / `ADVISOR_DISABLED` | shipped default | enabling is an owner decision |
+| `blocked` / `PROVIDER_UNAVAILABLE` | key file missing or empty for this user | check `doctor`; the owner writes the key file |
+| `failed` / `HTTP_401` | key revoked or wrong | owner rotates the key file |
+| `failed` / `INCOMPLETE` (`max_output_tokens`) | answer truncated | raise that role's `max_output_tokens` in config |
+| `rejected` / `SECRET_IN_REQUEST` | credential in question or context | remove it; never send secrets to the advisor |
+| `failed` / `TIMEOUT` | hard deadline (`timeout_seconds`) passed | retry later; raise `timeout_seconds` only with a reason |
+| `failed` / `NETWORK_ERROR` (`RESPONSE_TRUNCATED`) | connection closed mid-response | retry; nothing was recorded |
+| `failed` / `RECORD_WRITE_FAILED` | advice store not writable | the answer is in the outcome; fix the store permissions |

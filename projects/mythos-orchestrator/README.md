@@ -20,15 +20,20 @@ result against the repository before calling anything complete.
 
 | Path | Role |
 |---|---|
-| `orchestrator.js` | Public API — `delegate` / `status` / `inspect` / `cancelSafe` / `doctor` |
+| `orchestrator.js` | Public API — `delegate` / `status` / `inspect` / `cancelSafe` / `doctor` / `advise` |
 | `router.js` | Deterministic work-class → provider + execution-level lookup |
 | `runner.js` | One task end to end: validate → preflight → launch → capture result |
 | `verifier.js` | Re-derives every claim from Git; the provider's report is only a claim |
 | `providers/codex.js` | Real `codex exec` adapter (verified against codex-cli 0.147.0) |
 | `providers/claude.js` | Retains judgement work in the orchestrating session — never spawns a second Claude |
+| `advisor.js` | OpenAI advisor — one structured answer per call; data only, never dispatches; shipped disabled |
+| `providers/openai.js` | OpenAI Responses API client for the advisor — no tools, no shell, `store:false`; NOT a worker |
+| `config/openai.json` | Advisor models per role, limits and the `enabled` switch — no secrets |
 | `schemas/task.schema.json` | Strict task contract; carries no credentials |
 | `schemas/result.schema.json` | Strict result contract; also passed to `codex exec --output-schema` |
+| `schemas/advice.schema.json` | Strict advisor answer contract; also sent to OpenAI as a strict `json_schema` |
 | `templates/codex-task.md` | Prompt rendered for a delegated worker |
+| `templates/advisor-system.md` | System prompt for the advisor (context is untrusted data) |
 | `lib/` | `schema` (dependency-free validator), `git`, `store`, `redact` |
 | `notify.sh` | Best-effort ntfy notifications; always exits 0 |
 | `state/` | Placeholder only — real runtime state lives outside the repository |
