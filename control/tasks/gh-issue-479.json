@@ -1,0 +1,135 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-479",
+  "project": "mythos-prod",
+  "objective": "Fix the HostOps v0.2 controlled-operation execution path so the root hostops daemon can safely launch the deploy-side user worker without relying on a broken root → deploy user-manager D-Bus/systemd boundary.",
+  "scope": [
+    "Identify and fix the root-daemon → deploy-user-worker execution boundary.",
+    "Preserve the HostOps v0.2 security model and least-privilege guarantees.",
+    "Do **not** weaken or remove daemon sandboxing merely to make the current implementation work.",
+    "Do **not** grant additional broad sudo/root privileges, Docker privileges, or unrestricted D-Bus access as a workaround.",
+    "Keep HIGHLY_SENSITIVE operations owner-only.",
+    "Preserve controlled-operation safeguards: intent/audit, backup, compare-and-swap, verification, rollback, attribution, Resource Guard, locking/rate limits, and kill switch.",
+    "The solution must work after boot/restart with the existing `deploy` user manager lifecycle.",
+    "Add regression coverage for the exact failure mode.",
+    "Run the complete HostOps live self-test and restore **9/9 passing**.",
+    "Document the chosen boundary and why it is safe."
+  ],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "investigate",
+  "action_raw": "investigate",
+  "action_source": "default",
+  "validation_requirements": [
+    "`sudo node ops/hostops/live-selftest.js --mode socket` reports **9 passed, 0 failed**.",
+    "Controlled operations no longer fail with `HOSTOPS_EXEC_FAILED`, `EPERM`, or `Transport endpoint is not connected`.",
+    "Rollback test passes.",
+    "No weakening of `mythos-hostops.service` sandboxing is required.",
+    "No new broad privilege is granted to `deploy`, `dagu`, or the HostOps daemon.",
+    "Existing F1/F2/F3/F5 findings are not silently reclassified as resolved.",
+    "#477 remains blocked until this task is complete and the 9/9 live self-test passes."
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-26T07:02:27.442Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #479 https://github.com/othoth77/mythos-prod/issues/479 — \"HostOps v0.2 — Fix EPERM / Transport endpoint when root daemon launches deploy user worker\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[current production finding]\nHostOps v0.2 is installed on the VPS and the socket daemon is healthy, but live self-test is only **4/9 passing**.\n\nControlled operations fail with:\n\n`HOSTOPS_EXEC_FAILED`\n`user worker could not run: spawnSync /usr/bin/systemd-run EPERM`\n\nDirect execution as `deploy` works:\n\n`systemd-run --user --wait --pipe /usr/bin/true` → exit 0\n\nThe same operation from the root daemon context fails with:\n\n`Transport endpoint is not connected`\n\nThe failure was reproduced both directly and inside a transient sandbox matching the daemon's relevant hardening settings. This indicates a boundary/design problem, not a missing VPS permission that should be worked around.\n\n[relevant implementation]\nCurrent `mythos-hostops.js` launches the worker through:\n\n`/usr/bin/systemd-run --user --wait --pipe --quiet --collect ... /usr/bin/node /usr/local/lib/mythos-hostops/user-worker.js`\n\nThe intended security model is that deploy-owned state is modified only by the deploy user worker launched through the deploy user manager.\n\n[verification evidence]\n- `id deploy` includes `mythos-hostops` and also currently includes `docker` (F1 remains a separate security finding).\n- `user@1001.service` is active and `systemd-run --user` works when executed directly as deploy.\n- Root daemon/sandbox invocation of deploy's user manager fails with `Transport endpoint is not connected`.\n\n[deliverable]\nImplement the smallest safe architectural fix, test it on the VPS, report the exact boundary change, test results, and any remaining security findings.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 479,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/479",
+    "issue_id": 5592146023,
+    "issue_node_id": "I_kwDOTnlaF88AAAABTVFgZw",
+    "issue_title": "HostOps v0.2 — Fix EPERM / Transport endpoint when root daemon launches deploy user worker",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-26T07:02:06Z",
+    "issue_updated_at": "2026-09-26T07:02:06Z",
+    "issue_labels": [
+      "task"
+    ],
+    "content_sha256": "1ae69c115a7f3103f5ae037ad2fec1a697e194c4417c65707ef23ea54fe118fd",
+    "attempt": 1,
+    "attempt_id": "gh-issue-479#1",
+    "idempotency_key": "9a204a717db8f52d3d67387179ea8ca5060a99ec72feae305c9b0bd51450ebee",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "investigate",
+      "action_raw": "investigate",
+      "action_source": "default",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-26T07:02:27.442Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-26T07:02:27.442Z",
+        "event": "issue_received",
+        "reason": "open Issue #479 with label task",
+        "content_sha256": "1ae69c115a7f3103f5ae037ad2fec1a697e194c4417c65707ef23ea54fe118fd"
+      },
+      {
+        "at": "2026-09-26T07:02:27.442Z",
+        "event": "action_resolved",
+        "reason": "default → investigate (raw \"investigate\")"
+      },
+      {
+        "at": "2026-09-26T07:02:27.442Z",
+        "event": "profile_resolved",
+        "reason": "investigate → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-26T07:02:27.442Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-26T07:02:29.000Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-479.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-26T07:02:27.442Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5844111188,
+        "url": "https://github.com/othoth77/mythos-prod/issues/479#issuecomment-5844111188",
+        "at": "2026-09-26T07:02:28.220Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
