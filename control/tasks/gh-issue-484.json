@@ -174,8 +174,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "67fb0b28a89eb306d5c894cf4e2de74c205307a9ed178a526e8586e7d6ee74c8",
-    "executor_status": "WAITING_RETRY",
-    "updated_at": "2026-09-26T15:56:08.702Z",
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-26T15:57:28.421Z",
     "snapshot_sha256": "2dd3fbc42d59fa8c733d5d4ab11d45b194482ed003cc545cec39de789396453d",
     "fence": 77093,
     "lease": {
