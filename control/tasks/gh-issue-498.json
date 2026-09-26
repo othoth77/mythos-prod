@@ -1,0 +1,145 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-498",
+  "project": "mythos-prod",
+  "objective": "Write the QDIAG/1 line in `mythos_report.summary` based on the evidence",
+  "scope": [
+    "as needed to meet the objective, inside this repository"
+  ],
+  "constraints": [
+    "none beyond the supervisor constraint",
+    "Supervised task: the MYTHOS supervisor verifies this report against the acceptance criteria below. Report exactly what you ran and observed; never claim a check you did not run."
+  ],
+  "priority": "normal",
+  "requested_action": "test",
+  "action_raw": "test",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "State the evidence for every acceptance criterion in the report.",
+    "check:status_completed",
+    "check:tests_pass"
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-26T19:01:37.564Z",
+  "created_by": "github-issue:othoth77",
+  "timeout_seconds": 600,
+  "model": "fable-5.1",
+  "model_raw": "Fable 5.1",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #498 https://github.com/othoth77/mythos-prod/issues/498 — \"[supervised] Recovery\"\n\nrequested_action: test — source explicit_current_issue (written as \"test\") → execution profile repo-test\n\nmodel: fable-5.1 — source explicit_current_issue (written as \"Fable 5.1\")",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 498,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/498",
+    "issue_id": 5596510676,
+    "issue_node_id": "I_kwDOTnlaF88AAAABTZP51A",
+    "issue_title": "TASK: [supervised] Recovery",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-26T19:01:13Z",
+    "issue_updated_at": "2026-09-26T19:01:13Z",
+    "issue_labels": [
+      "task",
+      "mythos:supervised"
+    ],
+    "content_sha256": "6675a55eeaa3bbf3ecbb5e9dad5308aab260ae953e68f238bc3b57a547f49f46",
+    "attempt": 1,
+    "attempt_id": "gh-issue-498#1",
+    "idempotency_key": "db212a6712438bd22ec6748b72d4f3dd9d55db384d1efca3472de4eafb4657df",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "test",
+      "action_raw": "test",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "test",
+          "action": "test",
+          "form": "inline",
+          "line": 21
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-test",
+      "expected_delivery": "report",
+      "model_key": "fable-5.1",
+      "model_id": "claude-fable-5-1",
+      "model_raw": "Fable 5.1",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:fable-5.1 (requested \"Fable 5.1\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-26T19:01:37.565Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-26T19:01:37.565Z",
+        "event": "issue_received",
+        "reason": "open Issue #498 with label task",
+        "content_sha256": "6675a55eeaa3bbf3ecbb5e9dad5308aab260ae953e68f238bc3b57a547f49f46"
+      },
+      {
+        "at": "2026-09-26T19:01:37.565Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → test (raw \"test\")"
+      },
+      {
+        "at": "2026-09-26T19:01:37.565Z",
+        "event": "profile_resolved",
+        "reason": "test → repo-test (server-side map)"
+      },
+      {
+        "at": "2026-09-26T19:01:37.565Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → fable-5.1 (available)"
+      },
+      {
+        "at": "2026-09-26T19:01:39.999Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-498.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-26T19:01:37.565Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5848984199,
+        "url": "https://github.com/othoth77/mythos-prod/issues/498#issuecomment-5848984199",
+        "at": "2026-09-26T19:01:38.459Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:supervised"
+      ]
+    }
+  }
+}
