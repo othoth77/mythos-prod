@@ -1,6 +1,6 @@
 'use strict';
 // =====================================================
-// Mythos AI Executor — governed host operations (HOSTOPS-1, HOSTOPS-2R)
+// Mythos AI Executor — governed host operations (HOSTOPS-1, HOSTOPS-2R, v0.2)
 // projects/mythos-ai-executor/lib/hostops.js
 //
 // The Executor-side adapter for the installed READ-ONLY boundary
@@ -12,14 +12,20 @@
 //
 //   1. closed request field set              — anything else is refused
 //   2. allowlist lookup                      — unknown operation: refused
-//   3. governance as declared                — class must be READ; WRITE /
-//      RESTART / DEPLOY are refused BY NAME with their class before any
-//      process is spawned (approval-carrying classes arrive only in v0.2)
+//   3. governance as declared                — HostOps v0.2 tiers: READ
+//      (NORMAL) and CONTROLLED are executable; OWNER / DESTRUCTIVE classes
+//      and the catalog's highly_sensitive_operations are refused BY NAME
+//      before any connection exists. CONTROLLED additionally requires a
+//      task identity (attribution) — the helper enforces the same rule
+//      root-side, so a session talking to the socket directly gains nothing
 //   4. argument validation                   — anchored allowlist regex plus
 //      a metacharacter net, duplicated here as defense in depth
-//   5. Resource Guard admission              — a hostops call is an ADMISSION
+//   5. Resource Guard admission              — a READ call is an ADMISSION
 //      exactly like dispatchTask(): CRITICAL defers it, nothing is spawned,
-//      and the reason is recorded. Fail-open on guard errors, like the daemon
+//      and the reason is recorded. Fail-open on guard errors, like the daemon.
+//      CONTROLLED calls are admitted by the helper itself, root-side, which
+//      knows which of them are recovery actions (service/container restart,
+//      rollback) that must still run under pressure
 //   6. the boundary                          — a Unix domain socket call to
 //      the root-owned mythos-hostops-daemon (HOSTOPS-2R). No shell, no sudo,
 //      no fallback to docker/systemctl exists anywhere in this path
@@ -71,11 +77,12 @@ var net = require('net');
 var state = require('./state');
 var resourceGuard = require('./resource-guard');
 
-var VERSION = '1.1.0';
+var VERSION = '1.2.0';
 var SOCKET_PATH = process.env.MYTHOS_HOSTOPS_SOCKET || '/run/mythos-hostops/hostops.sock';
 var INSTALLED_ALLOWLIST = '/etc/mythos/hostops-allowlist.json';
 var REPO_ALLOWLIST = path.join(__dirname, '..', '..', '..', 'ops', 'dagu-poc', 'hostops-allowlist.json');
-var TIMEOUT_MS = 20000;
+var TIMEOUT_MS = 20000;            // READ default; CONTROLLED uses the catalog timeout + margin
+var MAX_TIMEOUT_MS = 100000;       // above the daemon's 90 s ceiling
 var META_RE = /[;&|`$<>(){}\[\]'"\\\s]/;
 var TASK_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
 var REQUEST_FIELDS = ['operation', 'arguments', 'task_id', 'othmode_task_id', 'github_task_id', 'requested_by'];
@@ -83,6 +90,7 @@ var MAX_TASK_RECORDS = 20;
 
 var HTTP_STATUS = {
   HOSTOPS_INPUT: 400, HOSTOPS_UNKNOWN_OPERATION: 404, HOSTOPS_NOT_READ: 403,
+  HOSTOPS_HIGHLY_SENSITIVE: 403, HOSTOPS_OWNER_ONLY: 403, HOSTOPS_ATTRIBUTION_REQUIRED: 400,
   HOSTOPS_ARG_INVALID: 400, HOSTOPS_ALLOWLIST_UNAVAILABLE: 500,
   RESOURCE_PRESSURE: 503, HOSTOPS_REFUSED: 403, HOSTOPS_CALLER_REFUSED: 403,
   HOSTOPS_EXEC_FAILED: 502, HOSTOPS_AUDIT_UNAVAILABLE: 503,
@@ -134,6 +142,7 @@ function refusal(code, message, extra) {
 // bounded read, nothing else.
 function defaultCallBoundary(verb, args, ids, opts) {
   var socketPath = (opts && opts.socketPath) || SOCKET_PATH;
+  var timeoutMs = (opts && opts.timeoutMs) || TIMEOUT_MS;
   return new Promise(function (resolve) {
     var settled = false;
     function done(r) { if (settled) return; settled = true; resolve(r); }
@@ -146,10 +155,10 @@ function defaultCallBoundary(verb, args, ids, opts) {
     }
 
     var chunks = [];
-    conn.setTimeout(TIMEOUT_MS);
+    conn.setTimeout(timeoutMs);
     conn.on('timeout', function () {
       conn.destroy();
-      done({ error: { code: 'ETIMEDOUT', message: 'the hostops boundary did not answer within ' + TIMEOUT_MS + 'ms' }, signal: 'SIGTERM' });
+      done({ error: { code: 'ETIMEDOUT', message: 'the hostops boundary did not answer within ' + timeoutMs + 'ms' }, signal: 'SIGTERM' });
     });
     conn.on('error', function (e) {
       done({ error: { code: (e && e.code) || 'HOSTOPS_SOCKET_ERROR', message: String((e && e.message) || e) } });
@@ -226,14 +235,26 @@ function invoke(payload, opts) {
   // ---- allowlist + governance as declared -----------------------------
   var al = loadAllowlist(opts);
   if (!al || !al.operations) return Promise.resolve(refusal('HOSTOPS_ALLOWLIST_UNAVAILABLE', 'hostops allowlist unavailable; failing closed'));
+  var hs = al.highly_sensitive_operations || {};
+  if (Object.prototype.hasOwnProperty.call(hs, operation)) {
+    return Promise.resolve(refusal('HOSTOPS_HIGHLY_SENSITIVE', 'operation ' + operation + ' is HIGHLY_SENSITIVE (' + String(hs[operation]).slice(0, 120) + '); HostOps never executes it — owner action', { operation: operation, tier: 'HIGHLY_SENSITIVE' }));
+  }
   var op = null, verb = null;
   Object.keys(al.operations).forEach(function (name) {
     if (name === operation || al.operations[name].helper === operation) { op = al.operations[name]; verb = al.operations[name].helper; op.__name = name; }
   });
   if (!op) return Promise.resolve(refusal('HOSTOPS_UNKNOWN_OPERATION', 'operation "' + operation.slice(0, 64) + '" is not in the hostops allowlist'));
-  if (op.class !== 'READ') {
-    return Promise.resolve(refusal('HOSTOPS_NOT_READ', 'operation ' + op.__name + ' is class ' + op.class + '; the executor hostops path executes READ operations only (v1)', { operation: op.__name, class: op.class }));
+  var tier = (al.classes && al.classes[op.class] && al.classes[op.class].tier) || null;
+  if (op.class === 'OWNER' || op.class === 'DESTRUCTIVE') {
+    return Promise.resolve(refusal('HOSTOPS_OWNER_ONLY', 'operation ' + op.__name + ' is class ' + op.class + ' (HIGHLY_SENSITIVE); HostOps does not execute it — owner action', { operation: op.__name, class: op.class, tier: 'HIGHLY_SENSITIVE' }));
   }
+  if (op.class !== 'READ' && op.class !== 'CONTROLLED') {
+    return Promise.resolve(refusal('HOSTOPS_NOT_READ', 'operation ' + op.__name + ' is class ' + op.class + ', which this catalog does not make executable', { operation: op.__name, class: op.class }));
+  }
+  if (op.class === 'CONTROLLED' && !ids.task_id && !ids.github_task_id && !ids.othmode_task_id) {
+    return Promise.resolve(refusal('HOSTOPS_ATTRIBUTION_REQUIRED', 'CONTROLLED operation ' + op.__name + ' requires task_id, github_task_id or othmode_task_id', { operation: op.__name, class: op.class }));
+  }
+  var timeoutMs = op.class === 'READ' ? TIMEOUT_MS : Math.min(MAX_TIMEOUT_MS, (op.timeout_ms || TIMEOUT_MS) + 30000);
 
   // ---- argument validation (defense in depth; the helper re-validates) -
   var args = payload.arguments || {};
@@ -255,7 +276,8 @@ function invoke(payload, opts) {
   if (bad) return Promise.resolve(refusal('HOSTOPS_ARG_INVALID', bad, { operation: op.__name }));
 
   // ---- Resource Guard admission (before any socket connection exists) -
-  var gate = (opts.guardGate || defaultGuardGate)();
+  // READ only: CONTROLLED admission is decided root-side by the helper.
+  var gate = op.class === 'READ' ? (opts.guardGate || defaultGuardGate)() : { admit: true, level: 'DELEGATED' };
   if (!gate.admit) {
     var deferred = refusal('RESOURCE_PRESSURE', 'resource guard refuses admission (level ' + gate.level + ')', { operation: op.__name, resource_level: gate.level, deferred: true });
     deferred.task_recorded = record(ids.task_id, { at: new Date().toISOString(), operation: op.__name, outcome: 'deferred', code: 'RESOURCE_PRESSURE', resource_level: gate.level });
@@ -264,10 +286,11 @@ function invoke(payload, opts) {
 
   // ---- the boundary (HOSTOPS-2R: Unix socket to the root daemon) ------
   var callBoundary = opts.callBoundary || defaultCallBoundary;
-  return callBoundary(verb, args, ids, opts).then(function (r) {
+  var bopts = Object.assign({}, opts, { timeoutMs: timeoutMs });
+  return callBoundary(verb, args, ids, bopts).then(function (r) {
     var outcome;
     if (r.error && (r.error.code === 'ETIMEDOUT' || r.signal === 'SIGTERM')) {
-      outcome = refusal('HOSTOPS_TIMEOUT', 'the hostops boundary did not answer within ' + TIMEOUT_MS + 'ms', { operation: op.__name });
+      outcome = refusal('HOSTOPS_TIMEOUT', 'the hostops boundary did not answer within ' + timeoutMs + 'ms', { operation: op.__name });
     } else if (r.error && r.error.code === 'HOSTOPS_CALLER_REFUSED') {
       // the daemon's own SO_PEERCRED check refused this connection before
       // the helper ever ran — distinct from the helper's own exit-3 refusal
@@ -293,7 +316,7 @@ function invoke(payload, opts) {
         outcome = refusal('HOSTOPS_MALFORMED', 'the boundary reported success without an audit id; result withheld as untraceable', { operation: op.__name, hostops_exit: 0 });
       } else if (r.status === 0 && body.ok === true) {
         outcome = {
-          ok: true, version: VERSION, operation: op.__name, class: 'READ',
+          ok: true, version: VERSION, operation: op.__name, class: op.class, tier: body.tier || tier,
           audit_id: body.audit_id, dagu_run_id: null,
           result: body.result === undefined ? null : body.result,
           hostops_exit: 0, duration_ms: Date.now() - startedAt, http_status: 200,
@@ -306,7 +329,7 @@ function invoke(payload, opts) {
           : r.status === 2 ? 'HOSTOPS_REFUSED'
           : 'HOSTOPS_MALFORMED';
         outcome = refusal(code, (body.error && body.error.message) || 'hostops refused the operation', {
-          operation: op.__name, hostops_exit: r.status,
+          operation: op.__name, class: op.class, hostops_exit: r.status, result: body.result === undefined ? undefined : body.result,
           hostops_code: body.error && body.error.code ? body.error.code : null,
           audit_id: body.audit_id || null
         });
@@ -326,13 +349,19 @@ function invoke(payload, opts) {
 
 function describe() {
   var al = loadAllowlist();
-  var reads = [];
+  var reads = [], controlled = [], owner = [];
   if (al && al.operations) {
     Object.keys(al.operations).forEach(function (n) {
-      if (al.operations[n].class === 'READ') reads.push({ operation: n, helper: al.operations[n].helper, args: Object.keys(al.operations[n].args || {}) });
+      var o = al.operations[n];
+      var row = { operation: n, helper: o.helper, args: Object.keys(o.args || {}), timeout_ms: o.timeout_ms || null, idempotent: o.idempotent !== false, rollback: o.rollback || null };
+      if (o.class === 'READ') reads.push(row); else if (o.class === 'CONTROLLED') controlled.push(row); else owner.push({ operation: n, class: o.class });
     });
   }
-  return { version: VERSION, enabled: enabled(), socket: SOCKET_PATH, read_operations: reads, dagu: 'not in the READ path by design (docs/MYTHOS_HOSTOPS_INTERFACE.md; HOSTOPS-1 decision)' };
+  return { version: VERSION, enabled: enabled(), socket: SOCKET_PATH, schema_version: al ? al.schema_version || null : null,
+    read_operations: reads, controlled_operations: controlled, owner_only_operations: owner,
+    highly_sensitive_operations: al ? Object.keys(al.highly_sensitive_operations || {}) : [],
+    client: 'node ops/hostops/hostops-client.js <operation> [--arg value]... --task-id <id>',
+    dagu: 'not in the READ path by design (docs/MYTHOS_HOSTOPS_INTERFACE.md; HOSTOPS-1 decision)' };
 }
 
 module.exports = { invoke: invoke, describe: describe, HTTP_STATUS: HTTP_STATUS, VERSION: VERSION };

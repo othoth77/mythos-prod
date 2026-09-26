@@ -262,6 +262,8 @@ Never expose secrets in source files, Git history, tool output, fixtures, docume
 
 Before production work, verify authentication, authorization, input validation, upload restrictions, backup confidentiality, restore permissions, sensitive logging, environment-variable handling, dependencies, and deployment configuration.
 
+**Host operations (FABLE / executor tasks).** Anything outside your worktree on the VPS — a service's configuration, `systemctl --user`, a service start/stop/restart, a container restart, the bridge's `notify-*` commands — goes through HostOps, never around it: `node ops/hostops/hostops-client.js catalog` lists what exists; CONTROLLED operations need `--task-id <executor task id>` (and `--github-task` when there is one) and are validated, audited, verified and rolled back automatically. An operation HostOps refuses as HIGHLY_SENSITIVE or OWNER is an owner decision: report it as blocked, do not work around it. Model and tiers: `docs/MYTHOS_PERMISSION_MODEL.md`.
+
 ## 15. Production and deployment rules
 
 Intended production model:

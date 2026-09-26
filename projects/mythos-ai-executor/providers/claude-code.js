@@ -54,6 +54,28 @@ function version(bin) {
 
 function available(bin) { return version(bin) !== null; }
 
+// The environment an AI session inherits. The executor holds raw credentials
+// for ITS OWN calls — its API bearer (MYTHOS_EXECUTOR_TOKEN), the MCP gateway
+// and GitHub MCP tokens bound by its drop-ins — and `env: process.env` used to
+// hand every one of them to every `claude -p` session (and to every command
+// that session runs). Nothing a session is asked to do needs them: MCP tools
+// go through the executor, host operations through HostOps
+// (ops/hostops/hostops-client.js), delivery through the root relay. With the
+// bearer, a session could also resolve campaign approvals on the executor's
+// API — i.e. approve its own work. So they are dropped here; only the
+// Claude CLI's own login variables survive the secret filter.
+// docs/MYTHOS_PERMISSION_MODEL.md §5 ("raw secrets are never in FABLE's env").
+var SESSION_SECRET_ENV_RE = /(TOKEN|SECRET|PASSW|CREDENTIAL|PRIVATE|API_?KEY|COOKIE)/i;
+var SESSION_ENV_KEEP = { ANTHROPIC_API_KEY: true, ANTHROPIC_AUTH_TOKEN: true, CLAUDE_CODE_OAUTH_TOKEN: true };
+function sessionEnv(env) {
+  var out = {};
+  Object.keys(env || {}).forEach(function (k) {
+    if (SESSION_SECRET_ENV_RE.test(k) && !SESSION_ENV_KEEP[k]) return;
+    out[k] = env[k];
+  });
+  return out;
+}
+
 function newSessionId() { return crypto.randomUUID(); }
 
 // Builds the exact argv. Pure and exported so tests can assert the
@@ -98,7 +120,7 @@ function run(task, prompt, sessionId, mode, opts, onSpawn) {
   return new Promise(function (resolve) {
     var child = cp.spawn(bin, args, {
       cwd: task.working_directory,
-      env: process.env,
+      env: sessionEnv(process.env),
       stdio: ['pipe', 'pipe', 'pipe']
     });
 
@@ -177,5 +199,6 @@ module.exports = {
   buildArgs: buildArgs,
   run: run,
   isMissingSession: isMissingSession,
+  sessionEnv: sessionEnv,
   executionAuthority: true   // the one provider allowed to touch repositories
 };

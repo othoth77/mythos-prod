@@ -325,3 +325,58 @@ the new `ops/hostops/refresh-group-membership.sh`. The socket unit, the daemon, 
 helper, `lib/hostops.js`, the two independent identity gates (socket permissions +
 `SO_PEERCRED`), and every existing failure-code mapping are exactly as HOSTOPS-2R left
 them.
+
+---
+
+# HostOps v0.2 addendum — the CONTROLLED tier (2026-09-25, GitHub issue #477)
+
+v0.1 could only observe. v0.2 makes HostOps the controlled privileged gateway described in
+`docs/MYTHOS_PERMISSION_MODEL.md`: **NORMAL** (READ) and **CONTROLLED** operations run autonomously; **OWNER**,
+**DESTRUCTIVE** and the catalog's `highly_sensitive_operations` are refused by name. §2.4's "approval record" plan is
+superseded: autonomy for CONTROLLED comes from catalogued targets + HARD invariants + audit + verification + rollback;
+anything that would need a human approval is HIGHLY_SENSITIVE and not executable here at all.
+
+## Operations (catalog schema 0.2.0)
+
+| verb | operation | tier | notes |
+|---|---|---|---|
+| `health`, `resource-guard`, `docker-status`, `docker-logs`, `systemd-status`, `file-read` | unchanged from v0.1 | NORMAL | |
+| `catalog` | `host.catalog.describe` | NORMAL | the whole catalog + `controlled_enabled` |
+| `user-unit-status --unit` | `host.userunit.status` | NORMAL | deploy's user manager, through the worker |
+| `config-get --key` | `host.config.get` | NORMAL | file value, effective (systemd) value, `in_sync`; masked keys masked |
+| `change-list [--limit]` | `host.change.list` | NORMAL | recorded changes, masked |
+| `config-set --key --value` | `host.config.set` | CONTROLLED | catalogued key only; per-key pattern/normalisation; backup → CAS write → `daemon-reload` → effective-env check → key's `verify_tool` → automatic rollback on any failure |
+| `user-daemon-reload` | `host.systemd.user_daemon_reload` | CONTROLLED | |
+| `service-control --unit --action start\|stop\|restart` | `host.service.control` | CONTROLLED | scope (user/system) and allowed actions from `services`; state verified after |
+| `docker-restart --container` | `host.docker.restart` | CONTROLLED | `containers` only; running state verified |
+| `tool-run --tool [--confirm yes]` | `host.tool.run` | tool's tier | fixed argv; env taken from the tool's unit (prefix-filtered, raw secrets dropped); recipients masked in output; rate limits |
+| `change-rollback --change` | `host.change.rollback` | CONTROLLED | refuses if a later change exists (`CHANGE_CONFLICT`) |
+| `file-write`, `compose-up`, `compose-rollback` | OWNER | HIGHLY_SENSITIVE | refused `OWNER_APPROVAL_REQUIRED` |
+| `host.ssh.change`, `host.secret.read`, … (15 names) | — | HIGHLY_SENSITIVE | refused `HIGHLY_SENSITIVE` |
+
+CONTROLLED calls from `deploy`/`dagu` must carry `--task-id`, `--github-task` or `--othmode-task`
+(`ATTRIBUTION_REQUIRED`); the helper records `task_verified` (the task id is a RUNNING executor task).
+
+## New error codes
+
+`ALLOWLIST_SCHEMA`, `HIGHLY_SENSITIVE`, `OWNER_APPROVAL_REQUIRED`, `DESTRUCTIVE_NEVER`, `CONTROLLED_DISABLED`
+(owner kill switch), `ATTRIBUTION_REQUIRED`, `RESOURCE_PRESSURE`, `LOCKED`, `RATE_LIMITED`, `CONFIRM_REQUIRED`,
+`CONFIG_KEY_UNKNOWN`, `CONFIG_VALUE_INVALID`, `CONFIG_AMBIGUOUS`, `DROPIN_MISSING`, `DROPIN_OWNER`,
+`SERVICE_NOT_CATALOGUED`, `ACTION_NOT_ALLOWED`, `PROTECTED_UNIT`, `CONTAINER_NOT_CATALOGUED`, `PROTECTED_CONTAINER`,
+`TOOL_UNKNOWN`, `HARD_*`, `CHANGE_UNKNOWN`, `CHANGE_CONFLICT`, `VERIFY_FAILED`, `VERIFY_FAILED_ROLLED_BACK`,
+`VERIFY_FAILED_ROLLBACK_FAILED`, `WORKER_*`. Exit codes unchanged: 0 ok (incl. `unchanged`) · 2 policy · 3 caller ·
+4 execution/verification (rolled back when possible) · 5 audit.
+
+## Audit
+
+Every CONTROLLED call writes `{phase:"intent", outcome:"pending"}` **before** anything executes (unwritable → exit 5,
+nothing done) and `{phase:"result", outcome: changed|unchanged|executed|rolled_back|failed|refused}` after, with
+`tier`, `task`, `task_verified`, masked values and `change_id`. Backups (`changes/<audit_id>.json`, 0600 root) hold the
+exact before/after bytes for rollback.
+
+## Executor adapter (`lib/hostops.js` 1.2.0) and client
+
+The adapter mirrors the tier gate (refuses OWNER/DESTRUCTIVE/highly-sensitive before connecting, requires attribution
+for CONTROLLED), sizes the socket timeout from the catalog (`timeout_ms + 30 s`, max 100 s) and delegates CONTROLLED
+admission under memory pressure to the helper (recovery actions are pressure-exempt there). `ops/hostops/hostops-client.js`
+is the supported entry point for sessions: same adapter path as `POST /hostops/run`, no bearer token needed.

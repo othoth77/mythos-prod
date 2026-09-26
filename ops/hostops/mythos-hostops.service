@@ -12,7 +12,13 @@
 #     verbs read under /home/deploy/{deployments,projects} and the guard
 #     state file; only writes there are (rightly) blocked.
 #   - ReadWritePaths grants exactly the helper's one write target, the
-#     audit ledger directory.
+#     audit ledger directory (audit.jsonl, changes/ backups, rate.json, lock).
+#   - HostOps v0.2: deploy-owned state (user unit drop-ins, `systemctl
+#     --user`, the bridge's notify commands) is NOT written from inside this
+#     sandbox. The helper hands it to the user worker through deploy's own
+#     user manager (`systemd-run --user`, uid deploy), so /home stays
+#     read-only to root here — root never writes into a directory deploy
+#     controls.
 #   - No MemoryDenyWriteExecute: the helper is a Node process (V8 needs
 #     W^X-toggling JIT pages); that seccomp filter is inherited by children
 #     across exec() and would break it.
@@ -20,7 +26,7 @@
 # Install (owner): see ops/hostops/install-hostops.sh.
 
 [Unit]
-Description=MYTHOS hostops boundary daemon (root, socket-activated; HOSTOPS-2R)
+Description=MYTHOS hostops boundary daemon (root, socket-activated; HOSTOPS-2R, v0.2 controlled gateway)
 Requires=mythos-hostops.socket
 After=mythos-hostops.socket
 

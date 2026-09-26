@@ -24,6 +24,14 @@ id dagu >/dev/null 2>&1 || useradd --system --shell /usr/sbin/nologin --home-dir
 #    manual/owner use) or the root socket daemon (deploy, the Executor))
 install -o root -g root -m 0700 "$REPO_DIR/ops/hostops/mythos-hostops.js" /usr/local/sbin/mythos-hostops
 
+# 2b. HostOps v0.2: the user worker (0755 root:root). It performs the
+#     deploy-scoped half of CONTROLLED operations and is launched by the
+#     helper through deploy's own user manager (systemd-run --user), so it
+#     only ever holds deploy's privileges; world-readable is intended —
+#     running it directly grants nothing its caller does not already have.
+install -d -o root -g root -m 0755 /usr/local/lib/mythos-hostops
+install -o root -g root -m 0755 "$REPO_DIR/ops/hostops/mythos-hostops-user-worker.js" /usr/local/lib/mythos-hostops/user-worker.js
+
 # 3. root-owned allowlist copy (0644 root:root; the helper refuses it if not root-owned)
 install -d -o root -g root -m 0755 /etc/mythos
 install -o root -g root -m 0644 "$REPO_DIR/ops/dagu-poc/hostops-allowlist.json" /etc/mythos/hostops-allowlist.json
@@ -52,7 +60,19 @@ usermod -aG mythos-hostops dagu
 #     `deploy` already has an active session would leave the Executor
 #     seeing EACCES on the socket until an unrelated reboot or logout.
 #     Idempotent: a no-op for a user with no active manager yet.
-bash "$REPO_DIR/ops/hostops/refresh-group-membership.sh" deploy dagu
+#     HostOps v0.2: refresh ONLY a manager that does not already carry the
+#     group. Restarting user@<uid>.service restarts every deploy production
+#     service and kills running executor tasks — never do it for nothing.
+HOSTOPS_GID="$(getent group mythos-hostops | cut -d: -f3)"
+for u in deploy dagu; do
+  uid="$(id -u "$u" 2>/dev/null)" || continue
+  mpid="$(systemctl show -p MainPID --value "user@${uid}.service" 2>/dev/null || echo 0)"
+  if [ -n "$mpid" ] && [ "$mpid" != 0 ] && grep -qE "^Groups:.*(^|[[:space:]])${HOSTOPS_GID}([[:space:]]|$)" "/proc/$mpid/status"; then
+    echo "mythos-hostops: user@${uid}.service already carries mythos-hostops (gid ${HOSTOPS_GID}); no restart"
+  else
+    bash "$REPO_DIR/ops/hostops/refresh-group-membership.sh" "$u"
+  fi
+done
 
 # 7. HOSTOPS-2R: the root socket daemon (0700 root:root — invoked only by
 #    systemd; never reachable via sudo, never a child of the Executor).
@@ -66,9 +86,13 @@ install -o root -g root -m 0644 "$REPO_DIR/ops/hostops/mythos-hostops.socket" /e
 install -o root -g root -m 0644 "$REPO_DIR/ops/hostops/mythos-hostops.service" /etc/systemd/system/mythos-hostops.service
 systemctl daemon-reload
 systemctl enable --now mythos-hostops.socket
+# v0.2: a running daemon keeps its old EXEC_TIMEOUT until restarted; the
+# socket stays up, so a caller at most sees one refused connection.
+systemctl try-restart mythos-hostops.service
 
 echo "installed: /usr/local/sbin/mythos-hostops (0700 root:root)"
 echo "installed: /usr/local/sbin/mythos-hostops-daemon (0700 root:root)"
+echo "installed: /usr/local/lib/mythos-hostops/user-worker.js (0755 root:root, runs as deploy via systemd-run --user)"
 echo "installed: /etc/mythos/hostops-allowlist.json (0644 root:root)"
 echo "installed: /etc/sudoers.d/60-dagu-hostops (0440, dagu manual/owner path only)"
 echo "installed: mythos-hostops.socket + mythos-hostops.service (HOSTOPS-2R boundary)"
@@ -77,4 +101,5 @@ echo "user:      dagu ($(id dagu))"
 echo "refreshed: deploy/dagu systemd --user manager (if already running) — HOSTOPS-2R-FIX, GitHub issue #132"
 echo "verify:    sudo -u dagu sudo /usr/local/sbin/mythos-hostops health   # dagu, manual sudo path"
 echo "verify:    curl -s -H \"Authorization: Bearer \$TOKEN\" -X POST http://127.0.0.1:8130/hostops/run -d '{\"operation\":\"health\"}'   # deploy, via the Executor's socket path"
+echo "kill:      touch /etc/mythos/hostops-controlled.disabled   # owner kill switch: disables every CONTROLLED operation, READ keeps working"
 echo "verify:    journalctl -u mythos-hostops -n 50   # daemon startup + SO_PEERCRED-verified connections"
