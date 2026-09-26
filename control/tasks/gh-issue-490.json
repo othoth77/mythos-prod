@@ -139,6 +139,16 @@
         "at": "2026-09-26T17:30:27.339Z",
         "existed": false,
         "executor_task_id": "t-20260926173023-fuy4n6"
+      },
+      "report": {
+        "comment_id": 5848342488,
+        "url": "https://github.com/othoth77/mythos-prod/issues/490#issuecomment-5848342488",
+        "at": "2026-09-26T17:31:42.982Z",
+        "existed": false,
+        "status": "FAILED",
+        "control_status": "FAILED",
+        "report_file": "control/reports/gh-issue-490.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -148,7 +158,8 @@
       "removed": [
         "mythos:supervised"
       ]
-    }
+    },
+    "issue_state": "FAILED"
   },
   "execution": {
     "executor_task_id": "t-20260926173023-fuy4n6",
