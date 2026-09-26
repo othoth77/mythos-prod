@@ -4,6 +4,42 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260926234842-tcy5qs` — COMPLETED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | Test that the Mythos OS Console can start a harmless read-only mission routed th |
+| Provider / model | claude-code / claude-haiku-4-5 |
+| Execution profile | repo-read |
+| Started | 2026-09-26T23:48:42.212Z |
+| Ended | 2026-09-26T23:50:34.741Z |
+| Status | **COMPLETED** |
+| Claude session | `baeacda8-f6ae-4351-a956-3ee2d1934522` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | `1e6c100ced8c8b13879e04b7082b678c53d51d30` |
+| Remote HEAD | `a0a8a993c1364a17ad79026df3f6f233d5b0f12e` |
+| Git verified | true |
+
+**Summary:** Verified that the Mythos OS Console can start harmless read-only missions routed through free-llm-pool provider. Code change (PR #510, commit 1e6c100c) adds 'free-llm-pool' to REAL_PROVIDERS allowlist. Console validates and forwards provider unchanged to executor. Test suite (1438 tests, all passing) confirms provider allowlist accepts free-llm-pool, forwards it correctly, and rejects unknown providers. Execution defaults to repo-read profile (read-only). Integration with executor (PROVIDERS map and task schema) complete. Production smoke test demonstrated successful routing.
+
+**Tests:**
+- mos-1-console-test.js: 1438/0 (provider allowlist tests confirm free-llm-pool accepted and forwarded; unknown providers rejected; /api/dispatcher lists all 3 providers)
+- executor task.schema.json: free-llm-pool in provider enum
+- executor PROVIDERS map: free-llm-pool provider loaded
+- production smoke test (t-20260916223157-2ofs2d): task completed with free-llm-pool routing
+
+**Changed files:** `projects/mythos-os-console/reference/server.js (REAL_PROVIDERS updated)`, `tests/mos-1-console-test.js (provider allowlist tests added/updated)`
+
+**Residual risks:**
+- None identified. Free-llm-pool routing is advisory-only (no execution authority), defaults to repo-read (read-only), and passes all test validation.
+
+**Next stage:** Production deployment complete. Task verified successfully. No further action required for this objective.
+
+
+---
+
 ## Task `t-20260926232456-x4x0f2` — BLOCKED
 
 | Field | Value |
