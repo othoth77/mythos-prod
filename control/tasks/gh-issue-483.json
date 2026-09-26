@@ -139,6 +139,16 @@
         "at": "2026-09-26T15:46:06.195Z",
         "existed": false,
         "executor_task_id": "t-20260926154601-etctww"
+      },
+      "report": {
+        "comment_id": 5847603496,
+        "url": "https://github.com/othoth77/mythos-prod/issues/483#issuecomment-5847603496",
+        "at": "2026-09-26T15:47:19.567Z",
+        "existed": false,
+        "status": "COMPLETED",
+        "control_status": "COMPLETED",
+        "report_file": "control/reports/gh-issue-483.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -148,7 +158,8 @@
       "removed": [
         "mythos:supervised"
       ]
-    }
+    },
+    "issue_state": "COMPLETED"
   },
   "execution": {
     "executor_task_id": "t-20260926154601-etctww",
