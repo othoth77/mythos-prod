@@ -1,0 +1,151 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-489",
+  "project": "mythos-prod",
+  "objective": "Run the self-check from the repository root using the supported --mode=strict argument and report the single output line verbatim in the tests list.",
+  "scope": [
+    "Repository root only.",
+    "Run only the corrected self-check command; do not inspect or modify unrelated files."
+  ],
+  "constraints": [
+    "Read-only: do not create, modify, delete, stage, commit, or push anything.",
+    "Do not print secrets or credentials.",
+    "Do not repeat the failed --mode=loose invocation.",
+    "Supervised task: the MYTHOS supervisor verifies this report against the acceptance criteria below. Report exactly what you ran and observed; never claim a check you did not run."
+  ],
+  "priority": "normal",
+  "requested_action": "test",
+  "action_raw": "test",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "Run: node -e \"var m=process.argv[1]; if(m==='--mode=strict'){console.log('selfcheck: 1 passed, 0 failed')}else{console.log('selfcheck: 0 passed, 1 failed (unknown mode '+m+'; supported mode: --mode=strict)');process.exit(1)}\" -- --mode=strict",
+    "Also show evidence that: The command exits with code 0.",
+    "Also show evidence that: The tests list contains exactly: selfcheck: 1 passed, 0 failed",
+    "Also show evidence that: The report shows no files changed, no commits, and no staged changes.",
+    "check:status_completed",
+    "check:tests_pass"
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-26T16:38:27.442Z",
+  "created_by": "github-issue:othoth77",
+  "timeout_seconds": 300,
+  "model": "fable-5.1",
+  "model_raw": "Fable 5.1",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #489 https://github.com/othoth77/mythos-prod/issues/489 — \"[supervised] E2E-4 Qwen recovery: run supported strict self-check mode\"\n\nrequested_action: test — source explicit_current_issue (written as \"test\") → execution profile repo-test\n\nmodel: fable-5.1 — source explicit_current_issue (written as \"Fable 5.1\")",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 489,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/489",
+    "issue_id": 5595568790,
+    "issue_node_id": "I_kwDOTnlaF88AAAABTYWalg",
+    "issue_title": "TASK: [supervised] E2E-4 Qwen recovery: run supported strict self-check mode",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-26T16:37:35Z",
+    "issue_updated_at": "2026-09-26T16:37:35Z",
+    "issue_labels": [
+      "task",
+      "mythos:supervised"
+    ],
+    "content_sha256": "248e5ddb5a0a72cd149c0493b9cd360c5ac603176fe9e2dfb5e87054a15441f8",
+    "attempt": 1,
+    "attempt_id": "gh-issue-489#1",
+    "idempotency_key": "ac6131e080c43484d4704d077705fc82912563076b8f37ce234a1b392983fea5",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "test",
+      "action_raw": "test",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "test",
+          "action": "test",
+          "form": "inline",
+          "line": 27
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-test",
+      "expected_delivery": "report",
+      "model_key": "fable-5.1",
+      "model_id": "claude-fable-5-1",
+      "model_raw": "Fable 5.1",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:fable-5.1 (requested \"Fable 5.1\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-26T16:38:27.443Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-26T16:38:27.443Z",
+        "event": "issue_received",
+        "reason": "open Issue #489 with label task",
+        "content_sha256": "248e5ddb5a0a72cd149c0493b9cd360c5ac603176fe9e2dfb5e87054a15441f8"
+      },
+      {
+        "at": "2026-09-26T16:38:27.443Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → test (raw \"test\")"
+      },
+      {
+        "at": "2026-09-26T16:38:27.443Z",
+        "event": "profile_resolved",
+        "reason": "test → repo-test (server-side map)"
+      },
+      {
+        "at": "2026-09-26T16:38:27.443Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → fable-5.1 (available)"
+      },
+      {
+        "at": "2026-09-26T16:38:29.723Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-489.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-26T16:38:27.443Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5847969281,
+        "url": "https://github.com/othoth77/mythos-prod/issues/489#issuecomment-5847969281",
+        "at": "2026-09-26T16:38:28.293Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:supervised"
+      ]
+    }
+  }
+}
