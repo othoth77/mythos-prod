@@ -1,14 +1,14 @@
 # MYTHOS control — current state
 
-Generated 2026-09-26T11:04:31.627Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
+Generated 2026-09-26T11:05:49.297Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
 
 | Status | Count |
 |---|---|
 | PENDING | 10 |
 | CLAIMED | 0 |
-| IN_PROGRESS | 1 |
+| IN_PROGRESS | 0 |
 | VALIDATING | 0 |
-| COMPLETED | 59 |
+| COMPLETED | 60 |
 | BLOCKED | 33 |
 | FAILED | 2 |
 | CANCELLED | 2 |
@@ -20,7 +20,7 @@ Generated 2026-09-26T11:04:31.627Z by the bridge on branch `mythos/control` (pro
 | `gh-issue-99` | **COMPLETED** | investigate | normal | 2026-09-02T22:42:59.761Z | 2026-09-02T22:49:32.431Z | `t-20260902224306-vaqeia` | `control/reports/gh-issue-99.json` |
 | `gh-issue-97` | **BLOCKED** | investigate | normal | 2026-09-02T22:34:21.352Z | 2026-09-02T22:43:04.917Z | `t-20260902223428-31m0o4` | `control/reports/gh-issue-97.json` |
 | `gh-issue-95` | **COMPLETED** | investigate | normal | 2026-09-02T22:34:19.628Z | 2026-09-02T22:40:52.170Z | `t-20260902223426-ipld9w` | `control/reports/gh-issue-95.json` |
-| `gh-issue-481` | **IN_PROGRESS** | investigate | normal | 2026-09-26T11:03:17.588Z | 2026-09-26T11:04:31.622Z | `t-20260926110321-kvsw7t` | — |
+| `gh-issue-481` | **COMPLETED** | investigate | normal | 2026-09-26T11:03:17.588Z | 2026-09-26T11:05:49.282Z | `t-20260926110321-kvsw7t` | `control/reports/gh-issue-481.json` |
 | `gh-issue-479` | **BLOCKED** | investigate | normal | 2026-09-26T07:02:27.442Z | 2026-09-26T07:10:05.340Z | `t-20260926070231-xpoxzx` | `control/reports/gh-issue-479.json` |
 | `gh-issue-477` | **BLOCKED** | implement | high | 2026-09-25T21:13:27.683Z | 2026-09-25T21:17:18.747Z | `t-20260925211332-0r8vau` | `control/reports/gh-issue-477.json` |
 | `gh-issue-476-r2` | **BLOCKED** | investigate | normal | 2026-09-25T21:01:57.602Z | 2026-09-25T21:04:28.756Z | `t-20260925210203-2bxtat` | `control/reports/gh-issue-476-r2.json` |

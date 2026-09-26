@@ -1,0 +1,137 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-481",
+  "attempt_id": "gh-issue-481#1",
+  "status": "COMPLETED",
+  "summary": "Read-only investigation of the worktree at fe315aeb395e on branch mythos/gh/gh-issue-481. The top-level tests/ directory exists and was inspected read-only. Regular files directly under tests/ whose names start with mythos-orchestrator, sorted: mythos-orchestrator-0-test.js, mythos-orchestrator-openai-test.js. COUNT 2. Method: find tests -maxdepth 1 -type f -name 'mythos-orchestrator*' (the suggested Python heredoc was denied by the command permission layer, so an equivalent find was used), cross-checked with a Glob on tests/mythos-orchestrator* and ls -la confirming both are regular files. git status --porcelain was empty before and after; no files were created, modified, staged or committed. The othmode-cli task update for OTH-2026-01917 required approval and was not run; the record remains open for the bridge to close.",
+  "resolution": {
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "model_requested": "Fable 5.1",
+    "model_key": "fable-5.1",
+    "model": "claude-fable-5-1",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "base_sha": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "branch": "mythos/gh/gh-issue-481",
+    "commit_sha": null
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "b2487ee1a5ba6b22c834f3ba2f0ce49fed2732de",
+    "branch": "main",
+    "dirty_files": 1,
+    "base_ref": "origin/main",
+    "base_ref_head": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": true,
+    "code": "RUNTIME_STALE_CHECKOUT",
+    "reason": "checkout HEAD b2487ee1a5ba is behind origin/main fe315aeb395e — the running bridge is older than what is delivered",
+    "measured_at": "2026-09-26T11:03:20.294Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Read-only investigation of the worktree at fe315aeb395e on branch mythos/gh/gh-issue-481. The top-level tests/ directory exists and was inspected read-only. Regular files directly under tests/ whose names start with mythos-orchestrator, sorted: mythos-orchestrator-0-test.js, mythos-orchestrator-openai-test.js. COUNT 2. Method: find tests -maxdepth 1 -type f -name 'mythos-orchestrator*' (the suggested Python heredoc was denied by the command permission layer, so an equivalent find was used), cross-checked with a Glob on tests/mythos-orchestrator* and ls -la confirming both are regular files. git status --porcelain was empty before and after; no files were created, modified, staged or committed. The othmode-cli task update for OTH-2026-01917 required approval and was not run; the record remains open for the bridge to close.",
+    "tests": [
+      "tests/ directory exists check (test -d tests): passed, exists",
+      "find tests -maxdepth 1 -type f -name 'mythos-orchestrator*': mythos-orchestrator-0-test.js, mythos-orchestrator-openai-test.js, COUNT 2",
+      "Glob tests/mythos-orchestrator*: same 2 files, matches find output",
+      "ls -la on both files: regular files (-rw-rw-r--)",
+      "git status --porcelain before and after: clean, no files modified",
+      "othmode-cli task update OTH-2026-01917: not run (required approval)"
+    ],
+    "commit": null,
+    "remote_head": null,
+    "files_changed": [],
+    "residual_risks": [
+      "Suggested Python heredoc could not be executed under the command permission layer; an equivalent find/glob listing was used and cross-checked instead.",
+      "OTHMODE task record OTH-2026-01917 was not updated with phase/evidence from this run; the bridge must close it from this report."
+    ],
+    "next_stage": "Bridge verifies this report against Git and closes OTH-2026-01917; no further repository action required."
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "tests/ directory exists check (test -d tests): passed, exists",
+    "find tests -maxdepth 1 -type f -name 'mythos-orchestrator*': mythos-orchestrator-0-test.js, mythos-orchestrator-openai-test.js, COUNT 2",
+    "Glob tests/mythos-orchestrator*: same 2 files, matches find output",
+    "ls -la on both files: regular files (-rw-rw-r--)",
+    "git status --porcelain before and after: clean, no files modified",
+    "othmode-cli task update OTH-2026-01917: not run (required approval)"
+  ],
+  "validation": {
+    "git_verified": null,
+    "remote_head": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "report_problems": [],
+    "required_checks": [
+      "Run a read-only command such as: python - <<'PY' from pathlib import Path p=Path('tests') files=sorted(x.name for x in p.iterdir() if x.is_file() and x.name.startswith('mythos-orchestrator')) if p.is_dir() else [] print('\\n'.join(files)) print('COUNT', len(files)) PY",
+      "Confirm the report's listed file names exactly match the command output before the COUNT line.",
+      "Confirm the report's total count exactly matches the COUNT value.",
+      "The report states whether the top-level tests/ directory exists and was inspected read-only.",
+      "The report lists every matching file name directly under tests/ whose name starts with mythos-orchestrator, sorted or otherwise clearly enumerated.",
+      "The report states the total count of matching files.",
+      "The report includes the read-only command or method used to determine the list and count.",
+      "The report confirms no files were modified."
+    ]
+  },
+  "problems": [],
+  "risks": [
+    "Suggested Python heredoc could not be executed under the command permission layer; an equivalent find/glob listing was used and cross-checked instead.",
+    "OTHMODE task record OTH-2026-01917 was not updated with phase/evidence from this run; the bridge must close it from this report."
+  ],
+  "next_recommended_action": "Bridge verifies this report against Git and closes OTH-2026-01917; no further repository action required.",
+  "completed_at": "2026-09-26T11:05:49.152Z",
+  "execution": {
+    "executor_task_id": "t-20260926110321-kvsw7t",
+    "othmode_task_id": "OTH-2026-01917",
+    "execution_profile": "repo-read",
+    "provider": "claude-code",
+    "model": "claude-fable-5-1",
+    "model_requested": "Fable 5.1",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "investigate",
+    "attempt_id": "gh-issue-481#1",
+    "fence": 76400,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:1328581",
+      "fence": 76400,
+      "acquired_at": "2026-09-26T11:03:21.508Z",
+      "expires_at": "2026-09-26T11:35:21.508Z"
+    },
+    "snapshot_sha256": "73ffb175effccb6c7f858b64c35800e7b0a4ccbe5123f62384dc0a24061978be",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "claude_session_id": "07a3ce77-f6e0-43f6-9a2e-47791f3ac67a",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-26T11:03:22.267Z",
+    "ended_at": "2026-09-26T11:04:55.632Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 0.7972649999999999,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-481",
+    "branch": "mythos/gh/gh-issue-481",
+    "base_commit": "fe315aeb395e58b3cb8bfbaeb759e81ff833af38",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-481",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}

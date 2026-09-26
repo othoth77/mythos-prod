@@ -30,7 +30,7 @@
     "The report includes the read-only command or method used to determine the list and count.",
     "The report confirms no files were modified."
   ],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-26T11:03:17.588Z",
   "created_by": "github-issue:othoth77",
   "timeout_seconds": 120,
@@ -184,8 +184,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "18e679aa0935bbae18dbdd3ebd4544986ec2df5fd8059c6ecb8a287b62d159d8",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-26T11:04:31.622Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-26T11:05:49.282Z",
     "snapshot_sha256": "73ffb175effccb6c7f858b64c35800e7b0a4ccbe5123f62384dc0a24061978be",
     "fence": 76400,
     "lease": {
@@ -214,7 +214,8 @@
     },
     "model": "claude-fable-5-1",
     "model_selection_mode": "explicit",
-    "claude_session_id": "07a3ce77-f6e0-43f6-9a2e-47791f3ac67a"
+    "claude_session_id": "07a3ce77-f6e0-43f6-9a2e-47791f3ac67a",
+    "report_file": "control/reports/gh-issue-481.json"
   },
   "history": [
     {
@@ -230,6 +231,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-26T11:05:48.667Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-26T11:05:49.282Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 6 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
