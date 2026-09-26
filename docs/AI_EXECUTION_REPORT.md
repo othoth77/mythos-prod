@@ -4,6 +4,34 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260926231645-aq8yw4` — COMPLETED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | Diagnose the Mythos OS router error: |
+| Provider / model | claude-code / claude-sonnet-5 |
+| Execution profile | repo-read |
+| Started | 2026-09-26T23:16:45.494Z |
+| Ended | 2026-09-26T23:20:09.808Z |
+| Status | **COMPLETED** |
+| Claude session | `768bbe35-2dab-47c3-9cf7-529a26bd20e8` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `48dabe2ee2f9a9830e42ebd0020ba654fd390bce` |
+| Git verified | null |
+
+**Summary:** Diagnosed the mission-start failure read-only: the executor's provider-router legitimately resolves advisory missions to the 'free-llm-pool' agent (config/agents.json, live in production per docs/AI_HANDOVER.md), but the console's mission-start relay (projects/mythos-os-console/reference/server.js:577, REAL_PROVIDERS = ['claude-code','openai-compat']) never had that provider added, so its own guard at server.js:1007-1010 rejects it and app.js:632 surfaces 'Could not start mission' with the exact message quoted by the operator. This is a stale allowlist, not a routing bug; no files were modified.
+
+**Residual risks:**
+- REAL_PROVIDERS is unpinned by any test, so other providers wired into executor.js's PROVIDERS map (delegate, haddad-agent) could hit the same failure the next time the router's ranking selects them for an advisory mission.
+
+**Next stage:** Await explicit authorization to implement the fix: add 'free-llm-pool' to REAL_PROVIDERS in projects/mythos-os-console/reference/server.js and add a pinning test in tests/mos-1-console-test.js.
+
+
+---
+
 ## Task `t-20260926231033-nnngg4` — BLOCKED
 
 | Field | Value |
