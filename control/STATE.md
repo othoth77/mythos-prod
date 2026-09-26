@@ -1,15 +1,15 @@
 # MYTHOS control — current state
 
-Generated 2026-09-26T17:49:28.346Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
+Generated 2026-09-26T17:51:58.760Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
 
 | Status | Count |
 |---|---|
 | PENDING | 10 |
 | CLAIMED | 0 |
-| IN_PROGRESS | 1 |
+| IN_PROGRESS | 0 |
 | VALIDATING | 0 |
 | COMPLETED | 64 |
-| BLOCKED | 33 |
+| BLOCKED | 34 |
 | FAILED | 5 |
 | CANCELLED | 2 |
 
@@ -20,7 +20,7 @@ Generated 2026-09-26T17:49:28.346Z by the bridge on branch `mythos/control` (pro
 | `gh-issue-99` | **COMPLETED** | investigate | normal | 2026-09-02T22:42:59.761Z | 2026-09-02T22:49:32.431Z | `t-20260902224306-vaqeia` | `control/reports/gh-issue-99.json` |
 | `gh-issue-97` | **BLOCKED** | investigate | normal | 2026-09-02T22:34:21.352Z | 2026-09-02T22:43:04.917Z | `t-20260902223428-31m0o4` | `control/reports/gh-issue-97.json` |
 | `gh-issue-95` | **COMPLETED** | investigate | normal | 2026-09-02T22:34:19.628Z | 2026-09-02T22:40:52.170Z | `t-20260902223426-ipld9w` | `control/reports/gh-issue-95.json` |
-| `gh-issue-492` | **IN_PROGRESS** | test | normal | 2026-09-26T17:48:01.834Z | 2026-09-26T17:49:28.340Z | `t-20260926174805-4xnkdr` | — |
+| `gh-issue-492` | **BLOCKED** | test | normal | 2026-09-26T17:48:01.834Z | 2026-09-26T17:51:58.749Z | `t-20260926174805-4xnkdr` | `control/reports/gh-issue-492.json` |
 | `gh-issue-490` | **FAILED** | test | normal | 2026-09-26T17:30:18.872Z | 2026-09-26T17:31:39.086Z | `t-20260926173023-fuy4n6` | `control/reports/gh-issue-490.json` |
 | `gh-issue-489` | **COMPLETED** | test | normal | 2026-09-26T16:38:27.442Z | 2026-09-26T16:40:59.455Z | `t-20260926163831-umiqwx` | `control/reports/gh-issue-489.json` |
 | `gh-issue-487` | **FAILED** | test | normal | 2026-09-26T16:28:17.513Z | 2026-09-26T16:29:33.572Z | `t-20260926162821-pxyz5l` | `control/reports/gh-issue-487.json` |
