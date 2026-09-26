@@ -237,31 +237,6 @@ function prepareIssue(task, exec, cfg, hooks, opts) {
 // Kept for callers/tests that only need the text.
 function renderIssue(task, exec, cfg, opts) { return renderFromParts(issueParts(task, cfg), task, exec, cfg, opts); }
 
-// The first ```json fenced block, else the first balanced {...} object.
-function extractJson(text) {
-  var t = String(text || '');
-  var fence = /```(?:json)?\s*\n([\s\S]*?)\n```/i.exec(t);
-  var candidates = [];
-  if (fence) candidates.push(fence[1]);
-  var start = t.indexOf('{');
-  while (start !== -1 && candidates.length < 4) {
-    var depth = 0, inStr = false, esc = false;
-    for (var i = start; i < t.length; i++) {
-      var ch = t[i];
-      if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
-      if (ch === '"') inStr = true;
-      else if (ch === '{') depth++;
-      else if (ch === '}') { depth--; if (depth === 0) { candidates.push(t.slice(start, i + 1)); break; } }
-    }
-    start = t.indexOf('{', start + 1);
-    if (candidates.length && !fence) break;
-  }
-  for (var k = 0; k < candidates.length; k++) {
-    try { var o = JSON.parse(candidates[k]); if (o && typeof o === 'object' && !Array.isArray(o)) return o; } catch (e) { /* next */ }
-  }
-  return null;
-}
-
 function create(gh, cfg) {
   var repo = cfg.repository;
 
@@ -405,9 +380,10 @@ function create(gh, cfg) {
 
   function label(n, labels) { return gh.addLabels(repo, n, labels); }
 
-  // A consult (Qwen on Haddad) answers in its report comment: the structured
-  // answer is the JSON object in that comment. Returns
-  // { ok, phase: PENDING|ANSWERED|FAILED|LOST, status, answer }.
+  // A consult (Qwen on Haddad) answers in its report comment (bridge identity
+  // only — see comments()). The raw comment is returned; qwen.normalizeAnswer
+  // extracts and validates the answer. Returns
+  // { ok, phase: PENDING|ANSWERED|FAILED|LOST, status, body }.
   function readConsult(exec) {
     return gh.getIssue(repo, exec.issue_number).then(function (iss) {
       if (!iss.ok) return iss.error.code === 'GH_NOT_FOUND' ? { ok: true, phase: 'LOST' } : iss;
@@ -419,7 +395,7 @@ function create(gh, cfg) {
         if (!rep) return { ok: true, phase: rejected ? 'FAILED' : 'PENDING', status: rejected ? 'REJECTED' : null };
         var status = bridgeMarker(rep.body).status || null;
         if (status !== 'COMPLETED') return { ok: true, phase: 'FAILED', status: status };
-        return { ok: true, phase: 'ANSWERED', status: status, answer: extractJson(rep.body) };
+        return { ok: true, phase: 'ANSWERED', status: status, body: String(rep.body || '') };
       });
     });
   }
@@ -487,7 +463,6 @@ function create(gh, cfg) {
 module.exports = {
   create: create,
   renderIssue: renderIssue,
-  extractJson: extractJson,
   prepareIssue: prepareIssue,
   checkIntegrity: checkIntegrity,
   issueParts: issueParts,

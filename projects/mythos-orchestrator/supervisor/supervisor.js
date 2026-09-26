@@ -76,6 +76,8 @@ function create(deps) {
   var monitor = deps.monitor;
   var brain = deps.brain;
   var now = deps.now || function () { return Date.now(); };
+  var cfgProblems = qwen.configProblems(cfg);
+  if (cfgProblems.length) { var ce = new Error('CONFIG_INVALID: ' + cfgProblems.join('; ')); ce.code = 'CONFIG_INVALID'; throw ce; }
 
   // Core trace fields are applied LAST so no detail object can overwrite
   // them (a detail key named `event` once hid a refused-comment record).
@@ -704,6 +706,11 @@ function create(deps) {
   // ---- QWEN tier: a read-only consult through Haddad's own bridge (async).
   function requestConsult(task, rt, c, key, reason) {
     if (!task.consult || task.consult.key !== key) {
+      if (task.consult && task.consult.issue_number && !task.consult.closed) {
+        // Keep the previous consult on record so the sweep still closes it.
+        if (!task.consult.done) { task.consult.done = true; task.consult.outcome = 'superseded by a new failure'; task.consult.settled_at = nowIso(); }
+        task.consults_prior = (task.consults_prior || []).concat([task.consult]);
+      }
       task.consult = { key: key, execution_id: store.newId('EXEC-', 10), requested_at: nowIso(), issue_number: null, done: false, failures: 0, reason: reason };
       store.saveTask(task); // intent before the side effect
     }
@@ -732,15 +739,20 @@ function create(deps) {
   }
 
   function pollConsult(task, rt, c, key) {
+    // HARD deadline, checked before anything is read: past it the consult is
+    // settled and escalated whatever GitHub or Haddad would say — an answer
+    // that is late, or unreadable because of a GitHub outage, never counts.
+    if (secondsSince(task.consult.requested_at, now()) > cfg.qwen_deadline_seconds) {
+      return escalateFromQwen(task, rt, c, key, 'QWEN_TIMEOUT: no usable answer within ' + cfg.qwen_deadline_seconds + ' s');
+    }
     if (!task.consult.issue_number) return requestConsult(task, rt, c, key, task.consult.reason);
     return bridge.readConsult({ issue_number: task.consult.issue_number }).then(function (st) {
-      if (!st.ok) return task; // GitHub blip: try again next tick
-      if (st.phase === 'PENDING') {
-        if (secondsSince(task.consult.requested_at, now()) > cfg.qwen_deadline_seconds) return escalateFromQwen(task, rt, c, key, 'QWEN_TIMEOUT: no answer within ' + cfg.qwen_deadline_seconds + ' s');
-        return task;
-      }
+      if (!st.ok) return task; // GitHub blip: try again next tick (the deadline still applies)
+      if (st.phase === 'PENDING') return task;
       if (st.phase !== 'ANSWERED') return escalateFromQwen(task, rt, c, key, 'QWEN_CONSULT_' + (st.status || st.phase));
-      var parsed = qwen.parseAnswer(st.answer, task);
+      var norm = qwen.normalizeAnswer(st.body);
+      if (!norm.ok) return escalateFromQwen(task, rt, c, key, norm.reason);
+      var parsed = qwen.parseAnswer(norm.answer, task);
       if (!parsed.ok) return escalateFromQwen(task, rt, c, key, parsed.reason);
       finishConsult(task, 'answered');
       var d = parsed.decision;
@@ -750,15 +762,59 @@ function create(deps) {
     });
   }
 
+  // Settles the consult exactly once (persisted before any escalation). Its
+  // Issue is closed by sweepConsults at the end of the tick — closing is what
+  // cancels any Haddad attempt or retry still pending — and the close is
+  // retried every tick until GitHub confirms it.
   function finishConsult(task, outcome) {
+    if (task.consult.done) return;
     task.consult.done = true;
     task.consult.outcome = outcome;
+    task.consult.settled_at = nowIso();
     store.saveTask(task);
-    var n = task.consult.issue_number;
-    if (!n) return;
-    bridge.postOnce(n, { event: 'consult_consumed', task_id: task.task_id }, 'Consumed by the MYTHOS supervisor (' + outcome + ').')
-      .then(function () { return bridge.closeIssue(n, outcome === 'answered' ? 'completed' : 'not_planned'); })
-      .then(function () {}, function () {});
+  }
+
+  function consultRecords(t) { return [t.consult].concat(t.consults_prior || []).filter(Boolean); }
+
+  function closeConsultsOf(task) {
+    var waiting = task.status === 'FAILED' && task.consult && !task.consult.done;
+    return consultRecords(task).reduce(function (p, rec) {
+      return p.then(function () {
+        if (!rec.issue_number || rec.closed || (rec === task.consult && waiting)) return;
+        if (!rec.done) { // the task moved on (blocked, cancelled, completed…) while Qwen was still working
+          rec.done = true;
+          rec.outcome = 'abandoned: task is ' + task.status;
+          rec.settled_at = nowIso();
+          store.saveTask(task);
+          log(task, 'consult_abandoned', { consult_issue: rec.issue_number, status: task.status });
+        }
+        var n = rec.issue_number;
+        var fail = function (why) {
+          rec.close_failures = (rec.close_failures || 0) + 1;
+          store.saveTask(task);
+          log(task, 'consult_close_failed', { consult_issue: n, why: String(why).slice(0, 200), failures: rec.close_failures });
+        };
+        var close = function () { return bridge.closeIssue(n, rec.outcome === 'answered' ? 'completed' : 'not_planned'); };
+        return bridge.postOnce(n, { event: 'consult_consumed', task_id: task.task_id }, 'Settled by the MYTHOS supervisor (' + String(rec.outcome).slice(0, 200) + '). Closing this consult cancels any attempt still running or waiting to retry.')
+          .then(close, close)
+          .then(function (r) {
+            if (!r || !r.ok) return fail(r && r.error ? r.error.code : 'close failed');
+            rec.closed = true;
+            rec.closed_at = nowIso();
+            store.saveTask(task);
+            log(task, 'consult_closed', { consult_issue: n, outcome: rec.outcome });
+          }, function (e) { return fail(e && e.message); });
+      });
+    }, Promise.resolve());
+  }
+
+  // Every consult Issue that is settled (or whose task moved on) but not yet
+  // confirmed closed — including tasks that are no longer active.
+  function sweepConsults() {
+    var pending = store.listTasks().filter(function (t) { return consultRecords(t).some(function (r) { return r.issue_number && !r.closed; }); });
+    return pending.reduce(function (p, t) {
+      return p.then(function () { var fresh = store.loadTask(t.task_id); return fresh ? closeConsultsOf(fresh) : null; });
+    }, Promise.resolve());
   }
 
   function escalateFromQwen(task, rt, c, key, why) {
@@ -933,7 +989,9 @@ function create(deps) {
           log(fresh, 'step_error', { error: String(e && e.message).slice(0, 300) });
         });
       });
-    }, Promise.resolve()).then(function () { release(); return summary; }, function (e) { release(); throw e; });
+    }, Promise.resolve()).then(function () {
+      return sweepConsults().then(null, function (e) { summary.errors.push({ task_id: null, error: 'consult sweep: ' + String(e && e.message).slice(0, 200) }); });
+    }).then(function () { release(); return summary; }, function (e) { release(); throw e; });
   }
 
   function resume(taskId, reason) {

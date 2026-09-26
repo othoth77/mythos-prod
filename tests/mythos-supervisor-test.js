@@ -73,6 +73,7 @@ var KEY_FILE = path.join(process.env.HOME, '.config', 'mythos-orchestrator', 'op
 fs.mkdirSync(path.dirname(KEY_FILE), { recursive: true, mode: 0o700 });
 fs.writeFileSync(KEY_FILE, 'OPENAI_API_KEY=' + FAKE_KEY + '\n', { mode: 0o600 });
 
+var reportLib = require(path.join(BASE, 'projects', 'mythos-ai-executor', 'lib', 'report.js'));
 var BASE_CFG = JSON.parse(fs.readFileSync(path.join(ORCH, 'config', 'supervisor.json'), 'utf8'));
 
 // ---------------------------------------------------------------------------
@@ -106,6 +107,7 @@ World.prototype.gh = function () {
       return Promise.resolve({ ok: true, data: issueView(w.issues[n]) });
     },
     getIssue: function (repo, n) {
+      if (w.faults.issueDown && w.faults.issueDown.indexOf(Number(n)) !== -1) return Promise.resolve({ ok: false, error: { code: 'GH_TIMEOUT' } });
       var i = w.issues[n];
       return Promise.resolve(i ? { ok: true, data: issueView(i) } : { ok: false, error: { code: 'GH_NOT_FOUND', status: 404 } });
     },
@@ -119,7 +121,9 @@ World.prototype.gh = function () {
       labels.forEach(function (l) { if (w.issues[n].labels.indexOf(l) === -1) w.issues[n].labels.push(l); });
       return Promise.resolve({ ok: true, data: [] });
     },
-    close: function (repo, n, reason) { w.issues[n].state = 'closed'; w.issues[n].close_reason = reason; return Promise.resolve({ ok: true, data: {} }); },
+    close: function (repo, n, reason) {
+      if (w.faults.failClose) { w.faults.failClose--; return Promise.resolve({ ok: false, error: { code: 'GH_TIMEOUT' } }); }
+      w.issues[n].state = 'closed'; w.issues[n].close_reason = reason; return Promise.resolve({ ok: true, data: {} }); },
     recentTaskIssues: function (repo, label) {
       return Promise.resolve({ ok: true, data: Object.keys(w.issues).map(function (k) { return w.issues[k]; })
         .filter(function (i) { return i.labels.indexOf(label) !== -1; }).reverse().map(issueView) });
@@ -191,12 +195,17 @@ World.prototype.step = function () {
     if (i.dead) return;
     if (i.qstep === 2) return w.post(i, { task_id: tid, event: 'claimed' });
     if (i.answered) return;
+    i.haddadWork = (i.haddadWork || 0) + 1; // an attempt or retry still in progress on Haddad
     var ans = (w.qwen || defaultQwen)(i.body, w.qwenAnswers + 1);
     if (ans === 'silent') return;
     w.qwenAnswers++;
     i.answered = true;
     if (ans === 'fail') return w.post(i, { task_id: tid, event: 'report', status: 'FAILED' }, '### MYTHOS TASK FAILED');
-    var text = typeof ans === 'string' ? ans : 'Diagnosis below.\n```json\n' + JSON.stringify(ans) + '\n```';
+    // {summary_object: x}: Qwen wrote the summary AS an object; the (fixed)
+    // Haddad bridge renders it through the executor's own summaryText.
+    var text = typeof ans === 'string' ? ans
+      : ans.summary_object !== undefined ? reportLib.summaryText(ans.summary_object)
+      : 'Diagnosis below.\n```json\n' + JSON.stringify(ans) + '\n```';
     w.post(i, { task_id: tid, event: 'report', status: 'COMPLETED' }, '### MYTHOS TASK COMPLETED — `' + tid + '`\n\n#### Summary\n\n' + text);
   });
   Object.keys(w.issues).forEach(function (k) {
@@ -291,6 +300,7 @@ function OpenAI(overrides) {
         criteria: [{ criterion: 'the report states the number of .js files', met: good, evidence: good ? 'report says done' : 'no completed report' }],
         findings: good ? [] : ['not completed'], human_action: null, confidence: 'high' };
     } else {
+      if (o.failDiagnose) { o.failDiagnose--; return Promise.resolve({ status: 503, body: '{"error":{"message":"overloaded"}}' }); }
       o.diag++;
       d = o.diagnose ? o.diagnose(input, o.diag) : { schema_version: '1.0.0', role: role, classification: 'TEST_FAILURE', diagnosis: 'the test step failed',
         recoverable: true, recovery_task: spec({ title: 'Recovery ' + o.diag, objective: 'Recovery attempt ' + o.diag + ': rerun the failing check with a narrower scope and report the evidence.' }),
@@ -305,6 +315,8 @@ function OpenAI(overrides) {
 // Harness
 // ---------------------------------------------------------------------------
 var scenarioN = 0;
+// A 300 s consult deadline with a Haddad budget that fits it: (300-30-30)/3 = 80 s per attempt.
+var SHORT_QWEN = { qwen_deadline_seconds: 300, haddad_retry_backoff_worst_seconds: 30, qwen_claim_margin_seconds: 30 };
 function fresh(script, oaOverrides, cfgOverrides, qwenScript) {
   scenarioN++;
   process.env.MYTHOS_SUPERVISOR_HOME = path.join(TMP, 'sup-' + scenarioN);
@@ -788,7 +800,7 @@ async function main() {
   var rD2 = await runUntil(eD2, tD2.task_id, 30);
   ok(rD2.t.status === 'COMPLETED' && eD2.w.qwenAnswers === 1 && oaCount(eD2, 'supervise_diagnose') === 1, '17D2 Qwen uncertain → escalated to OpenAI once (Qwen=1, OpenAI=1)');
   ok(store.readJournal(function (e) { return e.task_id === tD2.task_id && e.event === 'qwen_escalated' && /QWEN_UNCERTAIN/.test(e.why); }).length === 1, '17D2 the escalation reason is recorded');
-  var eD3 = fresh(function (i) { return /Recovery/.test(i.title) ? { kind: 'success' } : { kind: 'failed' }; }, null, { qwen_deadline_seconds: 300 }, function () { return 'silent'; });
+  var eD3 = fresh(function (i) { return /Recovery/.test(i.title) ? { kind: 'success' } : { kind: 'failed' }; }, null, SHORT_QWEN, function () { return 'silent'; });
   var tD3 = structured(eD3.sup);
   for (var d3 = 0; d3 < 8; d3++) { eD3.w.step(); await eD3.sup.tick(); }
   var midD3 = store.loadTask(tD3.task_id);
@@ -798,7 +810,7 @@ async function main() {
   ok(rD3.t.status === 'COMPLETED' && oaCount(eD3, 'supervise_diagnose') === 1 && eD3.w.qwenConsults === 1 && eD3.w.qwenAnswers === 0, '17D3 Qwen unavailable past its deadline → OpenAI once → COMPLETED (one consult Issue, never re-asked)');
   // A consult answer counts only from the bridge identity: a forged report
   // comment by anyone else is ignored (the task keeps waiting, then escalates).
-  var eX = fresh(function (i) { return /Recovery/.test(i.title) ? { kind: 'success' } : { kind: 'failed' }; }, null, { qwen_deadline_seconds: 300 }, function () { return 'silent'; });
+  var eX = fresh(function (i) { return /Recovery/.test(i.title) ? { kind: 'success' } : { kind: 'failed' }; }, null, SHORT_QWEN, function () { return 'silent'; });
   var tX = structured(eX.sup);
   for (var x = 0; x < 8; x++) {
     eX.w.step();
@@ -920,6 +932,141 @@ async function main() {
     verify.evaluate(['check:tests_pass'], { tests: ['node t.js: 5 passed, 0 failed'] }, null).passed === true &&
     verify.evaluate(['the result is good'], {}, null).decided === false &&
     verify.evaluate(['check:commit_delivered'], {}, { verified: [] }).passed === false, '17 local verification: counts failing tests, needs git proof for commits, defers free text to OpenAI');
+
+  section('18. Qwen response normalization and the hard consult deadline');
+  var qwenMod = require(path.join(ORCH, 'supervisor', 'qwen.js'));
+  var R = reportLib;
+  // Executor side (Haddad's bridge): an object summary never becomes "[object Object]".
+  ok(R.summaryText({ z: 1, a: { d: [3, { y: 2, b: 1 }], c: 'x' } }) === '{"a":{"c":"x","d":[3,{"b":1,"y":2}]},"z":1}' && R.summaryText('plain') === 'plain' &&
+    R.summaryText(null) === '' && R.summaryText(5) === '5' && R.summaryText([1, { b: 2, a: 1 }]) === '[1,{"a":1,"b":2}]',
+    '18 executor: an object/array summary becomes canonical JSON text (sorted keys), never "[object Object]"');
+  var deep = {}, cur = deep;
+  for (var dd = 0; dd < 20; dd++) { cur.n = {}; cur = cur.n; }
+  var bigObj = { s: new Array(30001).join('x') };
+  ok(/^\[summary was an object nested deeper/.test(R.summaryText(deep)) && /^\[summary was an object of \d+ chars/.test(R.summaryText(bigObj)) && R.summaryText(bigObj).length < 200,
+    '18 executor: a too-deep or too-large summary becomes a bounded marker, never truncated JSON');
+  var ex = R.extractReport('done\n```json\n' + JSON.stringify({ mythos_report: true, status: 'completed', summary: { classification: 'TEST_FAILURE', b: 1 } }) + '\n```');
+  ok(ex.report && ex.report.summary === '{"b":1,"classification":"TEST_FAILURE"}' && ex.report.summary_type === 'object' && R.validateReport(ex.report).length === 0,
+    '18 executor: extractReport normalizes an object summary once, at the source');
+  var bsrc = fs.readFileSync(path.join(BASE, 'projects', 'mythos-ai-executor', 'bridge', 'github-bridge.js'), 'utf8');
+  ok(bsrc.indexOf('String(summary)') === -1 && /summary: reporting\.summaryText\(summary, 20000\)/.test(bsrc), '18 bridge: the report summary goes through summaryText, not String()');
+  // Supervisor side: one canonical answer from the Summary section only, or fail closed.
+  function na(sum) {
+    return qwenMod.normalizeAnswer('<!-- mythos-control task_id=gh-issue-1 event=report status=COMPLETED -->\n### X\n\n| a | {"classification":"OTHER"} |\n\n#### Summary\n\n' + sum +
+      '\n\n#### Problems / risks\n\n- {"classification":"CRASH"}');
+  }
+  var goodA = { classification: 'TEST_FAILURE', diagnosis: 'd' };
+  ok(na(JSON.stringify(goodA)).ok && na('```json\n' + JSON.stringify(goodA) + '\n```').ok && na(R.summaryText(goodA)).ok && na(JSON.stringify({ mythos_report: true, summary: goodA })).ok &&
+    na('```json\n' + JSON.stringify(goodA) + '\n```\nrepeated: ' + JSON.stringify(goodA)).ok && na(JSON.stringify(goodA)).answer.classification === 'TEST_FAILURE',
+    '18 consult answer: plain, fenced, canonical, report-wrapped or repeated-identical → ONE answer, read only from the Summary section');
+  var reasons = [na('[object Object]'), na(R.summaryText(bigObj)), na('{"classification": "TEST_FAILURE", oops}'), na('{"outer": {"classification": "OTHER"}, bad}'),
+    na(JSON.stringify(goodA) + ' or ' + JSON.stringify({ classification: 'CRASH' })), na('no answer here'), na(new Array(13001).join('x')),
+    qwenMod.normalizeAnswer('no summary section {"classification":"OTHER"}')].map(function (r) { return r.ok ? 'OK' : r.reason.split(':')[0]; });
+  ok(JSON.stringify(reasons) === JSON.stringify(['QWEN_SUMMARY_LOST', 'QWEN_SUMMARY_LOST', 'QWEN_MALFORMED', 'QWEN_MALFORMED', 'QWEN_AMBIGUOUS', 'QWEN_NO_JSON', 'QWEN_TOO_LARGE', 'QWEN_MALFORMED']),
+    '18 consult answer fails closed: [object Object], not-rendered, malformed, malformed wrapper, ambiguous, missing, oversized, no Summary ' + JSON.stringify(reasons));
+  var qScript = function (i) { return /Recovery/.test(i.title) ? { kind: 'success' } : { kind: 'failed' }; };
+  // Qwen writes its summary AS an object → normalized by the bridge → accepted.
+  var eO = fresh(qScript, null, null, function (body, n) { return { summary_object: defaultQwen(body, n) }; });
+  var tO = structured(eO.sup);
+  var rO = await runUntil(eO, tO.task_id, 30);
+  ok(rO.t.status === 'COMPLETED' && oaCount(eO) === 0 && eO.w.qwenAnswers === 1 && store.loadTask(tO.task_id + '-R1').diagnosis.tier === 'QWEN',
+    '18 Qwen answering with an OBJECT summary (normalized by the Haddad bridge) is accepted: Qwen recovery, OpenAI=0' + dbg(eO, tO.task_id));
+  var cO = eO.w.issues[store.loadTask(tO.task_id).consult.issue_number];
+  ok(cO.parsed && cO.parsed.task && cO.parsed.task.timeout_seconds === 550 && cO.state === 'closed' && store.loadTask(tO.task_id).consult.closed,
+    '18 the consult Issue asks Haddad for the derived 550 s per attempt, and is closed once consumed');
+  // Unusable answers escalate normally (OpenAI once) and the consult is still closed.
+  var bad = [['old bridge [object Object]', '[object Object]', /QWEN_SUMMARY_LOST/], ['ambiguous', JSON.stringify(defaultQwen('', 1)) + '\n' + JSON.stringify(Object.assign(defaultQwen('', 2), { classification: 'OTHER' })), /QWEN_AMBIGUOUS/],
+    ['malformed', '{"classification": "TEST_FAILURE", "recoverable": true, oops}', /QWEN_MALFORMED/], ['schema-invalid', JSON.stringify({ classification: 'TEST_FAILURE', extra_power: 'root' }), /QWEN_INVALID/]];
+  for (var bi = 0; bi < bad.length; bi++) {
+    var eB2 = fresh(qScript, null, null, (function (txt) { return function () { return txt; }; })(bad[bi][1]));
+    var tB2 = structured(eB2.sup);
+    var rB2 = await runUntil(eB2, tB2.task_id, 30);
+    var cB2 = store.loadTask(tB2.task_id).consult;
+    var escB2 = store.readJournal(function (e) { return e.task_id === tB2.task_id && e.event === 'qwen_escalated'; });
+    ok(rB2.t.status === 'COMPLETED' && oaCount(eB2, 'supervise_diagnose') === 1 && escB2.length === 1 && bad[bi][2].test(escB2[0].why) && cB2.closed && eB2.w.issues[cB2.issue_number].state === 'closed' &&
+      !allTasks().some(function (t) { return t.diagnosis && t.diagnosis.tier === 'QWEN'; }),
+      '18 ' + bad[bi][0] + ' Qwen output fails closed → escalated to OpenAI once, never executed, consult closed' + dbg(eB2, tB2.task_id));
+  }
+  // Hard deadline: Haddad still retrying → settled once, closed (cancels retries), late answer ignored.
+  var eT2 = fresh(qScript, null, SHORT_QWEN, function () { return 'silent'; });
+  var tT2 = structured(eT2.sup);
+  for (var t2 = 0; t2 < 8; t2++) { eT2.w.step(); await eT2.sup.tick(); }
+  var midT2 = store.loadTask(tT2.task_id);
+  var cnT2 = midT2.consult && midT2.consult.issue_number;
+  ok(midT2.status === 'FAILED' && cnT2 && !midT2.consult.done && eT2.w.issues[cnT2].haddadWork > 0 && eT2.w.issues[cnT2].state === 'open' &&
+    eT2.w.issues[cnT2].parsed.task.timeout_seconds === 80, '18 before the deadline Haddad is still working/retrying and the task waits (consult Timeout derived: (300-30-30)/3 = 80 s)');
+  eT2.w.offset += 400;
+  await eT2.sup.tick();
+  var afterT2 = store.loadTask(tT2.task_id);
+  ok(afterT2.consult.done && afterT2.consult.closed && /QWEN_TIMEOUT/.test(afterT2.consult.outcome) && eT2.w.issues[cnT2].state === 'closed',
+    '18 at the deadline the consult is settled and its Issue closed in the same tick (closing cancels Haddad attempts and retries)');
+  var workT2 = eT2.w.issues[cnT2].haddadWork;
+  eT2.w.post(eT2.w.issues[cnT2], { task_id: 'gh-issue-' + cnT2, event: 'report', status: 'COMPLETED' }, '### MYTHOS TASK COMPLETED\n\n#### Summary\n\n' + JSON.stringify(defaultQwen('', 9)));
+  var rT2 = await runUntil(eT2, tT2.task_id, 30);
+  for (var t3 = 0; t3 < 4; t3++) { eT2.w.step(); await eT2.sup.tick(); }
+  ok(rT2.t.status === 'COMPLETED' && eT2.w.issues[cnT2].haddadWork === workT2 && oaCount(eT2, 'supervise_diagnose') === 1 &&
+    !allTasks().some(function (t) { return t.diagnosis && t.diagnosis.tier === 'QWEN'; }) &&
+    store.readJournal(function (e) { return e.task_id === tT2.task_id && e.event === 'qwen_escalated'; }).length === 1 &&
+    eT2.w.issues[cnT2].comments.filter(function (c) { return /consult_consumed/.test(c.body); }).length === 1,
+    '18 after settlement: no further Haddad work, a late answer is ignored, exactly one escalation, one OpenAI diagnosis, one settle comment' + dbg(eT2, tT2.task_id));
+  // The deadline holds through a GitHub outage; a failed close is retried until confirmed, even after the task completed.
+  var eF2 = fresh(qScript, null, SHORT_QWEN, function () { return 'silent'; });
+  var tF2 = structured(eF2.sup);
+  for (var f2 = 0; f2 < 8; f2++) { eF2.w.step(); await eF2.sup.tick(); }
+  var cnF2 = store.loadTask(tF2.task_id).consult.issue_number;
+  eF2.w.faults.issueDown = [cnF2];
+  eF2.w.faults.failClose = 3;
+  eF2.w.offset += 400;
+  eF2.w.step(); await eF2.sup.tick();
+  var aF2 = store.loadTask(tF2.task_id);
+  ok(aF2.consult.done && /QWEN_TIMEOUT/.test(aF2.consult.outcome) && !aF2.consult.closed && aF2.consult.close_failures >= 1 && oaCount(eF2, 'supervise_diagnose') === 1,
+    '18 the deadline holds even when GitHub cannot read the consult: settled + escalated; the close is pending, not forgotten');
+  eF2.w.faults.issueDown = null;
+  var rF2 = await runUntil(eF2, tF2.task_id, 30);
+  for (var f3 = 0; f3 < 5; f3++) { eF2.w.step(); await eF2.sup.tick(); }
+  var aF3 = store.loadTask(tF2.task_id);
+  ok(rF2.t.status === 'COMPLETED' && aF3.consult.closed && eF2.w.issues[cnF2].state === 'closed' && aF3.consult.close_failures === 3 && oaCount(eF2, 'supervise_diagnose') === 1,
+    '18 a failed close is retried every tick — after the task completed too — until GitHub confirms it (3 failures, then closed)' + dbg(eF2, tF2.task_id));
+  // A consult whose task stopped waiting is abandoned and closed.
+  var eA2 = fresh(qScript, null, null, function () { return 'silent'; });
+  var tA2 = structured(eA2.sup);
+  for (var a2 = 0; a2 < 8; a2++) { eA2.w.step(); await eA2.sup.tick(); }
+  var pA2 = store.loadTask(tA2.task_id);
+  var cnA2 = pA2.consult.issue_number;
+  pA2.status = 'BLOCKED'; pA2.blocked = { code: 'OWNER_STOP', why: 'test: the owner stopped it', human_action: null };
+  store.saveTask(pA2);
+  await eA2.sup.tick();
+  var qA2 = store.loadTask(tA2.task_id);
+  ok(qA2.consult.done && /abandoned: task is BLOCKED/.test(qA2.consult.outcome) && qA2.consult.closed && eA2.w.issues[cnA2].state === 'closed' && oaCount(eA2) === 0,
+    '18 a consult whose task stopped waiting (blocked/cancelled) is abandoned and closed — no orphan Haddad work, no model call');
+  // Settled exactly once: an early-rejected answer is never re-read when the
+  // task comes back through the ladder (here: OpenAI fails transiently once).
+  var eS = fresh(qScript, { failDiagnose: 1 }, null, function () { return '{"classification": "TEST_FAILURE", oops}'; });
+  var tS = structured(eS.sup);
+  var rS = await runUntil(eS, tS.task_id, 30);
+  var cS = store.loadTask(tS.task_id).consult;
+  ok(rS.t.status === 'COMPLETED' && oaCount(eS, 'supervise_diagnose') === 2 && eS.w.qwenConsults === 1 &&
+    store.readJournal(function (e) { return e.task_id === tS.task_id && e.event === 'qwen_escalated'; }).length === 1 &&
+    eS.w.issues[cS.issue_number].comments.filter(function (c) { return /consult_consumed/.test(c.body); }).length === 1,
+    '18 a settled consult is never re-read: after a transient OpenAI failure the retry goes straight to OpenAI (one escalation, one settle comment)' + dbg(eS, tS.task_id));
+  // Deadline arithmetic: shipped config fits; an unsafe one is refused; the constants match the executor code.
+  ok(qwenMod.consultTimeout(BASE_CFG) === 550 && qwenMod.configProblems(BASE_CFG).length === 0 &&
+    BASE_CFG.haddad_max_attempts * 550 + BASE_CFG.haddad_retry_backoff_worst_seconds + BASE_CFG.qwen_claim_margin_seconds <= BASE_CFG.qwen_deadline_seconds,
+    '18 shipped config: 3 × 550 s + 450 s backoff + 300 s claim margin ≤ the 2400 s hard deadline');
+  var homeKeep = process.env.MYTHOS_SUPERVISOR_HOME;
+  var cfgErr = null;
+  try { fresh(qScript, null, { qwen_deadline_seconds: 900 }); } catch (e) { cfgErr = e.code; }
+  var cfgErr2 = null;
+  try { fresh(qScript, null, { qwen_timeout_seconds: 900, haddad_max_attempts: 0 }); } catch (e) { cfgErr2 = e.code; }
+  process.env.MYTHOS_SUPERVISOR_HOME = homeKeep; // the refused builds never got a store
+  ok(cfgErr === 'CONFIG_INVALID' && cfgErr2 === 'CONFIG_INVALID', '18 a deadline Haddad retries could outlive, or a missing budget value, is refused at startup (CONFIG_INVALID)');
+  var quota = require(path.join(BASE, 'projects', 'mythos-ai-executor', 'lib', 'quota.js'));
+  var mrx = /max_retries: (\d+)/.exec(bsrc);
+  var nRetries = mrx ? parseInt(mrx[1], 10) : -1;
+  var worstBackoff = 0;
+  for (var kk = 0; kk < nRetries; kk++) worstBackoff += quota.retryDelayMs(kk, 0.9999999) / 1000;
+  ok(nRetries + 1 === BASE_CFG.haddad_max_attempts && worstBackoff <= BASE_CFG.haddad_retry_backoff_worst_seconds,
+    '18 the Haddad retry budget matches the executor code (max_retries ' + nRetries + ', worst backoff ' + Math.round(worstBackoff) + ' s ≤ ' + BASE_CFG.haddad_retry_backoff_worst_seconds + ' s)');
 
   section('13. Hygiene');
   var everything = JSON.stringify(allTasks()) + fs.readFileSync(path.join(process.env.MYTHOS_SUPERVISOR_HOME, 'journal.jsonl'), 'utf8');

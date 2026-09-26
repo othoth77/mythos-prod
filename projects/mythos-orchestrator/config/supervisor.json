@@ -30,8 +30,11 @@
   "qwen_enabled": true,
   "qwen_label": "mythos:haddad",
   "bridge_comment_authors": ["othoth77"],
-  "qwen_timeout_seconds": 900,
+  "qwen_timeout_seconds": 550,
   "qwen_deadline_seconds": 2400,
+  "haddad_max_attempts": 3,
+  "haddad_retry_backoff_worst_seconds": 450,
+  "qwen_claim_margin_seconds": 300,
   "max_openai_calls_per_task": 4,
   "max_openai_calls_per_recovery": 2,
   "resource_floor_mib": 300
