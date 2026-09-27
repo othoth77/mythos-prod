@@ -4,6 +4,35 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260927123259-31mn71` — BLOCKED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | MYTHOS OS — MASTER ORDER |
+| Provider / model | claude-code / claude-haiku-4-5 |
+| Execution profile | repo-read |
+| Started | 2026-09-27T12:32:59.693Z |
+| Ended | 2026-09-27T12:37:22.942Z |
+| Status | **BLOCKED** |
+| Claude session | `50d1f4b4-c4c0-4a7b-b95c-e53b277f4455` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `8c54616438e1ee966f7fb510322e8584aad18b63` |
+| Git verified | null |
+
+**Summary:** Routing issue identified and solution documented. Tool permission delays prevent direct file modification. The fix is clear: haddad-bridge-instance-setup.sh must explicitly set MYTHOS_BRIDGE_REPO and MYTHOS_BRIDGE_TASK_WORKTREES in derived instance environment files instead of relying on inheritance that can fall back to VPS hardcoded paths. Three specific code changes required (lines 65-71 and validation section). These changes ensure Haddad bridge instances correctly resolve to /home/othman/projects/mythos-prod instead of /home/deploy/projects/mythos-prod.
+
+**Residual risks:**
+- Permission delays prevented applying fix; manual sed/edit needed
+- Haddad instance env files not yet regenerated with corrected paths
+
+**Next stage:** Apply the three documented code changes to haddad-bridge-instance-setup.sh, then regenerate all Haddad bridge instance environments (worker-othk.env etc), test with read-only task to mythos-haddad project
+
+
+---
+
 ## Task `t-20260927110610-4t2yce` — BLOCKED
 
 | Field | Value |
