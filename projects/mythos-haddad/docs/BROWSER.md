@@ -18,20 +18,20 @@ webinar preflight) and the wiring in `projects/mythos-ai-executor/providers/hadd
 (capability-backed tools `browser_navigate`, `browser_extract`, `browser_screenshot`, dispatched
 through `lib/mcp-invoke.js`). Read `projects/mythos-browser-mcp/README.md` first.
 
-## 2. Measured state of Haddad (2026-09-27, read-only inspection by a Haddad session)
+## 2. Measured state of Haddad (2026-09-27 18:35 UTC, read-only inspection by the Haddad desktop session)
 
 | Item | Measured |
 |---|---|
-| Obscura v0.2.3 tarball | present on disk under `~/.local/opt`, digest matches the GitHub release asset `obscura-x86_64-linux.tar.gz` |
-| Process / listener on :9222 | **none** at inspection time (an earlier ad-hoc run today left a pass report and was stopped; the 18:02 health snapshot still listed a :9222 listener) |
-| User unit / `~/.config/obscura` / token | **none** |
-| Playwright fallback | **BLOCKED**: the bundled Chromium is missing six host shared libraries; installing them is a system-package step nobody has taken |
-| Live checkout `~/projects/mythos-prod` | **switched off `main`** to a local branch `mythos-haddad/obscura-browser-runtime` with uncommitted edits by another session today. Bridge and health timers load code from that checkout every tick; the worker still runs the last `main` it loaded (health 17/17). This violates the "never switch branches on the live checkout" rule and must be returned to `main` (owner decision on when) |
+| Obscura v0.2.3 | `~/.local/opt/obscura-test/{obscura 79363160 B, obscura-worker 75578448 B, obscura.tar.gz}`; tarball sha256 `1534d1e6…482a9eec` == GitHub release asset `obscura-x86_64-linux.tar.gz`; not on PATH; `--version` not confirmed by execution (that session's permission layer refused running the binary); an earlier session's `VERIFICATION.md` there records 0.2.3 with CDP, bearer auth, navigation, extraction and screenshot PASS |
+| Listener on :9222 / :9223 | **none** (ss -ltnp, twice); no obscura or chrome process; the earlier "health lists a :9222 listener" reading was stale |
+| User unit / `~/.config/obscura` / token | **none** — nothing is serving, so auth codes and the CDP smoke could not be measured |
+| Playwright fallback | playwright 1.63.0 present under `projects/mythos-ai-executor` and `~/.cache/ms-playwright` (chromium-1243, headless shell, ffmpeg-1011), so the module RESOLVES on Haddad — but `ldd chrome` reports not found: `libatk-1.0.so.0, libatk-bridge-2.0.so.0, libcups.so.2, libasound.so.2, libXdamage.so.1, libatspi.so.0` → **BLOCKED (PLAYWRIGHT_LAUNCH_FAILED)** until those system packages are installed |
+| Live checkout `~/projects/mythos-prod` | **on local branch `mythos-haddad/obscura-browser-runtime`**, 1 commit ahead of origin/main (`3e53145a` "feat(haddad): integrate obscura browser runtime", 08:40 UTC, author othoth77: adds `browser/{adapter,index,obscura,playwright}.js`, `bin/finish-obscura-integration.sh`, `OBSCURA_INTEGRATION_REPORT.md`), plus UNCOMMITTED edits to `OBSCURA_INTEGRATION_REPORT.md` and **`bin/haddad-bridge-instance-setup.sh`** (+MYTHOS_BRIDGE_REPO, +MYTHOS_BRIDGE_TASK_WORKTREES) and an untracked `OBSCURA_MASTER_INTEGRATION_REPORT.md`. Reflog: off `main` since 2026-09-26 20:43, onto this branch 2026-09-27 10:47. This checkout feeds the bridge and health timers every tick — the "never switch branches on the live checkout" rule is being violated; the worker (pid 425630) still runs code loaded from `main@abb4cebf`, health 17/17. **That branch is not on origin** and is a parallel, unreviewed implementation of the same order; reconcile it against PR #512 before merging either |
 | Node / Claude Code | v22.22.1 / 2.1.278 authenticated (health) |
 
 Why the VPS cannot do this itself: the tailnet ACL admits only `mythos-vps → haddad:443`; SSH times
-out; the Haddad executor's `repo-read` profile cannot write, and the Haddad desktop session declined
-to install a runtime without the owner's own order in that session.
+out; the Haddad executor's `repo-read` profile cannot write; and the Haddad desktop session declined
+to execute the binary or install a runtime without the owner's own order in that session.
 
 ## 3. Install (isolated, user-space, loopback only) — run ON Haddad as `othman`
 
