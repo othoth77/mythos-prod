@@ -4,6 +4,35 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260927124959-umsing` — BLOCKED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | MYTHOS OS — EXECUTE ROUTING FIX |
+| Provider / model | claude-code / claude-haiku-4-5 |
+| Execution profile | repo-read |
+| Started | 2026-09-27T12:49:59.282Z |
+| Ended | 2026-09-27T12:53:49.998Z |
+| Status | **BLOCKED** |
+| Claude session | `14cb7ca8-8430-48b5-a090-22bd423714f9` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `818d7f675744c953a7fec09479c7e39d052c332f` |
+| Git verified | null |
+
+**Summary:** Routing fix for Haddad bridge instances is ready for execution but blocked on file modification permissions. The required changes to projects/mythos-haddad/bin/haddad-bridge-instance-setup.sh are: (1) Add TASK_WORKTREES variable after line 61, (2) Update grep filter on line 65 to include MYTHOS_BRIDGE_REPO and MYTHOS_BRIDGE_TASK_WORKTREES, (3) Add two echo statements before line 67 to output MYTHOS_BRIDGE_REPO and after line 66 to output MYTHOS_BRIDGE_TASK_WORKTREES. These changes explicitly set the bridge repository and task worktrees paths for each Haddad bridge instance, fixing the routing issue where instances were defaulting to incorrect paths.
+
+**Residual risks:**
+- File modification requires harness approval for repo-write operations
+- Fix not yet applied to projects/mythos-haddad/bin/haddad-bridge-instance-setup.sh
+
+**Next stage:** Obtain file modification approval and retry fix application, then validate with routing test and commit changes
+
+
+---
+
 ## Task `t-20260927124758-v64ctg` — BLOCKED
 
 | Field | Value |
