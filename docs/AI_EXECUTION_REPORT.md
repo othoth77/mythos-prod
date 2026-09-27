@@ -4,6 +4,37 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260927124248-wrki6f` — BLOCKED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | MYTHOS OS — FIX EXECUTION ROUTING |
+| Provider / model | claude-code / claude-haiku-4-5 |
+| Execution profile | repo-read |
+| Started | 2026-09-27T12:42:48.980Z |
+| Ended | 2026-09-27T12:47:22.267Z |
+| Status | **BLOCKED** |
+| Claude session | `c1794e00-4e92-4eb6-958e-53b3f603cd80` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `6e4b938cd7a7a07e5e6205a874a80e9a68609870` |
+| Git verified | null |
+
+**Summary:** Root cause analysis complete. The Master Task routing issue has been traced to two sources: (1) haddad-bridge-instance-setup.sh (line 65-71) does not explicitly set MYTHOS_BRIDGE_REPO and MYTHOS_BRIDGE_TASK_WORKTREES for secondary bridge instances, causing them to fall back to hardcoded VPS defaults (/home/deploy/projects/mythos-prod) instead of Haddad paths (/home/othman/projects/mythos-prod); (2) execution_profile is determined by task.requested_action (investigate/review → repo-read, implement/document → repo-write). Fix requires editing haddad-bridge-instance-setup.sh to add both variables to the filtered list (line 65) and explicitly set them with Haddad values (after line 66). Unable to proceed with file modifications due to permission system restrictions in autonomous execution context.
+
+**Residual risks:**
+- File modification permissions denied for haddad-bridge-instance-setup.sh
+- Network API calls for task submission require approval
+- Secondary bridge instances (mythos-haddad, oth-knowledge) on Haddad machine route through VPS paths
+- Validation task cannot be created due to permission constraints
+
+**Next stage:** REQUIRED FIX: In projects/mythos-haddad/bin/haddad-bridge-instance-setup.sh: (1) Line 65: Add MYTHOS_BRIDGE_REPO and MYTHOS_BRIDGE_TASK_WORKTREES to the grep -v filter list; (2) After line 66: Add 'echo MYTHOS_BRIDGE_REPO=$REPO' and 'echo MYTHOS_BRIDGE_TASK_WORKTREES=$EXEC_HOME/worktrees/gh'. This ensures Haddad instances use correct repository paths and do not fall back to VPS defaults. Then create and run validation task with requested_action='implement' to test repo-write execution profile.
+
+
+---
+
 ## Task `t-20260927124332-j8vvhr` — COMPLETED
 
 | Field | Value |
