@@ -4,6 +4,41 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260927154625-6kte5t` — COMPLETED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | MYTHOS OS — RECONCILE ROUTING WITH SOURCE OF TRUTH |
+| Provider / model | claude-code / claude-haiku-4-5 |
+| Execution profile | repo-read |
+| Started | 2026-09-27T15:46:25.668Z |
+| Ended | 2026-09-27T15:47:14.365Z |
+| Status | **COMPLETED** |
+| Claude session | `8cde66d6-3a01-4eee-8328-5836c49ff98d` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `3509fc5161f677e7a53b3cd54f92d1de164d12db` |
+| Git verified | null |
+
+**Summary:** V3.2 routing fix is IMPLEMENTED, MERGED, and LIVE-VERIFIED (2026-09-25) per source-of-truth V3_2.md. All routing checklist items in §8 are confirmed complete with evidence in §9. The documented local-first routing (LOCAL→QWEN→OPENAI) was merged and is running on Haddad. The only remaining operation is §11 Residual 1: an OWNER STEP to run the VPS closeout script from the owner's machine (ssh deploy@51.68.226.211 'bash -s' < projects/oth-knowledge/ops/v32-vps-closeout.sh). The second bridge isolation (Residual 2) is CLOSED and requires no code changes. Do not modify haddad-bridge-instance-setup.sh; V3_2.md explicitly marks this as closed.
+
+**Tests:**
+- routing-implementation: VERIFIED in V3_2.md §8 checklist [x] and §9 evidence
+- vps-closeout-script: EXISTS at projects/oth-knowledge/ops/v32-vps-closeout.sh
+- bridge-isolation: CLOSED per V3_2.md §11 Residual 2
+- haddad-setup: NO MODIFICATION REQUIRED per V3_2.md instructions
+
+**Residual risks:**
+- VPS closeout is OWNER STEP only — cannot be executed by AI; owner must run from their machine with SSH access to 51.68.226.211
+- Execution will proceed no further until owner completes this step
+
+**Next stage:** OWNER EXECUTES: ssh deploy@51.68.226.211 'bash -s' < projects/oth-knowledge/ops/v32-vps-closeout.sh; after that, resume Obscura Master Task with next valid step
+
+
+---
+
 ## Task `t-20260927154154-cw7nip` — BLOCKED
 
 | Field | Value |
