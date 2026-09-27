@@ -3,13 +3,20 @@
     "id": "security-audit",
     "name": "Security Audit",
     "version": "1.0.0",
-    "description": "Identify concrete, traced security defects in the mission's scope — injection, authz, secrets, data exposure.",
-    "categories": ["security"],
+    "description": "Identify concrete, traced security defects in the mission's scope \u2014 injection, authz, secrets, data exposure.",
+    "categories": [
+      "security"
+    ],
     "instruction_source": "security-audit.md",
     "required_capabilities": [],
     "allowed_mcp_servers": [],
     "allowed_mcp_tools": [],
-    "compatible_execution_profiles": ["repo-read", "repo-write", "repo-test", "autonomous"],
+    "compatible_execution_profiles": [
+      "repo-read",
+      "repo-write",
+      "repo-test",
+      "autonomous"
+    ],
     "enabled": true
   },
   "frontend": {
@@ -17,12 +24,19 @@
     "name": "Frontend",
     "version": "1.0.0",
     "description": "Implement or fix browser-facing work matching the codebase's existing DOM/CSS conventions.",
-    "categories": ["frontend"],
+    "categories": [
+      "frontend"
+    ],
     "instruction_source": "frontend.md",
     "required_capabilities": [],
     "allowed_mcp_servers": [],
     "allowed_mcp_tools": [],
-    "compatible_execution_profiles": ["repo-read", "repo-write", "repo-test", "autonomous"],
+    "compatible_execution_profiles": [
+      "repo-read",
+      "repo-write",
+      "repo-test",
+      "autonomous"
+    ],
     "enabled": true
   },
   "testing": {
@@ -30,12 +44,19 @@
     "name": "Testing",
     "version": "1.0.0",
     "description": "Select the right test scope, establish a baseline before calling a failure new, and report exact counts.",
-    "categories": ["testing"],
+    "categories": [
+      "testing"
+    ],
     "instruction_source": "testing.md",
     "required_capabilities": [],
     "allowed_mcp_servers": [],
     "allowed_mcp_tools": [],
-    "compatible_execution_profiles": ["repo-read", "repo-write", "repo-test", "autonomous"],
+    "compatible_execution_profiles": [
+      "repo-read",
+      "repo-write",
+      "repo-test",
+      "autonomous"
+    ],
     "enabled": true
   },
   "github-review": {
@@ -43,12 +64,23 @@
     "name": "GitHub Review",
     "version": "1.0.0",
     "description": "Review a pull request or diff for correctness, security, coverage and scope against the codebase's own conventions.",
-    "categories": ["github-review"],
+    "categories": [
+      "github-review"
+    ],
     "instruction_source": "github-review.md",
     "required_capabilities": [],
-    "allowed_mcp_servers": ["github"],
-    "allowed_mcp_tools": ["github.list_pull_requests", "github.pull_request_read", "github.pull_request_review_write"],
-    "compatible_execution_profiles": ["repo-read", "repo-write"],
+    "allowed_mcp_servers": [
+      "github"
+    ],
+    "allowed_mcp_tools": [
+      "github.list_pull_requests",
+      "github.pull_request_read",
+      "github.pull_request_review_write"
+    ],
+    "compatible_execution_profiles": [
+      "repo-read",
+      "repo-write"
+    ],
     "enabled": true
   },
   "generic": {
@@ -56,12 +88,45 @@
     "name": "Generic",
     "version": "1.0.0",
     "description": "The default when no more specific skill category or keyword rule matched the mission.",
-    "categories": ["general"],
+    "categories": [
+      "general"
+    ],
     "instruction_source": "generic.md",
     "required_capabilities": [],
     "allowed_mcp_servers": [],
     "allowed_mcp_tools": [],
-    "compatible_execution_profiles": ["repo-read", "repo-write", "repo-test", "autonomous", "deploy"],
+    "compatible_execution_profiles": [
+      "repo-read",
+      "repo-write",
+      "repo-test",
+      "autonomous",
+      "deploy"
+    ],
+    "enabled": true
+  },
+  "browser-research": {
+    "id": "browser-research",
+    "name": "Browser Research",
+    "version": "1.0.0",
+    "description": "Read public web pages through the governed browser (navigate, extract, screenshot) to establish facts; never interact, never authenticate, never fetch private addresses.",
+    "categories": [
+      "browser-research"
+    ],
+    "instruction_source": "browser-research.md",
+    "required_capabilities": [],
+    "allowed_mcp_servers": [
+      "browser"
+    ],
+    "allowed_mcp_tools": [
+      "browser.navigate",
+      "browser.extract",
+      "browser.screenshot"
+    ],
+    "compatible_execution_profiles": [
+      "repo-read",
+      "repo-write",
+      "repo-test"
+    ],
     "enabled": true
   }
 }
