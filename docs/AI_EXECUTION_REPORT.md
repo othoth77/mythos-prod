@@ -4,6 +4,35 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260927153914-7bkyfj` — BLOCKED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | MYTHOS OS — OWNER AUTHORIZATION / ARCHITECTURE OVERRIDE |
+| Provider / model | claude-code / claude-haiku-4-5 |
+| Execution profile | repo-read |
+| Started | 2026-09-27T15:39:14.755Z |
+| Ended | 2026-09-27T15:41:31.633Z |
+| Status | **BLOCKED** |
+| Claude session | `1c019607-aaa8-43fd-9588-044de2442963` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `6359769ffb9a24a7a11c6fab175e656ab747bf0d` |
+| Git verified | null |
+
+**Summary:** Haddad routing blocker diagnosed: haddad-bridge-instance-setup.sh needs environment variable overrides (HADDAD_CONFIG_DIR, HADDAD_STATE_DIR) for cross-user execution, but current execution profile (deploy user, tool write disabled) cannot modify the script. Documented fix exists in V3_2.md but requires elevated authorization or execution as othman user on Haddad machine.
+
+**Residual risks:**
+- Obscura Browser Runtime authorization pending
+- Script modification requires owner approval or elevated profile
+
+**Next stage:** Owner must either: (1) run haddad-bridge-instance-setup.sh on Haddad machine as othman user with HADDAD_CONFIG_DIR/STATE_DIR env vars, or (2) grant elevated authority via HostOps for repo-file modification
+
+
+---
+
 ## Task `t-20260927153850-4w5x82` — BLOCKED
 
 | Field | Value |
