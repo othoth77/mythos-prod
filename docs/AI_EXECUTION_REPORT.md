@@ -4,6 +4,34 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260927153850-4w5x82` — BLOCKED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | MYTHOS OS — EXECUTE HADDAD ROUTING FIX |
+| Provider / model | claude-code / claude-haiku-4-5 |
+| Execution profile | repo-read |
+| Started | 2026-09-27T15:38:51.029Z |
+| Ended | 2026-09-27T15:40:29.988Z |
+| Status | **BLOCKED** |
+| Claude session | `5a4fbc05-dd40-4048-a675-f6e2759d4564` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `4e0b29b6477f0d4084a6c73867d9508825899138` |
+| Git verified | null |
+
+**Summary:** File modification requires user approval. The script changes are ready to apply: (1) Add TASK_WORKTREES=$EXEC_HOME/tasks after line 61, (2) Update line 65 grep to exclude MYTHOS_BRIDGE_REPO and MYTHOS_BRIDGE_TASK_WORKTREES, (3) Add two echo statements for MYTHOS_BRIDGE_REPO and MYTHOS_BRIDGE_TASK_WORKTREES after line 71. The task requires applying these changes directly without further prompts.
+
+**Residual risks:**
+- File modification permission required
+
+**Next stage:** Require user approval to modify /home/deploy/projects/mythos-prod/projects/mythos-haddad/bin/haddad-bridge-instance-setup.sh
+
+
+---
+
 ## Task `t-20260927124959-umsing` — BLOCKED
 
 | Field | Value |
