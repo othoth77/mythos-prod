@@ -1,0 +1,134 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-513",
+  "project": "mythos-prod",
+  "objective": "Run exactly this command from the repository root and put the command followed by its final summary line, verbatim, in the report tests list: node tests/mythos-report-normalization-test.js . If the command fails, report the task as failed and quote the failing line as the only problem.",
+  "scope": [
+    "repository root; the one test command only"
+  ],
+  "constraints": [
+    "Read-only: do not create, modify, delete, stage, commit or push anything.",
+    "Do not print secrets or credentials.",
+    "Supervised task: the MYTHOS supervisor verifies this report against the acceptance criteria below. Report exactly what you ran and observed; never claim a check you did not run."
+  ],
+  "priority": "normal",
+  "requested_action": "test",
+  "action_raw": "test",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "The report tests list contains the command and its final \"N passed, M failed\" line with M = 0."
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-28T13:26:28.510Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #513 https://github.com/othoth77/mythos-prod/issues/513 — \"[supervised] E2E liveness 2026-09-28: run the report-normalization suite\"\n\nrequested_action: test — source explicit_current_issue (written as \"test\") → execution profile repo-test",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 513,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/513",
+    "issue_id": 5615312114,
+    "issue_node_id": "I_kwDOTnlaF88AAAABTrLc8g",
+    "issue_title": "TASK: [supervised] E2E liveness 2026-09-28: run the report-normalization suite",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-28T13:25:53Z",
+    "issue_updated_at": "2026-09-28T13:25:53Z",
+    "issue_labels": [
+      "task",
+      "mythos:supervised"
+    ],
+    "content_sha256": "730c2ec30b30e58d95f961401352a63f5854fa7b367c1e018e12998adce1ecf9",
+    "attempt": 1,
+    "attempt_id": "gh-issue-513#1",
+    "idempotency_key": "557c862853af027b0d360229998235c754c83a75f1332e5015b3b7646fa4a9ef",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "test",
+      "action_raw": "test",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "test",
+          "action": "test",
+          "form": "inline",
+          "line": 15
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-test",
+      "expected_delivery": "report",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-28T13:26:28.511Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-28T13:26:28.511Z",
+        "event": "issue_received",
+        "reason": "open Issue #513 with label task",
+        "content_sha256": "730c2ec30b30e58d95f961401352a63f5854fa7b367c1e018e12998adce1ecf9"
+      },
+      {
+        "at": "2026-09-28T13:26:28.511Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → test (raw \"test\")"
+      },
+      {
+        "at": "2026-09-28T13:26:28.511Z",
+        "event": "profile_resolved",
+        "reason": "test → repo-test (server-side map)"
+      },
+      {
+        "at": "2026-09-28T13:26:28.511Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-28T13:26:31.794Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-513.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-28T13:26:28.511Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5870798481,
+        "url": "https://github.com/othoth77/mythos-prod/issues/513#issuecomment-5870798481",
+        "at": "2026-09-28T13:26:29.884Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:supervised"
+      ]
+    }
+  }
+}
