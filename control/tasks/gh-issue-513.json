@@ -18,7 +18,7 @@
   "validation_requirements": [
     "The report tests list contains the command and its final \"N passed, M failed\" line with M = 0."
   ],
-  "status": "CLAIMED",
+  "status": "COMPLETED",
   "created_at": "2026-09-28T13:26:28.510Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #513 https://github.com/othoth77/mythos-prod/issues/513 — \"[supervised] E2E liveness 2026-09-28: run the report-normalization suite\"\n\nrequested_action: test — source explicit_current_issue (written as \"test\") → execution profile repo-test",
@@ -162,8 +162,8 @@
       "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
     },
     "fingerprint": "7151b988b371e94a1d2b94ac14c45ae7658e074d74935278e47eab40b72af870",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-28T13:26:34.920Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-28T13:27:59.296Z",
     "snapshot_sha256": "2e64120c0534c77bf92bebeea2fbe2c8f0fd593afaf78d839395791a14cfe943",
     "fence": 83570,
     "lease": {
@@ -191,7 +191,8 @@
       "measured_at": "2026-09-28T13:26:32.970Z"
     },
     "model": "claude-sonnet-5",
-    "model_selection_mode": "auto"
+    "model_selection_mode": "auto",
+    "report_file": "control/reports/gh-issue-513.json"
   },
   "history": [
     {
@@ -200,6 +201,20 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260928132635-e33i5f queued; OTHMODE OTH-2026-01935; action test (explicit_current_issue) → repo-test; model claude-sonnet-5; fence 83570"
+    },
+    {
+      "at": "2026-09-28T13:27:58.221Z",
+      "from": "CLAIMED",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-28T13:27:59.296Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 1 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
