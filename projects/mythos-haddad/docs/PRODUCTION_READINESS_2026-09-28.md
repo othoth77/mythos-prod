@@ -138,3 +138,64 @@ STATUS = NOT 100%   (16 PASS · 2 KNOWN LIMIT · 1 UNMEASURED · 1 NOT PASS, all
 Grant") · removing the duplicate bridge instance ("Irreversible Deletion") · reading `install-hostops.sh`
 alongside an issue poll ("Interfere With Workloads") · two benign reads mis-classified under the same labels.
 Each is in §2 with its owner action.
+
+---
+
+## 9. Closeout pass (2026-09-28 17:35–18:25 UTC, owner's "FINAL 100% CLOSEOUT ORDER")
+
+**Start state, verified not assumed:** origin/main = live checkout = worker = `3122219e` (#512 → #515 merged by the
+owner at 17:39–17:41Z; worker restarted by the owner 17:42:55Z); health **18/18 PASS** from the live checkout
+(`browser` PASS). One discrepancy found: **PR #514 shows MERGED but its two commits are not on main** — it merged into
+its stacked base `mythos/browser-obscura-20260927` at 17:40:28Z, one minute after #512 had merged that base into main.
+The launcher fallback support, its 3 tests and the BROWSER.md measured state therefore never reached main; the
+installed launcher on Haddad is the #514 version. Rebuilt as **PR #516** (`mythos-haddad/browser-closeout-main`,
+`-x` cherry-picks `2d9821ae` + `8f60262b`, suite 21/0).
+
+| Gate (order §3–§13) | Result | Evidence |
+|---|---|---|
+| §9 worker network error | **FIXED** | `server.js` default bind `127.0.0.1,172.18.0.1` (VPS Docker bridge for n8n); Haddad has no Docker/n8n → EADDRNOTAVAIL on every start, non-fatal by design. `MYTHOS_EXECUTOR_BIND=127.0.0.1` set in the live `worker.env` and in `haddad-worker-setup.sh` (**PR #517**); worker restarted at `RUNNING=0` 17:49:49Z → journal `listening 127.0.0.1:8130` only, `ss` single bind, identity `3122219e verified` |
+| §10 knowledge | **INTENTIONAL, documented** | `docs/KNOWLEDGE.md`: owner-ratified option (a) 2026-09-23 — canonical OTHKM store on the VPS, no local duplicate, `openKnowledge()` fail-closed/no-op; health reports it every run; three tests enforce it |
+| §8 security | **PASS** | `cdp.env`/`worker.env`/`mcp-http.env` 0600; Obscura `127.0.0.1:9222` only, unauthenticated 401; token absent from model requests, audit, events and output (E2E leak checks false); URL policy and undeclared-tool refusal asserted by `mythos-browser-mcp-test` (21/0) and `mythos-browser-governed-test`; grep secret scan of every changed file on #516/#517: clean; `~/.config/mythos-browser/env` carries no token-shaped value |
+| §3 `browser.read` | **BLOCKED — permission layer** | writing the grant into `mcp-permissions.json` refused again ("Permission Grant"), on a branch, for a PR. The governed test still asserts the shipped matrix answers `MCP_DENIED`. Owner action: BROWSER.md §5.1 snippet + flip that assertion |
+| §4 skill trust | **BLOCKED — scanner install refused** | scanners are user-space installable per `docs/OTHMODE_SKILL_TRUST.md`: `uv 0.12.19` installed, `skillevaluator` installed (uv tool, Py 3.13); `skillspector` v2.11.0 failed on Py 3.14 (`yara-python` needs `Python.h`) and the retry on uv-managed Py 3.13 was refused ("Untrusted Code Integration"); gitleaks not attempted (policy BLOCKs without SkillSpector anyway). SSH to the VPS scanner host refused ("Production Reads"). Status stays `UNATTESTED`; no attestation was faked |
+| §5 Guardian CI #320 | **BLOCKED — merge refused** | #320 head `7a2a08e3`, MERGEABLE, its own check "Guardian suite, scenarios and observe-only self-test" **SUCCESS**; `gh pr merge 320` refused ("Merge Without Review"). #516 and #517 are also unmerged for the same reason |
+| §6 worker | **PASS** | above; no stale process (single PID, `ExecMainStartTimestamp` 17:49:49Z after the env change) |
+| §11 regression on `3122219e` | **PASS** — 232 suites (229 + the two #512 browser suites + one new), 46 nonzero exits = the recorded baseline (+ the two deliberate targets, + 3 VPS-only HostOps suites) plus ONE new failure: `stc-1-status-center-test` 81/0 → 80/1 — #512 added `projects/mythos-browser-mcp` without claiming it in the fail-closed project registry. Fixed in **PR #517** (`e594487e`): 81/0 again. Only intended diffs otherwise: runtime 37→48, browser-mcp 18/0, browser-governed 11/0 | |
+| §12 E2E A/B/C on main code | **A Obscura: COMPLETED** (332 s, 2 repair rounds — example.com dropped its `<h1>` during the day, Qwen truthfully reported empty text; 20 ALLOW audits, no leak). **B Playwright fallback: COMPLETED** (179 s, 23 ALLOW audits, pages served by Playwright, no leak). **C both backends unavailable: fail-closed at the tool level** — every browser call refused `BROWSER_NO_BACKEND` naming both reasons (`OBSCURA_UNREACHABLE`, `PLAYWRIGHT_UNAVAILABLE`), one execution, 40 s, no retry storm, single settlement; caveat: Qwen still wrote `status: completed` (validator: `mechanically_verified: false`; the Supervisor's `check:tests_pass_for:` acceptance is the production guard against a self-declared success). All three on main code (`3122219e`), isolated store, fixture matrix | |
+| §13 health | **18/18 PASS** | live checkout, 17:47Z and 18:22Z |
+| §14 git | **PASS** | `main`, clean, HEAD = origin/main = `3122219e`; production fixes exist only as pushed PRs (#516, #517), nothing unpushed |
+
+### 9b. Final matrix (order §16), 18:25 UTC
+
+| Component | Status | Evidence |
+|---|---|---|
+| Haddad runtime | PASS | health 18/18 at 18:22Z |
+| Git synchronization | PASS | `main` clean, HEAD = origin/main = `3122219e` |
+| Worker identity | PASS | `3122219e verified`, single loopback bind, started 17:49:49Z |
+| GPU | PASS | `27/29 layers on the GPU`, Vulkan/NVK (CUDA not available, by hardware) |
+| Qwen | PASS | three live E2E runs today on main code |
+| Executor | PASS | 395/0; live |
+| Bridge | PASS | 150/0 + timer 16/0; #513 live claim/report 2 min 11 s |
+| Supervisor | PASS (code) / UNMEASURED (liveness today) | 221/0; last live act 2026-09-26 22:02Z; cannot be triggered from Haddad |
+| OpenAI | PASS (VPS routing) | orchestrator-openai 176/0; no OpenAI credential on Haddad by design |
+| Obscura | PASS | unit active, 401/200, loopback, recovery, E2E A |
+| Playwright fallback | PASS | E2E B completed on main code |
+| **browser.read** | **BLOCKED** | grant refused to the agent ("Permission Grant"); shipped matrix answers `MCP_DENIED` |
+| **Skill trust** | **BLOCKED** | `browser-research` UNATTESTED; SkillSpector install refused ("Untrusted Code Integration"), VPS SSH refused ("Production Reads") |
+| MCP governance | PASS | governed 11/0, ecosystem 168/0; undeclared tools `MCP_TOOL_UNREGISTERED`; audit per invoke |
+| Security | PASS | §9 row |
+| HostOps | documented boundary | VPS-only, #479 root cause + transport fix, needs VPS root |
+| **Guardian CI** | **BLOCKED** | #320 check SUCCESS on its branch; merge refused ("Merge Without Review"); main's workflow stays red |
+| Regression | PASS | §9 row (one regression found and fixed, #517) |
+| E2E | PASS (A, B) / PASS with caveat (C) | §9 row |
+| Health | PASS | 18/18 |
+| Documentation | PASS (this PR) | §9, STATUS.md, handover |
+
+```text
+MYTHOS HADDAD — NOT 100%
+Remaining blockers (all owner actions, all refused to the agent by the permission layer):
+  1. merge #320 (Guardian CI), #516 (#514 content onto main), #517 (loopback bind + registry fix + these docs)
+  2. browser.read grant in projects/mythos-gateway/registry/mcp-permissions.json (BROWSER.md §5.1) + flip the governed test's DENIED assertion
+  3. skill-trust attestation of executor:browser-research (SkillSpector on the VPS, or a Python with headers here), commit config/skill-trust.json
+Then: git pull --ff-only on Haddad, restart the worker at RUNNING=0, file the mythos:haddad browser E2E issue.
+```

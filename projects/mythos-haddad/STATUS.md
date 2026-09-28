@@ -416,3 +416,17 @@ green, nonzero set = recorded baseline + 2 deliberate targets + 3 VPS-only HostO
 **Owner-gated (refused to the agent by the permission layer):** merge #512 → #514 → this PR, then fast-forward + worker
 restart; the `browser.read` grant in `mcp-permissions.json`; the skill-trust scan on the VPS; CI (merge #320, a
 governance-protected workflow path); HostOps #479 (VPS root); removal of the duplicate `haddad` bridge instance.
+
+## 2026-09-28 (evening) — final closeout pass: `NOT 100% — four owner-gated items, everything measurable is PASS`
+
+Owner merged #512 → #514 → #515 (17:39–17:41Z); live checkout, worker and origin/main all at `3122219e`; health **18/18**.
+Found and fixed in this pass: **#514's content never reached main** (it merged into its stacked base one minute after
+#512 had landed) → rebuilt as PR #516; the worker's `listen failed on 172.18.0.1: EADDRNOTAVAIL` is the VPS Docker
+bridge bind (n8n), absent on Haddad → `MYTHOS_EXECUTOR_BIND=127.0.0.1` live + PR #517, restarted at `RUNNING=0`,
+identity `3122219e`. Knowledge fail-closed is the ratified option (a) — architectural boundary, not a gap. Security
+checks (0600 files, loopback-only Obscura, 401, no token in model/audit/events, secret scan) all pass.
+Regression on `3122219e`: **PASS** — 232 suites (229 + the two #512 browser suites + one new), 46 nonzero exits = the recorded baseline (+ the two deliberate targets, + 3 VPS-only HostOps suites) plus ONE new failure: `stc-1-status-center-test` 81/0 → 80/1 — #512 added `projects/mythos-browser-mcp` without claiming it in the fail-closed project registry. Fixed in **PR #517** (`e594487e`): 81/0 again. Only intended diffs otherwise: runtime 37→48, browser-mcp 18/0, browser-governed 11/0. E2E on main code: **A Obscura: COMPLETED** (332 s, 2 repair rounds — example.com dropped its `<h1>` during the day, Qwen truthfully reported empty text; 20 ALLOW audits, no leak). **B Playwright fallback: COMPLETED** (179 s, 23 ALLOW audits, pages served by Playwright, no leak). **C both backends unavailable: fail-closed at the tool level** — every browser call refused `BROWSER_NO_BACKEND` naming both reasons (`OBSCURA_UNREACHABLE`, `PLAYWRIGHT_UNAVAILABLE`), one execution, 40 s, no retry storm, single settlement; caveat: Qwen still wrote `status: completed` (validator: `mechanically_verified: false`; the Supervisor's `check:tests_pass_for:` acceptance is the production guard against a self-declared success). All three on main code (`3122219e`), isolated store, fixture matrix.
+
+**Still owner-gated (refused to the agent again, verbatim reasons in the readiness report §9):** the `browser.read`
+grant ("Permission Grant"); SkillSpector install for the skill-trust scan ("Untrusted Code Integration") and SSH to the
+VPS scanners ("Production Reads"); merging #320, #516, #517 ("Merge Without Review").
