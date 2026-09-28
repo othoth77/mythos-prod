@@ -58,8 +58,15 @@ implementation deliberately does not write for itself):
 ## Runtime on the browser host (Haddad)
 
 See `projects/mythos-haddad/docs/BROWSER.md` for the install, the user unit, the verification list and
-the measured state. In short: `~/.local/opt/obscura-test/obscura serve --port 9222` bound to loopback,
-token in `~/.config/obscura/cdp.env` (0600), never `--allow-private-network`, never `0.0.0.0`.
+the measured state. In short: `~/.local/opt/obscura-test/obscura serve --host 127.0.0.1 --port 9222` as the
+user unit `obscura.service`, token in `~/.config/obscura/cdp.env` (0600, `OBSCURA_CDP_TOKEN` only), never
+`--allow-private-network`, never `0.0.0.0`.
+
+**Fallback configuration (no secret):** the launcher also sources `~/.config/mythos-browser/env` — before the
+token file, and refused (exit 78) if it names any `OBSCURA_*` key — for `MYTHOS_PLAYWRIGHT_MODULE` (the
+playwright-core module to resolve when it is not a project dependency) and `LD_LIBRARY_PATH` (user-space
+copies of Chromium's host libraries on a host without root). Measured on Haddad 2026-09-28: with the
+primary unreachable the same `extract` call answers `backend: playwright` (BROWSER.md §4b).
 
 ## Webinar recording — the honest answer
 

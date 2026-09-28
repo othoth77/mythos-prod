@@ -7,10 +7,24 @@
 # Reads the Obscura CDP token from a 0600 env file into THIS process only,
 # pins the CDP endpoint to loopback, and execs the server. The token is never
 # echoed, never passed as an argument, never written anywhere else.
+#
+# A second, NON-secret env file configures the Playwright FALLBACK on hosts
+# where Playwright is not a project dependency: MYTHOS_PLAYWRIGHT_MODULE (the
+# playwright-core module to resolve) and LD_LIBRARY_PATH (user-space copies of
+# Chromium's host libraries when the system packages are absent). It carries
+# no credential, so it is not mode-checked; it is sourced BEFORE the token
+# file so it can never override OBSCURA_CDP_TOKEN/OBSCURA_CDP_URL.
 # =====================================================
 set -euo pipefail
 ENV_FILE="${OBSCURA_ENV_FILE:-$HOME/.config/obscura/cdp.env}"
+FALLBACK_ENV_FILE="${MYTHOS_BROWSER_ENV_FILE:-$HOME/.config/mythos-browser/env}"
 REPO="${MYTHOS_BROWSER_MCP_REPO:-$HOME/projects/mythos-prod}"
+if [ -f "$FALLBACK_ENV_FILE" ]; then
+  if grep -qE '^(OBSCURA_CDP_TOKEN|OBSCURA_CDP_URL|OBSCURA_ALLOW_PRIVATE_NETWORK)=' "$FALLBACK_ENV_FILE"; then
+    echo "refusing: $FALLBACK_ENV_FILE may not set OBSCURA_* (token/endpoint belong to $ENV_FILE)" >&2; exit 78
+  fi
+  set -a; . "$FALLBACK_ENV_FILE"; set +a
+fi
 if [ -f "$ENV_FILE" ]; then
   mode="$(stat -c %a "$ENV_FILE")"
   if [ "$mode" != "600" ] && [ "$mode" != "400" ]; then echo "refusing: $ENV_FILE mode is $mode, expected 600" >&2; exit 78; fi
