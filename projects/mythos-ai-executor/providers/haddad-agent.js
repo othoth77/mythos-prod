@@ -591,9 +591,76 @@ var TOOL_IMPL = {
   run_command: toolRunCommand
 };
 
+// ---- capability-backed tools (V3.3, owner architecture 2026-09-27) --------
+// The browser tools are NOT workspace tools and do not live in TOOL_IMPL:
+// they exist for a task only when the executor resolved the matching
+// `browser.<tool>` capability onto it (config/skills.json ∩
+// config/mcp-capabilities.json ∩ execution profile), and every call goes
+// through lib/mcp-invoke.js — estate registry, permission matrix, the
+// task's resolved capabilities, credential by reference, audit — before
+// the browser MCP server (projects/mythos-browser-mcp) sees it. The runner
+// never touches CDP, never sees the Obscura token, never gets a scripting
+// surface: the three tools are the whole vocabulary.
+var BROWSER_MCP_SERVER = process.env.MYTHOS_BROWSER_MCP_SERVER || 'browser-mcp';
+var BROWSER_TOOLS = { browser_navigate: 'navigate', browser_extract: 'extract', browser_screenshot: 'screenshot' };
+
+function browserTool(mcpTool) {
+  return function (ctx, args) {
+    var cap = 'browser.' + mcpTool;
+    var caps = ctx.task && Array.isArray(ctx.task.mcp_capabilities) ? ctx.task.mcp_capabilities : [];
+    if (caps.indexOf(cap) === -1) return { error: 'REFUSED: capability ' + cap + ' is not resolved for this task' };
+    if (!ctx.task.task_id) return { error: 'REFUSED: no task id to govern the call' };
+    var mcpInvoke = require('../lib/mcp-invoke');
+    var server = (ctx.mcpOpts && ctx.mcpOpts.server) || BROWSER_MCP_SERVER;
+    return mcpInvoke.invoke(
+      { server: server, tool: mcpTool, arguments: args, task_id: ctx.task.task_id, requested_by: 'haddad-agent' },
+      ctx.mcpOpts || undefined
+    ).then(function (out) {
+      if (!out.ok) return { error: 'REFUSED: ' + out.code + ': ' + String(out.message || '').slice(0, 300), audit_id: out.audit_id };
+      var first = Array.isArray(out.content) ? out.content.filter(function (c) { return c && c.type === 'text'; })[0] : null;
+      var parsed = null;
+      try { parsed = first ? JSON.parse(first.text) : null; } catch (e) { parsed = null; }
+      if (parsed && typeof parsed === 'object') { parsed.audit_id = out.audit_id; return parsed; }
+      return { content: first ? String(first.text).slice(0, MAX_TOOL_OUTPUT_BYTES) : '', audit_id: out.audit_id };
+    }, function (e) {
+      return { error: 'REFUSED: governed invoke failed: ' + String(e && e.message || e).slice(0, 200) };
+    });
+  };
+}
+
+var MCP_TOOL_IMPL = {
+  browser_navigate: browserTool('navigate'),
+  browser_extract: browserTool('extract'),
+  browser_screenshot: browserTool('screenshot')
+};
+
+function browserToolSchemas(caps) {
+  caps = Array.isArray(caps) ? caps : [];
+  var out = [];
+  if (caps.indexOf('browser.navigate') !== -1) {
+    out.push({ type: 'function', function: { name: 'browser_navigate',
+      description: 'Open a PUBLIC http(s) URL in the governed browser and return backend, final_url, title. Read-only: no clicks, typing or scripts.',
+      parameters: { type: 'object', properties: { url: { type: 'string', description: 'absolute http(s) URL' } }, required: ['url'] } } });
+  }
+  if (caps.indexOf('browser.extract') !== -1) {
+    out.push({ type: 'function', function: { name: 'browser_extract',
+      description: 'Open a PUBLIC http(s) URL and return its visible text, or the text of one CSS selector, bounded by max_chars (default 20000).',
+      parameters: { type: 'object', properties: {
+        url: { type: 'string' }, selector: { type: 'string', description: 'optional CSS selector' },
+        mode: { type: 'string', enum: ['text', 'html'] }, max_chars: { type: 'integer' }
+      }, required: ['url'] } } });
+  }
+  if (caps.indexOf('browser.screenshot') !== -1) {
+    out.push({ type: 'function', function: { name: 'browser_screenshot',
+      description: 'Open a PUBLIC http(s) URL and save a viewport screenshot; returns the saved file path, bytes and sha256 (never the image itself).',
+      parameters: { type: 'object', properties: { url: { type: 'string' }, format: { type: 'string', enum: ['png', 'jpeg'] } }, required: ['url'] } } });
+  }
+  return out;
+}
+
 // The schemas handed to the model, built from the grant so a profile that
 // permits no commands never even sees run_command offered.
-function toolSchemas(grant) {
+function toolSchemas(grant, mcpCapabilities) {
   var out = [];
   if (grant.read_file) {
     out.push({ type: 'function', function: { name: 'read_file',
@@ -629,7 +696,10 @@ function toolSchemas(grant) {
         }, required: ['program'] } } });
     }
   }
-  return out;
+  // Offered ONLY for the capabilities the executor resolved onto the task;
+  // the governed invoke re-checks the same list, so the offer and the gate
+  // cannot disagree.
+  return out.concat(browserToolSchemas(mcpCapabilities));
 }
 
 // Built from the grant, so the prompt never describes a capability the run
@@ -647,6 +717,11 @@ function systemPrompt(grant, schemas, role, delivery) {
       + 'Everything outside that workspace is refused, and a refused tool call is final — adapt rather than retrying it.'
   ];
   if (role && typeof role.brief === 'string' && role.brief.trim()) lines.push(role.brief.trim());
+  if (names.some(function (n) { return n.indexOf('browser_') === 0; })) {
+    lines.push('The browser_* tools open PUBLIC http(s) pages through the governed browser (Obscura first, Playwright as fallback); '
+      + 'they are read-only — no clicks, no typing, no scripts, no private addresses — and each result names the backend that served it. '
+      + 'A screenshot is saved as a file and only its path, size and sha256 come back.');
+  }
   // The task's DELIVERY, stated as the fact it is — the same kind of
   // statement as the tool list above, derived from the task rather than
   // asked of the model. Measured live (tester run t-20260922230229): a
@@ -787,7 +862,7 @@ function run(task, prompt, _sessionId, _mode, opts) {
   } catch (e) {
     return Promise.resolve(fail('HADDAD_AGENT_PROFILE_INVALID', String(e.message).slice(0, 200)));
   }
-  var schemas = toolSchemas(grant);
+  var schemas = toolSchemas(grant, task.mcp_capabilities);
   if (!schemas.length) {
     return Promise.resolve(fail('HADDAD_AGENT_NO_TOOLS',
       'the ' + grant.profile + ' profile grants no tool this runner implements'));
@@ -800,7 +875,9 @@ function run(task, prompt, _sessionId, _mode, opts) {
   if (!model) return Promise.resolve(fail('HADDAD_AGENT_UNCONFIGURED', 'no model configured'));
 
   var deadline = started + (Number(task.timeout_seconds) || DEFAULT_TASK_TIMEOUT_S) * 1000;
-  var ctx = { workspace: workspace, grant: grant, scope: work.declaredScope(task.constraints || []), projectScope: Array.isArray(task.project_write_scope) ? task.project_write_scope : [] };
+  var ctx = { workspace: workspace, grant: grant, scope: work.declaredScope(task.constraints || []), projectScope: Array.isArray(task.project_write_scope) ? task.project_write_scope : [],
+    task: { task_id: task.task_id || null, mcp_capabilities: Array.isArray(task.mcp_capabilities) ? task.mcp_capabilities.slice() : [] },
+    mcpOpts: opts.mcp || null };
   var messages = [
     { role: 'system', content: systemPrompt(grant, schemas, roles.getRole(task.role), task.expected_delivery) },
     { role: 'user', content: String(prompt) }
@@ -1457,8 +1534,10 @@ function run(task, prompt, _sessionId, _mode, opts) {
       }
 
       messages.push({ role: 'assistant', content: msg.content || null, tool_calls: calls });
-      for (var i = 0; i < calls.length; i++) {
-        var c = calls[i];
+      var callIndex = 0;
+      function nextCall() {
+        if (callIndex >= calls.length) return step(iteration + 1);
+        var c = calls[callIndex++];
         toolCallCount++;
         roundToolCalls++;
         var name = c.function && c.function.name;
@@ -1472,7 +1551,7 @@ function run(task, prompt, _sessionId, _mode, opts) {
         } else {
           var parsedArgs = {};
           try { parsedArgs = JSON.parse((c.function && c.function.arguments) || '{}'); } catch (e) { parsedArgs = null; }
-          var impl = TOOL_IMPL[name];
+          var impl = TOOL_IMPL[name] || MCP_TOOL_IMPL[name];
           // Fail closed on anything unrecognised: an unknown tool, a tool the
           // grant did not offer, or arguments that are not an object.
           if (!impl) result = { error: 'REFUSED: unknown tool "' + String(name).slice(0, 40) + '"' };
@@ -1480,9 +1559,15 @@ function run(task, prompt, _sessionId, _mode, opts) {
           else if (!parsedArgs || typeof parsedArgs !== 'object') result = { error: 'REFUSED: arguments are not a JSON object' };
           else result = impl(ctx, parsedArgs);
         }
+        // A workspace tool answers synchronously; a capability-backed tool
+        // answers through the governed invoke, asynchronously. Both settle
+        // here, one call at a time, in the order the model issued them.
+        return Promise.resolve(result).catch(function (e) {
+          return { error: 'REFUSED: tool failed: ' + String(e && e.message || e).slice(0, 200) };
+        }).then(function (result) {
         trace.push({ tool: name, refused: !!result.error, detail: result.error || null,
           target: parsedArgs && typeof parsedArgs === 'object'
-            ? String(parsedArgs.path || (parsedArgs.program ? [parsedArgs.program].concat(parsedArgs.args || []).join(' ') : '')).slice(0, 80)
+            ? String(parsedArgs.path || parsedArgs.url || (parsedArgs.program ? [parsedArgs.program].concat(parsedArgs.args || []).join(' ') : '')).slice(0, 80)
             : null });
         var payload = JSON.stringify(result);
         if (payload.length > MAX_TOOL_PAYLOAD_CHARS && typeof result.content === 'string') {
@@ -1511,8 +1596,10 @@ function run(task, prompt, _sessionId, _mode, opts) {
           lastPayloadByCall[fingerprint] = payload;
         }
         messages.push({ role: 'tool', tool_call_id: c.id, content: payload });
+        return nextCall();
+        });
       }
-      return step(iteration + 1);
+      return nextCall();
     });
     }
   }
@@ -1527,6 +1614,10 @@ function run(task, prompt, _sessionId, _mode, opts) {
 
 module.exports = {
   PROVIDER_ID: PROVIDER_ID,
+  MCP_TOOL_IMPL: MCP_TOOL_IMPL,
+  BROWSER_TOOLS: BROWSER_TOOLS,
+  BROWSER_MCP_SERVER: BROWSER_MCP_SERVER,
+  browserToolSchemas: browserToolSchemas,
   version: version,
   available: available,
   probe: probe,

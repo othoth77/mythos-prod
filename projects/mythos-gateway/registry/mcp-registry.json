@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
-  "note": "MYTHOS estate MCP registry — METADATA ONLY. Names every MCP server MYTHOS runs or consumes: purpose, direction, transport, authentication requirement, declared tools, enabled state, consumers. No value may appear here — a credential is named by its Vault reference (cred_…, see projects/mythos-vault/credential-inventory.json) and lib/mcp-registry.js refuses the file if a key that names a secret holds anything else, or if any secret-shaped string appears anywhere. Registration is a CLAIM: bin/mcp-registry-check measures availability and writes the snapshot OTHMODE reads. The runtime registries stay authoritative for their own direction — ContextForge for what the gateway serves, projects/mythos-ai-executor/config/mcp-capabilities.json for what a skill may name outbound. This file indexes both; it replaces neither.",
+  "note": "MYTHOS estate MCP registry \u2014 METADATA ONLY. Names every MCP server MYTHOS runs or consumes: purpose, direction, transport, authentication requirement, declared tools, enabled state, consumers. No value may appear here \u2014 a credential is named by its Vault reference (cred_\u2026, see projects/mythos-vault/credential-inventory.json) and lib/mcp-registry.js refuses the file if a key that names a secret holds anything else, or if any secret-shaped string appears anywhere. Registration is a CLAIM: bin/mcp-registry-check measures availability and writes the snapshot OTHMODE reads. The runtime registries stay authoritative for their own direction \u2014 ContextForge for what the gateway serves, projects/mythos-ai-executor/config/mcp-capabilities.json for what a skill may name outbound. This file indexes both; it replaces neither.",
   "servers": {
     "oth-mcp": {
       "purpose": "Controlled READ interface over existing MYTHOS capabilities: knowledge, project portfolio, capability registry, execution truth, budget position, estate health. Stores nothing; every tool resolves to the system that owns the data.",
-      "owner": "MYTHOS — projects/oth-mcp",
+      "owner": "MYTHOS \u2014 projects/oth-mcp",
       "direction": "inbound",
       "transport": {
         "kind": "stdio",
@@ -17,7 +17,7 @@
         "required": false,
         "scheme": "host-access",
         "credential": null,
-        "note": "reached over SSH as deploy or spawned by the bridge; the process holds no credential of its own — each upstream is reached with that upstream's own bearer"
+        "note": "reached over SSH as deploy or spawned by the bridge; the process holds no credential of its own \u2014 each upstream is reached with that upstream's own bearer"
       },
       "credentials": [
         "cred_othk_http_token",
@@ -43,7 +43,7 @@
     },
     "mythos-mcp-http": {
       "purpose": "Streamable HTTP transport in front of oth-mcp so ContextForge can federate it. Declares no tool of its own; every answer is produced by oth-mcp and relayed unmodified.",
-      "owner": "MYTHOS — projects/mythos-gateway",
+      "owner": "MYTHOS \u2014 projects/mythos-gateway",
       "direction": "inbound",
       "transport": {
         "kind": "streamable-http",
@@ -62,7 +62,7 @@
       },
       "credentials": [],
       "tools": [],
-      "tools_note": "relayed — the declared set is oth-mcp's",
+      "tools_note": "relayed \u2014 the declared set is oth-mcp's",
       "relays": "oth-mcp",
       "write_capable": false,
       "enabled": true,
@@ -73,8 +73,8 @@
       "gateway_name": "mythos-mcp"
     },
     "contextforge": {
-      "purpose": "MYTHOS MCP Gateway — one HTTPS door for remote clients: federation of the servers above, per-client authentication, runtime registry, metrics.",
-      "owner": "MYTHOS — projects/mythos-gateway (IBM ContextForge, image pinned by digest)",
+      "purpose": "MYTHOS MCP Gateway \u2014 one HTTPS door for remote clients: federation of the servers above, per-client authentication, runtime registry, metrics.",
+      "owner": "MYTHOS \u2014 projects/mythos-gateway (IBM ContextForge, image pinned by digest)",
       "direction": "gateway",
       "transport": {
         "kind": "gateway-http",
@@ -90,7 +90,7 @@
         "required": true,
         "scheme": "jwt",
         "credential": "cred_contextforge_executor_client",
-        "note": "AUTH_REQUIRED=true on every path. Three CLIENT credentials exist, each a dedicated non-admin identity with the tools-only role (tools.read+tools.execute): the executor (cred_contextforge_executor_client, resolved by env var NAME in the daemon environment), ChatGPT (cred_contextforge_chatgpt_client) and Claude (cred_contextforge_claude_client) — issued 2026-09-02 (MCP-ECOSYSTEM-3/5) with bin/cf-issue-client-token.sh; values live only in their 0600 files."
+        "note": "AUTH_REQUIRED=true on every path. Three CLIENT credentials exist, each a dedicated non-admin identity with the tools-only role (tools.read+tools.execute): the executor (cred_contextforge_executor_client, resolved by env var NAME in the daemon environment), ChatGPT (cred_contextforge_chatgpt_client) and Claude (cred_contextforge_claude_client) \u2014 issued 2026-09-02 (MCP-ECOSYSTEM-3/5) with bin/cf-issue-client-token.sh; values live only in their 0600 files."
       },
       "credentials": [
         "cred_contextforge_jwt_secret",
@@ -101,7 +101,7 @@
         "mythos-mcp-http"
       ],
       "tools": [],
-      "tools_note": "federated — discovered from peers at check time",
+      "tools_note": "federated \u2014 discovered from peers at check time",
       "write_capable": false,
       "enabled": true,
       "public": true,
@@ -111,12 +111,12 @@
         "Claude (cred_contextforge_claude_client, public path)"
       ],
       "outbound_capability_server": null,
-      "note": "public: true since 2026-09-02 ~06:36 UTC — nginx was restarted (not by the MCP-ECOSYSTEM-1 session) and applied the /gateway/ block already present in the vhost. Measured after: /gateway/health 200; /gateway/mcp, /docs, /version, /tools 401 without a credential; /gateway/admin 404. Zero client tokens exist, so nothing can be invoked from the internet until the owner issues one.",
+      "note": "public: true since 2026-09-02 ~06:36 UTC \u2014 nginx was restarted (not by the MCP-ECOSYSTEM-1 session) and applied the /gateway/ block already present in the vhost. Measured after: /gateway/health 200; /gateway/mcp, /docs, /version, /tools 401 without a credential; /gateway/admin 404. Zero client tokens exist, so nothing can be invoked from the internet until the owner issues one.",
       "admin_credential": "cred_contextforge_platform_admin"
     },
     "github-mcp-rw": {
       "purpose": "The official GitHub MCP server, write-capable, reachable only from the gateway network. Carries no credential of its own: the caller's bearer is forwarded per request.",
-      "owner": "GitHub (ghcr.io/github/github-mcp-server) — deployed by projects/mythos-gateway",
+      "owner": "GitHub (ghcr.io/github/github-mcp-server) \u2014 deployed by projects/mythos-gateway",
       "direction": "outbound",
       "transport": {
         "kind": "streamable-http",
@@ -200,7 +200,7 @@
         "update_pull_request",
         "update_pull_request_branch"
       ],
-      "tools_note": "the 57 tools github-mcp-server v1.10.1 exposes with toolsets default,actions,git,code_security,labels,discussions and --exclude-tools delete_file (MCP-ECOSYSTEM-4) — measured on 2026-09-02 and declared so drift is reported; classified by registry/mcp-permissions.json (delete_* stays destructive/DENY by hard floor even if a future image exposes one again)",
+      "tools_note": "the 57 tools github-mcp-server v1.10.1 exposes with toolsets default,actions,git,code_security,labels,discussions and --exclude-tools delete_file (MCP-ECOSYSTEM-4) \u2014 measured on 2026-09-02 and declared so drift is reported; classified by registry/mcp-permissions.json (delete_* stays destructive/DENY by hard floor even if a future image exposes one again)",
       "write_capable": true,
       "enabled": true,
       "enabled_note": "ENABLED by the owner on 2026-09-02 (MCP-ECOSYSTEM-2b) after cred_github_gateway became active in the Vault inventory. Disabling it again is one flag here; the credential is revoked at GitHub, never by editing this file.",
@@ -209,7 +209,7 @@
     },
     "github-mcp-readonly": {
       "purpose": "A second, read-only instance of the official GitHub MCP server on loopback, hand-started on 2026-08-24 outside any compose project.",
-      "owner": "unknown — no source in the repository",
+      "owner": "unknown \u2014 no source in the repository",
       "direction": "outbound",
       "transport": {
         "kind": "streamable-http",
@@ -228,13 +228,13 @@
       "tools": [],
       "write_capable": false,
       "enabled": false,
-      "enabled_note": "ORPHAN CANDIDATE — no consumer found in the repository, in any agent configuration, or in any deployment file. Retirement is an owner decision; it is registered so it stops being invisible.",
+      "enabled_note": "ORPHAN CANDIDATE \u2014 no consumer found in the repository, in any agent configuration, or in any deployment file. Retirement is an owner decision; it is registered so it stops being invisible.",
       "consumers": [],
       "outbound_capability_server": null
     },
     "context7": {
       "purpose": "Context7 documentation MCP (mcp/context7 image) on loopback, hand-started on 2026-08-24 outside any compose project.",
-      "owner": "unknown — no source in the repository",
+      "owner": "unknown \u2014 no source in the repository",
       "direction": "outbound",
       "transport": {
         "kind": "streamable-http",
@@ -255,10 +255,41 @@
       ],
       "write_capable": false,
       "enabled": false,
-      "enabled_note": "ORPHAN CANDIDATE — same finding as github-mcp-readonly.",
+      "enabled_note": "ORPHAN CANDIDATE \u2014 same finding as github-mcp-readonly.",
       "consumers": [],
       "outbound_capability_server": null,
       "tools_note": "discovered live 2026-09-01 and declared so the check can tell drift from the known set"
+    },
+    "browser-mcp": {
+      "purpose": "Governed browser capabilities (navigate, extract, screenshot) over the BrowserAdapter \u2014 Obscura CDP on 127.0.0.1:9222 PRIMARY, Playwright FALLBACK. Owner architecture 2026-09-27. Read-only page access, no scripting surface; the URL policy refuses private, loopback and link-local targets before any engine sees them.",
+      "owner": "MYTHOS \u2014 projects/mythos-browser-mcp",
+      "direction": "outbound",
+      "transport": {
+        "kind": "stdio",
+        "launcher": "/home/othman/.local/bin/mythos-browser-mcp.sh"
+      },
+      "source": "projects/mythos-browser-mcp/server.js",
+      "version": "1.0.0",
+      "protocol_version": "2024-11-05",
+      "auth": {
+        "required": false,
+        "scheme": "host-access",
+        "credential": null,
+        "note": "spawned by the executor on the browser host (Haddad); the start script loads OBSCURA_CDP_TOKEN from a 0600 env file under ~/.config/obscura into the server process only \u2014 the executor, the task and the audit log never hold it"
+      },
+      "credentials": [],
+      "tools": [
+        "navigate",
+        "extract",
+        "screenshot"
+      ],
+      "write_capable": false,
+      "enabled": true,
+      "enabled_note": "enabled 2026-09-27 with the owner's Obscura architecture order; the browser host is Haddad (the start script path is Haddad's); the VPS has no Obscura and answers BROWSER_NO_BACKEND. Tool classification in mcp-permissions.json is an owner step: until it exists the tools are unclassified and the governed invoke answers MCP_DENIED.",
+      "consumers": [
+        "mythos-ai-executor (governed invoke, haddad-agent provider)"
+      ],
+      "outbound_capability_server": "browser"
     }
   }
 }

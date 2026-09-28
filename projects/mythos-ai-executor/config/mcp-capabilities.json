@@ -18,6 +18,26 @@
         "repo-read",
         "repo-write"
       ]
+    },
+    "browser": {
+      "enabled": true,
+      "description": "Governed browser through projects/mythos-browser-mcp (BrowserAdapter: Obscura CDP on 127.0.0.1:9222 PRIMARY, Playwright FALLBACK). Owner architecture 2026-09-27, superseding the V3.1 'browser NOT NEEDED' entry. Read-only page access: no clicks, no typing, no scripting, no private addresses. The Obscura token is read by the MCP server process from a 0600 env file on the browser host and never reaches a task.",
+      "tools": {
+        "navigate": {
+          "description": "Open a public http(s) URL; returns backend, final_url, title, load state."
+        },
+        "extract": {
+          "description": "Open a public http(s) URL and return its visible text or one CSS selector's text, bounded."
+        },
+        "screenshot": {
+          "description": "Open a public http(s) URL and save a viewport screenshot to the browser artifacts directory; returns path, bytes, sha256."
+        }
+      },
+      "required_execution_profiles": [
+        "repo-read",
+        "repo-write",
+        "repo-test"
+      ]
     }
   }
 }
