@@ -1,6 +1,6 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-28T13:27:59.310Z",
+  "generated_at": "2026-09-28T13:28:06.683Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
@@ -2885,7 +2885,7 @@
         "kind": "github-issue",
         "issue_number": 513,
         "issue_url": "https://github.com/othoth77/mythos-prod/issues/513",
-        "issue_state": null
+        "issue_state": "COMPLETED"
       }
     },
     {
@@ -3004,9 +3004,7 @@
       }
     }
   ],
-  "notes": [
-    "runtime identity: RUNTIME_STALE_CHECKOUT — claims continue (recorded on each claim/report): checkout HEAD edfe84ef6237 is behind origin/main 7e9181417796 — the running bridge is older than what is delivered"
-  ],
+  "notes": [],
   "how_to": {
     "create_task": "Add control/tasks/<task_id>.json (schema: control/schemas/task.schema.json) with status PENDING on branch mythos/control.",
     "read_report": "control/reports/<task_id>.json (and .md) appears when the task reaches COMPLETED, BLOCKED, FAILED or CANCELLED.",
