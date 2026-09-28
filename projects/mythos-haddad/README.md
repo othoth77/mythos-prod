@@ -1,6 +1,6 @@
 # Mythos Haddad — on-premises AI server
 
-> **V3.1 (2026-09-24 →): ecosystem integration — definition, capability map and completion checklist in [docs/V3_1.md](docs/V3_1.md). Navigation: [MASTER_STATUS_AND_ROADMAP.md](MASTER_STATUS_AND_ROADMAP.md).**
+> **2026-09-28 production readiness pass: [docs/PRODUCTION_READINESS_2026-09-28.md](docs/PRODUCTION_READINESS_2026-09-28.md) — measured state, gap matrix, final gate (`NOT 100%`, owner-gated only) and the runbook to 100 %. Browser chain: [docs/BROWSER.md](docs/BROWSER.md). V3.1/V3.2: [docs/V3_1.md](docs/V3_1.md), [docs/V3_2.md](docs/V3_2.md). Navigation: [MASTER_STATUS_AND_ROADMAP.md](MASTER_STATUS_AND_ROADMAP.md).**
 
 
 > **Master entry point:** [MASTER_STATUS_AND_ROADMAP.md](MASTER_STATUS_AND_ROADMAP.md) — current status, architecture, V1/V2 roadmap, Jev design, model pools, priorities and deferred items. **Read this first when starting work.**

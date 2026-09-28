@@ -681,5 +681,151 @@ t('claude_code resolves the way the UNITS do, not the way the caller was launche
     'genuinely absent is still FAIL, and says both places were checked');
 });
 
+// ── browser: Obscura runtime + Playwright fallback (2026-09-28) ─────
+// Drives the REAL check against a real bearer-gated HTTP endpoint (a child
+// process standing in for Obscura's /json/version), with systemctl, ss and
+// ldd stubbed on PATH. Every verdict below is a measurement the check makes,
+// and each negative case is the exact way the live chain could lie.
+var BEARER_SERVER = [
+  "var http=require('http'),fs=require('fs');var tok=process.argv[1],mode=process.argv[2],portFile=process.argv[3];",
+  "var s=http.createServer(function(q,r){var ok=(q.headers.authorization||'')==='Bearer '+tok;",
+  "if(mode==='open'){ok=true;}",
+  "if(!ok){r.writeHead(401);return r.end('{}');}r.writeHead(200,{'content-type':'application/json'});",
+  "r.end(JSON.stringify({Browser:'Chrome/145.0.0.0','Protocol-Version':'1.3'}));});",
+  "s.listen(0,'127.0.0.1',function(){fs.writeFileSync(portFile,String(s.address().port));});"
+].join('');
+function sleepMs(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
+function runBrowser(opts) {
+  opts = opts || {};
+  var tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'haddad-browser-'));
+  var stub = path.join(tmp, 'stub');
+  fs.mkdirSync(stub, { recursive: true });
+  var TOKEN = 'b'.repeat(48);
+  var child = null, port = null;
+  if (opts.server !== false) {
+    var portFile = path.join(tmp, 'port');
+    child = cp.spawn(process.execPath, ['-e', BEARER_SERVER, TOKEN, opts.server || 'bearer', portFile], { stdio: 'ignore' });
+    for (var i = 0; i < 100 && !fs.existsSync(portFile); i++) sleepMs(50);
+    port = fs.readFileSync(portFile, 'utf8').trim();
+  }
+  if (opts.installed !== false) {
+    fs.mkdirSync(path.join(tmp, '.config', 'systemd', 'user'), { recursive: true });
+    fs.mkdirSync(path.join(tmp, '.config', 'obscura'), { recursive: true });
+    fs.mkdirSync(path.join(tmp, '.local', 'bin'), { recursive: true });
+    if (opts.unit !== false) fs.writeFileSync(path.join(tmp, '.config', 'systemd', 'user', 'obscura.service'), '# stub\n');
+    if (opts.launcher !== false) fs.writeFileSync(path.join(tmp, '.local', 'bin', 'mythos-browser-mcp.sh'), '#!/bin/sh\n', { mode: 0o755 });
+    var envText = 'OBSCURA_CDP_TOKEN=' + (opts.token || TOKEN) + '\n' + (port ? 'OBSCURA_CDP_URL=' + (opts.cdp_url || ('http://127.0.0.1:' + port)) + '\n' : '') + (opts.extra_env || '');
+    fs.writeFileSync(path.join(tmp, '.config', 'obscura', 'cdp.env'), envText, { mode: opts.mode === undefined ? 0o600 : opts.mode });
+  }
+  if (opts.fallback) {
+    // A fake playwright-core: package.json + index.js whose chromium.executablePath() is a file that exists.
+    var mod = path.join(tmp, 'pw', 'node_modules', 'playwright-core');
+    fs.mkdirSync(mod, { recursive: true });
+    fs.writeFileSync(path.join(mod, 'package.json'), JSON.stringify({ name: 'playwright-core', version: '9.9.9', main: 'index.js' }));
+    var exe = path.join(tmp, 'pw', 'chrome'); fs.writeFileSync(exe, '#!/bin/sh\n', { mode: 0o755 });
+    fs.writeFileSync(path.join(mod, 'index.js'), 'module.exports={chromium:{executablePath:function(){return ' + JSON.stringify(exe) + ';}}};');
+    fs.mkdirSync(path.join(tmp, '.config', 'mythos-browser'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, '.config', 'mythos-browser', 'env'), 'MYTHOS_PLAYWRIGHT_MODULE=' + mod + '\nLD_LIBRARY_PATH=' + path.join(tmp, 'pw', 'lib') + '\n');
+    fs.writeFileSync(path.join(stub, 'ldd'), '#!/bin/sh\n' + (opts.fallback === 'missing' ? 'echo "\tlibatk-1.0.so.0 => not found"; echo "\tlibasound.so.2 => not found"\n' : 'echo "\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x0)"\n') + 'exit 0\n', { mode: 0o755 });
+  }
+  fs.writeFileSync(path.join(stub, 'systemctl'), '#!/bin/sh\ncase " $* " in *" is-active "*) echo "' + (opts.active || 'active') + '" ;; *) echo "" ;; esac\nexit 0\n', { mode: 0o755 });
+  var bind = opts.bind || '127.0.0.1';
+  fs.writeFileSync(path.join(stub, 'ss'), '#!/bin/sh\n' + (opts.listener === false ? '' : 'echo "LISTEN 0 128 ' + bind + ':' + port + ' 0.0.0.0:*"\n') + 'exit 0\n', { mode: 0o755 });
+  var r = cp.spawnSync(process.execPath, [path.join(BIN, 'haddad-health.js'), '--quick', '--json', '--no-log'],
+    { encoding: 'utf8', timeout: 120000,
+      env: Object.assign({}, process.env, { HOME: tmp, PATH: stub + ':' + process.env.PATH, HADDAD_HEALTH_ONLY: 'browser',
+        HADDAD_STATE_DIR: path.join(tmp, 'state'), HADDAD_DATA_DIR: path.join(tmp, 'data') }) });
+  if (child) child.kill();
+  var rep = JSON.parse(r.stdout);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  assert.strictEqual(rep.checks.length, 1, 'HADDAD_HEALTH_ONLY=browser reports exactly that check');
+  var c = rep.checks[0];
+  assert.strictEqual(String(r.stdout).indexOf(TOKEN), -1, 'the token never appears in the report');
+  return c;
+}
+t('browser: not installed at all is a WARN (optional), never a FAIL', function () {
+  var c = runBrowser({ installed: false, server: false });
+  assert.strictEqual(c.status, 'WARN'); assert.ok(/not installed/.test(c.detail), c.detail);
+});
+t('browser: unit active, loopback listener, 401 unauthenticated, bearer accepted, fallback launchable → PASS', function () {
+  var c = runBrowser({ fallback: true });
+  assert.strictEqual(c.status, 'PASS', c.detail);
+  assert.ok(/Chrome\/145\.0\.0\.0/.test(c.detail) && /unauthenticated 401/.test(c.detail) && /bearer accepted/.test(c.detail), c.detail);
+  assert.strictEqual(c.data.fallback.status, 'AVAILABLE'); assert.strictEqual(c.data.fallback.version, '9.9.9');
+  assert.strictEqual(c.data.unauthenticated, 401);
+});
+t('browser: a CDP endpoint that answers WITHOUT a bearer is a FAIL — an open browser is not a verified one', function () {
+  var c = runBrowser({ server: 'open', fallback: true });
+  assert.strictEqual(c.status, 'FAIL'); assert.ok(/UNAUTHENTICATED/.test(c.detail) && /bearer not enforced/.test(c.detail), c.detail);
+});
+t('browser: a token file that no longer matches the running unit is a FAIL naming the rotation', function () {
+  var c = runBrowser({ token: 'c'.repeat(48), fallback: true });
+  assert.strictEqual(c.status, 'FAIL'); assert.ok(/AUTHENTICATED/.test(c.detail) && /does not match the running unit/.test(c.detail), c.detail);
+});
+t('browser: unit not active is a FAIL; listener missing is a FAIL; a non-loopback bind is a FAIL', function () {
+  var a = runBrowser({ active: 'inactive' }); assert.strictEqual(a.status, 'FAIL'); assert.ok(/obscura\.service is inactive/.test(a.detail), a.detail);
+  var b = runBrowser({ listener: false }); assert.strictEqual(b.status, 'FAIL'); assert.ok(/nothing listens/.test(b.detail), b.detail);
+  var d = runBrowser({ bind: '0.0.0.0' }); assert.strictEqual(d.status, 'FAIL'); assert.ok(/outside loopback/.test(d.detail), d.detail);
+});
+t('browser: the token file must be 0600 and carry only the token (+ a loopback OBSCURA_CDP_URL)', function () {
+  var a = runBrowser({ mode: 0o644 }); assert.strictEqual(a.status, 'FAIL'); assert.ok(/mode is 644/.test(a.detail), a.detail);
+  var b = runBrowser({ extra_env: 'OBSCURA_ALLOW_PRIVATE_NETWORK=1\n' }); assert.strictEqual(b.status, 'FAIL'); assert.ok(/unexpected: OBSCURA_ALLOW_PRIVATE_NETWORK/.test(b.detail), b.detail);
+  var d = runBrowser({ cdp_url: 'http://10.0.0.5:9222' }); assert.strictEqual(d.status, 'FAIL'); assert.ok(/must be loopback/.test(d.detail), d.detail);
+});
+t('browser: a fallback whose Chromium lacks host libraries is a WARN naming them; no fallback config is a WARN', function () {
+  var a = runBrowser({ fallback: 'missing' });
+  assert.strictEqual(a.status, 'WARN'); assert.ok(/fallback BLOCKED/.test(a.detail) && /libatk-1\.0\.so\.0, libasound\.so\.2/.test(a.detail), a.detail);
+  assert.strictEqual(a.data.fallback.status, 'BLOCKED');
+  var b = runBrowser({});
+  assert.strictEqual(b.status, 'WARN'); assert.ok(/no .*mythos-browser\/env/.test(b.detail), b.detail);
+});
+t('browser: primary healthy but launcher not installed is a WARN (the chain is not reachable by the executor)', function () {
+  var c = runBrowser({ fallback: true, launcher: false });
+  assert.strictEqual(c.status, 'WARN'); assert.ok(/launcher NOT installed/.test(c.detail), c.detail);
+});
+
+// ── git: the checkout the timers run is measured, not assumed ─────
+// A copy of bin/ inside a throwaway repository with its own origin, so the
+// branch/dirty/behind facts can be driven without touching this checkout.
+function runGit(setup) {
+  var tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'haddad-git-'));
+  var origin = path.join(tmp, 'origin.git'), work = path.join(tmp, 'work');
+  function g(dir, args) { var r = cp.spawnSync('git', ['-C', dir].concat(args), { encoding: 'utf8' }); assert.strictEqual(r.status, 0, 'git ' + args.join(' ') + ': ' + r.stderr); return r.stdout.trim(); }
+  cp.spawnSync('git', ['init', '-q', '--bare', '-b', 'main', origin]);
+  cp.spawnSync('git', ['init', '-q', '-b', 'main', work]);
+  g(work, ['config', 'user.email', 't@t']); g(work, ['config', 'user.name', 't']);
+  fs.mkdirSync(path.join(work, 'projects', 'mythos-haddad'), { recursive: true });
+  cp.spawnSync('cp', ['-r', BIN, path.join(work, 'projects', 'mythos-haddad', 'bin')]);
+  cp.spawnSync('cp', ['-r', path.join(DIR, 'lib'), path.join(work, 'projects', 'mythos-haddad', 'lib')]);
+  g(work, ['add', '-A']); g(work, ['commit', '-q', '-m', 'base']);
+  g(work, ['remote', 'add', 'origin', origin]); g(work, ['push', '-q', 'origin', 'main']);
+  setup(work, g);
+  var r = cp.spawnSync(process.execPath, [path.join(work, 'projects', 'mythos-haddad', 'bin', 'haddad-health.js'), '--json', '--no-log'],
+    { encoding: 'utf8', timeout: 120000, env: Object.assign({}, process.env, { HOME: tmp, HADDAD_HEALTH_ONLY: 'git', HADDAD_STATE_DIR: path.join(tmp, 'state'), HADDAD_DATA_DIR: path.join(tmp, 'data') }) });
+  var rep = JSON.parse(r.stdout);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  assert.strictEqual(rep.checks.length, 1);
+  return rep.checks[0];
+}
+t('git: a clean checkout at origin/main is PASS and says so', function () {
+  var c = runGit(function () {});
+  assert.strictEqual(c.status, 'PASS', c.detail); assert.ok(/on main, clean, at origin\/main/.test(c.detail), c.detail);
+  assert.strictEqual(c.data.behind_origin_main, 0); assert.strictEqual(c.data.dirty_paths, 0);
+});
+t('git: a feature branch with uncommitted edits is a WARN naming both (the 2026-09-27 live-checkout drift)', function () {
+  var c = runGit(function (work, g) { g(work, ['checkout', '-q', '-b', 'mythos-haddad/obscura-browser-runtime']); fs.writeFileSync(path.join(work, 'x.md'), 'x'); });
+  assert.strictEqual(c.status, 'WARN', c.detail);
+  assert.ok(/on branch mythos-haddad\/obscura-browser-runtime \(expected main\)/.test(c.detail) && /1 uncommitted path/.test(c.detail), c.detail);
+});
+t('git: behind origin/main is a WARN with the count; an unmerged local line is a WARN saying DIVERGED', function () {
+  var behind = runGit(function (work, g) {
+    fs.writeFileSync(path.join(work, 'y.md'), 'y'); g(work, ['add', '-A']); g(work, ['commit', '-q', '-m', 'ahead']); g(work, ['push', '-q', 'origin', 'main']); g(work, ['reset', '-q', '--hard', 'HEAD~1']);
+  });
+  assert.strictEqual(behind.status, 'WARN', behind.detail); assert.ok(/1 commit\(s\) behind origin\/main/.test(behind.detail), behind.detail);
+  var div = runGit(function (work, g) { fs.writeFileSync(path.join(work, 'z.md'), 'z'); g(work, ['add', '-A']); g(work, ['commit', '-q', '-m', 'local only']); });
+  assert.strictEqual(div.status, 'WARN', div.detail); assert.ok(/not an ancestor of origin\/main/.test(div.detail), div.detail);
+  assert.strictEqual(div.data.behind_origin_main, 'DIVERGED');
+});
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
