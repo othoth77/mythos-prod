@@ -392,3 +392,27 @@ pending:** owner decision (a) of 2026-09-23 keeps one canonical store on the VPS
 duplicate here, so the knowledge tools stay fail-closed on this node by design. The state is
 reported every health run rather than inferred from an empty answer. Owner decision, deferred: registering Haddad in the VPS estate MCP registry (needs a VPS→Haddad SSH
 credential). Still pending from V0: add the Windows client's SSH key and set `PasswordAuthentication no`.
+
+## 2026-09-28 — production readiness pass (FABLE 5.1 Master Order): `STATUS = NOT 100%`, all remaining items owner-gated
+
+Full evidence, gap matrix and the owner runbook: [docs/PRODUCTION_READINESS_2026-09-28.md](docs/PRODUCTION_READINESS_2026-09-28.md).
+
+**Fixed on the host (measured):** live checkout returned from an unpushed feature branch to a clean `main` @ `7e918141`;
+worker restarted at an idle queue → `code_identity 7e918141 verified` (it had run `abb4cebf`, three merges behind and
+without the report-summary normalization the new Supervisor checks for); Obscura moved from a hand-started 17 h old
+process to the user unit `obscura.service` (401/200, loopback only, `restart` and `kill -9` recovery in 9 s, smoke 4/4);
+Playwright fallback made to WORK without root (nine Ubuntu packages unpacked into `~/.local/lib/mythos-playwright-deps`,
+`ldd` 0 missing, real pages through the launcher); launcher installed with a non-secret fallback env file.
+
+**Added in code (branch `mythos-haddad/v100-closeout`, this PR):** health check `browser` (18th) and `git` drift facts
+(branch / dirty / behind / diverged → WARN), `HADDAD_HEALTH_ONLY`; runtime suite 37 → 48, three mutations bite. Browser
+side on PR #514 (stacked on #512): launcher fallback file + 3 tests (21/0), BROWSER.md rewritten from measurements.
+
+**E2E:** issue #513 through the live VPS pipeline COMPLETED in 2 min 11 s; the browser chain with real Qwen + real
+Obscura COMPLETED in 35.7 s (isolated store, fixture matrix, 9 ALLOW audits, no token leak); the fallback path served
+32 governed pages but Qwen looped and never settled a report (known limit). Regression: 229 suites, every Haddad suite
+green, nonzero set = recorded baseline + 2 deliberate targets + 3 VPS-only HostOps suites.
+
+**Owner-gated (refused to the agent by the permission layer):** merge #512 → #514 → this PR, then fast-forward + worker
+restart; the `browser.read` grant in `mcp-permissions.json`; the skill-trust scan on the VPS; CI (merge #320, a
+governance-protected workflow path); HostOps #479 (VPS root); removal of the duplicate `haddad` bridge instance.
