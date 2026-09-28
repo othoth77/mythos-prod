@@ -197,6 +197,47 @@ t('redaction: an error message carrying the token or a token-shaped string is sc
   try { assert.strictEqual(server.redactText('failed with ' + TOKEN + ' and deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'), 'failed with <redacted> and <redacted>'); }
   finally { delete process.env.OBSCURA_CDP_TOKEN; }
 });
+// ---------------------------------------------------------------- F. the launcher (token file + non-secret fallback file)
+var LAUNCHER = path.join(MCP, 'bin', 'mythos-browser-mcp.sh');
+function launcherRun(setup) {
+  var home = fs.mkdtempSync(path.join(os.tmpdir(), 'browser-launch-'));
+  var repo = path.join(home, 'repo');
+  fs.mkdirSync(path.join(repo, 'projects', 'mythos-browser-mcp'), { recursive: true });
+  // The "server" prints the environment it was exec'd with — that is the whole assertion surface.
+  fs.writeFileSync(path.join(repo, 'projects', 'mythos-browser-mcp', 'server.js'),
+    "process.stdout.write(JSON.stringify({ tok: process.env.OBSCURA_CDP_TOKEN || null, url: process.env.OBSCURA_CDP_URL || null, pw: process.env.MYTHOS_PLAYWRIGHT_MODULE || null, ld: process.env.LD_LIBRARY_PATH || null, priv: process.env.OBSCURA_ALLOW_PRIVATE_NETWORK || null, art: process.env.MYTHOS_BROWSER_ARTIFACTS || null }));\n");
+  fs.mkdirSync(path.join(home, '.config', 'obscura'), { recursive: true });
+  fs.mkdirSync(path.join(home, '.config', 'mythos-browser'), { recursive: true });
+  var s = setup(home) || {};
+  var env = Object.assign({ PATH: process.env.PATH, HOME: home, MYTHOS_BROWSER_MCP_REPO: repo, OBSCURA_ALLOW_PRIVATE_NETWORK: '1' }, s.env || {});
+  var r = cp.spawnSync('/usr/bin/env', ['bash', LAUNCHER], { env: env, encoding: 'utf8', timeout: 20000 });
+  try { fs.rmSync(home, { recursive: true, force: true }); } catch (e) {}
+  var body = null; try { body = JSON.parse(r.stdout); } catch (e) { body = null; }
+  return { status: r.status, stderr: r.stderr || '', body: body };
+}
+t('launcher: the fallback env file reaches the server, the token file is loaded, private-network is unset, endpoint defaults to loopback', function () {
+  var r = launcherRun(function (home) {
+    fs.writeFileSync(path.join(home, '.config', 'obscura', 'cdp.env'), 'OBSCURA_CDP_TOKEN=' + TOKEN + '\n', { mode: 384 });
+    fs.writeFileSync(path.join(home, '.config', 'mythos-browser', 'env'), 'MYTHOS_PLAYWRIGHT_MODULE=/opt/pw/node_modules/playwright-core\nLD_LIBRARY_PATH=/opt/pw/lib\n');
+  });
+  assert.strictEqual(r.status, 0, r.stderr);
+  assert.deepStrictEqual(r.body, { tok: TOKEN, url: 'http://127.0.0.1:9222', pw: '/opt/pw/node_modules/playwright-core', ld: '/opt/pw/lib', priv: null, art: r.body && r.body.art });
+  assert.ok(/\/\.local\/state\/mythos-browser\/artifacts$/.test(r.body.art), r.body.art);
+});
+t('launcher: a fallback file that tries to set OBSCURA_* is refused (exit 78) and the server never runs', function () {
+  var r = launcherRun(function (home) {
+    fs.writeFileSync(path.join(home, '.config', 'obscura', 'cdp.env'), 'OBSCURA_CDP_TOKEN=' + TOKEN + '\n', { mode: 384 });
+    fs.writeFileSync(path.join(home, '.config', 'mythos-browser', 'env'), 'OBSCURA_CDP_URL=http://10.0.0.5:9222\n');
+  });
+  assert.strictEqual(r.status, 78, r.stderr); assert.strictEqual(r.body, null); assert.ok(/may not set OBSCURA_/.test(r.stderr), r.stderr);
+});
+t('launcher: a world-readable token file is refused (exit 78); no fallback file at all is fine', function () {
+  var r = launcherRun(function (home) { fs.writeFileSync(path.join(home, '.config', 'obscura', 'cdp.env'), 'OBSCURA_CDP_TOKEN=' + TOKEN + '\n', { mode: 420 }); });
+  assert.strictEqual(r.status, 78, r.stderr); assert.ok(/mode is 644/.test(r.stderr), r.stderr);
+  var r2 = launcherRun(function (home) { fs.writeFileSync(path.join(home, '.config', 'obscura', 'cdp.env'), 'OBSCURA_CDP_TOKEN=' + TOKEN + '\n', { mode: 384 }); });
+  assert.strictEqual(r2.status, 0, r2.stderr); assert.strictEqual(r2.body.pw, null); assert.strictEqual(r2.body.tok, TOKEN);
+});
+
 t('fake CDP server stops', function () { return srv.close(); });
 
 queue.reduce(function (p, f) { return p.then(f); }, Promise.resolve()).then(function () {
