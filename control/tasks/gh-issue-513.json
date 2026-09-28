@@ -18,7 +18,7 @@
   "validation_requirements": [
     "The report tests list contains the command and its final \"N passed, M failed\" line with M = 0."
   ],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-28T13:26:28.510Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #513 https://github.com/othoth77/mythos-prod/issues/513 — \"[supervised] E2E liveness 2026-09-28: run the report-normalization suite\"\n\nrequested_action: test — source explicit_current_issue (written as \"test\") → execution profile repo-test",
@@ -130,5 +130,69 @@
         "mythos:supervised"
       ]
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260928132635-e33i5f",
+    "othmode_task_id": "OTH-2026-01935",
+    "attempt_id": "gh-issue-513#1",
+    "requested_action": "test",
+    "action_raw": "test",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-test",
+    "expected_profile": "repo-test",
+    "expected_delivery": "report",
+    "model_key": null,
+    "model_requested": null,
+    "model_source": "none",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-513",
+    "branch": "mythos/gh/gh-issue-513",
+    "base_commit": "7e91814177960200bfb5ea94429f66452dc5146a",
+    "claimed_at": "2026-09-28T13:26:34.919Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "routing": {
+      "routed": false,
+      "provider": "claude-code",
+      "why": "this bridge instance is not an execution worker; the configured provider is used unchanged"
+    },
+    "fingerprint": "7151b988b371e94a1d2b94ac14c45ae7658e074d74935278e47eab40b72af870",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-28T13:26:34.920Z",
+    "snapshot_sha256": "2e64120c0534c77bf92bebeea2fbe2c8f0fd593afaf78d839395791a14cfe943",
+    "fence": 83570,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:2023508",
+      "fence": 83570,
+      "acquired_at": "2026-09-28T13:26:34.919Z",
+      "expires_at": "2026-09-28T14:56:34.919Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/projects/mythos-prod",
+      "head": "edfe84ef6237049c5138f4967ca7e967396253e8",
+      "branch": "main",
+      "dirty_files": 1,
+      "base_ref": "origin/main",
+      "base_ref_head": "7e91814177960200bfb5ea94429f66452dc5146a",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": true,
+      "code": "RUNTIME_STALE_CHECKOUT",
+      "reason": "checkout HEAD edfe84ef6237 is behind origin/main 7e9181417796 — the running bridge is older than what is delivered",
+      "measured_at": "2026-09-28T13:26:32.970Z"
+    },
+    "model": "claude-sonnet-5",
+    "model_selection_mode": "auto"
+  },
+  "history": [
+    {
+      "at": "2026-09-28T13:26:35.059Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260928132635-e33i5f queued; OTHMODE OTH-2026-01935; action test (explicit_current_issue) → repo-test; model claude-sonnet-5; fence 83570"
+    }
+  ]
 }
