@@ -1,15 +1,15 @@
 # MYTHOS HADDAD — Obscura browser runtime and the governed browser chain
 
-> Status 2026-09-29 (final integration pass, branch `mythos-haddad/obscura-final`): BrowserAdapter/server
+> Status 2026-09-29 (final integration pass, PR #520, branch `mythos-haddad/obscura-final`): BrowserAdapter/server
 > **1.1.0** — Playwright fallback on ANY engine failure (open, operation, attempt deadline), classified
-> machine-readable failures, one bounded interaction (`click`, capability `browser.interact`), fail-closed
-> browser reports, identical clean page text on both engines. Everything measured live on Haddad in §2c.
-> **Still owner-gated:** the skill-trust attestation of `executor:browser-research` (Gate 3, PR #519 §9d) —
-> until it exists the executor's skill selection withholds every browser capability from a live task
-> (worker log: `skill browser-research UNTRUSTED (UNATTESTED)`), so a GitHub-Issue task cannot yet reach the
-> browser; and the `browser.interact` grant is an owner decision on the PR. Architecture per the owner's
-> order of 2026-09-27, which supersedes the V3.1 entry "Jev, Browser Use, … NOT NEEDED / INCOMPATIBLE"
-> ([V3_1.md](V3_1.md) §2).
+> machine-readable failures, Playwright request guard, fail-closed browser reports, identical clean page text
+> on both engines, and the ROUTING that lets a GitHub Issue reach the browser at all (role `web-researcher`).
+> The tool surface stays **read-only** (navigate, extract, screenshot): an interaction tool was built and the
+> owner declined it on 2026-09-29 (preserved unmerged on `mythos-haddad/obscura-click-unmerged`).
+> Gate 3 (skill trust) is **DONE**: `executor:browser-research` ACCEPT, #521 merged, main `58935047` — #520
+> leaves the skill content byte-identical (content sha256 `132c5763…c2dd67`), so the attestation stays valid.
+> Measured state in §2c. Architecture per the owner's order of 2026-09-27, which supersedes the V3.1 entry
+> "Jev, Browser Use, … NOT NEEDED / INCOMPATIBLE" ([V3_1.md](V3_1.md) §2).
 
 ## 1. Architecture (fixed)
 
@@ -72,24 +72,38 @@ disk 35 % (61 GB free), load 0.3, 12 CPUs; listeners `127.0.0.1:9222` (obscura),
 | Auth | `/json/version` no token **401**, wrong token **401**, `?token=` query **401**, bearer **200** `Chrome/145.0.0.0` CDP 1.3; `cdp.env` 0600 with `OBSCURA_CDP_TOKEN` only (64 hex) |
 | CDP | page created (`/json/new`), navigate, `Runtime.evaluate`, `Page.captureScreenshot`, `Input.dispatchMouseEvent`, lifecycle events; `/json/list` shows no page left open after the full smoke (1 → 1) |
 | Playwright → Obscura over CDP | playwright-core 1.63.0 `connectOverCDP` with the bearer: connected (`145.0.0.0`), page, `goto` 200, title `Example Domain`, DOM text, screenshot 46 662 B, **click → `https://www.iana.org/help/example-domains`**, clean disconnect |
-| Smoke | `browser-smoke.js https://example.com/ --full --require-backend obscura` → **PASS**: auth, playwright_over_cdp, status, navigate 241 ms, extract 233 ms, screenshot 444 ms, click 3.5 s (`url_changed: true`), no_leaked_pages |
+| Smoke | `browser-smoke.js https://example.com/ --full --require-backend obscura` → **PASS** on the final code `325ba8dc`: auth 401/401/200, playwright_over_cdp (incl. a host-side click — no task can reach it), status, navigate, extract, screenshot, no_leaked_pages (1 → 1) |
 | Page text | Obscura's `innerText` is `textContent` (example.com's body text began with its CSS). `lib/page-text.js` now serves both engines: example.com 905 chars and a Wikipedia article 29 869 chars, **identical on obscura and playwright** |
 | Failure matrix (adapter, live) | invalid token → `playwright` (`OBSCURA_UNAUTHORIZED` 401); CDP port down → `playwright` (`OBSCURA_UNREACHABLE`); dead host → `NAVIGATE_FAILED` class `target` after both engines; bad selector → `CLICK_TARGET_NOT_FOUND` class `input`, **tried once**; private literal → `URL_POLICY` before any engine; slow page past a 4–6 s attempt deadline → `BROWSER_TIMEOUT` on both; **Obscura SIGKILLed 1.5 s into a navigation → `CDP_CLOSED` → the SAME call served by `playwright` in 5.3 s**; systemd restarted Obscura (`NRestarts` 2) and the next call was `obscura` again |
 | Playwright guard | `https://localtest.me/` (resolves to 127.0.0.1): Obscura refused it, the fallback guard refused it too (`URL_POLICY … URL_PRIVATE_ADDRESS_RESOLVED`) — before 1.1.0 the fallback would have fetched it |
 | Health | `HADDAD_HEALTH_ONLY=browser` on the branch → **PASS** (unit, loopback, 401/200, launcher, fallback AVAILABLE) |
 
-**Real-Qwen E2E on the Haddad execution path** (isolated store; REAL `providers/haddad-agent.js` of the branch,
-REAL llama-server Qwen 2.5 7B, REAL governed invoke with the SHIPPED registry + permission matrix of the branch,
-REAL installed launcher `~/.local/bin/mythos-browser-mcp.sh` running the branch's server, REAL Obscura/Chromium).
-`task.mcp_capabilities` is set to what the trust gate resolves for `browser-research` once attested — the one
-step that is not live (Gate 3). Each outcome was rendered by the REAL bridge `reportBody()` and read back by the
-REAL Supervisor parsers (`supervisor/bridge.js bridgeMarker`, `supervisor/qwen.js summarySection`).
+**Routing — measured, then fixed.** With the Gate 3 attestation applied, none of the five bridge actions
+could select `browser-research`: every role in `config/roles.json` maps to `general`, `testing` or
+`github-review`, so no GitHub Issue could ever reach the browser. #520 adds one role, `web-researcher`
+(action `investigate`, profile `repo-read`, skill_category `browser-research`, `match` = an http(s) URL AND
+"browser"/"web page"/"website" in the instruction); every other `investigate` stays `researcher`, no other
+action routes to the browser, and an untrusted skill still falls back to `generic`.
+
+**Real-Qwen E2E through the executor pipeline** on the integration build = #520 `134c779f` + #521 (what main
+becomes when #520 merges), isolated store: the REAL `executor.createTask` with a bridge-shaped input
+(`project mythos-haddad`, `provider haddad-agent`, `task_category investigate`, `execution_profile repo-read`) →
+role `web-researcher` → attested skill `browser-research` (trust ACCEPT, not STALE) → resolved capabilities
+`browser.navigate/extract/screenshot` → the REAL `haddad-agent` with REAL Qwen 2.5 7B → REAL governed invoke
+(shipped registry + matrix) → the INSTALLED launcher → REAL Obscura / Chromium. Each outcome rendered by the
+REAL bridge `reportBody()` and read back by the REAL Supervisor parsers (`bridgeMarker`, `summarySection`). The
+only step not live is the GitHub bridge polling itself.
 
 | Scenario | Result |
 |---|---|
-| A — Obscura primary, `browser_click` example.com → `a` | **COMPLETED 33.6 s**, 0 repair rounds, 3 governed clicks, every result `backend: obscura`, `url_changed: true`, `final_url` iana.org; audit `click browser.interact ALLOW OK` ×3; bridge report `COMPLETED`, Supervisor marker status `COMPLETED` (valid), Summary section present, no `[object Object]`; token absent from output and audit |
-| B — Obscura unreachable (`OBSCURA_CDP_URL=:9229`) | run 1: chain PASS (29 governed clicks, all `backend: playwright`, `fallback_reason: obscura unavailable: OBSCURA_UNREACHABLE`), task **FAILED** at the 600 s deadline — Qwen drifted to clicking on the landing page and never settled (the 7B convergence limit recorded in §2b); run 2: **COMPLETED 47 s**, 3 clicks, all `playwright`; Supervisor marker `COMPLETED`. Both runs recorded |
-| C — both engines down (fallback env file absent) | every call answered `BROWSER_NO_BACKEND` class `backend` with both attempts; Qwen's `completed` claim was **rejected** each round; the run settled **BLOCKED** (81.7 s, 2 repair rounds) — Supervisor marker `BLOCKED` (valid). Before 1.1.0 this exact case reported `completed` |
+| A — Obscura primary: "Read the first paragraph (p) of https://example.com/ through the governed browser" | **COMPLETED 31.5 s**; `browser_extract` served by `obscura`; audit `extract browser.read ALLOW OK`; report names backend `obscura`, title `Example Domain` and the paragraph text; Supervisor marker `COMPLETED` (valid), Summary present, no `[object Object]`; token absent |
+| B — Obscura unreachable (`OBSCURA_CDP_URL=:9229`) | **COMPLETED 399.8 s** (GPU shared with a concurrent session's runs); every call served by `playwright`, `fallback_reason: obscura unavailable: OBSCURA_UNREACHABLE`; audit `ALLOW OK`; Supervisor marker `COMPLETED` |
+| C — both engines down | every call `BROWSER_NO_BACKEND` class `backend`; Qwen claimed `completed` → **rejected** (`browser: the report says completed but no browser call succeeded (15 attempted …)`) each round → settled **BLOCKED** (447 s, 2 repair rounds); Supervisor marker `BLOCKED` (valid) |
+
+Earlier the same day (branch state with the since-declined click tool): the same three shapes through
+`agent.run()` with hand-set capabilities — A COMPLETED 33.6 s obscura; B run 1 FAILED at the 600 s deadline
+(Qwen looped, chain PASS: 29 calls all `playwright`), run 2 COMPLETED 47 s; C BLOCKED. The 7B model's
+convergence under the fallback is the one nondeterministic element; the chain never failed.
 
 **Regression (full sweep, 230 suites, baseline origin/main `1a63bc3c` vs branch):** identical exit codes on
 all 230 (43 non-zero on both — the host baseline: VPS-only HostOps, WP comms without a DB, ERP/stage suites
@@ -172,21 +186,15 @@ the `MYTHOS_PLAYWRIGHT_MODULE` line until playwright-core is a project dependenc
 
 ## 5. Owner steps that gate a live Master Task (state 2026-09-29)
 
-1. ~~Permission matrix `browser.read`~~ — **DONE** (#518, merged `1a63bc3c`).
-2. **Decide `browser.interact`** — the `click` tool's grant (ALLOW executor, DENY every other subject) ships on
-   the obscura-final PR. It widens Gate 2's read-only surface to one action on a page; the owner approves it
-   by merging, or asks for the click commit to be dropped (the rest of the PR stands without it).
-3. **Merge the obscura-final PR, then fast-forward the live checkout and restart the worker at an idle queue**:
+1. ~~Permission matrix `browser.read`~~ — **DONE** (#518).
+2. ~~Skill trust (Gate 3)~~ — **DONE** (#521, main `58935047`). #520 keeps the skill content byte-identical.
+3. **Merge #520**, then fast-forward the live checkout and restart the worker at an idle queue:
    `git -C ~/projects/mythos-prod pull --ff-only && systemctl --user restart mythos-haddad-worker.service`.
-4. **Skill trust (Gate 3) — AFTER step 3**, because the PR changes the `browser-research` content (version
-   1.1.0, `browser.click`) and an attestation of the old content would be STALE: PR #519 §9d option 1 (reproduce
-   the attested SkillEvaluator 0.2.1 toolchain, commit `73b27dad`) or option 2 (a reviewed policy for 0.3.0's
-   `AGENT_EVAL`), then `node projects/command-center/cli/skill-trust-cli.js scan executor:browser-research`,
-   commit `projects/mythos-ai-executor/config/skill-trust.json`, merge, fast-forward, restart the worker.
-5. File the E2E Issue (label `mythos:haddad`, `Action: investigate`): "Click the first link on
-   https://example.com/ through the browser and report backend, final URL and title". Expected: the §2c
-   scenario A result through the bridge. Evidence: `events.log` (`mcp_invoke`), `mcp-audit.jsonl`
-   (`browser.interact`), the report comment.
+   Without #520 no GitHub Issue reaches the browser (routing, §2c).
+4. **File the live E2E Issue** (label `mythos:haddad`, `Action: investigate`, body: "Read the first paragraph (CSS
+   selector p) of https://example.com/ through the governed browser and report the backend, the title and the
+   text"). Expected: §2c scenario A through the bridge. Evidence: the report comment, `events.log`
+   (`mcp_invoke`), `mcp-audit.jsonl` (`browser.read`).
 
 ## 6. Webinar recording — safe test first
 
