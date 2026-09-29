@@ -52,6 +52,10 @@
     "destructive": {
       "decision": "DENY",
       "description": "delete a repository, a branch, a run log, a workflow — irreversible on a third party"
+    },
+    "browser.read": {
+      "decision": "ALLOW",
+      "description": "read a PUBLIC web page through browser-mcp (navigate, extract, screenshot): Obscura CDP primary, Playwright fallback, loopback runtime, public http(s) URLs only — the server URL policy refuses private/loopback/link-local/CGNAT targets"
     }
   },
   "tool_classes": [
@@ -189,6 +193,15 @@
         "actions_list"
       ],
       "capability": "github.read"
+    },
+    {
+      "server": "browser-mcp",
+      "tools": [
+        "navigate",
+        "extract",
+        "screenshot"
+      ],
+      "capability": "browser.read"
     }
   ],
   "subjects": {
@@ -206,14 +219,16 @@
         "github.merge": "DENY",
         "vault.read": "DENY",
         "infrastructure": "DENY",
-        "destructive": "DENY"
+        "destructive": "DENY",
+        "browser.read": "ALLOW"
       }
     },
     "othmode": {
       "description": "the OTHMODE read model — computes the `authorized` flag it publishes; it never executes",
       "human": false,
       "grants": {
-        "mythos.read": "ALLOW"
+        "mythos.read": "ALLOW",
+        "browser.read": "DENY"
       }
     },
     "claude": {
@@ -227,7 +242,8 @@
         "github.write": "CONTROLLED",
         "github.pull_request": "CONTROLLED",
         "github.actions": "CONTROLLED",
-        "github.merge": "CONTROLLED"
+        "github.merge": "CONTROLLED",
+        "browser.read": "DENY"
       }
     },
     "chatgpt": {
@@ -237,7 +253,8 @@
         "mythos.read": "ALLOW",
         "external.read": "ALLOW",
         "github.read": "ALLOW",
-        "github.issue": "CONTROLLED"
+        "github.issue": "CONTROLLED",
+        "browser.read": "DENY"
       }
     },
     "owner": {
@@ -253,13 +270,16 @@
         "github.actions": "ALLOW",
         "github.merge": "ALLOW",
         "vault.read": "CONTROLLED",
-        "infrastructure": "ALLOW"
+        "infrastructure": "ALLOW",
+        "browser.read": "DENY"
       }
     },
     "anonymous": {
       "description": "no authenticated identity",
       "human": false,
-      "grants": {}
+      "grants": {
+        "browser.read": "DENY"
+      }
     }
   }
 }

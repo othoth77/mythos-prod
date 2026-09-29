@@ -120,10 +120,32 @@ t('governed invoke: a tool the server does not declare is MCP_TOOL_UNREGISTERED 
     assert.strictEqual(r.ok, false); assert.ok(r.code === 'MCP_TOOL_UNREGISTERED' || r.code === 'MCP_DENIED', r.code);
   });
 });
-t('governed invoke: with the SHIPPED permission matrix (no browser classification yet) the call is MCP_DENIED — fail closed until the owner step', function () {
+t('governed invoke: the SHIPPED permission matrix (browser.read landed 2026-09-29) lets the executor navigate through browser-mcp — a real page comes back', function () {
   return invokeLib.invoke({ server: 'browser-mcp', tool: 'navigate', arguments: { url: 'https://example.com/' }, task_id: 't-browser-fixture-a', requested_by: 'test' }, Object.assign({}, O, { permissionsPath: path.join(GW, 'registry', 'mcp-permissions.json') })).then(function (r) {
-    assert.strictEqual(r.ok, false); assert.strictEqual(r.code, 'MCP_DENIED');
+    assert.strictEqual(r.ok, true, JSON.stringify(r).slice(0, 300));
+    assert.strictEqual(JSON.parse(r.content[0].text).backend, 'obscura');
   });
+});
+t('shipped matrix: browser.read is ALLOW for the executor only, DENY for every other subject, and only the three declared tools carry it', function () {
+  var policyLib = require(path.join(GW, 'lib', 'mcp-policy'));
+  var perms = policyLib.loadPermissions(path.join(GW, 'registry', 'mcp-permissions.json'));
+  assert.strictEqual(perms.valid, true, perms.reason);
+  var p = perms.policy;
+  var raw = JSON.parse(fs.readFileSync(path.join(GW, 'registry', 'mcp-permissions.json'), 'utf8'));
+  assert.strictEqual(raw.capabilities['browser.read'].decision, 'ALLOW');
+  var cls = raw.tool_classes.filter(function (c) { return c.server === 'browser-mcp'; });
+  assert.strictEqual(cls.length, 1); assert.deepStrictEqual(cls[0].tools, ['navigate', 'extract', 'screenshot']); assert.strictEqual(cls[0].capability, 'browser.read');
+  Object.keys(p.subjects).forEach(function (s) {
+    var d = policyLib.authorize(p, { subject: s, server: 'browser-mcp', tool: 'extract' });
+    assert.strictEqual(d.decision, s === 'executor' ? 'ALLOW' : 'DENY', s + ' → ' + d.decision + ' (' + d.reason + ')');
+    if (s === 'executor') assert.strictEqual(d.capability, 'browser.read');
+  });
+  // An undeclared tool on the same server falls to the matrix default (DENY) — no class names it.
+  assert.strictEqual(policyLib.authorize(p, { subject: 'executor', server: 'browser-mcp', tool: 'evaluate' }).decision, 'DENY');
+  // No other grant changed: the executor's pre-existing grants are exactly what they were.
+  assert.deepStrictEqual(Object.keys(p.subjects.executor.grants).filter(function (k) { return k !== 'browser.read'; }).sort(),
+    ['destructive', 'external.read', 'github.actions', 'github.issue', 'github.merge', 'github.pull_request', 'github.read', 'github.write', 'infrastructure', 'mythos.read', 'vault.read']);
+  assert.strictEqual(p.subjects.executor.grants['github.merge'], 'DENY');
 });
 t('governed invoke: a private URL is refused by the server\'s URL policy and surfaces as MCP_TOOL_ERROR carrying the policy code', function () {
   return invokeLib.invoke({ server: 'browser-mcp', tool: 'navigate', arguments: { url: 'http://127.0.0.1:8130/tasks' }, task_id: 't-browser-fixture-a', requested_by: 'test' }, O).then(function (r) {
