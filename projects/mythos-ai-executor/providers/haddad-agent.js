@@ -608,6 +608,8 @@ var BROWSER_TOOLS = { browser_navigate: 'navigate', browser_extract: 'extract', 
 // governed invoke's 30 s default would cut the fallback off before it could
 // run, which is exactly the failure the fallback exists to absorb.
 var BROWSER_INVOKE_TIMEOUT_MS = Number(process.env.MYTHOS_BROWSER_INVOKE_TIMEOUT_MS) || 100000;
+var BROWSER_EVIDENCE_TEXT_CHARS = 4000;   // per successful call, for the report rule below
+var BROWSER_QUOTE_CHARS = 24;             // the verbatim fragment a report must carry (or the whole text, if shorter)
 
 function browserTool(mcpTool) {
   return function (ctx, args) {
@@ -625,7 +627,18 @@ function browserTool(mcpTool) {
       var first = Array.isArray(out.content) ? out.content.filter(function (c) { return c && c.type === 'text'; })[0] : null;
       var parsed = null;
       try { parsed = first ? JSON.parse(first.text) : null; } catch (e) { parsed = null; }
-      if (parsed && typeof parsed === 'object') { parsed.audit_id = out.audit_id; return parsed; }
+      if (parsed && typeof parsed === 'object') {
+        parsed.audit_id = out.audit_id;
+        // What the ADAPTER returned — not what the model later says it saw —
+        // kept per run for browserReportRejection().
+        if (parsed.ok !== false && typeof parsed.backend === 'string') {
+          ctx.browserEvidence = ctx.browserEvidence || [];
+          ctx.browserEvidence.push({ tool: mcpTool, backend: parsed.backend, title: typeof parsed.title === 'string' ? parsed.title : '',
+            final_url: typeof parsed.final_url === 'string' ? parsed.final_url : null,
+            text: typeof parsed.text === 'string' ? parsed.text.slice(0, BROWSER_EVIDENCE_TEXT_CHARS) : null });
+        }
+        return parsed;
+      }
       return { content: first ? String(first.text).slice(0, MAX_TOOL_OUTPUT_BYTES) : '', audit_id: out.audit_id };
     }, function (e) {
       return { error: 'REFUSED: governed invoke failed: ' + String(e && e.message || e).slice(0, 200) };
@@ -680,6 +693,46 @@ function browserEvidenceRejection(task, report, trace) {
   var last = calls.length ? String(calls[calls.length - 1].detail || '').slice(0, 200) : null;
   return 'browser: the report says completed but no browser call succeeded (' + calls.length + ' attempted' +
     (last ? '; last: ' + last : '') + ') — report status failed with the code you received, or call the browser successfully first';
+}
+
+// THE REPORT CARRIES THE EVIDENCE (2026-09-29). Measured live (Issue #527,
+// Obscura down → Playwright served the page): Qwen wrote the paragraph as prose
+// ABOVE its json block and put "the text of the paragraph is provided above" in
+// the summary. Only the structured report is delivered — the prose is
+// discarded — so the Supervisor correctly refused a report that said nothing.
+// A completed browser task's summary must therefore carry what the adapter
+// returned: the backend (obscura | playwright), the page title, and — when a
+// call extracted text — a verbatim fragment of it (BROWSER_QUOTE_CHARS, or the
+// whole text when shorter). Compared case- and whitespace-insensitively,
+// quotes ignored. A miss is a rejection (repair round, then a stop for a
+// person) whose note names the exact values, so the model can fix it.
+function normEvidence(v) {
+  return String(v == null ? '' : v).toLowerCase().replace(/[\u2018\u2019\u201c\u201d"'`]/g, '').replace(/\s+/g, ' ').trim();
+}
+function carriesFragment(summaryNorm, text) {
+  var t = normEvidence(text);
+  if (!t) return true;
+  var w = Math.min(BROWSER_QUOTE_CHARS, t.length);
+  for (var i = 0; i + w <= t.length; i++) if (summaryNorm.indexOf(t.substr(i, w)) !== -1) return true;
+  return false;
+}
+function browserReportRejection(task, report, evidence) {
+  var caps = task && Array.isArray(task.mcp_capabilities) ? task.mcp_capabilities : [];
+  if (!caps.some(function (c) { return /^browser\./.test(c); })) return null;
+  if (!report || report.status !== 'completed' || !Array.isArray(evidence) || !evidence.length) return null;
+  var summary = normEvidence(typeof report.summary === 'string' ? report.summary : JSON.stringify(report.summary || ''));
+  var missing = [];
+  var backends = evidence.map(function (e) { return e.backend; }).filter(function (b, i, a) { return b && a.indexOf(b) === i; });
+  if (!backends.some(function (b) { return summary.indexOf(normEvidence(b)) !== -1; })) missing.push('the backend (' + backends.join(' or ') + ')');
+  var titled = evidence.filter(function (e) { return normEvidence(e.title); });
+  if (titled.length && !titled.some(function (e) { return summary.indexOf(normEvidence(e.title)) !== -1; })) missing.push('the page title ("' + String(titled[0].title).slice(0, 120) + '")');
+  var texted = evidence.filter(function (e) { return normEvidence(e.text); });
+  if (texted.length && !texted.some(function (e) { return carriesFragment(summary, e.text); })) {
+    missing.push('the extracted text, quoted verbatim (it begins: "' + String(texted[0].text).replace(/\s+/g, ' ').trim().slice(0, 160) + '")');
+  }
+  if (!missing.length) return null;
+  return 'browser: only the json report is delivered and its summary does not carry what the browser returned — put into "summary": ' +
+    missing.join('; ') + '. Text written outside the json block is discarded; never write "see above".';
 }
 
 // The schemas handed to the model, built from the grant so a profile that
@@ -745,6 +798,7 @@ function systemPrompt(grant, schemas, role, delivery) {
     lines.push('The browser_* tools open PUBLIC http(s) pages through the governed browser (Obscura first, Playwright as fallback); '
       + 'they are read-only — no clicks, no typing, no scripts, no private addresses — and each result names the backend that served it. '
       + 'A result with ok:false carries code and class; report that code, and never report completed when no browser call succeeded. '
+      + 'Only your json report is delivered — any text outside it is discarded: its "summary" must itself state the backend, the page title and the extracted text quoted verbatim. '
       + 'A screenshot is saved as a file and only its path, size and sha256 come back.');
   }
   // The task's DELIVERY, stated as the fact it is — the same kind of
@@ -1354,7 +1408,8 @@ function run(task, prompt, _sessionId, _mode, opts) {
       verdict.pass = false;
       verdict.rejections.unshift('report: ' + parsedReport.error);
     }
-    var browserRejection = browserEvidenceRejection(task, parsedReport.report, trace);
+    var browserRejection = browserEvidenceRejection(task, parsedReport.report, trace) ||
+      browserReportRejection(task, parsedReport.report, ctx.browserEvidence);
     if (browserRejection) {
       verdict.pass = false;
       verdict.rejections.push(browserRejection);
@@ -1650,6 +1705,7 @@ module.exports = {
   BROWSER_INVOKE_TIMEOUT_MS: BROWSER_INVOKE_TIMEOUT_MS,
   browserToolSchemas: browserToolSchemas,
   browserEvidenceRejection: browserEvidenceRejection,
+  browserReportRejection: browserReportRejection,
   version: version,
   available: available,
   probe: probe,
