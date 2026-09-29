@@ -1686,10 +1686,18 @@ function run(task, prompt, _sessionId, _mode, opts) {
         return Promise.resolve(result).catch(function (e) {
           return { error: 'REFUSED: tool failed: ' + String(e && e.message || e).slice(0, 200) };
         }).then(function (result) {
-        trace.push({ tool: name, refused: !!result.error, detail: result.error || null,
+        var entry = { tool: name, refused: !!result.error, detail: result.error || null,
           target: parsedArgs && typeof parsedArgs === 'object'
             ? String(parsedArgs.path || parsedArgs.url || (parsedArgs.program ? [parsedArgs.program].concat(parsedArgs.args || []).join(' ') : '')).slice(0, 80)
-            : null });
+            : null };
+        // Which browser engine served the call is the adapter's statement in
+        // the tool result, not the model's: record it, so the report's claim
+        // ("backend obscura") can be checked against what actually happened.
+        if (BROWSER_TOOLS[name] && result && typeof result.backend === 'string') {
+          entry.backend = result.backend.slice(0, 20);
+          if (typeof result.fallback_reason === 'string') entry.fallback_reason = result.fallback_reason.slice(0, 60);
+        }
+        trace.push(entry);
         var payload = JSON.stringify(result);
         if (payload.length > MAX_TOOL_PAYLOAD_CHARS && typeof result.content === 'string') {
           // A file that fits the byte ceiling but not the context budget is

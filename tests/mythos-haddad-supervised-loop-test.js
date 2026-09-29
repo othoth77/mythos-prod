@@ -414,6 +414,13 @@ t('B10b validated work that git refused is BLOCKED, not COMPLETED — and it is 
   var noReport = executor.settleState(null, 'no fenced json block', 'delivery: commit failed');
   assert.strictEqual(noReport.state, 'BLOCKED');
   assert.ok(/no fenced json block/.test(noReport.next_action), noReport.next_action);
+  // Only an explicit "completed" completes: a missing or unknown status is a
+  // report nobody can read as a success (it used to settle COMPLETED).
+  ['partial', 'in_progress', 'Completed', undefined].forEach(function (st) {
+    var r = executor.settleState({ mythos_report: true, status: st, summary: 'x' }, null, null);
+    assert.strictEqual(r.state, 'BLOCKED', 'status ' + st + ' must not complete');
+    assert.ok(/is not completed, failed or blocked/.test(r.next_action), r.next_action);
+  });
 
   // The blocker code names the delivery, not the provider — a rerun must
   // not be sent looking for a fault in work that was validated — and it is

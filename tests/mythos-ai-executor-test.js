@@ -350,6 +350,44 @@ function eventsOf(taskId) {
   state.transition(t.task_id, 'CANCELLED', {});
   throws(function () { state.transition(t.task_id, 'RUNNING', {}); },
     /ILLEGAL_TRANSITION/, 'state: CANCELLED is terminal');
+  throws(function () { state.transition(t.task_id, 'CANCELLED', {}); },
+    /DUPLICATE_SETTLEMENT/, 'state: a second CANCELLED is refused');
+
+  // Single settlement: a duplicate result must not overwrite the first one.
+  var d = mkTask({});
+  state.transition(d.task_id, 'RUNNING', {});
+  state.transition(d.task_id, 'RUNNING', { pid: 4242 });
+  ok(state.readStatus(d.task_id).pid === 4242, 'state: a live state may be re-written (RUNNING progress update)');
+  state.transition(d.task_id, 'COMPLETED', { summary: 'first' });
+  throws(function () { state.transition(d.task_id, 'COMPLETED', { summary: 'second' }); },
+    /DUPLICATE_SETTLEMENT/, 'state: a second COMPLETED settlement is refused');
+  ok(state.readStatus(d.task_id).summary === 'first', 'state: the first settlement stands after a duplicate');
+  var f = mkTask({});
+  state.transition(f.task_id, 'RUNNING', {});
+  state.transition(f.task_id, 'FAILED', { last_error: 'first' });
+  throws(function () { state.transition(f.task_id, 'FAILED', { last_error: 'second' }); },
+    /DUPLICATE_SETTLEMENT/, 'state: a second FAILED settlement is refused');
+  state.transition(f.task_id, 'QUEUED', {});
+  ok(state.readStatus(f.task_id).status === 'QUEUED', 'state: FAILED -> QUEUED (explicit re-queue) still works');
+})();
+
+// ---------------------------------------------------------------------------
+// 7b. The installer's bearer token is always 48 alphanumerics. It drew 32
+// bytes (43 base64 chars) and deleted every + and /, so the length was 43-k
+// and fell below 40 in ~4.5 % of installs. The generator is run as written.
+// ---------------------------------------------------------------------------
+(function () {
+  var inst = fs.readFileSync(path.join(__dirname, '..', 'projects', 'mythos-ai-executor', 'deploy', 'install.sh'), 'utf8');
+  var m = /printf 'MYTHOS_EXECUTOR_TOKEN=%s\\n' "\$\((.+)\)" > "\$ENV_FILE"/.exec(inst);
+  ok(!!m, 'install.sh: the token generator line is found');
+  if (m) {
+    var lens = [];
+    for (var i = 0; i < 20; i++) {
+      var out = require('child_process').spawnSync('bash', ['-c', m[1]], { encoding: 'utf8' }).stdout;
+      lens.push(/^[A-Za-z0-9]{48}$/.test(out) ? 48 : out.length);
+    }
+    ok(lens.every(function (n) { return n === 48; }), 'install.sh: 20 generated tokens are all exactly 48 alphanumerics (' + lens.join(',') + ')');
+  }
 })();
 
 var chain = Promise.resolve();
@@ -708,6 +746,13 @@ chain = chain.then(function () {
       return req('POST', '/tasks/' + id + '/cancel', null, 'test-token-0123456789abcdef');
     }).then(function (res3) {
       ok(res3.code === 200 && res3.body.status === 'CANCELLED', 'http: cancel works');
+      var blk = mkTask({});
+      state.transition(blk.task_id, 'BLOCKED', {});
+      return req('POST', '/tasks/' + blk.task_id + '/cancel', null, 'test-token-0123456789abcdef').then(function (rb) {
+        ok(rb.code === 409 && /BLOCKED/.test(rb.body.error) && state.readStatus(blk.task_id).status === 'BLOCKED',
+          'http: cancelling a BLOCKED task is a 409 (not a 500), the record is untouched');
+      });
+    }).then(function () {
       return req('POST', '/tasks', { project: 'executor-selftest', instruction: 'x', provider: 'mock', execution_profile: 'deploy' }, 'test-token-0123456789abcdef');
     }).then(function (res4) {
       ok(res4.code === 400 && /PROFILE_DISABLED/.test(res4.body.error), 'http: disabled profile refused at the API');

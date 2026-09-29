@@ -210,6 +210,11 @@ t('E2E offline: task -> haddad-agent -> browser_extract -> governed invoke -> br
     var trace = o.parsed && o.parsed.tool_trace || o.tool_trace || [];
     var ev = JSON.stringify(trace);
     assert.ok(/browser_extract/.test(ev), 'trace names the browser tool: ' + ev.slice(0, 200));
+    var served = trace.filter(function (e) { return e.tool === 'browser_extract'; })[0];
+    assert.strictEqual(served && served.backend, 'obscura', 'the trace records the backend the ADAPTER reported: ' + JSON.stringify(served));
+    var executor = require(path.join(EXEC, 'executor.js'));
+    var kept = executor.providerEvidence({ tool_trace: trace }).tool_trace.filter(function (e) { return e.tool === 'browser_extract'; })[0];
+    assert.strictEqual(kept && kept.backend, 'obscura', 'and the executor keeps it in the report evidence');
   });
 });
 
