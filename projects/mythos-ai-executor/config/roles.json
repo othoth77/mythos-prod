@@ -38,6 +38,14 @@
       "skill_category": "github-review",
       "brief": "Your role is REVIEWER: read the files under review, list concrete findings with file paths and line references, and end with a verdict (approve or request changes). You change nothing."
     },
+    "web-researcher": {
+      "action": "investigate",
+      "task_type": "research",
+      "capabilities_required": ["research", "repo_inspection"],
+      "skill_category": "browser-research",
+      "match": "^(?=[\\s\\S]*\\bhttps?://)(?=[\\s\\S]*\\b(browser|web ?page|website)\\b)",
+      "brief": "Your role is WEB RESEARCHER: read the PUBLIC pages the task names with the browser_* tools, cite the URL and backend for each fact, and report a browser failure code as a finding. You change nothing."
+    },
     "researcher": {
       "action": "investigate",
       "task_type": "research",

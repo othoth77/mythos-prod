@@ -93,6 +93,23 @@ t('the runner offers browser_* ONLY when the task carries the capability, and TO
   assert.ok(some.indexOf('browser_extract') !== -1 && some.indexOf('browser_navigate') === -1, 'exactly the resolved capability is offered');
 });
 
+t('routing: an investigate Issue that names a public URL AND the browser reaches browser-research (role web-researcher); every other investigate stays researcher', function () {
+  var roles = require(path.join(EXEC, 'lib', 'roles.js'));
+  assert.strictEqual(roles.DEFAULT_TABLE.valid, true, roles.DEFAULT_TABLE.reason);
+  var yes = roles.resolveRole({ action: 'investigate', instruction: 'Read the first paragraph of https://example.com/ through the governed browser and report it.' });
+  assert.strictEqual(yes.role && yes.role.id, 'web-researcher', yes.reason);
+  assert.strictEqual(yes.role.skill_category, 'browser-research');
+  assert.strictEqual(roles.profileForRole(yes.role), 'repo-read', 'the profile is the action\'s — read-only');
+  ['Explain how lib/roles.js resolves a role.', 'Summarise https://example.com/ from the repository notes.', 'Which browser does the webinar preflight use?']
+    .forEach(function (text) { var r = roles.resolveRole({ action: 'investigate', instruction: text }); assert.strictEqual(r.role && r.role.id, 'researcher', text + ' -> ' + r.reason); });
+  ['implement', 'review', 'test', 'document'].forEach(function (a) {
+    var r = roles.resolveRole({ action: a, instruction: 'open https://example.com/ in the browser' });
+    assert.notStrictEqual(r.role && r.role.skill_category, 'browser-research', a + ' must never route to the browser');
+  });
+  var skill = skillsLib.DEFAULT_REGISTRY.skills['browser-research'];
+  assert.deepStrictEqual(mcpCaps.resolveCapabilities(skill, 'repo-read').allowed.slice().sort(), ['browser.extract', 'browser.navigate', 'browser.screenshot']);
+});
+
 function seedTask(id, caps) {
   fs.mkdirSync(path.join(process.env.MYTHOS_EXECUTOR_HOME, 'tasks', id), { recursive: true });
   state.writeJSON(id, 'task.json', { task_id: id, mcp_capabilities: caps });
