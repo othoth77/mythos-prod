@@ -63,7 +63,10 @@ var TRANSITIONS = {
   CANCELLED:         []
 };
 
-var TASK_ID_RE = /^[a-z0-9][a-z0-9-]{6,62}[a-z0-9]$/;
+// States that record a settlement (a result, a failure, a cancellation).
+var SETTLED = ['COMPLETED', 'FAILED', 'CANCELLED'];
+
+var TASK_ID_RE =/^[a-z0-9][a-z0-9-]{6,62}[a-z0-9]$/;
 var FILE_NAME_RE = /^[a-z0-9][a-z0-9._-]{2,63}$/;
 
 function root() {
@@ -181,6 +184,12 @@ function transition(taskId, to, fields) {
   var status = readStatus(taskId);
   if (!status) throw new Error('NO_STATUS: task ' + taskId + ' has no status.json');
   var from = status.status;
+  // A settlement happens once. Same-state writes stay legal for the live
+  // states (RUNNING progress updates and the like), but a second write of a
+  // settled state would silently replace the first result — refuse it.
+  if (from === to && SETTLED.indexOf(to) !== -1) {
+    throw new Error('DUPLICATE_SETTLEMENT: task ' + taskId + ' is already ' + to + '; the first settlement stands');
+  }
   if (from !== to && (TRANSITIONS[from] || []).indexOf(to) === -1) {
     throw new Error('ILLEGAL_TRANSITION: ' + from + ' -> ' + to + ' for task ' + taskId);
   }

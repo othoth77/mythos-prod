@@ -293,6 +293,24 @@ runExecutorTicks(2).then(function () {
   ok(state.readStatus(claimed9.execution.executor_task_id).status === 'CANCELLED', 'tick6b: executor store shows CANCELLED');
   ok(reportOnDisk('gh-test-0009').status === 'CANCELLED', 'tick6b: CANCELLED report written');
 
+  // --- 6c. creator cancellation of a claimed task whose executor record is BLOCKED -------------------------
+  // BLOCKED -> CANCELLED is illegal in the executor's state machine; the bridge used to throw here and the
+  // GitHub task could never settle. It must settle CANCELLED and leave the BLOCKED record untouched.
+  plannerWrite('gh-test-0019.json', mkTask('gh-test-0019'));
+  var r6c = bridge.tick(executor);
+  var eid19 = actionsOf(r6c, 'claim')[0].executor_task_id;
+  state.transition(eid19, 'BLOCKED', { next_action: 'test: blocked before the cancel' });
+  relay();
+  var claimed19 = JSON.parse(plannerRead('tasks/gh-test-0019.json'));
+  claimed19.status = 'CANCELLED';
+  plannerWrite('gh-test-0019.json', claimed19, 'planner: cancel gh-test-0019');
+  var r6d;
+  try { r6d = bridge.tick(executor); } catch (e) { r6d = { actions: [], error: e.message }; }
+  var cx19 = actionsOf(r6d, 'cancel')[0];
+  ok(cx19 && cx19.executor.cancelled === false && /BLOCKED/.test(cx19.executor.reason), 'tick6d: cancelling a BLOCKED executor task is reported, not thrown');
+  ok(reportOnDisk('gh-test-0019') && reportOnDisk('gh-test-0019').status === 'CANCELLED', 'tick6d: the GitHub task still settles CANCELLED');
+  ok(state.readStatus(eid19).status === 'BLOCKED', 'tick6d: the BLOCKED executor record is left as it was');
+
   // --- 7. claim exists, executor record gone → BLOCKED, never re-run ------------------------------------------
   plannerWrite('gh-test-0010.json', mkTask('gh-test-0010'));
   var r7 = bridge.tick(executor);

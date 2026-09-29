@@ -308,6 +308,12 @@ function handler(req, res, token) {
     if (['COMPLETED', 'FAILED', 'CANCELLED'].indexOf(cst.status) !== -1) {
       return send(res, 409, { error: 'task already ' + cst.status });
     }
+    // BLOCKED leaves only by an explicit re-queue (state.TRANSITIONS); it
+    // never runs again on its own, so there is nothing to cancel. Answer
+    // that plainly instead of a 500 from the refused transition.
+    if (cst.status === 'BLOCKED') {
+      return send(res, 409, { error: 'task is BLOCKED — it never runs again without an explicit re-queue; nothing to cancel' });
+    }
     if (cst.status === 'RUNNING' && cst.pid && state.processAlive(cst.pid)) {
       try { process.kill(cst.pid, 'SIGTERM'); } catch (e) { /* raced its exit */ }
     }

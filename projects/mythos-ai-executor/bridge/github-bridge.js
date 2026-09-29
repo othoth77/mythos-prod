@@ -1578,6 +1578,10 @@ function cancelExecutorTask(eid) {
   var st = state.readStatus(eid);
   if (!st) return { cancelled: false, reason: 'no executor record' };
   if (['COMPLETED', 'FAILED', 'CANCELLED'].indexOf(st.status) !== -1) return { cancelled: false, reason: 'already ' + st.status };
+  // BLOCKED -> CANCELLED is not a legal transition (BLOCKED leaves only by an
+  // explicit re-queue), and a BLOCKED record never runs again on its own:
+  // report it instead of throwing, so the GitHub task still settles.
+  if (st.status === 'BLOCKED') return { cancelled: false, reason: 'BLOCKED (never runs again without an explicit re-queue)' };
   if (st.status === 'RUNNING' && st.pid && state.processAlive(st.pid)) {
     try { process.kill(st.pid, 'SIGTERM'); } catch (e) { /* raced its exit */ }
   }
