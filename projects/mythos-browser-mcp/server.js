@@ -3,11 +3,15 @@
 // MYTHOS Browser MCP — governed browser capabilities over stdio
 // projects/mythos-browser-mcp/server.js
 //
-// Three tools, nothing else: navigate, extract, screenshot. Each call opens
-// one browser session through lib/browser-adapter.js (Obscura primary,
-// Playwright fallback), does its one thing, and closes it. No arbitrary CDP
-// is exposed: a client cannot evaluate JavaScript, click, type, or reach any
-// DevTools method — the tool surface IS the boundary.
+// Four tools, nothing else: navigate, extract, screenshot, and ONE bounded
+// interaction, click (owner order 2026-09-29). Each call opens one browser
+// session through lib/browser-adapter.js (Obscura primary, Playwright
+// fallback), does its one thing, and closes it. No arbitrary CDP is exposed:
+// a client cannot evaluate JavaScript, type, fill a form, or reach any
+// DevTools method; `click` takes a URL and a CSS selector and nothing else —
+// the tool surface IS the boundary. `click` is classified separately
+// (capability browser.interact in the permission matrix) from the three
+// read tools (browser.read).
 //
 // TRANSPORT: JSON-RPC 2.0 over stdio, newline-delimited, dependency-free,
 // exactly like projects/oth-mcp/server.js (initialize, tools/list, tools/call,
@@ -27,7 +31,7 @@ var readline = require('readline');
 var adapterLib = require('./lib/browser-adapter');
 
 var SERVER_NAME = 'mythos-browser-mcp';
-var SERVER_VERSION = '1.0.0';
+var SERVER_VERSION = '1.1.0';
 var PROTOCOL_VERSION = '2024-11-05';
 
 var TOOLS = [
@@ -36,7 +40,9 @@ var TOOLS = [
   { name: 'extract', description: 'Open a public http(s) URL and return its visible text (or the text/outerHTML of one CSS selector), bounded by max_chars (default 20000).',
     inputSchema: { type: 'object', properties: { url: { type: 'string' }, selector: { type: 'string', description: 'optional CSS selector' }, mode: { type: 'string', enum: ['text', 'html'] }, max_chars: { type: 'integer', minimum: 256, maximum: 200000 } }, required: ['url'], additionalProperties: false } },
   { name: 'screenshot', description: 'Open a public http(s) URL and capture the viewport to a PNG (or JPEG) file in the browser artifacts directory; returns path, bytes and sha256.',
-    inputSchema: { type: 'object', properties: { url: { type: 'string' }, format: { type: 'string', enum: ['png', 'jpeg'] }, inline: { type: 'boolean', description: 'also return base64 when the image is small (<= 64 KiB)' } }, required: ['url'], additionalProperties: false } }
+    inputSchema: { type: 'object', properties: { url: { type: 'string' }, format: { type: 'string', enum: ['png', 'jpeg'] }, inline: { type: 'boolean', description: 'also return base64 when the image is small (<= 64 KiB)' } }, required: ['url'], additionalProperties: false } },
+  { name: 'click', description: 'Open a public http(s) URL, click the first element matching a CSS selector, let any navigation it starts finish, and return url_before, final_url, url_changed, title and the landing page text (or one extract_selector). The landing URL is re-checked against the URL policy. No typing, no forms, no scripts.',
+    inputSchema: { type: 'object', properties: { url: { type: 'string' }, selector: { type: 'string', description: 'CSS selector of the element to click (first match)' }, extract_selector: { type: 'string', description: 'optional CSS selector to read on the landing page' }, max_chars: { type: 'integer', minimum: 256, maximum: 200000 } }, required: ['url', 'selector'], additionalProperties: false } }
 ];
 
 var adapter = null;
@@ -53,21 +59,31 @@ function redactText(s) {
 
 function rpcResult(id, result) { return JSON.stringify({ jsonrpc: '2.0', id: id, result: result }); }
 function rpcError(id, code, message) { return JSON.stringify({ jsonrpc: '2.0', id: id, error: { code: code, message: redactText(message) } }); }
-function toolError(code, message) {
-  return { content: [{ type: 'text', text: JSON.stringify({ ok: false, code: code, error: redactText(message) }) }], isError: true };
+// Every failure is one machine-readable object: `code` (what), `class`
+// (policy | input | target | timeout | backend — whose fault, per
+// BrowserAdapter.classify) and, when engines were tried, each `attempt`'s
+// backend, stage and reason — so a caller never has to parse prose.
+function toolError(code, message, err) {
+  var body = { ok: false, code: code, class: err ? adapterLib.classify(err) : 'input', error: redactText(message) };
+  if (err && Array.isArray(err.attempts)) {
+    body.attempts = err.attempts.map(function (a) { return { backend: a.backend, ok: !!a.ok, stage: a.stage || null, class: a.class || null, reason: a.reason ? redactText(a.reason) : null }; });
+  }
+  if (code === 'BROWSER_NO_BACKEND' || code === 'BROWSER_BACKEND_FAILED' || code === 'BROWSER_TIMEOUT') body.class = code === 'BROWSER_TIMEOUT' ? 'timeout' : 'backend';
+  if (code === 'NAVIGATE_FAILED') body.class = 'target';
+  return { content: [{ type: 'text', text: JSON.stringify(body) }], isError: true };
 }
 function toolOk(obj) { return { content: [{ type: 'text', text: redactText(JSON.stringify(Object.assign({ ok: true }, obj))) }], isError: false }; }
 
 function callTool(name, args) {
   args = args && typeof args === 'object' && !Array.isArray(args) ? args : {};
   var a = getAdapter();
-  var fn = name === 'navigate' ? a.navigate : name === 'extract' ? a.extract : name === 'screenshot' ? a.screenshot : null;
+  var fn = name === 'navigate' ? a.navigate : name === 'extract' ? a.extract : name === 'screenshot' ? a.screenshot : name === 'click' ? a.click : null;
   if (!fn) return Promise.resolve(toolError('TOOL_UNKNOWN', 'unknown tool ' + String(name).slice(0, 40)));
   var extra = Object.keys(args).filter(function (k) { return TOOLS.find(function (t) { return t.name === name; }).inputSchema.properties[k] === undefined; });
   if (extra.length) return Promise.resolve(toolError('ARGS_UNKNOWN', 'unknown argument(s): ' + extra.join(', ')));
   return Promise.resolve().then(function () { return fn(args); }).then(toolOk, function (err) {
     var code = (err && err.code) || (String(err && err.message || '').split(':')[0] || 'BROWSER_ERROR');
-    return toolError(code, (err && err.message) || String(err));
+    return toolError(code, (err && err.message) || String(err), err || new Error(String(err)));
   });
 }
 

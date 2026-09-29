@@ -261,7 +261,7 @@
       "tools_note": "discovered live 2026-09-01 and declared so the check can tell drift from the known set"
     },
     "browser-mcp": {
-      "purpose": "Governed browser capabilities (navigate, extract, screenshot) over the BrowserAdapter \u2014 Obscura CDP on 127.0.0.1:9222 PRIMARY, Playwright FALLBACK. Owner architecture 2026-09-27. Read-only page access, no scripting surface; the URL policy refuses private, loopback and link-local targets before any engine sees them.",
+      "purpose": "Governed browser capabilities (navigate, extract, screenshot; click) over the BrowserAdapter \u2014 Obscura CDP on 127.0.0.1:9222 PRIMARY, Playwright FALLBACK. Owner architecture 2026-09-27; click added by the owner's order of 2026-09-29 and classified separately (browser.interact). No scripting surface, no typing; the URL policy refuses private, loopback and link-local targets before any engine sees them and again on a click's landing URL.",
       "owner": "MYTHOS \u2014 projects/mythos-browser-mcp",
       "direction": "outbound",
       "transport": {
@@ -269,7 +269,7 @@
         "launcher": "/home/othman/.local/bin/mythos-browser-mcp.sh"
       },
       "source": "projects/mythos-browser-mcp/server.js",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "protocol_version": "2024-11-05",
       "auth": {
         "required": false,
@@ -281,7 +281,8 @@
       "tools": [
         "navigate",
         "extract",
-        "screenshot"
+        "screenshot",
+        "click"
       ],
       "write_capable": false,
       "enabled": true,

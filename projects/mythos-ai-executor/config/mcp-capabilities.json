@@ -21,7 +21,7 @@
     },
     "browser": {
       "enabled": true,
-      "description": "Governed browser through projects/mythos-browser-mcp (BrowserAdapter: Obscura CDP on 127.0.0.1:9222 PRIMARY, Playwright FALLBACK). Owner architecture 2026-09-27, superseding the V3.1 'browser NOT NEEDED' entry. Read-only page access: no clicks, no typing, no scripting, no private addresses. The Obscura token is read by the MCP server process from a 0600 env file on the browser host and never reaches a task.",
+      "description": "Governed browser through projects/mythos-browser-mcp (BrowserAdapter 1.1.0: Obscura CDP on 127.0.0.1:9222 PRIMARY, Playwright FALLBACK on open failure, operation failure or attempt timeout). Owner architecture 2026-09-27; one bounded interaction (click) added by the owner's order of 2026-09-29. Page reads plus clicking one link/button: no typing, no forms, no scripting, no private addresses (URL policy before the engine, re-checked on the landing URL after a click; the Playwright fallback guards every request, DNS included). The Obscura token is read by the MCP server process from a 0600 env file on the browser host and never reaches a task.",
       "tools": {
         "navigate": {
           "description": "Open a public http(s) URL; returns backend, final_url, title, load state."
@@ -31,6 +31,9 @@
         },
         "screenshot": {
           "description": "Open a public http(s) URL and save a viewport screenshot to the browser artifacts directory; returns path, bytes, sha256."
+        },
+        "click": {
+          "description": "Open a public http(s) URL, click the first element matching a CSS selector, let the navigation it starts finish; returns url_before, final_url, url_changed, title and the landing page text. The landing URL is re-checked against the URL policy."
         }
       },
       "required_execution_profiles": [

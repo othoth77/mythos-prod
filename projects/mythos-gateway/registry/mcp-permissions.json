@@ -56,6 +56,10 @@
     "browser.read": {
       "decision": "ALLOW",
       "description": "read a PUBLIC web page through browser-mcp (navigate, extract, screenshot): Obscura CDP primary, Playwright fallback, loopback runtime, public http(s) URLs only — the server URL policy refuses private/loopback/link-local/CGNAT targets"
+    },
+    "browser.interact": {
+      "decision": "ALLOW",
+      "description": "click ONE element (CSS selector) on a PUBLIC web page through browser-mcp and read where it lands (tool click): no typing, no forms, no scripts; the landing URL is re-checked against the server URL policy. Classified apart from browser.read because a click can change state on the remote site (owner order 2026-09-29)"
     }
   },
   "tool_classes": [
@@ -202,6 +206,13 @@
         "screenshot"
       ],
       "capability": "browser.read"
+    },
+    {
+      "server": "browser-mcp",
+      "tools": [
+        "click"
+      ],
+      "capability": "browser.interact"
     }
   ],
   "subjects": {
@@ -220,7 +231,8 @@
         "vault.read": "DENY",
         "infrastructure": "DENY",
         "destructive": "DENY",
-        "browser.read": "ALLOW"
+        "browser.read": "ALLOW",
+        "browser.interact": "ALLOW"
       }
     },
     "othmode": {
@@ -228,7 +240,8 @@
       "human": false,
       "grants": {
         "mythos.read": "ALLOW",
-        "browser.read": "DENY"
+        "browser.read": "DENY",
+        "browser.interact": "DENY"
       }
     },
     "claude": {
@@ -243,7 +256,8 @@
         "github.pull_request": "CONTROLLED",
         "github.actions": "CONTROLLED",
         "github.merge": "CONTROLLED",
-        "browser.read": "DENY"
+        "browser.read": "DENY",
+        "browser.interact": "DENY"
       }
     },
     "chatgpt": {
@@ -254,7 +268,8 @@
         "external.read": "ALLOW",
         "github.read": "ALLOW",
         "github.issue": "CONTROLLED",
-        "browser.read": "DENY"
+        "browser.read": "DENY",
+        "browser.interact": "DENY"
       }
     },
     "owner": {
@@ -271,14 +286,16 @@
         "github.merge": "ALLOW",
         "vault.read": "CONTROLLED",
         "infrastructure": "ALLOW",
-        "browser.read": "DENY"
+        "browser.read": "DENY",
+        "browser.interact": "DENY"
       }
     },
     "anonymous": {
       "description": "no authenticated identity",
       "human": false,
       "grants": {
-        "browser.read": "DENY"
+        "browser.read": "DENY",
+        "browser.interact": "DENY"
       }
     }
   }

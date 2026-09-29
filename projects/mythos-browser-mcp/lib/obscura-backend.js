@@ -19,10 +19,33 @@ var http = require('http');
 var https = require('https');
 var { URL } = require('url');
 var cdp = require('./cdp-client');
+var pageText = require('./page-text');
 
 var DEFAULT_CDP_URL = 'http://127.0.0.1:9222';
 var NAV_TIMEOUT_MS = 30000;
 var CALL_TIMEOUT_MS = 30000;
+var CLICK_SETTLE_MS = 1500;
+var CLICK_ACTION_MS = 5000;
+
+// Obscura answers a failed fetch as a CDP ERROR on Page.navigate ("Network
+// error: … error sending request", measured 2026-09-29), not as errorText.
+// Two different things hide in that shape, and they must not be confused:
+//   * the engine's own SSRF refusal ("Access to private/internal IP address")
+//     — a hostname that RESOLVED to a private address. That is a POLICY
+//     verdict: it must never be retried on another engine, which is exactly
+//     what the fallback would otherwise do;
+//   * any other network failure — a site failure, NAVIGATE_FAILED.
+function navigationError(err) {
+  var msg = String(err && err.message || err);
+  if (/private\/internal IP address|private network/i.test(msg)) {
+    var p = new Error('URL_POLICY: the runtime refused a private or internal address (' + msg.replace(/^CDP_ERROR: /, '').slice(0, 200) + ')');
+    p.code = 'URL_POLICY'; return p;
+  }
+  if (/^CDP_ERROR: .*Network error/.test(msg)) {
+    var n = new Error('NAVIGATE_FAILED: ' + msg.replace(/^CDP_ERROR: /, '').slice(0, 300)); n.code = 'NAVIGATE_FAILED'; return n;
+  }
+  return err;
+}
 
 function redactUrl(u) {
   try { var x = new URL(u); x.search = ''; x.username = ''; x.password = ''; return x.toString(); } catch (e) { return '<url>'; }
@@ -136,6 +159,8 @@ function create(cfg) {
     return c.send('Page.navigate', { url: url }, sid, navTimeout).then(function (r) {
       if (r.errorText) { var e = new Error('NAVIGATE_FAILED: ' + r.errorText); e.code = 'NAVIGATE_FAILED'; throw e; }
       return loaded;
+    }, function (err) {
+      throw navigationError(err);
     }).then(function (fired) {
       if (fired) return;
       // Fall back to polling readyState — an engine may not emit the event.
@@ -152,16 +177,46 @@ function create(cfg) {
     }).then(function (s) { var o = JSON.parse(s || '{}'); return { final_url: o.href || url, title: o.title || '', ready_state: o.readyState || null }; });
   }
 
-  function extract(session, opts) {
+  // Where the page is now (after a click, a redirect, a script) — no navigation.
+  function pageState(session) {
+    return evaluate(session, 'JSON.stringify({href: location.href, title: document.title, readyState: document.readyState})').then(function (s) {
+      var o = JSON.parse(s || '{}'); return { final_url: o.href || '', title: o.title || '', ready_state: o.readyState || null };
+    });
+  }
+
+  // click(session, { selector, settleMs }) — a DOM click on the first match.
+  // Measured on Obscura 0.2.3 (2026-09-29): an anchor's click() runs the
+  // navigation it starts to completion before Runtime.evaluate answers, and the
+  // lifecycle events arrive together afterwards; a script-scheduled navigation
+  // can start later, so a bounded settle window listens for it.
+  function click(session, opts) {
     opts = opts || {};
-    var selector = typeof opts.selector === 'string' && opts.selector.length <= 256 ? opts.selector : null;
-    var mode = opts.mode === 'html' ? 'html' : 'text';
-    var max = Math.max(256, Math.min(Number(opts.max_chars) || 20000, 200000));
-    var expr = '(function(){var el=' + (selector ? 'document.querySelector(' + JSON.stringify(selector) + ')' : 'document.body || document.documentElement') + ';' +
-      'if(!el) return JSON.stringify({found:false});' +
-      'var s=' + (mode === 'html' ? 'el.outerHTML' : '(el.innerText!==undefined?el.innerText:el.textContent)') + '||"";' +
-      'return JSON.stringify({found:true,chars:s.length,text:s.slice(0,' + max + '),truncated:s.length>' + max + ',title:document.title,href:location.href});})()';
-    return evaluate(session, expr).then(function (s) { return JSON.parse(s || '{"found":false}'); });
+    var c = session.client, sid = session.sessionId;
+    var settle = Math.max(0, Math.min(Number(opts.settleMs) || CLICK_SETTLE_MS, 10000));
+    var navigated = false;
+    var offNav = c.on('Page.frameNavigated', function (p, s) { if (!sid || s === sid || s === undefined) navigated = true; });
+    var loaded = c.waitFor('Page.loadEventFired', settle + CLICK_ACTION_MS, function (p, s) { return !sid || s === sid || s === undefined; });
+    var expr = '(function(){var e=document.querySelector(' + JSON.stringify(opts.selector) + ');' +
+      'if(!e) return JSON.stringify({found:false});' +
+      'if(e.scrollIntoView) e.scrollIntoView({block:"center"});' +
+      'e.click(); return JSON.stringify({found:true,tag:String(e.tagName||"").toLowerCase()});})()';
+    return c.send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true }, sid, CLICK_ACTION_MS + navTimeout).then(function (r) {
+      if (r.exceptionDetails) throw new Error('CDP_EVAL: ' + ((r.exceptionDetails.exception && r.exceptionDetails.exception.description) || r.exceptionDetails.text || 'click threw'));
+      var o = JSON.parse((r.result && r.result.value) || '{"found":false}');
+      if (!o.found) { var e = new Error('CLICK_TARGET_NOT_FOUND: no element matches the selector'); e.code = 'CLICK_TARGET_NOT_FOUND'; throw e; }
+      // Either the navigation already completed inside the evaluate (the event
+      // is queued), or it starts within the settle window, or there is none.
+      return Promise.race([loaded, new Promise(function (res) { setTimeout(function () { res(null); }, settle); })]).then(function (fired) {
+        if (fired || !navigated) return fired;
+        return c.waitFor('Page.loadEventFired', navTimeout);
+      }).then(function () { return { method: 'dom-click', tag: o.tag, navigated: navigated }; });
+    }, function (err) {
+      throw navigationError(err);
+    }).then(function (out) { offNav(); return out; }, function (err) { offNav(); throw err; });
+  }
+
+  function extract(session, opts) {
+    return evaluate(session, pageText.expression(opts)).then(function (s) { return JSON.parse(s || '{"found":false}'); });
   }
 
   function screenshot(session, opts) {
@@ -193,8 +248,8 @@ function create(cfg) {
     endpoint: redactUrl(base),
     probe: probe,
     probeUnauthenticated: probeUnauthenticated,
-    open: open, navigate: navigate, extract: extract, screenshot: screenshot, evaluate: evaluate, close: close
+    open: open, navigate: navigate, pageState: pageState, click: click, extract: extract, screenshot: screenshot, evaluate: evaluate, close: close
   };
 }
 
-module.exports = { create: create, DEFAULT_CDP_URL: DEFAULT_CDP_URL };
+module.exports = { create: create, navigationError: navigationError, DEFAULT_CDP_URL: DEFAULT_CDP_URL };
