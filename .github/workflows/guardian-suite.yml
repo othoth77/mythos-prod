@@ -78,20 +78,68 @@ jobs:
       - name: Configuration validates
         run: node ops/guardian/bin/mythos-guardian validate
 
-      # A grep is a blunt instrument, which is the point: if remediation ever
-      # appears in this tree it should have to be argued for in a PR that also
-      # changes this gate, rather than arriving quietly.
-      - name: Guardian remains observe-only
+      # A grep is a blunt instrument, which is the point: remediation has to be
+      # argued for in a PR that also changes this gate, rather than arriving
+      # quietly. Guardian V0 had no mutating verb at all; remediation V1 (#301,
+      # 61c31d88, merged by the owner 2026-09-17 and enabled in production the
+      # same day) added exactly three action argv prefixes. Those three are
+      # pinned below, verbatim — adding, widening or changing any of them, or
+      # introducing any other mutating verb, fails this step until the pin is
+      # updated in the same PR.
+      - name: Guardian has no deletion primitive outside the io boundary
         run: |
           if grep -nE "child_process|execSync|spawnSync|process\.kill|unlinkSync|rmSync|rmdirSync|chmodSync|chownSync" \
                ops/guardian/lib/engine.js ops/guardian/lib/classify.js \
                ops/guardian/lib/sources.js ops/guardian/lib/report.js \
-               ops/guardian/lib/levels.js ops/guardian/lib/config.js; then
+               ops/guardian/lib/levels.js ops/guardian/lib/config.js \
+               ops/guardian/lib/remediate.js ops/guardian/lib/actions.js \
+               ops/guardian/lib/scenarios.js; then
             echo "::error::a remediation or deletion primitive appeared in a Guardian module"
             exit 1
           fi
-          if grep -nE "'(restart|stop|start|kill|prune|rm)'" ops/guardian/lib/io.js; then
-            echo "::error::a mutating verb appeared in the io allowlist"
+          echo "no remediation or deletion primitive outside ops/guardian/lib/io.js"
+
+      - name: Remediation allowlist matches the approved commands exactly
+        run: |
+          node - <<'JS'
+          var io = require('./ops/guardian/lib/io.js');
+          var APPROVED = [
+            ['npm', 'cache', 'clean', '--force'],
+            ['docker', 'builder', 'prune', '--force', '--filter'],
+            ['systemctl', '--user', 'restart']
+          ];
+          var MUTATING = /^(restart|stop|start|kill|prune|rm|rmi|disable|mask|clean|reload|exec|reset-failed)$/;
+          var bad = [];
+          if (JSON.stringify(io.ACTION_COMMANDS) !== JSON.stringify(APPROVED)) {
+            bad.push('ACTION_COMMANDS differs from the approved set:\n  got      ' +
+              JSON.stringify(io.ACTION_COMMANDS) + '\n  approved ' + JSON.stringify(APPROVED));
+          }
+          io.READ_COMMANDS.forEach(function (argv) {
+            if (argv.some(function (t) { return MUTATING.test(t); })) bad.push('mutating verb in READ_COMMANDS: ' + argv.join(' '));
+          });
+          if (bad.length) {
+            bad.forEach(function (b) { console.log('::error::' + b.split('\n')[0]); console.log(b); });
+            process.exit(1);
+          }
+          console.log('action allowlist pinned: ' + APPROVED.map(function (a) { return a.join(' '); }).join(' | '));
+          JS
+
+      - name: No mutating verb beyond the approved remediation lines
+        run: |
+          # Every line in the io boundary and the action registry that names a
+          # mutating verb must be one of these, character for character.
+          cat > "$RUNNER_TEMP/approved-verbs.txt" <<'EOF'
+          ops/guardian/lib/io.js:  ['npm', 'cache', 'clean', '--force'],
+          ops/guardian/lib/io.js:  ['docker', 'builder', 'prune', '--force', '--filter'],
+          ops/guardian/lib/io.js:  ['systemctl', '--user', 'restart']
+          ops/guardian/lib/actions.js:    command: function () { return ['npm', 'cache', 'clean', '--force']; },
+          ops/guardian/lib/actions.js:      return ['docker', 'builder', 'prune', '--force', '--filter', 'until=' + hours + 'h'];
+          ops/guardian/lib/actions.js:    command: function (ctx) { return ['systemctl', '--user', 'restart', ctx.target.unit]; },
+          EOF
+          grep -HE "'(restart|stop|start|kill|prune|rm|rmi|disable|mask|clean|reload|exec|reset-failed)'" \
+               ops/guardian/lib/io.js ops/guardian/lib/actions.js > "$RUNNER_TEMP/found-verbs.txt" || true
+          if ! diff -u "$RUNNER_TEMP/approved-verbs.txt" "$RUNNER_TEMP/found-verbs.txt"; then
+            echo "::error::a mutating verb in the io allowlist or action registry is not one of the approved remediation commands"
             exit 1
           fi
-          echo "observe-only: no remediation primitive found"
+          echo "mutating verbs: only the $(wc -l < "$RUNNER_TEMP/found-verbs.txt") approved remediation lines"
