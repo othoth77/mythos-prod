@@ -290,7 +290,7 @@ function buildOMHTML(om) {
   const societe = SOCIETES[vehicule?.societe] || SOCIETES.mythos;
   return `<div style="background:#fff;color:#000;width:794px;min-height:1123px;padding:7mm 6mm;box-sizing:border-box;font-family:Arial,sans-serif;font-size:14px;display:flex;flex-direction:column;">
     <div style="display:flex;justify-content:flex-start;align-items:flex-end;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:10px;">
-      <img src="${societe.logo}" style="width:140px;max-height:80px;object-fit:contain;">
+      <img alt="Logo de la société" src="${societe.logo}" style="width:140px;max-height:80px;object-fit:contain;">
     </div>
     <h1 style="margin:0 0 20px;text-align:center;color:#000;font-size:34px;font-weight:900;letter-spacing:1px;">ORDRE DE MISSION</h1>
     <div class="om-info">
@@ -319,7 +319,7 @@ function buildOMHTML(om) {
     <div style="margin-bottom:10px;margin-top:15px;display:grid;grid-template-columns:1fr;gap:16px;font-size:11px;">
       <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:10px;margin-right:80px;">
         <div style="font-weight:900;color:#000;margin-bottom:8px;">Signature et Cachet</div>
-        ${om.addStamp ? `<img src="${getStampSVG()}" style="height:90px;width:auto;transform:rotate(-3deg);opacity:0.85;filter:drop-shadow(1px 1px 2px rgba(30,64,175,0.3)) blur(0.3px);">` : ''}
+        ${om.addStamp ? `<img alt="" src="${getStampSVG()}" style="height:90px;width:auto;transform:rotate(-3deg);opacity:0.85;filter:drop-shadow(1px 1px 2px rgba(30,64,175,0.3)) blur(0.3px);">` : ''}
       </div>
     </div>
     <div style="margin-top:auto;padding-top:12px;border-top:2px solid #000;font-size:10px;line-height:1.5;text-align:center;color:#000;">

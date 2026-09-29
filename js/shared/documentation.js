@@ -64,7 +64,7 @@ function _renderDocHome() {
         var isPdf = d.fileType==='pdf'||(d.photo&&d.photo.indexOf('application/pdf')!==-1);
         return isPdf
           ? '<span style="font-size:14px;">&#128196;</span>'
-          : (d.photo ? '<img src="'+d.photo+'" style="width:22px;height:22px;border-radius:4px;object-fit:cover;border:1px solid #333;">' : '<span style="font-size:14px;">&#128196;</span>');
+          : (d.photo ? '<img alt="Photo du document" src="'+d.photo+'" style="width:22px;height:22px;border-radius:4px;object-fit:cover;border:1px solid #333;">' : '<span style="font-size:14px;">&#128196;</span>');
       }).join('');
       return '<div onclick="openDocFolder(\''+k+'\')" style="display:grid;grid-template-columns:40px 1fr 80px 40px;align-items:center;padding:14px 16px;border-bottom:1px solid #1a1a1a;cursor:pointer;transition:background 0.12s;" onmouseover="this.style.background=\'rgba(212,175,55,0.04)\'" onmouseout="this.style.background=\'\'">' +
         '<div style="width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;font-size:18px;">'+f.icon+'</div>' +
@@ -224,7 +224,7 @@ function _openServerDocument(doc) {
 function _renderStoredDocPreview(doc) {
   var ti = _docTypeInfo(doc);
   if (ti.isImage) {
-    return '<img src="' + doc.photo + '" style="max-width:100%;max-height:180px;border-radius:8px;border:1px solid #333;">';
+    return '<img alt="Photo du document" src="' + doc.photo + '" style="max-width:100%;max-height:180px;border-radius:8px;border:1px solid #333;">';
   }
   return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:#1a1a1a;border:1px solid ' + ti.color + '66;border-radius:8px;"><span style="font-size:30px;">' + ti.icon + '</span><div style="color:' + ti.color + ';font-weight:700;">' + ti.label + ' existant</div></div>';
 }
@@ -235,7 +235,7 @@ function _docThumb(d) {
   }
   var ti = _docTypeInfo(d);
   if (ti.isImage) {
-    return '<img src="' + d.photo + '" onclick="docPreviewPhoto(\'' + d.id + '\')" style="width:42px;height:42px;border-radius:8px;object-fit:cover;border:1px solid #333;cursor:pointer;" title="Voir">';
+    return '<img alt="Photo du document" src="' + d.photo + '" onclick="docPreviewPhoto(\'' + d.id + '\')" style="width:42px;height:42px;border-radius:8px;object-fit:cover;border:1px solid #333;cursor:pointer;" title="Voir">';
   }
   return '<div onclick="docPreviewPhoto(\'' + d.id + '\')" title="Ouvrir" style="width:42px;height:42px;border-radius:8px;background:#1a1a1a;border:1px solid ' + ti.color + '44;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:1px;">' +
     '<span style="font-size:18px;">' + ti.icon + '</span>' +
@@ -296,7 +296,7 @@ function previewDocPhoto(input) {
   if (fi.type === 'image') {
     var reader = new FileReader();
     reader.onload = function(e) {
-      preview.innerHTML = '<img src="' + e.target.result + '" style="max-width:100%;max-height:160px;border-radius:8px;border:1px solid #333;margin-top:4px;">';
+      preview.innerHTML = '<img alt="Aperçu de la photo" src="' + e.target.result + '" style="max-width:100%;max-height:160px;border-radius:8px;border:1px solid #333;margin-top:4px;">';
       preview.dataset.photoData = e.target.result;
     };
     reader.readAsDataURL(file);
@@ -416,7 +416,7 @@ function docPreviewPhoto(id) {
     var googleViewerUrl = 'https://docs.google.com/gview?embedded=true&url=' + encodeURIComponent(window.location.origin + doc.photo);
     w.location = googleViewerUrl;
   } else {
-    w.document.write('<html><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh;"><img src="' + doc.photo + '" style="max-width:100%;max-height:100vh;object-fit:contain;"></body></html>');
+    w.document.write('<html><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh;"><img alt="Photo du document" src="' + doc.photo + '" style="max-width:100%;max-height:100vh;object-fit:contain;"></body></html>');
   }
   w.document.close();
 }
@@ -434,7 +434,7 @@ function docPrint(id) {
     w.document.close();
     setTimeout(function(){ w.print(); }, 400);
   } else {
-    w.document.write('<html><body style="margin:20px;font-family:Arial;"><h2>' + escapeHtml(doc.name) + '</h2>' + (doc.photo ? '<img src="' + doc.photo + '" style="max-width:100%">' : '') + '</body></html>');
+    w.document.write('<html><body style="margin:20px;font-family:Arial;"><h2>' + escapeHtml(doc.name) + '</h2>' + (doc.photo ? '<img alt="Photo du document" src="' + doc.photo + '" style="max-width:100%">' : '') + '</body></html>');
     w.document.close();
     setTimeout(function(){ w.print(); }, 400);
   }

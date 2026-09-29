@@ -47,13 +47,13 @@ function showPage(page) {
 function showView(viewName) {
   const view = document.getElementById('view-' + viewName) ? viewName : 'dashboard';
   document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(el => { el.classList.remove('active'); el.removeAttribute('aria-current'); });
   const target = document.getElementById('view-' + view);
   if (target) target.classList.add('active');
 
   const navId = view.startsWith('compta-') ? 'nav-comptabilite' : 'nav-' + view;
   const nav = document.getElementById(navId);
-  if (nav) nav.classList.add('active');
+  if (nav) { nav.classList.add('active'); nav.setAttribute('aria-current', 'page'); }
 
   if (view === 'dashboard') { updateDashboardStats(); loadDashboardInscriptionsCount(); }
   if (view === 'inscriptions') loadInscriptions();

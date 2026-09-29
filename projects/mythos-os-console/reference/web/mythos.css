@@ -57,16 +57,16 @@
   --mythos-muted:       #A8A498;
 
   --mythos-danger:      #F1706A;
-  --mythos-green:       #2ecc71;
-  --mythos-green-dim:   rgba(46,204,113,0.12);
-  --mythos-blue:        #5dade2;
-  --mythos-blue-dim:    rgba(93,173,226,0.12);
-  --mythos-today:       #e67e22;
-  --mythos-today-dim:   rgba(230,126,34,0.12);
+  --mythos-green:       #4ADE80;
+  --mythos-green-dim:   rgba(74,222,128,0.12);
+  --mythos-blue:        #7DC4EA;
+  --mythos-blue-dim:    rgba(125,196,234,0.12);
+  --mythos-today:       #F0A342;
+  --mythos-today-dim:   rgba(240,163,66,0.12);
   --mythos-past:        #7A776C;
   --mythos-past-dim:    rgba(122,119,108,0.12);
-  --mythos-purple:      #9b59b6;
-  --mythos-purple-dim:  rgba(155,89,182,0.12);
+  --mythos-purple:      #B98BD0;
+  --mythos-purple-dim:  rgba(185,139,208,0.12);
 
   /* --- Colour · EXTENDED ------------------------------------------
      css/main.css declares --danger with NO --danger-dim, while every
@@ -106,7 +106,7 @@
      against it keep rendering identically. */
   --mythos-text-secondary: #999;
 
-  /* Lightened purple for badge text. --purple #9b59b6 on --purple-dim
+  /* Lightened purple for badge text. --purple #B98BD0 on --purple-dim
      measures 3.21:1. This follows the derivation the system already
      applies to its other semantic solids — #8ff0b5 from --green,
      #ff8c82 from --danger — rather than inventing a new treatment for
@@ -597,11 +597,11 @@ a { color: var(--mythos-gold-light); }
      purple = declared, not started
      past   = inert */
 .mythos-badge.is-attention { color: var(--mythos-gold-light); background: var(--mythos-gold-dim); border-color: rgba(217,164,65,.28); }
-.mythos-badge.is-running   { color: var(--mythos-blue);       background: var(--mythos-blue-dim);   border-color: rgba(93,173,226,.28); }
-.mythos-badge.is-ok        { color: #8ff0b5;                  background: var(--mythos-green-dim);  border-color: rgba(46,204,113,.28); }
+.mythos-badge.is-running   { color: var(--mythos-blue);       background: var(--mythos-blue-dim);   border-color: rgba(125,196,234,.28); }
+.mythos-badge.is-ok        { color: #8ff0b5;                  background: var(--mythos-green-dim);  border-color: rgba(74,222,128,.28); }
 .mythos-badge.is-error     { color: var(--mythos-danger-text); background: var(--mythos-danger-dim); border-color: rgba(241,112,106,.32); }
-.mythos-badge.is-waiting   { color: var(--mythos-today);      background: var(--mythos-today-dim);  border-color: rgba(230,126,34,.28); }
-.mythos-badge.is-planned   { color: var(--mythos-purple-text); background: var(--mythos-purple-dim); border-color: rgba(155,89,182,.28); }
+.mythos-badge.is-waiting   { color: var(--mythos-today);      background: var(--mythos-today-dim);  border-color: rgba(240,163,66,.28); }
+.mythos-badge.is-planned   { color: var(--mythos-purple-text); background: var(--mythos-purple-dim); border-color: rgba(185,139,208,.28); }
 .mythos-badge.is-inert     { color: var(--mythos-text-secondary);      background: var(--mythos-past-dim);   border-color: rgba(255,255,255,.07); }
 
 /* Row — .detail-row */

@@ -1,0 +1,46 @@
+{
+  "command": "OTHMODE — MYTHOS ERP BACKEND EVOLUTION — SEARCH FIRST: design and implement the secure multi-user backend (auth/RBAC/DB/API/uploads/audit); build+test locally, do not expose",
+  "status": "COMPLETED",
+  "phase": "COMPLETED",
+  "project": "mythos-os",
+  "source": "claude-code-remote/claude/mythos-erp-modernization-l1ptyo",
+  "sections": {
+    "preflight": {
+      "environment": "Claude Code remote sandbox — PHP 8.4 (PDO, pdo_sqlite, argon2id, sodium, finfo present); no host/SSH access; owner mandate: build+test locally, gated shut, do not expose.",
+      "read": ["sites/erp.mythosprod.xyz/DEPLOYMENT.md", "docs/ERP_SECURITY_STATUS.md", "projects/command-center/reference/othmode/sessions.js", "api.php", "docs/MYTHOS_ERP_CAPABILITY_AUDIT.md"]
+    },
+    "status_center": "UNREACHABLE — egress proxy blocks *.mythosprod.xyz.",
+    "search_first": {
+      "verdict": "REUSE + BUILD-what-is-missing",
+      "repo_reuse": "OTHMODE session pattern (hashed session ids, __Host- HttpOnly/Secure/SameSite=Strict cookie, fail-closed); legacy ALLOWED_KEYS list (hardened); api.php request shape (compat).",
+      "stdlib_reuse": "PHP-native argon2id (password_hash), hash_equals, random_bytes, finfo magic-byte MIME — no Composer deps, no supply chain.",
+      "external_research": "OWASP Session Management / Password Storage / CSRF Prevention / File Upload cheat sheets; 2026 OSS ERP + client-lib landscape (already in capability audit).",
+      "rejected": "FastAPI/Django/Node/Laravel/Symfony (new-runtime re-platforms); full OSS ERP (re-platform, discards domain modules)."
+    },
+    "execution": {
+      "decision": "Secure PHP 8.4 + SQLite(WAL) backend, portable to MariaDB; drop-in-compatible with api.php's collection contract so the frontend transitions without a rewrite (compatibility-oriented, not big-bang).",
+      "built": "projects/erp-backend/: schema.sql; src/{bootstrap,db,auth,rbac,audit,api,uploads}.php; public/index.php (front controller); cli/{migrate,create-user,import-localstorage}.php; tests/{unit-test.php,security-test.sh}; deploy/{nginx-erp-backend.conf,.env.example}; README.md."
+    },
+    "changes": {
+      "added": "projects/erp-backend/ (new, self-contained). No production code touched; legacy api.php/upload.php left disabled and untouched; nothing exposed.",
+      "commit": "b85aee2"
+    },
+    "validation": {
+      "unit-test": "13/0 (argon2id round-trip, key-validation traversal, RBAC decisions)",
+      "security-test (php -S + curl, §17)": "24/0 — unauth denied; uniform login errors; HttpOnly cookie; auth read; CSRF enforced; optimistic concurrency 409; traversal + unknown key 400; viewer write/upload 403; php-as-pdf 415 (magic bytes) + no .php written; logout invalidation; audit rows; session stored as sha256 hash only",
+      "migration-tool": "verified — valid collections imported, traversal/unknown keys skipped, audit recorded",
+      "existing-node-gate (mos-v2)": "PASS, 0 new failures",
+      "secret-scan": "clean — no hardcoded secrets (passwords via env/stdin; DB + uploads off-repo; .gitignore guards runtime files)"
+    },
+    "deployment": "NONE. Deploy artifacts prepared and gated. Public activation requires: owner DNS approval + host access + the on-host §17 re-run; the frontend wiring (js/core/api.js base URL + credentials + CSRF header, login UI replacing js/auth.js) is a follow-up stage gated behind deployment.",
+    "problems": "Not blocked for the build (done + tested locally). Remaining items are gated: public deployment (owner DNS + host), frontend transition (follow-up stage), server-side notifications/jobs (systemd timer calling a PHP job — design documented), backup/restore (REUSE the existing off-host backup tooling, not a parallel mechanism).",
+    "outcome": "Secure multi-user backend reference implemented and fully verified in-repo, gated shut. This is the single architectural evolution the capability audit named as the ERP's ceiling; it now exists as reviewable, tested, deployment-ready code.",
+    "evolution": "Candidate Evolution event (new secure capability, PASS validation) — reference from here if the existing rules qualify it on host import."
+  },
+  "evidence_texts": [
+    "php: argon2id + pdo_sqlite + finfo present",
+    "bash tests/security-test.sh -> SECURITY-TEST: 24 passed, 0 failed",
+    "php tests/unit-test.php -> UNIT-TEST: 13 passed, 0 failed",
+    "import-localstorage: imported 2, skipped bad_key + mp_rdtpl_../evil"
+  ]
+}
