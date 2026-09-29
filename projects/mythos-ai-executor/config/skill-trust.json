@@ -1,9 +1,119 @@
 {
   "schema_version": "1.0.0",
   "policy_version": "1.0.0",
-  "generated_at": "2026-09-04T12:09:25.602Z",
+  "generated_at": "2026-09-29T10:39:09.790Z",
   "note": "OTHMODE skill trust ledger — one CURRENT attestation per skill, bound to the skill content by sha256. Written only by projects/command-center/cli/skill-trust-cli.js after NVIDIA SkillSpector, Gitleaks and NVIDIA SkillEvaluator have scanned the exact bytes; verified by the executor (lib/skill-trust.js) before a skill may be selected or rendered. Edit by rescanning, never by hand.",
   "skills": {
+    "browser-research": {
+      "id": "browser-research",
+      "registry": "executor",
+      "source_path": "projects/mythos-ai-executor/config/skills.json#browser-research",
+      "version": "1.0.0",
+      "content_sha256": "132c576311152e5b697a5c4db2457cc434ac5783672426e0da7ee7c316c2dd67",
+      "decision": "ACCEPT",
+      "reasons": [],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-29T10:39:09.788Z",
+      "scanned_by": "operator:othman",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "SAFE",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "complete",
+            "is_complete": true,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 1,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "failed",
+                "findings": 1,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 2
+          }
+        }
+      },
+      "findings_recorded": 2,
+      "findings_total": 2,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "skill_discovery",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "browser-research.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "skill_discovery",
+          "category": "QUALITY",
+          "severity": "HIGH",
+          "file": "browser-research.md",
+          "line": null
+        }
+      ]
+    },
     "frontend": {
       "id": "frontend",
       "registry": "executor",
