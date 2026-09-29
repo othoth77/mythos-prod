@@ -58,7 +58,20 @@ function byPriority(a, b) { return (a.priority - b.priority) || (Number(a.id) - 
 
 // decide(inboxes, rules, ev, o) — pure function, unit-testable
 //   o = { reserved: [account_ref], now, personal: boolean, sticky: [{ conversation_id, inbox_id }] }
+// holdingFallback(d, shared) — a message nobody's rule claims is not lost: when the instance hosts a HOLDING inbox
+// (settings.holding, the admin-only "unassigned" project) it lands there as "Needs attention / Unassigned" until an
+// admin assigns the sender to a project. Owner/reserved senders and events without an identity are never held.
+var HOLDABLE = { UNROUTED: true, RULE_MALFORMED: true, RULE_EXPIRED: true, TOKEN_REQUIRED: true };
+function holdingFallback(d, shared) {
+  if (d.routed || HOLDABLE[d.reason] !== true) return d;
+  var h = (shared || []).filter(function (i) { return i.settings && i.settings.holding === true; })[0];
+  return h ? { routed: true, inbox: h, rule: null, activated: false, mode: 'unassigned', unrouted_reason: d.reason } : d;
+}
 function decide(inboxes, rules, ev, o) {
+  var d = decideRules(inboxes, rules, ev, o);
+  return holdingFallback(d, (inboxes || []).filter(function (i) { return i.account_mode === 'shared'; }));
+}
+function decideRules(inboxes, rules, ev, o) {
   o = o || {};
   if (!inboxes || !inboxes.length) return { routed: false, reason: 'INBOX_UNKNOWN', inboxes: [] };
   var shared = inboxes.filter(function (i) { return i.account_mode === 'shared'; });

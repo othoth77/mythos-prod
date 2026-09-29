@@ -61,6 +61,7 @@ module.exports = [
     return numbers.listNumbers(db.wp(), { admin: isAdmin(req) }).then(function (rows) {
       // project-scoped sessions see only links to their projects, and only numbers that have such a link
       if (req.session.projects !== null) rows = rows.map(function (n) { n.projects = (n.projects || []).filter(function (l) { return auth.canSeeProject(req.session, l.project_id); }); return n; }).filter(function (n) { return n.projects.length > 0; });
+      else rows.forEach(function (n) { n.projects = (n.projects || []).filter(function (l) { return auth.canSeeProject(req.session, l.project_id); }); }); // hides only the admin-only holding link
       return { items: rows };
     });
   } },

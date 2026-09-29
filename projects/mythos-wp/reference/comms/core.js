@@ -54,7 +54,7 @@ function resolveContact(c, projectId, ev, provider) {
   });
 }
 // routeInfo (V2): { routed_by: dedicated|rule|sticky|keyword|default|manual, rule_id } stored on the conversation at open time
-var ROUTED_BY = { dedicated: true, rule: true, sticky: true, keyword: true, default: true, manual: true };
+var ROUTED_BY = { dedicated: true, rule: true, sticky: true, keyword: true, default: true, manual: true, unassigned: true };
 function routeOf(routeInfo) {
   var by = routeInfo && ROUTED_BY[routeInfo.routed_by] ? routeInfo.routed_by : null;
   var rule = routeInfo && routeInfo.rule_id ? parseInt(routeInfo.rule_id, 10) || null : null;

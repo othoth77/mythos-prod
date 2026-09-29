@@ -168,7 +168,7 @@ var ROUTES = [
     var query = q(req);
     return projectFrom(req).then(function (resolved) {
       return crud.list(r, crudCtx(req, r, resolved), { page: query.page, limit: query.limit, sort: query.sort, dir: query.dir, search: query.q, filters: parseFilters(query) }).then(function (page) {
-        if (r.key === 'projects' && req.session.projects !== null) { page.rows = page.rows.filter(function (p) { return auth.canSeeProject(req.session, p.id); }); page.total = page.rows.length; }
+        if (r.key === 'projects') { page.rows = page.rows.filter(function (p) { return auth.canSeeProject(req.session, p.id); }); page.total = page.rows.length; }
         return page;
       });
     });
@@ -179,7 +179,7 @@ var ROUTES = [
     var query = q(req);
     return projectFrom(req).then(function (resolved) {
       return crud.lookup(r, crudCtx(req, r, resolved), { search: query.q, ids: query.ids ? String(query.ids).split(',') : null, display: query.display, by: query.by }).then(function (rows) {
-        return r.key === 'projects' && req.session.projects !== null ? rows.filter(function (x) { return auth.canSeeProject(req.session, x.id); }) : rows;
+        return r.key === 'projects' ? rows.filter(function (x) { return auth.canSeeProject(req.session, x.id); }) : rows;
       });
     });
   } },

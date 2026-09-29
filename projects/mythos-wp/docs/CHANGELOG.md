@@ -1,5 +1,10 @@
 # MYTHOS WP — Changelog
 
+## V2.1.5 — 2026-09-19 (real inbound message lost)
+
+- Root cause 1 (delivery): Evolution runs on a private Docker network, so the loopback webhook URL `http://127.0.0.1:8170/hooks/evolution` was unreachable from it (connection refused); the owner number had no webhook at all. Webhooks now go through the public vhost `https://wp.mythosprod.xyz/hooks/evolution` with the token in the `x-mythos-webhook-token` header, and `MYTHOS_WP_RECEIVER_URL` tells the health check to expect that address (configuration, no code).
+- Root cause 2 (routing): the shared personal number had no identity rule, so every inbound message was a hash-only drop. A shared instance may now host a HOLDING inbox (`settings.holding`, reserved project `unassigned`, admin/owner only): an unroutable message is stored there as "Needs attention / Unassigned" instead of being lost. The owner number, events without an identity and malformed events are still dropped. An admin assigns a sender with the existing identity rule.
+
 ## V2.1.4 — 2026-09-19 (fixes from the PR #313 code review)
 
 - Security: the lookup route no longer labels or matches rows by hidden fields (the users password hash was readable by an admin). An admin can no longer create another admin or reset a peer admin's password. Renaming an owner is no longer refused as a "demotion".
