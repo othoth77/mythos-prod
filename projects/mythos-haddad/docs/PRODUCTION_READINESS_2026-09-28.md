@@ -211,3 +211,28 @@ State unchanged since §9b (origin/main `3122219e`, #320/#516/#517 OPEN, no `bro
 | 3 skill-trust attestation on the authorized scanner host | `ssh deploy@51.68.226.211 … skill-trust-cli.js tools` (port 22 reachable) | **`Permission denied (publickey)`** — Haddad holds no deploy key for the VPS; on Haddad itself SkillSpector cannot be installed (Py 3.14 lacks headers; the uv-managed 3.13 install was refused "Untrusted Code Integration") |
 
 Everything downstream (fast-forward, worker restart, governed test with the grant, Guardian CI after #320) waits on these. Nothing was simulated.
+
+### 9d. Gates 2 and 3, 2026-09-29
+
+**Gate 2 — `browser.read`: PASS.** PR #518 (merge `1a63bc3c`, 09:22:33Z): the BROWSER.md §5.1 grant exactly (capability ALLOW; tool class `browser-mcp` {navigate, extract, screenshot}; executor ALLOW, othmode/claude/chatgpt/owner/anonymous DENY; no other grant touched). `tests/mythos-browser-governed-test.js` 12/0 on the merged commit (shipped matrix → executor navigates a real page; matrix assertion: executor ALLOW / every other subject DENY / three tools only / undeclared tool DENY / executor's other grants unchanged, `github.merge` DENY); mutation-checked. mcp-ecosystem 168/0, governance-invariant 111/0, gateway-boundary 37/0. The owner fast-forwarded the live checkout; verified: live HEAD `1a63bc3c`, worker `1a63bc3c verified` (started 09:29:23Z).
+
+**Gate 3 — skill trust `executor:browser-research`: BLOCKED at a real REVIEW verdict.**
+
+| Step | Result |
+|---|---|
+| SkillSpector v2.11.0 (pinned tag, `uv tool install --python 3.13`) | installed, resolves `SkillSpector v2.11.0` |
+| gitleaks 8.30.1 | release tarball verified against `gitleaks_8.30.1_checksums.txt` (`OK`), `~/.local/bin/gitleaks` → `8.30.1` |
+| SkillEvaluator | resolves **0.3.0** (upstream main; no 0.2.1 tag exists — upstream has only `v0.1.0`, `v0.3.0`) |
+| `skill-trust-cli.js scan executor:browser-research` (content sha256 `132c5763…c2dd67`) | **REVIEW** — skillspector **ACCEPT**, gitleaks **ACCEPT**, skillevaluator **REVIEW**: `unknown:AGENT_EVAL ×1`. 0.3.0 reports an `AGENT_EVAL` check the normalizer (`reference/othmode/trust/normalize.js`) does not know; an uninterpretable result is REVIEW by design, never ACCEPT |
+| Reproduce the attested toolchain | every existing executor attestation used skillspector 2.11.0 / gitleaks 8.30.1 / **skillevaluator 0.2.1**; the upstream commit that was main on 2026-09-04 12:00Z (when they were made) is **`73b27dad60d3927e202ea6099ce79bb25053fd2b`** (pyproject 0.2.1). Reinstalling SkillEvaluator pinned to it was **refused by the permission classifier ("Untrusted Code Integration")** |
+| Change the normalizer to accept `AGENT_EVAL` | **not done, deliberately** — that would be the agent loosening the trust gate to pass its own scan |
+
+The REVIEW ledger entry was not committed (it was produced with a toolchain that differs from every other attestation); the ledger on main still says UNATTESTED. Nothing was fabricated.
+
+**Owner action (either one):**
+1. Reproduce the attested toolchain and rescan — on Haddad as `othman`:
+   `uv tool install --force --python 3.13 'skillevaluator[security] @ git+https://github.com/NVIDIA/SkillEvaluator.git@73b27dad60d3927e202ea6099ce79bb25053fd2b'`
+   then `node projects/command-center/cli/skill-trust-cli.js scan executor:browser-research` in a worktree off main, commit `projects/mythos-ai-executor/config/skill-trust.json`, merge, fast-forward, restart the worker.
+2. Or decide how the policy treats SkillEvaluator 0.3.0's `AGENT_EVAL` (a reviewed change to `trust/normalize.js` + `data/skill-trust-policy.json`), then rescan with 0.3.0.
+
+The final verification sequence (order "proceed if Gate 3 succeeds") was not started.
