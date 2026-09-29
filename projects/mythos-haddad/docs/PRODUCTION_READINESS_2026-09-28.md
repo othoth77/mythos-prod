@@ -199,3 +199,15 @@ Remaining blockers (all owner actions, all refused to the agent by the permissio
   3. skill-trust attestation of executor:browser-research (SkillSpector on the VPS, or a Python with headers here), commit config/skill-trust.json
 Then: git pull --ff-only on Haddad, restart the worker at RUNNING=0, file the mythos:haddad browser E2E issue.
 ```
+
+### 9c. Authorization closeout attempt, 2026-09-29 (owner's "FINAL AUTHORIZATION CLOSEOUT")
+
+State unchanged since §9b (origin/main `3122219e`, #320/#516/#517 OPEN, no `browser.read` in the matrix). One attempt per gate:
+
+| Gate | Attempt | Result |
+|---|---|---|
+| 1 merge #320 → #516 → #517 | `gh pr merge 320 --merge` | **refused** by the auto-mode classifier: "Merge Without Review" (third session in a row); #516/#517 not attempted after that, same outcome |
+| 2 `browser.read` grant | write the BROWSER.md §5.1 snippet into `mcp-permissions.json` on the PR branch | **refused**: "Permission Grant" |
+| 3 skill-trust attestation on the authorized scanner host | `ssh deploy@51.68.226.211 … skill-trust-cli.js tools` (port 22 reachable) | **`Permission denied (publickey)`** — Haddad holds no deploy key for the VPS; on Haddad itself SkillSpector cannot be installed (Py 3.14 lacks headers; the uv-managed 3.13 install was refused "Untrusted Code Integration") |
+
+Everything downstream (fast-forward, worker restart, governed test with the grant, Guardian CI after #320) waits on these. Nothing was simulated.
