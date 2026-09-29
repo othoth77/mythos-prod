@@ -189,7 +189,7 @@ t('E2E offline: task -> haddad-agent -> browser_extract -> governed invoke -> br
   var transport = fakeTransport([
     { role: 'assistant', content: null, tool_calls: [tc('c1', 'browser_extract', { url: 'https://example.com/', selector: 'h1' })] },
     { role: 'assistant', content: null, tool_calls: [tc('c2', 'browser_screenshot', { url: 'https://example.com/' })] },
-    { role: 'assistant', content: 'Observed https://example.com/ via obscura: "Example Domain".\n```json\n{"mythos_report": true, "status": "completed", "summary": "read example.com through the governed browser", "files_changed": [], "tests": [], "commit": null, "residual_risks": []}\n```' }
+    { role: 'assistant', content: 'Observed https://example.com/ via obscura: "Example Domain".\n```json\n{"mythos_report": true, "status": "completed", "summary": "read https://example.com/ through the governed browser: backend obscura, title Example Domain, h1 text \\"Example Domain\\"", "files_changed": [], "tests": [], "commit": null, "residual_risks": []}\n```' }
   ]);
   var task = { task_id: taskId, working_directory: ws, execution_profile: 'repo-read', timeout_seconds: 120, expected_delivery: 'report', mcp_capabilities: ['browser.extract', 'browser.navigate'] };
   return agent.run(task, 'Read the h1 of https://example.com/ through the browser and report it.', null, 'start', { apiKey: 'k', model: 'm', transport: transport, mcp: O, structuredReport: false }).then(function (o) {
@@ -250,6 +250,49 @@ t('fail-closed rule is scoped: a successful browser call, a failed/blocked repor
   assert.strictEqual(agent.BROWSER_INVOKE_TIMEOUT_MS >= 2 * 40000, true, 'the invoke outlives two engine attempts');
 });
 
+t('REPORT CARRIES THE EVIDENCE: a completed browser report must state backend, title and a verbatim fragment of the extracted text (unit)', function () {
+  var caps = { mcp_capabilities: ['browser.extract'] };
+  var ev = [{ tool: 'extract', backend: 'playwright', title: 'Example Domain', text: 'This domain is for use in documentation examples without needing permission.' }];
+  var R = function (summary, e) { return agent.browserReportRejection(caps, { status: 'completed', summary: summary }, e === undefined ? ev : e); };
+  var live527 = R('The paragraph text was successfully extracted and the backend was `playwright`. The title is `Example Domain`. The text of the paragraph is provided above.');
+  assert.ok(live527 && /extracted text, quoted verbatim/.test(live527) && /This domain is for use/.test(live527) && !/backend \(/.test(live527), 'the live #527 summary is rejected for the text only: ' + live527);
+  assert.ok(/the backend \(playwright\)/.test(R('Title Example Domain; text: "This domain is for use in documentation examples".')), 'backend missing');
+  assert.ok(/page title \("Example Domain"\)/.test(R('Backend playwright; text: This domain is for use in documentation examples.')), 'title missing');
+  assert.strictEqual(R('Backend `Playwright`, title "Example Domain", text: “This   domain is for use in DOCUMENTATION examples”'), null, 'case, spacing and curly quotes do not matter');
+  assert.strictEqual(R('anything', []), null, 'no successful call -> the no-success rule decides, not this one');
+  assert.strictEqual(agent.browserReportRejection(caps, { status: 'failed', summary: 'x' }, ev), null, 'a failed report is untouched');
+  assert.strictEqual(agent.browserReportRejection({ mcp_capabilities: [] }, { status: 'completed', summary: 'x' }, ev), null, 'a non-browser task is untouched');
+  assert.strictEqual(R('backend obscura, title Example Domain', [{ backend: 'obscura', title: 'Example Domain', text: null }]), null, 'a navigate-only call needs no text');
+  assert.strictEqual(R('backend obscura; title Example Domain; h1 Example Domain', [{ backend: 'obscura', title: 'Example Domain', text: 'Example Domain' }]), null, 'a short text must appear whole');
+});
+t('REPORT CARRIES THE EVIDENCE (E2E offline): "provided above" is rejected with the exact values, the repaired report passes validation', function () {
+  var ws = path.join(FIX, 'ws-evidence'); fs.mkdirSync(ws, { recursive: true });
+  var taskId = 't-browser-evidence-1';
+  seedTask(taskId, ['browser.extract', 'browser.navigate']);
+  var good = { role: 'assistant', content: '```json\n{"mythos_report": true, "status": "completed", "summary": "backend obscura; title Example Domain; h1 text: \\"Example Domain\\"", "files_changed": [], "tests": [], "commit": null, "residual_risks": []}\n```' };
+  var tr = fakeTransport([{ role: 'assistant', content: null, tool_calls: [tc('e1', 'browser_extract', { url: 'https://example.com/', selector: 'h1' })] }, { role: 'assistant', content: 'The h1 is Example Domain.\n```json\n{"mythos_report": true, "status": "completed", "summary": "Extracted the h1 of https://example.com/ via obscura; title Example Domain; the text is provided above.", "files_changed": [], "tests": [], "commit": null, "residual_risks": []}\n```' }, good]);
+  var task = { task_id: taskId, working_directory: ws, execution_profile: 'repo-read', timeout_seconds: 120, expected_delivery: 'report', mcp_capabilities: ['browser.extract', 'browser.navigate'] };
+  return agent.run(task, 'Read the h1 of https://example.com/ through the browser and report backend, title and text.', null, 'start', { apiKey: 'k', model: 'm', transport: tr, mcp: O, structuredReport: false }).then(function (o) {
+    // the h1 text "Example Domain" equals the title, so the first report DOES carry it: prove the rule on a page whose text differs
+    assert.ok(o.validation && o.validation.passed === true, 'a report carrying backend, title and text passes: ' + JSON.stringify(o.validation && o.validation.rejections));
+  }).then(function () {
+    var ws2 = path.join(FIX, 'ws-evidence-2'); fs.mkdirSync(ws2, { recursive: true });
+    var id2 = 't-browser-evidence-2';
+    seedTask(id2, ['browser.extract', 'browser.navigate']);
+    var tr2 = fakeTransport([{ role: 'assistant', content: null, tool_calls: [tc('e2', 'browser_extract', { url: 'https://example.com/' })] },
+      { role: 'assistant', content: 'Example Domain — for use in illustrative examples.\n```json\n{"mythos_report": true, "status": "completed", "summary": "Backend obscura, title Example Domain. The paragraph text is provided above.", "files_changed": [], "tests": [], "commit": null, "residual_risks": []}\n```' },
+      { role: 'assistant', content: '```json\n{"mythos_report": true, "status": "completed", "summary": "Backend obscura, title Example Domain, text: \\"Example Domain — for use in illustrative examples.\\"", "files_changed": [], "tests": [], "commit": null, "residual_risks": []}\n```' }]);
+    var task2 = { task_id: id2, working_directory: ws2, execution_profile: 'repo-read', timeout_seconds: 120, expected_delivery: 'report', mcp_capabilities: ['browser.extract', 'browser.navigate'] };
+    return agent.run(task2, 'Read https://example.com/ through the browser and report backend, title and text.', null, 'start', { apiKey: 'k', model: 'm', transport: tr2, mcp: O, structuredReport: false }).then(function (o2) {
+      assert.strictEqual(o2.repair_rounds, 1, 'exactly one repair round');
+      assert.ok(o2.validation && o2.validation.passed === true, 'the repaired report passes: ' + JSON.stringify(o2.validation));
+      var first = o2.validations[0];
+      assert.ok(first && first.pass === false && first.rejections.some(function (r) { return /extracted text, quoted verbatim \(it begins: "Example Domain/.test(r); }), 'round 1 was rejected with the exact text: ' + JSON.stringify(first && first.rejections));
+      var repairMsg = tr2.sent[2].messages.map(function (m) { return typeof m.content === 'string' ? m.content : ''; }).join('\n');
+      assert.ok(/quoted verbatim/.test(repairMsg), 'the model was told what to put in the summary');
+    });
+  });
+});
 t('security: the token is in the launcher only — absent from the audit log, the task events and every model request', function () {
   var audit = fs.readFileSync(process.env.MYTHOS_MCP_AUDIT_FILE, 'utf8');
   assert.ok(audit.split('\n').filter(Boolean).length >= 5, 'audit records were written');
