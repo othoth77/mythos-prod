@@ -522,7 +522,10 @@ function providerEvidence(outcome) {
     repair_rounds: typeof outcome.repair_rounds === 'number' ? outcome.repair_rounds : null,
     tool_calls: typeof outcome.tool_calls === 'number' ? outcome.tool_calls : trace.length,
     tool_trace: trace.map(function (e) {
-      return { tool: e.tool, target: e.target || null, refused: !!e.refused, detail: e.detail ? String(e.detail).slice(0, 160) : null };
+      var out = { tool: e.tool, target: e.target || null, refused: !!e.refused, detail: e.detail ? String(e.detail).slice(0, 160) : null };
+      if (typeof e.backend === 'string') out.backend = e.backend.slice(0, 20);
+      if (typeof e.fallback_reason === 'string') out.fallback_reason = e.fallback_reason.slice(0, 60);
+      return out;
     }),
     diagnosis_requested: trace.some(function (e) { return e.tool === 'diagnose'; }),
     context_compactions: trace.filter(function (e) { return e.tool === 'context_compaction'; }).length,
