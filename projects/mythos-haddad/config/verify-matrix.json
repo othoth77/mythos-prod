@@ -45,8 +45,7 @@
     "stage3h-test.js": { "class": "browser_only", "evidence": "evalmachine: document.addEventListener" },
     "stage4w-test.js": { "class": "browser_only", "labels": ["selected HT highlighted", "selected 13 percent HT highlighted"], "evidence": "ERP VAT widget highlight via a DOM stub (front-end, outside the orchestration stack)" },
     "invoice-total-test.js": { "class": "deliberate_target", "evidence": "fixture with a planted defect (expected 7500, got 5000) used as a repair target by executor E2E runs" },
-    "mythos-t6-loop-target.js": { "class": "deliberate_target", "evidence": "'unsatisfiable by design' — the T6 loop-cap E2E target" },
-    "mythos-bridge-whatsapp-notify-test.js": { "class": "load_sensitive", "evidence": "130/1 under the full sweep, 131/0 standalone (same code): a retry_at timing assertion under CPU load" }
+    "mythos-t6-loop-target.js": { "class": "deliberate_target", "evidence": "'unsatisfiable by design' — the T6 loop-cap E2E target" }
   },
   "listener_allowlist": [
     { "addr": "0.0.0.0:22", "why": "sshd (key login only)" },
