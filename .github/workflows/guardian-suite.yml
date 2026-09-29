@@ -37,6 +37,12 @@ on:
       - 'ops/guardian/**'
       - 'tests/guardian-test.js'
       - 'projects/status-center/monitor/**'
+      # A change to this workflow must also run it on main: merging #320 (a
+      # workflow-only change) left main's last Guardian run the red one of
+      # 2026-09-19, with nothing to re-verify main after the fix.
+      - '.github/workflows/guardian-suite.yml'
+  # Re-verify main on demand (e.g. after an input changed outside the paths above).
+  workflow_dispatch:
 
 permissions:
   contents: read
