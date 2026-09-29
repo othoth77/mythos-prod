@@ -603,6 +603,11 @@ var TOOL_IMPL = {
 // surface: the three tools are the whole vocabulary.
 var BROWSER_MCP_SERVER = process.env.MYTHOS_BROWSER_MCP_SERVER || 'browser-mcp';
 var BROWSER_TOOLS = { browser_navigate: 'navigate', browser_extract: 'extract', browser_screenshot: 'screenshot' };
+// One browser call may take two bounded engine attempts (Obscura, then the
+// Playwright fallback — MYTHOS_BROWSER_ATTEMPT_TIMEOUT_MS, 40 s each). The
+// governed invoke's 30 s default would cut the fallback off before it could
+// run, which is exactly the failure the fallback exists to absorb.
+var BROWSER_INVOKE_TIMEOUT_MS = Number(process.env.MYTHOS_BROWSER_INVOKE_TIMEOUT_MS) || 100000;
 
 function browserTool(mcpTool) {
   return function (ctx, args) {
@@ -614,7 +619,7 @@ function browserTool(mcpTool) {
     var server = (ctx.mcpOpts && ctx.mcpOpts.server) || BROWSER_MCP_SERVER;
     return mcpInvoke.invoke(
       { server: server, tool: mcpTool, arguments: args, task_id: ctx.task.task_id, requested_by: 'haddad-agent' },
-      ctx.mcpOpts || undefined
+      Object.assign({ timeoutMs: BROWSER_INVOKE_TIMEOUT_MS }, ctx.mcpOpts || {})
     ).then(function (out) {
       if (!out.ok) return { error: 'REFUSED: ' + out.code + ': ' + String(out.message || '').slice(0, 300), audit_id: out.audit_id };
       var first = Array.isArray(out.content) ? out.content.filter(function (c) { return c && c.type === 'text'; })[0] : null;
@@ -656,6 +661,25 @@ function browserToolSchemas(caps) {
       parameters: { type: 'object', properties: { url: { type: 'string' }, format: { type: 'string', enum: ['png', 'jpeg'] } }, required: ['url'] } } });
   }
   return out;
+}
+
+// FAIL CLOSED on a browser task's own claim (2026-09-29). Measured 2026-09-28:
+// with both engines down every browser call answered BROWSER_NO_BACKEND and
+// the model still reported `completed`. A browser task whose report says
+// completed while not ONE browser call succeeded in any execution has
+// established nothing through the browser; that is a rejection like any other
+// (repair round, then a stop for a person), never a success. Tasks without a
+// browser capability, and reports that already say failed/blocked, are
+// untouched.
+function browserEvidenceRejection(task, report, trace) {
+  var caps = task && Array.isArray(task.mcp_capabilities) ? task.mcp_capabilities : [];
+  if (!caps.some(function (c) { return /^browser\./.test(c); })) return null;
+  if (!report || report.status !== 'completed') return null;
+  var calls = (trace || []).filter(function (e) { return e && BROWSER_TOOLS[e.tool]; });
+  if (calls.some(function (e) { return !e.refused; })) return null;
+  var last = calls.length ? String(calls[calls.length - 1].detail || '').slice(0, 200) : null;
+  return 'browser: the report says completed but no browser call succeeded (' + calls.length + ' attempted' +
+    (last ? '; last: ' + last : '') + ') — report status failed with the code you received, or call the browser successfully first';
 }
 
 // The schemas handed to the model, built from the grant so a profile that
@@ -720,6 +744,7 @@ function systemPrompt(grant, schemas, role, delivery) {
   if (names.some(function (n) { return n.indexOf('browser_') === 0; })) {
     lines.push('The browser_* tools open PUBLIC http(s) pages through the governed browser (Obscura first, Playwright as fallback); '
       + 'they are read-only — no clicks, no typing, no scripts, no private addresses — and each result names the backend that served it. '
+      + 'A result with ok:false carries code and class; report that code, and never report completed when no browser call succeeded. '
       + 'A screenshot is saved as a file and only its path, size and sha256 come back.');
   }
   // The task's DELIVERY, stated as the fact it is — the same kind of
@@ -1329,6 +1354,11 @@ function run(task, prompt, _sessionId, _mode, opts) {
       verdict.pass = false;
       verdict.rejections.unshift('report: ' + parsedReport.error);
     }
+    var browserRejection = browserEvidenceRejection(task, parsedReport.report, trace);
+    if (browserRejection) {
+      verdict.pass = false;
+      verdict.rejections.push(browserRejection);
+    }
     validations.push({ attempt: repairRound + 1, pass: verdict.pass, rejections: verdict.rejections, evidence: verdict.evidence });
 
     if (verdict.pass) {
@@ -1617,7 +1647,9 @@ module.exports = {
   MCP_TOOL_IMPL: MCP_TOOL_IMPL,
   BROWSER_TOOLS: BROWSER_TOOLS,
   BROWSER_MCP_SERVER: BROWSER_MCP_SERVER,
+  BROWSER_INVOKE_TIMEOUT_MS: BROWSER_INVOKE_TIMEOUT_MS,
   browserToolSchemas: browserToolSchemas,
+  browserEvidenceRejection: browserEvidenceRejection,
   version: version,
   available: available,
   probe: probe,

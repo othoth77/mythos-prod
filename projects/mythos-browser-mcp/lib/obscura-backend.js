@@ -19,10 +19,31 @@ var http = require('http');
 var https = require('https');
 var { URL } = require('url');
 var cdp = require('./cdp-client');
+var pageText = require('./page-text');
 
 var DEFAULT_CDP_URL = 'http://127.0.0.1:9222';
 var NAV_TIMEOUT_MS = 30000;
 var CALL_TIMEOUT_MS = 30000;
+
+// Obscura answers a failed fetch as a CDP ERROR on Page.navigate ("Network
+// error: … error sending request", measured 2026-09-29), not as errorText.
+// Two different things hide in that shape, and they must not be confused:
+//   * the engine's own SSRF refusal ("Access to private/internal IP address")
+//     — a hostname that RESOLVED to a private address. That is a POLICY
+//     verdict: it must never be retried on another engine, which is exactly
+//     what the fallback would otherwise do;
+//   * any other network failure — a site failure, NAVIGATE_FAILED.
+function navigationError(err) {
+  var msg = String(err && err.message || err);
+  if (/private\/internal IP address|private network/i.test(msg)) {
+    var p = new Error('URL_POLICY: the runtime refused a private or internal address (' + msg.replace(/^CDP_ERROR: /, '').slice(0, 200) + ')');
+    p.code = 'URL_POLICY'; return p;
+  }
+  if (/^CDP_ERROR: .*Network error/.test(msg)) {
+    var n = new Error('NAVIGATE_FAILED: ' + msg.replace(/^CDP_ERROR: /, '').slice(0, 300)); n.code = 'NAVIGATE_FAILED'; return n;
+  }
+  return err;
+}
 
 function redactUrl(u) {
   try { var x = new URL(u); x.search = ''; x.username = ''; x.password = ''; return x.toString(); } catch (e) { return '<url>'; }
@@ -136,6 +157,8 @@ function create(cfg) {
     return c.send('Page.navigate', { url: url }, sid, navTimeout).then(function (r) {
       if (r.errorText) { var e = new Error('NAVIGATE_FAILED: ' + r.errorText); e.code = 'NAVIGATE_FAILED'; throw e; }
       return loaded;
+    }, function (err) {
+      throw navigationError(err);
     }).then(function (fired) {
       if (fired) return;
       // Fall back to polling readyState — an engine may not emit the event.
@@ -153,15 +176,7 @@ function create(cfg) {
   }
 
   function extract(session, opts) {
-    opts = opts || {};
-    var selector = typeof opts.selector === 'string' && opts.selector.length <= 256 ? opts.selector : null;
-    var mode = opts.mode === 'html' ? 'html' : 'text';
-    var max = Math.max(256, Math.min(Number(opts.max_chars) || 20000, 200000));
-    var expr = '(function(){var el=' + (selector ? 'document.querySelector(' + JSON.stringify(selector) + ')' : 'document.body || document.documentElement') + ';' +
-      'if(!el) return JSON.stringify({found:false});' +
-      'var s=' + (mode === 'html' ? 'el.outerHTML' : '(el.innerText!==undefined?el.innerText:el.textContent)') + '||"";' +
-      'return JSON.stringify({found:true,chars:s.length,text:s.slice(0,' + max + '),truncated:s.length>' + max + ',title:document.title,href:location.href});})()';
-    return evaluate(session, expr).then(function (s) { return JSON.parse(s || '{"found":false}'); });
+    return evaluate(session, pageText.expression(opts)).then(function (s) { return JSON.parse(s || '{"found":false}'); });
   }
 
   function screenshot(session, opts) {
@@ -197,4 +212,4 @@ function create(cfg) {
   };
 }
 
-module.exports = { create: create, DEFAULT_CDP_URL: DEFAULT_CDP_URL };
+module.exports = { create: create, navigationError: navigationError, DEFAULT_CDP_URL: DEFAULT_CDP_URL };

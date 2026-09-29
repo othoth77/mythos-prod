@@ -93,6 +93,23 @@ t('the runner offers browser_* ONLY when the task carries the capability, and TO
   assert.ok(some.indexOf('browser_extract') !== -1 && some.indexOf('browser_navigate') === -1, 'exactly the resolved capability is offered');
 });
 
+t('routing: an investigate Issue that names a public URL AND the browser reaches browser-research (role web-researcher); every other investigate stays researcher', function () {
+  var roles = require(path.join(EXEC, 'lib', 'roles.js'));
+  assert.strictEqual(roles.DEFAULT_TABLE.valid, true, roles.DEFAULT_TABLE.reason);
+  var yes = roles.resolveRole({ action: 'investigate', instruction: 'Read the first paragraph of https://example.com/ through the governed browser and report it.' });
+  assert.strictEqual(yes.role && yes.role.id, 'web-researcher', yes.reason);
+  assert.strictEqual(yes.role.skill_category, 'browser-research');
+  assert.strictEqual(roles.profileForRole(yes.role), 'repo-read', 'the profile is the action\'s — read-only');
+  ['Explain how lib/roles.js resolves a role.', 'Summarise https://example.com/ from the repository notes.', 'Which browser does the webinar preflight use?']
+    .forEach(function (text) { var r = roles.resolveRole({ action: 'investigate', instruction: text }); assert.strictEqual(r.role && r.role.id, 'researcher', text + ' -> ' + r.reason); });
+  ['implement', 'review', 'test', 'document'].forEach(function (a) {
+    var r = roles.resolveRole({ action: a, instruction: 'open https://example.com/ in the browser' });
+    assert.notStrictEqual(r.role && r.role.skill_category, 'browser-research', a + ' must never route to the browser');
+  });
+  var skill = skillsLib.DEFAULT_REGISTRY.skills['browser-research'];
+  assert.deepStrictEqual(mcpCaps.resolveCapabilities(skill, 'repo-read').allowed.slice().sort(), ['browser.extract', 'browser.navigate', 'browser.screenshot']);
+});
+
 function seedTask(id, caps) {
   fs.mkdirSync(path.join(process.env.MYTHOS_EXECUTOR_HOME, 'tasks', id), { recursive: true });
   state.writeJSON(id, 'task.json', { task_id: id, mcp_capabilities: caps });
@@ -194,6 +211,43 @@ t('E2E offline: task -> haddad-agent -> browser_extract -> governed invoke -> br
     var ev = JSON.stringify(trace);
     assert.ok(/browser_extract/.test(ev), 'trace names the browser tool: ' + ev.slice(0, 200));
   });
+});
+
+t('FAIL CLOSED: both engines down, every browser call fails, the model still says completed -> rejected each round, the run ends BLOCKED (never completed)', function () {
+  var dead = path.join(FIX, 'dead-browser-mcp.sh');
+  fs.writeFileSync(dead, '#!/usr/bin/env bash\nset -euo pipefail\nexport OBSCURA_CDP_URL=http://127.0.0.1:9\nexport OBSCURA_CDP_TOKEN=' + TOKEN + '\nexport MYTHOS_PLAYWRIGHT_MODULE=/nonexistent/playwright-core\nexport MYTHOS_BROWSER_ARTIFACTS=' + path.join(FIX, 'artifacts') + '\nexec ' + process.execPath + ' ' + path.join(MCP, 'server.js') + '\n', { mode: 0o700 });
+  var reg = JSON.parse(fs.readFileSync(REG, 'utf8')); reg.servers['browser-mcp'].transport = { kind: 'stdio', launcher: dead };
+  var DREG = path.join(FIX, 'registry-dead.json'); fs.writeFileSync(DREG, JSON.stringify(reg, null, 2));
+  var ws = path.join(FIX, 'ws-dead'); fs.mkdirSync(ws, { recursive: true });
+  var taskId = 't-browser-failclosed-1';
+  seedTask(taskId, ['browser.extract', 'browser.navigate']);
+  var claim = { role: 'assistant', content: 'Read it.\n```json\n{"mythos_report": true, "status": "completed", "summary": "the h1 is Example Domain", "files_changed": [], "tests": [], "commit": null, "residual_risks": []}\n```' };
+  var transport = fakeTransport([{ role: 'assistant', content: null, tool_calls: [tc('d1', 'browser_extract', { url: 'https://example.com/', selector: 'h1' })] }, claim]);
+  var task = { task_id: taskId, working_directory: ws, execution_profile: 'repo-read', timeout_seconds: 300, expected_delivery: 'report', mcp_capabilities: ['browser.extract', 'browser.navigate'] };
+  return agent.run(task, 'Read the h1 of https://example.com/ through the browser and report it.', null, 'start', { apiKey: 'k', model: 'm', transport: transport, mcp: Object.assign({}, O, { registryPath: DREG }), structuredReport: false }).then(function (o) {
+    var toolMsg = null;
+    transport.sent.forEach(function (req) { req.messages.forEach(function (m) { if (m.role === 'tool' && m.tool_call_id === 'd1') toolMsg = m; }); });
+    assert.ok(toolMsg && /BROWSER_NO_BACKEND/.test(toolMsg.content), 'the model was told the machine-readable code: ' + (toolMsg && toolMsg.content).slice(0, 200));
+    var out = String(o.stdout || '');
+    var reports = out.match(/```json\n([\s\S]*?)\n```/g) || [];
+    var last = JSON.parse(reports[reports.length - 1].replace(/^```json\n|\n```$/g, ''));
+    assert.strictEqual(last.status, 'blocked', 'the settled report is blocked, not completed');
+    assert.ok(o.validation && o.validation.passed === false);
+    assert.ok(o.validation.rejections.some(function (r) { return /^browser: the report says completed but no browser call succeeded/.test(r); }), JSON.stringify(o.validation.rejections).slice(0, 400));
+  });
+});
+t('fail-closed rule is scoped: a successful browser call, a failed/blocked report, or a task with no browser capability is untouched', function () {
+  var caps = { mcp_capabilities: ['browser.extract'] };
+  var bad = [{ tool: 'browser_extract', refused: true, detail: 'REFUSED: MCP_TOOL_ERROR: BROWSER_NO_BACKEND' }];
+  var good = bad.concat([{ tool: 'browser_extract', refused: false }]);
+  assert.ok(agent.browserEvidenceRejection(caps, { status: 'completed' }, bad));
+  assert.ok(agent.browserEvidenceRejection(caps, { status: 'completed' }, []), 'no browser call at all is not evidence either');
+  assert.strictEqual(agent.browserEvidenceRejection(caps, { status: 'completed' }, good), null);
+  assert.strictEqual(agent.browserEvidenceRejection(caps, { status: 'failed' }, bad), null);
+  assert.strictEqual(agent.browserEvidenceRejection(caps, { status: 'blocked' }, bad), null);
+  assert.strictEqual(agent.browserEvidenceRejection({ mcp_capabilities: [] }, { status: 'completed' }, bad), null);
+  assert.strictEqual(agent.browserEvidenceRejection(caps, null, bad), null, 'a missing report is the report rule\'s business');
+  assert.strictEqual(agent.BROWSER_INVOKE_TIMEOUT_MS >= 2 * 40000, true, 'the invoke outlives two engine attempts');
 });
 
 t('security: the token is in the launcher only — absent from the audit log, the task events and every model request', function () {

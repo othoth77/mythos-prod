@@ -40,7 +40,7 @@ function decodeFrames(buf, onText) {
   }
 }
 
-// start({ token, port?, pages?: { title, text, href }, mode: 'legacy'|'target', pngBase64 }) -> Promise<{ url, port, seen: [], close() }>
+// start({ token, port?, pages?: { title, text, href }, mode: 'legacy'|'target', pngBase64, failMethods?: {method: message} }) -> Promise<{ url, port, seen: [], close() }>
 function start(opts) {
   opts = opts || {};
   var token = opts.token || null;
@@ -93,6 +93,12 @@ function start(opts) {
         var msg; try { msg = JSON.parse(text); } catch (e) { return; }
         seen.push({ method: msg.method, sessionId: msg.sessionId || null });
         var sid = msg.sessionId;
+        if (opts.failMethods && opts.failMethods[msg.method]) {
+          var fm = opts.failMethods[msg.method];
+          if (fm === 'hang') return;                                   // never answers: the caller's deadline must fire
+          if (fm === 'drop') { socket.destroy(); return; }             // the engine goes away mid-call
+          var er = { id: msg.id, error: { code: -32000, message: fm } }; if (sid) er.sessionId = sid; return send(er);
+        }
         var reply = function (result) { var r = { id: msg.id, result: result }; if (sid) r.sessionId = sid; send(r); };
         switch (msg.method) {
           case 'Target.createTarget': { var tid = 't' + Math.random().toString(36).slice(2, 8); state.sessions[tid] = { url: msg.params.url }; return reply({ targetId: tid }); }
@@ -111,6 +117,16 @@ function start(opts) {
             var value;
             if (/readyState/.test(expr) && /title/.test(expr)) value = JSON.stringify({ href: p.href, title: p.title, readyState: 'complete' });
             else if (expr === 'document.readyState') value = 'complete';
+            else if (/function extractInPage/.test(expr)) {
+              // lib/page-text.js: the arguments are the JSON object the function is called with
+              var am = /\)\((\{[^}]*\})\)\)$/.exec(expr);
+              var ea = am ? JSON.parse(am[1]) : {};
+              var esel = ea.selector || null;
+              var efound = !esel || esel === 'h1' || esel === 'body';
+              var etxt = esel === 'h1' ? p.title : p.text;
+              var emax = ea.max || 20000;
+              value = JSON.stringify(efound ? { found: true, chars: etxt.length, text: etxt.slice(0, emax), truncated: etxt.length > emax, title: p.title, href: p.href } : { found: false });
+            }
             else if (/querySelector|document\.body/.test(expr)) {
               var m = /querySelector\(("[^"]*")\)/.exec(expr);
               var sel = m ? JSON.parse(m[1]) : null;

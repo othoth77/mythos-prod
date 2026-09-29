@@ -1,19 +1,28 @@
 # MYTHOS HADDAD — Obscura browser runtime and the governed browser chain
 
-> Status 2026-09-28: code on `mythos/browser-obscura-20260927` (PR #512, OPEN — merge is an owner step) plus
-> `mythos-haddad/browser-closeout` (launcher fallback env file). Runtime on Haddad **INSTALLED and measured**
-> as the user unit `obscura.service` (§2–§4); the Playwright fallback **WORKS** through user-space libraries
-> (§4b); the permission-matrix classification and the skill-trust attestation remain **owner steps** (§5) —
-> both were refused to this session by the permission layer, as PR #512 predicted. Architecture per the owner's order of 2026-09-27, which supersedes
-> the V3.1 entry "Jev, Browser Use, … NOT NEEDED / INCOMPATIBLE" ([V3_1.md](V3_1.md) §2).
+> Status 2026-09-29 (final integration pass, PR #520, branch `mythos-haddad/obscura-final`): BrowserAdapter/server
+> **1.1.0** — Playwright fallback on ANY engine failure (open, operation, attempt deadline), classified
+> machine-readable failures, Playwright request guard, fail-closed browser reports, identical clean page text
+> on both engines, and the ROUTING that lets a GitHub Issue reach the browser at all (role `web-researcher`).
+> The tool surface stays **read-only** (navigate, extract, screenshot): an interaction tool was built and the
+> owner declined it on 2026-09-29 (preserved unmerged on `mythos-haddad/obscura-click-unmerged`).
+> Gate 3 (skill trust) is **DONE**: `executor:browser-research` ACCEPT, #521 merged, main `58935047` — #520
+> leaves the skill content byte-identical (content sha256 `132c5763…c2dd67`), so the attestation stays valid.
+> Measured state in §2c. Architecture per the owner's order of 2026-09-27, which supersedes the V3.1 entry
+> "Jev, Browser Use, … NOT NEEDED / INCOMPATIBLE" ([V3_1.md](V3_1.md) §2).
 
 ## 1. Architecture (fixed)
 
 ```
 Mythos OS → Master Task → governed MCP browser invocation → BrowserAdapter
    → ObscuraBackend PRIMARY → Obscura CDP → 127.0.0.1:9222
-   → PlaywrightBackend FALLBACK
+   → PlaywrightBackend FALLBACK (open failure, operation failure, or attempt deadline; never for policy/input)
 ```
+
+Playwright ALSO connects to Obscura itself over CDP (`chromium.connectOverCDP('http://127.0.0.1:9222',
+{ headers: { Authorization: 'Bearer …' } })`) — measured in §2c and part of `browser-smoke.js --full`. The
+adapter's primary path uses its own dependency-free CDP client (`lib/cdp-client.js`) so the primary never
+depends on Playwright being installed; Playwright-over-CDP is verified as a working second client.
 
 Implementation: `projects/mythos-browser-mcp/` (server, adapter, backends, URL gate, launcher, smoke,
 webinar preflight) and the wiring in `projects/mythos-ai-executor/providers/haddad-agent.js`
@@ -49,6 +58,58 @@ Nothing production was touched.
 |---|---|
 | Obscura primary | **COMPLETED in 35.7 s**, `validation.passed: true`, `repair_rounds: 0`. Qwen called `browser_extract https://example.com/` (9 governed invokes — it repeated the call several times before settling, the runner's identical-call note notwithstanding), then reported `mythos_report … status completed … "backend 'obscura' … extracted text … 'Example Domain'"`. Audit: 9 records `server: browser-mcp`, `capability: browser.read`, `decision: ALLOW`. Token absent from audit, events and output |
 | Playwright fallback (primary unreachable) | Governance/MCP chain **PASS**: 32 governed invokes, all ALLOW, every page served by Playwright; **task-level FAIL**: 194 s, 3 executions, `repair_rounds: 2`, no valid report — the 7B model kept re-issuing `browser_extract` (each ~3 s through Playwright vs ~0.5 s through Obscura) until the tool-call budget was spent. Known limit: the fallback carries the browser; whether Qwen converges is the task-shape question recorded in V3.2 (`outcomes`) |
+
+### 2c. Final integration pass, 2026-09-29 (all measured live on Haddad)
+
+Live checkout `~/projects/mythos-prod` = `main` @ `1a63bc3c` (= origin/main), worker `code_identity 1a63bc3c`
+(restarted 09:29:23Z by the owner's fast-forward). Resources before any test: 7.2 GiB RAM / 4.3 GiB available,
+disk 35 % (61 GB free), load 0.3, 12 CPUs; listeners `127.0.0.1:9222` (obscura), `:8130` (worker), `:8600`
+(llama-server), `:8160` (MCP HTTP) — nothing new was installed, no unit was added or changed.
+
+| Invariant | Measured |
+|---|---|
+| Binary / version | `~/.local/opt/obscura-test/obscura` mode 755, `obscura 0.2.3`, sha256 `ca649bbd…3e34d`; `obscura.service` active, `MemoryMax=1500M`, peak 83 MB |
+| Auth | `/json/version` no token **401**, wrong token **401**, `?token=` query **401**, bearer **200** `Chrome/145.0.0.0` CDP 1.3; `cdp.env` 0600 with `OBSCURA_CDP_TOKEN` only (64 hex) |
+| CDP | page created (`/json/new`), navigate, `Runtime.evaluate`, `Page.captureScreenshot`, `Input.dispatchMouseEvent`, lifecycle events; `/json/list` shows no page left open after the full smoke (1 → 1) |
+| Playwright → Obscura over CDP | playwright-core 1.63.0 `connectOverCDP` with the bearer: connected (`145.0.0.0`), page, `goto` 200, title `Example Domain`, DOM text, screenshot 46 662 B, **click → `https://www.iana.org/help/example-domains`**, clean disconnect |
+| Smoke | `browser-smoke.js https://example.com/ --full --require-backend obscura` → **PASS** on the final code `325ba8dc`: auth 401/401/200, playwright_over_cdp (incl. a host-side click — no task can reach it), status, navigate, extract, screenshot, no_leaked_pages (1 → 1) |
+| Page text | Obscura's `innerText` is `textContent` (example.com's body text began with its CSS). `lib/page-text.js` now serves both engines: example.com 905 chars and a Wikipedia article 29 869 chars, **identical on obscura and playwright** |
+| Failure matrix (adapter, live) | invalid token → `playwright` (`OBSCURA_UNAUTHORIZED` 401); CDP port down → `playwright` (`OBSCURA_UNREACHABLE`); dead host → `NAVIGATE_FAILED` class `target` after both engines; bad selector → `CLICK_TARGET_NOT_FOUND` class `input`, **tried once**; private literal → `URL_POLICY` before any engine; slow page past a 4–6 s attempt deadline → `BROWSER_TIMEOUT` on both; **Obscura SIGKILLed 1.5 s into a navigation → `CDP_CLOSED` → the SAME call served by `playwright` in 5.3 s**; systemd restarted Obscura (`NRestarts` 2) and the next call was `obscura` again |
+| Playwright guard | `https://localtest.me/` (resolves to 127.0.0.1): Obscura refused it, the fallback guard refused it too (`URL_POLICY … URL_PRIVATE_ADDRESS_RESOLVED`) — before 1.1.0 the fallback would have fetched it |
+| Health | `HADDAD_HEALTH_ONLY=browser` on the branch → **PASS** (unit, loopback, 401/200, launcher, fallback AVAILABLE) |
+
+**Routing — measured, then fixed.** With the Gate 3 attestation applied, none of the five bridge actions
+could select `browser-research`: every role in `config/roles.json` maps to `general`, `testing` or
+`github-review`, so no GitHub Issue could ever reach the browser. #520 adds one role, `web-researcher`
+(action `investigate`, profile `repo-read`, skill_category `browser-research`, `match` = an http(s) URL AND
+"browser"/"web page"/"website" in the instruction); every other `investigate` stays `researcher`, no other
+action routes to the browser, and an untrusted skill still falls back to `generic`.
+
+**Real-Qwen E2E through the executor pipeline** on the integration build = #520 `134c779f` + #521 (what main
+becomes when #520 merges), isolated store: the REAL `executor.createTask` with a bridge-shaped input
+(`project mythos-haddad`, `provider haddad-agent`, `task_category investigate`, `execution_profile repo-read`) →
+role `web-researcher` → attested skill `browser-research` (trust ACCEPT, not STALE) → resolved capabilities
+`browser.navigate/extract/screenshot` → the REAL `haddad-agent` with REAL Qwen 2.5 7B → REAL governed invoke
+(shipped registry + matrix) → the INSTALLED launcher → REAL Obscura / Chromium. Each outcome rendered by the
+REAL bridge `reportBody()` and read back by the REAL Supervisor parsers (`bridgeMarker`, `summarySection`). The
+only step not live is the GitHub bridge polling itself.
+
+| Scenario | Result |
+|---|---|
+| A — Obscura primary: "Read the first paragraph (p) of https://example.com/ through the governed browser" | **COMPLETED 31.5 s**; `browser_extract` served by `obscura`; audit `extract browser.read ALLOW OK`; report names backend `obscura`, title `Example Domain` and the paragraph text; Supervisor marker `COMPLETED` (valid), Summary present, no `[object Object]`; token absent |
+| B — Obscura unreachable (`OBSCURA_CDP_URL=:9229`) | **COMPLETED 399.8 s** (GPU shared with a concurrent session's runs); every call served by `playwright`, `fallback_reason: obscura unavailable: OBSCURA_UNREACHABLE`; audit `ALLOW OK`; Supervisor marker `COMPLETED` |
+| C — both engines down | every call `BROWSER_NO_BACKEND` class `backend`; Qwen claimed `completed` → **rejected** (`browser: the report says completed but no browser call succeeded (15 attempted …)`) each round → settled **BLOCKED** (447 s, 2 repair rounds); Supervisor marker `BLOCKED` (valid) |
+
+Earlier the same day (branch state with the since-declined click tool): the same three shapes through
+`agent.run()` with hand-set capabilities — A COMPLETED 33.6 s obscura; B run 1 FAILED at the 600 s deadline
+(Qwen looped, chain PASS: 29 calls all `playwright`), run 2 COMPLETED 47 s; C BLOCKED. The 7B model's
+convergence under the fallback is the one nondeterministic element; the chain never failed.
+
+**Regression (full sweep, 230 suites, baseline origin/main `1a63bc3c` vs branch):** identical exit codes on
+all 230 (43 non-zero on both — the host baseline: VPS-only HostOps, WP comms without a DB, ERP/stage suites
+without their deps, `invoice-total`); identical pass counts on every suite except the two browser suites, which
+grew: `mythos-browser-mcp-test` 21 → 31, `mythos-browser-governed-test` 12 → 15. Executor 395/0, Supervisor
+221/0, supervised loop 51/0, mcp-ecosystem 168/0, governance-invariant 111/0, gateway-boundary 37/0, stc-1 81/0.
 
 ## 3. Install (isolated, user-space, loopback only) — AS INSTALLED on Haddad (2026-09-28)
 
@@ -94,7 +155,8 @@ systemctl --user is-active obscura.service             # process
 ss -ltnp | grep ':9222'                                # listener: 127.0.0.1:9222 ONLY
 curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:9222/json/version                 # unauthenticated: expect 401/403
 curl -s -H "Authorization: Bearer $OBSCURA_CDP_TOKEN" http://127.0.0.1:9222/json/version | head -c 200   # authenticated: product/version
-cd ~/projects/mythos-prod && node projects/mythos-browser-mcp/bin/browser-smoke.js https://example.com/   # CDP, launch, navigate, extract, screenshot, cleanup
+set -a; . ~/.config/mythos-browser/env; set +a     # MYTHOS_PLAYWRIGHT_MODULE for the Playwright-over-CDP step
+cd ~/projects/mythos-prod && node projects/mythos-browser-mcp/bin/browser-smoke.js https://example.com/ --full --require-backend obscura   # auth 401/401/200, Playwright over CDP, navigate, extract, screenshot, click, no leaked page
 node tests/mythos-browser-mcp-test.js && node tests/mythos-browser-governed-test.js                        # the suites on the target hardware
 HADDAD_HEALTH_ONLY=browser node projects/mythos-haddad/bin/haddad-health.js --json --no-log               # the health check alone
 ```
@@ -122,23 +184,17 @@ The launcher sources `~/.config/mythos-browser/env` (no secret, not mode-checked
 configuration. When the owner installs the six packages system-wide the file becomes unnecessary; keep
 the `MYTHOS_PLAYWRIGHT_MODULE` line until playwright-core is a project dependency.
 
-## 5. Owner steps that gate a live Master Task (state 2026-09-28)
+## 5. Owner steps that gate a live Master Task (state 2026-09-29)
 
-1. **Permission matrix — OPEN, refused to the agent.** Add to `projects/mythos-gateway/registry/mcp-permissions.json`:
-   `capabilities["browser.read"] = { "decision": "ALLOW", "description": "read a PUBLIC web page through browser-mcp" }`,
-   `tool_classes += { "server": "browser-mcp", "tools": ["navigate","extract","screenshot"], "capability": "browser.read" }`,
-   and `grants["browser.read"]` = `ALLOW` on `executor`, `DENY` on every other subject. Then flip the
-   "SHIPPED matrix is MCP_DENIED" assertion in `tests/mythos-browser-governed-test.js` to assert the grant.
-2. **Skill trust — OPEN, needs the VPS scanners.** On the VPS as deploy:
-   `node projects/command-center/cli/skill-trust-cli.js scan executor:browser-research`, commit `config/skill-trust.json`.
-3. **Merge PR #512** (its suites: 18/0, 11/0, 168/0, executor 395/0 — re-run on Haddad 2026-09-28) and
-   `mythos-haddad/browser-closeout` (launcher fallback env, 21/0); then on Haddad `git -C ~/projects/mythos-prod pull --ff-only`
-   and restart `mythos-haddad-worker.service` at an idle queue. `~/.local/bin/mythos-browser-mcp.sh` is already the closeout branch's launcher.
-4. ~~Install the launcher and the unit (§3), run the gate (§4)~~ — **DONE 2026-09-28**, measured in §2.
-5. File the E2E Issue: label `mythos:haddad`, `Action: investigate`, objective "Read the h1 of
-   https://example.com/ through the browser and report backend, title and text". Evidence is the task's
-   `events.log` (`mcp_invoke`), `mcp-audit.jsonl` (`server: browser-mcp`, `capability: browser.read`) and the
-   report's tool trace. The isolated pre-merge run of exactly this (§2b) completed in 35.7 s.
+1. ~~Permission matrix `browser.read`~~ — **DONE** (#518).
+2. ~~Skill trust (Gate 3)~~ — **DONE** (#521, main `58935047`). #520 keeps the skill content byte-identical.
+3. **Merge #520**, then fast-forward the live checkout and restart the worker at an idle queue:
+   `git -C ~/projects/mythos-prod pull --ff-only && systemctl --user restart mythos-haddad-worker.service`.
+   Without #520 no GitHub Issue reaches the browser (routing, §2c).
+4. **File the live E2E Issue** (label `mythos:haddad`, `Action: investigate`, body: "Read the first paragraph (CSS
+   selector p) of https://example.com/ through the governed browser and report the backend, the title and the
+   text"). Expected: §2c scenario A through the bridge. Evidence: the report comment, `events.log`
+   (`mcp_invoke`), `mcp-audit.jsonl` (`browser.read`).
 
 ## 6. Webinar recording — safe test first
 
