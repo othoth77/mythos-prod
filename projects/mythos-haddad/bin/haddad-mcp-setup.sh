@@ -63,7 +63,7 @@ chmod 700 "$CONFIG_DIR" "$EXEC_CFG_DIR"
 
 say "2/4 executor bearer (the executor's own file; value never shown)"
 if [ ! -f "$EXEC_ENV" ] || ! grep -q '^MYTHOS_EXECUTOR_TOKEN=' "$EXEC_ENV"; then
-  ( umask 077; printf 'MYTHOS_EXECUTOR_TOKEN=%s\n' "$(head -c 32 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 48)" > "$EXEC_ENV" )
+  ( umask 077; printf 'MYTHOS_EXECUTOR_TOKEN=%s\n' "$(head -c 48 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 48)" > "$EXEC_ENV" )
   EXEC_TOKEN_NEW=1
 else
   EXEC_TOKEN_NEW=0

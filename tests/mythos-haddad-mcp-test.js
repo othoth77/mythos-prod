@@ -407,7 +407,9 @@ at('fake executor up', function () { return fakeExecutor().then(function (e) { e
     [envFile, execEnv].forEach(function (f) { assert.strictEqual(fs.statSync(f).mode & 511, 384, f + ' not 0600'); });
     var env = fs.readFileSync(envFile, 'utf8');
     assert.ok(/^OTH_MCP_EXECUTOR_TOKEN_FILE=/m.test(env) && !/^OTH_MCP_EXECUTOR_TOKEN=/m.test(env));
-    var tok = /^MYTHOS_EXECUTOR_TOKEN=([A-Za-z0-9]{40,48})$/m.exec(fs.readFileSync(execEnv, 'utf8'));
+    // Exactly 48: the generator must draw enough bytes that 48 alphanumerics always survive the filter
+    // (32 bytes gave 43 base64 chars minus every + and /, below 40 in ~4.5 % of runs — the old flake).
+    var tok = /^MYTHOS_EXECUTOR_TOKEN=([A-Za-z0-9]{48})$/m.exec(fs.readFileSync(execEnv, 'utf8'));
     assert.ok(tok, 'executor token not provisioned in the executor idiom');
     assert.ok(r.stdout.indexOf(tok[1]) === -1, 'setup printed the token');
     assert.ok(/OK — 9 tools listed/.test(r.stdout));
