@@ -8,24 +8,31 @@
 
 ## What it is
 
-A dependency-free stdio MCP server (`server.js`) exposing exactly three read-only tools —
-`navigate`, `extract`, `screenshot` — over a `BrowserAdapter` that picks the backend:
+A dependency-free stdio MCP server (`server.js`, 1.1.0) exposing exactly four tools — three reads,
+`navigate`, `extract`, `screenshot`, and one bounded interaction, `click` (owner order 2026-09-29) —
+over a `BrowserAdapter` that picks the backend:
 
 | Layer | File | Role |
 |---|---|---|
 | MCP server | `server.js` | JSON-RPC 2.0 over stdio (initialize, tools/list, tools/call, ping), same shape as `projects/oth-mcp/server.js`; one browser session per call; every error is redacted |
-| Adapter | `lib/browser-adapter.js` | policy `primary=obscura, fallback=playwright`; every result names its `backend`; a fallback that cannot launch is reported **BLOCKED with the exact reason**, never a phantom PASS |
+| Adapter | `lib/browser-adapter.js` | policy `primary=obscura, fallback=playwright`; the fallback serves the call when the primary cannot open, **fails during the operation, or exceeds the attempt deadline** (`MYTHOS_BROWSER_ATTEMPT_TIMEOUT_MS`, 40 s) — never for a `policy` or `input` failure; every result names its `backend`, `fallback_reason` and each attempt; a fallback that cannot launch is reported **BLOCKED with the exact reason**, never a phantom PASS |
+| Failure classes | `classify()` | every error is `policy` (URL refused, before or after a click, or the engine's own private-address refusal), `input` (bad selector), `target` (the site failed on every engine → `NAVIGATE_FAILED`), `timeout` (`BROWSER_TIMEOUT`) or `backend` (`BROWSER_NO_BACKEND` = no engine could open, `BROWSER_BACKEND_FAILED`); the tool error carries `code`, `class` and `attempts[{backend, stage, class, reason}]` |
+| Page text | `lib/page-text.js` | ONE in-page extraction for both engines: Obscura 0.2.3's `innerText` is `textContent` (CSS rules and markup whitespace), so text mode reads a clone without script/style/noscript/template/svg and normalizes whitespace — the same page gives the same text on either backend (measured: 905 / 29 869 chars identical) |
 | URL gate | `lib/url-policy.js` | http(s) only, no embedded credentials, no loopback / private / link-local / CGNAT / multicast literals (IPv4 + IPv6 incl. mapped), no `.local`/`.internal`/single-label names; `MYTHOS_BROWSER_ALLOWED_HOSTS` narrows, `MYTHOS_BROWSER_DENIED_HOSTS` always wins |
 | Primary | `lib/obscura-backend.js` | CDP over a per-page WebSocket (`/json/new` → page ws, or Target domain when absent); bearer from `OBSCURA_CDP_TOKEN`; endpoint must be loopback; page closed on every path |
-| Fallback | `lib/playwright-backend.js` | resolves `MYTHOS_PLAYWRIGHT_MODULE`, `playwright`, `playwright-core`; launches headless Chromium; reports `PLAYWRIGHT_UNAVAILABLE` / `PLAYWRIGHT_LAUNCH_FAILED` with the host's reason |
+| Fallback | `lib/playwright-backend.js` | resolves `MYTHOS_PLAYWRIGHT_MODULE`, `playwright`, `playwright-core`; launches headless Chromium; reports `PLAYWRIGHT_UNAVAILABLE` / `PLAYWRIGHT_LAUNCH_FAILED` with the host's reason; **guards every request** (URL policy + DNS: a host resolving to a private address is refused) because Chromium, unlike Obscura, has no SSRF block of its own |
 | CDP client | `lib/cdp-client.js`, `lib/ws-min.js` | request ids, timeouts, events; RFC 6455 client with custom headers (the WHATWG `WebSocket` cannot send a bearer) |
 | Launcher | `bin/mythos-browser-mcp.sh` | installed as `~/.local/bin/mythos-browser-mcp.sh` on the browser host; loads the 0600 token file into the server process only |
 | Smoke | `bin/browser-smoke.js [url]` | status + navigate + extract + screenshot on the host, JSON verdict, exit 0 only on PASS |
 | Webinar | `bin/webinar-preflight.js --url …` | the SAFE TEST for a recording (see below) |
 
 No arbitrary CDP is reachable through any of this: the tool surface is the boundary. There is no
-evaluate, click, type, cookie or download tool, and the governed invoke refuses any tool name the
-registry does not declare (`MCP_TOOL_UNREGISTERED`).
+evaluate, type, fill, cookie or download tool; `click` takes a URL and a CSS selector and nothing
+else, lets the navigation it starts finish, and re-checks the landing URL against the URL policy
+(`URL_POLICY_AFTER_CLICK` returns nothing from a refused page). It is classified apart from the reads:
+capability `browser.interact` in the permission matrix (ALLOW executor, DENY every other subject),
+`browser.click` on the executor side. The governed invoke refuses any tool name the registry does not
+declare (`MCP_TOOL_UNREGISTERED`).
 
 ## How a task reaches it (the governed chain)
 
@@ -82,6 +89,7 @@ found before the event, not during it.
 
 ## Tests
 
-- `node tests/mythos-browser-mcp-test.js` — URL policy, ObscuraBackend over a real WebSocket to a fake bearer-protected CDP (`tests/support/fake-cdp-server.js`), Target-domain path, Playwright honesty, adapter policy/fallback, stdio protocol, redaction (18 checks).
-- `node tests/mythos-browser-governed-test.js` — the whole governed chain offline: capability resolution, tool offer, direct governed invoke through the real launcher→server→CDP path, every refusal (no capability, undeclared tool, shipped matrix = DENY, private URL), the haddad-agent E2E with an injected model, and the secret boundary (token absent from audit, events and model requests).
+- `node tests/mythos-browser-mcp-test.js` — URL policy, ObscuraBackend over a real WebSocket to a fake bearer-protected CDP (`tests/support/fake-cdp-server.js`), Target-domain path, Playwright honesty, adapter policy/fallback (open failure, operation failure, hang → deadline, dropped socket), failure classification, the engine's private-address refusal never retried, click (landing re-check, bad selector not retried), the Playwright request guard (DNS stubbed), page-text normalization, stdio protocol, machine-readable tool errors, redaction (31 checks, mutation-checked).
+- `node tests/mythos-browser-governed-test.js` — the whole governed chain offline: capability resolution, tool offer, direct governed invoke through the real launcher→server→CDP path, click through the SHIPPED matrix (`browser.interact` audited; refused to a read-only task), every refusal (no capability, undeclared tool, private URL), the shipped matrix per subject, the haddad-agent E2E with an injected model, **fail-closed** (both engines down + a model claiming `completed` → the run ends `blocked`), and the secret boundary (15 checks, mutation-checked).
+- On the host: `node projects/mythos-browser-mcp/bin/browser-smoke.js https://example.com/ --full --require-backend obscura` — auth 401/401/200, Playwright `connectOverCDP` to Obscura (page, navigate, DOM, click, screenshot, disconnect), adapter navigate/extract/screenshot/click, no page left open.
 - `node tests/mcp-ecosystem-test.js` §A now expects seven registered servers.
