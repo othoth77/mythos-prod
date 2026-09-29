@@ -211,3 +211,36 @@ State unchanged since §9b (origin/main `3122219e`, #320/#516/#517 OPEN, no `bro
 | 3 skill-trust attestation on the authorized scanner host | `ssh deploy@51.68.226.211 … skill-trust-cli.js tools` (port 22 reachable) | **`Permission denied (publickey)`** — Haddad holds no deploy key for the VPS; on Haddad itself SkillSpector cannot be installed (Py 3.14 lacks headers; the uv-managed 3.13 install was refused "Untrusted Code Integration") |
 
 Everything downstream (fast-forward, worker restart, governed test with the grant, Guardian CI after #320) waits on these. Nothing was simulated.
+
+## 10. Final verification, 2026-09-29 (main `58935047`, after Gates 2 and 3 were deployed)
+
+| Gate | Result | Evidence |
+|---|---|---|
+| Identity | **PASS** | live checkout = origin/main = `58935047`, clean; worker `code_identity 58935047 main verified`, started 10:43:34Z after the #521 merge; single `127.0.0.1:8130` bind, no EADDRNOTAVAIL since |
+| Health | **PASS 18/18** | all 18 checks PASS incl. `git` (clean, at origin/main), `worker main@58935047`, `browser` (Obscura 401/200, fallback AVAILABLE), `ai_runtime 27/29 layers on the GPU` |
+| `browser.read` | **ALLOW** | shipped matrix unchanged since #518; `browser.interact` absent (owner decision); governed test 12/0 (executor ALLOW, 5 other subjects DENY, undeclared tool DENY, other grants unchanged) |
+| Skill trust | **TRUSTED** | ledger ACCEPT (SkillSpector 2.11.0 / gitleaks 8.30.1 / SkillEvaluator 0.2.1, all ACCEPT, #521); the executor's own `lib/skill-trust.js verify()` on the live checkout → `trusted: true, status: ACCEPT`, enforcement ON; `skill-trust-cli.js verify` OK; skill-trust-test 130/0 |
+| Obscura E2E | **PASS** | real Qwen → haddad-agent → governed invoke through the **shipped** registry + matrix → installed launcher → Obscura: COMPLETED 57 s, `repair_rounds 0`, 10 audited `browser.read` ALLOW, report names backend `obscura` and the page's `<p>` text, token absent from audit/events/output |
+| Playwright fallback E2E | **PASS** | `obscura.service` **stopped** (no listener): same chain COMPLETED 49 s, backend `playwright`, 8 ALLOW, no leak; unit restored → 401/200 → next call served by `obscura` again |
+| Recovery | **PASS** | two deliberate mid-navigation SIGKILLs of Obscura by the #520 session (09:49:33Z, 10:42:15Z): in-flight call served by Playwright, systemd restart in 5 s (`NRestarts=3` = those two + this pass's 09-28 test) |
+| Guardian CI | **PASS (GitHub, main's content)** | #320 merged a workflow-only change, which the `push` paths do not include, so no run fired on main. PR **#522** (triggers only: workflow file in `push` paths + `workflow_dispatch`) ran on GitHub against base **`58935047`**: all 8 steps success (run 36558025434). Locally on 58935047: suite 597/0, scenarios 33/33, selftest 14/14, validate OK, allowlist + verbs pinned. Main's own latest *push* run remains the 2026-09-19 failure until #522 is merged |
+| Regression | **PASS** | 232 suites on `58935047`; vs 3122219e: stc-1 80/1 → 81/0 (fixed by #517), governed 11 → 12, browser-mcp 18 → 21; `mythos-bridge-whatsapp-notify` 126/5 and `-resilience` 92/10 under sweep load → **131/0 and 102/0 standalone**, code untouched since 3122219e (timing-sensitive under load, not a regression); all other nonzero exits = documented baseline |
+| Security | **PASS** | `cdp.env`, `worker.env`, `mcp-http.env`, `runtime.key` all 0600; listeners 8130/8160/8600/9222 all 127.0.0.1; CDP unauthenticated 401; token absent from model requests, audit, events, output (both E2E); URL policy + undeclared-tool refusal in the suites; secret scan of every changed file clean |
+
+```text
+HEALTH        18/18 PASS
+GIT           CLEAN (58935047 = origin/main)
+WORKER        CURRENT (58935047, verified)
+OBSCURA       PASS
+PLAYWRIGHT    PASS
+BROWSER.READ  ALLOW
+SKILL TRUST   TRUSTED
+GUARDIAN CI   PASS (GitHub run on main's content via #522)
+REGRESSION    PASS
+E2E           PASS
+SECURITY      PASS
+
+MYTHOS HADDAD — 100% VERIFIED (against the owner's final required state)
+```
+
+Outside that required state, recorded so nothing is implied: the VPS Supervisor's liveness is not measurable from Haddad (last observed act 2026-09-26); HostOps #479 is a VPS-root boundary; main's Guardian push-run history turns green when #522 is merged.
