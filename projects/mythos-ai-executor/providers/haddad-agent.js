@@ -600,10 +600,9 @@ var TOOL_IMPL = {
 // task's resolved capabilities, credential by reference, audit — before
 // the browser MCP server (projects/mythos-browser-mcp) sees it. The runner
 // never touches CDP, never sees the Obscura token, never gets a scripting
-// surface: the four tools (three reads + one bounded click) are the whole
-// vocabulary.
+// surface: the three tools are the whole vocabulary.
 var BROWSER_MCP_SERVER = process.env.MYTHOS_BROWSER_MCP_SERVER || 'browser-mcp';
-var BROWSER_TOOLS = { browser_navigate: 'navigate', browser_extract: 'extract', browser_screenshot: 'screenshot', browser_click: 'click' };
+var BROWSER_TOOLS = { browser_navigate: 'navigate', browser_extract: 'extract', browser_screenshot: 'screenshot' };
 // One browser call may take two bounded engine attempts (Obscura, then the
 // Playwright fallback — MYTHOS_BROWSER_ATTEMPT_TIMEOUT_MS, 40 s each). The
 // governed invoke's 30 s default would cut the fallback off before it could
@@ -637,8 +636,7 @@ function browserTool(mcpTool) {
 var MCP_TOOL_IMPL = {
   browser_navigate: browserTool('navigate'),
   browser_extract: browserTool('extract'),
-  browser_screenshot: browserTool('screenshot'),
-  browser_click: browserTool('click')
+  browser_screenshot: browserTool('screenshot')
 };
 
 function browserToolSchemas(caps) {
@@ -661,14 +659,6 @@ function browserToolSchemas(caps) {
     out.push({ type: 'function', function: { name: 'browser_screenshot',
       description: 'Open a PUBLIC http(s) URL and save a viewport screenshot; returns the saved file path, bytes and sha256 (never the image itself).',
       parameters: { type: 'object', properties: { url: { type: 'string' }, format: { type: 'string', enum: ['png', 'jpeg'] } }, required: ['url'] } } });
-  }
-  if (caps.indexOf('browser.click') !== -1) {
-    out.push({ type: 'function', function: { name: 'browser_click',
-      description: 'Open a PUBLIC http(s) URL, click the first element matching a CSS selector (a link or button), and return url_before, final_url, url_changed, title and the landing page text. No typing, no forms.',
-      parameters: { type: 'object', properties: {
-        url: { type: 'string' }, selector: { type: 'string', description: 'CSS selector of the element to click' },
-        extract_selector: { type: 'string', description: 'optional CSS selector to read on the landing page' }
-      }, required: ['url', 'selector'] } } });
   }
   return out;
 }
@@ -753,7 +743,7 @@ function systemPrompt(grant, schemas, role, delivery) {
   if (role && typeof role.brief === 'string' && role.brief.trim()) lines.push(role.brief.trim());
   if (names.some(function (n) { return n.indexOf('browser_') === 0; })) {
     lines.push('The browser_* tools open PUBLIC http(s) pages through the governed browser (Obscura first, Playwright as fallback); '
-      + 'they read pages' + (names.indexOf('browser_click') !== -1 ? ', and browser_click may click one link or button to reach content' : '') + ' — no typing, no forms, no scripts, no private addresses — and each result names the backend that served it. '
+      + 'they are read-only — no clicks, no typing, no scripts, no private addresses — and each result names the backend that served it. '
       + 'A result with ok:false carries code and class; report that code, and never report completed when no browser call succeeded. '
       + 'A screenshot is saved as a file and only its path, size and sha256 come back.');
   }

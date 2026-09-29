@@ -40,7 +40,7 @@ function decodeFrames(buf, onText) {
   }
 }
 
-// start({ token, port?, pages?: { title, text, href, links?: {selector: url}, clickable?: [selector] }, mode: 'legacy'|'target', pngBase64, failMethods?: {method: message} }) -> Promise<{ url, port, seen: [], close() }>
+// start({ token, port?, pages?: { title, text, href }, mode: 'legacy'|'target', pngBase64, failMethods?: {method: message} }) -> Promise<{ url, port, seen: [], close() }>
 function start(opts) {
   opts = opts || {};
   var token = opts.token || null;
@@ -115,23 +115,6 @@ function start(opts) {
             var p = pageFor(state.url);
             var expr = msg.params.expression;
             var value;
-            if (/e\.click\(\)/.test(expr)) {
-              // click: the page's `link` (if any) is where the first match leads.
-              var cm = /querySelector\(("[^"]*")\)/.exec(expr);
-              var csel = cm ? JSON.parse(cm[1]) : null;
-              var target = p.links && p.links[csel];
-              if (!target && !(p.clickable && p.clickable.indexOf(csel) !== -1)) { value = JSON.stringify({ found: false }); }
-              else {
-                value = JSON.stringify({ found: true, tag: 'a' });
-                if (target) {
-                  state.url = target;
-                  var navs = [{ method: 'Page.frameNavigated', params: { frame: { id: 'f1', url: target } } }, { method: 'Page.loadEventFired', params: { timestamp: 2 } }];
-                  navs.forEach(function (ev2) { if (sid) ev2.sessionId = sid; });
-                  setTimeout(function () { navs.forEach(send); }, 10);
-                }
-              }
-              return reply({ result: { type: 'string', value: value } });
-            }
             if (/readyState/.test(expr) && /title/.test(expr)) value = JSON.stringify({ href: p.href, title: p.title, readyState: 'complete' });
             else if (expr === 'document.readyState') value = 'complete';
             else if (/function extractInPage/.test(expr)) {

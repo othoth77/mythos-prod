@@ -157,16 +157,11 @@ t('BrowserAdapter: fallback is used when the primary cannot open (injected backe
 });
 
 // ---------------------------------------------------------------- E. the stdio server
-t('server.js: exactly four tools (three reads + click), no evaluate/type/raw CDP, additionalProperties false', function () {
-  assert.deepStrictEqual(server.TOOLS.map(function (x) { return x.name; }), ['navigate', 'extract', 'screenshot', 'click']);
-  server.TOOLS.forEach(function (x) {
-    assert.strictEqual(x.inputSchema.additionalProperties, false);
-    assert.deepStrictEqual(x.inputSchema.required, x.name === 'click' ? ['url', 'selector'] : ['url']);
-  });
-  var click = server.TOOLS.filter(function (x) { return x.name === 'click'; })[0];
-  assert.deepStrictEqual(Object.keys(click.inputSchema.properties).sort(), ['extract_selector', 'max_chars', 'selector', 'url'], 'click takes a selector, never text to type or a script');
+t('server.js: exactly three tools, no evaluate/click/type/raw CDP, additionalProperties false', function () {
+  assert.deepStrictEqual(server.TOOLS.map(function (x) { return x.name; }), ['navigate', 'extract', 'screenshot']);
+  server.TOOLS.forEach(function (x) { assert.strictEqual(x.inputSchema.additionalProperties, false); assert.deepStrictEqual(x.inputSchema.required, ['url']); });
   var src = fs.readFileSync(path.join(MCP, 'server.js'), 'utf8');
-  assert.ok(!/evaluate|type_text|fill|press|cdp_send|Runtime\./.test(src.replace(/\/\/.*$/gm, '')), 'no scripting or typing surface in the server');
+  assert.ok(!/evaluate|click|type_text|cdp_send|Runtime\./.test(src.replace(/\/\/.*$/gm, '')), 'no scripting surface in the server');
 });
 t('server.js over stdio: initialize, tools/list, refused URL is a tool error, real navigate through the fake Obscura, token never leaks', function () {
   var env = Object.assign({}, process.env, envBase, { OBSCURA_CDP_URL: srv.url, OBSCURA_CDP_TOKEN: TOKEN });
@@ -188,7 +183,7 @@ t('server.js over stdio: initialize, tools/list, refused URL is a tool error, re
     var lines = out.trim().split('\n').map(function (l) { return JSON.parse(l); });
     var by = {}; lines.forEach(function (l) { by[l.id] = l; });
     assert.strictEqual(by[1].result.serverInfo.name, 'mythos-browser-mcp');
-    assert.strictEqual(by[2].result.tools.length, 4);
+    assert.strictEqual(by[2].result.tools.length, 3);
     var r3 = JSON.parse(by[3].result.content[0].text); assert.strictEqual(by[3].result.isError, true); assert.strictEqual(r3.code, 'URL_POLICY');
     var r4 = JSON.parse(by[4].result.content[0].text); assert.strictEqual(r4.ok, true); assert.strictEqual(r4.text, 'Example Domain'); assert.strictEqual(r4.backend, 'obscura');
     var r5 = JSON.parse(by[5].result.content[0].text); assert.strictEqual(r5.code, 'ARGS_UNKNOWN');
@@ -243,7 +238,7 @@ t('launcher: a world-readable token file is refused (exit 78); no fallback file 
   assert.strictEqual(r2.status, 0, r2.stderr); assert.strictEqual(r2.body.pw, null); assert.strictEqual(r2.body.tok, TOKEN);
 });
 
-// ---------------------------------------------------------------- G. 1.1.0 — fallback on ANY engine failure, deadlines, classification, click
+// ---------------------------------------------------------------- G. 1.1.0 — fallback on ANY engine failure, deadlines, classification
 function stubBackend(name, behaviour, calls) {
   return {
     name: name,
@@ -253,8 +248,6 @@ function stubBackend(name, behaviour, calls) {
     navigate: function (s, url) { calls.push(name + ':navigate'); return behaviour.navigate ? behaviour.navigate(url) : Promise.resolve({ final_url: url, title: name + ' page' }); },
     extract: function () { calls.push(name + ':extract'); return behaviour.extract ? behaviour.extract() : Promise.resolve({ found: true, text: 'from ' + name, chars: 9 }); },
     screenshot: function () { return Promise.resolve({ format: 'png', buffer: Buffer.from('x') }); },
-    click: function () { calls.push(name + ':click'); return behaviour.click ? behaviour.click() : Promise.resolve({ method: 'stub' }); },
-    pageState: function () { return Promise.resolve(behaviour.state || { final_url: 'https://example.com/next', title: 'Next' }); },
     close: function () { calls.push(name + ':close'); return Promise.resolve(); }
   };
 }
@@ -284,16 +277,6 @@ t('fallback: the primary HANGS -> the attempt deadline fires, its page is closed
     assert.ok(calls.indexOf('obscura:close') !== -1, 'the hung page was closed');
   });
 });
-t('no fallback for what no engine can change: a selector that matches nothing is class input, tried ONCE', function () {
-  var calls = [];
-  var a = adapterLib.createAdapter({ env: envBase, backends: {
-    obscura: stubBackend('obscura', { click: function () { return Promise.reject(err('CLICK_TARGET_NOT_FOUND', 'no element matches the selector')); } }, calls),
-    playwright: stubBackend('playwright', {}, calls) } });
-  return a.click({ url: 'https://example.com/', selector: '#nope' }).then(function () { throw new Error('must fail'); }, function (e) {
-    assert.strictEqual(e.code, 'CLICK_TARGET_NOT_FOUND'); assert.strictEqual(adapterLib.classify(e), 'input');
-    assert.ok(calls.every(function (c) { return c.indexOf('playwright') !== 0; }), 'the fallback never ran: ' + calls.join(','));
-  });
-});
 t('classification when every engine fails: all open-failures -> BROWSER_NO_BACKEND; site failures -> NAVIGATE_FAILED; hangs -> BROWSER_TIMEOUT', function () {
   var down = function () { return Promise.reject(new Error('OBSCURA_UNREACHABLE: connect ECONNREFUSED')); };
   var siteDown = function () { return Promise.reject(err('NAVIGATE_FAILED', 'net::ERR_NAME_NOT_RESOLVED')); };
@@ -320,28 +303,6 @@ t('Obscura error mapping: a network CDP error is NAVIGATE_FAILED; the engine\'s 
   var a = adapterLib.createAdapter({ env: envBase, backends: { obscura: stubBackend('obscura', { navigate: function () { return Promise.reject(p); } }, calls), playwright: stubBackend('playwright', {}, calls) } });
   return a.navigate({ url: 'https://rebind.example.com/' }).then(function () { throw new Error('must refuse'); }, function (e) {
     assert.strictEqual(e.code, 'URL_POLICY'); assert.ok(calls.every(function (c) { return c.indexOf('playwright') !== 0; }), calls.join(','));
-  });
-});
-t('click over the fake Obscura: navigate, DOM click, the navigation it starts completes, landing text read', function () {
-  var s3;
-  return fake.start({ token: TOKEN, pages: {
-    'https://example.com/': { title: 'Example Domain', text: 'Example', href: 'https://example.com/', links: { a: 'https://www.iana.org/help/example-domains', '#evil': 'http://127.0.0.1:8130/tasks' } },
-    'https://www.iana.org/help/example-domains': { title: 'Example Domains', text: 'Example Domains', href: 'https://www.iana.org/help/example-domains' },
-    'http://127.0.0.1:8130/tasks': { title: 'internal', text: 'SECRET TASK LIST', href: 'http://127.0.0.1:8130/tasks' } } }).then(function (srv3) {
-    s3 = srv3;
-    var a = adapterLib.createAdapter({ env: Object.assign({}, envBase, { OBSCURA_CDP_URL: srv3.url, OBSCURA_CDP_TOKEN: TOKEN }) });
-    return a.click({ url: 'https://example.com/', selector: 'a', extract_selector: 'h1' }).then(function (r) {
-      assert.strictEqual(r.backend, 'obscura'); assert.strictEqual(r.click_method, 'dom-click');
-      assert.strictEqual(r.url_before, 'https://example.com/'); assert.strictEqual(r.final_url, 'https://www.iana.org/help/example-domains');
-      assert.strictEqual(r.url_changed, true); assert.strictEqual(r.title, 'Example Domains'); assert.strictEqual(r.text, 'Example Domains');
-      return a.click({ url: 'https://example.com/', selector: '#evil' });
-    }).then(function () { throw new Error('must refuse the landing'); }, function (e) {
-      assert.strictEqual(e.code, 'URL_POLICY_AFTER_CLICK', e.message); assert.strictEqual(adapterLib.classify(e), 'policy');
-      assert.strictEqual(String(e.message).indexOf('SECRET'), -1, 'nothing from the refused page comes back');
-      return a.click({ url: 'https://example.com/', selector: '' });
-    }).then(function () { throw new Error('must refuse'); }, function (e) {
-      assert.strictEqual(e.code, 'ARGS_INVALID');
-    }).then(function () { return s3.close(); }, function (e) { return s3.close().then(function () { throw e; }); });
   });
 });
 t('the fake Obscura DROPS the socket mid-navigate -> the call falls to the fallback, which reports honestly (served or BLOCKED)', function () {

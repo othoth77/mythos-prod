@@ -14,7 +14,7 @@
 // OUTBOUND GUARD (1.1.0). Obscura refuses private fetches inside the engine;
 // Chromium does not. Since the fallback now also serves operations the
 // primary FAILED (not only ones it could not open), every request this
-// Chromium makes — top-level, redirect, click target, subresource — passes
+// Chromium makes — top-level, redirect, subresource — passes
 // the same URL policy first, and its host is resolved and refused when any
 // address it resolves to is private/loopback/link-local. The allow-list is
 // not applied to subresources (a page's CDN is not the page); the deny-list is.
@@ -25,7 +25,6 @@ var urlPolicy = require('./url-policy');
 var pageText = require('./page-text');
 
 var NAV_TIMEOUT_MS = 30000;
-var CLICK_SETTLE_MS = 1500;
 
 // requestAllowed(url, env, cache) -> Promise<null | reason>
 function requestAllowed(url, env, cache) {
@@ -105,31 +104,6 @@ function create(cfg) {
     });
   }
 
-  function pageState(session) {
-    return session.page.title().then(function (title) {
-      return { final_url: session.page.url(), title: title || '', ready_state: 'complete' };
-    });
-  }
-
-  // click(session, { selector }) — a real mouse click (Playwright scrolls the
-  // element into view and waits for it to be actionable), then any main-frame
-  // navigation it starts is allowed to reach `load`.
-  function click(session, opts) {
-    opts = opts || {};
-    var page = session.page;
-    var settle = Math.max(0, Math.min(Number(opts.settleMs) || CLICK_SETTLE_MS, 10000));
-    return page.$(opts.selector).then(function (el) {
-      if (!el) { var e = new Error('CLICK_TARGET_NOT_FOUND: no element matches the selector'); e.code = 'CLICK_TARGET_NOT_FOUND'; throw e; }
-      var nav = page.waitForEvent('framenavigated', { predicate: function (f) { return f === page.mainFrame(); }, timeout: settle + 5000 }).then(function () { return true; }, function () { return false; });
-      return el.click({ timeout: 10000 }).then(function () {
-        return Promise.race([nav, new Promise(function (res) { setTimeout(function () { res(false); }, settle); })]);
-      }).then(function (navigated) {
-        if (!navigated) return { method: 'mouse', navigated: false };
-        return page.waitForLoadState('load', { timeout: navTimeout }).catch(function () {}).then(function () { return { method: 'mouse', navigated: true }; });
-      });
-    });
-  }
-
   function extract(session, opts) {
     return session.page.evaluate(pageText.extractInPage, pageText.args(opts));
   }
@@ -150,7 +124,7 @@ function create(cfg) {
     return p.then(function () { session.page = null; session.context = null; session.browser = null; });
   }
 
-  return { name: 'playwright', availability: availability, open: open, navigate: navigate, pageState: pageState, click: click, extract: extract, screenshot: screenshot, evaluate: evaluate, close: close };
+  return { name: 'playwright', availability: availability, open: open, navigate: navigate, extract: extract, screenshot: screenshot, evaluate: evaluate, close: close };
 }
 
 module.exports = { create: create, resolveModule: resolveModule, requestAllowed: requestAllowed };

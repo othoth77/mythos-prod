@@ -107,8 +107,8 @@
   "browser-research": {
     "id": "browser-research",
     "name": "Browser Research",
-    "version": "1.1.0",
-    "description": "Read public web pages through the governed browser (navigate, extract, screenshot) and click one link or button to reach content (click) to establish facts; never type, never fill a form, never authenticate, never fetch private addresses.",
+    "version": "1.0.0",
+    "description": "Read public web pages through the governed browser (navigate, extract, screenshot) to establish facts; never interact, never authenticate, never fetch private addresses.",
     "categories": [
       "browser-research"
     ],
@@ -120,8 +120,7 @@
     "allowed_mcp_tools": [
       "browser.navigate",
       "browser.extract",
-      "browser.screenshot",
-      "browser.click"
+      "browser.screenshot"
     ],
     "compatible_execution_profiles": [
       "repo-read",

@@ -5,16 +5,18 @@
 //
 // Direct check of the runtime beneath the MCP server: adapter status
 // (which backend would serve, why the other would not), then navigate,
-// extract, screenshot and click through the adapter, printing a JSON verdict
-// per step. Reads OBSCURA_CDP_TOKEN from the environment (source the 0600 env
+// extract and screenshot through the adapter, printing a JSON verdict per
+// step. Reads OBSCURA_CDP_TOKEN from the environment (source the 0600 env
 // file first); prints no secret. Exit 0 only when every step passed.
 //
 // --full adds the runtime gate the owner's order of 2026-09-29 names, each
 // measured rather than inferred: the CDP endpoint refuses no token AND a wrong
 // token and accepts the right one; Playwright (MYTHOS_PLAYWRIGHT_MODULE)
 // connects to Obscura over CDP with the bearer, creates a page, navigates,
-// reads the DOM, clicks, screenshots and disconnects; and afterwards no page
-// is left open on the runtime.
+// reads the DOM, screenshots, clicks `--click <selector>` (default `a`) and
+// disconnects; and afterwards no page is left open on the runtime. The click
+// is a HOST-SIDE runtime check of the engine only: no task can reach it — the
+// governed tool surface is read-only (owner decision 2026-09-29).
 // --require-backend fails the run when a step was served by any other backend
 // (so a silent fallback cannot pass a primary-path check, and vice versa).
 // =====================================================
@@ -123,15 +125,6 @@ chain.then(function () { return step('status', function () { return a.status(); 
   .then(function () { return step('navigate', function () { return a.navigate({ url: url }); }); })
   .then(function () { return step('extract', function () { return a.extract({ url: url, max_chars: 400 }).then(function (r) { r.text = r.text.slice(0, 200); return r; }); }); })
   .then(function () { return step('screenshot', function () { return a.screenshot({ url: url }); }); })
-  .then(function () {
-    return step('click', function () {
-      return a.click({ url: url, selector: clickSel, max_chars: 400 }).then(function (r) {
-        r.text = r.text.slice(0, 200);
-        check(r.url_changed, 'the click did not change the URL (' + r.final_url + ')');
-        return r;
-      });
-    });
-  })
   .then(function () {
     if (!full) return;
     return step('no_leaked_pages', function () {

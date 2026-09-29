@@ -19,9 +19,8 @@
 // failure must not terminate a browser task Playwright can execute"): every
 // failure of an ATTEMPT — open, the operation itself, or the attempt deadline
 // (MYTHOS_BROWSER_ATTEMPT_TIMEOUT_MS) — moves to the next backend, except the
-// two that no engine can change: a URL the policy refuses (class `policy`)
-// and a caller error such as a selector that matches nothing (class
-// `input`). When every attempt fails, the error is classified by what the
+// one no engine can change: a URL the policy refuses, before any engine or
+// inside one (class `policy`). When every attempt fails, the error is classified by what the
 // attempts measured: BROWSER_NO_BACKEND (no engine could open), NAVIGATE_FAILED
 // (the engines opened and the SITE failed), BROWSER_TIMEOUT, or
 // BROWSER_BACKEND_FAILED — with every attempt's stage and reason attached.
@@ -37,7 +36,6 @@ var VERSION = '1.1.0';
 var ORDER = ['obscura', 'playwright'];
 var MAX_INLINE_IMAGE_BYTES = 64 * 1024;
 var ATTEMPT_TIMEOUT_MS = 40000;   // one backend: open + the operation; two attempts fit the executor's 100 s browser invoke
-var MAX_SELECTOR = 256;
 
 function codedError(code, message, extra) {
   var e = new Error(code + ': ' + message);
@@ -50,12 +48,11 @@ function codedError(code, message, extra) {
 // net::ERR_*, Obscura as a CDP error "Network error: … error sending request".
 var TARGET_FAILURE = /NAVIGATE_FAILED|net::ERR_|Network error|HTTP_STATUS/;
 
-// classify(err) -> 'policy' | 'input' | 'target' | 'timeout' | 'backend'
+// classify(err) -> 'policy' | 'target' | 'timeout' | 'backend'
 function classify(err) {
   var code = err && err.code;
   var msg = String(err && err.message || err);
-  if (code === 'URL_POLICY' || code === 'URL_POLICY_AFTER_CLICK') return 'policy';
-  if (code === 'ARGS_INVALID' || code === 'CLICK_TARGET_NOT_FOUND') return 'input';
+  if (code === 'URL_POLICY') return 'policy';
   if (code === 'BROWSER_TIMEOUT') return 'timeout';
   if (TARGET_FAILURE.test(msg)) return 'target';
   return 'backend';
@@ -152,7 +149,7 @@ function createAdapter(cfg) {
   }
 
   // Runs fn on the primary, then on each fallback until one succeeds or a
-  // failure no engine can change (policy / input) stops the chain.
+  // failure no engine can change (policy) stops the chain.
   function withFallback(fn) {
     var attempts = [];
     var idx = 0;
@@ -169,7 +166,7 @@ function createAdapter(cfg) {
       }, function (err) {
         var cls = classify(err);
         attempts.push({ backend: name, ok: false, stage: err.stage || 'operation', class: cls, reason: String(err && err.message || err).slice(0, 400) });
-        if (cls === 'policy' || cls === 'input') { err.attempts = attempts; throw err; }
+        if (cls === 'policy') { err.attempts = attempts; throw err; }
         return tryNext();
       });
     }
@@ -244,47 +241,7 @@ function createAdapter(cfg) {
     });
   }
 
-  // click(args) — the one INTERACTION (owner order 2026-09-29): open a public
-  // page, click the first element matching `selector`, let any navigation it
-  // starts finish, and report where the browser ended up. The landing URL is
-  // checked against the same URL policy AFTER the click: a click that lands on
-  // a refused address returns nothing from that page (URL_POLICY_AFTER_CLICK).
-  // No typing, no form filling, no scripting — the selector is the whole input.
-  function click(args) {
-    args = args || {};
-    var url;
-    try { url = checkedUrl(args.url); } catch (e) { return Promise.reject(e); }
-    if (typeof args.selector !== 'string' || !args.selector.trim() || args.selector.length > MAX_SELECTOR) {
-      return Promise.reject(codedError('ARGS_INVALID', 'selector must be a non-empty CSS selector of at most ' + MAX_SELECTOR + ' characters'));
-    }
-    var extractSel = typeof args.extract_selector === 'string' && args.extract_selector.length <= MAX_SELECTOR ? args.extract_selector : null;
-    return withFallback(function (s) {
-      var before;
-      return s.impl.navigate(s.session, url).then(function (nav) {
-        before = nav;
-        return s.impl.click(s.session, { selector: args.selector });
-      }).then(function (clicked) {
-        return s.impl.pageState(s.session).then(function (after) {
-          var landing = urlPolicy.check(after.final_url, env);
-          if (!landing.ok && !/^about:blank/.test(after.final_url)) {
-            throw codedError('URL_POLICY_AFTER_CLICK', 'the click landed on a refused address (' + landing.code + ')');
-          }
-          return s.impl.extract(s.session, { selector: extractSel, max_chars: args.max_chars || 2000 }).then(function (x) {
-            var m = meta(s, after); m.requested_url = url;
-            m.selector = args.selector.slice(0, MAX_SELECTOR);
-            m.click_method = clicked.method;
-            m.url_before = before.final_url; m.title_before = before.title;
-            m.url_changed = after.final_url !== before.final_url;
-            m.found = !!x.found; m.text = x.found ? x.text : ''; m.chars = x.chars || 0; m.truncated = !!x.truncated;
-            if (extractSel) m.extract_selector = extractSel;
-            return m;
-          });
-        });
-      });
-    });
-  }
-
-  return { VERSION: VERSION, order: order, status: status, openSession: openSession, navigate: navigate, extract: extract, screenshot: screenshot, click: click };
+  return { VERSION: VERSION, order: order, status: status, openSession: openSession, navigate: navigate, extract: extract, screenshot: screenshot };
 }
 
 module.exports = { createAdapter: createAdapter, classify: classify, VERSION: VERSION, ORDER: ORDER, ATTEMPT_TIMEOUT_MS: ATTEMPT_TIMEOUT_MS };
