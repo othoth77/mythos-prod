@@ -371,6 +371,25 @@ function eventsOf(taskId) {
   ok(state.readStatus(f.task_id).status === 'QUEUED', 'state: FAILED -> QUEUED (explicit re-queue) still works');
 })();
 
+// ---------------------------------------------------------------------------
+// 7b. The installer's bearer token is always 48 alphanumerics. It drew 32
+// bytes (43 base64 chars) and deleted every + and /, so the length was 43-k
+// and fell below 40 in ~4.5 % of installs. The generator is run as written.
+// ---------------------------------------------------------------------------
+(function () {
+  var inst = fs.readFileSync(path.join(__dirname, '..', 'projects', 'mythos-ai-executor', 'deploy', 'install.sh'), 'utf8');
+  var m = /printf 'MYTHOS_EXECUTOR_TOKEN=%s\\n' "\$\((.+)\)" > "\$ENV_FILE"/.exec(inst);
+  ok(!!m, 'install.sh: the token generator line is found');
+  if (m) {
+    var lens = [];
+    for (var i = 0; i < 20; i++) {
+      var out = require('child_process').spawnSync('bash', ['-c', m[1]], { encoding: 'utf8' }).stdout;
+      lens.push(/^[A-Za-z0-9]{48}$/.test(out) ? 48 : out.length);
+    }
+    ok(lens.every(function (n) { return n === 48; }), 'install.sh: 20 generated tokens are all exactly 48 alphanumerics (' + lens.join(',') + ')');
+  }
+})();
+
 var chain = Promise.resolve();
 
 // ---------------------------------------------------------------------------
