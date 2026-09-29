@@ -1,5 +1,17 @@
 # MYTHOS WP — Changelog
 
+## V2.1.6 — 2026-09-29 (final closure audit)
+
+- Security — inbox membership: the AI routes (suggest, suggestions list, decide, manual auto-reply), contact edit and contact tags, and Contacts 360 (list, key and digit forms, conversations / timeline / counters) now honour `wp_inbox_members` like every other conversation route. Before, a member of one inbox could run the AI on, read and send the suggestions of, or edit the contacts of another inbox of the same project.
+- Security — lookup oracle: `GET /api/contacts/360/<digits>` is admin-only (404 below admin, same answer for a known and an unknown number). Non-admins open 360 pages by the opaque `<project>:<contact_id>` key, as the UI already did.
+- AI: `off` now means no run for manual suggestions too (412 + `ai.refused` event): number link `ai_mode off`, Project → AI off, a HOLDING inbox (`unassigned` never runs AI, even for the owner) and an agent whose effective mode is off. Production had two manual runs in `unassigned` before this fix.
+- Audit: `client` is the address nginx forwards (`X-Real-IP`, trusted only from a loopback socket, same rule as the login throttle), not always `127.0.0.1`.
+- CSRF: `POST /api/login` passes the same check as every other mutation (the login page already sent the header); a cross-site login is refused.
+- SSRF: integration URLs and probes refuse link-local / cloud-metadata (`169.254.0.0/16`, `fe80::/10`) and unspecified addresses, literally and after DNS resolution (`guardedLookup`).
+- Operations: `mythos-wp users remove <username>` (audited; never the last active owner) and `tools/smoke.js` (read-only production smoke; `--accounts` adds the role / isolation / PII checks with temporary accounts it removes).
+- Ops: `ops/whatsapp/evolution/customer-instance.sh` now defaults the webhook to the public receiver `https://wp.mythosprod.xyz/hooks/evolution` (its old loopback default is the URL that lost real inbound on 2026-09-19).
+- Tests: new suite `tests/mythos-wp-final-closure-test.js` (53 checks; 24 of them fail on the previous production code); `mythos-wp-v2-whatsapp` updated for the digit-lookup rule.
+
 ## V2.1.5 — 2026-09-19 (real inbound message lost)
 
 - Root cause 1 (delivery): Evolution runs on a private Docker network, so the loopback webhook URL `http://127.0.0.1:8170/hooks/evolution` was unreachable from it (connection refused); the owner number had no webhook at all. Webhooks now go through the public vhost `https://wp.mythosprod.xyz/hooks/evolution` with the token in the `x-mythos-webhook-token` header, and `MYTHOS_WP_RECEIVER_URL` tells the health check to expect that address (configuration, no code).

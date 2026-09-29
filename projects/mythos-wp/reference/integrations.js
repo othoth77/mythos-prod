@@ -23,6 +23,7 @@
 var fs = require('fs');
 var http = require('http');
 var https = require('https');
+var dns = require('dns');
 var path = require('path');
 
 var KINDS = ['whatsapp_provider', 'kitchen', 'n8n', 'mcp', 'api', 'project_system', 'database', 'llm'];
@@ -32,6 +33,23 @@ var KEY_RE = /^[a-z0-9][a-z0-9-]{1,62}$/;
 var ENV_RE = /^[A-Z][A-Z0-9_]{2,62}$/;
 var PROBE_TIMEOUT_MS = 4000;
 var LOOPBACK_RE = /^(127\.[0-9.]+|localhost|::1|\[::1\])$/;
+// SSRF: never reach link-local (cloud metadata 169.254.169.254, fe80::/10) or unspecified addresses — checked on the
+// literal host at validation AND on every address DNS returns at probe time (a name cannot rebind onto them)
+function forbiddenAddress(a) {
+  a = String(a || '').replace(/^\[|\]$/g, '').toLowerCase();
+  if (/^::ffff:/.test(a)) a = a.slice(7);
+  return /^169\.254\./.test(a) || /^0\./.test(a) || a === '0.0.0.0' || a === '::' || /^fe[89ab][0-9a-f]:/.test(a);
+}
+function guardedLookup(hostname, opts, cb) {
+  if (typeof opts === 'function') { cb = opts; opts = {}; }
+  dns.lookup(hostname, Object.assign({}, opts, { all: true }), function (err, list) {
+    if (err) return cb(err);
+    var bad = list.filter(function (x) { return forbiddenAddress(x.address); })[0];
+    if (bad) { var e = new Error('ADDRESS_FORBIDDEN'); e.code = 'ADDRESS_FORBIDDEN'; return cb(e); }
+    if (opts.all) return cb(null, list);
+    cb(null, list[0].address, list[0].family);
+  });
+}
 var META_MCP_TOOLS = [
   'whatsapp_biz_businesses', 'whatsapp_biz_accounts', 'whatsapp_biz_phone_numbers', 'whatsapp_biz_add_phone_number',
   'whatsapp_biz_send_verification_code', 'whatsapp_biz_verify_phone_number', 'whatsapp_biz_register_phone_number',
@@ -89,6 +107,7 @@ function validateUrl(u, errors, field) {
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') { errors[field] = 'http or https only'; return null; }
   if (parsed.protocol === 'http:' && !LOOPBACK_RE.test(parsed.hostname)) { errors[field] = 'plain http is allowed on loopback only'; return null; }
   if (parsed.username || parsed.password) { errors[field] = 'credentials in a URL are refused'; return null; }
+  if (forbiddenAddress(parsed.hostname)) { errors[field] = 'link-local / metadata / unspecified addresses are refused'; return null; }
   if (String(u).length > 255) { errors[field] = 'at most 255 characters'; return null; }
   return String(u).replace(/\/+$/, '');
 }
@@ -204,10 +223,11 @@ function httpProbe(urlStr, o) {
     try { u = new URL(String(urlStr)); } catch (e) { return resolve({ reached: false, reason: 'URL_INVALID', ms: 0 }); }
     if (u.protocol !== 'http:' && u.protocol !== 'https:') return resolve({ reached: false, reason: 'URL_SCHEME', ms: 0 });
     if (u.protocol === 'http:' && !LOOPBACK_RE.test(u.hostname)) return resolve({ reached: false, reason: 'NOT_LOOPBACK_NOT_PROBED', ms: 0 });
+    if (forbiddenAddress(u.hostname)) return resolve({ reached: false, reason: 'ADDRESS_FORBIDDEN', ms: 0 });
     var mod = u.protocol === 'https:' ? https : http;
     var started = Date.now(), done = false;
     var finish = function (r) { if (!done) { done = true; r.ms = Date.now() - started; resolve(r); } };
-    var req = mod.request({ host: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: (u.pathname || '/') + (u.search || ''), method: 'GET', headers: Object.assign({ accept: 'application/json' }, o.headers || {}), timeout: o.timeoutMs || PROBE_TIMEOUT_MS }, function (res) {
+    var req = mod.request({ host: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: (u.pathname || '/') + (u.search || ''), method: 'GET', headers: Object.assign({ accept: 'application/json' }, o.headers || {}), timeout: o.timeoutMs || PROBE_TIMEOUT_MS, lookup: guardedLookup }, function (res) {
       var chunks = [], size = 0;
       res.on('data', function (c) { size += c.length; if (size <= 262144) chunks.push(c); });
       res.on('end', function () { var body = null; try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch (e) { body = null; } finish({ reached: true, status: res.statusCode, body: body }); });
@@ -338,5 +358,5 @@ function test(pool, key, deps) {
 module.exports = {
   KINDS: KINDS, STATUSES: STATUSES, HEALTH: HEALTH, DEFAULTS: DEFAULTS, META_MCP_TOOLS: META_MCP_TOOLS, PROBE_TIMEOUT_MS: PROBE_TIMEOUT_MS,
   credentialsState: credentialsState, validate: validate, publicRow: publicRow, ensureDefaults: ensureDefaults,
-  list: list, get: get, create: create, update: update, remove: remove, httpProbe: httpProbe, probe: probe, record: record, test: test
+  list: list, get: get, create: create, update: update, remove: remove, httpProbe: httpProbe, forbiddenAddress: forbiddenAddress, probe: probe, record: record, test: test
 };

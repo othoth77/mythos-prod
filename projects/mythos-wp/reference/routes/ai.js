@@ -140,7 +140,7 @@ module.exports = [
   { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/auto-reply$/, role: 'manager', handler: function (req, res, ctx) {
     return apiUtil.projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
       var cid = parseInt(ctx.params[2], 10);
-      return assistant.autoReply(db.wp(), resolved, cid, { message_id: ctx.body && ctx.body.message_id, trigger: 'manual' }).then(function (out) {
+      return apiUtil.inScopeOf(req, resolved.project.id, cid).then(function () { return assistant.autoReply(db.wp(), resolved, cid, { message_id: ctx.body && ctx.body.message_id, trigger: 'manual' }); }).then(function (out) {
         return record(req, { action: 'run', resource: 'ai_runs', record_id: out.run_id ? String(out.run_id) : null, project_id: resolved.project.id, next: { conversation_id: cid, ran: out.ran, sent: out.sent, reason: out.reason || null, decision: out.decision || null, confidence: out.confidence, agent_id: out.agent_id || null, message_id: out.message_id || null } }).then(function () { return out; });
       });
     });

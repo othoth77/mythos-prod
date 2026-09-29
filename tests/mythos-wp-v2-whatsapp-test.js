@@ -386,8 +386,10 @@ migrate.up(pool).then(cleanup)
     ok(d.timeline.length > 0 && d.timeline.every(function (t) { return t.kind && t.at && t.project_id && !('text' in t); }) && d.timeline.some(function (t) { return t.summary === 'conversation.created'; }), 'contacts 360: timeline merged, newest first, no message text');
     ok(d.ai && typeof d.ai.runs === 'number' && typeof d.ai.handoffs === 'number' && d.human && typeof d.human.messages_out === 'number' && typeof d.human.notes === 'number', 'contacts 360: ai / human counters');
     ok(d.conversations.every(function (c) { return c.handler && c.status && c.inbox_id; }) && d.persons.every(function (p) { return Array.isArray(p.tags) && Array.isArray(p.notes); }), 'contacts 360: conversation + person shapes');
+    ids.keyC = d.persons[0].project_id + ':' + d.persons[0].id;
     return req('GET', '/api/contacts/360/' + CUST_C, undefined, 'agt');
   })
+  .then(function (x) { ok(x.status === 404 && JSON.stringify(x.body).indexOf(CUST_C) === -1, 'contacts 360: an agent cannot look a customer up by phone digits (admin-only, no oracle)'); return req('GET', '/api/contacts/360/' + ids.keyC, undefined, 'agt'); })
   .then(function (x) { ok(x.status === 200 && !('phone' in x.data) && x.data.phone_masked === '***0003' && JSON.stringify(x.data).indexOf(CUST_C) === -1, 'contacts 360: agent never receives the full phone'); return req('GET', '/api/contacts/360/' + CUST_A, undefined, 'adm'); })
   .then(function (x) { ok(x.status === 200 && x.data.ai.handoffs === 2 && x.data.human.messages_out === 1 && x.data.timeline.some(function (t) { return t.kind === 'handoff'; }), 'contacts 360: handoffs + human replies counted for A'); return req('GET', '/api/contacts/360/21600000000', undefined, 'adm'); })
   .then(function (x) { ok(x.status === 404, 'contacts 360: unknown phone → 404'); return req('GET', '/api/contacts/360/abc', undefined, 'adm'); })

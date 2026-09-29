@@ -7,8 +7,11 @@
 // kind phone, fallback wp_contacts.wa_id). list() groups the per-project
 // contact rows by phone; get360() assembles persons / conversations /
 // timeline / counters. Scope: `projects` = the ids the caller may see (null =
-// every project). Numbers are masked ('***' + last 4); the full phone is
-// returned only when o.admin === true. No message text ever leaves here.
+// every project); `inboxes` = the inbox ids of a member-scoped caller
+// (wp_inbox_members; null = not member-scoped): such a caller only sees
+// contacts, conversations and history that go through one of those inboxes.
+// Numbers are masked ('***' + last 4); the full phone is returned only when
+// o.admin === true. No message text ever leaves here.
 // =====================================================
 var PHONE_RE = /^[0-9]{6,32}$/;
 function fail(code, status, detail) { var e = new Error(detail || code); e.code = code; e.status = status; return e; }
@@ -17,16 +20,20 @@ function clampInt(v, d, lo, hi) { var n = parseInt(v, 10); if (isNaN(n)) n = d; 
 var PHONE_EXPR = "COALESCE((SELECT ci.value FROM wp_contact_identities ci WHERE ci.contact_id = k.id AND ci.kind = 'phone' ORDER BY ci.id LIMIT 1), k.wa_id)";
 // an unscoped session below admin still never reads the admin-only holding project ('unassigned')
 function scopeClause(projects, params, admin) { if (projects === null || projects === undefined) return admin === true ? null : "k.project_id <> 'unassigned'"; params.push(projects.length ? projects : ['-']); return 'k.project_id = ANY($' + params.length + '::text[])'; }
+// inbox membership: a contact is visible only through a conversation in one of the caller's inboxes
+function inboxClause(inboxes, params) { if (!Array.isArray(inboxes)) return null; params.push(inboxes.length ? inboxes : [-1]); return 'EXISTS (SELECT 1 FROM wp_conversations ic WHERE ic.contact_id = k.id AND ic.inbox_id = ANY($' + params.length + '::bigint[]))'; }
 function later(a, b) { if (!a) return b; if (!b) return a; return new Date(a) > new Date(b) ? a : b; }
 
 // list(pool, { q, projects, limit, admin }) → { items }
 function list(pool, o) {
   o = o || {}; var params = []; var where = ["k.status <> 'merged'"];
   var sc = scopeClause(o.projects, params, o.admin); if (sc) where.push(sc);
+  var ic = inboxClause(o.inboxes, params); if (ic) where.push(ic);
+  var convScope = ic ? ' AND c.inbox_id = ANY($' + params.length + '::bigint[])' : '';
   if (o.q) { var qq = String(o.q).slice(0, 80); params.push('%' + qq + '%'); where.push('(k.display_name ILIKE $' + params.length + ' OR ' + PHONE_EXPR + ' LIKE $' + params.length + ')'); }
   var limit = clampInt(o.limit, 50, 1, 200); params.push(limit * 5);
   return pool.query('SELECT k.id, k.project_id, p.display_name AS project_name, k.display_name, k.status, k.last_seen_at, ' + PHONE_EXPR + ' AS phone, ' +
-    '(SELECT count(*)::int FROM wp_conversations c WHERE c.contact_id = k.id) AS conversations, ' +
+    '(SELECT count(*)::int FROM wp_conversations c WHERE c.contact_id = k.id' + convScope + ') AS conversations, ' +
     "COALESCE((SELECT array_agg(t.name ORDER BY t.name) FROM wp_contact_tags ct JOIN wp_tags t ON t.id = ct.tag_id WHERE ct.contact_id = k.id), '{}') AS tags " +
     'FROM wp_contacts k JOIN wp_projects p ON p.id = k.project_id WHERE ' + where.join(' AND ') + ' ORDER BY k.last_seen_at DESC NULLS LAST, k.id DESC LIMIT $' + params.length, params)
     .then(function (r) {
@@ -50,6 +57,7 @@ function get360(pool, phone, o) {
   if (!PHONE_RE.test(phone)) throw fail('validation', 400, 'phone digits required');
   var params = [phone]; var where = ['(k.wa_id = $1 OR EXISTS (SELECT 1 FROM wp_contact_identities ci WHERE ci.contact_id = k.id AND ci.kind = \'phone\' AND ci.value = $1))', "k.status <> 'merged'"];
   var sc = scopeClause(o.projects, params, o.admin); if (sc) where.push(sc);
+  var ic = inboxClause(o.inboxes, params); if (ic) where.push(ic);
   return pool.query('SELECT k.id, k.project_id, p.display_name AS project_name, k.display_name, k.language, k.status, k.source, k.memory, k.notes AS contact_notes, k.first_seen_at, k.last_seen_at, k.last_inbound_at, k.last_outbound_at, ' +
     "COALESCE((SELECT json_agg(json_build_object('id', t.id, 'name', t.name, 'color', t.color) ORDER BY t.name) FROM wp_contact_tags ct JOIN wp_tags t ON t.id = ct.tag_id WHERE ct.contact_id = k.id), '[]'::json) AS tags, " +
     "COALESCE((SELECT json_agg(json_build_object('id', n.id, 'author', n.author, 'body', n.body, 'created_at', n.created_at) ORDER BY n.created_at DESC) FROM wp_notes n WHERE n.target_kind = 'contact' AND n.target_id = k.id::text AND (n.project_id IS NULL OR n.project_id = k.project_id)), '[]'::json) AS notes " +
@@ -57,13 +65,16 @@ function get360(pool, phone, o) {
     .then(function (r) {
       if (!r.rows.length) throw fail('not_found', 404, 'no contact with this phone');
       var persons = r.rows; var ids = persons.map(function (x) { return x.id; });
+      // $1 = contact ids; a member-scoped caller adds $2 = inbox ids and every history row is fenced by it
+      var args = Array.isArray(o.inboxes) ? [ids, o.inboxes.length ? o.inboxes : [-1]] : [ids];
+      var cf = args.length > 1 ? ' AND c.inbox_id = ANY($2::bigint[])' : '';
       return Promise.all([
-        pool.query('SELECT c.id, c.project_id, c.inbox_id, i.display_name AS inbox_name, c.status, c.handler, c.agent_id, c.assigned_to, c.routed_by, c.last_message_at, c.unread_count, c.created_at, c.resolved_at FROM wp_conversations c JOIN wp_inboxes i ON i.id = c.inbox_id WHERE c.contact_id = ANY($1::bigint[]) ORDER BY c.last_message_at DESC NULLS LAST, c.id DESC LIMIT 100', [ids]),
-        pool.query("SELECT 'event' AS kind, e.at, e.project_id, e.conversation_id, e.event_name AS summary, e.actor FROM wp_conversation_events e JOIN wp_conversations c ON c.id = e.conversation_id WHERE c.contact_id = ANY($1::bigint[]) " +
-          "UNION ALL SELECT 'ai_run', r.created_at, r.project_id, r.conversation_id, r.kind || ':' || r.decision || COALESCE(' (' || r.intent || ')', ''), 'ai' FROM wp_ai_runs r JOIN wp_conversations c ON c.id = r.conversation_id WHERE c.contact_id = ANY($1::bigint[]) " +
-          "UNION ALL SELECT 'handoff', h.created_at, h.project_id, h.conversation_id, h.direction || ':' || h.reason || ' [' || h.status || ']', COALESCE(h.taken_by, 'system') FROM wp_handoffs h JOIN wp_conversations c ON c.id = h.conversation_id WHERE c.contact_id = ANY($1::bigint[]) " +
-          'ORDER BY 2 DESC LIMIT 200', [ids]),
-        pool.query("SELECT (SELECT count(*)::int FROM wp_ai_runs r JOIN wp_conversations c ON c.id = r.conversation_id WHERE c.contact_id = ANY($1::bigint[])) AS runs, (SELECT count(*)::int FROM wp_ai_suggestions s JOIN wp_conversations c ON c.id = s.conversation_id WHERE c.contact_id = ANY($1::bigint[])) AS suggestions, (SELECT count(*)::int FROM wp_handoffs h JOIN wp_conversations c ON c.id = h.conversation_id WHERE c.contact_id = ANY($1::bigint[])) AS handoffs, (SELECT count(*)::int FROM wp_messages m WHERE m.contact_id = ANY($1::bigint[]) AND m.direction = 'out' AND m.sender_kind = 'user') AS messages_out, (SELECT count(*)::int FROM wp_messages m WHERE m.contact_id = ANY($1::bigint[]) AND m.direction = 'in') AS messages_in, (SELECT count(*)::int FROM wp_messages m WHERE m.contact_id = ANY($1::bigint[]) AND m.direction = 'activity') AS activity_notes", [ids])
+        pool.query('SELECT c.id, c.project_id, c.inbox_id, i.display_name AS inbox_name, c.status, c.handler, c.agent_id, c.assigned_to, c.routed_by, c.last_message_at, c.unread_count, c.created_at, c.resolved_at FROM wp_conversations c JOIN wp_inboxes i ON i.id = c.inbox_id WHERE c.contact_id = ANY($1::bigint[])' + cf + ' ORDER BY c.last_message_at DESC NULLS LAST, c.id DESC LIMIT 100', args),
+        pool.query("SELECT 'event' AS kind, e.at, e.project_id, e.conversation_id, e.event_name AS summary, e.actor FROM wp_conversation_events e JOIN wp_conversations c ON c.id = e.conversation_id WHERE c.contact_id = ANY($1::bigint[])" + cf + " " +
+          "UNION ALL SELECT 'ai_run', r.created_at, r.project_id, r.conversation_id, r.kind || ':' || r.decision || COALESCE(' (' || r.intent || ')', ''), 'ai' FROM wp_ai_runs r JOIN wp_conversations c ON c.id = r.conversation_id WHERE c.contact_id = ANY($1::bigint[])" + cf + " " +
+          "UNION ALL SELECT 'handoff', h.created_at, h.project_id, h.conversation_id, h.direction || ':' || h.reason || ' [' || h.status || ']', COALESCE(h.taken_by, 'system') FROM wp_handoffs h JOIN wp_conversations c ON c.id = h.conversation_id WHERE c.contact_id = ANY($1::bigint[])" + cf + " " +
+          'ORDER BY 2 DESC LIMIT 200', args),
+        pool.query("SELECT (SELECT count(*)::int FROM wp_ai_runs r JOIN wp_conversations c ON c.id = r.conversation_id WHERE c.contact_id = ANY($1::bigint[])" + cf + ") AS runs, (SELECT count(*)::int FROM wp_ai_suggestions s JOIN wp_conversations c ON c.id = s.conversation_id WHERE c.contact_id = ANY($1::bigint[])" + cf + ") AS suggestions, (SELECT count(*)::int FROM wp_handoffs h JOIN wp_conversations c ON c.id = h.conversation_id WHERE c.contact_id = ANY($1::bigint[])" + cf + ") AS handoffs, (SELECT count(*)::int FROM wp_messages m JOIN wp_conversations c ON c.id = m.conversation_id WHERE m.contact_id = ANY($1::bigint[])" + cf + " AND m.direction = 'out' AND m.sender_kind = 'user') AS messages_out, (SELECT count(*)::int FROM wp_messages m JOIN wp_conversations c ON c.id = m.conversation_id WHERE m.contact_id = ANY($1::bigint[])" + cf + " AND m.direction = 'in') AS messages_in, (SELECT count(*)::int FROM wp_messages m JOIN wp_conversations c ON c.id = m.conversation_id WHERE m.contact_id = ANY($1::bigint[])" + cf + " AND m.direction = 'activity') AS activity_notes", args)
       ]).then(function (x) {
         var cnt = x[2].rows[0];
         var notes = persons.reduce(function (n, p) { return n + (p.notes ? p.notes.length : 0); }, 0);
