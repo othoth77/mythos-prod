@@ -610,6 +610,7 @@ var BROWSER_TOOLS = { browser_navigate: 'navigate', browser_extract: 'extract', 
 var BROWSER_INVOKE_TIMEOUT_MS = Number(process.env.MYTHOS_BROWSER_INVOKE_TIMEOUT_MS) || 100000;
 var BROWSER_EVIDENCE_TEXT_CHARS = 4000;   // per successful call, for the report rule below
 var BROWSER_QUOTE_CHARS = 24;             // the verbatim fragment a report must carry (or the whole text, if shorter)
+var BROWSER_REPEAT_LIMIT = 2;             // unchanged successful browser results re-requested before the report is forced
 
 function browserTool(mcpTool) {
   return function (ctx, args) {
@@ -636,6 +637,17 @@ function browserTool(mcpTool) {
           ctx.browserEvidence.push({ tool: mcpTool, backend: parsed.backend, title: typeof parsed.title === 'string' ? parsed.title : '',
             final_url: typeof parsed.final_url === 'string' ? parsed.final_url : null,
             text: typeof parsed.text === 'string' ? parsed.text.slice(0, BROWSER_EVIDENCE_TEXT_CHARS) : null });
+          // Measured live (Issue #532, Obscura stopped): every Playwright-served
+          // result carried the adapter's attempts[] — "obscura … ok:false …
+          // OBSCURA_UNREACHABLE: connect ECONNREFUSED" — and the 7B model kept
+          // re-issuing a call that had SUCCEEDED (48 calls, no report). The model
+          // gets the outcome, not the adapter's diagnostics: attempts[] is dropped
+          // (backend and fallback_reason stay, for the trace and the report), and
+          // a successful result says so in plain words.
+          delete parsed.attempts;
+          parsed.result = parsed.fallback_reason
+            ? 'OK — served by the fallback engine ' + parsed.backend + '; this result is complete and valid, do not call again'
+            : 'OK — this result is complete and valid, do not call again';
         }
         return parsed;
       }
@@ -1153,9 +1165,11 @@ function run(task, prompt, _sessionId, _mode, opts) {
   // V3.1 constrained report turn — per-execution state (see settle below).
   var reportTurnsThisRound = 0;
   var reportTurnPending = null;   // the final message text awaiting its report
+  var browserRepeatsThisRound = 0;
   function compactForRepair(lastText, brief) {
     roundToolCalls = 0;
     reportTurnsThisRound = 0;
+    browserRepeatsThisRound = 0;
     reportTurnPending = null;
     messages = [messages[0], messages[1]];
     if (lastText && String(lastText).trim()) messages.push({ role: 'assistant', content: String(lastText).slice(0, 2000) });
@@ -1621,7 +1635,29 @@ function run(task, prompt, _sessionId, _mode, opts) {
       messages.push({ role: 'assistant', content: msg.content || null, tool_calls: calls });
       var callIndex = 0;
       function nextCall() {
-        if (callIndex >= calls.length) return step(iteration + 1);
+        if (callIndex >= calls.length) {
+          // CONVERGENCE (2026-09-29, Issue #532): a model that keeps re-requesting
+          // an UNCHANGED successful browser result has what it needs and is not
+          // going to write the report on its own. After BROWSER_REPEAT_LIMIT such
+          // repeats the next turn is the constrained report turn (no tools, the
+          // report schema enforced), reminded of the adapter's own evidence; the
+          // report rules above still judge what it writes.
+          var ev = ctx.browserEvidence || [];
+          if (browserRepeatsThisRound >= BROWSER_REPEAT_LIMIT && ev.length && opts.structuredReport !== false &&
+              reportTurnsThisRound < MAX_REPORT_TURNS_PER_EXECUTION && iteration + 1 < MAX_ITERATIONS) {
+            var last = ev[ev.length - 1];
+            reportTurnsThisRound++;
+            reportTurnPending = '';
+            trace.push({ tool: 'report_forced', refused: false, target: null,
+              detail: 'unchanged browser result re-requested ' + browserRepeatsThisRound + ' times; report turn forced' });
+            messages.push({ role: 'user', content: 'You already have the browser result and it has not changed. Do not call the browser again. '
+              + 'Emit the final report now as ONE JSON object. Its "summary" must state the backend (' + last.backend + '), the page title ("'
+              + String(last.title || '').slice(0, 120) + '") and the extracted text quoted verbatim'
+              + (last.text ? ' — it begins: "' + String(last.text).replace(/\s+/g, ' ').trim().slice(0, 300) + '"' : '') + '.' });
+            return step(iteration + 1);
+          }
+          return step(iteration + 1);
+        }
         var c = calls[callIndex++];
         toolCallCount++;
         roundToolCalls++;
@@ -1675,10 +1711,21 @@ function run(task, prompt, _sessionId, _mode, opts) {
           payload = JSON.stringify({ error: 'REFUSED: result exceeds the per-call context budget of ' + MAX_TOOL_PAYLOAD_CHARS + ' chars' });
         }
         var fingerprint = String(name) + ':' + ((c.function && c.function.arguments) || '');
-        if (lastPayloadByCall[fingerprint] === payload) {
+        // A governed call's result carries a fresh audit_id every time, so for
+        // "has this changed?" it is compared WITHOUT it. Measured 2026-09-29: with
+        // the audit_id in the comparison no browser result was ever "identical",
+        // this note never fired for a browser call, and Qwen re-issued a
+        // succeeded extract 48 times (Issue #532).
+        var comparable = payload;
+        if (result && typeof result === 'object' && result.audit_id !== undefined && MCP_TOOL_IMPL[name]) {
+          var withoutAudit = Object.assign({}, result); delete withoutAudit.audit_id;
+          comparable = JSON.stringify(withoutAudit);
+        }
+        if (lastPayloadByCall[fingerprint] === comparable) {
+          if (BROWSER_TOOLS[name] && !result.error) browserRepeatsThisRound++;
           payload = payload.slice(0, -1) + ',"note":"identical to your previous call, and nothing has changed since — do not repeat it; act on this result or write your final report"}';
         } else {
-          lastPayloadByCall[fingerprint] = payload;
+          lastPayloadByCall[fingerprint] = comparable;
         }
         messages.push({ role: 'tool', tool_call_id: c.id, content: payload });
         return nextCall();
@@ -1703,6 +1750,7 @@ module.exports = {
   BROWSER_TOOLS: BROWSER_TOOLS,
   BROWSER_MCP_SERVER: BROWSER_MCP_SERVER,
   BROWSER_INVOKE_TIMEOUT_MS: BROWSER_INVOKE_TIMEOUT_MS,
+  BROWSER_REPEAT_LIMIT: BROWSER_REPEAT_LIMIT,
   browserToolSchemas: browserToolSchemas,
   browserEvidenceRejection: browserEvidenceRejection,
   browserReportRejection: browserReportRejection,

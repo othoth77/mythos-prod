@@ -293,6 +293,51 @@ t('REPORT CARRIES THE EVIDENCE (E2E offline): "provided above" is rejected with 
     });
   });
 });
+t('CONVERGENCE: the model sees a clean OK result (no attempts[] diagnostics), and repeating an unchanged browser result forces the report turn', function () {
+  var ws = path.join(FIX, 'ws-converge'); fs.mkdirSync(ws, { recursive: true });
+  var taskId = 't-browser-converge-1';
+  seedTask(taskId, ['browser.extract', 'browser.navigate']);
+  var call = function (id) { return { role: 'assistant', content: null, tool_calls: [tc(id, 'browser_extract', { url: 'https://example.com/', selector: 'h1' })] }; };
+  // the model repeats the SAME successful call forever; only a forced report turn can end this
+  var reportJson = '{"mythos_report": true, "status": "completed", "summary": "backend obscura; title Example Domain; h1 text \\"Example Domain\\"", "files_changed": [], "tests": [], "commit": null, "residual_risks": []}';
+  var replies = [call('r1'), call('r2'), call('r3'), call('r4'), call('r5'), call('r6')];
+  var i = 0, sent = [];
+  var transport = function (o, body) {
+    var req = JSON.parse(body); sent.push(req);
+    var m = req.response_format ? { role: 'assistant', content: reportJson } : replies[Math.min(i++, replies.length - 1)];
+    return Promise.resolve({ status: 200, body: JSON.stringify({ choices: [{ message: m }], usage: { prompt_tokens: 100 } }) });
+  };
+  var task = { task_id: taskId, working_directory: ws, execution_profile: 'repo-read', timeout_seconds: 120, expected_delivery: 'report', mcp_capabilities: ['browser.extract', 'browser.navigate'] };
+  return agent.run(task, 'Read the h1 of https://example.com/ through the browser and report backend, title and text.', null, 'start', { apiKey: 'k', model: 'm', transport: transport, mcp: O }).then(function (o) {
+    var toolMsg = null;
+    sent.forEach(function (req) { req.messages.forEach(function (m) { if (m.role === 'tool' && m.tool_call_id === 'r1') toolMsg = m; }); });
+    var body = JSON.parse(toolMsg.content);
+    assert.strictEqual(body.attempts, undefined, 'attempts[] never reaches the model');
+    assert.ok(/^OK — this result is complete and valid/.test(body.result) && body.backend === 'obscura', JSON.stringify(body).slice(0, 200));
+    var forced = (o.tool_trace || []).filter(function (e) { return e.tool === 'report_forced'; });
+    assert.strictEqual(forced.length, 1, 'exactly one forced report turn');
+    var browserCalls = (o.tool_trace || []).filter(function (e) { return e.tool === 'browser_extract'; }).length;
+    assert.strictEqual(browserCalls, 1 + agent.BROWSER_REPEAT_LIMIT, 'the report is forced after ' + agent.BROWSER_REPEAT_LIMIT + ' unchanged repeats (' + browserCalls + ' calls)');
+    var forcedReq = sent.filter(function (r) { return r.response_format; })[0];
+    assert.ok(forcedReq && !forcedReq.tools, 'the forced turn offers no tool and pins the report schema');
+    assert.ok(/Do not call the browser again/.test(forcedReq.messages[forcedReq.messages.length - 1].content) && /Example Domain/.test(forcedReq.messages[forcedReq.messages.length - 1].content), 'the forced turn carries the adapter evidence');
+    assert.ok(o.validation && o.validation.passed === true && o.repair_rounds === 0, 'the forced report passes the evidence rule: ' + JSON.stringify(o.validation && o.validation.rejections));
+  });
+});
+t('CONVERGENCE: a fallback-served result says so plainly and keeps backend + fallback_reason for the trace', function () {
+  var calls = [];
+  var fb = { fallback_reason: 'obscura unavailable: OBSCURA_UNREACHABLE: connect ECONNREFUSED 127.0.0.1:9222', backend: 'playwright', ok: true, title: 'T', text: 'x', attempts: [{ backend: 'obscura', ok: false }] };
+  var fakeInvoke = require(path.join(EXEC, 'lib', 'mcp-invoke'));
+  var real = fakeInvoke.invoke;
+  fakeInvoke.invoke = function () { calls.push(1); return Promise.resolve({ ok: true, audit_id: 'mcpa-x', content: [{ type: 'text', text: JSON.stringify(fb) }] }); };
+  var ctx = { task: { task_id: 't-x', mcp_capabilities: ['browser.extract'] }, mcpOpts: null };
+  return Promise.resolve(agent.MCP_TOOL_IMPL.browser_extract(ctx, { url: 'https://example.com/' })).then(function (r) {
+    fakeInvoke.invoke = real;
+    assert.strictEqual(r.attempts, undefined); assert.strictEqual(r.backend, 'playwright'); assert.ok(/^obscura unavailable/.test(r.fallback_reason), r.fallback_reason);
+    assert.ok(/^OK — served by the fallback engine playwright; this result is complete and valid/.test(r.result), r.result);
+    assert.strictEqual(ctx.browserEvidence[0].backend, 'playwright', 'the adapter evidence is kept for the report rule');
+  }, function (e) { fakeInvoke.invoke = real; throw e; });
+});
 t('security: the token is in the launcher only — absent from the audit log, the task events and every model request', function () {
   var audit = fs.readFileSync(process.env.MYTHOS_MCP_AUDIT_FILE, 'utf8');
   assert.ok(audit.split('\n').filter(Boolean).length >= 5, 'audit records were written');
