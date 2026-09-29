@@ -48,6 +48,49 @@ function supMarker(fields) {
 }
 
 // ---------------------------------------------------------------------------
+// The inverse of the executor bridge's reportBody() (bridge/github-issues.js):
+// a report comment → the report fields the supervisor reads. The status is the
+// CONTROL status (the table's "(control status X)" when the Issue state
+// differs, e.g. HUMAN_APPROVAL over BLOCKED). "Problems / risks" renders two
+// lists back to back with no boundary between them, so every item there is
+// read as a PROBLEM — the conservative side: check:no_problems can only fail
+// because of it, never pass. Returns null when the comment is not a report for
+// `taskId` or carries no known status (fail closed).
+var EMPTY_ITEMS = ['none', 'none reported', 'no problems', 'no risks reported'];
+function reportFromComment(body, taskId) {
+  var text = String(body || '');
+  var mk = bridgeMarker(text);
+  if (!mk || mk.event !== 'report' || mk.task_id !== taskId) return null;
+  var row = /^\|\s*Status\s*\|\s*\*\*([A-Z_]+)\*\*(?:\s*\(control status ([A-Z_]+)\))?/m.exec(text);
+  var status = row ? (row[2] || row[1]) : mk.status;
+  if (status === 'HUMAN_APPROVAL') status = 'BLOCKED';
+  if (REPORT_STATUSES.indexOf(status) === -1) return null;
+  function section(name) {
+    var i = text.indexOf('\n#### ' + name + '\n');
+    if (i === -1) return null;
+    var rest = text.slice(i + name.length + 7);
+    var j = rest.search(/^#### /m);
+    return (j === -1 ? rest : rest.slice(0, j)).trim();
+  }
+  function items(sec) {
+    return String(sec || '').split('\n').filter(function (l) { return /^- /.test(l); }).map(function (l) { return l.slice(2).trim(); })
+      .filter(function (x) { return EMPTY_ITEMS.indexOf(x) === -1; });
+  }
+  var commits = items(section('Commits')).map(function (l) {
+    var m = /^`([0-9a-f]{7,40})`\s+(.*?)(?:\s+\((on origin|awaiting the governance relay)\))?$/.exec(l);
+    return m ? { sha: m[1], subject: m[2], on_origin: m[3] === 'on origin' } : null;
+  }).filter(Boolean);
+  var next = section('Next recommended action');
+  return {
+    protocol: 'mythos-control/issue-comment', source: 'issue-comment', task_id: taskId, status: status,
+    summary: section('Summary') || '', files_changed: items(section('Files changed')), tests: items(section('Tests')),
+    problems: items(section('Problems / risks')), risks: [], commits: commits,
+    next_recommended_action: next ? next.split(/\n\s*\n/)[0].trim() : null,
+    validation: { git_verified: false }
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Task integrity (review blocker 1)
 //
 // The Issue text is OpenAI output, and OpenAI reads untrusted report text. The
@@ -329,6 +372,7 @@ function create(gh, cfg) {
 
   function getResult(exec) {
     if (!exec.bridge_task_id) return Promise.resolve({ ok: false, error: { code: 'NO_BRIDGE_TASK' } });
+    if (cfg.report_source === 'comment') return resultFromComment(exec);
     return gh.controlFile(repo, cfg.control_branch, 'control/reports/' + exec.bridge_task_id + '.json').then(function (r) {
       if (!r.ok) {
         if (r.error.code === 'GH_NOT_FOUND') return { ok: false, error: { code: 'REPORT_NOT_YET', detail: 'the relay has not pushed the report yet' } };
@@ -342,6 +386,26 @@ function create(gh, cfg) {
           REPORT_STATUSES.indexOf(report.status) === -1) {
         return { ok: false, error: { code: 'REPORT_INVALID', detail: 'report task_id/status do not match the attempt' } };
       }
+      return { ok: true, report: report };
+    });
+  }
+
+  // report_source "comment" (2026-09-29): a bridge whose control branch never
+  // leaves its host — the Haddad instance keeps mythos/control-haddad local —
+  // publishes its report ONLY as the Issue comment. That comment is rendered by
+  // the bridge's own reportBody() and read here through the same author filter
+  // and marker as every other bridge event; nothing a non-bridge author wrote
+  // is ever read. Default (unset) keeps the control-file path unchanged.
+  function resultFromComment(exec) {
+    return comments(exec.issue_number).then(function (cm) {
+      if (!cm.ok) return cm;
+      var mine = cm.data.filter(function (c) {
+        var m = bridgeMarker(c.body);
+        return m && m.event === 'report' && m.task_id === exec.bridge_task_id;
+      });
+      if (!mine.length) return { ok: false, error: { code: 'REPORT_NOT_YET', detail: 'no bridge report comment for ' + exec.bridge_task_id + ' yet' } };
+      var report = reportFromComment(mine[mine.length - 1].body, exec.bridge_task_id);
+      if (!report) return { ok: false, error: { code: 'REPORT_INVALID', detail: 'the report comment for ' + exec.bridge_task_id + ' does not carry a readable status' } };
       return { ok: true, report: report };
     });
   }
@@ -470,5 +534,6 @@ module.exports = {
   outboundSecretKinds: outboundSecretKinds,
   bridgeMarker: bridgeMarker,
   supMarker: supMarker,
+  reportFromComment: reportFromComment,
   REPORT_STATUSES: REPORT_STATUSES
 };
