@@ -118,6 +118,11 @@ MYTHOS_ADVISORY_MODEL=$(cat "$STATE_DIR/model-id.txt" 2>/dev/null || echo qwen2.
 MYTHOS_MAX_PARALLEL=1
 MYTHOS_EXECUTOR_INTERVAL_MS=20000
 MYTHOS_CORE_ENABLED=false
+# Loopback only. The executor's default bind list also names 172.18.0.1 (the VPS
+# Docker bridge, where n8n reaches it); Haddad has no Docker and no n8n, so that
+# bind fails with EADDRNOTAVAIL on every start (harmless by design, noisy in the
+# journal, and one address more than this node should ever offer).
+MYTHOS_EXECUTOR_BIND=127.0.0.1
 ENV
 chmod 600 "$ENV_FILE"
 say "  $ENV_FILE"

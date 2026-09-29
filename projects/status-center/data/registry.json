@@ -2112,11 +2112,12 @@
       "maturity": "PRODUCTION_VERIFIED",
       "repository": "othoth77/mythos-prod",
       "directories": [
-        "projects/mythos-haddad"
+        "projects/mythos-haddad",
+        "projects/mythos-browser-mcp"
       ],
-      "last_change": "2026-09-22 (V1 merged; the Status Center live console built, deployed and verified on the VPS side)",
-      "blocker": "The node cannot yet be watched: the telemetry agent is built and reviewed but not running, because the Haddad session is under an explicit owner hold on new tooling and standing outward configuration. Until it runs, the AI-nodes card honestly shows no node.",
-      "next_action": "Owner: approve running projects/mythos-haddad/bin/haddad-telemetry-setup.sh on Haddad, then register the public key it prints with projects/status-center/haddad/bin/register-node.sh. Also open: whether the unauthenticated console page is the right place for structured task identity, or whether the page should be gated.",
+      "last_change": "2026-09-28 (V2, V3.1, V3.2 merged; governed browser chain PR #512 merged — projects/mythos-browser-mcp is the stdio MCP server the node runs in front of Obscura, Playwright fallback; production readiness pass: 18/18 health, worker at origin/main)",
+      "blocker": "Owner-gated only: the browser.read grant in the permission matrix, the SkillSpector attestation of the browser-research skill (scanners live on the VPS), and the merges of #320/#516/#517 — see projects/mythos-haddad/docs/PRODUCTION_READINESS_2026-09-28.md §9.",
+      "next_action": "Merge #320, #516, #517; add the browser.read grant (docs/BROWSER.md §5.1) and flip the governed test's DENIED assertion; run skill-trust-cli.js scan executor:browser-research on the VPS; fast-forward the Haddad checkout and restart the worker at RUNNING=0; file the mythos:haddad browser E2E issue.",
       "headline": "V1 MERGED and running on the node (runtime, FABLE worker, MCP, supervised tool runner with a bounded repair loop in a bwrap sandbox). The Status Center console for it is DEPLOYED and production-verified on the VPS side — ingest, offline detection, recovery and the frozen-file override were all proven with real signed beats — but Haddad itself is not beating yet, pending an owner decision.",
       "dimensions": {
         "implementation": {
