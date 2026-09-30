@@ -86,8 +86,67 @@ function create(spec) {
   var emergencyStopped = config.risk.emergencyStop === true;
   var emergencyReason = emergencyStopped ? 'CONFIGURED_EMERGENCY_STOP' : null;
 
+  /**
+   * THE CONSECUTIVE-LOSS CIRCUIT BREAKER.
+   *
+   * MAX_CONSECUTIVE_LOSSES cannot be a permanent block. If hitting it stops all
+   * trading, then no win can occur, so the streak never resets, and the system is
+   * frozen for the rest of the run. That is not a theory — it was measured: 2,573
+   * of 2,692 risk blocks in one run were this single condition, stuck forever.
+   *
+   * So the limit is a BREAKER with a cooling-off period: trading pauses for
+   * `consecutiveLossCooldownHours` from the last loss, and when it lifts the
+   * current streak is cleared (the historical maximum is not). That keeps the
+   * limit's purpose — stop trading through a bad run — without turning it into an
+   * undocumented kill switch.
+   */
+  var streakBreaker = { tripped: false, trippedAt: null, clearedCount: 0 };
+  var cooldownMs = risk.consecutiveLossCooldownHours * 3600 * 1000;
+
   function limit(name, observed, limitValue, binding) {
     return { limit: name, observed: observed, limitValue: limitValue, binding: !!binding };
+  }
+
+  /**
+   * Trips, holds or clears the streak breaker. Returns true while it binds.
+   *
+   * The trip time is the LAST LOSS, not the current bar: the cooling-off is meant
+   * to be time away from a bad run, and measuring it from whenever the gate
+   * happens to be consulted would restart the clock on every call.
+   */
+  function evaluateStreakBreaker(account, ts, streak) {
+    if (!streakBreaker.tripped) {
+      if (streak < risk.maxConsecutiveLosses) return false;
+      streakBreaker.tripped = true;
+      streakBreaker.trippedAt = account.lastLossTs() === null ? ts : account.lastLossTs();
+      logger.warn('risk.streak_breaker.tripped', {
+        streak: streak, limit: risk.maxConsecutiveLosses,
+        cooldownHours: risk.consecutiveLossCooldownHours
+      });
+      if (store) {
+        store.table('system_events').insert({
+          ts: ts, kind: 'STREAK_BREAKER_TRIPPED', severity: 'WARN',
+          message: streak + ' consecutive losses reached the limit of ' + risk.maxConsecutiveLosses,
+          cooldownHours: risk.consecutiveLossCooldownHours
+        });
+      }
+    }
+    var elapsed = ts - streakBreaker.trippedAt;
+    if (elapsed >= cooldownMs) {
+      var cleared = account.clearLossStreak(ts, 'STREAK_COOLDOWN_ELAPSED');
+      streakBreaker.tripped = false;
+      streakBreaker.trippedAt = null;
+      streakBreaker.clearedCount++;
+      if (store) {
+        store.table('system_events').insert({
+          ts: ts, kind: 'STREAK_BREAKER_CLEARED', severity: 'INFO',
+          message: 'cooling-off elapsed; cleared a streak of ' + cleared,
+          clearedStreak: cleared
+        });
+      }
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -113,8 +172,14 @@ function create(spec) {
     if (dailyLossPct >= risk.maxDailyLossPct) reasons.push(Reason.DAILY_LOSS_LIMIT_REACHED);
 
     var streak = snap.consecutiveLosses;
-    checks.push(limit('MAX_CONSECUTIVE_LOSSES', streak, risk.maxConsecutiveLosses, streak >= risk.maxConsecutiveLosses));
-    if (streak >= risk.maxConsecutiveLosses) reasons.push(Reason.MAX_CONSECUTIVE_LOSSES_REACHED);
+    var streakBound = evaluateStreakBreaker(account, q.ts, streak);
+    checks.push(limit('MAX_CONSECUTIVE_LOSSES', streak, risk.maxConsecutiveLosses, streakBound));
+    if (streakBound) {
+      reasons.push(Reason.MAX_CONSECUTIVE_LOSSES_REACHED);
+      checks.push(limit('STREAK_COOLDOWN_REMAINING_MS',
+        streakBreaker.trippedAt === null ? 0 : Math.max(0, cooldownMs - (q.ts - streakBreaker.trippedAt)),
+        cooldownMs, true));
+    }
 
     checks.push(limit('EMERGENCY_STOP', emergencyStopped, false, emergencyStopped));
     if (emergencyStopped) reasons.push(Reason.EMERGENCY_STOP_ACTIVE);
@@ -338,6 +403,11 @@ function create(spec) {
       accountEquity: assessment.accountEquity,
       riskBudgetMoney: assessment.riskBudgetMoney === undefined ? null : assessment.riskBudgetMoney,
       approvedRiskMoney: assessment.approvedRiskMoney === undefined ? null : assessment.approvedRiskMoney,
+      // The explanation for a SIZE_BELOW_MINIMUM block: what the smallest
+      // tradable size would have risked. Without it the record says "blocked for
+      // size" and leaves the reader to recompute why.
+      riskAtMinLot: assessment.riskAtMinLot === undefined ? null : assessment.riskAtMinLot,
+      approvedRiskPct: assessment.approvedRiskPct === undefined ? null : assessment.approvedRiskPct,
       stage: assessment.stage
     });
     return assessment;
@@ -350,8 +420,23 @@ function create(spec) {
     monitor: monitor,
     persist: persist,
     raiseEmergencyStop: raiseEmergencyStop,
+    /**
+     * Binds this engine to a run's store. Called from the Trading Agent's
+     * onRunStart so the engine's own events land in the store the run will
+     * actually publish, rather than in one created at construction time.
+     */
+    attachStore: function (s) { store = s; return store; },
     isEmergencyStopped: function () { return emergencyStopped; },
     emergencyReason: function () { return emergencyReason; },
+    /** State of the consecutive-loss circuit breaker. */
+    streakBreaker: function () {
+      return {
+        tripped: streakBreaker.tripped,
+        trippedAt: streakBreaker.trippedAt,
+        timesCleared: streakBreaker.clearedCount,
+        cooldownHours: risk.consecutiveLossCooldownHours
+      };
+    },
     /** The configured limits, for reports and for the approval record. */
     limits: function () {
       return {
@@ -361,6 +446,7 @@ function create(spec) {
         maxDailyLossPct: risk.maxDailyLossPct,
         maxDrawdownPct: risk.maxDrawdownPct,
         maxConsecutiveLosses: risk.maxConsecutiveLosses,
+        consecutiveLossCooldownHours: risk.consecutiveLossCooldownHours,
         maxSpreadMultiple: risk.maxSpreadMultiple,
         maxSlippageMultiple: risk.maxSlippageMultiple,
         minStopPips: risk.minStopPips,

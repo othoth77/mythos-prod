@@ -14,6 +14,7 @@
     "maxDailyLossPct": 5,
     "maxDrawdownPct": 20,
     "maxConsecutiveLosses": 5,
+    "consecutiveLossCooldownHours": 12,
     "maxSpreadMultiple": 2.5,
     "maxSlippageMultiple": 3,
     "minStopPips": 3,

@@ -312,6 +312,8 @@ function create(spec) {
   return {
     RecoveryReason: RecoveryReason,
     enabled: cfg.enabled,
+    /** Binds this engine to a run's store — see the Risk Engine's attachStore. */
+    attachStore: function (s) { store = s; return store; },
     request: request,
     requiredTakeProfitPips: requiredTakeProfitPips,
     targetCoversRecovery: targetCoversRecovery,

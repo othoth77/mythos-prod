@@ -151,6 +151,82 @@ test('the consecutive-loss limit blocks', function () {
   assert.equal(riskMod.create({ config: c }).preTradeGate({ account: a, ts: TS }).allowed, true);
 });
 
+test('the consecutive-loss limit is a BREAKER with a cooling-off, not a deadlock', function () {
+  // THIS IS THE TEST FOR A DEFECT THAT WAS MEASURED, NOT IMAGINED. When the limit
+  // was a permanent block, hitting it stopped all trading, so no win could occur,
+  // so the streak never reset — 2,573 of 2,692 risk blocks in one run were this
+  // single condition, frozen for the rest of the run.
+  var c = cfg({
+    risk: { maxConsecutiveLosses: 3, consecutiveLossCooldownHours: 6, maxDrawdownPct: 80, maxDailyLossPct: 50 }
+  });
+  var e = riskMod.create({ config: c, logger: loggerMod.nullLogger() });
+  var a = account(10000);
+  var t0 = Date.parse('2024-01-03T10:00:00Z');
+  for (var i = 0; i < 3; i++) a.applyTrade(lossTrade(-1, t0));
+
+  // Immediately after: the breaker trips and blocks.
+  var blocked = e.preTradeGate({ account: a, ts: t0 + 60000 });
+  assert.equal(blocked.allowed, false);
+  assert.ok(blocked.reasonCodes.indexOf('MAX_CONSECUTIVE_LOSSES_REACHED') !== -1);
+  assert.equal(e.streakBreaker().tripped, true);
+  var remaining = blocked.limitsChecked.filter(function (l) { return l.limit === 'STREAK_COOLDOWN_REMAINING_MS'; })[0];
+  assert.ok(remaining && remaining.observed > 0, 'the record must say how much cooling-off is left');
+
+  // Part way through: still blocked.
+  assert.equal(e.preTradeGate({ account: a, ts: t0 + 5 * 3600 * 1000 }).allowed, false);
+
+  // After the cooling-off: allowed again, and the streak is cleared.
+  var after = e.preTradeGate({ account: a, ts: t0 + 6 * 3600 * 1000 });
+  assert.equal(after.allowed, true, 'the system must be able to resume, or the limit is a kill switch');
+  assert.equal(a.consecutiveLosses(), 0);
+  assert.equal(e.streakBreaker().tripped, false);
+  assert.equal(e.streakBreaker().timesCleared, 1);
+
+  // The HISTORICAL maximum is not erased — the metric still reports what happened.
+  assert.equal(a.maxConsecutiveLosses(), 3);
+  assert.equal(a.streakClears().length, 1);
+  assert.equal(a.streakClears()[0].cleared, 3);
+});
+
+test('the cooling-off is measured from the last loss, not from when the gate was asked', function () {
+  var c = cfg({ risk: { maxConsecutiveLosses: 2, consecutiveLossCooldownHours: 4, maxDrawdownPct: 80, maxDailyLossPct: 50 } });
+  var e = riskMod.create({ config: c, logger: loggerMod.nullLogger() });
+  var a = account(10000);
+  var lossTs = Date.parse('2024-01-03T10:00:00Z');
+  a.applyTrade(lossTrade(-1, lossTs));
+  a.applyTrade(lossTrade(-1, lossTs));
+  // First consulted five hours after the loss — the cooling-off has already passed.
+  var g = e.preTradeGate({ account: a, ts: lossTs + 5 * 3600 * 1000 });
+  assert.equal(g.allowed, true, 'the clock must not restart on the first call');
+  assert.equal(e.streakBreaker().timesCleared, 1);
+});
+
+test('a zero cooling-off makes the streak limit inert, which is allowed only explicitly', function () {
+  var c = cfg({ risk: { maxConsecutiveLosses: 2, consecutiveLossCooldownHours: 0, maxDrawdownPct: 80, maxDailyLossPct: 50 } });
+  var e = riskMod.create({ config: c, logger: loggerMod.nullLogger() });
+  var a = account(10000);
+  a.applyTrade(lossTrade(-1, TS));
+  a.applyTrade(lossTrade(-1, TS));
+  assert.equal(e.preTradeGate({ account: a, ts: TS }).allowed, true);
+  assert.equal(a.consecutiveLosses(), 0, 'with no cooling-off the breaker trips and clears in the same instant');
+  assert.equal(configMod.load().risk.consecutiveLossCooldownHours, 12, 'the default is NOT zero');
+});
+
+test('the breaker records both trip and clear as system events', function () {
+  var store = storeMod.create({ runId: 'r' });
+  var c = cfg({ risk: { maxConsecutiveLosses: 2, consecutiveLossCooldownHours: 3, maxDrawdownPct: 80, maxDailyLossPct: 50 } });
+  var e = riskMod.create({ config: c, store: store, logger: loggerMod.nullLogger() });
+  var a = account(10000);
+  a.applyTrade(lossTrade(-1, TS));
+  a.applyTrade(lossTrade(-1, TS));
+  e.preTradeGate({ account: a, ts: TS });
+  e.preTradeGate({ account: a, ts: TS + 4 * 3600 * 1000 });
+  assert.equal(store.table('system_events').by('kind', 'STREAK_BREAKER_TRIPPED').length, 1);
+  var cleared = store.table('system_events').by('kind', 'STREAK_BREAKER_CLEARED');
+  assert.equal(cleared.length, 1);
+  assert.equal(cleared[0].clearedStreak, 2);
+});
+
 test('a configured emergency stop blocks everything from the start', function () {
   var e = riskMod.create({ config: cfg({ risk: { emergencyStop: true } }) });
   assert.equal(e.isEmergencyStopped(), true);

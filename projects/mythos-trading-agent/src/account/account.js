@@ -48,6 +48,8 @@ function create(spec) {
 
   var dailyNet = Object.create(null);   // dayKey → realised net P&L that day
   var consecutiveLosses = 0;
+  var lastLossTs = null;
+  var streakClears = [];
   var maxConsecutiveLosses = 0;
   var consecutiveWins = 0;
   var wins = 0, losses = 0, breakevens = 0;
@@ -121,6 +123,7 @@ function create(spec) {
         wins++; consecutiveWins++; consecutiveLosses = 0;
       } else if (t.outcome === enums.TradeOutcome.LOSS) {
         losses++; consecutiveLosses++; consecutiveWins = 0;
+        lastLossTs = t.ts;
         if (consecutiveLosses > maxConsecutiveLosses) maxConsecutiveLosses = consecutiveLosses;
       } else {
         breakevens++;
@@ -154,6 +157,30 @@ function create(spec) {
 
     consecutiveLosses: function () { return consecutiveLosses; },
     maxConsecutiveLosses: function () { return maxConsecutiveLosses; },
+    /** When the most recent losing trade closed, or null. */
+    lastLossTs: function () { return lastLossTs; },
+
+    /**
+     * Clears the CURRENT losing streak. Only the Risk Engine calls this, when its
+     * consecutive-loss circuit breaker has cooled off.
+     *
+     * It exists because the alternative deadlocks: if the streak only ever reset
+     * on a win, then hitting the limit blocks all trading, so no win can occur, so
+     * the streak never resets and the system is frozen for the rest of the run.
+     * That was observed — 2,573 of 2,692 risk blocks in a run were this one
+     * condition, permanently stuck.
+     *
+     * `maxConsecutiveLosses` (the historical worst) is deliberately NOT cleared,
+     * so the metric still reports what actually happened.
+     */
+    clearLossStreak: function (ts, reason) {
+      var cleared = consecutiveLosses;
+      consecutiveLosses = 0;
+      streakClears.push({ ts: ts, cleared: cleared, reason: reason });
+      logger.warn('account.loss_streak_cleared', { ts: ts, cleared: cleared, reason: reason });
+      return cleared;
+    },
+    streakClears: function () { return streakClears.slice(); },
     consecutiveWins: function () { return consecutiveWins; },
     tradeCount: function () { return tradeCount; },
     wins: function () { return wins; },

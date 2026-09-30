@@ -149,7 +149,44 @@ positives. Mitigations built in: out-of-sample and walk-forward segmentation,
 Monte Carlo and perturbation stress, and a champion/challenger gate that refuses
 promotion on a single profitable period. None of these eliminate the risk.
 
-### 3.9 Single-process, single-machine
+### 3.9 `MAX_CONSECUTIVE_LOSSES` is a circuit breaker, not a permanent block
+
+A consecutive-loss limit that blocks trading permanently **deadlocks the system**:
+once the streak is hit no trade can be taken, so no win can occur, so the streak
+never resets. This was measured, not theorised — in one full-pipeline run, 2,573
+of 2,692 risk blocks were this single condition, frozen for the remainder of the
+run.
+
+The limit is therefore a breaker with a cooling-off period
+(`risk.consecutiveLossCooldownHours`, default 12). When it lifts, the *current*
+streak is cleared; the *historical maximum* is not, so the metric still reports
+what happened. Setting the cooling-off to 0 makes the limit inert — permitted, but
+only as an explicit choice.
+
+`MAX_DRAWDOWN` behaves differently on purpose: it escalates to the emergency stop,
+which is terminal within a run and has no reset path.
+
+### 3.10 The platform has not demonstrated an edge — and the first full runs lost money
+
+The first end-to-end pipeline runs over the committed fixtures produced **negative
+net P&L** on every configuration tried. For the record, on 3,000 EURUSD M15
+fixture bars with the default configuration and a Jev threshold of 45:
+
+| Capital | Trades | Net P&L | Max drawdown | Max losing streak |
+|---|---|---|---|---|
+| $100 | 99 | −$14.93 | 20.2 % (hit the limit) | 11 |
+| $100,000 | 177 | −$34.52 | 0.05 % | 9 |
+
+This is the expected result and it is not a failure of the build. The strategies
+are deliberately untuned (mission §4: "Do not assume any strategy is
+profitable"), the data is synthetic and therefore contains no real edge to find,
+and every cost is charged. What the runs demonstrate is that the **mechanics**
+work: costs are deducted, limits bind, the audit trail is complete, and the result
+reproduces.
+
+**No profitability claim can be made from this build, and none is made.**
+
+### 3.11 Single-process, single-machine
 
 No high availability, no failover, no reconnection logic — appropriate for
 backtest and paper research, and insufficient for live execution.

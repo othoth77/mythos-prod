@@ -63,6 +63,16 @@ var SCHEMA = {
         maxDailyLossPct: num(0.1, 50),
         maxDrawdownPct: num(0.5, 90),
         maxConsecutiveLosses: int(1, 50),
+        /**
+         * How long trading pauses after the consecutive-loss limit is hit, before
+         * the streak counter is cleared and trading may resume.
+         *
+         * This is NOT a convenience. Without a reset the limit deadlocks: hitting
+         * it blocks all trading, so no win can occur, so the streak never clears.
+         * 0 means the breaker trips and clears on the same bar, which makes the
+         * limit inert — allowed, but only as an explicit choice.
+         */
+        consecutiveLossCooldownHours: num(0, 168),
         maxSpreadMultiple: num(1, 20),
         maxSlippageMultiple: num(1, 20),
         minStopPips: num(0.1, 1000),

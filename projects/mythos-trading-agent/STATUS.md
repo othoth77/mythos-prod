@@ -4,11 +4,11 @@ Format per mission §24. Updated at the end of every phase.
 
 ---
 
-**CURRENT PHASE:** PHASE 7 — Risk Engine + PHASE 8 — Recovery engine (complete)
+**CURRENT PHASE:** PHASE 9 — Trading Agent (complete)
 
-**CURRENT TASK:** PHASE 9 — Trading Agent
+**CURRENT TASK:** PHASE 10 — Analysis Agent
 
-**LAST VERIFIED COMMIT:** `09fc983f` (PHASE 6, verified on `origin/mythos/trading-platform`)
+**LAST VERIFIED COMMIT:** `02fab372` (PHASES 7+8, verified on `origin/mythos/trading-platform`)
 
 ---
 
@@ -194,11 +194,51 @@ Asserted concretely for the owner's account: at $100 with a 2 % cap and a 20-pip
 stop, the ladder requests 0.01 / 0.03 / 0.09 and is approved 0.01 / 0.01 / 0.01
 with verdicts ALLOW / CLAMP / CLAMP.
 
+### PHASE 9 — Trading Agent (Agent 1)
+The whole mission §3 pipeline wired end to end into the single `decide()` the
+engine calls, plus the per-asset trading schedule. The agent owns the ORDER of the
+stages and the recording of every verdict; it owns none of the judgements.
+
+`wire()` returns all five engine hooks, because each omitted hook degrades the
+system **silently**: no `onRunStart` means no audit trail, no `onSeriesReady` means
+no indicators, no `onBar` means no kill switch while a position is open, no
+`onTradeClosed` means recovery never learns. None of them produces an error.
+
+**Two real defects were found by running the pipeline, not by reading it:**
+
+1. **The agent was writing to a store the engine never published.** The agent held
+   a store passed at construction while the engine created its own. Runs produced
+   trades normally and every candidate, Jev verdict and risk assessment went into a
+   store nobody read — a complete, silent loss of the audit trail. Fixed with the
+   `onRunStart` lifecycle hook, which binds the agent (and the risk and recovery
+   engines) to the run's own store.
+2. **`MAX_CONSECUTIVE_LOSSES` deadlocked the system.** As a permanent block,
+   hitting the limit stopped all trading, so no win could occur, so the streak
+   never reset: 2,573 of 2,692 risk blocks in one run were this one condition,
+   frozen for the rest of the run. It is now a circuit breaker with a cooling-off
+   period (`risk.consecutiveLossCooldownHours`, default 12) that clears the current
+   streak but not the historical maximum. COMPLIANCE §3.9.
+
+**Measured funnel** (3,000 EURUSD M15 fixture bars, default config, Jev 45):
+
+| Capital | Candidates | Cost-rejected | Jev-rejected | Risk-blocked | Trades | Net P&L | Max DD |
+|---|---|---|---|---|---|---|---|
+| $100 | 1,579 | 212 | 130 | 1,138 | 99 | −$14.93 | 20.2 % |
+| $100,000 | 747 | 117 | 130 | 323 | 177 | −$34.52 | 0.05 % |
+
+On the $100 account **65 % of risk assessments are blocked for size**
+(`SIZE_BELOW_MINIMUM`) — the account-size constraint in COMPLIANCE §3.1, now
+measured rather than predicted.
+
+**Both runs lost money, and that is the expected result of this build.** The
+strategies are deliberately untuned, the data is synthetic and contains no real
+edge, and every cost is charged. What the runs demonstrate is that the mechanics
+work. COMPLIANCE §3.10 records the figures; no profitability claim is made.
+
 ## IN PROGRESS
 
-PHASE 9 — Trading Agent: wire market data → regime → strategies → candidates →
-Jev → cost filter → Risk Engine → recovery → one-trade-only → execution into the
-single `decide()` the engine consumes.
+PHASE 10 — Analysis Agent: per-strategy, per-regime, per-Jev-band and
+losing-streak analysis over a run's store, with no authority to change anything.
 
 ## BLOCKED
 
@@ -211,7 +251,7 @@ rather than treated as blockers:
 
 ## NEXT TASK
 
-PHASE 9 — Trading Agent, then PHASE 10 — Analysis Agent.
+PHASE 10 — Analysis Agent, then PHASE 11 — Research Agent.
 
 ## TEST STATUS
 
@@ -228,8 +268,9 @@ PHASE 9 — Trading Agent, then PHASE 10 — Analysis Agent.
 | `tests/strategy-test.js` | 43 | pass |
 | `tests/regime-test.js` | 19 | pass |
 | `tests/jev-test.js` | 33 | pass |
-| `tests/risk-recovery-test.js` | 38 | pass |
-| **Total (`npm test`)** | **368** | **368 pass, 0 fail** |
+| `tests/risk-recovery-test.js` | 42 | pass |
+| `tests/trading-agent-test.js` | 28 | pass |
+| **Total (`npm test`)** | **400** | **400 pass, 0 fail** |
 
 Run: `cd projects/mythos-trading-agent && npm test`
 

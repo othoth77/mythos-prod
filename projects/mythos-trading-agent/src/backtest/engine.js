@@ -72,6 +72,9 @@ var metricsMod = require('./metrics');
  * @param {string} [spec.timeframe] defaults to config.backtest.baseTimeframe
  * @param {object} [spec.range] { fromTs, toTs }
  * @param {string} [spec.label] segment label, e.g. 'in-sample'
+ * @param {function} [spec.onRunStart] ({store, config, runId, …}) — called once,
+ *        before any data is loaded, so the decision layer can bind to this run's
+ *        store rather than to one of its own
  * @param {function} [spec.onSeriesReady] ({symbol, series, higherSeries}) — where
  *        strategies register their indicators
  * @param {function} [spec.onTradeClosed] (trade) — where the recovery engine learns
@@ -130,6 +133,28 @@ function run(spec) {
     store: store
   });
   var slot = slotMod.create({ logger: logger });
+
+  // ---- 0. run start -----------------------------------------------------
+  // Handed to the decision layer BEFORE any data is loaded, so it can bind to
+  // THIS run's store. Without this hook a caller has to create the store itself
+  // and pass the same object to two places; forgetting meant the agent wrote its
+  // candidates, Jev verdicts and risk assessments into a store nobody ever read,
+  // and the run still produced trades — a silent, complete loss of the audit
+  // trail. The hook exists so that failure mode is unreachable.
+  if (spec.onRunStart) {
+    spec.onRunStart({
+      store: store,
+      config: config,
+      runId: runId,
+      label: label,
+      symbols: symbols,
+      timeframe: timeframe,
+      higherTimeframe: higherTimeframe,
+      datasetVersion: source.datasetVersion,
+      mode: config.mode,
+      logger: logger
+    });
+  }
 
   // ---- 1. load and prepare every symbol ---------------------------------
   var world = Object.create(null);
