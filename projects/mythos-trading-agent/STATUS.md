@@ -4,11 +4,11 @@ Format per mission §24. Updated at the end of every phase.
 
 ---
 
-**CURRENT PHASE:** PHASE 2 — data layer (complete)
+**CURRENT PHASE:** PHASE 3 — backtesting foundation (complete)
 
-**CURRENT TASK:** PHASE 3 — backtesting foundation
+**CURRENT TASK:** PHASE 4 — strategy engine
 
-**LAST VERIFIED COMMIT:** `da0fc1ba` (PHASE 1, verified on `origin/mythos/trading-platform`)
+**LAST VERIFIED COMMIT:** `439cea27` (PHASE 2, verified on `origin/mythos/trading-platform`)
 
 ---
 
@@ -53,11 +53,28 @@ at the cut must be identical. It walks a registry, so an indicator added later i
 covered automatically, and a second test fails if the registry stops covering the
 module's exports.
 
+### PHASE 3 — backtesting foundation
+| Area | Delivered | File(s) |
+|---|---|---|
+| Cost model | spread (session + volatility widening, bounded by the instrument's stated max), slippage (never favourable; stops slip 1.6×), commission both sides, swap as a signed cost, rollover counting | `src/cost/model.js` |
+| Account | drawdown on mark-to-market equity, daily loss buckets, streak tracking where a breakeven breaks no streak | `src/account/account.js` |
+| One-trade-only | three-state slot (FREE → RESERVED → OCCUPIED); a pending entry occupies it; every illegal transition throws; invariant verifiable | `src/account/one-trade-controller.js` |
+| Execution adapters | interface as an ADR-0001 seam; backtest adapter with gap fills and the intrabar policy; **LIVE adapter refuses every call** | `src/execution/` |
+| Backtest engine | one-bar execution delay, exits before entries, per-bar mark-to-market, emergency stop that cancels a pending entry, full audit trail | `src/backtest/engine.js` |
+| Metrics | gross/costs/net never conflated; streak family as first-class output; P(k consecutive losses) measured, not inferred from win-rate^k | `src/backtest/metrics.js` |
+
+**Decisions recorded in code:** costs are explicit money deductions rather than
+hidden in fill prices, so "did costs eat the edge?" is a column sum (the
+trigger-timing approximation this buys is documented in the cost model's header
+and in COMPLIANCE §3.3). A bar that gaps through a stop fills at the **open**,
+not the stop. A bar containing both stop and target is ambiguous from OHLC
+alone; the default is `STOP_FIRST` and a test proves `TARGET_FIRST` is the
+flattering branch, so the size of that ambiguity can be measured.
+
 ## IN PROGRESS
 
-PHASE 3 — backtesting foundation: cost model, account and one-trade-only
-controller, execution adapters (including the LIVE stub that refuses), the
-bar-replay engine and its metrics.
+PHASE 4 — strategy engine: the strategy interface, the registry, and the
+fourteen strategy families named in mission §4.
 
 ## BLOCKED
 
@@ -70,7 +87,7 @@ rather than treated as blockers:
 
 ## NEXT TASK
 
-PHASE 3 — backtesting foundation, then PHASE 4 — strategy engine.
+PHASE 4 — strategy engine, then PHASE 5 — regime engine.
 
 ## TEST STATUS
 
@@ -82,7 +99,9 @@ PHASE 3 — backtesting foundation, then PHASE 4 — strategy engine.
 | `tests/store-test.js` | 17 | pass |
 | `tests/indicators-test.js` | 21 | pass |
 | `tests/data-layer-test.js` | 38 | pass |
-| **Total (`npm test`)** | **152** | **152 pass, 0 fail** |
+| `tests/execution-and-costs-test.js` | 52 | pass |
+| `tests/backtest-engine-test.js` | 31 | pass |
+| **Total (`npm test`)** | **235** | **235 pass, 0 fail** |
 
 Run: `cd projects/mythos-trading-agent && npm test`
 
