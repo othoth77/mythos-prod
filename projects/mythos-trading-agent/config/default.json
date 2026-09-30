@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "mode": "BACKTEST",
+  "label": "default",
+  "account": {
+    "currency": "USD",
+    "initialCapital": 100
+  },
+  "universe": ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "XAUUSD"],
+  "risk": {
+    "maxAccountRiskPerTradePct": 2,
+    "maxPositionSizeLots": 0.1,
+    "maxOpenTrades": 1,
+    "maxDailyLossPct": 5,
+    "maxDrawdownPct": 20,
+    "maxConsecutiveLosses": 5,
+    "consecutiveLossCooldownHours": 12,
+    "maxSpreadMultiple": 2.5,
+    "maxSlippageMultiple": 3,
+    "minStopPips": 3,
+    "maxStopPips": 500,
+    "minRewardRisk": 1,
+    "minNetExpectedValue": 0,
+    "emergencyStop": false
+  },
+  "recovery": {
+    "enabled": false,
+    "baseLots": 0.01,
+    "multiplier": 3,
+    "maxRecoveryLevel": 3,
+    "resetOnWin": true,
+    "requireFullRecoveryTp": true,
+    "abandonOnRiskBlock": true
+  },
+  "strategy": {
+    "signalCooldownBars": 0
+  },
+  "jev": {
+    "model": "heuristic-v1",
+    "scoreThreshold": 70,
+    "minConfidence": 0.4,
+    "thresholdBands": [[70, 79], [80, 89], [90, 94], [95, 100]]
+  },
+  "cost": {
+    "spreadModel": "instrument-typical",
+    "slippageModel": "gaussian",
+    "includeCommission": true,
+    "includeSwap": true,
+    "executionDelayBars": 0,
+    "swapChargeHoursUtc": 21
+  },
+  "schedule": {
+    "respectInstrumentHours": true,
+    "blockForexWeekend": true,
+    "blockedWeekdaysUtc": [],
+    "perAsset": {}
+  },
+  "backtest": {
+    "seed": "mythos-default",
+    "warmupBars": 200,
+    "baseTimeframe": "M15",
+    "higherTimeframe": "H4",
+    "maxBarsInTrade": 240,
+    "allowIntrabarStopAndTarget": "STOP_FIRST"
+  },
+  "observability": {
+    "logLevel": "INFO",
+    "auditEveryCandidate": true
+  }
+}

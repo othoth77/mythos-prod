@@ -1,0 +1,16 @@
+{
+  "name": "mythos-trading-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mythos Trading Research + Demo Platform — research, backtesting and paper-trading engine. BACKTEST by default; live execution refuses.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "test": "node --test tests/*-test.js",
+    "cli": "node bin/mtx.js"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
