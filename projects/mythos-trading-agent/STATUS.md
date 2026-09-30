@@ -4,11 +4,11 @@ Format per mission §24. Updated at the end of every phase.
 
 ---
 
-**CURRENT PHASE:** PHASE 5 — market regime engine (complete)
+**CURRENT PHASE:** PHASE 6 — Jev decision gate (complete)
 
-**CURRENT TASK:** PHASE 6 — Jev decision gate
+**CURRENT TASK:** PHASE 7 — Risk Engine
 
-**LAST VERIFIED COMMIT:** `ec71f698` (PHASE 4, verified on `origin/mythos/trading-platform`)
+**LAST VERIFIED COMMIT:** `9243ea42` (PHASE 5, verified on `origin/mythos/trading-platform`)
 
 ---
 
@@ -128,10 +128,37 @@ recall 7 % → 11 % and cost RANGE 55 % → 44 %, dropping overall accuracy to
 37.4 %. The number is kept in the source so the next person to have the idea sees
 it instead of re-running it.
 
+### PHASE 6 — Jev decision gate
+A gate inside the Trading Agent, not a second agent (mission §6). It returns
+`{score, confidence, decision, reasonCodes, riskFlags}` and has no authority: the
+verdict object carries no size, no execution instruction, and nothing that could
+overrule anything downstream — a test asserts those fields are absent.
+
+- **Auditable by construction.** All six scoring components come back with their
+  value, weight and raw input, and a test recomputes the score from them — so
+  "why did Jev reject it?" is answerable from the stored record.
+- **Score and confidence are separate gates.** The score says how good the setup
+  looks; the confidence says how much the inputs are worth. A high score resting
+  on an uncertain regime and a strategy with no track record fails the confidence
+  gate. Collapsing them would let a confident-sounding number rest on nothing.
+- **Hard flags cannot be outscored.** Negative net reward, spread above the
+  configured multiple, a stop outside bounds, or reward/risk below the minimum
+  force REJECT even at a threshold of zero.
+- **The threshold is configuration.** The band (70-79 / 80-89 / 90-94 / 95-100)
+  is recorded on rejected candidates too, because that is where the
+  counterfactual mission §6 wants studied actually lives.
+- **Absent history never flatters.** An unknown strategy gets a neutral 0.5, a
+  `NO_STRATEGY_HISTORY` flag and reduced confidence; a sample below `minSample`
+  is discarded rather than used with a caveat nobody reads; and a losing record
+  subtracts exactly as much as a winning one adds.
+- Some checks are duplicated with the Risk Engine deliberately. Jev's copy
+  explains a rejection in research terms; the Risk Engine's copy is
+  authoritative, and if they disagree the Risk Engine wins (ADR-0002).
+
 ## IN PROGRESS
 
-PHASE 6 — Jev decision gate: structured score/confidence/decision/reason-codes/
-risk-flags per candidate, with the threshold bands mission §6 asks to be studied.
+PHASE 7 — Risk Engine: the final authority on size and on whether to trade at
+all, with every hard limit in mission §8 enforced and proven to bind.
 
 ## BLOCKED
 
@@ -144,7 +171,7 @@ rather than treated as blockers:
 
 ## NEXT TASK
 
-PHASE 6 — Jev decision gate, then PHASE 7 — Risk Engine.
+PHASE 7 — Risk Engine, then PHASE 8 — Recovery engine.
 
 ## TEST STATUS
 
@@ -160,7 +187,8 @@ PHASE 6 — Jev decision gate, then PHASE 7 — Risk Engine.
 | `tests/backtest-engine-test.js` | 31 | pass |
 | `tests/strategy-test.js` | 43 | pass |
 | `tests/regime-test.js` | 19 | pass |
-| **Total (`npm test`)** | **297** | **297 pass, 0 fail** |
+| `tests/jev-test.js` | 33 | pass |
+| **Total (`npm test`)** | **330** | **330 pass, 0 fail** |
 
 Run: `cd projects/mythos-trading-agent && npm test`
 
