@@ -4,11 +4,11 @@ Format per mission §24. Updated at the end of every phase.
 
 ---
 
-**CURRENT PHASE:** PHASE 11 — Research Agent (complete)
+**CURRENT PHASE:** PHASE 12 — stress testing (complete)
 
-**CURRENT TASK:** PHASE 12 — stress testing
+**CURRENT TASK:** PHASE 13 — Champion / Challenger
 
-**LAST VERIFIED COMMIT:** `eaf7d750` (PHASE 10, verified on `origin/mythos/trading-platform`)
+**LAST VERIFIED COMMIT:** `5659377a` (PHASE 11, verified on `origin/mythos/trading-platform`)
 
 ---
 
@@ -323,10 +323,49 @@ The regime hypothesis deliberately proposes a *filter* rather than a regime ban,
 because banning a regime would destroy the evidence needed to revisit the question,
 and its falsification criterion names the classification error it inherits.
 
+### PHASE 12 — stress testing
+Two families, and the difference decides what a result is worth. **Trade-level**
+(Monte Carlo reorder, bootstrap, block bootstrap, streak arithmetic) reuses the
+trades a run produced — cheap, and limited to "what if these trades had arrived
+differently". **Re-run** scenarios (spread ×3, slippage ×3, +3 bars of execution
+delay, adverse parameter perturbation, 5 % data gaps, forced adverse regime,
+pessimistic intrabar policy) replay the whole pipeline with something made worse —
+the only kind that can say whether the *strategy* survives, because the strategy
+reacts, the Risk Engine intervenes and the recovery ladder responds to the new
+sequence.
+
+**Every re-run scenario is strictly adverse, never favourable.** Parameters are
+perturbed in one direction only; a two-sided perturbation would let a
+configuration pass on its favourable half. A test asserts each override moves the
+wrong way for the system.
+
+**What the Monte Carlo module refuses to do, and says why:**
+- **It refuses to reorder trades taken above base recovery level.** Their sizes
+  depended on the order they arrived in, so reordering them would produce
+  percentiles for a system that never existed. The refusal names the re-run
+  scenarios as the alternative.
+- Every result carries its caveats. Reordering **understates** streaks, because it
+  breaks the regime clustering that produces real losing runs; the plain bootstrap
+  destroys clustering entirely and is the most optimistic of the three; the
+  **block bootstrap preserves it** and is the one whose streak and drawdown
+  percentiles should be believed. A test asserts the block method finds longer tail
+  streaks than the plain one on clustered data.
+- Reordered paths assume the Risk Engine never intervened, so they bound how deep
+  the hole could get while being optimistic about the outcome. Stated in the result.
+
+`streakStress()` answers the question a $100 account most needs and no percentile
+makes obvious: **how many consecutive losses can this account absorb** before the
+drawdown limit breaks, at the observed average loss and at the worst.
+
+`survived` is a **conjunction** — one blown scenario fails the suite, because in
+live trading the scenarios are not alternatives. And a suite that skipped scenarios
+reports a `coverageWarning`, so `survived: true` cannot be read as coverage it does
+not have.
+
 ## IN PROGRESS
 
-PHASE 12 — stress testing: Monte Carlo trade-order randomisation, spread and
-slippage expansion, execution delay, parameter perturbation and data-gap stress.
+PHASE 13 — Champion / Challenger: the promotion gate that refuses on a single
+profitable period.
 
 ## BLOCKED
 
@@ -339,7 +378,7 @@ rather than treated as blockers:
 
 ## NEXT TASK
 
-PHASE 12 — stress testing, then PHASE 13 — Champion / Challenger.
+PHASE 13 — Champion / Challenger, then PHASE 14 — paper trading.
 
 ## TEST STATUS
 
@@ -360,7 +399,8 @@ PHASE 12 — stress testing, then PHASE 13 — Champion / Challenger.
 | `tests/trading-agent-test.js` | 29 | pass |
 | `tests/analysis-agent-test.js` | 28 | pass |
 | `tests/research-agent-test.js` | 39 | pass |
-| **Total (`npm test`)** | **468** | **468 pass, 0 fail** |
+| `tests/stress-test.js` | 29 | pass |
+| **Total (`npm test`)** | **497** | **497 pass, 0 fail** |
 
 Run: `cd projects/mythos-trading-agent && npm test`
 
