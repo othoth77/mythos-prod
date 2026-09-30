@@ -33,7 +33,7 @@ mkdir -p "$CFG_DIR" && chmod 700 "$CFG_DIR"
 if [ ! -f "$ENV_FILE" ] || ! grep -q '^MYTHOS_EXECUTOR_TOKEN=' "$ENV_FILE"; then
   log "generating executor bearer token (value not shown)"
   umask 077
-  printf 'MYTHOS_EXECUTOR_TOKEN=%s\n' "$(head -c 32 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 48)" > "$ENV_FILE"
+  printf 'MYTHOS_EXECUTOR_TOKEN=%s\n' "$(head -c 48 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 48)" > "$ENV_FILE"
 else
   log "token already provisioned — keeping it"
 fi

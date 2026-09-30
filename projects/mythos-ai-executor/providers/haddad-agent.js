@@ -591,9 +591,165 @@ var TOOL_IMPL = {
   run_command: toolRunCommand
 };
 
+// ---- capability-backed tools (V3.3, owner architecture 2026-09-27) --------
+// The browser tools are NOT workspace tools and do not live in TOOL_IMPL:
+// they exist for a task only when the executor resolved the matching
+// `browser.<tool>` capability onto it (config/skills.json ∩
+// config/mcp-capabilities.json ∩ execution profile), and every call goes
+// through lib/mcp-invoke.js — estate registry, permission matrix, the
+// task's resolved capabilities, credential by reference, audit — before
+// the browser MCP server (projects/mythos-browser-mcp) sees it. The runner
+// never touches CDP, never sees the Obscura token, never gets a scripting
+// surface: the three tools are the whole vocabulary.
+var BROWSER_MCP_SERVER = process.env.MYTHOS_BROWSER_MCP_SERVER || 'browser-mcp';
+var BROWSER_TOOLS = { browser_navigate: 'navigate', browser_extract: 'extract', browser_screenshot: 'screenshot' };
+// One browser call may take two bounded engine attempts (Obscura, then the
+// Playwright fallback — MYTHOS_BROWSER_ATTEMPT_TIMEOUT_MS, 40 s each). The
+// governed invoke's 30 s default would cut the fallback off before it could
+// run, which is exactly the failure the fallback exists to absorb.
+var BROWSER_INVOKE_TIMEOUT_MS = Number(process.env.MYTHOS_BROWSER_INVOKE_TIMEOUT_MS) || 100000;
+var BROWSER_EVIDENCE_TEXT_CHARS = 4000;   // per successful call, for the report rule below
+var BROWSER_QUOTE_CHARS = 24;             // the verbatim fragment a report must carry (or the whole text, if shorter)
+var BROWSER_REPEAT_LIMIT = 2;             // unchanged successful browser results re-requested before the report is forced
+
+function browserTool(mcpTool) {
+  return function (ctx, args) {
+    var cap = 'browser.' + mcpTool;
+    var caps = ctx.task && Array.isArray(ctx.task.mcp_capabilities) ? ctx.task.mcp_capabilities : [];
+    if (caps.indexOf(cap) === -1) return { error: 'REFUSED: capability ' + cap + ' is not resolved for this task' };
+    if (!ctx.task.task_id) return { error: 'REFUSED: no task id to govern the call' };
+    var mcpInvoke = require('../lib/mcp-invoke');
+    var server = (ctx.mcpOpts && ctx.mcpOpts.server) || BROWSER_MCP_SERVER;
+    return mcpInvoke.invoke(
+      { server: server, tool: mcpTool, arguments: args, task_id: ctx.task.task_id, requested_by: 'haddad-agent' },
+      Object.assign({ timeoutMs: BROWSER_INVOKE_TIMEOUT_MS }, ctx.mcpOpts || {})
+    ).then(function (out) {
+      if (!out.ok) return { error: 'REFUSED: ' + out.code + ': ' + String(out.message || '').slice(0, 300), audit_id: out.audit_id };
+      var first = Array.isArray(out.content) ? out.content.filter(function (c) { return c && c.type === 'text'; })[0] : null;
+      var parsed = null;
+      try { parsed = first ? JSON.parse(first.text) : null; } catch (e) { parsed = null; }
+      if (parsed && typeof parsed === 'object') {
+        parsed.audit_id = out.audit_id;
+        // What the ADAPTER returned — not what the model later says it saw —
+        // kept per run for browserReportRejection().
+        if (parsed.ok !== false && typeof parsed.backend === 'string') {
+          ctx.browserEvidence = ctx.browserEvidence || [];
+          ctx.browserEvidence.push({ tool: mcpTool, backend: parsed.backend, title: typeof parsed.title === 'string' ? parsed.title : '',
+            final_url: typeof parsed.final_url === 'string' ? parsed.final_url : null,
+            text: typeof parsed.text === 'string' ? parsed.text.slice(0, BROWSER_EVIDENCE_TEXT_CHARS) : null });
+          // Measured live (Issue #532, Obscura stopped): every Playwright-served
+          // result carried the adapter's attempts[] — "obscura … ok:false …
+          // OBSCURA_UNREACHABLE: connect ECONNREFUSED" — and the 7B model kept
+          // re-issuing a call that had SUCCEEDED (48 calls, no report). The model
+          // gets the outcome, not the adapter's diagnostics: attempts[] is dropped
+          // (backend and fallback_reason stay, for the trace and the report), and
+          // a successful result says so in plain words.
+          delete parsed.attempts;
+          parsed.result = parsed.fallback_reason
+            ? 'OK — served by the fallback engine ' + parsed.backend + '; this result is complete and valid, do not call again'
+            : 'OK — this result is complete and valid, do not call again';
+        }
+        return parsed;
+      }
+      return { content: first ? String(first.text).slice(0, MAX_TOOL_OUTPUT_BYTES) : '', audit_id: out.audit_id };
+    }, function (e) {
+      return { error: 'REFUSED: governed invoke failed: ' + String(e && e.message || e).slice(0, 200) };
+    });
+  };
+}
+
+var MCP_TOOL_IMPL = {
+  browser_navigate: browserTool('navigate'),
+  browser_extract: browserTool('extract'),
+  browser_screenshot: browserTool('screenshot')
+};
+
+function browserToolSchemas(caps) {
+  caps = Array.isArray(caps) ? caps : [];
+  var out = [];
+  if (caps.indexOf('browser.navigate') !== -1) {
+    out.push({ type: 'function', function: { name: 'browser_navigate',
+      description: 'Open a PUBLIC http(s) URL in the governed browser and return backend, final_url, title. Read-only: no clicks, typing or scripts.',
+      parameters: { type: 'object', properties: { url: { type: 'string', description: 'absolute http(s) URL' } }, required: ['url'] } } });
+  }
+  if (caps.indexOf('browser.extract') !== -1) {
+    out.push({ type: 'function', function: { name: 'browser_extract',
+      description: 'Open a PUBLIC http(s) URL and return its visible text, or the text of one CSS selector, bounded by max_chars (default 20000).',
+      parameters: { type: 'object', properties: {
+        url: { type: 'string' }, selector: { type: 'string', description: 'optional CSS selector' },
+        mode: { type: 'string', enum: ['text', 'html'] }, max_chars: { type: 'integer' }
+      }, required: ['url'] } } });
+  }
+  if (caps.indexOf('browser.screenshot') !== -1) {
+    out.push({ type: 'function', function: { name: 'browser_screenshot',
+      description: 'Open a PUBLIC http(s) URL and save a viewport screenshot; returns the saved file path, bytes and sha256 (never the image itself).',
+      parameters: { type: 'object', properties: { url: { type: 'string' }, format: { type: 'string', enum: ['png', 'jpeg'] } }, required: ['url'] } } });
+  }
+  return out;
+}
+
+// FAIL CLOSED on a browser task's own claim (2026-09-29). Measured 2026-09-28:
+// with both engines down every browser call answered BROWSER_NO_BACKEND and
+// the model still reported `completed`. A browser task whose report says
+// completed while not ONE browser call succeeded in any execution has
+// established nothing through the browser; that is a rejection like any other
+// (repair round, then a stop for a person), never a success. Tasks without a
+// browser capability, and reports that already say failed/blocked, are
+// untouched.
+function browserEvidenceRejection(task, report, trace) {
+  var caps = task && Array.isArray(task.mcp_capabilities) ? task.mcp_capabilities : [];
+  if (!caps.some(function (c) { return /^browser\./.test(c); })) return null;
+  if (!report || report.status !== 'completed') return null;
+  var calls = (trace || []).filter(function (e) { return e && BROWSER_TOOLS[e.tool]; });
+  if (calls.some(function (e) { return !e.refused; })) return null;
+  var last = calls.length ? String(calls[calls.length - 1].detail || '').slice(0, 200) : null;
+  return 'browser: the report says completed but no browser call succeeded (' + calls.length + ' attempted' +
+    (last ? '; last: ' + last : '') + ') — report status failed with the code you received, or call the browser successfully first';
+}
+
+// THE REPORT CARRIES THE EVIDENCE (2026-09-29). Measured live (Issue #527,
+// Obscura down → Playwright served the page): Qwen wrote the paragraph as prose
+// ABOVE its json block and put "the text of the paragraph is provided above" in
+// the summary. Only the structured report is delivered — the prose is
+// discarded — so the Supervisor correctly refused a report that said nothing.
+// A completed browser task's summary must therefore carry what the adapter
+// returned: the backend (obscura | playwright), the page title, and — when a
+// call extracted text — a verbatim fragment of it (BROWSER_QUOTE_CHARS, or the
+// whole text when shorter). Compared case- and whitespace-insensitively,
+// quotes ignored. A miss is a rejection (repair round, then a stop for a
+// person) whose note names the exact values, so the model can fix it.
+function normEvidence(v) {
+  return String(v == null ? '' : v).toLowerCase().replace(/[\u2018\u2019\u201c\u201d"'`]/g, '').replace(/\s+/g, ' ').trim();
+}
+function carriesFragment(summaryNorm, text) {
+  var t = normEvidence(text);
+  if (!t) return true;
+  var w = Math.min(BROWSER_QUOTE_CHARS, t.length);
+  for (var i = 0; i + w <= t.length; i++) if (summaryNorm.indexOf(t.substr(i, w)) !== -1) return true;
+  return false;
+}
+function browserReportRejection(task, report, evidence) {
+  var caps = task && Array.isArray(task.mcp_capabilities) ? task.mcp_capabilities : [];
+  if (!caps.some(function (c) { return /^browser\./.test(c); })) return null;
+  if (!report || report.status !== 'completed' || !Array.isArray(evidence) || !evidence.length) return null;
+  var summary = normEvidence(typeof report.summary === 'string' ? report.summary : JSON.stringify(report.summary || ''));
+  var missing = [];
+  var backends = evidence.map(function (e) { return e.backend; }).filter(function (b, i, a) { return b && a.indexOf(b) === i; });
+  if (!backends.some(function (b) { return summary.indexOf(normEvidence(b)) !== -1; })) missing.push('the backend (' + backends.join(' or ') + ')');
+  var titled = evidence.filter(function (e) { return normEvidence(e.title); });
+  if (titled.length && !titled.some(function (e) { return summary.indexOf(normEvidence(e.title)) !== -1; })) missing.push('the page title ("' + String(titled[0].title).slice(0, 120) + '")');
+  var texted = evidence.filter(function (e) { return normEvidence(e.text); });
+  if (texted.length && !texted.some(function (e) { return carriesFragment(summary, e.text); })) {
+    missing.push('the extracted text, quoted verbatim (it begins: "' + String(texted[0].text).replace(/\s+/g, ' ').trim().slice(0, 160) + '")');
+  }
+  if (!missing.length) return null;
+  return 'browser: only the json report is delivered and its summary does not carry what the browser returned — put into "summary": ' +
+    missing.join('; ') + '. Text written outside the json block is discarded; never write "see above".';
+}
+
 // The schemas handed to the model, built from the grant so a profile that
 // permits no commands never even sees run_command offered.
-function toolSchemas(grant) {
+function toolSchemas(grant, mcpCapabilities) {
   var out = [];
   if (grant.read_file) {
     out.push({ type: 'function', function: { name: 'read_file',
@@ -629,7 +785,10 @@ function toolSchemas(grant) {
         }, required: ['program'] } } });
     }
   }
-  return out;
+  // Offered ONLY for the capabilities the executor resolved onto the task;
+  // the governed invoke re-checks the same list, so the offer and the gate
+  // cannot disagree.
+  return out.concat(browserToolSchemas(mcpCapabilities));
 }
 
 // Built from the grant, so the prompt never describes a capability the run
@@ -647,6 +806,13 @@ function systemPrompt(grant, schemas, role, delivery) {
       + 'Everything outside that workspace is refused, and a refused tool call is final — adapt rather than retrying it.'
   ];
   if (role && typeof role.brief === 'string' && role.brief.trim()) lines.push(role.brief.trim());
+  if (names.some(function (n) { return n.indexOf('browser_') === 0; })) {
+    lines.push('The browser_* tools open PUBLIC http(s) pages through the governed browser (Obscura first, Playwright as fallback); '
+      + 'they are read-only — no clicks, no typing, no scripts, no private addresses — and each result names the backend that served it. '
+      + 'A result with ok:false carries code and class; report that code, and never report completed when no browser call succeeded. '
+      + 'Only your json report is delivered — any text outside it is discarded: its "summary" must itself state the backend, the page title and the extracted text quoted verbatim. '
+      + 'A screenshot is saved as a file and only its path, size and sha256 come back.');
+  }
   // The task's DELIVERY, stated as the fact it is — the same kind of
   // statement as the tool list above, derived from the task rather than
   // asked of the model. Measured live (tester run t-20260922230229): a
@@ -787,7 +953,7 @@ function run(task, prompt, _sessionId, _mode, opts) {
   } catch (e) {
     return Promise.resolve(fail('HADDAD_AGENT_PROFILE_INVALID', String(e.message).slice(0, 200)));
   }
-  var schemas = toolSchemas(grant);
+  var schemas = toolSchemas(grant, task.mcp_capabilities);
   if (!schemas.length) {
     return Promise.resolve(fail('HADDAD_AGENT_NO_TOOLS',
       'the ' + grant.profile + ' profile grants no tool this runner implements'));
@@ -800,7 +966,9 @@ function run(task, prompt, _sessionId, _mode, opts) {
   if (!model) return Promise.resolve(fail('HADDAD_AGENT_UNCONFIGURED', 'no model configured'));
 
   var deadline = started + (Number(task.timeout_seconds) || DEFAULT_TASK_TIMEOUT_S) * 1000;
-  var ctx = { workspace: workspace, grant: grant, scope: work.declaredScope(task.constraints || []), projectScope: Array.isArray(task.project_write_scope) ? task.project_write_scope : [] };
+  var ctx = { workspace: workspace, grant: grant, scope: work.declaredScope(task.constraints || []), projectScope: Array.isArray(task.project_write_scope) ? task.project_write_scope : [],
+    task: { task_id: task.task_id || null, mcp_capabilities: Array.isArray(task.mcp_capabilities) ? task.mcp_capabilities.slice() : [] },
+    mcpOpts: opts.mcp || null };
   var messages = [
     { role: 'system', content: systemPrompt(grant, schemas, roles.getRole(task.role), task.expected_delivery) },
     { role: 'user', content: String(prompt) }
@@ -997,9 +1165,11 @@ function run(task, prompt, _sessionId, _mode, opts) {
   // V3.1 constrained report turn — per-execution state (see settle below).
   var reportTurnsThisRound = 0;
   var reportTurnPending = null;   // the final message text awaiting its report
+  var browserRepeatsThisRound = 0;
   function compactForRepair(lastText, brief) {
     roundToolCalls = 0;
     reportTurnsThisRound = 0;
+    browserRepeatsThisRound = 0;
     reportTurnPending = null;
     messages = [messages[0], messages[1]];
     if (lastText && String(lastText).trim()) messages.push({ role: 'assistant', content: String(lastText).slice(0, 2000) });
@@ -1252,6 +1422,12 @@ function run(task, prompt, _sessionId, _mode, opts) {
       verdict.pass = false;
       verdict.rejections.unshift('report: ' + parsedReport.error);
     }
+    var browserRejection = browserEvidenceRejection(task, parsedReport.report, trace) ||
+      browserReportRejection(task, parsedReport.report, ctx.browserEvidence);
+    if (browserRejection) {
+      verdict.pass = false;
+      verdict.rejections.push(browserRejection);
+    }
     validations.push({ attempt: repairRound + 1, pass: verdict.pass, rejections: verdict.rejections, evidence: verdict.evidence });
 
     if (verdict.pass) {
@@ -1457,8 +1633,32 @@ function run(task, prompt, _sessionId, _mode, opts) {
       }
 
       messages.push({ role: 'assistant', content: msg.content || null, tool_calls: calls });
-      for (var i = 0; i < calls.length; i++) {
-        var c = calls[i];
+      var callIndex = 0;
+      function nextCall() {
+        if (callIndex >= calls.length) {
+          // CONVERGENCE (2026-09-29, Issue #532): a model that keeps re-requesting
+          // an UNCHANGED successful browser result has what it needs and is not
+          // going to write the report on its own. After BROWSER_REPEAT_LIMIT such
+          // repeats the next turn is the constrained report turn (no tools, the
+          // report schema enforced), reminded of the adapter's own evidence; the
+          // report rules above still judge what it writes.
+          var ev = ctx.browserEvidence || [];
+          if (browserRepeatsThisRound >= BROWSER_REPEAT_LIMIT && ev.length && opts.structuredReport !== false &&
+              reportTurnsThisRound < MAX_REPORT_TURNS_PER_EXECUTION && iteration + 1 < MAX_ITERATIONS) {
+            var last = ev[ev.length - 1];
+            reportTurnsThisRound++;
+            reportTurnPending = '';
+            trace.push({ tool: 'report_forced', refused: false, target: null,
+              detail: 'unchanged browser result re-requested ' + browserRepeatsThisRound + ' times; report turn forced' });
+            messages.push({ role: 'user', content: 'You already have the browser result and it has not changed. Do not call the browser again. '
+              + 'Emit the final report now as ONE JSON object. Its "summary" must state the backend (' + last.backend + '), the page title ("'
+              + String(last.title || '').slice(0, 120) + '") and the extracted text quoted verbatim'
+              + (last.text ? ' — it begins: "' + String(last.text).replace(/\s+/g, ' ').trim().slice(0, 300) + '"' : '') + '.' });
+            return step(iteration + 1);
+          }
+          return step(iteration + 1);
+        }
+        var c = calls[callIndex++];
         toolCallCount++;
         roundToolCalls++;
         var name = c.function && c.function.name;
@@ -1472,7 +1672,7 @@ function run(task, prompt, _sessionId, _mode, opts) {
         } else {
           var parsedArgs = {};
           try { parsedArgs = JSON.parse((c.function && c.function.arguments) || '{}'); } catch (e) { parsedArgs = null; }
-          var impl = TOOL_IMPL[name];
+          var impl = TOOL_IMPL[name] || MCP_TOOL_IMPL[name];
           // Fail closed on anything unrecognised: an unknown tool, a tool the
           // grant did not offer, or arguments that are not an object.
           if (!impl) result = { error: 'REFUSED: unknown tool "' + String(name).slice(0, 40) + '"' };
@@ -1480,10 +1680,24 @@ function run(task, prompt, _sessionId, _mode, opts) {
           else if (!parsedArgs || typeof parsedArgs !== 'object') result = { error: 'REFUSED: arguments are not a JSON object' };
           else result = impl(ctx, parsedArgs);
         }
-        trace.push({ tool: name, refused: !!result.error, detail: result.error || null,
+        // A workspace tool answers synchronously; a capability-backed tool
+        // answers through the governed invoke, asynchronously. Both settle
+        // here, one call at a time, in the order the model issued them.
+        return Promise.resolve(result).catch(function (e) {
+          return { error: 'REFUSED: tool failed: ' + String(e && e.message || e).slice(0, 200) };
+        }).then(function (result) {
+        var entry = { tool: name, refused: !!result.error, detail: result.error || null,
           target: parsedArgs && typeof parsedArgs === 'object'
-            ? String(parsedArgs.path || (parsedArgs.program ? [parsedArgs.program].concat(parsedArgs.args || []).join(' ') : '')).slice(0, 80)
-            : null });
+            ? String(parsedArgs.path || parsedArgs.url || (parsedArgs.program ? [parsedArgs.program].concat(parsedArgs.args || []).join(' ') : '')).slice(0, 80)
+            : null };
+        // Which browser engine served the call is the adapter's statement in
+        // the tool result, not the model's: record it, so the report's claim
+        // ("backend obscura") can be checked against what actually happened.
+        if (BROWSER_TOOLS[name] && result && typeof result.backend === 'string') {
+          entry.backend = result.backend.slice(0, 20);
+          if (typeof result.fallback_reason === 'string') entry.fallback_reason = result.fallback_reason.slice(0, 60);
+        }
+        trace.push(entry);
         var payload = JSON.stringify(result);
         if (payload.length > MAX_TOOL_PAYLOAD_CHARS && typeof result.content === 'string') {
           // A file that fits the byte ceiling but not the context budget is
@@ -1505,14 +1719,27 @@ function run(task, prompt, _sessionId, _mode, opts) {
           payload = JSON.stringify({ error: 'REFUSED: result exceeds the per-call context budget of ' + MAX_TOOL_PAYLOAD_CHARS + ' chars' });
         }
         var fingerprint = String(name) + ':' + ((c.function && c.function.arguments) || '');
-        if (lastPayloadByCall[fingerprint] === payload) {
+        // A governed call's result carries a fresh audit_id every time, so for
+        // "has this changed?" it is compared WITHOUT it. Measured 2026-09-29: with
+        // the audit_id in the comparison no browser result was ever "identical",
+        // this note never fired for a browser call, and Qwen re-issued a
+        // succeeded extract 48 times (Issue #532).
+        var comparable = payload;
+        if (result && typeof result === 'object' && result.audit_id !== undefined && MCP_TOOL_IMPL[name]) {
+          var withoutAudit = Object.assign({}, result); delete withoutAudit.audit_id;
+          comparable = JSON.stringify(withoutAudit);
+        }
+        if (lastPayloadByCall[fingerprint] === comparable) {
+          if (BROWSER_TOOLS[name] && !result.error) browserRepeatsThisRound++;
           payload = payload.slice(0, -1) + ',"note":"identical to your previous call, and nothing has changed since — do not repeat it; act on this result or write your final report"}';
         } else {
-          lastPayloadByCall[fingerprint] = payload;
+          lastPayloadByCall[fingerprint] = comparable;
         }
         messages.push({ role: 'tool', tool_call_id: c.id, content: payload });
+        return nextCall();
+        });
       }
-      return step(iteration + 1);
+      return nextCall();
     });
     }
   }
@@ -1527,6 +1754,14 @@ function run(task, prompt, _sessionId, _mode, opts) {
 
 module.exports = {
   PROVIDER_ID: PROVIDER_ID,
+  MCP_TOOL_IMPL: MCP_TOOL_IMPL,
+  BROWSER_TOOLS: BROWSER_TOOLS,
+  BROWSER_MCP_SERVER: BROWSER_MCP_SERVER,
+  BROWSER_INVOKE_TIMEOUT_MS: BROWSER_INVOKE_TIMEOUT_MS,
+  BROWSER_REPEAT_LIMIT: BROWSER_REPEAT_LIMIT,
+  browserToolSchemas: browserToolSchemas,
+  browserEvidenceRejection: browserEvidenceRejection,
+  browserReportRejection: browserReportRejection,
   version: version,
   available: available,
   probe: probe,

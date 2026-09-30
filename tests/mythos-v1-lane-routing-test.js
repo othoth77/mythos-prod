@@ -158,8 +158,33 @@ console.log('\n§5 the delegate provider refuses an unusable lane BEFORE spawnin
 
 function outcomeOf(p) { return p.parsed || {}; }
 
-// No lane at all.
-return provider.run({ working_directory: '/tmp' }, 'brief', null, 'start', {}, null)
+// The lane checks below sit AFTER the host check (delegation layer
+// installed?). On a host without delegate-skills (Haddad: the vendor lives
+// only on the VPS) every call would stop at DELEGATE_UNAVAILABLE and the
+// lane checks would never be reached, so the suite was host-dependent.
+// There, assert the host refusal against the REAL config first, then pin
+// the boundary to a fixture (enabled config, one configured lane) so the
+// lane checks run on every host. Where the vendor is installed, nothing is
+// stubbed and the real lane map is used, exactly as before.
+var boundaryMod = require(path.join(BASE, 'projects', 'mythos-delegate', 'lib', 'delegate.js'));
+var realBoundary = { loadConfig: boundaryMod.loadConfig, lanes: boundaryMod.lanes };
+var hostHasVendor = provider.available();
+var hostCheck = hostHasVendor ? Promise.resolve(null) :
+  provider.run({ lane: 'tests', working_directory: BASE }, 'brief', null, 'start', {}, null);
+
+return hostCheck.then(function (h) {
+  if (h) {
+    ok(outcomeOf(h).subtype === 'DELEGATE_UNAVAILABLE' && h.started_pid === null,
+      'host without delegate-skills: a laned task is refused DELEGATE_UNAVAILABLE, nothing started, nothing substituted');
+    boundaryMod.loadConfig = function () {
+      return { enabled: true, vendorRoot: '/nonexistent/delegate-skills-fixture', configPath: 'fixture' };
+    };
+    boundaryMod.lanes = function () { return { lanes: { tests: { implementer: 'codex' } } }; };
+    console.log('  (host has no delegate-skills: lane checks run against a fixture boundary)');
+  }
+  // No lane at all.
+  return provider.run({ working_directory: '/tmp' }, 'brief', null, 'start', {}, null);
+})
   .then(function (o) {
     ok(outcomeOf(o).is_error === true, 'a task with no lane fails rather than running');
     ok(outcomeOf(o).subtype === 'LANE_MISSING', 'and says LANE_MISSING');
@@ -181,6 +206,8 @@ return provider.run({ working_directory: '/tmp' }, 'brief', null, 'start', {}, n
     ok(/refused rather than substituted/.test(outcomeOf(o).result || ''),
       'and states explicitly that it was not substituted');
     ok(o.started_pid === null, 'no implementer process was started');
+    boundaryMod.loadConfig = realBoundary.loadConfig;
+    boundaryMod.lanes = realBoundary.lanes;
 
     console.log('\n§6 laneBlocker — a read-only lane cannot deliver a commit');
 

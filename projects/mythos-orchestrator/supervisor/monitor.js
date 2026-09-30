@@ -32,10 +32,13 @@ function run(bin, args, timeoutMs) {
   });
 }
 
+var DEFAULT_EXECUTOR_UNIT = 'mythos-ai-executor.service';
+
 function create(cfg, opts) {
   opts = opts || {};
   var runner = opts.runner || run;
   var exe = cfg.executor_bin;
+  var executorUnit = cfg.executor_unit || DEFAULT_EXECUTOR_UNIT;
   var timeoutMs = (cfg.executor_timeout_seconds || 30) * 1000;
 
   function executorFor(bridgeTaskId) {
@@ -56,7 +59,11 @@ function create(cfg, opts) {
   }
 
   function daemonActive() {
-    return Promise.resolve(runner('systemctl', ['--user', 'is-active', 'mythos-ai-executor.service'], 10000)).then(function (r) {
+    // The executor's own unit on the host the supervisor runs beside: the VPS
+    // default, or `executor_unit` in the config (on Haddad the executor daemon
+    // is mythos-haddad-worker.service — measured 2026-09-29: with the VPS name
+    // hard-coded every Haddad attempt read as FABLE_UNREACHABLE).
+    return Promise.resolve(runner('systemctl', ['--user', 'is-active', executorUnit], 10000)).then(function (r) {
       return { ok: true, active: !!(r.ok && String(r.stdout).trim() === 'active') };
     });
   }
@@ -123,4 +130,4 @@ function classify(t, daemonActive) {
   return 'FABLE_UNKNOWN';
 }
 
-module.exports = { create: create, classify: classify };
+module.exports = { create: create, classify: classify, DEFAULT_EXECUTOR_UNIT: DEFAULT_EXECUTOR_UNIT };

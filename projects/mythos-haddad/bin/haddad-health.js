@@ -56,7 +56,11 @@ function sh(cmd, args, opts) {
 }
 function firstLine(s) { return String(s || '').split('\n')[0]; }
 function add(id, status, detail, data) { checks.push({ id: id, status: status, detail: detail, data: data || undefined }); }
+// HADDAD_HEALTH_ONLY=git,browser runs just those checks (tests and operators
+// probing one subsystem); the report then covers only what it names.
+var ONLY = (process.env.HADDAD_HEALTH_ONLY || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
 function check(id, fn) {
+  if (ONLY.length && ONLY.indexOf(id) === -1) return;
   try { fn(); } catch (e) { add(id, 'FAIL', 'check crashed: ' + (e && e.message)); }
 }
 
@@ -124,7 +128,31 @@ check('git', function () {
   if (QUICK) return add('git', 'PASS', v.out);
   var repo = path.resolve(__dirname, '..', '..', '..');
   var remote = sh('git', ['-C', repo, 'ls-remote', '--heads', 'origin', 'main'], { timeout: 20000 });
-  add('git', remote.ok ? 'PASS' : 'WARN', v.out + (remote.ok ? ', origin reachable (main ' + remote.out.slice(0, 8) + ')' : ', origin NOT reachable: ' + firstLine(remote.err)));
+  // The checkout this script runs from is the one the bridge and health
+  // timers execute every tick. MEASURED 2026-09-27/28: it sat on an unpushed
+  // local branch with uncommitted edits for a day while health reported
+  // PASS, and the worker ran a commit three merges behind main. Branch and
+  // cleanliness are therefore part of the measurement, not an assumption:
+  // anything but a clean `main` is a WARN that names the drift (never a FAIL
+  // — a deployed checkout is legitimately behind between a merge and its
+  // fast-forward, and a release branch is an operator's choice to explain).
+  var branch = sh('git', ['-C', repo, 'rev-parse', '--abbrev-ref', 'HEAD']).out;
+  var head = sh('git', ['-C', repo, 'rev-parse', '--short=8', 'HEAD']).out;
+  var dirty = sh('git', ['-C', repo, 'status', '--porcelain', '--untracked-files=normal']).out.split('\n').filter(Boolean).length;
+  var behind = null;
+  if (remote.ok) {
+    var anc = sh('git', ['-C', repo, 'merge-base', '--is-ancestor', 'HEAD', remote.out.slice(0, 40)]);
+    behind = anc.ok ? (remote.out.slice(0, 8) === head ? 0 : parseInt(sh('git', ['-C', repo, 'rev-list', '--count', 'HEAD..' + remote.out.slice(0, 40)]).out, 10) || null) : 'DIVERGED';
+  }
+  var drift = [];
+  if (branch !== 'main') drift.push('on branch ' + branch + ' (expected main)');
+  if (dirty) drift.push(dirty + ' uncommitted path(s)');
+  if (behind === 'DIVERGED') drift.push('HEAD ' + head + ' is not an ancestor of origin/main — an unmerged local line runs the timers');
+  else if (behind) drift.push(behind + ' commit(s) behind origin/main — fast-forward and restart the worker');
+  var facts = { checkout: repo, branch: branch, head: head, dirty_paths: dirty, behind_origin_main: behind };
+  var status = !remote.ok || drift.length ? 'WARN' : 'PASS';
+  add('git', status, v.out + (remote.ok ? ', origin reachable (main ' + remote.out.slice(0, 8) + ')' : ', origin NOT reachable: ' + firstLine(remote.err)) +
+    ', checkout ' + head + ' on ' + branch + (drift.length ? ' — DRIFT: ' + drift.join('; ') : ', clean, at origin/main'), facts);
 });
 
 check('node', function () {
@@ -444,6 +472,104 @@ check('mcp', function () {
     return add('mcp', 'WARN', rep.server + ' over ' + transport + ', ' + rep.tools.length + ' tools, but execution_status failed: ' + firstLine(rep.call.error || '').slice(0, 120), rep);
   }
   add('mcp', 'PASS', rep.server + ' (protocol ' + rep.protocol + ') over ' + transport + ', ' + rep.tools.length + ' tools, execution_status answered from the Haddad executor' + (httpInstalled ? '' : ', no listener'), rep);
+});
+
+// ---------- browser: Obscura runtime (loopback CDP, bearer) + Playwright fallback ----------
+//
+// The governed browser chain (projects/mythos-browser-mcp, docs/BROWSER.md):
+// Obscura serves CDP on 127.0.0.1:9222 behind a bearer, as the user unit
+// obscura.service; the launcher ~/.local/bin/mythos-browser-mcp.sh loads the
+// token from ~/.config/obscura/cdp.env (0600) and the Playwright fallback's
+// module/library locations from ~/.config/mythos-browser/env (no secret).
+// Measured, never inferred: unit state, the listener's bind address, an
+// unauthenticated probe (must be refused), an authenticated probe (must
+// answer with a product) — the token reaches the probe through the child's
+// environment only, never argv, never this report — and whether the
+// fallback could actually launch (module resolvable AND every host library
+// Chromium links against resolvable through the configured LD_LIBRARY_PATH).
+// A fallback that cannot launch is a WARN with the exact reason; the primary
+// not serving is a FAIL. Absent entirely: WARN (optional on V0 hosts).
+var BROWSER_PROBE = [
+  "var http=require('http'),u=new URL(process.argv[1]);",
+  "var tok=process.env.OBSCURA_CDP_TOKEN||'';var h=tok?{Authorization:'Bearer '+tok}:{};",
+  "var r=http.get({host:u.hostname,port:u.port,path:'/json/version',headers:h,timeout:5000},function(res){var b='';res.on('data',function(d){b+=d;});res.on('end',function(){var p=null;try{p=JSON.parse(b);}catch(e){}",
+  "process.stdout.write(JSON.stringify({status:res.statusCode,product:p&&p.Browser||null,protocol:p&&p['Protocol-Version']||null}));});});",
+  "r.on('timeout',function(){r.destroy(new Error('timeout'));});r.on('error',function(e){process.stdout.write(JSON.stringify({status:null,error:e.message}));});"
+].join('');
+function readEnvFile(file) {
+  var out = {};
+  fs.readFileSync(file, 'utf8').split('\n').forEach(function (l) {
+    var m = /^([A-Z_][A-Z0-9_]*)=(.*)$/.exec(l.trim()); if (m) out[m[1]] = m[2];
+  });
+  return out;
+}
+check('browser', function () {
+  var unit = path.join(HOME, '.config', 'systemd', 'user', 'obscura.service');
+  var envFile = path.join(HOME, '.config', 'obscura', 'cdp.env');
+  var launcher = path.join(HOME, '.local', 'bin', 'mythos-browser-mcp.sh');
+  var fbFile = path.join(HOME, '.config', 'mythos-browser', 'env');
+  var data = { unit: fs.existsSync(unit), token_file: fs.existsSync(envFile), launcher: fs.existsSync(launcher) };
+  if (!data.unit && !data.token_file && !data.launcher) return add('browser', 'WARN', 'not installed (optional: projects/mythos-haddad/docs/BROWSER.md §3)');
+  if (!data.unit) return add('browser', 'FAIL', 'obscura.service user unit is missing while the browser chain is partly installed (' + Object.keys(data).filter(function (k) { return data[k]; }).join(',') + ') — BROWSER.md §3', data);
+  if (!data.token_file) return add('browser', 'FAIL', envFile + ' is missing — the launcher and the unit both read the bearer from it (BROWSER.md §3)', data);
+  // Token file rules mirror mcp-http.env: 0600, and nothing that could re-point
+  // the endpoint off loopback. OBSCURA_CDP_URL is permitted only as a loopback
+  // http URL (tests and alternative ports); anything else is a FAIL.
+  var mode = fs.statSync(envFile).mode & 511;
+  if (mode !== 384 && mode !== 256) return add('browser', 'FAIL', envFile + ' mode is ' + mode.toString(8) + ', expected 600', data);
+  var env = readEnvFile(envFile);
+  var keys = Object.keys(env);
+  var badKeys = keys.filter(function (k) { return k !== 'OBSCURA_CDP_TOKEN' && k !== 'OBSCURA_CDP_URL'; });
+  if (badKeys.length || !env.OBSCURA_CDP_TOKEN || env.OBSCURA_CDP_TOKEN.length < 32)
+    return add('browser', 'FAIL', envFile + ' must carry OBSCURA_CDP_TOKEN (>= 32 chars) and at most OBSCURA_CDP_URL' + (badKeys.length ? ' — unexpected: ' + badKeys.join(',') : ''), data);
+  var cdp = env.OBSCURA_CDP_URL || 'http://127.0.0.1:9222';
+  var m = /^http:\/\/127\.0\.0\.1:(\d+)\/?$/.exec(cdp);
+  if (!m) return add('browser', 'FAIL', 'OBSCURA_CDP_URL is ' + cdp + ' — the CDP endpoint must be loopback http (127.0.0.1:<port>)', data);
+  var port = m[1];
+  data.cdp_url = 'http://127.0.0.1:' + port;
+
+  var active = sh('systemctl', ['--user', 'is-active', 'obscura.service']).out;
+  data.unit_state = active;
+  if (active !== 'active') return add('browser', 'FAIL', 'obscura.service is ' + (active || 'unknown') + ': journalctl --user -u obscura', data);
+  var bound = sh('ss', ['-ltnH']).out.split('\n').map(function (l) { return l.split(/\s+/)[3] || ''; }).filter(Boolean);
+  var onPort = bound.filter(function (a) { return new RegExp(':' + port + '$').test(a); });
+  if (!onPort.length) return add('browser', 'FAIL', 'obscura.service is active but nothing listens on 127.0.0.1:' + port, data);
+  var off = onPort.filter(function (a) { return a !== '127.0.0.1:' + port; });
+  if (off.length) return add('browser', 'FAIL', 'Obscura CDP bound outside loopback: ' + off.join(',') + ' — the unit must bind 127.0.0.1 only (never --allow-private-network)', data);
+
+  var probeEnv = Object.assign({}, process.env); delete probeEnv.OBSCURA_CDP_TOKEN;
+  var un = null; try { un = JSON.parse(sh(process.execPath, ['-e', BROWSER_PROBE, data.cdp_url], { env: probeEnv, timeout: 15000 }).out); } catch (e) { un = null; }
+  if (!un || (un.status !== 401 && un.status !== 403)) return add('browser', 'FAIL', 'the CDP endpoint answered ' + (un && (un.status || un.error) || 'nothing') + ' to an UNAUTHENTICATED /json/version — must be 401/403 (bearer not enforced?)', data);
+  var au = null; try { au = JSON.parse(sh(process.execPath, ['-e', BROWSER_PROBE, data.cdp_url], { env: Object.assign({}, probeEnv, { OBSCURA_CDP_TOKEN: env.OBSCURA_CDP_TOKEN }), timeout: 15000 }).out); } catch (e) { au = null; }
+  if (!au || au.status !== 200 || !au.product) return add('browser', 'FAIL', 'the CDP endpoint answered ' + (au && (au.status || au.error) || 'nothing') + ' to the AUTHENTICATED /json/version — token in ' + envFile + ' does not match the running unit (restart obscura.service after rotating it)', data);
+  data.product = au.product; data.protocol = au.protocol; data.unauthenticated = un.status;
+
+  // Fallback: what the launcher would export, checked for launchability
+  // without launching — module resolvable, and no unresolved shared library
+  // for the Chromium the module would run. Never a phantom AVAILABLE.
+  var fb = { status: 'BLOCKED', reason: 'no ' + fbFile + ' (MYTHOS_PLAYWRIGHT_MODULE / LD_LIBRARY_PATH for the fallback)' };
+  if (fs.existsSync(fbFile)) {
+    var fenv = readEnvFile(fbFile);
+    var modPath = fenv.MYTHOS_PLAYWRIGHT_MODULE;
+    if (!modPath) fb.reason = fbFile + ' sets no MYTHOS_PLAYWRIGHT_MODULE';
+    else if (!fs.existsSync(path.join(modPath, 'package.json'))) fb.reason = 'MYTHOS_PLAYWRIGHT_MODULE ' + modPath + ' has no package.json';
+    else {
+      var ver = null; try { ver = JSON.parse(fs.readFileSync(path.join(modPath, 'package.json'), 'utf8')).version; } catch (e) { ver = null; }
+      var exe = sh(process.execPath, ['-e', "var m=require(process.argv[1]);process.stdout.write(m.chromium.executablePath())", modPath], { timeout: 15000 }).out;
+      if (!exe || !fs.existsSync(exe)) fb.reason = 'playwright-core ' + (ver || '?') + ' resolves but its Chromium is not installed (' + (exe || 'no executablePath') + ')';
+      else {
+        var ldd = sh('ldd', [exe], { env: Object.assign({}, process.env, fenv.LD_LIBRARY_PATH ? { LD_LIBRARY_PATH: fenv.LD_LIBRARY_PATH } : {}), timeout: 15000 });
+        var missing = ldd.out.split('\n').filter(function (l) { return /not found/.test(l); }).map(function (l) { return l.trim().split(/\s+/)[0]; });
+        if (!ldd.ok) fb.reason = 'ldd could not inspect ' + exe + ': ' + firstLine(ldd.err);
+        else if (missing.length) fb.reason = 'Chromium lacks ' + missing.length + ' host librar' + (missing.length === 1 ? 'y' : 'ies') + ' (' + missing.join(', ') + ')' + (fenv.LD_LIBRARY_PATH ? ' even with LD_LIBRARY_PATH=' + fenv.LD_LIBRARY_PATH : '');
+        else fb = { status: 'AVAILABLE', reason: null, module: modPath, version: ver, executable: exe, ld_library_path: fenv.LD_LIBRARY_PATH || null };
+      }
+    }
+  }
+  data.fallback = fb;
+  var head = 'Obscura ' + au.product + ' (CDP ' + (au.protocol || '?') + ') on 127.0.0.1:' + port + ' as obscura.service, unauthenticated ' + un.status + ', bearer accepted' + (data.launcher ? ', launcher installed' : ', launcher NOT installed (~/.local/bin/mythos-browser-mcp.sh)');
+  if (fb.status !== 'AVAILABLE') return add('browser', 'WARN', head + '; Playwright fallback BLOCKED: ' + fb.reason, data);
+  add('browser', data.launcher ? 'PASS' : 'WARN', head + '; Playwright fallback AVAILABLE (playwright-core ' + (fb.version || '?') + ', Chromium links clean)', data);
 });
 
 // ---------- V2.4: the OTH Knowledge read boundary ----------

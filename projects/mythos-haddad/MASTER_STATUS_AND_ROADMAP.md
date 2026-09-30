@@ -4,10 +4,14 @@
 >
 > Read this file first before working on Mythos Haddad.
 >
-> **Current main:** `34798aba0b9768e9a77822084e2c21eef79fe2e1` (2026-09-24)
+> **Current main:** `7e918141` (2026-09-27) — live checkout and worker verified at it on 2026-09-28.
 >
-> **V2 is COMPLETE (all six phases merged 2026-09-23). V3.1 is IN PROGRESS — read
-> [docs/V3_1.md](docs/V3_1.md) for the definition, the capability map and the completion checklist.**
+> **V2 COMPLETE (2026-09-23) · V3.1 COMPLETE (2026-09-24, [docs/V3_1.md](docs/V3_1.md)) · V3.2 + residuals COMPLETE
+> (2026-09-25, [docs/V3_2.md](docs/V3_2.md)) · browser chain (Obscura primary / Playwright fallback, PR #512 + #514)
+> measured on the host 2026-09-28 · production readiness pass 2026-09-28:
+> [docs/PRODUCTION_READINESS_2026-09-28.md](docs/PRODUCTION_READINESS_2026-09-28.md) — `NOT 100%`, every
+> remaining item is an owner action the permission layer refused to the agent (merges, one permission grant, one
+> VPS scanner run).**
 >
 > **Core rule:** SEARCH → REUSE → ADAPT → CONNECT → BUILD LAST.
 

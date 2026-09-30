@@ -522,7 +522,10 @@ function providerEvidence(outcome) {
     repair_rounds: typeof outcome.repair_rounds === 'number' ? outcome.repair_rounds : null,
     tool_calls: typeof outcome.tool_calls === 'number' ? outcome.tool_calls : trace.length,
     tool_trace: trace.map(function (e) {
-      return { tool: e.tool, target: e.target || null, refused: !!e.refused, detail: e.detail ? String(e.detail).slice(0, 160) : null };
+      var out = { tool: e.tool, target: e.target || null, refused: !!e.refused, detail: e.detail ? String(e.detail).slice(0, 160) : null };
+      if (typeof e.backend === 'string') out.backend = e.backend.slice(0, 20);
+      if (typeof e.fallback_reason === 'string') out.fallback_reason = e.fallback_reason.slice(0, 60);
+      return out;
     }),
     diagnosis_requested: trace.some(function (e) { return e.tool === 'diagnose'; }),
     context_compactions: trace.filter(function (e) { return e.tool === 'context_compaction'; }).length,
@@ -982,6 +985,13 @@ function settleState(report, extractedError, deliveryProblem) {
   if (report.status === 'blocked') return { state: 'BLOCKED', next_action: 'owner decision required: ' + (report.summary || '') };
   if (report.status === 'failed') return { state: 'FAILED', next_action: 'inspect failure report' };
   if (deliveryProblem) return { state: 'BLOCKED', next_action: 'validated work was not delivered — ' + deliveryProblem };
+  // Only an explicit "completed" is a completion. A missing or unknown status
+  // ("partial", "in_progress", …) used to fall through to COMPLETED — a
+  // success nobody claimed. validateReport records it as a problem; here it
+  // decides the state.
+  if (report.status !== 'completed') {
+    return { state: 'BLOCKED', next_action: 'report status ' + JSON.stringify(String(report.status === undefined ? '' : report.status).slice(0, 40)) + ' is not completed, failed or blocked — not a completion; review the report' };
+  }
   return { state: 'COMPLETED', next_action: report.next_stage ? String(report.next_stage) : 'review report' };
 }
 
@@ -1030,6 +1040,8 @@ function handleSuccess(task, taskId, outcome, parsed) {
     blocker = engine.blocker(code, { reason: String(report.summary || '').slice(0, 800), task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
   } else if (report && report.status === 'failed') {
     blocker = engine.blocker('PROVIDER_FAILED', { reason: String(report.summary || '').slice(0, 800), task_id: taskId, attempt_id: task.attempt_id || null });
+  } else if (report && report.status !== 'completed' && !deliveryProblem) {
+    blocker = engine.blocker('NO_STRUCTURED_REPORT', { reason: 'invalid report status: ' + String(report.status === undefined ? '(missing)' : report.status).slice(0, 40), task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
   } else if (!report) {
     blocker = engine.blocker('NO_STRUCTURED_REPORT', { reason: extracted.error || 'unknown reason', task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
   } else if (deliveryProblem) {

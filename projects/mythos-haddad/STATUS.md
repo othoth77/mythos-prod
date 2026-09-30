@@ -392,3 +392,41 @@ pending:** owner decision (a) of 2026-09-23 keeps one canonical store on the VPS
 duplicate here, so the knowledge tools stay fail-closed on this node by design. The state is
 reported every health run rather than inferred from an empty answer. Owner decision, deferred: registering Haddad in the VPS estate MCP registry (needs a VPS→Haddad SSH
 credential). Still pending from V0: add the Windows client's SSH key and set `PasswordAuthentication no`.
+
+## 2026-09-28 — production readiness pass (FABLE 5.1 Master Order): `STATUS = NOT 100%`, all remaining items owner-gated
+
+Full evidence, gap matrix and the owner runbook: [docs/PRODUCTION_READINESS_2026-09-28.md](docs/PRODUCTION_READINESS_2026-09-28.md).
+
+**Fixed on the host (measured):** live checkout returned from an unpushed feature branch to a clean `main` @ `7e918141`;
+worker restarted at an idle queue → `code_identity 7e918141 verified` (it had run `abb4cebf`, three merges behind and
+without the report-summary normalization the new Supervisor checks for); Obscura moved from a hand-started 17 h old
+process to the user unit `obscura.service` (401/200, loopback only, `restart` and `kill -9` recovery in 9 s, smoke 4/4);
+Playwright fallback made to WORK without root (nine Ubuntu packages unpacked into `~/.local/lib/mythos-playwright-deps`,
+`ldd` 0 missing, real pages through the launcher); launcher installed with a non-secret fallback env file.
+
+**Added in code (branch `mythos-haddad/v100-closeout`, this PR):** health check `browser` (18th) and `git` drift facts
+(branch / dirty / behind / diverged → WARN), `HADDAD_HEALTH_ONLY`; runtime suite 37 → 48, three mutations bite. Browser
+side on PR #514 (stacked on #512): launcher fallback file + 3 tests (21/0), BROWSER.md rewritten from measurements.
+
+**E2E:** issue #513 through the live VPS pipeline COMPLETED in 2 min 11 s; the browser chain with real Qwen + real
+Obscura COMPLETED in 35.7 s (isolated store, fixture matrix, 9 ALLOW audits, no token leak); the fallback path served
+32 governed pages but Qwen looped and never settled a report (known limit). Regression: 229 suites, every Haddad suite
+green, nonzero set = recorded baseline + 2 deliberate targets + 3 VPS-only HostOps suites.
+
+**Owner-gated (refused to the agent by the permission layer):** merge #512 → #514 → this PR, then fast-forward + worker
+restart; the `browser.read` grant in `mcp-permissions.json`; the skill-trust scan on the VPS; CI (merge #320, a
+governance-protected workflow path); HostOps #479 (VPS root); removal of the duplicate `haddad` bridge instance.
+
+## 2026-09-28 (evening) — final closeout pass: `NOT 100% — four owner-gated items, everything measurable is PASS`
+
+Owner merged #512 → #514 → #515 (17:39–17:41Z); live checkout, worker and origin/main all at `3122219e`; health **18/18**.
+Found and fixed in this pass: **#514's content never reached main** (it merged into its stacked base one minute after
+#512 had landed) → rebuilt as PR #516; the worker's `listen failed on 172.18.0.1: EADDRNOTAVAIL` is the VPS Docker
+bridge bind (n8n), absent on Haddad → `MYTHOS_EXECUTOR_BIND=127.0.0.1` live + PR #517, restarted at `RUNNING=0`,
+identity `3122219e`. Knowledge fail-closed is the ratified option (a) — architectural boundary, not a gap. Security
+checks (0600 files, loopback-only Obscura, 401, no token in model/audit/events, secret scan) all pass.
+Regression on `3122219e`: **PASS** — 232 suites (229 + the two #512 browser suites + one new), 46 nonzero exits = the recorded baseline (+ the two deliberate targets, + 3 VPS-only HostOps suites) plus ONE new failure: `stc-1-status-center-test` 81/0 → 80/1 — #512 added `projects/mythos-browser-mcp` without claiming it in the fail-closed project registry. Fixed in **PR #517** (`e594487e`): 81/0 again. Only intended diffs otherwise: runtime 37→48, browser-mcp 18/0, browser-governed 11/0. E2E on main code: **A Obscura: COMPLETED** (332 s, 2 repair rounds — example.com dropped its `<h1>` during the day, Qwen truthfully reported empty text; 20 ALLOW audits, no leak). **B Playwright fallback: COMPLETED** (179 s, 23 ALLOW audits, pages served by Playwright, no leak). **C both backends unavailable: fail-closed at the tool level** — every browser call refused `BROWSER_NO_BACKEND` naming both reasons (`OBSCURA_UNREACHABLE`, `PLAYWRIGHT_UNAVAILABLE`), one execution, 40 s, no retry storm, single settlement; caveat: Qwen still wrote `status: completed` (validator: `mechanically_verified: false`; the Supervisor's `check:tests_pass_for:` acceptance is the production guard against a self-declared success). All three on main code (`3122219e`), isolated store, fixture matrix.
+
+**Still owner-gated (refused to the agent again, verbatim reasons in the readiness report §9):** the `browser.read`
+grant ("Permission Grant"); SkillSpector install for the skill-trust scan ("Untrusted Code Integration") and SSH to the
+VPS scanners ("Production Reads"); merging #320, #516, #517 ("Merge Without Review").
