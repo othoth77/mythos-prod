@@ -14,6 +14,10 @@
 #
 #   ssh deploy@51.68.226.211 'bash -s' < ops/live-e2e/live-e2e-fable.sh
 #
+# or, already on the VPS as root (it re-runs itself as deploy):
+#
+#   FIX_COMMIT=<merge sha> bash /home/deploy/projects/mythos-prod/ops/live-e2e/live-e2e-fable.sh
+#
 # PRECONDITIONS it VERIFIES (and refuses to run without — fail closed):
 #   1. the VPS checkout contains the measured-outcome fix (FIX_COMMIT);
 #   2. the executor daemon STARTED AFTER that checkout moved (MERGED is not
@@ -43,6 +47,47 @@
 set -euo pipefail
 
 REPO="${MYTHOS_REPO:-/home/deploy/projects/mythos-prod}"
+DEPLOY_USER="${MYTHOS_DEPLOY_USER:-deploy}"
+
+say() { printf '%s %s\n' "$(date -u +%H:%M:%SZ)" "$*"; }
+die() { say "REFUSED: $*"; exit 3; }
+
+# systemctl --user against DEPLOY_USER's user manager, from deploy itself or
+# from root. `systemctl --user` run by root talks to ROOT's manager, which
+# has no mythos-ai-executor.service (found live 2026-09-30: "no start
+# timestamp"). The uid is resolved here, by the caller, never inside sudo.
+run_deploy_user_systemctl() {
+  if [ "$(id -un)" = "$DEPLOY_USER" ]; then
+    systemctl --user "$@"
+  elif [ "$(id -u)" = 0 ]; then
+    local uid
+    uid="$(id -u "$DEPLOY_USER")" || return 1
+    sudo -u "$DEPLOY_USER" XDG_RUNTIME_DIR="/run/user/${uid}" systemctl --user "$@"
+  else
+    say "run_deploy_user_systemctl: run as ${DEPLOY_USER} or root, not $(id -un)" >&2
+    return 1
+  fi
+}
+
+# Launched as root: re-run the WHOLE script as DEPLOY_USER. Fixing the
+# precondition calls alone is not enough — the supervisor it starts must be
+# deploy too: its monitor runs `systemctl --user is-active` and the
+# executor's own CLI (whose store is deploy's ~/mythos-ai-executor), `gh`
+# must be deploy's authenticated identity, git must not trip over a
+# deploy-owned checkout, and the isolated store belongs under deploy's HOME.
+# Same governance, same identity as the documented `ssh deploy@… bash -s`.
+[ -n "${MYTHOS_E2E_SOURCE_ONLY:-}" ] && return 0
+if [ "$(id -u)" = 0 ]; then
+  SELF="$(readlink -f "${BASH_SOURCE[0]:-}" 2>/dev/null || true)"
+  [ -n "$SELF" ] && [ -f "$SELF" ] || die "running as root from stdin: run the file instead — bash ${REPO}/ops/live-e2e/live-e2e-fable.sh"
+  DEPLOY_UID="$(id -u "$DEPLOY_USER")" || die "no user ${DEPLOY_USER}"
+  say "running as root: re-running as ${DEPLOY_USER} (uid ${DEPLOY_UID})"
+  exec sudo -u "$DEPLOY_USER" -H env XDG_RUNTIME_DIR="/run/user/${DEPLOY_UID}" \
+    FIX_COMMIT="${FIX_COMMIT:-}" MYTHOS_REPO="$REPO" MYTHOS_DEPLOY_USER="$DEPLOY_USER" MAX_MINUTES="${MAX_MINUTES:-60}" \
+    bash "$SELF"
+fi
+[ "$(id -un)" = "$DEPLOY_USER" ] || die "run as ${DEPLOY_USER} (or root, which re-runs as ${DEPLOY_USER}), not $(id -un)"
+
 FIX_COMMIT="${FIX_COMMIT:?set FIX_COMMIT to the merge commit of the measured-outcome PR}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 MARKER="LIVE-E2E-FABLE-${STAMP}"
@@ -50,9 +95,6 @@ ARTIFACT_DIR="docs/evidence"
 ARTIFACT="${ARTIFACT_DIR}/LIVE_E2E_FABLE_${STAMP}.md"
 STORE="${HOME}/mythos-live-e2e/${STAMP}"
 MAX_MINUTES="${MAX_MINUTES:-60}"
-
-say() { printf '%s %s\n' "$(date -u +%H:%M:%SZ)" "$*"; }
-die() { say "REFUSED: $*"; exit 3; }
 
 say "== preconditions"
 cd "$REPO"
@@ -68,13 +110,14 @@ HEAD_TIME="$(git log -1 --format=%ct HEAD)"
 # when its HEAD commit was authored: the daemon must have started after it.
 MOVED_TIME="$(git reflog -1 --date=unix --format=%gd HEAD 2>/dev/null | tr -dc '0-9')"
 [ -n "$MOVED_TIME" ] && [ "$MOVED_TIME" -gt "$HEAD_TIME" ] || MOVED_TIME="$HEAD_TIME"
-EXEC_START="$(systemctl --user show mythos-ai-executor.service -p ExecMainStartTimestamp --value 2>/dev/null || true)"
+EXEC_START="$(run_deploy_user_systemctl show mythos-ai-executor.service -p ExecMainStartTimestamp --value 2>/dev/null || true)"
 [ -n "$EXEC_START" ] || die "mythos-ai-executor.service has no start timestamp (is it running?)"
 EXEC_EPOCH="$(date -d "$EXEC_START" +%s)"
 say "executor started ${EXEC_START}; checkout moved $(date -u -d @"$MOVED_TIME" +%FT%TZ)"
 [ "$EXEC_EPOCH" -ge "$MOVED_TIME" ] || die "the executor daemon started BEFORE the checkout moved — it still runs the old settlement. Restart it through the governed path, then rerun."
-systemctl --user is-active --quiet mythos-ai-executor.service || die "mythos-ai-executor.service is not active"
-systemctl is-active --quiet mythos-git-push.timer 2>/dev/null || systemctl --user is-active --quiet mythos-git-push.timer 2>/dev/null \
+run_deploy_user_systemctl is-active --quiet mythos-ai-executor.service || die "mythos-ai-executor.service is not active"
+say "executor PID $(run_deploy_user_systemctl show mythos-ai-executor.service -p MainPID --value 2>/dev/null || echo '?')"
+systemctl is-active --quiet mythos-git-push.timer 2>/dev/null || run_deploy_user_systemctl is-active --quiet mythos-git-push.timer 2>/dev/null \
   || die "mythos-git-push.timer (the governance relay) is not active — task-branch commits would never reach GitHub"
 node -e 'var p=require(process.argv[1]);var e=p.catalog&&p.catalog["fable-5.1"];if(!e||!e.enabled||e.model!=="claude-fable-5-1")process.exit(1)' \
   "$REPO/projects/mythos-ai-executor/config/model-policy.json" || die "fable-5.1 is not an enabled catalog entry mapping to claude-fable-5-1"
