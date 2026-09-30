@@ -11,7 +11,7 @@ continuing the PHASE 0 audit from `t-20260930120308-fjw22c`.
 
 | Item | State |
 |---|---|
-| Branch | `mythos/trading-platform` @ **(see the final commit below)**, based on `main@6425ac4c` |
+| Branch | `mythos/trading-platform`, based on `main@6425ac4c`. Implementation complete as of **`35c81ccb`** (PHASE 15); the tip adds only this commit reference |
 | Scope | **everything new is under `projects/mythos-trading-agent/`**; outside it only this entry and `docs/CHANGELOG.md` |
 | Merged / deployed | **NO.** Nothing is merged, nothing is deployed, no production service was touched. The operator opens the PR — `gh` is not available to the executor |
 | Tests | **572 pass, 0 fail** — `cd projects/mythos-trading-agent && npm test` |
