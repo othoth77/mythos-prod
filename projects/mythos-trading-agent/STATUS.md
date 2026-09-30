@@ -4,11 +4,11 @@ Format per mission §24. Updated at the end of every phase.
 
 ---
 
-**CURRENT PHASE:** PHASE 6 — Jev decision gate (complete)
+**CURRENT PHASE:** PHASE 7 — Risk Engine + PHASE 8 — Recovery engine (complete)
 
-**CURRENT TASK:** PHASE 7 — Risk Engine
+**CURRENT TASK:** PHASE 9 — Trading Agent
 
-**LAST VERIFIED COMMIT:** `9243ea42` (PHASE 5, verified on `origin/mythos/trading-platform`)
+**LAST VERIFIED COMMIT:** `09fc983f` (PHASE 6, verified on `origin/mythos/trading-platform`)
 
 ---
 
@@ -155,10 +155,50 @@ overrule anything downstream — a test asserts those fields are absent.
   explains a rejection in research terms; the Risk Engine's copy is
   authoritative, and if they disagree the Risk Engine wins (ADR-0002).
 
+### PHASE 7 — Risk Engine · PHASE 8 — Recovery ×3 engine
+Delivered together because recovery is only meaningful against the clamp that
+bounds it.
+
+**Risk Engine** (`src/risk/engine.js`) is the last writer of position size.
+Three verdicts — `ALLOW`, `CLAMP`, `BLOCK` — with `CLAMP` a distinct verdict
+rather than a silent adjustment, because "the ladder asked for 0.09 and got 0.01"
+is the most important fact about how recovery behaves at this account size.
+Checks are split between `preTradeGate()` (emergency stop, max drawdown, daily
+loss, losing streak — reasons the account may not trade at all) and `assess()`
+(spread, stop bounds, reward/risk, expectancy, recovery level, and sizing),
+because "the account is hurt" and "this trade is wrong" are different findings.
+The risk budget is the **smallest** of the per-trade cap, the remaining daily-loss
+headroom and the remaining drawdown headroom. Every check records its observed
+value, its limit and whether it bound. The emergency stop is sticky and there is
+no API to clear it.
+
+**Recovery ×3** (`src/recovery/engine.js`) returns `requestedLots` and nothing
+else — there is no function in it that yields a size a caller could act on, and a
+test asserts `approvedLots`/`setLots`/`forceSize`/`override` are all absent. Off
+by default. Three independent caps: `enabled`, `maxRecoveryLevel` (reaching it
+**abandons** the ladder and realises the accumulated loss rather than escalating),
+and the Risk Engine clamp, which cannot be misconfigured because it derives from
+equity rather than from the ladder. State is per asset. The required take-profit
+to recover the accumulated loss is computed at the **approved** size, so the
+clamp makes recovery harder rather than easier — and when the target cannot reach
+it, the answer is NO TRADE rather than a bigger position.
+
+**The owner's constraint is proven, not described.** Two property tests over
+randomised equity, stop distance, instrument, caps and requested size:
+- 600 sizing cases — the approved size never exceeds the request, the position
+  cap, the instrument maximum, or the risk budget, and is always a tradable size;
+- 400 ladder walks (>1,000 rungs) through the real Risk Engine — the same holds at
+  every rung, with both the clamp and the block paths exercised.
+
+Asserted concretely for the owner's account: at $100 with a 2 % cap and a 20-pip
+stop, the ladder requests 0.01 / 0.03 / 0.09 and is approved 0.01 / 0.01 / 0.01
+with verdicts ALLOW / CLAMP / CLAMP.
+
 ## IN PROGRESS
 
-PHASE 7 — Risk Engine: the final authority on size and on whether to trade at
-all, with every hard limit in mission §8 enforced and proven to bind.
+PHASE 9 — Trading Agent: wire market data → regime → strategies → candidates →
+Jev → cost filter → Risk Engine → recovery → one-trade-only → execution into the
+single `decide()` the engine consumes.
 
 ## BLOCKED
 
@@ -171,7 +211,7 @@ rather than treated as blockers:
 
 ## NEXT TASK
 
-PHASE 7 — Risk Engine, then PHASE 8 — Recovery engine.
+PHASE 9 — Trading Agent, then PHASE 10 — Analysis Agent.
 
 ## TEST STATUS
 
@@ -188,7 +228,8 @@ PHASE 7 — Risk Engine, then PHASE 8 — Recovery engine.
 | `tests/strategy-test.js` | 43 | pass |
 | `tests/regime-test.js` | 19 | pass |
 | `tests/jev-test.js` | 33 | pass |
-| **Total (`npm test`)** | **330** | **330 pass, 0 fail** |
+| `tests/risk-recovery-test.js` | 38 | pass |
+| **Total (`npm test`)** | **368** | **368 pass, 0 fail** |
 
 Run: `cd projects/mythos-trading-agent && npm test`
 
