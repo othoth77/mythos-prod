@@ -41,8 +41,9 @@ daemon closes the connection:
           | {"error": {"code": str, "message": str}}           -- it did not
 
 Concurrency: one connection handled at a time (simple accept loop, bounded
-per-connection timeout). This is a low-traffic, single-caller governed READ
-path, not a public service; a hand-rolled loop is easier to audit in full
+per-connection timeout). This is a low-traffic governed path (READ and, since
+HostOps v0.2, CONTROLLED operations, which the helper also serialises with its
+own lock), not a public service; a hand-rolled loop is easier to audit in full
 than a threaded server, and Restart=on-failure covers a crash.
 """
 import json
@@ -62,7 +63,11 @@ import time
 HELPER = os.environ.get('MYTHOS_HOSTOPS_DAEMON_HELPER') or '/usr/local/sbin/mythos-hostops'
 SOCKET_PATH_DEFAULT = '/run/mythos-hostops/hostops.sock'
 ALLOWED_USERNAMES = ('deploy', 'dagu')
-EXEC_TIMEOUT_S = 12  # the helper's own EXEC_TIMEOUT_MS is 10000; small margin
+# HostOps v0.2: a CONTROLLED operation may take up to its catalog timeout_ms
+# (max 60 s: config write + daemon-reload + verification tool, or a service
+# restart + state polling). The helper bounds every subprocess itself; this
+# is the outer ceiling with a margin.
+EXEC_TIMEOUT_S = 90
 CONN_TIMEOUT_S = EXEC_TIMEOUT_S + 5
 MAX_REQUEST_BYTES = 8192
 SAFE_ENV_PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'

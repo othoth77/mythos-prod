@@ -45,6 +45,11 @@ var TASK_STATES = [
   'WAITING_FOR_APPROVAL',
   'RETRYING',
   'VALIDATING',
+  // Validation passed on evidence, but this task REQUIRES an independent
+  // review that did not happen and is not assured (core/validation.js).
+  // It is a wait, not a failure: the work was not rejected, it is
+  // unreviewed — and unreviewed is never COMPLETED.
+  'REVIEW_REQUIRED',
   'COMPLETED',
   'FAILED',
   'CANCELLED'
@@ -59,7 +64,12 @@ var TASK_TRANSITIONS = {
   WAITING_FOR_QUOTA:      ['RUNNING', 'READY', 'CANCELLED'],
   WAITING_FOR_APPROVAL:   ['READY', 'RUNNING', 'CANCELLED', 'FAILED'],
   RETRYING:               ['RUNNING', 'READY', 'FAILED', 'CANCELLED'],
-  VALIDATING:             ['COMPLETED', 'RETRYING', 'FAILED'],
+  VALIDATING:             ['COMPLETED', 'RETRYING', 'FAILED', 'REVIEW_REQUIRED'],
+  // Only validation may park a task here, and only a recorded review
+  // verdict moves it on: pass → COMPLETED, reject → RETRYING (repair) or
+  // FAILED (budget spent). There is deliberately NO edge back to RUNNING:
+  // a parked task must never re-execute itself out of its own gate.
+  REVIEW_REQUIRED:        ['COMPLETED', 'RETRYING', 'FAILED', 'CANCELLED'],
   COMPLETED:              [],
   FAILED:                 ['QUEUED'],   // explicit re-queue only
   CANCELLED:              []
@@ -87,6 +97,7 @@ var TASK_STATE_COMPAT = {
     COMPLETED: 'COMPLETED',
     FAILED: 'FAILED',
     WAITING_FOR_APPROVAL: 'BLOCKED',
+    REVIEW_REQUIRED: 'BLOCKED',   // awaiting a decision, exactly like an approval
     CANCELLED: 'CANCELLED'
   }
 };
@@ -98,6 +109,9 @@ var EVENT_TYPES = [
   'TASK_CREATED', 'TASK_STARTED', 'TASK_COMPLETED', 'TASK_FAILED', 'TASK_RETRYING',
   'TASK_WAITING', 'TASK_RESUMED', 'QUOTA_EXHAUSTED', 'PROVIDER_UNAVAILABLE',
   'PROVIDER_FALLBACK', 'VALIDATION_FAILED', 'VALIDATION_PASSED', 'REVIEW_REJECTED',
+  // A task that requires review could not get one. Carries the reason code
+  // so "why was this never reviewed?" is answerable from the event stream.
+  'REVIEW_REQUIRED',
   'REVIEW_PASSED', 'COMMIT_CREATED', 'DEPLOY_STARTED', 'DEPLOY_COMPLETED', 'ROLLBACK',
   'POLICY_DENIED', 'APPROVAL_REQUESTED', 'APPROVAL_GRANTED', 'MEMORY_UPDATED',
   'WORKTREE_CREATED', 'WORKTREE_REMOVED', 'DECISION_MADE',

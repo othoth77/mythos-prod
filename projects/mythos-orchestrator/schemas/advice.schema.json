@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mythos Orchestrator Advice",
+  "description": "Structured answer the OpenAI advisor must return. This file is ALSO sent to the OpenAI Responses API as a strict json_schema text format, so it is restricted to the structured-output subset exactly like result.schema.json: every property is required, additionalProperties is false everywhere, nullability is a type union, and no pattern/minLength/maxLength/minItems keywords are used. Length caps and the risk-class floor are enforced in advisor.js, never here. Advice is DATA: nothing in it is ever executed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "role",
+    "summary",
+    "findings",
+    "recommended_steps",
+    "suggested_risk_class",
+    "requires_human_approval",
+    "confidence"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["1.0.0"]
+    },
+    "role": {
+      "description": "Must equal the role the advisor was asked to play.",
+      "type": "string",
+      "enum": ["smoke", "triage", "plan", "review"]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "title", "detail"],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["info", "low", "medium", "high", "critical"]
+          },
+          "title": { "type": "string" },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "recommended_steps": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "suggested_risk_class": {
+      "description": "A router.js work class, or null. Advisory only: advisor.js accepts it only when it is at least as strict as the subject's own class.",
+      "type": ["string", "null"],
+      "enum": [
+        "ARCHITECTURE",
+        "DESIGN",
+        "SECURITY_REVIEW",
+        "FINAL_REVIEW",
+        "PORTFOLIO_DECISION",
+        "AMBIGUOUS_REQUIREMENTS",
+        "CROSS_PROJECT_DECISION",
+        "CODE_IMPLEMENTATION",
+        "REFACTOR",
+        "TEST_IMPLEMENTATION",
+        "BUG_FIX",
+        "STATIC_ANALYSIS",
+        "MIGRATION_IMPLEMENTATION",
+        "CLI_TOOLING",
+        "REPETITIVE_CODE_CHANGES",
+        "HIGH_RISK_INFRA",
+        "PRODUCTION_DEPLOYMENT",
+        "AUTH",
+        "DNS_MUTATION",
+        "DESTRUCTIVE_DB",
+        "SECRET_ROTATION",
+        null
+      ]
+    },
+    "requires_human_approval": {
+      "type": "boolean"
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    }
+  }
+}

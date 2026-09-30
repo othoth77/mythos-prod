@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MYTHOS HADDAD — AI compute node</title>
+  <meta name="description" content="Live state of the MYTHOS AI compute nodes: health, GPU, AI runtime, workers, tasks and events, from telemetry each node pushes.">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="canonical" href="https://status.mythosprod.xyz/haddad/">
+  <link rel="icon" type="image/svg+xml" href="../assets/mythos-favicon.svg">
+  <link rel="apple-touch-icon" href="../assets/mythos-appicon-512.png">
+  <meta name="theme-color" content="#0E0E0D">
+  <link rel="stylesheet" href="../assets/fonts.css">
+  <link rel="stylesheet" href="../assets/tokens.css">
+  <link rel="stylesheet" href="../assets/app.css">
+</head>
+<body>
+<a class="skip-link" href="#content">Skip to content</a>
+
+<header class="site">
+  <div class="gesture" aria-hidden="true"></div>
+  <div class="container site-bar">
+    <a class="wordmark" href="../" aria-label="MYTHOS Status Center — home">
+      <svg viewBox="0 0 6074 1000" role="img" aria-hidden="true" focusable="false"><path fill="currentColor" d="M0 1000 L700 0 L960 0 L960 230 L1120 0 L1380 0 L1380 1000 L1120 1000 L1120 414 L710 1000 L710 429 L310 1000 Z"/><path fill="currentColor" transform="translate(1440 0)" d="M0 0 L290 0 L483 470 L676 0 L966 0 L614 640 L614 1000 L352 1000 L352 640 Z"/><path fill="currentColor" transform="translate(2454 0)" d="M0 0 L760 0 L760 230 L510 230 L510 1000 L250 1000 L250 230 L0 230 Z"/><path fill="currentColor" transform="translate(3286 0)" d="M0 0 L264 0 L264 395 L619 395 L619 0 L883 0 L883 1000 L619 1000 L619 605 L264 605 L264 1000 L0 1000 Z"/><path fill="currentColor" transform="translate(4235 0)" d="M520 0 A520 500 0 1 0 520 1000 A520 500 0 1 0 520 0 Z M520 255 A265 245 0 1 1 520 745 A265 245 0 1 1 520 255 Z"/><path fill="currentColor" transform="translate(5329 0)" d="M313 0 C243.5 8.3 210.5 17.0 164 39 C117.5 61.0 91.3 81.2 62 119 C32.7 156.8 15.4 198.9 6 243 C-3.4 287.1 -6.0 312.2 11 357 C28.0 401.8 17.3 430.9 98 485 C178.7 539.1 420 636 447 649 C471 661 465 700 460 726 C455 752 436 774 408 790 L0 790 L0 1000 L356 1000 C454.1 997.2 474.3 1000.4 530 985 C585.7 969.6 619.4 950.5 657 917 C694.6 883.5 716.7 852.1 733 804 C749.3 755.9 759.8 712.0 745 657 C730.2 602.0 680 545 653 507 C641 490 330 358 295 345 C275 337 262 325 262 306 C262 288 268 274 285 262 L343 210 L742 210 L742 0 Z"/></svg>
+      <span class="surface-name">Haddad</span>
+    </a>
+    <nav class="primary" aria-label="Sections">
+      <a href="../">← Status Center</a>
+      <a href="#node-overview">Overview</a>
+      <a href="#node-workers">Workers</a>
+      <a href="#node-task">Task</a>
+      <a href="#node-gpu">GPU</a>
+      <a href="#node-runtime">Runtime</a>
+      <a href="#node-resources">Resources</a>
+      <a href="#node-alerts">Alerts</a>
+      <a href="#node-events">Events</a>
+    </nav>
+  </div>
+  <div class="container review-meta" id="haddad-meta"></div>
+</header>
+
+<main id="content" class="container">
+  <noscript>
+    <p class="noscript-note">This console renders one file in the browser —
+    <a href="../data/haddad-node.json">data/haddad-node.json</a>, written from
+    telemetry the node pushes. Enable JavaScript, or read that JSON directly:
+    every value shown here comes from it and nothing is added.</p>
+    <p class="simple-ar" lang="ar" dir="rtl">هذه الصفحة تعرض ملفاً واحداً داخل المتصفح. فعّل جافاسكريبت، أو افتح ملف البيانات مباشرة — كل قيمة هنا مصدرها ذلك الملف.</p>
+  </noscript>
+
+  <section class="panel" id="intro" aria-labelledby="h-intro">
+    <p class="section-kicker">Live monitoring</p>
+    <h2 id="h-intro">MYTHOS HADDAD — AI compute node</h2>
+    <p class="section-note">Real state, pushed by the node every 10&nbsp;seconds and
+    published here. This page is <strong>read-only</strong>: it cannot run a command,
+    restart a service, change a configuration or reach the node at all. The VPS holds
+    only each node's public key and never opens a connection to it.
+    A value the node could not measure is shown as <strong>N/A</strong> — never as zero,
+    never guessed. If the heartbeat stops, the state you see is recomputed in your
+    browser, so a frozen file can never keep a node green.</p>
+    <p class="simple-ar" lang="ar" dir="rtl">هذه الصفحة تعرض حالة العقدة الحقيقية: العقدة هي التي ترسل بياناتها كل عشر ثوانٍ، والخادم لا يتصل بها أبداً. الصفحة للعرض فقط — لا تشغّل أوامر ولا تعدّل شيئاً. وأي قيمة لا تستطيع العقدة قياسها تظهر <span dir="ltr">N/A</span> ولا تُخمَّن. وإذا انقطع النبض تُحتسب الحالة من جديد داخل المتصفح، فلا يمكن لملف قديم أن يُظهر العقدة سليمة وهي متوقفة.</p>
+  </section>
+
+  <div id="haddad-body"></div>
+</main>
+
+<footer class="site">
+  <div class="container cols">
+    <span>MYTHOS Status Center — AI nodes. This console is read-only and cannot reach a node.
+      Data model: <a href="../data/haddad-node.json" class="mono">data/haddad-node.json</a> ·
+      source <span class="mono">projects/status-center/haddad/</span></span>
+    <span>&#169; MYTHOS</span>
+  </div>
+</footer>
+
+<script src="../assets/haddad.js"></script>
+<script src="../assets/haddad-console.js"></script>
+</body>
+</html>

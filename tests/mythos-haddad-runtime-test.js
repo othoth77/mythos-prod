@@ -1,0 +1,831 @@
+'use strict';
+// =====================================================
+// MYTHOS HADDAD — HAD-2 local AI runtime invariants
+// tests/mythos-haddad-runtime-test.js
+//
+// Machine-independent, like tests/mythos-haddad-v0-test.js: validates the
+// HAD-2 tooling itself (syntax, safety properties, documentation), not
+// live GPU/model state — that is haddad-health.js's ai_runtime check,
+// verified on the machine and recorded in docs/AI_RUNTIME.md.
+//   * every new script/source file parses;
+//   * no sudo anywhere (this install needed none — see docs/AI_RUNTIME.md,
+//     "Why a loader shim exists" — a real, host-verified constraint, not a
+//     shortcut) and no host-key-check bypass;
+//   * the model installer pins by sha256 and never installs a second model;
+//   * the loader shim is glue only: no llama.cpp/ggml source is vendored;
+//   * the systemd unit is loopback-bound, token-required, and repeats none
+//     of the user-scope-fatal directives V0/other Mythos units already hit;
+//   * the free-LLM catalog and production orchestration are untouched;
+//   * haddad-health.js gained exactly one new, well-formed check.
+// =====================================================
+var assert = require('assert');
+var cp = require('child_process');
+var fs = require('fs');
+var path = require('path');
+
+var DIR = path.join(__dirname, '..', 'projects', 'mythos-haddad');
+var BIN = path.join(DIR, 'bin');
+var pass = 0, fail = 0;
+function t(name, fn) { try { fn(); pass++; console.log('ok - ' + name); } catch (e) { fail++; console.log('not ok - ' + name + '\n  ' + (e && e.message)); } }
+function read(rel) { return fs.readFileSync(path.join(DIR, rel), 'utf8'); }
+function run(cmd, args, opts) { return cp.spawnSync(cmd, args, Object.assign({ encoding: 'utf8', timeout: 60000 }, opts || {})); }
+
+var NEW_SCRIPTS = ['haddad-runtime-install.sh', 'haddad-model-install.sh', 'haddad-runtime-setup.sh', 'haddad-gpu-vram.py'];
+
+t('every new HAD-2 script exists, is executable and parses', function () {
+  NEW_SCRIPTS.forEach(function (s) {
+    var p = path.join(BIN, s);
+    assert.ok(fs.statSync(p).mode & 0o100, s + ' is executable');
+    var r = /\.sh$/.test(s) ? run('bash', ['-n', p]) : run('python3', ['-c', 'import ast,sys; ast.parse(open(sys.argv[1]).read())', p]);
+    assert.strictEqual(r.status, 0, s + ': ' + r.stderr);
+  });
+});
+
+t('the loader shim source compiles (glue only — no llama.cpp/ggml code vendored)', function () {
+  var src = read('src/backend-loader-shim.c');
+  assert.ok(src.length < 3000, 'shim stays tiny (glue, not a reimplementation): ' + src.length + ' bytes');
+  ['ggml_compute', 'ggml_tensor', 'llama_model', 'llama_context', 'GGML_TYPE_'].forEach(function (marker) {
+    assert.ok(src.indexOf(marker) === -1, 'shim does not reference internal ggml/llama.cpp types (' + marker + ')');
+  });
+  assert.ok(/ggml_backend_load\s*\(/.test(src), 'shim calls the one public entry point it exists to call');
+  var tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'haddad-shim-'));
+  var out = path.join(tmp, 'test.so');
+  var r = run('gcc', ['-shared', '-fPIC', '-o', out, path.join(DIR, 'src', 'backend-loader-shim.c'), '-Wl,--no-undefined=false']);
+  // Linking against the real libggml.so is exercised by haddad-runtime-install.sh on the
+  // target host; here we only need the C source itself to be syntactically valid.
+  var compileOnly = run('gcc', ['-fsyntax-only', path.join(DIR, 'src', 'backend-loader-shim.c')]);
+  assert.strictEqual(compileOnly.status, 0, 'shim source has no syntax errors: ' + compileOnly.stderr);
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+t('tooling is user-level: no sudo execution, no host key check bypass', function () {
+  NEW_SCRIPTS.concat(['haddad-health.js']).forEach(function (s) {
+    var heredoc = null;
+    read('bin/' + s).split('\n').forEach(function (line, i) {
+      if (heredoc) { if (line.trim() === heredoc) heredoc = null; return; }
+      var m = /<<-?\s*['"]?([A-Za-z_]+)['"]?\s*$/.exec(line); if (m) heredoc = m[1];
+      var code = line.replace(/#.*$/, '').replace(/say ".*$/, '');
+      assert.ok(!/(^|[\s;&|(])sudo\s/.test(code), s + ':' + (i + 1) + ' executes sudo');
+      assert.ok(!/StrictHostKeyChecking\s*=?\s*no|UserKnownHostsFile\s*=?\s*\/dev\/null/i.test(line), s + ':' + (i + 1) + ' weakens host key checking');
+    });
+  });
+});
+
+t('model installer pins by sha256 and never installs a second model', function () {
+  var src = read('bin/haddad-model-install.sh');
+  assert.ok(/qwen2\.5-7b-instruct-q4_k_m/.test(src), 'names the one pinned model');
+  var shaMatches = src.match(/\["[^"]+"\]="[0-9a-f]{64}"/g) || [];
+  assert.strictEqual(shaMatches.length, 2, 'exactly two pinned shards (one split model), got ' + shaMatches.length);
+  shaMatches.forEach(function (m) { assert.ok(/"[0-9a-f]{64}"$/.test(m), 'pin is a real 64-hex-char sha256, not a placeholder: ' + m); });
+  assert.ok(/sha256sum|sha_of/.test(src), 'verifies by computing sha256 locally, not by trusting a header');
+  assert.ok(!/qwen2\.5-1\.5b|qwen2\.5-14b|qwen2\.5-32b|llama-3|mistral-7b/i.test(src), 'no second model name present');
+});
+
+t('the loader shim is documented as a workaround, with the verified evidence for why', function () {
+  var doc = read('docs/AI_RUNTIME.md');
+  ['unshare --user', 'bwrap', 'LD_PRELOAD', 'ENOENT', 'GGML_BACKEND_PATH'].forEach(function (marker) {
+    assert.ok(doc.indexOf(marker) !== -1, 'AI_RUNTIME.md documents ' + marker);
+  });
+});
+
+t('systemd unit: loopback-bound, token-required, avoids known user-scope-fatal directives', function () {
+  var svc = read('systemd/mythos-haddad-runtime.service');
+  // Directive checks must look only at active (non-comment) lines — the unit's header
+  // comment deliberately documents each excluded directive BY NAME, so a raw substring
+  // match against the whole file would false-positive on the documentation itself.
+  var active = svc.split('\n').filter(function (l) { return !/^\s*#/.test(l); }).join('\n');
+
+  assert.ok(/--host 127\.0\.0\.1/.test(active), 'binds loopback only');
+  assert.ok(!/--host 0\.0\.0\.0/.test(active), 'never binds all interfaces');
+  assert.ok(/--api-key-file/.test(active), 'requires an API key');
+  assert.ok(!/PrivateDevices\s*=\s*yes/i.test(active), 'PrivateDevices would hide the GPU render node');
+  assert.ok(!/MemoryDenyWriteExecute\s*=\s*yes/i.test(active), 'MemoryDenyWriteExecute breaks the Vulkan JIT');
+  ['ProtectKernelTunables', 'ProtectKernelModules', 'ProtectControlGroups', 'ProtectClock', 'RestrictNamespaces'].forEach(function (d) {
+    assert.ok(!new RegExp('^' + d + '\\s*=', 'm').test(active), d + ' fails a systemd --user manager (status=218/CAPABILITIES)');
+  });
+  assert.ok(!/SystemCallFilter\s*=\s*~@privileged\s+@resources/.test(active), '~@resources killed the Vulkan driver with SIGSYS on this host — must not come back');
+  assert.ok(/MemoryMax\s*=/.test(active) && /OOMScoreAdjust\s*=/.test(active), 'has resource ceilings on an 8 GB shared machine');
+
+  // The comment must still document every excluded directive by name — that's the whole
+  // point of this file's convention (see V0's systemd units) — so check the full text here.
+  ['PrivateDevices=yes', 'MemoryDenyWriteExecute=yes', 'ProtectKernelTunables'].forEach(function (d) {
+    assert.ok(svc.indexOf(d) !== -1, 'header explains why ' + d + ' is excluded');
+  });
+});
+
+// SCOPE GUARD. A Haddad stage must never reach into production
+// orchestration. The guard reads the BRANCH's diff, so it must also know
+// whose diff it is reading: a branch that changes nothing under
+// projects/mythos-haddad/ is not a Haddad stage, and refusing its executor
+// changes makes this file veto unrelated core work. It did exactly that —
+// a core branch that legitimately changed core/validation.js and touched no
+// Haddad file at all failed here. So the guard applies to Haddad branches
+// only, and for those it refuses precisely what it always refused.
+//
+// HAD-3 legitimately adds ONE additive entry to config/projects.json (the
+// Haddad project registration) with owner approval — see
+// projects/mythos-haddad/docs/GITHUB_WORKER.md. It is named explicitly so
+// the guard stays sharp: everything else under core/, lib/, providers/ and
+// free-llm/ is still refused, which is what this test exists to protect.
+var ALLOWED = [
+  'projects/mythos-ai-executor/config/projects.json',
+  // HAD-4 (PR #365): the Haddad-side provider and what it calls — the one
+  // stage whose purpose IS an executor provider. Each is covered by
+  // tests/mythos-haddad-tool-runner-test.js / -supervised-loop-test.js;
+  // anything else under the protected trees still fails this guard.
+  'projects/mythos-ai-executor/providers/haddad-agent.js',
+  'projects/mythos-ai-executor/lib/work-validation.js',
+  'projects/mythos-ai-executor/lib/policy.js',
+  'projects/mythos-ai-executor/free-llm/adapter.js',
+  // V2.1 (AI team foundation): the stage whose purpose IS to register the
+  // Haddad worker as an agent with roles. The registry entry, its probe, the
+  // role table and the library that validates it — each named, each covered
+  // by tests/mythos-haddad-ai-team-test.js. Everything else under the
+  // protected trees still fails this guard, which is the point of naming
+  // them rather than widening the pattern.
+  'projects/mythos-ai-executor/config/agents.json',
+  'projects/mythos-ai-executor/config/roles.json',
+  'projects/mythos-ai-executor/lib/roles.js',
+  'projects/mythos-ai-executor/core/agent-registry.js',
+  // V2.3 (resource awareness): the GPU occupancy signal and the one
+  // function in the guard that consults it. The guard change is additive and
+  // opt-in (`admission(status, {needs_gpu})`, default false), so nothing
+  // that called it before behaves differently.
+  'projects/mythos-ai-executor/lib/gpu-slots.js',
+  'projects/mythos-ai-executor/lib/resource-guard.js'
+];
+var PROTECTED = /^projects\/mythos-ai-executor\/(core|lib|providers|free-llm|config)\//;
+
+function isHaddadBranch(files) {
+  return files.some(function (f) { return /^projects\/mythos-haddad\//.test(f); });
+}
+
+function forbiddenExecutorFiles(files) {
+  if (!isHaddadBranch(files)) return [];   // not a Haddad stage — not this guard's business
+  return files.filter(function (f) { return ALLOWED.indexOf(f) === -1 && PROTECTED.test(f); });
+}
+
+t('production orchestration and the free-LLM catalog are untouched', function () {
+  var repoRoot = path.join(__dirname, '..');
+  var diff = run('git', ['diff', '--name-only', 'origin/main...HEAD'], { cwd: repoRoot });
+  if (diff.status !== 0 || !diff.stdout.trim()) return; // not in a git checkout with origin/main, or nothing to compare — skip
+  var offenders = forbiddenExecutorFiles(diff.stdout.trim().split('\n'));
+  assert.strictEqual(offenders.join(', '), '',
+    'HAD-2 does not touch orchestration/provider code: ' + offenders.join(', '));
+});
+
+t('the scope guard is scoped to Haddad branches and still bites', function () {
+  assert.deepStrictEqual(
+    forbiddenExecutorFiles(['projects/mythos-ai-executor/core/validation.js', 'tests/some-core-test.js']), [],
+    'a branch that touches no Haddad file is not judged by this guard');
+  assert.deepStrictEqual(
+    forbiddenExecutorFiles(['projects/mythos-haddad/lib/haddad-runtime.js', 'docs/AI_RUNTIME.md']), [],
+    'a Haddad branch that stays inside its own tree passes');
+  assert.deepStrictEqual(
+    forbiddenExecutorFiles(['projects/mythos-haddad/lib/haddad-runtime.js',
+      'projects/mythos-ai-executor/core/validation.js']),
+    ['projects/mythos-ai-executor/core/validation.js'],
+    'a Haddad branch that reaches into production orchestration still FAILS');
+  assert.deepStrictEqual(
+    forbiddenExecutorFiles(['projects/mythos-haddad/docs/GITHUB_WORKER.md',
+      'projects/mythos-ai-executor/config/projects.json']), [],
+    'the one owner-approved HAD-3 registration stays allow-listed');
+  // The property this pins is per-FILE allow-listing, not per-directory. Its
+  // example used to be config/agents.json; V2.1 allow-listed that file by
+  // name (the agent registration IS that stage), so the example moves to a
+  // config file no stage has named. The property is unchanged.
+  assert.deepStrictEqual(
+    forbiddenExecutorFiles(['projects/mythos-haddad/x.md', 'projects/mythos-ai-executor/config/model-policy.json']),
+    ['projects/mythos-ai-executor/config/model-policy.json'],
+    'the allow-list is one FILE, not the whole config directory');
+  assert.deepStrictEqual(
+    forbiddenExecutorFiles(['projects/mythos-haddad/x.md', 'projects/mythos-ai-executor/core/scheduler.js']),
+    ['projects/mythos-ai-executor/core/scheduler.js'],
+    'naming one file under core/ did not open core/ — the scheduler is still refused');
+});
+
+t('haddad-health.js gained exactly one new, well-formed check (ai_runtime)', function () {
+  var src = read('bin/haddad-health.js');
+  var ids = (src.match(/^check\('([a-z_]+)'/gm) || []).map(function (m) { return m.match(/'([a-z_]+)'/)[1]; });
+  assert.ok(ids.indexOf('ai_runtime') !== -1, 'ai_runtime check present');
+  assert.strictEqual(ids.filter(function (i) { return i === 'ai_runtime'; }).length, 1, 'defined exactly once');
+  // WARN (not FAIL) when the optional unit isn't installed — V0-only hosts must stay green.
+  assert.ok(/not installed \(optional, HAD-2/.test(src), 'absent runtime is WARN, not FAIL');
+});
+
+
+// ── ai_runtime readiness states ────────────────────────────────────
+// Drives the REAL check with systemctl and curl stubbed on PATH, so the
+// three states can be asserted without restarting the live runtime (which
+// is answering E2E traffic) and without waiting for a cold boot. Only
+// those two binaries are shadowed; everything else resolves normally.
+function runAiRuntime(opts) {
+  var tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'haddad-ready-'));
+  var stub = path.join(tmp, 'stub');
+  fs.mkdirSync(stub, { recursive: true });
+  fs.mkdirSync(path.join(tmp, '.config', 'systemd', 'user'), { recursive: true });
+  fs.mkdirSync(path.join(tmp, '.config', 'mythos-haddad'), { recursive: true });
+  fs.writeFileSync(path.join(tmp, '.config', 'systemd', 'user', 'mythos-haddad-runtime.service'), '# stub\n');
+  fs.writeFileSync(path.join(tmp, '.config', 'mythos-haddad', 'runtime.key'), 'test-key\n');
+
+  // `show` prints the properties the check asks for; `is-active` prints the
+  // state. Anything else answers empty, as systemctl would for a stub host.
+  var activeSince = new Date(Date.now() - opts.active_for_s * 1000).toUTCString().replace('GMT', 'UTC');
+  fs.writeFileSync(path.join(stub, 'systemctl'),
+    '#!/bin/sh\n' +
+    'case " $* " in\n' +
+    '  *" is-active "*) echo "' + opts.active + '" ;;\n' +
+    '  *" show "*) echo "ActiveEnterTimestamp=' + activeSince + '"; echo "TimeoutStartUSec=' + opts.budget + '";' +
+    (opts.exec_start === undefined ? ' echo "ExecStart={ argv[]=/usr/bin/llama-server --n-gpu-layers auto ; }"' :
+      opts.exec_start === null ? '' : ' echo "ExecStart=' + opts.exec_start + '"') + ' ;;\n' +
+    '  *) echo "" ;;\n' +
+    'esac\nexit 0\n', { mode: 0o755 });
+  // The check asks curl for the body plus "\n%{http_code}"; reproduce both.
+  fs.writeFileSync(path.join(stub, 'curl'),
+    '#!/bin/sh\nprintf \'%s\\n%s\' \'' + opts.body.replace(/'/g, "'\\''") + '\' \'' + opts.code + '\'\nexit 0\n', { mode: 0o755 });
+  // The GPU-offload assertion reads llama-server's load accounting through
+  // haddad-telemetry.js's parser, which shells out to journalctl. Feed it a
+  // recorded boot so the assertion is tested against what the machine really
+  // printed, not against a paraphrase of it.
+  if (opts.journal !== undefined) {
+    fs.writeFileSync(path.join(stub, 'journalctl'),
+      '#!/bin/sh\ncat <<\'JEOF\'\n' + opts.journal + '\nJEOF\nexit 0\n', { mode: 0o755 });
+  }
+
+  var r = cp.spawnSync(process.execPath, [path.join(BIN, 'haddad-health.js'), '--quick', '--json', '--no-log'],
+    { encoding: 'utf8', timeout: 180000,
+      env: Object.assign({}, process.env, { HOME: tmp, PATH: stub + ':' + process.env.PATH,
+        HADDAD_STATE_DIR: path.join(tmp, 'state'), HADDAD_DATA_DIR: path.join(tmp, 'data') }) });
+  var rep = JSON.parse(r.stdout);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  return rep.checks.filter(function (c) { return c.id === 'ai_runtime'; })[0];
+}
+
+var CPU_ONLY_BOOT = fs.readFileSync(path.join(__dirname, 'fixtures', 'haddad-runtime-cpu-only-boot.txt'), 'utf8').trim();
+var GPU_BOOT = [
+  '2026-09-22T22:40:52+00:00  load_backend: loaded Vulkan backend from /home/othman/.local/share/mythos-haddad/runtime/llama.cpp/usr/lib/x86_64-linux-gnu/ggml/backends0/libggml-vulkan.so',
+  '2026-09-22T22:41:20+00:00  llama_params_fit_impl: projected to use 4920 MiB of device memory vs. 5755 MiB of free device memory',
+  '2026-09-22T22:41:20+00:00  llama_model_load_from_file_impl: using device Vulkan0 (NVIDIA GeForce GTX 1660 SUPER (NVK TU116)) (0000:29:00.0) - 5755 MiB free',
+  '2026-09-22T22:41:21+00:00  load_tensors: offloaded 27/29 layers to GPU',
+  '2026-09-22T22:41:21+00:00  load_tensors:      Vulkan0 model buffer size =  3883.68 MiB',
+  '2026-09-22T22:42:54+00:00  main: server is listening on http://127.0.0.1:8600'
+].join('\n');
+
+var LOADING = '{"error":{"message":"Loading model","type":"unavailable_error","code":503}}';
+var LOADED = '{"object":"list","data":[{"id":"qwen2.5-7b-instruct-q4_k_m.gguf"}]}';
+
+t('ai_runtime state 1: unit installed but not active is a FAIL at any age', function () {
+  var c = runAiRuntime({ active: 'inactive', active_for_s: 5, budget: '10min', code: 200, body: LOADED });
+  assert.strictEqual(c.status, 'FAIL', 'a stopped runtime never gets startup grace');
+  assert.ok(/not active/.test(c.detail), c.detail);
+});
+
+t('ai_runtime state 2: "Loading model" INSIDE the startup budget is a readiness state, not a failure', function () {
+  // The real 2026-09-22 post-reboot case: active 183 s, budget 10 min, 503.
+  var c = runAiRuntime({ active: 'active', active_for_s: 183, budget: '10min', code: 503, body: LOADING });
+  assert.strictEqual(c.status, 'WARN', 'a normal boot must not be reported as FAIL');
+  assert.ok(/STARTING/.test(c.detail), c.detail);
+  assert.ok(/Loading model/.test(c.detail), 'the runtime\'s own reason is carried through');
+  assert.strictEqual(c.data.ready, false, 'WARN never claims the model is ready');
+  assert.strictEqual(c.data.starting, true);
+});
+
+t('ai_runtime state 2 expires: the SAME 503 PAST the budget is a real FAIL', function () {
+  var c = runAiRuntime({ active: 'active', active_for_s: 601, budget: '10min', code: 503, body: LOADING });
+  assert.strictEqual(c.status, 'FAIL', 'readiness grace is bounded, not indefinite');
+  assert.ok(!/STARTING/.test(c.detail), c.detail);
+  assert.strictEqual(c.data.starting, false);
+});
+
+t('ai_runtime grace needs a known clock AND a known budget — never assumed', function () {
+  var c = runAiRuntime({ active: 'active', active_for_s: 10, budget: 'infinity', code: 503, body: LOADING });
+  assert.strictEqual(c.status, 'FAIL', 'an unbounded budget buys no grace');
+  var d = runAiRuntime({ active: 'active', active_for_s: 10, budget: '', code: 503, body: LOADING });
+  assert.strictEqual(d.status, 'FAIL', 'an unreadable budget buys no grace');
+});
+
+t('ai_runtime state 3: only a real model answer is a PASS', function () {
+  // GPU_BOOT is defined below; a model that answers is necessary but, since
+  // the offload assertion, no longer sufficient — see the GPU section.
+  var c = runAiRuntime({ active: 'active', active_for_s: 5, budget: '10min', code: 200, body: LOADED, journal: GPU_BOOT });
+  assert.strictEqual(c.status, 'PASS');
+  assert.strictEqual(c.data.ready, true);
+  assert.ok(/qwen2\.5-7b/.test(c.detail), c.detail);
+  // An empty model list inside the window is STARTING, never PASS.
+  var d = runAiRuntime({ active: 'active', active_for_s: 5, budget: '10min', code: 200, body: '{"object":"list","data":[]}', journal: GPU_BOOT });
+  assert.strictEqual(d.status, 'WARN');
+  assert.strictEqual(d.data.ready, false);
+});
+
+// ── the CAUSE: the unit starts before it can open the render node ──
+// The offload assertion above makes the CPU fallback loud. It does not stop
+// it happening. This is what stops it happening.
+t('the runtime unit waits for a render node it can OPEN before starting llama-server', function () {
+  var svc = read('systemd/mythos-haddad-runtime.service');
+  var pre = svc.split('\n').filter(function (l) { return /^ExecStartPre=/.test(l); });
+  assert.strictEqual(pre.length, 2, 'an existence grace and a readability wait');
+  pre.forEach(function (l) {
+    assert.ok(/^ExecStartPre=-/.test(l), 'prefixed `-`: a timeout must never keep the runtime down: ' + l);
+    assert.ok(/\/usr\/bin\/timeout \d+/.test(l), 'every wait is bounded: ' + l);
+    // systemd expands $NAME in Exec lines itself, so a shell variable here
+    // would be eaten before /bin/sh ever saw it.
+    assert.strictEqual(l.indexOf('$'), -1, 'no shell variable in an Exec line: ' + l);
+  });
+  // Readability, not existence: the node was THERE the whole time on
+  // 2026-09-22: what arrived 83 s late was the logind seat ACL that let this
+  // user open it. Waiting for the file to appear would have waited for
+  // nothing and changed nothing.
+  assert.ok(/test -r \/dev\/dri\/renderD128/.test(pre[1]),
+    'the wait is on READABILITY (the seat ACL), not on the node merely existing');
+  assert.ok(/while test -e \/dev\/dri\/renderD128 &&/.test(pre[1]),
+    'a host with no render node at all falls straight through instead of waiting out the bound');
+
+  // The waits run while the unit is still activating, so they must stay well
+  // inside the startup budget haddad-health.js reads back from this unit.
+  var bound = pre.reduce(function (n, l) { return n + parseInt(/timeout (\d+)/.exec(l)[1], 10); }, 0);
+  var budget = parseInt(/^TimeoutStartSec=(\d+)$/m.exec(svc)[1], 10);
+  assert.ok(bound + 208 < budget,
+    'waits (' + bound + 's) plus the measured 208 s cold start must fit the ' + budget + 's budget');
+});
+
+t('the unit records the race it fixes, with the measurement and why there is nothing to order against', function () {
+  var svc = read('systemd/mythos-haddad-runtime.service');
+  ['ggml_vulkan: No devices found', '83 s', 'render', 'graphical-session.target', 'ACL'].forEach(function (m) {
+    assert.ok(svc.indexOf(m) !== -1, 'the header documents ' + m);
+  });
+  // After=network.target survives, but a reader must not mistake it for the
+  // thing that fixed this: it does not resolve in a --user manager here.
+  assert.ok(/network\.target/.test(svc.split('[Service]')[0]), 'After=network.target is still declared');
+  assert.ok(/does not\n# exist/.test(svc), 'and is recorded as inert in a --user manager on this host');
+
+  // The operator-facing account lives in the doc, per this file's convention.
+  var doc = read('docs/AI_RUNTIME.md');
+  ['ggml_vulkan: No devices found', 'renderD128', 'ExecStartPre', '_SYSTEMD_INVOCATION_ID', '2.902 s'].forEach(function (m) {
+    assert.ok(doc.indexOf(m) !== -1, 'AI_RUNTIME.md documents ' + m);
+  });
+  assert.ok(/no NVIDIA\n\*\*proprietary driver|proprietary driver and no `nvidia-smi`/.test(doc),
+    'and states that no proprietary driver or nvidia-smi is involved');
+});
+
+// ── the remaining way the assertion could be fooled ────────────────
+t('the load journal is read for THIS instance, not a 60 s window around it', function () {
+  // The hole: --since (ActiveEnterTimestamp - 60s) has no upper bound and the
+  // parser walks backwards to the newest match, so a restart inside that
+  // slack lets the PREVIOUS instance's "offloaded 27/29" vouch for a new
+  // CPU-only one — reintroducing the exact false PASS being fixed.
+  var tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'haddad-window-'));
+  var stub = path.join(tmp, 'bin');
+  fs.mkdirSync(stub, { recursive: true });
+  var argvLog = path.join(tmp, 'argv.txt');
+  fs.writeFileSync(path.join(stub, 'journalctl'),
+    '#!/bin/sh\necho "$@" >> ' + argvLog + '\ncat <<\'JEOF\'\n' + GPU_BOOT + '\nJEOF\nexit 0\n', { mode: 0o755 });
+
+  function callWith(id) {
+    fs.rmSync(argvLog, { force: true });
+    var r = cp.spawnSync(process.execPath, ['-e',
+      'var a = require(process.argv[1]); a.runtimeLoadFacts(process.argv[2], process.argv[3] || null);',
+      path.join(BIN, 'haddad-telemetry.js'), 'Tue 2026-09-22 22:40:46 UTC', id || ''],
+      { encoding: 'utf8', timeout: 30000,
+        env: Object.assign({}, process.env, { PATH: stub, HADDAD_STATE_DIR: path.join(tmp, 'state-' + (id || 'none')) }) });
+    assert.strictEqual(r.status, 0, r.stderr);
+    return fs.readFileSync(argvLog, 'utf8');
+  }
+
+  var INV = 'bc120b00b76b4f14b100f21fc320925b';   // a real InvocationID from this host
+  var scoped = callWith(INV);
+  assert.ok(scoped.indexOf('_SYSTEMD_INVOCATION_ID=' + INV) !== -1, 'the instance scopes the read: ' + scoped);
+  assert.strictEqual(scoped.indexOf('--since'), -1, 'and replaces the slack window rather than adding to it');
+  assert.strictEqual(scoped.indexOf('-u mythos-haddad-runtime.service'), -1,
+    'the match is already unit-scoped — the invocation belongs to exactly one unit');
+
+  // No id (an older caller, or systemd not answering): the timestamp window
+  // must still work, or the parser would go blind instead of degrading.
+  var fallback = callWith(null);
+  assert.ok(fallback.indexOf('--since') !== -1, 'without an id it falls back to the timestamp window: ' + fallback);
+  assert.ok(fallback.indexOf('-u mythos-haddad-runtime.service') !== -1, 'and re-adds the unit filter it then needs');
+
+  // A malformed id never reaches a command line.
+  var junk = callWith('not-an-invocation-id; rm -rf /');
+  assert.strictEqual(junk.indexOf('_SYSTEMD_INVOCATION_ID'), -1, 'a malformed id is refused, not passed through');
+  assert.ok(junk.indexOf('--since') !== -1, 'and it degrades to the fallback window');
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+t('both callers ask systemd for the instance id they pass down', function () {
+  var health = read('bin/haddad-health.js');
+  assert.ok(/'-p', 'InvocationID'/.test(health), 'ai_runtime asks for InvocationID');
+  assert.ok(/runtimeLoadFacts\([^)]*props\.InvocationID/.test(health), 'and hands it to the parser');
+  var tel = read('bin/haddad-telemetry.js');
+  assert.ok(/'-p', 'InvocationID'/.test(tel), 'the telemetry agent asks for it too');
+  assert.ok(/runtimeLoadFacts\(activeSince, unitProps\.InvocationID/.test(tel), 'and hands it down as well');
+  // The cache is keyed on the instance, or a restart inside the same second
+  // would serve the previous instance's facts from disk.
+  assert.ok(/runtime_invocation/.test(tel), 'the load-facts cache is keyed on the instance, not only its start time');
+});
+
+t('the runtime unit declares a startup budget above the MEASURED cold start', function () {
+  var svc = read('systemd/mythos-haddad-runtime.service');
+  var m = /^TimeoutStartSec=(\d+)$/m.exec(svc);
+  assert.ok(m, 'TimeoutStartSec is set — it is the readiness budget the health check reads back');
+  // Measured on this host 2026-09-22: active 22:14:53, model loaded 22:18:21.
+  assert.ok(parseInt(m[1], 10) >= 208, 'budget must exceed the 208 s cold start that produced the false FAIL');
+});
+
+// ── V2.4: the knowledge layer is reportable, not merely off ────────
+// config/knowledge.json promises that a host without the store "disables
+// itself fail-closed — a disabled layer is a normal, reportable state". It
+// was normal and it was NOT reportable: nothing on the node named the layer,
+// so "Haddad retrieves no knowledge" was invisible. These drive all four
+// states through the real check.
+function runKnowledge(config) {
+  var tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'haddad-know-'));
+  var cfgPath = path.join(tmp, 'knowledge.json');
+  fs.writeFileSync(cfgPath, typeof config === 'string' ? config : JSON.stringify(config));
+  var r = cp.spawnSync(process.execPath, [path.join(BIN, 'haddad-health.js'), '--quick', '--json', '--no-log'],
+    { encoding: 'utf8', timeout: 180000,
+      env: Object.assign({}, process.env, { HADDAD_KNOWLEDGE_CONFIG: cfgPath }) });
+  var rep = JSON.parse(r.stdout);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  return rep.checks.filter(function (c) { return c.id === 'knowledge'; })[0];
+}
+
+t('knowledge: a store this host cannot reach is reported, and is not an alarm', function () {
+  // The live V2.4 state on Haddad. Fail-closed is the documented design, so a
+  // WARN here would be a permanent false alarm — and a check that cries wolf
+  // on a correct configuration is one people stop reading.
+  var c = runKnowledge({ enabled: true, store_root: '/nonexistent/othk-store', description: 'x' });
+  assert.strictEqual(c.status, 'PASS', 'fail-closed by design is not a failure');
+  assert.strictEqual(c.data.available, false, 'but it never claims knowledge is available');
+  assert.strictEqual(c.data.configured, true, 'and it records that a store WAS asked for');
+  assert.ok(/\/nonexistent\/othk-store/.test(c.detail), 'the unreachable path is named: ' + c.detail);
+});
+
+t('knowledge: deliberately disabled is PASS and says so', function () {
+  var c = runKnowledge({ enabled: false, store_root: null, description: 'x' });
+  assert.strictEqual(c.status, 'PASS');
+  assert.strictEqual(c.data.configured, false, 'nothing was asked for');
+  assert.strictEqual(c.data.available, false);
+  assert.ok(/by design/.test(c.detail), c.detail);
+});
+
+t('knowledge: a config the host cannot honour is a FAIL, not a quiet nothing', function () {
+  // The distinction that matters: "no knowledge, as configured" versus "we
+  // cannot tell what was configured". The second is a defect and must not
+  // wear the same green as the first.
+  var bad = runKnowledge('{ this is not json');
+  assert.strictEqual(bad.status, 'FAIL', 'an unreadable config darkens the layer for a BAD reason');
+  assert.strictEqual(bad.data.valid, false);
+
+  var shaped = runKnowledge({ enabled: true, store_root: 'relative/path', description: 'x' });
+  assert.strictEqual(shaped.status, 'FAIL', 'a non-absolute store_root is a config defect');
+});
+
+t('knowledge: an open store reports the read-only surface, and only that', function () {
+  var store = fs.mkdtempSync(path.join(require('os').tmpdir(), 'othk-store-'));
+  var c = runKnowledge({ enabled: true, store_root: store, description: 'x' });
+  fs.rmSync(store, { recursive: true, force: true });
+  // Whether the service opens on an empty dir is the boundary's business, not
+  // this check's; either way it must never report available without one.
+  if (c.data.available) {
+    assert.ok(/read-only operations/.test(c.detail), c.detail);
+    assert.ok(c.data.read_ops > 0, 'the allowlisted read surface is counted');
+  } else {
+    assert.strictEqual(c.status, 'PASS', 'a store that will not open is still fail-closed, not an alarm');
+  }
+});
+
+t('knowledge: the check REUSES the executor boundary and reimplements none of it', function () {
+  var src = read('bin/haddad-health.js');
+  assert.ok(/mythos-ai-executor', 'lib', 'knowledge\.js'/.test(src), 'it requires the existing boundary');
+  // It must not grow its own copy of the config rules or the read allowlist.
+  assert.strictEqual(src.indexOf('store_root must be'), -1, 'no second copy of the config validation');
+  assert.strictEqual(src.indexOf('lookupProvenance'), -1, 'no second copy of the read allowlist');
+  assert.ok(/knowledge\.loadConfig\(/.test(src) && /knowledge\.openKnowledge\(/.test(src),
+    'both questions are asked of the boundary itself');
+});
+
+// ── V2.4 decision (a), as it applies to THIS host ─────────────────
+// Owner, 2026-09-23: the canonical OTHKM store stays on the VPS; Haddad
+// creates no local duplicate; where the canonical store is unreachable the
+// behaviour is fail-closed and documented. Recorded in
+// docs/KNOWLEDGE.md and master plan §23.
+//
+// The boundary's inertness is pinned in tests/othk-2w-executor-wiring-test.js
+// §8. What belongs HERE is the host-shaped half: a duplicate store does not
+// arrive by accident, it arrives by someone editing the config to point
+// somewhere local. These assertions make that edit fail a test rather than
+// pass unnoticed.
+t('V2.4(a): exactly one knowledge config, and it names the canonical VPS store', function () {
+  var REPO = path.join(__dirname, '..');
+  var cfgPath = path.join(REPO, 'projects', 'mythos-ai-executor', 'config', 'knowledge.json');
+  var cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+  assert.strictEqual(cfg.store_root, '/home/deploy/othk-store',
+    'the store_root must stay the canonical VPS path — a local path here IS the duplicate store decision (a) forbids');
+  assert.ok(path.isAbsolute(cfg.store_root), 'and absolute');
+  assert.ok(cfg.store_root.indexOf(REPO) !== 0, 'and outside this repository');
+
+  // A second config would be a second answer to "where does knowledge live".
+  var found = cp.execFileSync('find', [path.join(REPO, 'projects'), '-name', 'knowledge.json',
+    '-not', '-path', '*/node_modules/*'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+  assert.deepStrictEqual(found, [cfgPath], 'exactly one knowledge config in the tree: ' + found.join(', '));
+});
+
+t('V2.4(a): this host reports the layer fail-closed, and holds no local store', function () {
+  var REPO = path.join(__dirname, '..');
+  // Read through the real boundary, not by re-deriving the rule.
+  var knowledge = require(path.join(REPO, 'projects', 'mythos-ai-executor', 'lib', 'knowledge.js'));
+  var open = knowledge.openKnowledge();
+  assert.strictEqual(open.enabled, false,
+    'on this host the canonical store is unreachable, so the layer must be closed, not open');
+  assert.ok(/does not exist|unreadable|not a directory/.test(open.reason || ''),
+    'and the reason names the condition rather than being silent: ' + open.reason);
+
+  // The decision, checked against the filesystem: no local store materialised.
+  var cfg = knowledge.loadConfig();
+  assert.ok(!fs.existsSync(cfg.store_root), 'the canonical path is genuinely absent here — this is the fail-closed case, not a live one');
+});
+
+t('health reports a timed-out probe as a timeout, not as an absent binary', function () {
+  var src = read('bin/haddad-health.js');
+  assert.ok(/timed_out/.test(src), 'sh() distinguishes a killed child from a failed one');
+  assert.ok(/npm\.timed_out \? 'NOT MEASURED/.test(src), 'a timed-out npm is not reported as MISSING');
+});
+
+
+
+// ── ai_runtime GPU offload assertion ───────────────────────────────
+// The 2026-09-22 false PASS: the runtime answered /v1/models perfectly while
+// running entirely on CPU, and health reported 16/16 twice. gpu_test probes
+// the card in its own process, so it was also right, and also irrelevant.
+
+t('ai_runtime FAILS a runtime that answers perfectly but runs on CPU', function () {
+  // Verbatim from the real 22:14:53 boot: "ggml_vulkan: No devices found",
+  // no "offloaded" line anywhere, and the model still answers /v1/models.
+  var c = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min',
+    code: 200, body: LOADED, journal: CPU_ONLY_BOOT });
+  assert.strictEqual(c.status, 'FAIL', 'a CPU-only runtime must not pass');
+  assert.ok(/running ON CPU/.test(c.detail), c.detail);
+  assert.ok(/found no GPU device/.test(c.detail), c.detail);
+  assert.strictEqual(c.data.no_devices, true);
+  assert.ok(/systemctl --user restart/.test(c.detail), 'the failure says what to do about it');
+});
+
+t('"loaded Vulkan backend" is NOT accepted as evidence of a GPU', function () {
+  // That line is present in the CPU-only fixture. Loading the backend is not
+  // using it, and matching it would re-create the exact bug being fixed.
+  assert.ok(/loaded Vulkan backend/.test(CPU_ONLY_BOOT), 'the fixture really does contain the trap line');
+  var c = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min',
+    code: 200, body: LOADED, journal: CPU_ONLY_BOOT });
+  assert.strictEqual(c.status, 'FAIL', 'the trap line did not buy a PASS');
+});
+
+t('ai_runtime PASSES on real offload, and reports the layer count', function () {
+  var c = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min',
+    code: 200, body: LOADED, journal: GPU_BOOT });
+  assert.strictEqual(c.status, 'PASS');
+  assert.strictEqual(c.data.gpu_layers, 27);
+  assert.strictEqual(c.data.gpu_layers_total, 29);
+  assert.strictEqual(c.data.no_devices, false);
+  assert.ok(/27\/29 layers on the GPU/.test(c.detail), c.detail);
+});
+
+t('unverifiable offload is WARN — never PASS, never invented', function () {
+  // An empty journal window: the model answers, but nothing proves where from.
+  var c = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min',
+    code: 200, body: LOADED, journal: '' });
+  assert.strictEqual(c.status, 'WARN', 'unproven is not proven-good');
+  assert.ok(/NOT VERIFIED/.test(c.detail), c.detail);
+  assert.strictEqual(c.data.gpu_layers, null);
+  assert.notStrictEqual(c.data.no_devices, false, 'silence is never read as "a device was found"');
+});
+
+t('offload evidence comes from the EXISTING telemetry parser, not a second one', function () {
+  var health = read('bin/haddad-health.js');
+  assert.ok(/require\('\.\/haddad-telemetry\.js'\)\.runtimeLoadFacts/.test(health),
+    'health reuses runtimeLoadFacts rather than parsing the journal itself');
+  // No GPU subsystem of its own: the assertion must not shell out to a probe.
+  // Read the CODE, not the commentary: this file documents by name the probes
+  // it deliberately does NOT run, and a comment saying so must not read as a
+  // violation of the rule it is explaining.
+  var block = health.slice(health.indexOf("check('ai_runtime'"), health.indexOf("check('worker'"));
+  var code = block.split('\n').filter(function (l) { return !/^\s*\/\//.test(l); }).join('\n');
+  // Invocation, not mention: "journalctl --user -u ..." also appears inside a
+  // FAIL message as the command the OPERATOR should run, which is a hint, not
+  // a probe. Match the way this file actually starts a process — sh('<name>').
+  ['nvidia-smi', 'gpu-vulkan-test', 'haddad-gpu-vram', 'vulkaninfo', 'journalctl', 'python3'].forEach(function (p) {
+    assert.ok(code.indexOf("sh('" + p + "'") === -1,
+      'ai_runtime must not run ' + p + ' — it reads what the runtime already logged');
+  });
+  // ...and the only processes it does start are the two it needs.
+  var spawned = (code.match(/sh\('([a-z0-9_.-]+)'/g) || []).map(function (m) { return m.slice(4, -1); });
+  spawned.forEach(function (c) {
+    assert.ok(c === 'systemctl' || c === 'curl', 'ai_runtime starts only systemctl and curl, not ' + c);
+  });
+});
+
+t('the telemetry parser distinguishes no-device from unknown (tri-state)', function () {
+  var src = fs.readFileSync(path.join(BIN, 'haddad-telemetry.js'), 'utf8');
+  assert.ok(/no_devices: null/.test(src), 'no_devices starts unknown, not false');
+  assert.ok(/no devices with dedicated memory found/.test(src), 'the real second marker is matched too');
+  assert.ok(/runtimeLoadFacts: runtimeLoadFacts/.test(src), 'exported for reuse');
+});
+
+
+t('a unit that asked for CPU is not failed for using CPU', function () {
+  // --n-gpu-layers 0 is an operator saying "CPU on purpose". Failing that
+  // host would be this check inventing a policy nobody set.
+  var c = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 200, body: LOADED,
+    journal: CPU_ONLY_BOOT, exec_start: '{ argv[]=/usr/bin/llama-server --n-gpu-layers 0 ; }' });
+  assert.strictEqual(c.status, 'PASS', 'an explicit CPU-only unit passes on CPU');
+  assert.strictEqual(c.data.gpu_intended, false);
+  assert.ok(/CPU-only by configuration/.test(c.detail), c.detail);
+});
+
+t('only an EXPLICIT opt-out disarms the assertion — silence never does', function () {
+  // The asymmetry that matters: a missing flag must NOT read as "CPU
+  // intended", or this unit could lose its GPU assertion by losing a line.
+  var noFlag = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 200, body: LOADED,
+    journal: CPU_ONLY_BOOT, exec_start: '{ argv[]=/usr/bin/llama-server --ctx-size 8192 ; }' });
+  assert.strictEqual(noFlag.status, 'FAIL', 'no --n-gpu-layers flag still asserts the GPU');
+  assert.strictEqual(noFlag.data.gpu_intended, true);
+
+  var unreadable = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 200, body: LOADED,
+    journal: CPU_ONLY_BOOT, exec_start: null });
+  assert.strictEqual(unreadable.status, 'FAIL', 'an unreadable ExecStart never softens a real regression');
+  assert.strictEqual(unreadable.data.gpu_intended, true);
+
+  // ...and a non-zero value obviously keeps it armed.
+  var auto = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 200, body: LOADED,
+    journal: CPU_ONLY_BOOT, exec_start: '{ argv[]=/usr/bin/llama-server --n-gpu-layers auto ; }' });
+  assert.strictEqual(auto.status, 'FAIL', '--n-gpu-layers auto means the GPU is expected');
+});
+
+t('a CPU-only unit still has to actually answer', function () {
+  // Opting out of the GPU does not opt out of the readiness contract.
+  var c = runAiRuntime({ active: 'active', active_for_s: 900, budget: '10min', code: 503, body: LOADING,
+    journal: CPU_ONLY_BOOT, exec_start: '{ argv[]=/usr/bin/llama-server --n-gpu-layers 0 ; }' });
+  assert.strictEqual(c.status, 'FAIL', 'a stuck CPU-only runtime is still a failure');
+});
+
+
+t('claude_code resolves the way the UNITS do, not the way the caller was launched', function () {
+  var src = read('bin/haddad-health.js');
+  var block = src.slice(src.indexOf("check('claude_code'"), src.indexOf("check('gpu'"));
+  assert.ok(/\.local', 'bin', 'claude'/.test(block),
+    'falls back to the path every unit declares on its PATH');
+  assert.ok(/resolved_via/.test(block), 'the report says WHICH one answered, never silently');
+  // The fallback must not paper over a real absence or a timeout.
+  assert.ok(/!v\.ok && !v\.timed_out && fs\.existsSync/.test(block),
+    'a timed-out probe never reaches the fallback — it stays a timeout, not a miss');
+  assert.ok(/neither PATH nor/.test(block),
+    'genuinely absent is still FAIL, and says both places were checked');
+});
+
+// ── browser: Obscura runtime + Playwright fallback (2026-09-28) ─────
+// Drives the REAL check against a real bearer-gated HTTP endpoint (a child
+// process standing in for Obscura's /json/version), with systemctl, ss and
+// ldd stubbed on PATH. Every verdict below is a measurement the check makes,
+// and each negative case is the exact way the live chain could lie.
+var BEARER_SERVER = [
+  "var http=require('http'),fs=require('fs');var tok=process.argv[1],mode=process.argv[2],portFile=process.argv[3];",
+  "var s=http.createServer(function(q,r){var ok=(q.headers.authorization||'')==='Bearer '+tok;",
+  "if(mode==='open'){ok=true;}",
+  "if(!ok){r.writeHead(401);return r.end('{}');}r.writeHead(200,{'content-type':'application/json'});",
+  "r.end(JSON.stringify({Browser:'Chrome/145.0.0.0','Protocol-Version':'1.3'}));});",
+  "s.listen(0,'127.0.0.1',function(){fs.writeFileSync(portFile,String(s.address().port));});"
+].join('');
+function sleepMs(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
+function runBrowser(opts) {
+  opts = opts || {};
+  var tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'haddad-browser-'));
+  var stub = path.join(tmp, 'stub');
+  fs.mkdirSync(stub, { recursive: true });
+  var TOKEN = 'b'.repeat(48);
+  var child = null, port = null;
+  if (opts.server !== false) {
+    var portFile = path.join(tmp, 'port');
+    child = cp.spawn(process.execPath, ['-e', BEARER_SERVER, TOKEN, opts.server || 'bearer', portFile], { stdio: 'ignore' });
+    for (var i = 0; i < 100 && !fs.existsSync(portFile); i++) sleepMs(50);
+    port = fs.readFileSync(portFile, 'utf8').trim();
+  }
+  if (opts.installed !== false) {
+    fs.mkdirSync(path.join(tmp, '.config', 'systemd', 'user'), { recursive: true });
+    fs.mkdirSync(path.join(tmp, '.config', 'obscura'), { recursive: true });
+    fs.mkdirSync(path.join(tmp, '.local', 'bin'), { recursive: true });
+    if (opts.unit !== false) fs.writeFileSync(path.join(tmp, '.config', 'systemd', 'user', 'obscura.service'), '# stub\n');
+    if (opts.launcher !== false) fs.writeFileSync(path.join(tmp, '.local', 'bin', 'mythos-browser-mcp.sh'), '#!/bin/sh\n', { mode: 0o755 });
+    var envText = 'OBSCURA_CDP_TOKEN=' + (opts.token || TOKEN) + '\n' + (port ? 'OBSCURA_CDP_URL=' + (opts.cdp_url || ('http://127.0.0.1:' + port)) + '\n' : '') + (opts.extra_env || '');
+    fs.writeFileSync(path.join(tmp, '.config', 'obscura', 'cdp.env'), envText, { mode: opts.mode === undefined ? 0o600 : opts.mode });
+  }
+  if (opts.fallback) {
+    // A fake playwright-core: package.json + index.js whose chromium.executablePath() is a file that exists.
+    var mod = path.join(tmp, 'pw', 'node_modules', 'playwright-core');
+    fs.mkdirSync(mod, { recursive: true });
+    fs.writeFileSync(path.join(mod, 'package.json'), JSON.stringify({ name: 'playwright-core', version: '9.9.9', main: 'index.js' }));
+    var exe = path.join(tmp, 'pw', 'chrome'); fs.writeFileSync(exe, '#!/bin/sh\n', { mode: 0o755 });
+    fs.writeFileSync(path.join(mod, 'index.js'), 'module.exports={chromium:{executablePath:function(){return ' + JSON.stringify(exe) + ';}}};');
+    fs.mkdirSync(path.join(tmp, '.config', 'mythos-browser'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, '.config', 'mythos-browser', 'env'), 'MYTHOS_PLAYWRIGHT_MODULE=' + mod + '\nLD_LIBRARY_PATH=' + path.join(tmp, 'pw', 'lib') + '\n');
+    fs.writeFileSync(path.join(stub, 'ldd'), '#!/bin/sh\n' + (opts.fallback === 'missing' ? 'echo "\tlibatk-1.0.so.0 => not found"; echo "\tlibasound.so.2 => not found"\n' : 'echo "\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x0)"\n') + 'exit 0\n', { mode: 0o755 });
+  }
+  fs.writeFileSync(path.join(stub, 'systemctl'), '#!/bin/sh\ncase " $* " in *" is-active "*) echo "' + (opts.active || 'active') + '" ;; *) echo "" ;; esac\nexit 0\n', { mode: 0o755 });
+  var bind = opts.bind || '127.0.0.1';
+  fs.writeFileSync(path.join(stub, 'ss'), '#!/bin/sh\n' + (opts.listener === false ? '' : 'echo "LISTEN 0 128 ' + bind + ':' + port + ' 0.0.0.0:*"\n') + 'exit 0\n', { mode: 0o755 });
+  var r = cp.spawnSync(process.execPath, [path.join(BIN, 'haddad-health.js'), '--quick', '--json', '--no-log'],
+    { encoding: 'utf8', timeout: 120000,
+      env: Object.assign({}, process.env, { HOME: tmp, PATH: stub + ':' + process.env.PATH, HADDAD_HEALTH_ONLY: 'browser',
+        HADDAD_STATE_DIR: path.join(tmp, 'state'), HADDAD_DATA_DIR: path.join(tmp, 'data') }) });
+  if (child) child.kill();
+  var rep = JSON.parse(r.stdout);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  assert.strictEqual(rep.checks.length, 1, 'HADDAD_HEALTH_ONLY=browser reports exactly that check');
+  var c = rep.checks[0];
+  assert.strictEqual(String(r.stdout).indexOf(TOKEN), -1, 'the token never appears in the report');
+  return c;
+}
+t('browser: not installed at all is a WARN (optional), never a FAIL', function () {
+  var c = runBrowser({ installed: false, server: false });
+  assert.strictEqual(c.status, 'WARN'); assert.ok(/not installed/.test(c.detail), c.detail);
+});
+t('browser: unit active, loopback listener, 401 unauthenticated, bearer accepted, fallback launchable → PASS', function () {
+  var c = runBrowser({ fallback: true });
+  assert.strictEqual(c.status, 'PASS', c.detail);
+  assert.ok(/Chrome\/145\.0\.0\.0/.test(c.detail) && /unauthenticated 401/.test(c.detail) && /bearer accepted/.test(c.detail), c.detail);
+  assert.strictEqual(c.data.fallback.status, 'AVAILABLE'); assert.strictEqual(c.data.fallback.version, '9.9.9');
+  assert.strictEqual(c.data.unauthenticated, 401);
+});
+t('browser: a CDP endpoint that answers WITHOUT a bearer is a FAIL — an open browser is not a verified one', function () {
+  var c = runBrowser({ server: 'open', fallback: true });
+  assert.strictEqual(c.status, 'FAIL'); assert.ok(/UNAUTHENTICATED/.test(c.detail) && /bearer not enforced/.test(c.detail), c.detail);
+});
+t('browser: a token file that no longer matches the running unit is a FAIL naming the rotation', function () {
+  var c = runBrowser({ token: 'c'.repeat(48), fallback: true });
+  assert.strictEqual(c.status, 'FAIL'); assert.ok(/AUTHENTICATED/.test(c.detail) && /does not match the running unit/.test(c.detail), c.detail);
+});
+t('browser: unit not active is a FAIL; listener missing is a FAIL; a non-loopback bind is a FAIL', function () {
+  var a = runBrowser({ active: 'inactive' }); assert.strictEqual(a.status, 'FAIL'); assert.ok(/obscura\.service is inactive/.test(a.detail), a.detail);
+  var b = runBrowser({ listener: false }); assert.strictEqual(b.status, 'FAIL'); assert.ok(/nothing listens/.test(b.detail), b.detail);
+  var d = runBrowser({ bind: '0.0.0.0' }); assert.strictEqual(d.status, 'FAIL'); assert.ok(/outside loopback/.test(d.detail), d.detail);
+});
+t('browser: the token file must be 0600 and carry only the token (+ a loopback OBSCURA_CDP_URL)', function () {
+  var a = runBrowser({ mode: 0o644 }); assert.strictEqual(a.status, 'FAIL'); assert.ok(/mode is 644/.test(a.detail), a.detail);
+  var b = runBrowser({ extra_env: 'OBSCURA_ALLOW_PRIVATE_NETWORK=1\n' }); assert.strictEqual(b.status, 'FAIL'); assert.ok(/unexpected: OBSCURA_ALLOW_PRIVATE_NETWORK/.test(b.detail), b.detail);
+  var d = runBrowser({ cdp_url: 'http://10.0.0.5:9222' }); assert.strictEqual(d.status, 'FAIL'); assert.ok(/must be loopback/.test(d.detail), d.detail);
+});
+t('browser: a fallback whose Chromium lacks host libraries is a WARN naming them; no fallback config is a WARN', function () {
+  var a = runBrowser({ fallback: 'missing' });
+  assert.strictEqual(a.status, 'WARN'); assert.ok(/fallback BLOCKED/.test(a.detail) && /libatk-1\.0\.so\.0, libasound\.so\.2/.test(a.detail), a.detail);
+  assert.strictEqual(a.data.fallback.status, 'BLOCKED');
+  var b = runBrowser({});
+  assert.strictEqual(b.status, 'WARN'); assert.ok(/no .*mythos-browser\/env/.test(b.detail), b.detail);
+});
+t('browser: primary healthy but launcher not installed is a WARN (the chain is not reachable by the executor)', function () {
+  var c = runBrowser({ fallback: true, launcher: false });
+  assert.strictEqual(c.status, 'WARN'); assert.ok(/launcher NOT installed/.test(c.detail), c.detail);
+});
+
+// ── git: the checkout the timers run is measured, not assumed ─────
+// A copy of bin/ inside a throwaway repository with its own origin, so the
+// branch/dirty/behind facts can be driven without touching this checkout.
+function runGit(setup) {
+  var tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'haddad-git-'));
+  var origin = path.join(tmp, 'origin.git'), work = path.join(tmp, 'work');
+  function g(dir, args) { var r = cp.spawnSync('git', ['-C', dir].concat(args), { encoding: 'utf8' }); assert.strictEqual(r.status, 0, 'git ' + args.join(' ') + ': ' + r.stderr); return r.stdout.trim(); }
+  cp.spawnSync('git', ['init', '-q', '--bare', '-b', 'main', origin]);
+  cp.spawnSync('git', ['init', '-q', '-b', 'main', work]);
+  g(work, ['config', 'user.email', 't@t']); g(work, ['config', 'user.name', 't']);
+  fs.mkdirSync(path.join(work, 'projects', 'mythos-haddad'), { recursive: true });
+  cp.spawnSync('cp', ['-r', BIN, path.join(work, 'projects', 'mythos-haddad', 'bin')]);
+  cp.spawnSync('cp', ['-r', path.join(DIR, 'lib'), path.join(work, 'projects', 'mythos-haddad', 'lib')]);
+  g(work, ['add', '-A']); g(work, ['commit', '-q', '-m', 'base']);
+  g(work, ['remote', 'add', 'origin', origin]); g(work, ['push', '-q', 'origin', 'main']);
+  setup(work, g);
+  var r = cp.spawnSync(process.execPath, [path.join(work, 'projects', 'mythos-haddad', 'bin', 'haddad-health.js'), '--json', '--no-log'],
+    { encoding: 'utf8', timeout: 120000, env: Object.assign({}, process.env, { HOME: tmp, HADDAD_HEALTH_ONLY: 'git', HADDAD_STATE_DIR: path.join(tmp, 'state'), HADDAD_DATA_DIR: path.join(tmp, 'data') }) });
+  var rep = JSON.parse(r.stdout);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  assert.strictEqual(rep.checks.length, 1);
+  return rep.checks[0];
+}
+t('git: a clean checkout at origin/main is PASS and says so', function () {
+  var c = runGit(function () {});
+  assert.strictEqual(c.status, 'PASS', c.detail); assert.ok(/on main, clean, at origin\/main/.test(c.detail), c.detail);
+  assert.strictEqual(c.data.behind_origin_main, 0); assert.strictEqual(c.data.dirty_paths, 0);
+});
+t('git: a feature branch with uncommitted edits is a WARN naming both (the 2026-09-27 live-checkout drift)', function () {
+  var c = runGit(function (work, g) { g(work, ['checkout', '-q', '-b', 'mythos-haddad/obscura-browser-runtime']); fs.writeFileSync(path.join(work, 'x.md'), 'x'); });
+  assert.strictEqual(c.status, 'WARN', c.detail);
+  assert.ok(/on branch mythos-haddad\/obscura-browser-runtime \(expected main\)/.test(c.detail) && /1 uncommitted path/.test(c.detail), c.detail);
+});
+t('git: behind origin/main is a WARN with the count; an unmerged local line is a WARN saying DIVERGED', function () {
+  var behind = runGit(function (work, g) {
+    fs.writeFileSync(path.join(work, 'y.md'), 'y'); g(work, ['add', '-A']); g(work, ['commit', '-q', '-m', 'ahead']); g(work, ['push', '-q', 'origin', 'main']); g(work, ['reset', '-q', '--hard', 'HEAD~1']);
+  });
+  assert.strictEqual(behind.status, 'WARN', behind.detail); assert.ok(/1 commit\(s\) behind origin\/main/.test(behind.detail), behind.detail);
+  var div = runGit(function (work, g) { fs.writeFileSync(path.join(work, 'z.md'), 'z'); g(work, ['add', '-A']); g(work, ['commit', '-q', '-m', 'local only']); });
+  assert.strictEqual(div.status, 'WARN', div.detail); assert.ok(/not an ancestor of origin\/main/.test(div.detail), div.detail);
+  assert.strictEqual(div.data.behind_origin_main, 'DIVERGED');
+});
+
+console.log('\n' + pass + ' passed, ' + fail + ' failed');
+process.exit(fail ? 1 : 0);

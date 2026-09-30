@@ -574,7 +574,7 @@ var TASK_REPORT_RE = new RegExp('^/api/missions/(' + TASK_ID_RE + ')/report$');
 // --- MOS-2: the one write relay --------------------------------------
 
 var START_MISSION_MAX_BODY = 32 * 1024;
-var REAL_PROVIDERS = ['claude-code', 'openai-compat']; // the real, currently
+var REAL_PROVIDERS = ['claude-code', 'openai-compat', 'free-llm-pool']; // the real, currently
   // runnable enum -- excludes 'mock' (test-only, unreachable in production)
   // and excludes 'gemini' (registered in the agent registry but genuinely
   // unconfigured -- no credential exists -- and not in the Phase 1 provider

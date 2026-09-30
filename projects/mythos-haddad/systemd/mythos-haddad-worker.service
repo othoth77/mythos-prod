@@ -1,0 +1,64 @@
+# MYTHOS HADDAD — HAD-3: the EXISTING mythos-ai-executor daemon, run on this
+# machine as `othman` against an isolated MYTHOS_EXECUTOR_HOME.
+# Installed by bin/haddad-worker-setup.sh (@REPO@ replaced at install time).
+#
+# This is not a new executor. It is `bin/mythos-ai-executor serve` — the same
+# queue, the same 8-state machine, the same retry backoff, the same
+# INTERRUPTED-on-dead-pid recovery, the same daemon.lock — pointed at a
+# separate store so it can never collide with the VPS instance.
+#
+# Deliberately NOT set (each verified on this host, not assumed):
+#   PrivateDevices=yes  — would hide /dev/dri/renderD128 from anything this
+#                         spawns; the model behind it is the whole point.
+#   MemoryDenyWriteExecute=yes — incompatible with V8's JIT.
+#   ProtectKernelTunables/-Modules/-ControlGroups/-Clock, RestrictNamespaces
+#                       — each implies a capability-bounding-set change an
+#                         unprivileged user manager cannot make; the unit
+#                         then fails at step CAPABILITIES (status=218) and
+#                         never spawns.
+[Unit]
+Description=MYTHOS Haddad — executor daemon (isolated store, local Qwen provider)
+Documentation=file:@HADDAD_DIR@/docs/GITHUB_WORKER.md
+After=network.target mythos-haddad-runtime.service
+Wants=mythos-haddad-runtime.service
+
+[Service]
+Type=simple
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=%h/.config/mythos-haddad/worker.env
+EnvironmentFile=%h/.config/mythos-haddad/advisory.env
+WorkingDirectory=@REPO@
+ExecStart=/usr/bin/node @REPO@/projects/mythos-ai-executor/bin/mythos-ai-executor serve
+Restart=on-failure
+RestartSec=15
+# A configuration error must not spin: 2/3 are the CLI's usage/config exits.
+RestartPreventExitStatus=2 3
+
+NoNewPrivileges=true
+# Deliberately NOT set: PrivateTmp, ProtectSystem, ProtectHome, ReadWritePaths.
+# Each of the four gives the daemon a private mount namespace, and on this
+# host (kernel.apparmor_restrict_unprivileged_userns=1) the kernel then
+# refuses the user namespace bwrap needs — so under any of them the tool
+# runner could read and write but never run a single check (gh-issue-370
+# and gh-issue-371: "No permissions to create a new namespace"; bisected
+# with transient units and the provider's real bwrap argv; NoNewPrivileges
+# is not the cause). The boundary that matters is the per-command bwrap
+# sandbox around everything the model runs (providers/haddad-agent.js):
+# workspace-only writes, no $HOME, no /etc, no credentials. The daemon
+# itself is no longer confined to its store by systemd. Owner decision,
+# 2026-09-22.
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallArchitectures=native
+# AF_NETLINK: bwrap --unshare-all brings up loopback inside its new network
+# namespace through a NETLINK_ROUTE socket; without it every sandboxed
+# command fails at "Failed to create NETLINK_ROUTE socket".
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+
+# 7.5 GB machine already holding a 4.4 GB model resident on the GPU.
+MemoryMax=1G
+OOMScoreAdjust=200
+
+[Install]
+WantedBy=default.target

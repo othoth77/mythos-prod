@@ -1,24 +1,32 @@
-# ops/hostops — mythos-hostops v0.1 (READ-ONLY security boundary)
+# ops/hostops — mythos-hostops v0.2 (controlled privileged gateway)
 
-Stage **HOSTOPS-READONLY-0** (2026-09-03). The root-owned boundary between the future Dagu
-host-operations layer and the host, per `docs/MYTHOS_DAGU_HOST_OPERATIONS.md` §7–§8 and the
-Executor-facing contract in `docs/MYTHOS_HOSTOPS_INTERFACE.md`.
+v0.1 (HOSTOPS-READONLY-0, 2026-09-03) was a READ-only boundary. **v0.2** (2026-09-25) adds the CONTROLLED tier so
+FABLE can manage catalogued host state autonomously, while HIGHLY_SENSITIVE operations stay owner-only.
+Model: `docs/MYTHOS_PERMISSION_MODEL.md` · contract: `docs/MYTHOS_HOSTOPS_INTERFACE.md` (v0.2 addendum).
 
-| File | Purpose |
-|---|---|
-| `mythos-hostops.js` | the helper — six READ verbs, structured JSON, fail-closed audit, no shell anywhere (`spawnSync` with argument arrays only) |
-| `60-dagu-hostops` | the ONLY sudo grant for the `dagu` identity: the helper binary, nothing else |
-| `install-hostops.sh` | owner installer (root): dagu user, helper 0700 root:root, allowlist copy, audit dir, sudoers rule |
+| File | Installed as | Purpose |
+|---|---|---|
+| `mythos-hostops.js` | `/usr/local/sbin/mythos-hostops` (0700 root) | the helper: catalog, tiers, HARD invariants, gates, intent/result audit, backups, verification, rollback; root-scoped `systemctl`/`docker restart` only |
+| `mythos-hostops-user-worker.js` | `/usr/local/lib/mythos-hostops/user-worker.js` (0755 root) | deploy-scoped execution (drop-ins, `systemctl --user`, bridge tools), launched via `systemd-run --user` as deploy; refuses root |
+| `mythos-hostops-daemon.py` + `.socket`/`.service` | `/usr/local/sbin/mythos-hostops-daemon`, `/etc/systemd/system/` | root socket daemon (SO_PEERCRED: deploy/dagu/root), fixed argv, 90 s ceiling; `ProtectHome=read-only` unchanged |
+| `../dagu-poc/hostops-allowlist.json` | `/etc/mythos/hostops-allowlist.json` (0644 root) | the catalog (schema 0.2): operations, services, containers, config_keys, tools, highly_sensitive_operations |
+| `hostops-client.js` | — (run from the checkout) | the FABLE/operator client, through the executor adapter `lib/hostops.js` |
+| `live-selftest.js` | — | real-host self-test: `--mode direct` (before install), `--mode socket` (after install, FABLE path) |
+| `60-dagu-hostops` | `/etc/sudoers.d/` | dagu's manual sudo rule (the helper only) |
+| `install-hostops.sh` | — | owner installer (root); restarts `user@<uid>` only if the manager lacks the group |
 
-Verbs (from `ops/dagu-poc/hostops-allowlist.json`, class READ only): `health`,
-`docker-status`, `docker-logs`, `systemd-status`, `file-read`, `resource-guard`.
-WRITE / RESTART / DEPLOY verbs are refused by name with their class; DESTRUCTIVE does not
-exist. `file-read` additionally refuses secret-shaped filenames, non-regular files,
-traversal and anything resolving outside `/home/deploy/{deployments,projects}`.
+```bash
+node ops/hostops/hostops-client.js catalog
+node ops/hostops/hostops-client.js config-get --key bridge.whatsapp.to                       # masked
+node ops/hostops/hostops-client.js config-set --key bridge.whatsapp.to --value +216XXXXXXXX --task-id <id>
+node ops/hostops/hostops-client.js change-rollback --change <audit_id> --task-id <id>
+node ops/hostops/hostops-client.js service-control --unit spy.service --action restart --task-id <id>
+node ops/hostops/hostops-client.js tool-run --tool bridge.notify-test --confirm yes --task-id <id>
+```
 
-Audit: one JSONL event per invocation (including refusals) in
-`/var/lib/mythos/hostops/audit.jsonl`; a successful operation whose audit record cannot be
-written is withheld (exit 5). Task identity (`--task-id`, `--othmode-task`,
-`--github-task`) is validated and recorded.
+Owner kill switch (disables every CONTROLLED operation, READ keeps working): `sudo touch /etc/mythos/hostops-controlled.disabled`.
+Ledger: `/var/lib/mythos/hostops/audit.jsonl` (intent + result, masked); backups: `/var/lib/mythos/hostops/changes/`.
 
-Tests: `node tests/mythos-hostops-test.js` (run as root for the live docker/systemd probes).
+Tests: `node tests/mythos-hostops-controlled-test.js` (root proves the privilege drop), `tests/dagu-hostops-allowlist-test.js`,
+`tests/mythos-hostops-test.js`, `tests/mythos-hostops-executor-test.js`, `tests/mythos-hostops-daemon-test.js`,
+`tests/mythos-hostops-group-refresh-test.js`; live: `sudo node ops/hostops/live-selftest.js --mode direct|socket`.

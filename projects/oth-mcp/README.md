@@ -36,6 +36,17 @@ routes to, it does not belong here.**
 | `budget_status` | Mythos AI Executor | governed spend: position, history, open reservations |
 | `system_health` | Status Center | live estate health |
 
+One **host-conditional** tool exists in addition, registered only where the
+launcher environment sets `OTH_MCP_HADDAD_HEALTH_FILE` (the Mythos Haddad
+on-prem server; never on the VPS, whose tool set stays at 8):
+
+| Tool | Owner | Returns |
+|---|---|---|
+| `haddad_health` | Mythos Haddad (`haddad-health.js`) | that host's measured health report (OS, GPU, AI runtime + model, worker, MCP), whole or one check, with a staleness flag |
+
+The path is fixed at launch; no request can name a file. See
+`projects/mythos-haddad/docs/HADDAD_MCP.md`.
+
 ## The write boundary
 
 **Version 1 is read-only. There is no tool that writes and no code path that
@@ -98,6 +109,7 @@ OTH_MCP_OTHMODE_TOKEN     required for project_context, capability_registry
 OTH_MCP_EXECUTOR_URL      default http://127.0.0.1:8130
 OTH_MCP_EXECUTOR_TOKEN    required for execution_* and budget_status
 OTH_MCP_STATUS_URL        default https://status.mythosprod.xyz (public)
+OTH_MCP_HADDAD_HEALTH_FILE unset (VPS) · Haddad: its health-latest.json → adds haddad_health
 ```
 
 ## Running it

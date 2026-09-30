@@ -8,7 +8,7 @@
   "captured_at": "2026-08-20T00:00:00Z",
   "observed_at": "2026-08-20T00:00:00Z",
   "actor": "ai-session",
-  "confidence": "VERIFIED",
+  "confidence": "EXPLICIT",
   "entities": [
     { "key": "vps", "entity_type": "host", "name": "vps-4722f0a9 (51.68.226.211)", "metadata": { "ip": "51.68.226.211", "role": "production VPS" } },
     { "key": "deploy-account", "entity_type": "account", "name": "deploy@vps-51.68.226.211", "metadata": { "user": "deploy", "role": "deployment account + prod checkout owner" } },

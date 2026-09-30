@@ -488,7 +488,13 @@ function projects() {
         current_stage: p.current_stage || null,
         next_stage: p.next_stage || null,
         latest_ledger_stage: stage ? { id: stage.stage_id, title: stage.title, status: stage.status, completed_at: stage.completed_at || null } : null,
-        dependencies: p.dependencies || []
+        dependencies: p.dependencies || [],
+        // V3.2: the registry already records what each track offers others
+        // and why it relates to them; the projection dropped both, so
+        // project_context could not answer "do we already have this?".
+        // Passed through as data, bounded, never interpreted here.
+        shared_platform_capabilities: Array.isArray(p.shared_platform_capabilities) ? p.shared_platform_capabilities.slice(0, 20).map(function (c) { return String(c).slice(0, 300); }) : [],
+        notes: p.notes ? String(p.notes).slice(0, 800) : null
       });
     });
   }

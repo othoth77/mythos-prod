@@ -28,6 +28,75 @@ function tailSnippet(text, n) {
 // never just "no structured report" with nothing to act on) — so it always
 // names WHICH of the possible failure shapes happened and includes a tail
 // of what the provider actually said.
+// Every balanced top-level {...} in a text, parsed individually; string
+// literals and escapes are honoured so a brace inside a summary cannot open
+// or close an object. Unparseable candidates are dropped, never guessed at.
+function balancedObjects(text) {
+  var out = [];
+  var depth = 0, start = -1, inStr = false, esc = false;
+  for (var i = 0; i < text.length; i++) {
+    var c = text[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') { if (depth > 0) inStr = true; continue; }
+    if (c === '{') { if (depth === 0) start = i; depth++; continue; }
+    if (c === '}') {
+      if (depth === 0) continue;
+      depth--;
+      if (depth === 0 && start !== -1) {
+        try { out.push(JSON.parse(text.slice(start, i + 1))); } catch (e) { /* not an object after all */ }
+        start = -1;
+      }
+    }
+  }
+  return out;
+}
+
+// A report `summary` is TEXT. A model that writes it as an object or array
+// (a local model asked to answer "as one JSON object" did) must never reach
+// a reader as "[object Object]": it becomes bounded canonical JSON text —
+// keys sorted recursively, depth-limited — so the content survives
+// byte-for-byte reproducibly, and anything too large or too deep is replaced
+// by an explicit marker that no consumer can mistake for a real answer.
+var SUMMARY_MAX = 20000;
+var CANON_MAX_DEPTH = 8;
+
+function canonical(v, depth) {
+  if (depth > CANON_MAX_DEPTH) throw new Error('depth');
+  if (Array.isArray(v)) return v.map(function (x) { return canonical(x, depth + 1); });
+  if (v && typeof v === 'object') {
+    var out = {};
+    Object.keys(v).sort().forEach(function (k) { out[k] = canonical(v[k], depth + 1); });
+    return out;
+  }
+  if (typeof v === 'number' && !isFinite(v)) return null;
+  return v;
+}
+
+function summaryText(v, max) {
+  max = max || SUMMARY_MAX;
+  if (v === undefined || v === null) return '';
+  if (typeof v === 'string') return v.length > max ? v.slice(0, max) : v;
+  if (typeof v !== 'object') return String(v).slice(0, max);
+  var text;
+  var kind = Array.isArray(v) ? 'an array' : 'an object';
+  try { text = JSON.stringify(canonical(v, 0)); } catch (e) { return '[summary was ' + kind + ' nested deeper than ' + CANON_MAX_DEPTH + ' levels; not rendered]'; }
+  if (text.length > max) return '[summary was ' + kind + ' of ' + text.length + ' chars (limit ' + max + '); not rendered]';
+  return text;
+}
+
+function normalizeReport(report) {
+  if (report && typeof report === 'object' && report.summary !== undefined && report.summary !== null && typeof report.summary !== 'string') {
+    report.summary_type = Array.isArray(report.summary) ? 'array' : typeof report.summary;
+    report.summary = summaryText(report.summary);
+  }
+  return report;
+}
+
 function extractReport(text) {
   if (typeof text !== 'string' || !text || !text.trim()) {
     return { report: null, error: 'the provider ended with no final message text at all (empty result)' };
@@ -41,7 +110,13 @@ function extractReport(text) {
     var trimmed = text.trim();
     if (trimmed[0] === '{' && trimmed[trimmed.length - 1] === '}') fences.push(trimmed);
   }
+  // Neither a fence nor a whole-message object: the report may still be
+  // EMBEDDED — prose before it, prose after it, or a second copy of it.
+  // Only well-formed objects that declare mythos_report:true count; prose
+  // with a stray brace in it recovers nothing and falls to the error below.
   if (!fences.length) {
+    var embedded = balancedObjects(text).filter(function (o) { return o && o.mythos_report === true; });
+    if (embedded.length) return { report: normalizeReport(embedded[embedded.length - 1]), error: null };
     return { report: null, error: 'no fenced ```json block (or bare JSON object) in the final message — last 200 chars: "' + tailSnippet(text, 200) + '"' };
   }
   var candidates = [];
@@ -50,7 +125,19 @@ function extractReport(text) {
     try {
       var obj = JSON.parse(block);
       if (obj && obj.mythos_report === true) candidates.push(obj);
-    } catch (e) { parseFailures++; }
+      return;
+    } catch (e) { /* fall through to recovery */ }
+    // RECOVERY, not leniency. A small local model was observed (Haddad,
+    // gh-issue-359 attempt 1) emitting the report object TWICE inside one
+    // fence — a valid object, a blank line, then the same object again —
+    // which JSON.parse rightly refuses as a whole. The report is still in
+    // there, intact. Pull out every balanced top-level object and judge
+    // each on its own; anything that is not a well-formed object carrying
+    // mythos_report:true is still refused, so a corrupt response can never
+    // become a false success this way.
+    var recovered = balancedObjects(block).filter(function (o) { return o && o.mythos_report === true; });
+    if (recovered.length) candidates.push.apply(candidates, recovered);
+    else parseFailures++;
   });
   if (!candidates.length) {
     if (parseFailures === fences.length) {
@@ -59,7 +146,7 @@ function extractReport(text) {
     return { report: null, error: fences.length + ' fenced json block(s) found but none declared "mythos_report": true — last 200 chars: "' + tailSnippet(text, 200) + '"' };
   }
   // The last report block wins: providers sometimes emit a draft first.
-  return { report: candidates[candidates.length - 1], error: null };
+  return { report: normalizeReport(candidates[candidates.length - 1]), error: null };
 }
 
 // Minimal shape check. Missing fields are recorded as problems rather than
@@ -181,6 +268,7 @@ function synthesize(input) {
 
 module.exports = {
   extractReport: extractReport,
+  summaryText: summaryText,
   synthesize: synthesize,
   validateReport: validateReport,
   renderMarkdown: renderMarkdown,

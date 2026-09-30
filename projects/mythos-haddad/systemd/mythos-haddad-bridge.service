@@ -1,0 +1,35 @@
+# MYTHOS HADDAD — HAD-3: one tick of the EXISTING GitHub bridge, isolated.
+# Installed by bin/haddad-worker-setup.sh (@REPO@ replaced at install time).
+#
+# Same binary the VPS runs (bin/mythos-github-bridge tick). The isolation is
+# entirely in worker.env: label mythos:haddad, label prefix haddad:, control
+# branch mythos/control-haddad, its own executor home, and the advisory local
+# provider. Nothing about the VPS instance changes.
+[Unit]
+Description=MYTHOS Haddad — GitHub bridge (one tick, mythos:haddad only)
+Documentation=file:@HADDAD_DIR@/docs/GITHUB_WORKER.md
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=%h/.config/mythos-haddad/worker.env
+EnvironmentFile=%h/.config/mythos-haddad/github-issues.env
+WorkingDirectory=@REPO@
+ExecStart=/usr/bin/node @REPO@/projects/mythos-ai-executor/bin/mythos-github-bridge tick
+# A tick that cannot finish must not pile up; the timer only re-arms after
+# this one exits, and the bridge takes its own fenced lock as well.
+TimeoutStartSec=600
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=%h/mythos-ai-executor-haddad %h/.local/state/mythos-haddad
+
+MemoryMax=512M
+OOMScoreAdjust=200

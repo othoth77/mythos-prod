@@ -14,6 +14,7 @@
 //   node scripts/mythos-orchestrate.js inspect  <task-id> [--lines N]
 //   node scripts/mythos-orchestrate.js cancel-safe <task-id>
 //   node scripts/mythos-orchestrate.js doctor
+//   node scripts/mythos-orchestrate.js advise   <request.json> [--dry-run]
 //
 // Exit codes are meaningful, because Claude branches on them:
 //   0  success / verified
@@ -110,6 +111,22 @@ function cmdCancel(argv) {
   process.exit(res.cancelled ? EXIT.OK : EXIT.FAILED);
 }
 
+// Advisory only: one OpenAI answer, recorded as data. Never dispatches a
+// task and never touches Git. Exit 0 completed/dry-run · 2 rejected ·
+// 3 disabled or blocked · 4 failed.
+function cmdAdvise(argv, opts) {
+  var request = readTaskFile(argv[1]);
+  orchestrator.advise(request, { dryRun: opts.dryRun }).then(function (outcome) {
+    printJSON(outcome);
+    var code = { completed: EXIT.OK, 'dry-run': EXIT.OK, rejected: EXIT.REJECTED,
+      disabled: EXIT.BLOCKED, blocked: EXIT.BLOCKED }[outcome.status];
+    process.exit(code === undefined ? EXIT.FAILED : code);
+  }, function (e) {
+    console.error('advise failed: ' + e.message);
+    process.exit(EXIT.FAILED);
+  });
+}
+
 function usage() {
   console.log([
     'Mythos Orchestrator',
@@ -123,6 +140,7 @@ function usage() {
     '  node scripts/mythos-orchestrate.js inspect  <task-id> [--lines N]',
     '  node scripts/mythos-orchestrate.js cancel-safe <task-id>',
     '  node scripts/mythos-orchestrate.js doctor',
+    '  node scripts/mythos-orchestrate.js advise   <request.json> [--dry-run]',
     '',
     'Exit codes: 0 verified · 1 usage · 2 rejected · 3 blocked · 4 failed · 5 approval required · 6 verification failed'
   ].join('\n'));
@@ -155,6 +173,7 @@ if (require.main === module) {
     case 'inspect': cmdInspect(positional, opts); break;
     case 'cancel-safe': cmdCancel(positional); break;
     case 'doctor': printJSON(orchestrator.doctor()); process.exit(EXIT.OK); break;
+    case 'advise': cmdAdvise(positional, opts); break;
     default:
       usage();
       process.exit(positional[0] ? EXIT.USAGE : EXIT.OK);

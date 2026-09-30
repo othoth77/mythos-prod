@@ -1,0 +1,15 @@
+2026-09-22T22:14:54+00:00  load_backend: loaded CPU backend from /home/othman/.local/share/mythos-haddad/runtime/llama.cpp/usr/lib/x86_64-linux-gnu/ggml/backends0/libggml-cpu-haswell.so
+2026-09-22T22:14:57+00:00  ggml_vulkan: No devices found.
+2026-09-22T22:14:57+00:00  load_backend: loaded Vulkan backend from /home/othman/.local/share/mythos-haddad/runtime/llama.cpp/usr/lib/x86_64-linux-gnu/ggml/backends0/libggml-vulkan.so
+2026-09-22T22:14:57+00:00  load_backend: failed to find ggml_backend_init in /home/othman/.local/share/mythos-haddad/runtime/llama.cpp/lib/libhaddad-backend-loader.so
+2026-09-22T22:14:57+00:00  llama_params_fit_impl: no devices with dedicated memory found
+2026-09-22T22:15:31+00:00  load_tensors:   CPU_Mapped model buffer size =  3802.54 MiB
+2026-09-22T22:15:31+00:00  load_tensors:   CPU_Mapped model buffer size =   585.07 MiB
+2026-09-22T22:15:31+00:00  load_tensors:   CPU_REPACK model buffer size =  2976.75 MiB
+2026-09-22T22:15:35+00:00  llama_context: n_ctx         = 8192
+2026-09-22T22:15:35+00:00  llama_kv_cache:        CPU KV buffer size =   448.00 MiB
+2026-09-22T22:18:20+00:00  slot   load_model: id  0 | task -1 | new slot, n_ctx = 8192
+2026-09-22T22:18:20+00:00  slot   load_model: id  1 | task -1 | new slot, n_ctx = 8192
+2026-09-22T22:18:20+00:00  slot   load_model: id  2 | task -1 | new slot, n_ctx = 8192
+2026-09-22T22:18:20+00:00  slot   load_model: id  3 | task -1 | new slot, n_ctx = 8192
+2026-09-22T22:18:21+00:00  main: server is listening on http://127.0.0.1:8600

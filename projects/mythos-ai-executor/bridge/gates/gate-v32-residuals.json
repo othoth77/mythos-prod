@@ -1,0 +1,63 @@
+{
+  "gate": "gate-v32-residuals",
+  "project": "mythos-prod",
+  "description": "MYTHOS V3.2 is 5/5: residuals R1-R5 each proven mechanically. Evidence per residual follows projects/mythos-haddad/docs/V3_2.md §11 (the director's closure table); a merged PR is evidence only for the residual whose own artifacts it introduced.",
+  "applies_to": ["gh-issue-461"],
+  "requirements": [
+    {
+      "id": "R1",
+      "title": "VPS OTHKM ingest + VPS checkout (closeout run 2026-09-25)",
+      "evidence": [
+        { "type": "commit_on_main", "commit": "2ab1512f04db0d5709692f9575815f27eac22f30", "note": "the closeout commit (#460): the seeds and closeout script the VPS state is checked against" },
+        { "type": "probe", "probe": "othk-v32-closeout", "timeout_ms": 180000,
+          "args": { "min_relationships": 40, "expect_tracks": 36,
+                    "search": { "query": "Haddad EXECUTES a second project oth-knowledge", "mode": "hybrid", "limit": 5, "expect": "second bridge instance" } },
+          "note": "live, read-only: store valid, >=40 typed relationships, every committed seed ingested with identical deterministic ids, search claim, oth-knowledge-http healthy, command center serves 36 projects" }
+      ]
+    },
+    {
+      "id": "R2",
+      "title": "Second bridge instance no longer shares bridge/ state",
+      "evidence": [
+        { "type": "commit_on_main", "commit": "9ea47705f8771e6de1051d064332abdfa5de42c3", "note": "#449: introduced bin/haddad-bridge-instance-setup.sh" },
+        { "type": "file_on_main", "path": "projects/mythos-haddad/bin/haddad-bridge-instance-setup.sh", "contains": ["echo \"MYTHOS_BRIDGE_HOME=$BRIDGE_HOME\""] },
+        { "type": "file_on_main", "path": "projects/mythos-ai-executor/bridge/github-bridge.js", "contains": ["home: process.env.MYTHOS_BRIDGE_HOME ||"] },
+        { "type": "file_on_main", "path": "projects/mythos-haddad/docs/V3_2.md", "contains": ["| 2 | Second bridge shares `bridge/` | **CLOSED.**"] }
+      ]
+    },
+    {
+      "id": "R3",
+      "title": "review_fn: not required for V3.2, decision pinned by test V1",
+      "evidence": [
+        { "type": "commit_on_main", "commit": "9ea47705f8771e6de1051d064332abdfa5de42c3", "note": "#449: introduced test V1" },
+        { "type": "file_on_main", "path": "tests/v32-residuals-test.js", "contains": ["V1 review_fn is NOT on the live path"] },
+        { "type": "file_on_main", "path": "projects/mythos-haddad/docs/V3_2.md", "contains": ["| 3 | `review_fn` | **NOT REQUIRED for V3.2 — DOCUMENTED.**"] }
+      ]
+    },
+    {
+      "id": "R4",
+      "title": "NVK DeviceLost: safe prompt envelope + in-execution recovery",
+      "evidence": [
+        { "type": "commit_on_main", "commit": "9ea47705f8771e6de1051d064332abdfa5de42c3", "note": "#449: introduced the envelope, the recovery and tests E1/R1-R3" },
+        { "type": "file_on_main", "path": "projects/mythos-ai-executor/providers/haddad-agent.js", "contains": ["HADDAD_AGENT_SAFE_PROMPT_TOKENS"] },
+        { "type": "file_on_main", "path": "tests/v32-residuals-test.js", "contains": ["E1 the prompt budget is capped by the measured safe envelope", "R1 the runtime dies under a turn", "R2 bounded:", "R3 a runtime that stays down"] },
+        { "type": "file_on_main", "path": "projects/mythos-haddad/docs/V3_2.md", "contains": ["| 4 | NVK `vk::DeviceLostError` | **CLOSED: envelope + in-execution recovery.**"] }
+      ]
+    },
+    {
+      "id": "R5",
+      "title": "Qwen context / task sizing: preflight, the two runner fixes, decomposed dependency graph delivered",
+      "evidence": [
+        { "type": "commit_on_main", "commit": "895b9088ff805283567dc944872303467b62b2e3", "note": "#456: retry-sizing fix (test Z4)" },
+        { "type": "commit_on_main", "commit": "217ecc4189015112cf123705575cbecef5bab1f2", "note": "#457: reliable-write limit (test Z5)" },
+        { "type": "commit_on_main", "commit": "3287684a0b8819766a729b76866f56767fcf740e", "note": "#458: Qwen's domain-packs dependency seed" },
+        { "type": "commit_on_main", "commit": "73a97d3ba71e778f2103fc4382bcdad7767cb919", "note": "#459: Qwen's control-plane dependency seed" },
+        { "type": "file_on_main", "path": "projects/mythos-ai-executor/providers/haddad-agent.js", "contains": ["TASK_TOO_LARGE", "MAX_RELIABLE_WRITE_CHARS = 1600"] },
+        { "type": "file_on_main", "path": "tests/v32-residuals-test.js", "contains": ["Z2 a too-large task is refused BEFORE any GPU time", "Z4 a retry does not size its OWN", "Z5 the reliable-write limit"] },
+        { "type": "file_on_main", "path": "projects/oth-knowledge/seeds/mythos-dep-graph-domain-packs-2026-09-25.json", "contains": ["relationship"] },
+        { "type": "file_on_main", "path": "projects/oth-knowledge/seeds/mythos-dep-graph-control-plane-2026-09-25.json", "contains": ["relationship"] },
+        { "type": "file_on_main", "path": "projects/mythos-haddad/docs/V3_2.md", "contains": ["| 5 | Qwen context / task sizing | **CLOSED"] }
+      ]
+    }
+  ]
+}

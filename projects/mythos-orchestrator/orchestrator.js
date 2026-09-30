@@ -13,6 +13,8 @@
 //   list()          every persisted task
 //   inspect(id)     task, prompt, result, status and log tails
 //   cancelSafe(id)  cooperative stop — SIGTERM only, never SIGKILL
+//   advise(req)     one OpenAI advisory answer (advisor.js) — data only,
+//                   never dispatches; shipped disabled in config/openai.json
 //
 // A task is only ever reported complete when the runner accepted the
 // structured result AND the verifier independently confirmed it against
@@ -28,6 +30,7 @@ var verifier = require('./verifier');
 var store = require('./lib/store');
 var gitlib = require('./lib/git');
 var redact = require('./lib/redact');
+var advisor = require('./advisor');
 
 var BASE = __dirname;
 
@@ -255,6 +258,8 @@ function doctor() {
       codex: { available: runner.PROVIDERS.codex.available(), version: runner.PROVIDERS.codex.version() },
       claude: { available: runner.PROVIDERS.claude.available(), version: runner.PROVIDERS.claude.version() }
     },
+    // Advisory, not a worker: stat()-only view, the key file is never opened.
+    openai: advisor.doctorInfo(),
     notify_script: path.join(BASE, 'notify.sh'),
     notify_executable: (function () {
       try { fs.accessSync(path.join(BASE, 'notify.sh'), fs.constants.X_OK); return true; } catch (e) { return false; }
@@ -275,6 +280,8 @@ module.exports = {
   inspect: inspect,
   cancelSafe: cancelSafe,
   doctor: doctor,
+  advise: advisor.advise,
+  advisor: advisor,
   router: router,
   runner: runner,
   verifier: verifier,

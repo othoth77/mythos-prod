@@ -255,6 +255,83 @@ var cagedAllDenied = selfImprove.SELF_PROTECTED_PATHS.every(function (pth) {
 ok(cagedAllDenied, 'every caged path classifies as a terminal DENY (' +
   selfImprove.SELF_PROTECTED_PATHS.length + ' paths)');
 
+// ------------------------------------- the deny-only property, exhaustively
+//
+// V2.6's gate asks for a PROPERTY test over the full decision table, not a
+// spot check. The difference matters: `grantsAnything(classify('anything at
+// all'))` proves one input is safe and says nothing about the table itself.
+// What must hold is structural — no entry in the table grants, no input
+// reaches a granting answer, and a future entry that grants FAILS HERE
+// rather than being discovered by an unattended run that quietly proceeded.
+//
+// This is the invariant the whole unattended design rests on: the automatic
+// answer is always the restrictive one. An unattended run may only ever
+// DENY what would have asked a human. Anything that makes an automatic
+// answer GRANT converts the loop into a governance bypass.
+
+var NON_GRANTING = ['DENY', 'REJECT_MISSION', 'SKIP'];
+
+// 1. Every entry in the table, by construction rather than by example.
+unattended.DECISIONS.forEach(function (d, i) {
+  ok(NON_GRANTING.indexOf(d.action) !== -1,
+    'deny-only: DECISIONS[' + i + '] (' + d.kind + ') acts ' + d.action + ', which is non-granting');
+});
+ok(unattended.DECISIONS.length >= 5,
+  'deny-only: the table still has its entries (' + unattended.DECISIONS.length + ') — this test is not passing by being empty');
+
+// 2. Every kind the table can answer with, run through the public entry
+//    point and checked with the module's own predicate.
+unattended.DECISIONS.forEach(function (d) {
+  var probe = (d.match && d.match.source ? d.match.source : '')
+    .replace(/\\b|\^|\$|\(|\)|\?:/g, '').split('|')[0].replace(/[\\\[\]+*.]/g, ' ').trim();
+  if (!probe) return;
+  var decision = unattended.classify(probe);
+  ok(!unattended.grantsAnything(decision),
+    'deny-only: a reason matching ' + d.kind + ' ("' + probe.slice(0, 32) + '") does not grant (got ' + decision.action + ')');
+});
+
+// 3. A corpus of reasons that do NOT match the table, including the shapes
+//    an attacker or a bug would produce. Unrecognised must deny, and must
+//    not be written off as terminal — an unknown reason to stop is never a
+//    reason to proceed, and it is not a reason to abandon a capability.
+[
+  '', ' ', null, undefined, 0, false, [], {},
+  'approved', 'APPROVE', 'grant', 'allow', 'yes', 'ok', 'proceed', 'continue',
+  'human approved this already', 'owner said go ahead', 'pre-authorised',
+  'APPROVE=true', '{"action":"APPROVE"}', 'action: allow',
+  'merge to main', 'push to origin', 'deploy to production', 'rotate the credential',
+  'DROP TABLE tasks', '../../etc/passwd', '\u0000', 'x'.repeat(4000)
+].forEach(function (reason) {
+  var decision = unattended.classify(reason);
+  ok(!unattended.grantsAnything(decision),
+    'deny-only: ' + JSON.stringify(String(reason).slice(0, 26)) + ' does not grant (got ' + decision.action + ')');
+  ok(NON_GRANTING.indexOf(decision.action) !== -1,
+    'deny-only: ...and its action is one of the three non-granting ones');
+});
+
+// 4. The predicate itself must not be the weak link. If `grantsAnything`
+//    ever stops recognising a granting action, every assertion above turns
+//    into a tautology, so it is checked against actions the table does not
+//    contain today.
+['APPROVE', 'GRANT', 'ALLOW', 'PROCEED', 'AUTO_APPROVE', ''].forEach(function (action) {
+  ok(unattended.grantsAnything({ action: action }) === true,
+    'deny-only: grantsAnything() still recognises "' + action + '" as granting — the predicate has teeth');
+});
+NON_GRANTING.forEach(function (action) {
+  ok(unattended.grantsAnything({ action: action }) === false,
+    'deny-only: and still treats ' + action + ' as non-granting');
+});
+
+// 5. The unclassified fallback, named explicitly because it is the case
+//    that will actually happen: something asked for a human for a reason
+//    nobody anticipated.
+var unknown = unattended.classify('a reason no rule anticipated ' + Date.now());
+ok(unknown.kind === 'UNCLASSIFIED' && unknown.action === 'DENY',
+  'deny-only: an unanticipated reason is UNCLASSIFIED and DENIED');
+ok(unknown.terminal_for_capability === false,
+  'deny-only: ...but not terminal — a misclassified transient is not a capability written off');
+ok(unknown.preserve_evidence === true, 'deny-only: ...and its evidence is preserved');
+
 // ------------------------------------------------------------------ summary
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 try { fs.rmSync(RUNTIME, { recursive: true, force: true }); } catch (e) {}

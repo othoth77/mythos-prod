@@ -76,6 +76,12 @@ function defaultProbe(def) {
   if (def.provider === 'free-llm-pool') {
     return require('../providers/free-llm-pool').available();
   }
+  if (def.provider === 'haddad-agent') {
+    // V2.1: probed, not assumed — enable marker + key AND the local
+    // llama-server answering. Absent marker (the VPS) short-circuits before
+    // any request is made.
+    return require('../providers/haddad-agent').probe();
+  }
   return false; // unknown provider: unavailable until a probe is registered
 }
 
@@ -130,7 +136,7 @@ function discoverAgents() {
 //   require_execution_authority: hard filter — an advisory agent can never
 //     be "promoted" by selection; authority comes from registration only.
 // Ranking: available first, then lower risk, then declared cost tier.
-var COST_RANK = { free: 0, subscription: 1, metered: 2, unknown: 3 };
+var COST_RANK = { free: 0, local: 0, subscription: 1, metered: 2, unknown: 3 };
 var RISK_RANK = { low: 0, medium: 1, high: 2 };
 
 function selectCandidates(requirements, opts) {

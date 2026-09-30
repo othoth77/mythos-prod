@@ -68,6 +68,11 @@ var reporting = require(path.join(EXEC_ROOT, 'lib', 'report'));
 // the executor). PROFILE_BY_ACTION is re-exported from here for callers that
 // imported it from the bridge; the map itself has exactly one home.
 var engine = require('./action-resolution');
+var providerSelection = require('./provider-selection');
+// Adapter only — it loads the orchestration core lazily and ONLY when the
+// review gate is switched on, so the default bridge path is unchanged.
+var reviewGate = require('./review-gate');
+var startGates = require('./start-gates');
 var schema = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'schema'));
 var redact = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'redact'));
 // Notification sink. It is enqueue-only inside the tick (synchronous, local,
@@ -242,6 +247,47 @@ function runtimeIdentity(cfg) {
 // anyone else it would queue tasks in a store the daemon never reads and
 // commit claims that can only degrade to BLOCKED. Refuse, loudly.
 var EXPECTED_USER_DEFAULT = 'deploy';
+
+// F4 — worker provider. An isolated bridge instance (its own label, control
+// branch and executor home) may route ITS tasks to a non-default provider.
+// Allow-listed on purpose: only advisory providers — those with no execution
+// authority and therefore no tool surface — are reachable this way, so a
+// mis-set variable can never hand a GitHub Issue shell access. An
+// out-of-list value refuses at load rather than mis-routing quietly.
+// Unset, which is the production case, means: change nothing.
+var WORKER_PROVIDER_ALLOWED = ['openai-compat', 'free-llm-pool'];
+var WORKER_PROVIDER = (function () {
+  var v = process.env.MYTHOS_BRIDGE_WORKER_PROVIDER;
+  if (!v) return null;
+  if (WORKER_PROVIDER_ALLOWED.indexOf(v) === -1) {
+    throw new Error('BRIDGE_WORKER_PROVIDER_NOT_ALLOWED: "' + v + '" is not one of ' +
+      WORKER_PROVIDER_ALLOWED.join(', ') + ' — only advisory providers may be selected this way');
+  }
+  return v;
+})();
+
+// F5 — execution worker provider. SEPARATE from F4 on purpose: F4's whole
+// guarantee is "nothing selectable there can act", and an execution-capable
+// provider added to that list would quietly void it. A provider chosen here
+// does execute, so it gets its own variable, its own list, and its own
+// sentence in the log. Both unset is the production case and changes nothing.
+// Naming one here still does not make it reachable: the executor asks the
+// provider's own available(), which stays false without its host-side
+// enable marker.
+var EXEC_WORKER_PROVIDER_ALLOWED = ['haddad-agent'];
+var EXEC_WORKER_PROVIDER = (function () {
+  var v = process.env.MYTHOS_BRIDGE_EXEC_PROVIDER;
+  if (!v) return null;
+  if (EXEC_WORKER_PROVIDER_ALLOWED.indexOf(v) === -1) {
+    throw new Error('BRIDGE_EXEC_PROVIDER_NOT_ALLOWED: "' + v + '" is not one of ' +
+      EXEC_WORKER_PROVIDER_ALLOWED.join(', '));
+  }
+  if (process.env.MYTHOS_BRIDGE_WORKER_PROVIDER) {
+    throw new Error('BRIDGE_PROVIDER_CONFLICT: MYTHOS_BRIDGE_WORKER_PROVIDER and ' +
+      'MYTHOS_BRIDGE_EXEC_PROVIDER are both set — one bridge instance routes to one worker');
+  }
+  return v;
+})();
 
 function userGuard() {
   var expected = process.env.MYTHOS_BRIDGE_USER || EXPECTED_USER_DEFAULT;
@@ -517,12 +563,95 @@ function saveTask(cfg, task) {
   writeJsonRedacted(taskFile(cfg, task.task_id), task);
 }
 
+// --- Dependencies across a continuation ------------------------------------
+//
+// A dependency names a task id, and a task id is single-use. When an attempt
+// stops for a person and the owner approves by asking for a rerun, the
+// approved work completes under a DIFFERENT id — so a dependent written
+// against the original would wait for ever on work that is finished.
+//
+// A continuation therefore satisfies the dependency it continues, but ONLY
+// when it is provably the same work carried forward. Four things must hold,
+// and each one closes a way of getting a dependent started without doing the
+// work it was waiting for:
+//
+//   1. it NAMES the dependency (`continues.task_id`);
+//   2. it is a LATER ATTEMPT OF THE SAME TASK — same id stem, higher attempt
+//      number — so an unrelated task cannot claim to continue anything;
+//   3. it really COMPLETED, a status only this bridge writes and only after
+//      an execution that passed every gate;
+//   4. the review is intact: if the original owed a review, the continuation
+//      must carry an approved one, and a continuation that owes one itself
+//      must have it too. Completion alone never releases a dependent whose
+//      work was supposed to be reviewed.
+//
+// Anything else leaves the dependent waiting. Attempt ids are minted by the
+// adapters (bridge/github-issues.js) as `<stem>` then `<stem>-r<n>`; this
+// reads that shape, it does not define it.
+function attemptLineage(id) {
+  var m = /^(.+?)(?:-r(\d+))?$/.exec(String(id || ''));
+  if (!m) return null;
+  return { stem: m[1], attempt: m[2] ? parseInt(m[2], 10) : 1 };
+}
+
+function continuationSatisfies(original, candidate) {
+  if (!original || !candidate) return false;
+  if (!candidate.continues || candidate.continues.task_id !== original.task_id) return false;
+  if (candidate.status !== 'COMPLETED') return false;
+  var a = attemptLineage(original.task_id);
+  var b = attemptLineage(candidate.task_id);
+  if (!a || !b || a.stem !== b.stem || !(b.attempt > a.attempt)) return false;
+  var originalGate = original.execution && original.execution.review_gate;
+  var candidateGate = candidate.execution && candidate.execution.review_gate;
+  if (originalGate && originalGate.required === true &&
+      !(candidateGate && candidateGate.satisfied === true)) return false;
+  if (candidateGate && candidateGate.required === true && candidateGate.satisfied !== true) return false;
+  return true;
+}
+
+// Is this dependency satisfied — by the task itself, or by a trusted chain of
+// continuations from it? The walk is bounded: a cycle or a silly chain can
+// never spin here.
+var MAX_CONTINUATION_HOPS = 10;
+
+function dependencySatisfied(depId, tasksById, gateCtx) {
+  // A `gate-<name>` dependency is never a task: it is proven by
+  // bridge/start-gates.js or it is unmet (no context → unmet, fail-closed).
+  if (startGates.isGateId(depId)) return !!gateCtx && startGates.evaluate(gateCtx, depId).satisfied;
+  var dep = tasksById[depId];
+  if (!dep) return false;
+  if (dep.status === 'COMPLETED') return true;
+  var all = Object.keys(tasksById);
+  var frontier = [dep];
+  var seen = {};
+  seen[dep.task_id] = true;
+  for (var hop = 0; hop < MAX_CONTINUATION_HOPS && frontier.length; hop++) {
+    var next = [];
+    for (var i = 0; i < frontier.length; i++) {
+      var parent = frontier[i];
+      for (var j = 0; j < all.length; j++) {
+        var child = tasksById[all[j]];
+        if (!child || seen[child.task_id]) continue;
+        if (!child.continues || child.continues.task_id !== parent.task_id) continue;
+        if (continuationSatisfies(parent, child)) return true;
+        seen[child.task_id] = true;
+        next.push(child);   // it did not finish the job, but its own rerun might
+      }
+    }
+    frontier = next;
+  }
+  return false;
+}
+
 // Immutable part of a task, hashed at claim time so a later edit of a
 // claimed task is noticed (and ignored) rather than silently executed.
 function taskFingerprint(task) {
   var copy = {};
   ['task_id', 'project', 'objective', 'scope', 'constraints', 'priority', 'requested_action', 'action_raw', 'action_source',
-    'validation_requirements', 'created_at', 'created_by', 'depends_on', 'timeout_seconds', 'max_turns', 'notes', 'model', 'model_raw', 'model_source']
+    'validation_requirements', 'created_at', 'created_by', 'depends_on', 'timeout_seconds', 'max_turns', 'notes', 'model', 'model_raw', 'model_source',
+    // Both change what runs: one asks for a review, the other says which
+    // attempt this continues. An edit to either after the claim is drift.
+    'review_required', 'continues']
     .forEach(function (k) { if (task[k] !== undefined) copy[k] = task[k]; });
   return sha256(JSON.stringify(copy));
 }
@@ -544,6 +673,9 @@ function validateTask(cfg, task, file) {
     errors.push('status "' + String(task.status).slice(0, 20) + '" cannot be set by the creator (only PENDING or CANCELLED)');
   }
   if (Array.isArray(task.depends_on) && task.depends_on.indexOf(task.task_id) !== -1) errors.push('a task cannot depend on itself');
+  // `gate-*` ids name start gates (bridge/start-gates.js); a task holding one
+  // could otherwise be mistaken for the gate it names.
+  if (startGates.isGateId(task.task_id)) errors.push('task_id may not start with "' + startGates.GATE_PREFIX + '" (reserved for start gates)');
   // Issue #100: an unusable `model` is caught here, where the reason reaches
   // the creator on the Issue, instead of throwing inside executor.createTask.
   if (task.model !== undefined && task.model !== null && String(task.model).trim() !== '') {
@@ -570,8 +702,18 @@ function bullets(list, empty) {
 // Claude session runs under the OTHMODE control contract (CLAUDE.md), and
 // names the OTHMODE Task record the bridge already opened so the session
 // updates it instead of creating a second one.
-function buildInstruction(cfg, task, exec) {
-  return [
+function buildInstruction(cfg, task, exec, provider) {
+  // V3.2 (residual 5): the local Haddad runner has an 8k-token window, no
+  // network in its sandbox and no OTHMODE store ("record nothing"), so the
+  // OTHMODE record paragraph below costs it ~1 KB for instructions it cannot
+  // act on. It gets a one-line header instead; every other provider gets the
+  // paragraph character for character.
+  var header = provider === 'haddad-agent'
+    ? ['Task ' + task.task_id + ' (project ' + task.project + ', requested_action ' + task.requested_action + ' → execution profile ' +
+        (exec.execution_profile || engine.profileFor(task.requested_action)) + ')' +
+        (task.source && task.source.kind === 'github-issue' ? ' from GitHub Issue #' + task.source.issue_number + ' — the Issue is the human interface; do not edit it.' : '.'), '']
+    : null;
+  return (header || []).concat(header ? [] : [
     'othmode — GitHub control task ' + task.task_id + ' (project ' + task.project + ', requested_action ' + task.requested_action +
       ' [source ' + (task.action_source || 'task_file') + (task.action_raw ? ', written "' + task.action_raw + '"' : '') + '] → execution profile ' + (exec.execution_profile || engine.profileFor(task.requested_action)) + ').',
     '',
@@ -581,7 +723,8 @@ function buildInstruction(cfg, task, exec) {
       '. You MAY advance its `phase` and add `sections`/`evidence_texts` with `node projects/command-center/cli/othmode-cli.js task update <id> \'<json>\'`, ' +
       'but you MUST NOT set a terminal `status` (COMPLETED/FAILED/BLOCKED/CANCELLED/REJECTED) and MUST NOT create a second record: ' +
       'the bridge is the only component that closes this record, after it has verified your commits and tests against Git. Your structured final report block is the evidence it uses.',
-    '',
+    ''
+  ]).concat([
     '## Objective',
     '',
     task.objective,
@@ -606,8 +749,64 @@ function buildInstruction(cfg, task, exec) {
     '',
     bullets(task.validation_requirements, 'the targeted checks you judge necessary; report exactly what you ran'),
     '',
+    continuationSection(cfg, task),
     task.notes ? '## Notes from the creator\n\n' + task.notes + '\n' : ''
-  ].join('\n');
+  ]).join('\n');
+}
+
+// A rerun is a NEW task with a new single-use id, but it is not a fresh
+// start: the attempt it continues already did real work, and redoing that
+// work wastes a run and can undo it. The previous attempt's own report is
+// the record of what succeeded, so it travels into this prompt verbatim
+// (it is the bridge's own artefact, already redacted at write time).
+//
+// This states facts and an instruction, never a promise: the worker is
+// told to VERIFY each claim against the worktree before trusting it,
+// because a report describes what an earlier attempt said it did.
+function continuationSection(cfg, task) {
+  var c = task.continues;
+  if (!c || !c.task_id) return '';
+  var prev = readJsonFile(reportFile(cfg, c.task_id, 'json'));
+  var lines = [
+    '## Continuation — this task continues ' + c.task_id,
+    '',
+    'That attempt ended ' + (c.status || 'unfinished') +
+      (c.reason === 'review_required' ? ' because its result required an independent review, which the owner has since approved by asking for this rerun.' : '.') +
+      ' Do NOT start from zero and do NOT repeat work it already completed.',
+    ''
+  ];
+  if (!prev) {
+    lines.push('Its report is not readable on this host, so treat the repository itself as the only evidence: inspect it first and continue from what is actually there.', '');
+    return lines.join('\n');
+  }
+  lines.push('What the previous attempt reported:', '');
+  lines.push('- Summary: ' + String(prev.summary || '(none)').replace(/\s+/g, ' ').slice(0, 800));
+  if (Array.isArray(prev.files_changed) && prev.files_changed.length) {
+    lines.push('- Files it changed: ' + prev.files_changed.slice(0, 20).map(function (f) {
+      return typeof f === 'string' ? f : (f && f.path) || String(f);
+    }).join(', '));
+  }
+  if (Array.isArray(prev.commits) && prev.commits.length) {
+    lines.push('- Commits it made: ' + prev.commits.slice(0, 10).map(function (x) {
+      return String((x && (x.sha || x.commit)) || x).slice(0, 12);
+    }).join(', '));
+  }
+  if (Array.isArray(prev.tests) && prev.tests.length) {
+    lines.push('- Checks it ran: ' + prev.tests.slice(0, 10).map(function (t) {
+      return String((t && (t.name || t.command)) || t).slice(0, 80);
+    }).join('; '));
+  }
+  if (Array.isArray(prev.problems) && prev.problems.length) {
+    lines.push('- Problems it recorded: ' + prev.problems.slice(0, 10).map(function (p) { return String(p).slice(0, 200); }).join('; '));
+  }
+  if (prev.next_recommended_action) {
+    lines.push('- What it said should happen next: ' + String(prev.next_recommended_action).slice(0, 400));
+  }
+  lines.push('',
+    'First VERIFY the above against the worktree (git log/status, read the files). ' +
+    'Keep what is already correct, and spend this run only on what is still missing.',
+    '');
+  return lines.join('\n');
 }
 
 // --- OTHMODE Task record (the integration point with OTHMODE) ------------------------------------
@@ -833,10 +1032,38 @@ function attemptIdOf(task) {
 //                            requested_action maps to;
 //   MODEL_UNAVAILABLE        the task names a model the catalog knows but
 //                            this host cannot run — it is never replaced.
-function preflight(cfg, task, existingExecTask) {
+function preflight(cfg, task, existingExecTask, executor) {
   var attemptId = attemptIdOf(task);
   var expected = engine.profileFor(task.requested_action);
-  var check = engine.checkActionProfile(task.requested_action, existingExecTask ? existingExecTask.execution_profile : expected);
+
+  // An execution profile is a TOOL GRANT: lib/policy.js turns it into
+  // claude-code's --allowedTools/--disallowedTools, and that is the only
+  // thing it has ever meant. A provider with no execution authority is
+  // given no tool surface at all — executor.js:126-128 nulls both the
+  // profile and the working directory precisely BECAUSE the provider
+  // cannot act ("they reason, they do not act", mission §9).
+  //
+  // So for such a provider a null profile is not a missing grant, it is
+  // the EMPTY grant — strictly stronger than any profile this check could
+  // demand. Requiring `repo-read` of something that cannot read a file at
+  // all would be demanding a weaker constraint than the one in force.
+  //
+  // Narrow and fail-closed at every step: the provider is resolved from
+  // the executor's own PROVIDERS map (never trusted from the task file),
+  // it must be a provider the executor actually knows, its
+  // executionAuthority must not be true, and the recorded profile must be
+  // exactly null. An unknown provider, an execution-authority provider, or
+  // any non-null profile falls through to the unchanged check below —
+  // which is every production claude-code / delegate task.
+  var advisoryNoTools = false;
+  if (existingExecTask && existingExecTask.execution_profile === null && executor && executor.PROVIDERS) {
+    var impl = executor.PROVIDERS[existingExecTask.provider];
+    advisoryNoTools = !!impl && impl.executionAuthority !== true;
+  }
+
+  var check = advisoryNoTools
+    ? { ok: true }
+    : engine.checkActionProfile(task.requested_action, existingExecTask ? existingExecTask.execution_profile : expected);
   if (!check.ok) {
     return engine.blocker(check.code, {
       reason: check.reason, requested_action: task.requested_action, action_raw: task.action_raw || null, action_source: task.action_source || 'task_file',
@@ -871,8 +1098,47 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
 
   // Invariant gate — before a worktree, before an OTHMODE record, before the
   // executor: an attempt that cannot run under its own decision does not start.
-  var block = preflight(cfg, task, existingTask);
+  var block = preflight(cfg, task, existingTask, executor);
   if (block) return { blocked: block };
+
+  // V2.2 — DELEGATION. Which provider runs this task is now a routed
+  // decision (role -> capability -> agent -> provider) rather than a
+  // configuration read. It happens HERE, before `ensureTaskWorktree`, for a
+  // practical reason: a task that cannot be routed is deferred, and
+  // deferring after the worktree exists would leak one per tick.
+  //
+  // `EXEC_WORKER_PROVIDER_ALLOWED` remains the fail-closed floor. A routed
+  // provider outside it is refused, never substituted — which is what stops
+  // a Haddad Issue reaching Claude when the local runtime is down.
+  //
+  // SCOPE, deliberately narrow: routing runs ONLY on a bridge instance that
+  // is explicitly an execution worker (`MYTHOS_BRIDGE_EXEC_PROVIDER` set —
+  // today, Haddad). Everywhere else the previous expression is used
+  // character-for-character, so the production VPS path is untouched by
+  // V2.2. An explicit operator pin is a decision already taken, and a
+  // router that overrides one is not delegating, it is overruling: the mock
+  // pin the suites use and the advisory `MYTHOS_BRIDGE_WORKER_PROVIDER` pin
+  // are both honoured as written.
+  var pinnedProvider =
+    process.env.MYTHOS_EXECUTOR_ALLOW_MOCK === '1' && process.env.MYTHOS_BRIDGE_PROVIDER === 'mock'
+      ? 'mock'
+      : (EXEC_WORKER_PROVIDER || WORKER_PROVIDER || (task.lane ? 'delegate' : 'claude-code'));
+  var routing = EXEC_WORKER_PROVIDER && pinnedProvider !== 'mock'
+    ? providerSelection.selectProvider({
+      action: task.requested_action,
+      instruction: task.objective || task.title || '',
+      task_id: id,
+      project: task.project,
+      allowed: EXEC_WORKER_PROVIDER_ALLOWED,
+      fallback: pinnedProvider
+    })
+    : { action: providerSelection.ACTIONS.ROUTE, provider: pinnedProvider, agent: null,
+        reason: 'not_an_execution_worker_instance',
+        decision: { routed: false, provider: pinnedProvider,
+          why: 'this bridge instance is not an execution worker; the configured provider is used unchanged' } };
+  if (routing.action === providerSelection.ACTIONS.DEFER) {
+    return { deferred: { reason: routing.reason, decision: routing.decision } };
+  }
 
   var wt = ensureTaskWorktree(cfg, id);
   var exec = task.execution && typeof task.execution === 'object' ? task.execution : {};
@@ -895,6 +1161,10 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
     base_commit: wt.base,
     claimed_at: (cache[id] && cache[id].claimed_at) || nowIso(),
     claimed_by: cfg.claimedBy,
+    // V2.2: the routing decision, kept whole. "Why did this task go to this
+    // provider?" is answerable from the attempt record rather than by
+    // re-deriving it from configuration that may since have changed.
+    routing: routing.decision,
     fingerprint: taskFingerprint(task),
     executor_status: 'QUEUED',
     updated_at: nowIso()
@@ -927,14 +1197,23 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
     // process. Throws ACTION_PROFILE_MISMATCH — it cannot be caught into a
     // provider start.
     engine.assertActionProfile(task.requested_action, exec.execution_profile, { task_id: id, attempt_id: attemptId });
-    var chosenProvider =
-      process.env.MYTHOS_EXECUTOR_ALLOW_MOCK === '1' && process.env.MYTHOS_BRIDGE_PROVIDER === 'mock'
-        ? 'mock'
-        : (task.lane ? 'delegate' : 'claude-code');
+    // Provider selection. PRODUCTION DEFAULT IS UNCHANGED: with neither env
+    // var set this is exactly `task.lane ? 'delegate' : 'claude-code'`, which
+    // is what the VPS bridge has always done and still does.
+    //
+    // MYTHOS_BRIDGE_WORKER_PROVIDER lets a SEPARATE, isolated bridge instance
+    // (its own label, control branch and executor home — see
+    // projects/mythos-haddad/docs/GITHUB_WORKER.md) send its tasks to a local
+    // model instead. It is opt-in, allow-listed, and never consulted unless
+    // the operator sets it, so no production path can reach it by accident.
+    // V2.2: decided above by providerSelection. With no role, no router
+    // answer or no allow-list this is character-for-character the previous
+    // expression, which is what keeps the VPS path unchanged.
+    var chosenProvider = routing.provider;
     var created = executor.createTask({
       project: task.project,
       stage: 'github:' + id,
-      instruction: buildInstruction(cfg, task, exec),
+      instruction: buildInstruction(cfg, task, exec, chosenProvider),
       priority: task.priority,
       requested_by: BY,
       mode: 'autonomous',
@@ -999,6 +1278,18 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
   log('claimed', { task_id: id, attempt_id: attemptId, executor_task_id: exec.executor_task_id, othmode_task_id: exec.othmode_task_id, recovered: recovered, worktree: wt.dir,
     requested_action: task.requested_action, action_source: exec.action_source, action_raw: task.action_raw || null, execution_profile: exec.execution_profile,
     model: exec.model || null, model_requested: exec.model_requested, fence: exec.fence, runtime_head: exec.runtime ? exec.runtime.head : null, runtime_code: exec.runtime ? exec.runtime.code : null });
+  // V3.2.5 (gh-issue-461): the bridge has just begun execution — the
+  // executor task is queued and task.status is CLAIMED above. Same
+  // two-phase discipline as the existing report notifications: this only
+  // appends a durable ledger entry (or does nothing — disabled, not a
+  // github-issue task, or already notified for this task+kind); the message
+  // itself leaves the host later, from flushNotifications(). Wrapped in its
+  // own try/catch even though onMissionEvent() never throws, so a defect in
+  // this call can never turn a successful claim into a failed one.
+  try {
+    var missionStart = whatsapp.onMissionEvent('MISSION_START', task);
+    if (missionStart.queued || missionStart.error) log('whatsapp_mission_queued', { task_id: id, kind: 'MISSION_START', result: missionStart });
+  } catch (e) { /* a lifecycle notification can never fail a claim */ }
   return { file: taskFile(cfg, id), recovered: recovered };
 }
 
@@ -1060,7 +1351,7 @@ function buildReport(cfg, task, finalStatus, opts) {
     task_id: task.task_id,
     attempt_id: exec.attempt_id || attemptIdOf(task),
     status: finalStatus,
-    summary: String(summary).slice(0, 20000),
+    summary: reporting.summaryText(summary, 20000), // never "[object Object]"
     resolution: {
       requested_action: task.requested_action,
       action_raw: task.action_raw || null,
@@ -1287,6 +1578,10 @@ function cancelExecutorTask(eid) {
   var st = state.readStatus(eid);
   if (!st) return { cancelled: false, reason: 'no executor record' };
   if (['COMPLETED', 'FAILED', 'CANCELLED'].indexOf(st.status) !== -1) return { cancelled: false, reason: 'already ' + st.status };
+  // BLOCKED -> CANCELLED is not a legal transition (BLOCKED leaves only by an
+  // explicit re-queue), and a BLOCKED record never runs again on its own:
+  // report it instead of throwing, so the GitHub task still settles.
+  if (st.status === 'BLOCKED') return { cancelled: false, reason: 'BLOCKED (never runs again without an explicit re-queue)' };
   if (st.status === 'RUNNING' && st.pid && state.processAlive(st.pid)) {
     try { process.kill(st.pid, 'SIGTERM'); } catch (e) { /* raced its exit */ }
   }
@@ -1332,6 +1627,21 @@ function finishTask(cfg, task, finalStatus, opts, changed) {
     notified = { queued: false, error: String(e && e.message).slice(0, 200) };
   }
   if (notified.queued || notified.error) log('whatsapp_queued', { task_id: task.task_id, result: notified });
+  // V3.2.5 (gh-issue-461): the mission-lifecycle ping — MISSION_SUCCESS for
+  // COMPLETED, MISSION_STOP for a genuine FAILED/BLOCKED stop. CANCELLED
+  // (the human's own action) and anything else maps to nothing, exactly
+  // like the existing notificationKind() rule onReport() above already
+  // follows. Same try/catch discipline as onReport(): a defect here can
+  // never turn a decided finalStatus into something else.
+  var missionKind = finalStatus === 'COMPLETED' ? 'MISSION_SUCCESS'
+    : (finalStatus === 'FAILED' || finalStatus === 'BLOCKED') ? 'MISSION_STOP'
+      : null;
+  if (missionKind) {
+    try {
+      var missionNotified = whatsapp.onMissionEvent(missionKind, task);
+      if (missionNotified.queued || missionNotified.error) log('whatsapp_mission_queued', { task_id: task.task_id, kind: missionKind, result: missionNotified });
+    } catch (e) { /* a lifecycle notification can never alter finalStatus */ }
+  }
   pushHistory(task, 'VALIDATING', finalStatus, 'report written (' + report.commits.length + ' commit(s), ' + report.tests.length + ' test line(s)); OTHMODE ' +
     (oth.updated ? 'closed by the bridge' : (oth.premature ? 'CLOSED PREMATURELY by the session (recorded as a problem)' : 'not updated: ' + oth.reason)));
   task.status = finalStatus;
@@ -1366,6 +1676,7 @@ function tick(executor, opts) {
     actions.push({ action: 'sync', result: sync });
     heartbeatLock(cfg);
     var claimsAllowed = sync.ok;
+    var gateCtx = null; // start gates, built lazily once per tick
     var deferReason = sync.ok ? null : 'sync';
     if (!sync.ok) { notes.push('control branch not reconciled: ' + sync.reason + ' — no new claims this tick'); log('sync_failed', { reason: sync.reason }); }
     var runtime = runtimeIdentity(cfg);
@@ -1454,10 +1765,34 @@ function tick(executor, opts) {
           actions.push({ action: 'defer', task_id: t.task_id, reason: 'claim limit' });
           return;
         }
-        var unmet = (t.depends_on || []).filter(function (d) { return !tasksById[d] || tasksById[d].status !== 'COMPLETED'; });
-        if (unmet.length) { actions.push({ action: 'wait_dependencies', task_id: t.task_id, unmet: unmet }); return; }
+        // Start gates: the task's own depends_on plus any gate an owner-reviewed
+        // manifest puts in front of it (add-only). One context per tick.
+        if (!gateCtx) gateCtx = startGates.context(cfg);
+        var deps = startGates.effectiveDepends(gateCtx, t);
+        var unmet = deps.filter(function (d) { return !dependencySatisfied(d, tasksById, gateCtx); });
+        if (unmet.length) {
+          var gateWait = unmet.filter(startGates.isGateId).map(function (g) { var ev = startGates.evaluate(gateCtx, g); return { gate: g, reasons: ev.reasons.slice(0, 6) }; });
+          actions.push({ action: 'wait_dependencies', task_id: t.task_id, unmet: unmet, gates: gateWait });
+          if (gateWait.length) log('gate_wait', { task_id: t.task_id, gates: gateWait });
+          return;
+        }
+        var gatesMet = deps.filter(startGates.isGateId);
+        if (gatesMet.length) log('gate_satisfied', { task_id: t.task_id, gates: gatesMet.map(function (g) { var ev = startGates.evaluate(gateCtx, g); return { gate: g, requirements: ev.requirements.map(function (r) { return r.id; }) }; }) });
         try {
           var c = claimTask(cfg, executor, e, tasksById, runtime);
+          if (c.deferred) {
+            // V2.2: no permitted provider is available for this task right
+            // now. NOT a blocker — nothing is wrong with the task and a
+            // blocker is never retried. The task stays PENDING, nothing was
+            // created, and the next tick asks the router again.
+            actions.push({ action: 'defer', task_id: t.task_id, reason: c.deferred.reason,
+              routing: c.deferred.decision });
+            log('routing_deferred', { task_id: t.task_id, reason: c.deferred.reason,
+              role: c.deferred.decision.role || null, task_type: c.deferred.decision.task_type || null,
+              router_action: c.deferred.decision.router_action || null,
+              router_agent: c.deferred.decision.router_agent || null, why: c.deferred.decision.why });
+            return;
+          }
           if (c.blocked) {
             // The decision cannot run: BLOCKED with a structured report and no
             // executor task, no worktree, no provider. Never retried by itself.
@@ -1550,6 +1885,51 @@ function tick(executor, opts) {
       var eff = state.effectiveStatus(st) === 'INTERRUPTED' ? 'RUNNING' : st.status;
       var mapped = STATUS_MAP[eff] || 'IN_PROGRESS';
       if (TERMINAL.indexOf(mapped) !== -1) {
+        // REVIEW GATE (off unless MYTHOS_BRIDGE_REVIEW_GATE is set). COMPLETED
+        // is what releases this task's dependents, so it must mean "finished
+        // AND reviewed where a review is owed" — the policy in
+        // core/validation.js decides which tasks those are, not this file.
+        // A task that owes a review it has not had stops for a PERSON on its
+        // own Issue; every other task in every other project is untouched.
+        var review = { required: false, gate: 'off' };
+        if (mapped === 'COMPLETED') {
+          try {
+            review = reviewGate.evaluate(t, buildReport(cfg, t, 'COMPLETED', { executor_status: st.status }));
+          } catch (e) {
+            review = { required: true, satisfied: false, gate: 'error',
+              reason: 'review_gate_error: ' + String(e.message).slice(0, 160), sensitive: true, approved_by: null };
+          }
+        }
+        if (review.required && !review.satisfied) {
+          t.execution.review_gate = { required: true, reason: review.reason, sensitive: !!review.sensitive, at: nowIso() };
+          finishTask(cfg, t, 'BLOCKED', {
+            executor_status: st.status,
+            // The worker's own summary stays the summary — it is the evidence
+            // of what was done, and the person needs to read exactly that to
+            // decide. WHY the task stopped is recorded as a problem, which is
+            // where the Issue report already shows blocking reasons.
+            summary: 'The work finished and validated, but this task requires an INDEPENDENT REVIEW that has not happened (' +
+              review.reason + '). It is not failed and nothing was lost — it is unreviewed, and unreviewed work is never reported as done.',
+            // The wording carries the word the Issue adapter's own
+            // classifier looks for (APPROVAL_RE): this is an owner decision,
+            // not an infrastructure blocker, so the Issue shows HUMAN
+            // APPROVAL and its existing "what to do next" text — no new
+            // state, no new label, no change to github-issues.js.
+            problems: ['independent review required (' + review.reason + '): the result above is complete but ' +
+              'unreviewed. It needs your approval — an owner decision — before it counts as done, and nothing ' +
+              'that depends on it has started.'],
+            next: 'Read the result below. If it is correct, add the label `' + (process.env.MYTHOS_ISSUES_RERUN_LABEL || 'rerun') +
+              '` on the Issue: that records your approval and continues from this attempt instead of redoing it. If it is wrong, say what to fix in the Issue first, then add the same label.',
+            human_approval: true
+          }, changed);
+          actions.push({ action: 'review_required', task_id: t.task_id, reason: review.reason });
+          log('review_required', { task_id: t.task_id, reason: review.reason, sensitive: !!review.sensitive });
+          return;
+        }
+        if (review.approved_by) {
+          t.execution.review_gate = { required: true, satisfied: true, approved_by: review.approved_by,
+            reason: review.reason, at: nowIso() };
+        }
         finishTask(cfg, t, mapped, { executor_status: st.status }, changed);
         actions.push({ action: 'finish', task_id: t.task_id, status: mapped });
         return;
@@ -1809,9 +2189,13 @@ function daemon(executor) {
 }
 
 module.exports = {
+  buildInstruction: buildInstruction,
   PROTOCOL: PROTOCOL,
   TASK_STATUSES: TASK_STATUSES,
   TERMINAL: TERMINAL,
+  dependencySatisfied: dependencySatisfied,
+  continuationSatisfies: continuationSatisfies,
+  attemptLineage: attemptLineage,
   PROFILE_BY_ACTION: PROFILE_BY_ACTION,
   DELIVERY_BY_ACTION: DELIVERY_BY_ACTION,
   STATUS_MAP: STATUS_MAP,

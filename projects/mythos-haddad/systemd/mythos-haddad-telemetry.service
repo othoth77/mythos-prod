@@ -1,0 +1,29 @@
+[Unit]
+# MYTHOS HADDAD — telemetry push to the Status Center.
+#
+# A USER unit, like every other Haddad unit: the agent reads this user's
+# own executor store, health report and runtime, and needs no privilege
+# beyond that. Systemd user units cannot sandbox on this host (no
+# delegated user-scope controllers), so hardening here is by design
+# rather than by directive: the agent opens no socket, writes only its
+# own sequence file, and its single outbound call is a signed POST.
+#
+# It is deliberately NOT ordered after the worker or the runtime. A node
+# whose runtime is dead is exactly when the Status Center most needs a
+# heartbeat — reporting DEGRADED is the job, so the agent must run even
+# when everything it measures is down.
+Description=MYTHOS Haddad telemetry push (Status Center heartbeat)
+Documentation=file:%h/projects/mythos-prod/projects/mythos-haddad/docs/TELEMETRY.md
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env node %h/projects/mythos-prod/projects/mythos-haddad/bin/haddad-telemetry.js
+# One beat must never outlive its interval: a hung send is dropped and the
+# next beat carries fresher data than a retry of a stale envelope would.
+TimeoutStartSec=9
+# The endpoint being unreachable is an expected, transient condition (the
+# node has a home connection). It is journalled, never escalated.
+SuccessExitStatus=0 2
+Nice=10
+IOSchedulingClass=idle

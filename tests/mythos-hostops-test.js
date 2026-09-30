@@ -1,7 +1,15 @@
 'use strict';
 // =====================================================
-// MYTHOS — mythos-hostops v0.1 boundary tests (HOSTOPS-READONLY-0)
+// MYTHOS — mythos-hostops boundary tests (HOSTOPS-READONLY-0, updated for v0.2)
 // tests/mythos-hostops-test.js
+//
+// v0.2 note: the READ-tier properties below are unchanged. What changed is
+// the non-READ surface: WRITE/RESTART/DEPLOY no longer exist as classes —
+// arbitrary writes and compose deploys are OWNER (refused), restarts are
+// CONTROLLED (catalogued targets only; covered with fakes by
+// tests/mythos-hostops-controlled-test.js). In dev mode this suite points
+// the helper at the REPO catalog explicitly, so it tests the code under
+// review rather than whatever catalog happens to be installed.
 //
 // Proves the 15 mission points against the REAL helper binary (dev-mode
 // invocation of ops/hostops/mythos-hostops.js — byte-identical to what the
@@ -15,6 +23,7 @@ var os = require('os');
 var path = require('path');
 
 var HELPER = path.join(__dirname, '..', 'ops', 'hostops', 'mythos-hostops.js');
+var REPO_CATALOG = path.join(__dirname, '..', 'ops', 'dagu-poc', 'hostops-allowlist.json');
 var TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'hostops-test-'));
 var IS_ROOT = process.getuid() === 0;
 var pass = 0, fail = 0, skip = 0;
@@ -22,7 +31,7 @@ function t(name, fn) { try { fn(); pass++; console.log('ok - ' + name); } catch 
 function SKIP(msg) { var e = new Error(msg); e.__skip = true; throw e; }
 
 function call(args, envExtra) {
-  var env = Object.assign({}, process.env, { MYTHOS_HOSTOPS_HOME: TMP }, envExtra || {});
+  var env = Object.assign({}, process.env, { MYTHOS_HOSTOPS_HOME: TMP, MYTHOS_HOSTOPS_ALLOWLIST: REPO_CATALOG }, envExtra || {});
   delete env.SUDO_USER; if (envExtra && envExtra.SUDO_USER) env.SUDO_USER = envExtra.SUDO_USER;
   var r = cp.spawnSync('/usr/bin/node', [HELPER].concat(args), { encoding: 'utf8', env: env, timeout: 20000 });
   var body = null; try { body = JSON.parse(r.stdout); } catch (e) { /* leave null */ }
@@ -73,14 +82,31 @@ t('2 unknown operation rejected', function () {
   assert.strictEqual(r.body.error.code, 'UNKNOWN_OPERATION');
 });
 
-// 3/4/5 — WRITE / RESTART / DEPLOY refused by name with class
-[['file-write', 'WRITE'], ['docker-restart', 'RESTART'], ['systemd-restart', 'RESTART'], ['compose-up', 'DEPLOY'], ['compose-rollback', 'DEPLOY'], ['host.docker.deploy', 'DEPLOY']].forEach(function (pair) {
-  t('3-5 non-READ verb refused: ' + pair[0] + ' (' + pair[1] + ')', function () {
-    var r = call([pair[0], '--path', '/home/deploy/deployments/x/y', '--container', 'mythos-poc-x', '--unit', 'dagu-poc.service', '--project', '/home/deploy/deployments/x']);
+// 3/4/5 — v0.2: OWNER-class verbs (arbitrary file write, compose deploy /
+// rollback) are refused by name; the v0.1 `systemd-restart` verb is retired
+// (service lifecycle is the catalogued CONTROLLED `service-control`); a
+// CONTROLLED verb against an uncatalogued target is refused before anything runs.
+[['file-write', ['--path', '/home/deploy/deployments/x/y']], ['compose-up', ['--project', '/home/deploy/deployments/x']],
+ ['compose-rollback', ['--project', '/home/deploy/deployments/x']], ['host.docker.deploy', ['--project', '/home/deploy/deployments/x']]].forEach(function (pair) {
+  t('3-5 OWNER verb refused: ' + pair[0], function () {
+    var r = call([pair[0]].concat(pair[1]));
     assert.strictEqual(r.code, 2);
-    assert.strictEqual(r.body.error.code, 'OPERATION_NOT_READ');
-    assert.ok(r.body.error.message.indexOf(pair[1]) !== -1, 'names the class');
+    assert.strictEqual(r.body.error.code, 'OWNER_APPROVAL_REQUIRED');
+    assert.ok(r.body.error.message.indexOf('OWNER') !== -1, 'names the class');
   });
+});
+t('3-5 retired v0.1 verb systemd-restart is unknown', function () {
+  var r = call(['systemd-restart', '--unit', 'dagu-poc.service']);
+  assert.strictEqual(r.code, 2);
+  assert.strictEqual(r.body.error.code, 'UNKNOWN_OPERATION');
+});
+t('3-5 CONTROLLED verb against an uncatalogued target refused before execution', function () {
+  var r = call(['docker-restart', '--container', 'mythos-poc-x', '--task-id', 't-hostops-test']);
+  assert.strictEqual(r.code, 2);
+  assert.strictEqual(r.body.error.code, 'CONTAINER_NOT_CATALOGUED');
+  var r2 = call(['service-control', '--unit', 'docker.service', '--action', 'restart', '--task-id', 't-hostops-test']);
+  assert.strictEqual(r2.code, 2);
+  assert.ok(/^(SERVICE_NOT_CATALOGUED|PROTECTED_UNIT)$/.test(r2.body.error.code), r2.body.error.code);
 });
 
 // 6 — destructive commands are not verbs at all
@@ -171,7 +197,7 @@ t('10a every outcome above produced an audit event, refusals included', function
   var lines = auditLines();
   assert.ok(lines.length >= 30, 'audit lines: ' + lines.length);
   assert.ok(lines.some(function (l) { return l.outcome === 'ok' && l.operation === 'host.health.check'; }));
-  assert.ok(lines.some(function (l) { return l.outcome === 'refused' && l.error === 'OPERATION_NOT_READ'; }));
+  assert.ok(lines.some(function (l) { return l.outcome === 'refused' && l.error === 'OWNER_APPROVAL_REQUIRED'; }));
 });
 t('10b audit carries task identity and audit_id matches the response', function () {
   var r = call(['health', '--task-id', 't-20260903-hostops', '--github-task', 'gh-issue-999', '--othmode-task', 'OTH-2026-00099']);

@@ -1,0 +1,131 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mythos Supervisor Diagnosis",
+  "description": "OpenAI supervisor: diagnose a failed, crashed, timed-out or rejected execution and propose ONE corrective recovery task that differs from what already failed. Never a blind repeat. When the fix needs a person (credential, owner decision, governance, privileged host step) set recoverable=false and name the human action.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "role",
+    "classification",
+    "diagnosis",
+    "recoverable",
+    "recovery_task",
+    "what_changes",
+    "human_action",
+    "confidence"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "1.0.0"
+      ]
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "supervise_diagnose"
+      ]
+    },
+    "classification": {
+      "type": "string",
+      "enum": [
+        "TEST_FAILURE",
+        "DEPENDENCY_MISSING",
+        "TIMEOUT",
+        "CRASH",
+        "BRIDGE_FAILURE",
+        "PERMISSION",
+        "SERVICE_UNAVAILABLE",
+        "RESOURCE_EXHAUSTION",
+        "SPEC_ERROR",
+        "REVIEW_REJECTED",
+        "HUMAN_REQUIRED",
+        "OTHER"
+      ]
+    },
+    "diagnosis": {
+      "type": "string"
+    },
+    "recoverable": {
+      "type": "boolean"
+    },
+    "recovery_task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "objective",
+        "scope",
+        "constraints",
+        "validation",
+        "acceptance_criteria",
+        "action",
+        "timeout_seconds"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "objective": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "validation": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "acceptance_criteria": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "investigate",
+            "review",
+            "test",
+            "document",
+            "implement"
+          ]
+        },
+        "timeout_seconds": {
+          "type": "integer"
+        }
+      }
+    },
+    "what_changes": {
+      "type": "string"
+    },
+    "human_action": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    }
+  }
+}

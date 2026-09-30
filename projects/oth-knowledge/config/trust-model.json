@@ -14,6 +14,7 @@
     "notebooklm":        { "tier": "model-output",        "stale_after_days": 365 },
     "claude":            { "tier": "model-output",        "stale_after_days": 365 },
     "deepseek":          { "tier": "model-output",        "stale_after_days": 365 },
-    "chatgpt":           { "tier": "model-output",        "stale_after_days": 365 }
+    "chatgpt":           { "tier": "model-output",        "stale_after_days": 365 },
+    "test-result":       { "tier": "model-output",        "stale_after_days": 365 }
   }
 }

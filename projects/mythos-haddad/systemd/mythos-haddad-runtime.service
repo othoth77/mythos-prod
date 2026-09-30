@@ -1,0 +1,169 @@
+# MYTHOS HADDAD — HAD-2 AI runtime (llama-server, Vulkan GPU inference).
+# Installed by bin/haddad-runtime-setup.sh into ~/.config/systemd/user/
+# (@HADDAD_DIR@ and @RUNTIME_PREFIX@ are replaced at install time).
+#
+# User unit under `othman` (this machine has one interactive user; there is
+# no separate `deploy`-style service account, unlike the VPS). No root, no
+# system unit — matches the repo-wide rule that anything the AI layer runs
+# through is a systemd *user* service.
+#
+# Loopback-bound (--host 127.0.0.1, the llama-server default — never
+# overridden to 0.0.0.0), token-protected (LLAMA_API_KEY from the 0600 env
+# file below; llama-server itself refuses unauthenticated requests once a
+# key is set). advisory only: this unit runs a chat-completions server, it
+# has no execution authority of any kind and is never given repository or
+# host write access.
+#
+# Deliberately DOES NOT SET (see docs/AI_RUNTIME.md for why each one would
+# break this specific unit, verified on this host, not assumed from docs):
+#   PrivateDevices=yes           — hides /dev/dri/renderD128; the GPU
+#                                   silently disappears and inference falls
+#                                   back to (very slow) CPU-only.
+#   MemoryDenyWriteExecute=yes   — the Vulkan JIT (shader compilation) needs
+#                                   W^X-toggling pages; sibling units in this
+#                                   repo (mythos-command-center, the GitHub
+#                                   runner, the MCP bridge) all disable this
+#                                   for the same class of reason.
+#   ProtectKernelTunables/-Modules/-ControlGroups/-Clock,
+#   RestrictNamespaces           — each implies a capability-bounding-set
+#                                   change an unprivileged *user* systemd
+#                                   manager cannot make; the unit fails at
+#                                   step CAPABILITIES (status=218) and never
+#                                   spawns. Documented from a real on-host
+#                                   failure in ops/guardian's unit and (the
+#                                   cautionary tale) ssangyong-storefront.service,
+#                                   which still carries them and has 2830+
+#                                   restarts as a result.
+#   SystemCallFilter=~@privileged
+#     @resources                 — found on THIS host, not assumed: adding
+#                                   `~@resources` to the negation killed the
+#                                   process with SIGSYS (status=31/SYS,
+#                                   "core-dump") the instant the Vulkan
+#                                   driver initialized — it needs at least
+#                                   one syscall from that group (plausibly
+#                                   sched_setaffinity/mbind for NUMA-aware
+#                                   buffer placement; not narrowed further).
+#                                   @system-service alone, with no negation,
+#                                   is the filter that actually starts.
+[Unit]
+Description=MYTHOS Haddad — local AI runtime (llama-server, Vulkan GPU)
+Documentation=file:@HADDAD_DIR@/docs/AI_RUNTIME.md
+# NOTE: in a systemd --user manager on this host `network.target` does not
+# exist (`systemctl --user list-units --type=target` reports it not-found),
+# so this line orders against nothing here. It is kept because it is correct
+# where the target does exist, and it is NOT what makes the GPU work — see
+# the ExecStartPre gate below, which is.
+After=network.target
+
+[Service]
+Type=simple
+Environment=PATH=%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+EnvironmentFile=%h/.config/mythos-haddad/runtime.env
+ExecStart=@RUNTIME_PREFIX@/bin/llama-server \
+  --host 127.0.0.1 --port 8600 \
+  --model @MODEL_PATH@ \
+  # 8192, not 4096. 4096 was not a window you could work in: a bridge task
+  # instruction is ~1,900 tokens before a single file is read, and a live
+  # supervised run (gh-issue-367) produced a CORRECT fix and then died with
+  # "request (4590 tokens) exceeds the available context size".
+  #
+  # It is not free, and the price is not only VRAM. MEASURED on this card
+  # after the change (llama-server's own accounting, not arithmetic):
+  #   at 4096 — 29/29 layers on the GPU, model 4168 MiB, KV 224 MiB
+  #   at 8192 — 27/29 layers on the GPU, model 3884 MiB GPU + 577 MiB CPU,
+  #             KV 416 MiB GPU + 32 MiB CPU, compute 304 MiB
+  # 4920 MiB projected against 5752 MiB free, so it fits — but `auto` paid
+  # for the larger KV cache by moving two layers and part of the cache off
+  # the card. The whole model no longer lives in VRAM. Generation is slower
+  # for it; the window is worth more than the speed here, and that is the
+  # trade being made. See docs/AI_RUNTIME.md § Measurements.
+  #
+  # Raising this further is a VRAM decision, not a free one, and it will
+  # push more layers to the CPU rather than fail cleanly.
+  --ctx-size 8192 \
+  --n-gpu-layers auto \
+  --api-key-file %h/.config/mythos-haddad/runtime.key
+# THE GPU ORDERING GATE. Without it this unit wins a race it must lose and
+# then runs the whole model on the CPU, silently, until someone restarts it.
+#
+# MEASURED on this host, boot of 2026-09-22:
+#   22:14:53  unit starts
+#   22:14:57  ggml_vulkan: No devices found
+#             warning: no usable GPU found, --gpu-layers option will be ignored
+#   22:15:31  CPU_Mapped 3802.54 MiB + 585.07 MiB, CPU_REPACK 2976.75 MiB
+#   22:16:16  /dev/dri/card0 and renderD128 get their ACL (ctime), 83 s LATE
+# The nodes are mode 0660 root:render and this service's user is NOT in the
+# `render` group; systemd-logind grants access by setting an ACL when the
+# seat session comes up, and that happened 83 s after llama-server had
+# already enumerated Vulkan, found nothing and given up. The fallback is
+# permanent for the life of the process and it fails no check on its own:
+# gpu_test probes the card in a separate process (it passes), the endpoint
+# answers (ai_runtime passed 16/16 twice against exactly this). The cost was
+# ~60x — "Say OK" returned in 2.902 s on the GPU and not at all within 180 s
+# on the CPU. haddad-health.js now asserts the offload itself; this stops it
+# happening.
+#
+# There is nothing to order against: `graphical-session.target` is inactive
+# on a tty1 console login, and a user manager cannot order against the
+# system units that create the node. So the unit waits for the FACT it needs
+# — a render node this user can actually open — instead of for a proxy.
+#
+# Both waits are bounded, both are prefixed `-` so a timeout can never keep
+# the runtime down, and neither uses a shell variable (systemd would expand
+# `$n` itself). A host with NO render node at all falls straight through:
+# the second loop's `test -e` fails immediately, so a GPU-less machine waits
+# the 10 s existence grace and not a second more, and llama-server starts
+# CPU-only exactly as it should there.
+#
+# These run while the unit is still `activating`, so ActiveEnterTimestamp —
+# which haddad-health.js reads as the start of the readiness budget — still
+# marks llama-server's own start and not this wait. The wait does count
+# against TimeoutStartSec: 10 + 150 + a 208 s worst-case load is 368 s, well
+# inside the 600 s budget set below.
+ExecStartPre=-/usr/bin/timeout 10 /bin/sh -c 'until test -e /dev/dri/renderD128; do sleep 1; done'
+ExecStartPre=-/usr/bin/timeout 150 /bin/sh -c 'while test -e /dev/dri/renderD128 && ! test -r /dev/dri/renderD128; do sleep 1; done'
+Restart=on-failure
+RestartSec=10
+# The declared startup budget, and — because Type=simple makes systemd call
+# this unit "active" the moment llama-server execs, long before the model is
+# answerable — ALSO the readiness budget haddad-health.js reads back from
+# systemd (`show -p TimeoutStartUSec`) to decide whether a "Loading model"
+# 503 is a boot in progress or a real failure. One number, in the unit that
+# owns it; the health check invents none of its own.
+#
+# 120 was too small and it produced a false alarm. MEASURED on this host,
+# 2026-09-22, both boots of that evening:
+#   GPU boot — active 22:40:46, "main: model loaded" 22:42:54 = 128 s
+#   CPU boot — active 22:14:53, "main: model loaded" 22:18:21 = 208 s
+# The health timer's OnBootSec=3min fired at ~22:17:56, 25 s short of the
+# slower one, and the run was recorded FAIL on an ai_runtime that was
+# loading normally and passed four minutes later with nothing changed.
+# The budget is set against the SLOWER figure on purpose: 208 s was a boot
+# that found no Vulkan device and fell back to CPU, and a degraded boot is
+# exactly when a false FAIL costs the most. 10 min leaves real headroom over
+# it for a boot contending with the interactive sessions this machine also
+# carries, while still failing a runtime that never comes up.
+TimeoutStartSec=600
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=%h/.local/state/mythos-haddad
+
+# 8 GB machine, shared with interactive Claude Code sessions: never let
+# inference be the reason the host is short of memory. Sized above the
+# model's resident set (~4.4 GB) plus KV cache and process overhead;
+# revisit if haddad-health.js's runtime check ever reports pressure.
+MemoryMax=6G
+OOMScoreAdjust=100
+
+[Install]
+WantedBy=default.target

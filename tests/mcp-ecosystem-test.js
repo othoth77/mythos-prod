@@ -266,7 +266,7 @@ async function run() {
   {
     var real = registryLib.loadRegistry();
     ok(real.valid, 'the shipped registry is valid: ' + (real.reason || 'ok'));
-    ok(real.valid && Object.keys(real.servers).length === 6, 'six servers registered (' + Object.keys(real.servers).length + ')');
+    ok(real.valid && Object.keys(real.servers).length === 7, 'seven servers registered — six + browser-mcp (' + Object.keys(real.servers).length + ')');
     ok(real.valid && real.servers['oth-mcp'].tools.length === 8, 'oth-mcp declares its 8 tools');
     ok(real.valid && registryLib.declaredTools(real.servers, 'mythos-mcp-http').length === 8, 'the bridge relays oth-mcp\'s 8 tools without declaring any');
     ok(real.valid && real.servers['github-mcp-rw'].tools.length === 57 && real.servers['github-mcp-rw'].tools.indexOf('delete_file') === -1 && real.servers['github-mcp-rw'].tools.indexOf('create_branch') !== -1, 'github-mcp-rw declares the 57 measured v1.10.1 tools — delete_file excluded at the container (drift is reported from now on)');
@@ -612,7 +612,7 @@ async function run() {
     var cf = t.tools.filter(function (x) { return x.id === 'contextforge.knowledge_search'; })[0];
     ok(!cf, 'the gateway declares no tool of its own in the read model');
     var view = registries.mcp();
-    ok(view.total === 6 && view.checked_at === '2026-09-01T23:00:00.000Z' && view.checked_ok === false, 'the MCP view lists six servers with the snapshot time');
+    ok(view.total === 7 && view.checked_at === '2026-09-01T23:00:00.000Z' && view.checked_ok === false, 'the MCP view lists seven servers with the snapshot time');
     var o = view.servers.filter(function (s) { return s.name === 'oth-mcp'; })[0];
     ok(o.status === 'ONLINE' && o.transport === 'stdio' && o.tools.length === 8 && o.credential_ref === null, 'oth-mcp view row');
     var b = view.servers.filter(function (s) { return s.name === 'mythos-mcp-http'; })[0];

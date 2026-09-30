@@ -66,7 +66,7 @@ Rules the bridge enforces (an invalid task is never executed; it gets a
 | `model` | optional. `Haiku` \| `Sonnet` \| `Opus` \| `Fable 5` \| `Fable 5.1` (or a full id such as `claude-sonnet-5`) → that model runs, never a substitute; an unknown value is refused with the accepted list, a known-but-unavailable one stops the attempt as `MODEL_UNAVAILABLE` (structured report: requested / available / actual model). Optional `model_raw` / `model_source` record the request. Omit it and the executor scores the task and picks Haiku, Sonnet or Opus — Fable is never chosen automatically. The chosen model and the reason appear in the report. Choosing a model grants no authority |
 | `status` | a creator may write only `PENDING` (new) or `CANCELLED` (withdraw) |
 | `execution`, `history` | bridge-owned; a creator must not write them |
-| `depends_on` | optional; the task waits until every listed task is `COMPLETED` |
+| `depends_on` | optional; the task waits until every listed task is `COMPLETED`; a `gate-<name>` entry waits until that start gate is proven (`gates/README.md`) |
 | secrets | any token/key shape anywhere in the file → rejected |
 
 ## Lifecycle

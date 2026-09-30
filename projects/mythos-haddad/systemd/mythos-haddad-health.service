@@ -1,0 +1,10 @@
+# Installed by bin/haddad-setup.sh into ~/.config/systemd/user/ (@HADDAD_DIR@ is replaced).
+[Unit]
+Description=Mythos Haddad V0 health check
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=PATH=%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/bin/env node @HADDAD_DIR@/bin/haddad-health.js
+# A FAIL result exits 1: the unit shows as failed and the report is in the journal + log dir.

@@ -1,35 +1,166 @@
 {
-  "schema_version": "0.1.0",
-  "note": "MYTHOS host-operations allowlist — the DECLARED policy for what a Dagu host workflow may ask the root-owned helper (mythos-hostops) to do. Classes: READ (no approval), WRITE (governance approval), RESTART (governance approval), DEPLOY (owner approval), DESTRUCTIVE (never through this path). The helper validates every argument against the pattern here; an operation absent from this file is refused. Design record: docs/MYTHOS_DAGU_HOST_OPERATIONS.md §8.",
+  "schema_version": "0.2.0",
+  "note": "MYTHOS HostOps catalog v0.2 — the single DECLARED policy for what FABLE (the executor's headless Claude sessions, user deploy), Dagu and the owner may ask the root-owned boundary (/usr/local/sbin/mythos-hostops) to do. Installed root-owned at /etc/mythos/hostops-allowlist.json; the helper refuses it otherwise. Three tiers: NORMAL (autonomous, read/observe), CONTROLLED (autonomous but only on catalogued targets, validated, audited BEFORE and after execution, idempotent, verified, rolled back where a rollback exists, rate-limited, owner kill switch), HIGHLY_SENSITIVE (never executed by HostOps: the owner does it by hand). Anything not in this file is refused. Hard invariants that a catalog edit cannot relax live in the helper code (docs/MYTHOS_PERMISSION_MODEL.md §4). Changing this file on the host is itself HIGHLY_SENSITIVE (owner install).",
+  "tiers": {
+    "NORMAL": { "autonomous": true, "approval": "none", "description": "observe only; no host state change" },
+    "CONTROLLED": { "autonomous": true, "approval": "policy", "description": "state change on a catalogued target only: validated arguments, intent audit before execution (fail closed), lock, rate limit, verification, automatic rollback when verification fails, owner kill switch /etc/mythos/hostops-controlled.disabled" },
+    "HIGHLY_SENSITIVE": { "autonomous": false, "approval": "owner", "description": "never executed through HostOps under any caller-supplied argument; the owner performs it outside the system" }
+  },
   "classes": {
-    "READ": { "approval": "none", "description": "observe only; no state change" },
-    "WRITE": { "approval": "governance", "description": "reversible change inside an allowlisted directory or a non-production container" },
-    "RESTART": { "approval": "governance", "description": "restart/reload of an allowlisted unit or container; never the governance, executor, OTHMODE or gateway units" },
-    "DEPLOY": { "approval": "owner", "description": "create or replace containers, networks, volumes from a pinned compose project" },
-    "DESTRUCTIVE": { "approval": "never", "description": "irreversible; not executable through Dagu or the helper under any approval" }
+    "READ": { "tier": "NORMAL", "approval": "none", "description": "observe only; no state change" },
+    "CONTROLLED": { "tier": "CONTROLLED", "approval": "policy", "description": "reversible or self-healing change on a catalogued target, executed autonomously under policy + audit" },
+    "OWNER": { "tier": "HIGHLY_SENSITIVE", "approval": "owner", "description": "declared but not executable through HostOps; refused with OWNER_APPROVAL_REQUIRED" },
+    "DESTRUCTIVE": { "tier": "HIGHLY_SENSITIVE", "approval": "never", "description": "irreversible; not executable through HostOps under any approval" }
   },
   "operations": {
-    "host.health.check":      { "class": "READ",    "helper": "health",           "args": {} },
-    "host.docker.status":     { "class": "READ",    "helper": "docker-status",    "args": { "container": "^[a-z0-9][a-z0-9_.-]{1,63}$" } },
-    "host.docker.logs":       { "class": "READ",    "helper": "docker-logs",      "args": { "container": "^[a-z0-9][a-z0-9_.-]{1,63}$", "lines": "^[0-9]{1,4}$" } },
-    "host.systemd.status":    { "class": "READ",    "helper": "systemd-status",   "args": { "unit": "^[a-z0-9@._-]{1,64}\\.(service|timer)$" } },
-    "host.file.read":         { "class": "READ",    "helper": "file-read",        "args": { "path": "^/home/deploy/(deployments|projects)/[A-Za-z0-9_./-]{1,200}$" } },
-    "host.resource.guard":    { "class": "READ",    "helper": "resource-guard",   "args": {} },
-    "host.file.write":        { "class": "WRITE",   "helper": "file-write",       "args": { "path": "^/home/deploy/deployments/[A-Za-z0-9_-]{1,64}/[A-Za-z0-9_./-]{1,200}$" } },
-    "host.docker.restart":    { "class": "RESTART", "helper": "docker-restart",   "args": { "container": "^(mythos-poc-|evolution-)[a-z0-9_.-]{1,60}$" } },
-    "host.systemd.restart":   { "class": "RESTART", "helper": "systemd-restart",  "args": { "unit": "^(dagu-poc|evolution-[a-z0-9-]{1,32})\\.service$" } },
-    "host.docker.deploy":     { "class": "DEPLOY",  "helper": "compose-up",       "args": { "project": "^/home/deploy/deployments/[a-z0-9-]{1,64}$" } },
-    "host.docker.rollback":   { "class": "DEPLOY",  "helper": "compose-rollback", "args": { "project": "^/home/deploy/deployments/[a-z0-9-]{1,64}$" } }
+    "host.health.check":      { "class": "READ", "helper": "health",         "args": {}, "timeout_ms": 10000, "idempotent": true, "rollback": "none (read)" },
+    "host.docker.status":     { "class": "READ", "helper": "docker-status",  "args": { "container": "^[a-z0-9][a-z0-9_.-]{1,63}$" }, "timeout_ms": 10000, "idempotent": true, "rollback": "none (read)" },
+    "host.docker.logs":       { "class": "READ", "helper": "docker-logs",    "args": { "container": "^[a-z0-9][a-z0-9_.-]{1,63}$", "lines": "^[0-9]{1,4}$" }, "defaults": { "lines": "200" }, "timeout_ms": 10000, "idempotent": true, "rollback": "none (read)" },
+    "host.systemd.status":    { "class": "READ", "helper": "systemd-status", "args": { "unit": "^[a-z0-9@._-]{1,64}\\.(service|timer)$" }, "timeout_ms": 10000, "idempotent": true, "rollback": "none (read)" },
+    "host.file.read":         { "class": "READ", "helper": "file-read",      "args": { "path": "^/home/deploy/(deployments|projects)/[A-Za-z0-9_./-]{1,200}$" }, "timeout_ms": 10000, "idempotent": true, "rollback": "none (read)" },
+    "host.resource.guard":    { "class": "READ", "helper": "resource-guard", "args": {}, "timeout_ms": 10000, "idempotent": true, "rollback": "none (read)" },
+    "host.catalog.describe":  { "class": "READ", "helper": "catalog",        "args": {}, "timeout_ms": 10000, "idempotent": true, "rollback": "none (read)" },
+    "host.userunit.status":   { "class": "READ", "helper": "user-unit-status", "args": { "unit": "^[a-z0-9@._-]{1,64}\\.(service|timer)$" }, "timeout_ms": 20000, "idempotent": true, "rollback": "none (read)" },
+    "host.config.get":        { "class": "READ", "helper": "config-get",     "args": { "key": "^[a-z][a-z0-9_-]{1,30}(\\.[a-z0-9_-]{1,30}){1,3}$" }, "timeout_ms": 20000, "idempotent": true, "rollback": "none (read)" },
+    "host.change.list":       { "class": "READ", "helper": "change-list",    "args": { "limit": "^[0-9]{1,3}$" }, "defaults": { "limit": "20" }, "timeout_ms": 10000, "idempotent": true, "rollback": "none (read)" },
+
+    "host.config.set":        { "class": "CONTROLLED", "helper": "config-set",  "args": { "key": "^[a-z][a-z0-9_-]{1,30}(\\.[a-z0-9_-]{1,30}){1,3}$", "value": "^[A-Za-z0-9+._,-]{1,200}$" }, "timeout_ms": 60000, "idempotent": true, "rollback": "automatic on failed verification; host.change.rollback --change <id> afterwards", "risk_note": "only keys declared in config_keys; each key carries its own value pattern, drop-in, reload and verification" },
+    "host.systemd.user_daemon_reload": { "class": "CONTROLLED", "helper": "user-daemon-reload", "args": {}, "timeout_ms": 30000, "idempotent": true, "rollback": "none needed (re-reads unit files; changes nothing by itself)" },
+    "host.service.control":   { "class": "CONTROLLED", "helper": "service-control", "args": { "unit": "^[a-z0-9@._-]{1,64}\\.(service|timer)$", "action": "^(start|stop|restart)$" }, "timeout_ms": 60000, "idempotent": true, "rollback": "stop → start; start/restart are self-healing; the unit and action must be declared in services", "risk_note": "scope (user = deploy's user manager, system = root) comes from the services catalog, never from the caller" },
+    "host.docker.restart":    { "class": "CONTROLLED", "helper": "docker-restart", "args": { "container": "^[a-z0-9][a-z0-9_.-]{1,63}$" }, "timeout_ms": 60000, "idempotent": true, "rollback": "none (restart is self-healing)", "risk_note": "only containers declared in containers; data stores are refused in code" },
+    "host.tool.run":          { "class": "CONTROLLED", "helper": "tool-run", "args": { "tool": "^[a-z][a-z0-9_-]{1,30}(\\.[a-z0-9_-]{1,30}){1,3}$", "confirm": "^yes$" }, "timeout_ms": 60000, "idempotent": false, "rollback": "per tool (see tools)", "risk_note": "only tools declared in tools, each with a FIXED argv, a fixed binary under an approved root and its own risk tier; a NORMAL tool runs without the CONTROLLED gates" },
+    "host.change.rollback":   { "class": "CONTROLLED", "helper": "change-rollback", "args": { "change": "^hostops-[a-z0-9]{6,12}-[0-9a-f]{6}$" }, "timeout_ms": 60000, "idempotent": true, "rollback": "the rollback is itself recorded as a change and can be rolled back" },
+
+    "host.file.write":        { "class": "OWNER", "helper": "file-write",       "args": { "path": "^/home/deploy/deployments/[A-Za-z0-9_-]{1,64}/[A-Za-z0-9_./-]{1,200}$" }, "timeout_ms": 10000, "idempotent": false, "rollback": "n/a — arbitrary-content writes are superseded by typed CONTROLLED operations (host.config.set)" },
+    "host.docker.deploy":     { "class": "OWNER", "helper": "compose-up",       "args": { "project": "^/home/deploy/deployments/[a-z0-9-]{1,64}$" }, "timeout_ms": 10000, "idempotent": false, "rollback": "host.docker.rollback (owner)" },
+    "host.docker.rollback":   { "class": "OWNER", "helper": "compose-rollback", "args": { "project": "^/home/deploy/deployments/[a-z0-9-]{1,64}$" }, "timeout_ms": 10000, "idempotent": false, "rollback": "is itself the rollback of host.docker.deploy (owner)" }
   },
+
+  "highly_sensitive_operations": {
+    "host.auth.change":        "change or disable the primary authentication system (Dex, mcp-auth-proxy, PAM, OAuth clients)",
+    "host.ssh.change":         "sshd_config, SSH security policy, authorized_keys or host keys",
+    "host.firewall.change":    "iptables / nftables / ufw / mythos-docker-firewall / security perimeter",
+    "host.secret.read":        "read a raw password, API key, token or other secret",
+    "host.secret.export":      "copy or move a secret outside its designated location",
+    "host.secret.rotate":      "credential or token rotation",
+    "host.user.create":        "create a user, add a privileged group membership (docker, sudo, mythos-gov, mythos-hostops) or change one",
+    "host.sudoers.change":     "add, edit or remove anything under /etc/sudoers.d",
+    "host.root.shell":         "any interactive or arbitrary command as root",
+    "host.sandbox.disable":    "remove NoNewPrivileges, ProtectSystem, the executor profiles or any other sandbox / security control",
+    "host.audit.disable":      "disable, truncate or rewrite an audit ledger or the journal",
+    "host.backup.delete":      "delete a backup or archive, or disable a backup/verify/restore-test timer",
+    "host.data.destroy":       "irreversible data deletion: rm -rf, DROP DATABASE/TABLE, docker volume/network rm, docker system prune, mkfs/fdisk/parted",
+    "host.policy.change":      "change this catalog, the HostOps helper/daemon/worker/units, the governance key, verifier, approvals or relay — anything that controls FABLE or owner approval",
+    "host.guard.change":       "change Resource Guard thresholds or stop the Guardian / Session Guard / memwatch"
+  },
+
+  "services": {
+    "user": {
+      "erp-api.service":               { "actions": ["start", "stop", "restart"], "verify": "active" },
+      "idauto-api.service":            { "actions": ["start", "stop", "restart"], "verify": "active" },
+      "mythos-os-console.service":     { "actions": ["start", "stop", "restart"], "verify": "active" },
+      "mythos-wp.service":             { "actions": ["start", "stop", "restart"], "verify": "active" },
+      "oth-knowledge-http.service":    { "actions": ["start", "stop", "restart"], "verify": "active" },
+      "piece-autos.service":           { "actions": ["start", "stop", "restart"], "verify": "active" },
+      "spy.service":                   { "actions": ["start", "stop", "restart"], "verify": "active" },
+      "ssangyong-storefront.service":  { "actions": ["start", "stop", "restart"], "verify": "active" },
+      "dagu-poc.service":              { "actions": ["start", "stop", "restart"], "verify": "active" },
+      "mythos-github-bridge.timer":    { "actions": ["start", "restart"], "verify": "active", "note": "stopping the owner's control channel is not autonomous" },
+      "mythos-free-llm-health.service": { "actions": ["start"], "verify": "oneshot" },
+      "mythos-free-llm-sync.service":  { "actions": ["start"], "verify": "oneshot" },
+      "mythos-free-llm-health.timer":  { "actions": ["start", "restart"], "verify": "active" },
+      "mythos-free-llm-sync.timer":    { "actions": ["start", "restart"], "verify": "active" },
+      "mythos-guardian.service":       { "actions": ["start"], "verify": "oneshot", "note": "one observe tick; stopping the Guardian is HIGHLY_SENSITIVE" },
+      "hostops-selftest.service":      { "actions": ["start"], "verify": "oneshot", "note": "scratch unit created and removed by ops/hostops/live-selftest.js; absent otherwise" }
+    },
+    "system": {
+      "mythos-status-monitor.service": { "actions": ["start"], "verify": "oneshot" },
+      "mythos-backup.service":         { "actions": ["start"], "verify": "oneshot", "note": "run a backup now; deleting or disabling backups is HIGHLY_SENSITIVE" },
+      "mythos-backup-db.service":      { "actions": ["start"], "verify": "oneshot" },
+      "mythos-backup-db-wp.service":   { "actions": ["start"], "verify": "oneshot" },
+      "mythos-backup-db-ssangyong.service": { "actions": ["start"], "verify": "oneshot" },
+      "mythos-backup-verify.service":  { "actions": ["start"], "verify": "oneshot" },
+      "mythos-backup-db-verify.service": { "actions": ["start"], "verify": "oneshot" }
+    }
+  },
+
+  "containers": {
+    "evolution-api": { "actions": ["restart"], "verify": "running", "note": "WhatsApp gateway; keeps its paired session across restarts" },
+    "n8n-n8n-1":     { "actions": ["restart"], "verify": "running" },
+    "omniroute":     { "actions": ["restart"], "verify": "running" }
+  },
+
+  "config_keys": {
+    "bridge.whatsapp.to": {
+      "unit": "mythos-github-bridge.service", "dropin": "20-whatsapp.conf", "env": "MYTHOS_BRIDGE_WHATSAPP_TO",
+      "item_pattern": "^\\+?216[0-9]{8}$", "separator": ",", "max_items": 3, "normalize": "strip_plus", "mask": true,
+      "verify_tool": "bridge.notify-config",
+      "note": "notification recipients (digits-only MSISDN list). Egress destination for notification content, so the pattern is pinned to Tunisian numbers; widening it is a catalog (owner) change. Entries already queued in the outbox keep the recipients they were queued with."
+    },
+    "bridge.whatsapp.enabled": {
+      "unit": "mythos-github-bridge.service", "dropin": "20-whatsapp.conf", "env": "MYTHOS_BRIDGE_WHATSAPP_ENABLED",
+      "item_pattern": "^[01]$", "max_items": 1, "mask": false, "verify_tool": "bridge.notify-config"
+    },
+    "selftest.whatsapp.to": {
+      "unit": "hostops-selftest.service", "dropin": "20-whatsapp.conf", "env": "MYTHOS_BRIDGE_WHATSAPP_TO",
+      "item_pattern": "^\\+?216[0-9]{8}$", "separator": ",", "max_items": 3, "normalize": "strip_plus", "mask": true,
+      "verify_tool": "selftest.notify-config",
+      "note": "live self-test replica of bridge.whatsapp.to on a scratch unit (ops/hostops/live-selftest.js); the unit exists only while the self-test runs, so this key is DROPIN_MISSING otherwise"
+    },
+    "bridge.whatsapp.instance": {
+      "unit": "mythos-github-bridge.service", "dropin": "20-whatsapp.conf", "env": "MYTHOS_BRIDGE_WHATSAPP_INSTANCE",
+      "item_pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$", "max_items": 1, "mask": false, "verify_tool": "bridge.notify-config"
+    }
+  },
+
+  "tools": {
+    "bridge.notify-config": {
+      "tier": "NORMAL", "bin": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bin/mythos-github-bridge", "argv": ["notify-config"],
+      "env_from_unit": "mythos-github-bridge.service", "env_prefixes": ["MYTHOS_BRIDGE_WHATSAPP_", "MYTHOS_BRIDGE_HOME"],
+      "mask_recipients_from": "MYTHOS_BRIDGE_WHATSAPP_TO", "timeout_ms": 20000, "rollback": "none (read)"
+    },
+    "selftest.notify-config": {
+      "tier": "NORMAL", "bin": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bin/mythos-github-bridge", "argv": ["notify-config"],
+      "env_from_unit": "hostops-selftest.service", "env_prefixes": ["MYTHOS_BRIDGE_WHATSAPP_", "MYTHOS_BRIDGE_HOME"],
+      "mask_recipients_from": "MYTHOS_BRIDGE_WHATSAPP_TO", "timeout_ms": 20000, "rollback": "none (read)"
+    },
+    "bridge.notify-status": {
+      "tier": "NORMAL", "bin": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bin/mythos-github-bridge", "argv": ["notify-status"],
+      "env_from_unit": "mythos-github-bridge.service", "env_prefixes": ["MYTHOS_BRIDGE_WHATSAPP_", "MYTHOS_BRIDGE_HOME"],
+      "timeout_ms": 20000, "rollback": "none (read)"
+    },
+    "bridge.notify-test": {
+      "tier": "CONTROLLED", "bin": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bin/mythos-github-bridge", "argv": ["notify-test", "--confirm"],
+      "env_from_unit": "mythos-github-bridge.service", "env_prefixes": ["MYTHOS_BRIDGE_WHATSAPP_", "MYTHOS_BRIDGE_HOME"],
+      "requires_confirm": true, "rate_limit": { "max": 1, "per_seconds": 600 },
+      "mask_recipients_from": "MYTHOS_BRIDGE_WHATSAPP_TO", "timeout_ms": 45000,
+      "rollback": "none (sends ONE real WhatsApp smoke-test message to the configured recipients; carries no task data)"
+    },
+    "bridge.notify-flush": {
+      "tier": "CONTROLLED", "bin": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bin/mythos-github-bridge", "argv": ["notify-flush"],
+      "env_from_unit": "mythos-github-bridge.service", "env_prefixes": ["MYTHOS_BRIDGE_WHATSAPP_", "MYTHOS_BRIDGE_HOME"],
+      "rate_limit": { "max": 6, "per_seconds": 600 }, "timeout_ms": 55000, "rollback": "none (delivers already-queued notifications; safe to repeat)"
+    },
+    "bridge.notify-breaker-reset": {
+      "tier": "CONTROLLED", "bin": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bin/mythos-github-bridge", "argv": ["notify-breaker-reset"],
+      "env_from_unit": "mythos-github-bridge.service", "env_prefixes": ["MYTHOS_BRIDGE_WHATSAPP_", "MYTHOS_BRIDGE_HOME"],
+      "rate_limit": { "max": 3, "per_seconds": 600 }, "timeout_ms": 20000, "rollback": "none (closes the circuit; sends nothing)"
+    }
+  },
+
+  "limits": { "controlled_per_hour": 120, "lock_stale_seconds": 300 },
+
   "denied_forever": [
     "rm -rf", "docker system prune", "docker volume rm", "docker network rm", "docker rm -f (production containers)",
     "dropdb / DROP DATABASE / DROP TABLE", "mkfs / fdisk / parted", "iptables -F / nft flush / ufw disable",
     "any interactive or arbitrary shell as root", "sshd_config / authorized_keys changes", "useradd / usermod / passwd / visudo",
-    "credential or token rotation", "Resource Guard threshold changes", "disabling governance-verify, the relay, or the executor's policy layer",
+    "credential or token rotation, reading or exporting", "Resource Guard threshold changes", "disabling governance-verify, the relay, the executor's policy layer or HostOps itself",
+    "disabling audit or logging", "deleting backups",
     "restart of mythos-contextforge, mythos-ai-executor, mythos-command-center, mythos-git-push, mythos-mcp-http, docker.service"
   ],
   "protected_units_never_restartable": [
     "mythos-contextforge", "mythos-ai-executor.service", "mythos-command-center.service", "mythos-git-push.service",
-    "mythos-mcp-http.service", "mythos-github-bridge.service", "docker.service", "nginx.service", "ssh.service", "user@1001.service"
+    "mythos-mcp-http.service", "mythos-github-bridge.service", "mythos-hostops.service", "mythos-hostops.socket", "mythos-session-guard.service", "mythos-memwatch.service",
+    "docker.service", "nginx.service", "ssh.service", "user@1001.service"
   ]
 }

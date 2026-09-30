@@ -1,0 +1,40 @@
+[Unit]
+# MYTHOS HADDAD — Streamable HTTP transport for the Haddad MCP.
+#
+# NOT a second MCP server. ExecStart is projects/mythos-gateway/mcp-http-bridge.js,
+# the SAME file the VPS runs as mythos-mcp-http.service, unchanged: it declares
+# no tool and relays every request to the stdio launcher an SSH client would
+# get (~/.local/bin/haddad-mcp-stdio.sh -> projects/oth-mcp/server.js).
+#
+# Loopback only. The bridge binds 127.0.0.1:8160 and nothing else; reaching it
+# from the tailnet over HTTPS is Tailscale Serve's job (TLS by Tailscale, the
+# only certificate infrastructure this host has). A bearer is required on every
+# /mcp request (MYTHOS_MCP_HTTP_TOKEN, from a 0600 file, never in this unit).
+#
+# A USER unit, like every other Haddad unit — see mythos-haddad-telemetry.service
+# for why sandboxing directives are absent here. The bridge opens one loopback
+# socket, spawns one launcher, and writes nothing.
+Description=MYTHOS Haddad — MCP HTTP bridge (loopback Streamable HTTP for the stdio OTH MCP)
+Documentation=file:%h/projects/mythos-prod/projects/mythos-haddad/docs/HADDAD_MCP.md
+After=network-online.target
+
+[Service]
+Type=simple
+Environment=MYTHOS_MCP_HTTP_HOST=127.0.0.1
+Environment=MYTHOS_MCP_HTTP_PORT=8160
+Environment=MYTHOS_MCP_LAUNCHER=%h/.local/bin/haddad-mcp-stdio.sh
+# Exactly one variable lives in this file: MYTHOS_MCP_HTTP_TOKEN (0600, generated
+# by bin/haddad-mcp-http-setup.sh, never committed). The health check refuses a
+# file that carries anything else, so the bind address above cannot be widened
+# from outside this unit.
+EnvironmentFile=%h/.config/mythos-haddad/mcp-http.env
+ExecStart=/usr/bin/node @REPO@/projects/mythos-gateway/mcp-http-bridge.js
+Restart=on-failure
+RestartSec=5
+# 78 = no token (the bridge refuses to start unauthenticated), 75 = cannot bind.
+# Neither is cured by retrying; the journal names the cause.
+RestartPreventExitStatus=75 78
+Nice=5
+
+[Install]
+WantedBy=default.target

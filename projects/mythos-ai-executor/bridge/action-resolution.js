@@ -76,7 +76,12 @@ var FIELD_ALIASES = {
   max_turns: ['max turns', 'max_turns', 'max-turns'],
   // MYTHOS V1 — which delegation lane runs this task. Like `model`, it
   // selects an entry in a server-side catalog and grants no authority.
-  lane: ['lane', 'delegate lane', 'delegate_lane', 'المسار', 'مسار']
+  lane: ['lane', 'delegate lane', 'delegate_lane', 'المسار', 'مسار'],
+  // Asks for an independent review of the result (bridge/review-gate.js).
+  // Escalation only: no value of this field waives a review the policy
+  // requires, so it grants nothing and can only raise the bar.
+  review: ['review', 'review required', 'needs review', 'independent review',
+    'مراجعة مطلوبة', 'يتطلب مراجعة', 'تحتاج مراجعة']
 };
 var FIELD_KEYS = Object.keys(FIELD_ALIASES);
 
@@ -97,7 +102,12 @@ var BLOCKER_CODES = {
   STALE_WORKER: 'STALE_WORKER',
   NO_STRUCTURED_REPORT: 'NO_STRUCTURED_REPORT',
   PROVIDER_BLOCKED: 'PROVIDER_BLOCKED',
-  PROVIDER_FAILED: 'PROVIDER_FAILED'
+  PROVIDER_FAILED: 'PROVIDER_FAILED',
+  // Work the validator passed that git would not accept. Distinct from
+  // PROVIDER_FAILED on purpose: the provider did its part, the delivery is
+  // what broke, and attributing it to the worker would send the next
+  // attempt looking in the wrong place. Retryable.
+  DELIVERY_FAILED: 'DELIVERY_FAILED'
 };
 var NON_RETRYABLE = [
   BLOCKER_CODES.ACTION_PROFILE_MISMATCH, BLOCKER_CODES.MODEL_UNAVAILABLE, BLOCKER_CODES.ATTEMPT_SNAPSHOT_MUTATED,

@@ -357,9 +357,11 @@ function run() {
       }).then(function () {
         ok(received.length === 3, 'retry: a SENT entry is never attempted again');
 
-        // Exhaustion: attempts are bounded, and the bridge is never blocked.
+        // Exhaustion: a message the provider REJECTS (4xx) is bounded, and the
+        // bridge is never blocked. (V3.2.5: a provider OUTAGE — 5xx, timeout,
+        // transport — never exhausts; tests/mythos-bridge-whatsapp-durable-test.js.)
         resetGateway();
-        gateway.status = 500;
+        gateway.status = 400;
         whatsapp.onReport(mkReport('gh-wa-exha-0001', 'FAILED'), {});
         var seq = Promise.resolve();
         [0, 1, 2].forEach(function () {
@@ -375,7 +377,7 @@ function run() {
         return seq;
       }).then(function () {
         var e = entriesByKey()['gh-wa-exha-0001__FAILED'];
-        ok(e.state === 'EXHAUSTED' && e.attempts === 3, 'retry: attempts are bounded by MAX_ATTEMPTS, then EXHAUSTED');
+        ok(e.state === 'EXHAUSTED' && e.attempts === 3, 'retry: a message REJECTED by the provider (4xx) is bounded by MAX_ATTEMPTS, then EXHAUSTED');
         return whatsapp.flush().then(function () {
           ok(received.length === 3, 'retry: an EXHAUSTED entry is never attempted again');
         });
@@ -535,8 +537,16 @@ function run() {
           // The notification layer left no trace on the control branch.
           var touched = git(cfgB.controlDir, ['log', '--name-only', '--format=', 'HEAD']).split('\n').filter(Boolean);
           ok(touched.every(function (f2) { return f2.indexOf('control/') === 0; }), 'e2e: bridge commits still touch only control/');
-          ok(JSON.stringify(reportOnDisk('gh-wa-e2e-0001')).indexOf('whatsapp') === -1 &&
-             JSON.stringify(reportOnDisk('gh-wa-e2e-0001')).indexOf('notification') === -1,
+          // Checked on the report's KEYS: a substring search of the whole
+          // JSON also matched values the report legitimately carries (the
+          // runtime branch name — any branch called *whatsapp* or
+          // *notification* failed this check without delivery touching anything).
+          var reportKeys = [];
+          (function walk(o) {
+            if (Array.isArray(o)) { o.forEach(walk); return; }
+            if (o && typeof o === 'object') Object.keys(o).forEach(function (k) { reportKeys.push(k); walk(o[k]); });
+          })(reportOnDisk('gh-wa-e2e-0001'));
+          ok(reportKeys.length > 0 && !reportKeys.some(function (k) { return /whatsapp|notif/i.test(k); }),
           'e2e: the REPORT carries no notification state (delivery cannot alter the record)');
           return { cfgB: cfgB, taskOnDisk: taskOnDisk, reportOnDisk: reportOnDisk };
         });
@@ -672,7 +682,8 @@ function run() {
       resetGateway();
       process.env.MYTHOS_BRIDGE_WHATSAPP_TO = '21620000091,21620000092';
       var slow = '21620000092';
-      gateway.delayFor = { to: slow, ms: 250 };
+      // Held long enough to inspect the ledger while it is still open.
+      gateway.delayFor = { to: slow, ms: 1500 };
       whatsapp.onReport(mkReport('gh-wa-crashwin-01', 'COMPLETED'), {});
       var f9 = path.join(ledgerDir(), 'gh-wa-crashwin-01__COMPLETED.json');
       var flushPromise = whatsapp.flush();
@@ -683,9 +694,19 @@ function run() {
       // delivered_to: [] here, and a crash in exactly this window would
       // have caused a duplicate send to the first recipient on the next
       // retry.
-      return new Promise(function (resolve) { setTimeout(resolve, 90); }).then(function () {
+      // Synchronise on the EVENT, not on a clock: the recipients are sent in
+      // order, so the moment the fixture has received the second request is
+      // the moment the first one must already be recorded. (A fixed 90 ms
+      // sleep here failed ~1 run in 20: the first request had not even
+      // reached the fixture yet — received=0 — so the check ran too early.)
+      function secondInFlight(deadline) {
+        if (received.some(function (r) { return r.body && r.body.number === slow; })) return Promise.resolve(true);
+        if (Date.now() >= deadline) return Promise.resolve(false);
+        return new Promise(function (resolve) { setTimeout(resolve, 5); }).then(function () { return secondInFlight(deadline); });
+      }
+      return secondInFlight(Date.now() + 1200).then(function (inFlight) {
         var mid = readJson(f9);
-        ok(mid.state === 'SENDING' && mid.delivered_to.indexOf('21620000091') !== -1,
+        ok(inFlight && mid.state === 'SENDING' && mid.delivered_to.indexOf('21620000091') !== -1,
           'crash-window: the first recipient is durably recorded on disk while the second recipient\'s request is still in flight');
         gateway.delayFor = null;
         return flushPromise;

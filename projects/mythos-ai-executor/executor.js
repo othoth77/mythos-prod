@@ -27,6 +27,7 @@ var quota = require('./lib/quota');
 var policy = require('./lib/policy');
 var reporting = require('./lib/report');
 var skills = require('./lib/skills');
+var roles = require('./lib/roles');
 var mcpCapabilities = require('./lib/mcp-capabilities');
 var modelPolicy = require('./lib/model-policy');
 var resourceGuard = require('./lib/resource-guard');
@@ -44,6 +45,15 @@ var gitlib = require('../mythos-orchestrator/lib/git');
 
 var TASK_SCHEMA = JSON.parse(fs.readFileSync(path.join(__dirname, 'schemas', 'task.schema.json'), 'utf8'));
 var PROMPT_TEMPLATE = fs.readFileSync(path.join(__dirname, 'templates', 'task-prompt.md'), 'utf8');
+// V3.2 (residual 5): the local supervised runner (haddad-agent) gets a compact
+// prompt. It does not resume CLI sessions (Continuity), cannot commit or push
+// (Execution contract — the executor delivers validated files), and carries
+// its own report contract in its system prompt plus a constrained report turn
+// (Mandatory final report). Those sections cost ~2 KB of an 8k-token window
+// and are omitted; the objective, constraints, tests and the attested skill
+// section are kept verbatim. Every other provider is unchanged.
+var LOCAL_PROMPT_TEMPLATE = fs.readFileSync(path.join(__dirname, 'templates', 'task-prompt-local.md'), 'utf8');
+var LOCAL_PROMPT_PROVIDERS = ['haddad-agent'];
 var PROJECTS = JSON.parse(fs.readFileSync(path.join(__dirname, 'config', 'projects.json'), 'utf8'));
 
 var PROVIDERS = {
@@ -55,7 +65,14 @@ var PROVIDERS = {
   'delegate': require('./providers/delegate'),
   // Advisory meta-agent over free-llm/ (discovery + health + fallback
   // across many free-tier providers). Never execution authority.
-  'free-llm-pool': require('./providers/free-llm-pool')
+  'free-llm-pool': require('./providers/free-llm-pool'),
+  // Local tool runner on the Haddad machine (read/test only, V1a). It has
+  // execution authority because it genuinely executes tools — but it is
+  // INERT unless an operator has created the enable marker AND the local
+  // runtime answers, so on the VPS `available()` is false and nothing can
+  // route to it. Registering it here only makes it nameable; being reachable
+  // is a separate, deliberate act.
+  'haddad-agent': require('./providers/haddad-agent')
 };
 // The mock provider is test-only and must be impossible to reach in
 // production: the systemd unit never sets this variable.
@@ -245,8 +262,19 @@ function createTask(input) {
   // have shaped via the schema. Selection is deterministic and always
   // succeeds with SOME outcome (a skill, or null with a reason) — a
   // malformed skills.json disables the layer, it never blocks the task.
+  // V2.1 (AI team): the ROLE is derived from the closed bridge action, server-
+  // side, after the envelope validated — nothing a caller wrote can name it.
+  // A role changes which trust-attested skill pack is selected (its
+  // skill_category) and what the Haddad runner says in its system prompt;
+  // it never changes the profile, which still comes from the action. A
+  // category that is not a bridge action, or a dark role layer, leaves the
+  // pre-V2 selection exactly as it was.
+  var roleSel = roles.resolveRole({ action: task.task_category, instruction: task.instruction });
+  task.role = roleSel.role ? roleSel.role.id : null;
+  task.role_reason = roleSel.reason;
   var selection = skills.selectSkill({
-    stage: task.stage, instruction: task.instruction, task_category: task.task_category
+    stage: task.stage, instruction: task.instruction,
+    task_category: roleSel.role ? roleSel.role.skill_category : task.task_category
   });
   task.skill_id = selection.skill ? selection.skill.id : null;
   task.skill_version = selection.skill ? selection.skill.version : null;
@@ -286,6 +314,7 @@ function createTask(input) {
   state.appendEvent(task.task_id, 'created', {
     project: task.project, stage: task.stage, provider: task.provider,
     model: task.model, status: 'QUEUED',
+    role: task.role, role_reason: task.role_reason,
     skill_id: task.skill_id, skill_version: task.skill_version,
     skill_selection_reason: task.skill_selection_reason
   });
@@ -340,7 +369,23 @@ function preflightBlocker(task) {
         requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
     }
   }
-  if (task.task_category && engine.PROFILE_BY_ACTION[task.task_category]) {
+  // An execution profile is a TOOL GRANT — lib/policy.js turns it into
+  // claude-code's --allowedTools/--disallowedTools and nothing else. This
+  // function runs AFTER createTask nulled the profile for a provider with no
+  // execution authority (see the `isExecution` branch above: "they reason,
+  // they do not act", mission §9). For such a provider the null is not a
+  // missing grant, it is the EMPTY grant: no tools at all, which is strictly
+  // stronger than the repo-read this check would otherwise demand.
+  //
+  // Fail-closed and narrow, matching the provider-conditioned checks already
+  // used below: the provider must be one this executor actually knows, its
+  // executionAuthority must not be true, and the profile must be exactly
+  // null. Anything else — an execution provider, an unknown provider, or any
+  // non-null profile — takes the unchanged path, which is every claude-code
+  // and delegate task in production.
+  var providerImpl = PROVIDERS[task.provider];
+  var advisoryNoTools = task.execution_profile === null && !!providerImpl && providerImpl.executionAuthority !== true;
+  if (!advisoryNoTools && task.task_category && engine.PROFILE_BY_ACTION[task.task_category]) {
     var c = engine.checkActionProfile(task.task_category, task.execution_profile);
     if (!c.ok) {
       return engine.blocker(c.code, { reason: c.reason, requested_action: task.task_category, action_raw: task.action_raw || null, action_source: task.action_source || null,
@@ -446,7 +491,7 @@ function skillSectionFor(task) {
 function buildPrompt(task, status, resumeNote) {
   var checkpoint = state.readJSON(task.task_id, 'checkpoint.json');
   var prevReport = state.readJSON(task.task_id, 'report.json');
-  return fill(PROMPT_TEMPLATE, {
+  return fill(LOCAL_PROMPT_PROVIDERS.indexOf(task.provider) !== -1 ? LOCAL_PROMPT_TEMPLATE : PROMPT_TEMPLATE, {
     TASK_ID: task.task_id,
     PROJECT: task.project,
     REPOSITORY: task.repository,
@@ -463,7 +508,187 @@ function buildPrompt(task, status, resumeNote) {
   });
 }
 
+// V2.1: the measured evidence a supervising provider attaches to its
+// outcome, in a bounded shape for report.json. null when the provider
+// measured nothing (every non-supervising provider).
+function providerEvidence(outcome) {
+  if (!outcome || (!outcome.validation && !outcome.tool_trace && !outcome.validations)) return null;
+  var trace = Array.isArray(outcome.tool_trace) ? outcome.tool_trace.slice(0, 200) : [];
+  return {
+    validation: outcome.validation || null,
+    validations: Array.isArray(outcome.validations) ? outcome.validations.slice(0, 10).map(function (v) {
+      return { attempt: v.attempt, pass: v.pass, rejections: (v.rejections || []).slice(0, 20) };
+    }) : [],
+    repair_rounds: typeof outcome.repair_rounds === 'number' ? outcome.repair_rounds : null,
+    tool_calls: typeof outcome.tool_calls === 'number' ? outcome.tool_calls : trace.length,
+    tool_trace: trace.map(function (e) {
+      var out = { tool: e.tool, target: e.target || null, refused: !!e.refused, detail: e.detail ? String(e.detail).slice(0, 160) : null };
+      if (typeof e.backend === 'string') out.backend = e.backend.slice(0, 20);
+      if (typeof e.fallback_reason === 'string') out.fallback_reason = e.fallback_reason.slice(0, 60);
+      return out;
+    }),
+    diagnosis_requested: trace.some(function (e) { return e.tool === 'diagnose'; }),
+    context_compactions: trace.filter(function (e) { return e.tool === 'context_compaction'; }).length,
+    duration_ms: typeof outcome.duration_ms === 'number' ? outcome.duration_ms : null
+  };
+}
+
+// V3.1 OBSERVABILITY. The supervising provider's escalation decisions live in
+// its tool trace, which report.json keeps but the event stream does not read.
+// The console (Haddad telemetry → Status Center) shows per-task events.log,
+// so the three facts a person asks about a supervised task — was a diagnosis
+// asked for, at which tier, and did the report need a constrained turn — are
+// appended here as executor events with the executor's own controlled
+// vocabulary (structured keys only, no model prose). Bounded, and a missing
+// trace records nothing. Nothing else reads these; they are for the page.
+var MAX_PROVIDER_EVENTS = 12;
+function recordProviderEvents(taskId, outcome) {
+  var trace = outcome && Array.isArray(outcome.tool_trace) ? outcome.tool_trace : [];
+  var written = 0;
+  for (var i = 0; i < trace.length && written < MAX_PROVIDER_EVENTS; i++) {
+    var e = trace[i] || {};
+    var fields = null;
+    if (e.tool === 'escalation') {
+      var m = /tier requested (\w+), used (\w+)/.exec(String(e.detail || ''));
+      fields = { event: 'escalation', reason: m ? 'requested=' + m[1] + ' used=' + m[2] : 'tier', attempt: null };
+    } else if (e.tool === 'diagnose') {
+      fields = { event: 'diagnosis', reason: e.refused ? 'refused' : 'answered', model: e.target ? String(e.target).slice(0, 40) : null };
+    } else if (e.tool === 'report_turn') {
+      fields = { event: 'report_turn', reason: e.refused ? 'no_content' : 'answered' };
+    }
+    if (!fields) continue;
+    var name = fields.event; delete fields.event;
+    try { state.appendEvent(taskId, name, fields); written++; } catch (err) { /* the report is already on disk; an event is not worth failing it */ }
+  }
+  return written;
+}
+
+// V3.2 EXECUTION INTELLIGENCE. core/reputation.js has always been the store
+// the router ranks by (provider-router rankWithReputation, same capability
+// key as below), but on the executor's live path nothing ever recorded an
+// outcome into it — measured 2026-09-24: the Haddad store was empty after 29
+// supervised tasks. This records ONE outcome per terminal report, as DATA:
+//   * only for a provider that maps to exactly one agent in config/agents.json
+//     (on Haddad the haddad-agent provider has exactly one agent);
+//   * capability = the resolved role's capabilities_required[0] || task_type,
+//     i.e. the key the router reads — anything else would be decoration;
+//   * success = the provider's own mechanical verdict (validation.passed);
+//     a non-transient terminal failure is a failure; a transient one, or a
+//     task with no verdict at all, records NOTHING — unknown is not failure.
+// Reputation can only reorder agents the registry already selected; the
+// bridge allow-list still refuses anything outside it (tests pin both).
+var AGENTS_BY_PROVIDER = null;
+function agentForProvider(providerId) {
+  if (!AGENTS_BY_PROVIDER) {
+    AGENTS_BY_PROVIDER = {};
+    try {
+      var cfg = JSON.parse(fs.readFileSync(path.join(__dirname, 'config', 'agents.json'), 'utf8'));
+      Object.keys(cfg).forEach(function (name) {
+        var p = cfg[name] && cfg[name].provider;
+        if (p) (AGENTS_BY_PROVIDER[p] = AGENTS_BY_PROVIDER[p] || []).push(name);
+      });
+    } catch (e) { AGENTS_BY_PROVIDER = {}; }
+  }
+  var list = AGENTS_BY_PROVIDER[providerId] || [];
+  return list.length === 1 ? list[0] : null;
+}
+function recordAgentOutcome(task, taskId, outcome, providerId, failureCategory) {
+  var success;
+  // A failure without a verdict counts only for a provider that SUPERVISES
+  // (it measures the workspace and returns evidence: tool_trace/validation).
+  // A provider that never reports a verdict would otherwise record every
+  // failure and no success — failure-only data that ranks it as always
+  // failing (found before the VPS pull: claude-code maps to one agent there).
+  var supervised = !!(outcome && (outcome.validation || Array.isArray(outcome.tool_trace)));
+  if (outcome && outcome.validation && typeof outcome.validation.passed === 'boolean') success = outcome.validation.passed;
+  else if (supervised && failureCategory && failureCategory !== 'transient') success = false;
+  else return null;
+  var agent = agentForProvider(providerId);
+  var role = task && task.role ? roles.getRole(task.role) : null;
+  if (!agent || !role) return null;
+  var capability = (role.capabilities_required || [])[0] || role.task_type;
+  if (!capability) return null;
+  try {
+    var rec = require('./core/reputation').recordOutcome(agent, capability, success);
+    state.appendEvent(taskId, 'outcome_recorded', { reason: capability + ':' + (success ? 'pass' : 'fail'), provider: agent });
+    return { agent: agent, capability: capability, success: success, n: rec.n };
+  } catch (e) {
+    // The report is already on disk; a learning record is not worth failing it.
+    return null;
+  }
+}
+
 // --- Git verification and report delivery -------------------------------------
+
+function deliverValidatedWork(task, report, outcome) {
+  var v = outcome && outcome.validation;
+  if (!v || v.passed !== true || !v.evidence || !v.evidence.changed) return null;
+  if (!report || report.status !== 'completed' || report.commit) return null;
+  if (task.expected_delivery !== 'commit') return null;
+  var cwd = task.working_directory;
+  if (!cwd || !gitlib.isRepo(cwd)) return null;
+  var files = (v.evidence.changed.created || []).concat(v.evidence.changed.modified || []);
+  var deleted = v.evidence.changed.deleted || [];
+  if (!files.length && !deleted.length) {
+    // The attempt changed nothing. Usually that is the truth and there is
+    // nothing to deliver. But the snapshot this is measured against is taken
+    // at ATTEMPT start, and a task that was retried after a transient
+    // failure resumes in the SAME worktree — so work the previous attempt
+    // did is older than the snapshot and invisible to it.
+    //
+    // Measured live (V2.2 E2E, task t-20260923012009-8th6dd): attempt 1
+    // wrote the fix and died on `socket hang up`; attempt 2 resumed, saw the
+    // check already passing, truthfully reported that no change was needed,
+    // and this function returned null. The task completed, the validator had
+    // passed, the workspace differed from its base by exactly the fix — and
+    // nothing was committed and nothing said so.
+    //
+    // Silence is the bug. If the worktree is dirty while the attempt claims
+    // it changed nothing, delivery is NOT a no-op: it is a delivery that did
+    // not happen, and it is reported as one. It is deliberately not
+    // auto-committed here — these files were never attributed by the
+    // validator's before/after measurement, and committing what was not
+    // measured is the one thing this path must not do.
+    if (gitlib.isDirty && gitlib.isDirty(cwd)) {
+      return { problem: 'delivery: the attempt measured no change, but its worktree differs from its base — ' +
+        'work from an earlier attempt of this task was never delivered. Re-run the task so the change is measured and committed.' };
+    }
+    return null;
+  }
+  // Every git command here runs OUTSIDE the worker's sandbox, as the host
+  // user, in a workspace the worker had write access to. A repository can
+  // make git execute a script by configuration alone — core.hooksPath is
+  // the direct one — so these invocations refuse to take that instruction
+  // from the workspace. `--no-verify` is NOT that guarantee: it skips
+  // pre-commit and commit-msg, and a post-commit hook still runs (verified
+  // on this host). The sandbox now also mounts .git read-only, which is the
+  // real boundary; this is the second lock on the same door, because the
+  // door opens onto an unsandboxed process.
+  var NO_HOOKS = ['-c', 'core.hooksPath=/dev/null'];
+  var add = files.length ? gitlib.git(NO_HOOKS.concat(['add', '--']).concat(files), cwd) : { ok: true };
+  var rm = deleted.length ? gitlib.git(NO_HOOKS.concat(['rm', '--quiet', '--cached', '--ignore-unmatch', '--']).concat(deleted), cwd) : { ok: true };
+  if (!add.ok || !rm.ok) return { problem: 'delivery: could not stage the validated files: ' + String((add.error || rm.error || '')).slice(0, 200) };
+  var subject = String(report.summary || 'validated work').replace(/\s+/g, ' ').slice(0, 72);
+  var body = 'Committed by the executor from the validator\'s measured evidence: ' + files.concat(deleted).join(', ') + '.\n' +
+    'Checks: ' + (v.evidence.checks_run || []).map(function (c) { return c.check + (c.passed ? ' ok' : ' FAIL'); }).join('; ');
+  var commit = gitlib.git(NO_HOOKS.concat(['-c', 'user.name=mythos-haddad-worker', '-c', 'user.email=haddad-worker@mythos.invalid',
+    'commit', '--quiet', '--no-verify', '-m', subject, '-m', body]), cwd);
+  if (!commit.ok) return { problem: 'delivery: commit failed: ' + String(commit.error || '').slice(0, 200) };
+  var sha = gitlib.head(cwd);
+  try { state.appendEvent(task.task_id, 'work_delivered', { commit: sha, files: files, deleted: deleted, by: 'executor' }); } catch (e) { /* the commit is the record; the event is a convenience */ }
+  // Scope is a NARROWING the task may or may not have declared. When it
+  // declared none, the validator had no scope rule to apply, so a passing
+  // verdict means "the checks pass" — not "only the intended files
+  // changed" — and these files are committed on that basis. The sandbox
+  // boundary is unaffected (writes never leave the workspace either way),
+  // but the only remaining check on an unrelated file is the person reading
+  // the diff, so they are told rather than left to assume one happened.
+  var note = v.evidence.scope_enforced === false
+    ? 'scope: the task declared no path scope, so the ' + (files.length + deleted.length) +
+      ' committed file(s) were never checked against one — review the diff itself, not only the checks'
+    : null;
+  return { commit: sha, files: files, note: note };
+}
 
 function verifyGit(task, report) {
   var extras = { git_verified: null, remote_head: null };
@@ -581,6 +806,38 @@ function notify(event, stage, detail) {
 
 // --- Execution ------------------------------------------------------------------
 
+function attemptBaseline(task, taskId) {
+  // Only for a provider that measures the workspace itself (it reads the
+  // baseline); anything else never pays for a snapshot.
+  if (!task || task.provider !== 'haddad-agent' || !task.working_directory) return null;
+  try {
+    var existing = state.readJSON(taskId, 'baseline.json');
+    if (existing && existing.files && existing.working_directory === task.working_directory) return existing;
+  } catch (e) { /* first execution of this attempt */ }
+  try {
+    var snap = require('./lib/work-validation').snapshot(task.working_directory);
+    snap.working_directory = task.working_directory;
+    state.writeJSON(taskId, 'baseline.json', snap);
+    return snap;
+  } catch (e) { return null; }   // no baseline: the provider takes its own, as before
+}
+
+function projectWriteScope(project) {
+  var cfg = PROJECTS[project] || {};
+  if (!Array.isArray(cfg.write_scope) || !cfg.write_scope.length) return null;
+  var clean = cfg.write_scope.filter(function (x) {
+    return typeof x === 'string' && x && !/^\//.test(x) && x.split('/').indexOf('..') === -1;
+  }).map(function (x) { return x.replace(/\/+$/, ''); });
+  return clean.length ? clean : null;
+}
+function withProjectScope(task) {
+  var scope = projectWriteScope(task && task.project);
+  var copy = Object.assign({}, task);
+  delete copy.project_write_scope;   // only config decides it
+  if (scope) copy.project_write_scope = scope;
+  return copy;
+}
+
 function tailOf(text, n) {
   if (typeof text !== 'string') return '';
   return text.length > n ? text.slice(-n) : text;
@@ -660,7 +917,19 @@ function runTaskCore(taskId, opts) {
   var prompt = buildPrompt(task, status, resumeNote);
   state.writeText(taskId, 'prompt.md', prompt);
 
-  return provider.run(task, prompt, sessionId, mode, {}, function onSpawn(childPid) {
+  // V3.2 PROJECT ISOLATION. A project may declare `write_scope` in
+  // config/projects.json; the provider receives it as project_write_scope,
+  // derived HERE from config at launch — never read from task.json, so
+  // nothing a task file or an Issue carries can widen it. A project without
+  // one behaves exactly as before.
+  // V3.2 ATTEMPT BASELINE. A transient retry starts the provider over in the
+  // SAME worktree; a baseline taken per execution would count the previous
+  // execution's writes as the starting state — hiding them from the
+  // validator and turning a file the attempt CREATED into one it "modified"
+  // (measured live, gh-issue-441: a false integrity rejection that spent
+  // the repair budget). The baseline is taken once per attempt and reused
+  // by every later execution of it.
+  return provider.run(withProjectScope(task), prompt, sessionId, mode, { baseline: attemptBaseline(task, taskId) }, function onSpawn(childPid) {
     var st = state.readStatus(taskId);
     st.pid = childPid;
     state.writeJSON(taskId, 'status.json', st);
@@ -693,26 +962,74 @@ function procStartTicks(pid) {
   } catch (e) { return null; }
 }
 
+// The state a finished run settles in. A pure decision, kept out of
+// handleSuccess so the rule can be read and tested on its own rather than
+// inferred from four overlapping assignments.
+//
+// Order is the point. Worst news first:
+//   no readable report  — nothing can be concluded; a "successful" exit
+//                         with no report is not a clean completion, and the
+//                         reason names the exact failure shape so a rerun
+//                         or a person can act on it (gh-issue-112).
+//   the report admits failure / asks for a person — the worker's own verdict.
+//   delivery failed     — the work is real and validated, but git did not
+//                         take it. Completing here would tell the Bridge
+//                         "done" about a change that exists only in a
+//                         worktree, close the Issue, and release anything
+//                         that depended on it.
+//   otherwise           — COMPLETED.
+function settleState(report, extractedError, deliveryProblem) {
+  if (!report) {
+    return { state: 'BLOCKED', next_action: 'provider produced no structured report: ' + (extractedError || 'unknown reason') + ' — review stdout.log' };
+  }
+  if (report.status === 'blocked') return { state: 'BLOCKED', next_action: 'owner decision required: ' + (report.summary || '') };
+  if (report.status === 'failed') return { state: 'FAILED', next_action: 'inspect failure report' };
+  if (deliveryProblem) return { state: 'BLOCKED', next_action: 'validated work was not delivered — ' + deliveryProblem };
+  // Only an explicit "completed" is a completion. A missing or unknown status
+  // ("partial", "in_progress", …) used to fall through to COMPLETED — a
+  // success nobody claimed. validateReport records it as a problem; here it
+  // decides the state.
+  if (report.status !== 'completed') {
+    return { state: 'BLOCKED', next_action: 'report status ' + JSON.stringify(String(report.status === undefined ? '' : report.status).slice(0, 40)) + ' is not completed, failed or blocked — not a completion; review the report' };
+  }
+  return { state: 'COMPLETED', next_action: report.next_stage ? String(report.next_stage) : 'review report' };
+}
+
 function handleSuccess(task, taskId, outcome, parsed) {
   var resultText = typeof parsed.result === 'string' ? parsed.result : JSON.stringify(parsed.result);
   var extracted = reporting.extractReport(resultText);
   var problems = extracted.report ? reporting.validateReport(extracted.report) : [extracted.error];
   var report = extracted.report;
 
+  // Mechanical delivery for a worker that has no git of its own. The Haddad
+  // tool runner refuses .git by design and so can never commit; without
+  // this its validated work stayed uncommitted in the worktree, the report
+  // said "delivery expected a commit but the report claims none", and a
+  // continuation (gh-issue-379-r2, live) started from a fresh worktree and
+  // redid everything. The executor commits EXACTLY the files the validator
+  // measured as changed — nothing else — and only when the provider's own
+  // validation passed. No other provider sets outcome.validation, so the
+  // VPS path is byte-for-byte unchanged. Never pushes.
+  var delivered = deliverValidatedWork(task, report, outcome);
+  if (delivered && delivered.commit) report.commit = delivered.commit;
+  if (delivered && delivered.problem) problems.push(delivered.problem);
+
+  // Work that was validated but NOT delivered is not a completion. Without
+  // this the delivery problem landed in report_problems and the task still
+  // finished COMPLETED: the Bridge closed the Issue as done, a dependent
+  // task was released, and the change existed only in a worktree nobody
+  // would look at again. Recorded as a distinct state below, never folded
+  // into "the provider failed" — the provider did its part.
+  var deliveryProblem = (delivered && delivered.problem) ? delivered.problem : null;
+  if (delivered && delivered.note) problems.push(delivered.note);
+
   var extras = verifyGit(task, report);
   if (extras.problem) problems.push(extras.problem);
   extras.report_problems = problems.filter(Boolean);
 
-  var finalState = 'COMPLETED';
-  var nextAction = report && report.next_stage ? String(report.next_stage) : 'review report';
-  if (report && report.status === 'failed') { finalState = 'FAILED'; nextAction = 'inspect failure report'; }
-  if (report && report.status === 'blocked') { finalState = 'BLOCKED'; nextAction = 'owner decision required: ' + (report.summary || ''); }
-  // A "successful" run that produced no usable report is not a clean
-  // completion — it lands BLOCKED for review rather than silently green.
-  // The reason names the exact failure shape (extractReport's diagnosis),
-  // not just "no structured report", so a rerun or a human can act on it
-  // instead of opening stdout.log to guess (gh-issue-112).
-  if (!report) { finalState = 'BLOCKED'; nextAction = 'provider produced no structured report: ' + (extracted.error || 'unknown reason') + ' — review stdout.log'; }
+  var settled = settleState(report, extracted.error, deliveryProblem);
+  var finalState = settled.state;
+  var nextAction = settled.next_action;
 
   // A structured report ALWAYS exists from here on: the provider's own, or a
   // synthesised one carrying the diagnosis (never a bare "no report").
@@ -723,8 +1040,16 @@ function handleSuccess(task, taskId, outcome, parsed) {
     blocker = engine.blocker(code, { reason: String(report.summary || '').slice(0, 800), task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
   } else if (report && report.status === 'failed') {
     blocker = engine.blocker('PROVIDER_FAILED', { reason: String(report.summary || '').slice(0, 800), task_id: taskId, attempt_id: task.attempt_id || null });
+  } else if (report && report.status !== 'completed' && !deliveryProblem) {
+    blocker = engine.blocker('NO_STRUCTURED_REPORT', { reason: 'invalid report status: ' + String(report.status === undefined ? '(missing)' : report.status).slice(0, 40), task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
   } else if (!report) {
     blocker = engine.blocker('NO_STRUCTURED_REPORT', { reason: extracted.error || 'unknown reason', task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
+  } else if (deliveryProblem) {
+    // Retryable by design: a staging or commit failure is an executor-side
+    // fault (a lock, a permission, a worktree in a state git refused), not
+    // a judgement on the work — a rerun that re-does the attempt is the
+    // right next move, and NON_RETRYABLE would deny it one.
+    blocker = engine.blocker(engine.BLOCKER_CODES.DELIVERY_FAILED, { reason: deliveryProblem.slice(0, 800), task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
   }
   var structured = report ? Object.assign({}, report, { task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, action_raw: task.action_raw || null, action_source: task.action_source || null, execution_profile: task.execution_profile || null, model: task.model || null, branch: task.branch || null, blocker: blocker })
     : reporting.synthesize({ status: 'blocked', task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, action_raw: task.action_raw || null, action_source: task.action_source || null,
@@ -750,8 +1075,15 @@ function handleSuccess(task, taskId, outcome, parsed) {
   state.writeJSON(taskId, 'report.json', {
     task_id: taskId, report: report, structured: structured, blocker: blocker, problems: extras.report_problems,
     git: extras, provider_result_tail: tailOf(resultText, 4000),
-    provider_used: status.provider_used, model_used: status.model_used, attempts: status.attempts, fallback: status.fallback
+    provider_used: status.provider_used, model_used: status.model_used, attempts: status.attempts, fallback: status.fallback,
+    // V2.1 (AI team): what the provider MEASURED, kept next to what the
+    // model CLAIMED. A supervising provider (haddad-agent) returns its
+    // validator verdicts, tool trace and repair count; other providers
+    // return none and the field is null. Bounded, never the raw transcript.
+    evidence: providerEvidence(outcome)
   });
+  recordProviderEvents(taskId, outcome);
+  recordAgentOutcome(task, taskId, outcome, status.provider_used || task.provider, null);
   var md = reporting.renderMarkdown(task, status, report || structured, extras);
   state.writeText(taskId, 'report.md', md);
   writeCheckpoint(task, status, {
@@ -873,7 +1205,7 @@ function handleFailure(task, taskId, outcome, mode, opts) {
       state.appendEvent(taskId, 'retries_exhausted', { retry_count: retryCount, max_retries: maxRetries, status: 'FAILED' });
       lifecycle.emit({ type: 'EXECUTION_FAILED', execution_id: failed.execution_id, task_id: taskId, task_state: 'FAILED', reason: 'transient failures exceeded max_retries', location: 'VPS', source: 'executor' });
       if (task.requested_by !== 'github-bridge') lifecycle.emit({ type: 'REPORT_SUBMITTED', execution_id: failed.execution_id, task_id: taskId, report_status: 'failed', report_ref: 'executor:report.json', location: 'VPS', source: 'executor' });
-      writeFailureReport(task, taskId, failed, 'failed', engine.blocker('PROVIDER_FAILED', { reason: 'transient failures exceeded max_retries (' + retryCount + '): ' + tailOf(text.trim(), 300), task_id: taskId, attempt_id: task.attempt_id || null, retries: retryCount, category: 'transient' }));
+      writeFailureReport(task, taskId, failed, 'failed', engine.blocker('PROVIDER_FAILED', { reason: 'transient failures exceeded max_retries (' + retryCount + '): ' + tailOf(text.trim(), 300), task_id: taskId, attempt_id: task.attempt_id || null, retries: retryCount, category: 'transient' }), outcome);
       notify('task_failed', task.stage, taskId + ' FAILED after ' + retryCount + ' retries');
       return failed;
     }
@@ -916,7 +1248,7 @@ function handleFailure(task, taskId, outcome, mode, opts) {
   });
   writeCheckpoint(task, final, { current_step: terminal.toLowerCase() });
   var fb = engine.blocker(detail.code || (terminal === 'BLOCKED' ? 'PROVIDER_BLOCKED' : 'PROVIDER_FAILED'), { reason: tailOf(text.trim(), 500), category: detail.category, task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
-  writeFailureReport(task, taskId, final, terminal.toLowerCase(), fb);
+  writeFailureReport(task, taskId, final, terminal.toLowerCase(), fb, outcome);
   state.appendEvent(taskId, kind + '_failure', { status: terminal, code: fb.code, category: detail.category });
   notify('task_failed', task.stage, taskId + ' ' + terminal);
   lifecycle.emit({ type: 'EXECUTION_FAILED', execution_id: final.execution_id, task_id: taskId, task_state: terminal, reason: (fb.code || terminal) + ': ' + String(fb.reason || '').slice(0, 120), location: 'VPS', source: 'executor' });
@@ -928,7 +1260,13 @@ function handleFailure(task, taskId, outcome, mode, opts) {
 
 // A provider that died (denied, blocked, fatal, retries exhausted) still ends
 // in a structured report: synthesised, marked as such, carrying the blocker.
-function writeFailureReport(task, taskId, status, reportStatus, blocker) {
+// `outcome` is optional and only present on the provider paths: a failed run
+// must carry the SAME measured evidence a successful one does (V2.1). It is
+// exactly when a run fails that the tool trace, the validator's verdicts and
+// the compaction count are what a reader needs — measured live: a FAILED
+// tester run produced an evidence file with a null trace and nothing to
+// diagnose from.
+function writeFailureReport(task, taskId, status, reportStatus, blocker, outcome) {
   var structured = reporting.synthesize({
     status: reportStatus, task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null,
     action_raw: task.action_raw || null, action_source: task.action_source || null, execution_profile: task.execution_profile || null,
@@ -938,8 +1276,11 @@ function writeFailureReport(task, taskId, status, reportStatus, blocker) {
   state.writeJSON(taskId, 'report.json', {
     task_id: taskId, report: null, structured: structured, blocker: blocker,
     problems: [blocker.code + ': ' + String(blocker.reason || '').slice(0, 800)],
-    git: { git_verified: null, remote_head: null, report_problems: [] }, provider_result_tail: ''
+    git: { git_verified: null, remote_head: null, report_problems: [] }, provider_result_tail: '',
+    evidence: providerEvidence(outcome)
   });
+  recordProviderEvents(taskId, outcome);
+  recordAgentOutcome(task, taskId, outcome, status.provider_used || task.provider, (blocker && blocker.category) || 'unknown');
   state.writeText(taskId, 'report.md', reporting.renderMarkdown(task, status, structured, { report_problems: [blocker.code] }));
 }
 
@@ -1019,10 +1360,38 @@ function guardSample() {
 
 // Cheap reading for out-of-band admission (dispatchTask/drainQueue): reuses
 // the tick's sample while it is fresh.
-function guardGate(status) {
+// `task` (V2.3) is optional. When the work about to start will occupy the
+// LOCAL INFERENCE RUNTIME, the gate asks the GPU question too — a second
+// task admitted on memory alone is exactly what the GPU signal exists to
+// prevent. Without a task, or for a provider that does not touch the GPU,
+// this is byte-for-byte the previous behaviour.
+//
+// `gpu_in_flight` is the executor's OWN count of what it started, not the
+// runtime's `slots_busy`, and the difference matters: a supervised task
+// between model turns holds no slot while still owning its share of the
+// shared KV pool. Trusting slots_busy would admit a second task into a pool
+// the first has not finished with.
+function needsGpu(task) {
+  if (!task || !task.provider) return false;
+  var impl = PROVIDERS[task.provider];
+  return !!(impl && impl.PROVIDER_ID === 'haddad-agent');
+}
+
+function guardGate(status, task) {
   if (!guardEnabled()) return ADMIT_ANYWAY;
   try {
-    return resourceGuard.admission(status || resourceGuard.current(guardOptions()));
+    var opts = {};
+    if (needsGpu(task)) {
+      opts.needs_gpu = true;
+      try { opts.gpu_signal = resourceGuard.gpuSlots.read(); } catch (e) { opts.gpu_signal = null; }
+      // V2.3 scheduler half: what occupies the GPU is a task IN A MODEL
+      // TURN, not a task that happens to be RUNNING. A task spends most of
+      // its life in validation, checks and git, none of which touch the
+      // card, so counting running tasks kept the GPU reserved for work that
+      // had finished using it.
+      opts.gpu_in_flight = resourceGuard.gpuSlots.heldCount();
+    }
+    return resourceGuard.admission(status || resourceGuard.current(guardOptions()), opts);
   } catch (e) { return ADMIT_ANYWAY; }
 }
 
@@ -1146,7 +1515,9 @@ function tick(now) {
     // GitHub bridge (requested_by='github-bridge'), which never passes
     // through dispatchTask/drainQueue and would otherwise be admitted
     // straight into a host that is running out of memory.
-    var gate = guardGate(guard);
+    // V2.3: the head of the queue is what would start, so the GPU question
+    // is asked about THAT task rather than in the abstract.
+    var gate = guardGate(guard, state.readJSON(queued[0].task_id, 'task.json'));
     if (!gate.admit) {
       var logged = noteDeferred(queued[0].task_id, gate, now);
       actions.push({
@@ -1254,7 +1625,7 @@ function dispatchTask(taskId) {
 
   // Host safety is checked before capacity: a free slot on a host that is
   // out of memory is not a slot. The task stays QUEUED and drains later.
-  var gate = guardGate();
+  var gate = guardGate(null, state.readJSON(taskId, 'task.json'));
   if (!gate.admit) {
     noteDeferred(taskId, gate, Date.now());
     return Promise.resolve({
@@ -1539,12 +1910,22 @@ module.exports = {
   health: health,
   daemon: daemon,
   writeCheckpoint: writeCheckpoint,
+  recordProviderEvents: recordProviderEvents,
+  recordAgentOutcome: recordAgentOutcome,
+  projectWriteScope: projectWriteScope,
+  attemptBaseline: attemptBaseline,
+  withProjectScope: withProjectScope,
   preflightBlocker: preflightBlocker,
   verifyGit: verifyGit,
+  deliverValidatedWork: deliverValidatedWork,
+  settleState: settleState,
   commitReportToGit: commitReportToGit,
   sshEnv: sshEnv,
   acquireDaemonLock: acquireDaemonLock,
   dispatchTask: dispatchTask,
+  providerEvidence: providerEvidence,
+  needsGpu: needsGpu,
+  guardGate: guardGate,
   drainQueue: drainQueue,
   dispatcherStatus: dispatcherStatus,
   // Deliberately NOT folded into dispatcherStatus(): the console asserts

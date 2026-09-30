@@ -3,7 +3,8 @@
 // MYTHOS bridge notifications — minimal JSON HTTP client
 // projects/mythos-ai-executor/bridge/notify/http-json.js
 //
-// One tiny POST helper shared by every notification provider adapter, so a
+// One tiny request helper (POST to send, GET for a read-only health check)
+// shared by every notification provider adapter, so a
 // new adapter (WAHA, WhatsApp Business Cloud API, …) does not have to bring
 // its own transport or a new dependency. Node core only: the VPS is under
 // swap pressure and the executor tree deliberately has no runtime npm
@@ -25,10 +26,10 @@ var redact = require('../../../mythos-orchestrator/lib/redact');
 
 var MAX_BODY = 2000;
 
-// POSTs `body` as JSON and resolves with { ok, statusCode, body }.
+// Sends one JSON request and resolves with { ok, statusCode, body }.
 // It never rejects for an HTTP error status — only for a transport failure,
 // and even then the error message is redacted first.
-function postJson(target, body, opts) {
+function request(method, target, body, opts) {
   opts = opts || {};
   return new Promise(function (resolve, reject) {
     var parsed;
@@ -42,13 +43,11 @@ function postJson(target, body, opts) {
       reject(new Error('UNSUPPORTED_PROTOCOL: ' + parsed.protocol));
       return;
     }
-    var payload = Buffer.from(JSON.stringify(body === undefined ? {} : body), 'utf8');
+    var payload = method === 'GET' ? null : Buffer.from(JSON.stringify(body === undefined ? {} : body), 'utf8');
     var headers = Object.assign({
-      'content-type': 'application/json',
-      'content-length': payload.length,
       'accept': 'application/json',
       'user-agent': 'mythos-github-bridge-notify/1'
-    }, opts.headers || {});
+    }, payload ? { 'content-type': 'application/json', 'content-length': payload.length } : {}, opts.headers || {});
 
     var mod = parsed.protocol === 'https:' ? https : http;
     var req = mod.request({
@@ -56,7 +55,7 @@ function postJson(target, body, opts) {
       hostname: parsed.hostname,
       port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
       path: parsed.pathname + (parsed.search || ''),
-      method: 'POST',
+      method: method,
       headers: headers
     }, function (res) {
       var chunks = [];
@@ -85,9 +84,14 @@ function postJson(target, body, opts) {
 
     req.setTimeout(opts.timeoutMs || 15000, function () { fail(new Error('TIMEOUT')); });
     req.on('error', fail);
-    req.write(payload);
+    if (payload) req.write(payload);
     req.end();
   });
 }
 
-module.exports = { postJson: postJson, MAX_BODY: MAX_BODY };
+function postJson(target, body, opts) { return request('POST', target, body, opts); }
+
+// Read-only: used only for a provider's connection-state health check.
+function getJson(target, opts) { return request('GET', target, undefined, opts); }
+
+module.exports = { postJson: postJson, getJson: getJson, MAX_BODY: MAX_BODY };

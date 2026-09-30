@@ -168,7 +168,11 @@ t('HOSTOPS-2R-FIX: the installer runs the group refresh, after granting membersh
   assert.ok(usermodIdx !== -1, 'installer must grant deploy membership');
   assert.ok(refreshIdx !== -1, 'installer must call the refresh script');
   assert.ok(refreshIdx > usermodIdx, 'the refresh must run after group membership is granted');
-  assert.ok(installer.indexOf('refresh-group-membership.sh" deploy dagu') !== -1, 'both authorized callers must be refreshed');
+  // HostOps v0.2: both callers are still covered, but only a manager that
+  // lacks the group is restarted (a restart of user@<uid> bounces every
+  // deploy production service and kills running executor tasks).
+  assert.ok(installer.indexOf('for u in deploy dagu; do') !== -1 && installer.indexOf('refresh-group-membership.sh" "$u"') !== -1, 'both authorized callers must be refreshed');
+  assert.ok(installer.indexOf('already carries mythos-hostops') !== -1 && /\/proc\/\$mpid\/status/.test(installer), 'the refresh is skipped when the running manager already has the group');
 });
 t('HOSTOPS-2R-FIX: the refresh script never sets a SupplementaryGroups= directive (it only documents, in prose, why that workaround was rejected)', function () {
   var src = fs.readFileSync(SCRIPT, 'utf8');

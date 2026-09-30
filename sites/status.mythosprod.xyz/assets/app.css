@@ -452,3 +452,116 @@ footer.site svg { height: 14px; width: auto; display: block; color: var(--mythos
   margin: var(--mythos-space-6) 0;
   font-size: 14px;
 }
+
+/* ── AI nodes (MYTHOS HADDAD) ────────────────────────
+   Composes from the same tokens as everything above: no new colour, no
+   new spacing step, no new font. The console at /haddad/ loads this same
+   sheet, so the two surfaces cannot drift apart. */
+.node-card { display: flex; flex-direction: column; gap: var(--mythos-space-4); }
+.node-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--mythos-space-4);
+  flex-wrap: wrap;
+}
+.node-head h3 { margin: 0; }
+.node-sub {
+  margin: var(--mythos-space-2) 0 0;
+  font-family: var(--mythos-font-display);
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--mythos-text-secondary);
+}
+.node-reason { margin: 0; font-size: 13px; color: var(--mythos-text-secondary); max-width: 72ch; }
+.node-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--mythos-space-5);
+  flex-wrap: wrap;
+  margin-bottom: var(--mythos-space-4);
+}
+.node-hero .pill { font-size: 14px; padding: var(--mythos-space-3) var(--mythos-space-5); }
+.node-open {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--mythos-size-touch-min);
+  font-family: var(--mythos-font-display);
+  font-size: 12px;
+  font-weight: var(--mythos-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Key/value grid. One column on a phone so nothing ever scrolls sideways. */
+.kv-grid { display: grid; grid-template-columns: 1fr; gap: var(--mythos-space-1) var(--mythos-space-6); }
+@media (min-width: 720px)  { .kv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1100px) { .kv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.kv {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--mythos-space-4);
+  padding: var(--mythos-space-3) 0;
+  border-bottom: 1px solid var(--mythos-border-hairline);
+  min-width: 0;
+}
+.kv .k { font-size: 13px; color: var(--mythos-text-secondary); flex: 0 0 auto; }
+.kv .v {
+  font-family: var(--mythos-font-mono);
+  font-size: 13px;
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.na { color: var(--mythos-text-disabled); font-style: normal; }
+.ok-none { color: var(--mythos-text-secondary); font-size: 13px; }
+
+.panel-body { margin-top: var(--mythos-space-5); }
+.section-note.warn { color: var(--mythos-warning); }
+
+/* Meters are drawn only when both numbers are real — see haddad.js. */
+.meter-wrap { display: inline-flex; align-items: center; gap: var(--mythos-space-3); justify-content: flex-end; flex-wrap: wrap; }
+.meter {
+  display: inline-block;
+  width: 84px;
+  height: 6px;
+  border-radius: var(--mythos-radius-pill);
+  background: var(--mythos-surface);
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.meter-fill { display: block; height: 100%; background: var(--mythos-success); }
+.meter-fill.warm { background: var(--mythos-warning); }
+.meter-fill.hot  { background: var(--mythos-danger); }
+.meter-text { font-size: 12px; }
+.spark { width: 120px; height: 24px; color: var(--mythos-accent); display: block; margin-left: auto; }
+
+.worker-list { list-style: none; margin: 0; padding: 0; }
+.worker {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mythos-space-4);
+  flex-wrap: wrap;
+  padding: var(--mythos-space-4) 0;
+  border-bottom: 1px solid var(--mythos-border-hairline);
+}
+.worker-name { font-weight: var(--mythos-weight-medium); }
+.worker-detail { font-size: 13px; color: var(--mythos-text-secondary); font-family: var(--mythos-font-mono); overflow-wrap: anywhere; }
+
+.chips { display: flex; flex-wrap: wrap; gap: var(--mythos-space-3); margin-top: var(--mythos-space-4); }
+.chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--mythos-space-2);
+  padding: var(--mythos-space-2) var(--mythos-space-4);
+  border: 1px solid var(--mythos-border-hairline);
+  border-radius: var(--mythos-radius-pill);
+  font-size: 12px;
+  color: var(--mythos-text-secondary);
+}
+.chip strong { color: var(--mythos-text-primary); font-family: var(--mythos-font-mono); }
+
+table.matrix.events td { vertical-align: top; }
+table.matrix.events .mono { font-family: var(--mythos-font-mono); font-size: 12px; }
