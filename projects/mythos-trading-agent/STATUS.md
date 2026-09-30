@@ -4,11 +4,11 @@ Format per mission §24. Updated at the end of every phase.
 
 ---
 
-**CURRENT PHASE:** PHASE 10 — Analysis Agent (complete)
+**CURRENT PHASE:** PHASE 11 — Research Agent (complete)
 
-**CURRENT TASK:** PHASE 11 — Research Agent
+**CURRENT TASK:** PHASE 12 — stress testing
 
-**LAST VERIFIED COMMIT:** `a0218a68` (PHASE 9, verified on `origin/mythos/trading-platform`)
+**LAST VERIFIED COMMIT:** `eaf7d750` (PHASE 10, verified on `origin/mythos/trading-platform`)
 
 ---
 
@@ -282,10 +282,51 @@ per-bar hook, which the engine now also runs **before** decisions rather than
 after, so the Risk Engine's kill switch blocks the same bar instead of the next
 one. Regime rows went from ~1,300 (activity-dependent) to 2,800 (every bar).
 
+### PHASE 11 — Research Agent (Agent 3) + walk-forward segmentation
+
+**Walk-forward** (`src/backtest/walk-forward.js`) enforces the rules that make an
+out-of-sample claim mean anything: out-of-sample comes strictly **after**
+in-sample in time (a random split of a time series leaks the future through
+continuity), folds advance by the out-of-sample length so their fresh windows never
+overlap — `assertNoOverlap()` refuses otherwise, because overlap counts the same
+bars as evidence twice — and each segment warms its indicators up *inside* itself
+rather than borrowing history the previous segment was tuned on. The aggregate's
+headline is **degradation** (out-of-sample expectancy ÷ in-sample), which is null
+rather than misleading when in-sample was not profitable, and the worst streak
+across folds is reported rather than the average, because averaging hides the fold
+that would have ended the account.
+
+**The Research Agent proposes and can do nothing else.** `propose()` returns an
+inert plain object; the agent never loads, writes or applies a configuration, and a
+test asserts no apply/write/promote/setConfig method exists (mission §12: "Never
+modify LIVE rules directly").
+
+Every hypothesis carries four things and is **refused** without them: the
+measured observation with its sample size, the claim in one sentence, a config
+override so the claim is testable mechanically, and — the part that matters — the
+result that would **refute** it, stated before the test runs. A claim whose author
+has not said what would change their mind reads as confirmed whatever happens.
+
+`compare()` is deliberately hard to pass:
+- it **refuses to run** without out-of-sample results on both sides;
+- it names `IMPROVES_IN_SAMPLE_ONLY` as the signature of a fitted change;
+- it rejects expectancy bought with deeper drawdown **or a longer losing streak** —
+  mission §10 makes streak behaviour a primary objective, not a tiebreak;
+- it requires a walk-forward result (mission §13: never promote on one profitable
+  period) and a passed stress suite;
+- it distinguishes **REJECT** (refuted — do not retry) from **INCONCLUSIVE**
+  (untested — do retry), because the two call for opposite next actions;
+- approval is `APPROVE_AS_CHALLENGER` and the note says so: not the champion, not
+  in PAPER, not live.
+
+The regime hypothesis deliberately proposes a *filter* rather than a regime ban,
+because banning a regime would destroy the evidence needed to revisit the question,
+and its falsification criterion names the classification error it inherits.
+
 ## IN PROGRESS
 
-PHASE 11 — Research Agent: hypothesis → proposal → backtest → stress → compare,
-with walk-forward segmentation, and no power to change a live rule.
+PHASE 12 — stress testing: Monte Carlo trade-order randomisation, spread and
+slippage expansion, execution delay, parameter perturbation and data-gap stress.
 
 ## BLOCKED
 
@@ -298,7 +339,7 @@ rather than treated as blockers:
 
 ## NEXT TASK
 
-PHASE 11 — Research Agent, then PHASE 12 — stress testing.
+PHASE 12 — stress testing, then PHASE 13 — Champion / Challenger.
 
 ## TEST STATUS
 
@@ -318,7 +359,8 @@ PHASE 11 — Research Agent, then PHASE 12 — stress testing.
 | `tests/risk-recovery-test.js` | 42 | pass |
 | `tests/trading-agent-test.js` | 29 | pass |
 | `tests/analysis-agent-test.js` | 28 | pass |
-| **Total (`npm test`)** | **429** | **429 pass, 0 fail** |
+| `tests/research-agent-test.js` | 39 | pass |
+| **Total (`npm test`)** | **468** | **468 pass, 0 fail** |
 
 Run: `cd projects/mythos-trading-agent && npm test`
 
