@@ -26,8 +26,21 @@ the reason codes that produced it.
 
 ```bash
 cd projects/mythos-trading-agent
-npm test          # node --test tests/*-test.js — no install step, zero dependencies
+npm test                              # 572 tests, no install step, zero dependencies
+
+node bin/mtx.js status                # mode, risk limits, recovery ladder, promotion gates
+node bin/mtx.js health                # 13 health checks against a fresh backtest
+node bin/mtx.js backtest --bars 3000  # one backtest, with its full pipeline funnel
+node bin/mtx.js walkforward           # rolling in-sample / out-of-sample folds
+node bin/mtx.js analyse               # the Analysis Agent's report
+node bin/mtx.js research              # hypotheses, each with its falsification criterion
+node bin/mtx.js stress                # the mission §15 stress suite
+node bin/mtx.js help                  # options: --symbols --bars --capital --jev --recovery --json
 ```
+
+The CLI has **no `--mode` flag**: the mode changes only through an owner-approval
+record, and a command-line flag must not substitute for one. It cannot promote a
+champion, and it places no order.
 
 ## Layout
 
@@ -52,8 +65,10 @@ npm test          # node --test tests/*-test.js — no install step, zero depend
 | `src/agents/` | Trading, Analysis and Research agents |
 | `src/champion/` | champion / challenger registry and promotion gates |
 | `src/observability/` | health checks, metrics, audit helpers |
+| `src/paper/` | incremental paper-trading session (PAPER mode only) |
 | `config/` | `default.json` (defaults) and `instruments.json` (contract specs) |
-| `docs/` | architecture, compliance register, validation gates, ADRs |
+| `bin/` | `mtx.js` (CLI) and `make-fixtures.js` (regenerates the committed fixtures) |
+| `docs/` | [architecture](docs/ARCHITECTURE.md), [compliance register](docs/COMPLIANCE_AND_RISK.md), [validation gates](docs/VALIDATION_GATES.md), ADRs |
 | `tests/` | `node --test` suites |
 
 ## Safety model in one paragraph

@@ -4,11 +4,11 @@ Format per mission §24. Updated at the end of every phase.
 
 ---
 
-**CURRENT PHASE:** PHASE 13 — Champion/Challenger + PHASE 14 — paper trading (complete)
+**CURRENT PHASE:** PHASE 15 — full integration testing (complete). All fifteen mission §18 phases done.
 
-**CURRENT TASK:** PHASE 15 — full integration testing
+**CURRENT TASK:** none in progress — awaiting the owner decision in NEXT TASK
 
-**LAST VERIFIED COMMIT:** `e3116435` (PHASE 12, verified on `origin/mythos/trading-platform`)
+**LAST VERIFIED COMMIT:** `1596a120` (PHASES 13+14, verified on `origin/mythos/trading-platform`)
 
 ---
 
@@ -425,10 +425,41 @@ mistaken for a backtest and a session falling behind its feed is visible.
 Two-arm **A/B** sessions feed both arms identical ticks and report deltas without
 calling a winner — that is the Champion/Challenger gate's decision.
 
+### PHASE 15 — health monitoring, CLI and full integration testing
+**Health checks** (`src/observability/health.js`) are the machine-checkable form of
+`docs/VALIDATION_GATES.md`: thirteen checks, each returning OK / WARN / FAIL /
+**UNKNOWN** with the numbers behind it. Two principles:
+- **A check that cannot be evaluated returns UNKNOWN, not OK.** A missing input is
+  not a pass, and the summary says so explicitly.
+- **The safety checks are active.** `LIVE_EXECUTION_REFUSED` *calls* the live adapter
+  and requires it to throw; `NO_NETWORK_CLIENT` greps all of `src/`. A safety check
+  that only reads configuration verifies the configuration, not the safety.
+
+Two defects were found writing them. The scanner's own regex literal matched itself
+— fixed by assembling the pattern rather than exempting a file, because an exemption
+in a safety scan is what later hides a real finding. And `DATA_PROVENANCE` inferred
+provenance from the dataset-version *string*, so a caller could make it pass by
+naming its data `integration-v1`; it now requires an explicit real-data declaration
+that nothing in this build can make, and is therefore always WARN.
+
+**CLI** (`bin/mtx.js`) — `status`, `health`, `backtest`, `walkforward`, `analyse`,
+`research`, `stress`. `package.json` already referenced this file, so the reference
+was broken until now. It has **no `--mode` flag** (a test asserts one is ignored),
+cannot promote a champion, and prints costs, drawdown and the losing streak beside
+any profit figure.
+
+**Integration tests** run the whole system in mission order: backtest → analyse →
+hypothesise → propose → variant in/out-of-sample → walk-forward → stress → compare →
+challenger with bound two-segment evidence → **promotion refused**, because
+`DEMO_COMPARISON` cannot be produced in BACKTEST mode. Then the owner approves PAPER,
+a paper A/B session produces the missing demo evidence, and promotion succeeds — for
+the owner, still refused for an agent. Plus: every §17 question answered by querying
+one real run's store, and every safety invariant asserted against a live system.
+
 ## IN PROGRESS
 
-PHASE 15 — full integration testing, then the architecture document and the
-`docs/AI_HANDOVER.md` entry AGENTS.md §18 requires.
+Nothing. All fifteen phases of mission §18 are implemented, tested and pushed.
+The remaining work is the owner's decision (see NEXT TASK).
 
 ## BLOCKED
 
@@ -441,7 +472,24 @@ rather than treated as blockers:
 
 ## NEXT TASK
 
-PHASE 15 — full integration testing, then the architecture document and handover entry.
+**This is an owner decision, not an engineering one.** All fifteen phases are built,
+tested and pushed. Nothing further should be built before the owner chooses one of:
+
+1. **Review and merge the PR.** The operator opens it; `gh` is not available to this
+   agent. Nothing is merged and nothing is deployed.
+2. **Replace the cost estimates with a named venue's published schedule.** This is
+   the single largest source of optimism in every result the platform produces, and
+   the `VENUE_COSTS_VERIFIED` gate cannot be satisfied from this repository.
+3. **Decide whether to approve BACKTEST → PAPER.** Ten gates, listed in
+   `docs/VALIDATION_GATES.md`. The evidence for most of them exists in this branch;
+   the approval record is the owner's to write.
+4. **Commission real market data.** Every result so far is synthetic and therefore
+   says nothing about edge. Until real data is available, no amount of further
+   building changes what is known.
+
+Engineering work that would be useful but is NOT blocking: re-open ADR-0001 if a
+Python runtime becomes available (adopt NautilusTrader behind the existing seams),
+and extend the regime engine's UNSTABLE detection, which is measurably weak.
 
 ## TEST STATUS
 
@@ -465,7 +513,8 @@ PHASE 15 — full integration testing, then the architecture document and handov
 | `tests/stress-test.js` | 29 | pass |
 | `tests/champion-test.js` | 37 | pass |
 | `tests/paper-test.js` | 25 | pass |
-| **Total (`npm test`)** | **559** | **559 pass, 0 fail** |
+| `tests/integration-test.js` | 13 | pass |
+| **Total (`npm test`)** | **572** | **572 pass, 0 fail** |
 
 Run: `cd projects/mythos-trading-agent && npm test`
 

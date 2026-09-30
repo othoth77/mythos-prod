@@ -2,6 +2,106 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-30 — MYTHOS TRADING AGENT: all fifteen phases, on a branch, nothing merged (Opus 5)
+
+**Objective:** build the owner-commissioned quant trading research platform —
+backtest → paper → controlled live, progressively, with live execution explicitly
+disabled until defined gates pass. Executor task `t-20260930135123-ksymne`,
+continuing the PHASE 0 audit from `t-20260930120308-fjw22c`.
+
+| Item | State |
+|---|---|
+| Branch | `mythos/trading-platform` @ **(see the final commit below)**, based on `main@6425ac4c` |
+| Scope | **everything new is under `projects/mythos-trading-agent/`**; outside it only this entry and `docs/CHANGELOG.md` |
+| Merged / deployed | **NO.** Nothing is merged, nothing is deployed, no production service was touched. The operator opens the PR — `gh` is not available to the executor |
+| Tests | **572 pass, 0 fail** — `cd projects/mythos-trading-agent && npm test` |
+| Dependencies added | **none.** Zero runtime dependencies; `npm test` needs no install |
+| Phases | all fifteen of the mission's §18 order, each tested and pushed as its own commit |
+
+**LIVE EXECUTION IS IMPOSSIBLE IN THIS BUILD, AND THAT IS ENFORCED THREE WAYS
+INDEPENDENTLY** (ADR-0002): `config/schema.js` cannot parse `mode: LIVE`; the mode
+controller raises the mode only for an `OWNER` principal presenting a single-use
+approval record bound to the running config fingerprint *and* commit with written
+per-gate evidence, refusing an `AGENT` before any other check; and the LIVE adapter
+refuses every call. There is **no network client anywhere in `src/`** — a scan that
+both the test suite and the health report run, with no file exempt, proves it, and
+the health check verifies the adapter's refusal by *calling* it rather than reading a
+flag. Downgrades toward `BACKTEST` need no approval from anyone.
+
+**Recovery ×3 is opt-in, off by default, and capped twice** — by `maxRecoveryLevel`
+(reaching the cap *abandons* the ladder and realises the accumulated loss rather than
+escalating) and again by the Risk Engine, which is the last writer of position size.
+Two property tests over randomised equity, stops, instruments and caps (600 sizing
+cases; 400 ladder walks ≈ 1,000 rungs through the real Risk Engine) prove the
+approved size never exceeds the request, the position cap, the instrument maximum or
+the risk budget. Asserted concretely for the owner's account: at $100 with a 2 % cap
+and a 20-pip stop the ladder requests 0.01/0.03/0.09 and is approved
+0.01/0.01/0.01 — ALLOW/CLAMP/CLAMP.
+
+**Five defects were found by running the system, not by reading it**, and each is
+recorded where it happened rather than quietly fixed:
+
+1. **The Trading Agent was writing to a store the engine never published.** Runs
+   produced trades and metrics normally while every candidate, Jev verdict and risk
+   assessment went into a store nobody read — a complete, silent loss of the audit
+   trail. Fixed with an `onRunStart` lifecycle hook that binds the agent and the risk
+   and recovery engines to the run's own store before any data is loaded.
+2. **`MAX_CONSECUTIVE_LOSSES` deadlocked the system.** As a permanent block, hitting
+   the limit stopped all trading, so no win could occur, so the streak never reset:
+   2,573 of 2,692 risk blocks in one run were this single condition, frozen for the
+   rest of the run. It is now a circuit breaker with a cooling-off measured from the
+   last loss, clearing the current streak but not the historical maximum.
+3. **The regime was classified only on bars where the trade slot happened to be
+   free**, so its hysteresis dwell counted wrongly and the label became a function of
+   whether a position was open — a coupling that would have corrupted every
+   per-regime statistic. Classification moved to the per-bar hook, which the engine
+   now also runs *before* decisions, so the kill switch blocks the same bar.
+4. **The synthetic generator's `UNSTABLE` regime multiplied its drift by zero**, making
+   it literally `HIGH_VOLATILITY` with a smaller multiplier. Found by scoring the
+   regime engine against the generator's own ground truth — the two classes were
+   indistinguishable because they were the same process.
+5. **The paper session sorted symbols alphabetically while the engine uses the
+   config's universe order.** With one global trade slot that ordering decides which
+   of two simultaneous candidates is taken, so multi-asset paper and backtest results
+   diverged for a reason with nothing to do with the market. Caught by an equivalence
+   test using a deliberately non-alphabetical universe.
+
+**PAPER IS PROVEN EQUAL TO BACKTEST.** A replayed paper session produces the same
+trades, in the same order, at the same prices, as `engine.run()` over the same bars —
+for one instrument, for three instruments with a non-alphabetical universe, and with
+recovery enabled where sizing is path-dependent. Paper results are only evidence for
+a promotion if the two agree, so a divergence fails there rather than inside a
+promotion case.
+
+**Promotion cannot be earned on one profitable period.** Evidence is bound to the
+challenger's config hash and refused at attachment if it came from a different
+configuration; it must span at least two named data segments; and a re-run of the
+same kind on the same segment *replaces* rather than accumulates. `DEMO_COMPARISON`
+is listed as unsatisfiable while the platform is in BACKTEST rather than omitted, and
+an `AGENT` principal may not promote, seed or roll back at all.
+
+**NO PROFITABILITY CLAIM IS MADE, AND THE NUMBERS ARE RECORDED RATHER THAN OMITTED.**
+Every end-to-end run lost money — on 3,000 EURUSD M15 fixture bars: $100 account
+45 trades, −$18.19, emergency-stopped at 20.1 % drawdown; $5,000 and $100,000
+accounts 188 trades, −$56.49 (identical, because the position cap binds before the
+risk budget at either size). That is the expected result of deliberately untuned
+strategies on synthetic data with every cost charged, and it demonstrates the
+mechanics work — costs deducted, limits binding, audit trail complete, digest
+reproducible. The regime engine scores 40.7 % against a 16.7 % chance baseline with
+`UNSTABLE` recall at 7 %, which is weak and asserted at its honest value.
+`projects/mythos-trading-agent/docs/COMPLIANCE_AND_RISK.md` records eleven known
+limitations and everything needing external legal review; every cost figure in
+`config/instruments.json` is a documented estimate, not a venue's schedule.
+
+**Next step is the owner's decision, not an engineering one.** Reviewing and merging
+the PR; replacing the cost estimates with a named venue's published schedule (the
+`VENUE_COSTS_VERIFIED` gate cannot be satisfied from this repository); deciding
+whether to approve BACKTEST → PAPER against the ten gates in
+`docs/VALIDATION_GATES.md`; and commissioning real market data, without which no
+amount of further building changes what is known about edge. Read
+`projects/mythos-trading-agent/STATUS.md` for the current phase, test status and
+known risks, and `docs/ARCHITECTURE.md` in that project for the module map.
+
 ## 2026-09-23 — MYTHOS HADDAD V2.6: unattended operation, proven on the production label (Opus 5)
 
 **Objective:** prove the unattended loop rather than build one. The loop is the existing bridge
