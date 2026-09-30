@@ -4,11 +4,11 @@ Format per mission §24. Updated at the end of every phase.
 
 ---
 
-**CURRENT PHASE:** PHASE 4 — strategy engine (complete)
+**CURRENT PHASE:** PHASE 5 — market regime engine (complete)
 
-**CURRENT TASK:** PHASE 5 — market regime engine
+**CURRENT TASK:** PHASE 6 — Jev decision gate
 
-**LAST VERIFIED COMMIT:** `03305973` (PHASE 3, verified on `origin/mythos/trading-platform`)
+**LAST VERIFIED COMMIT:** `ec71f698` (PHASE 4, verified on `origin/mythos/trading-platform`)
 
 ---
 
@@ -94,11 +94,44 @@ roughly thirty episodes rather than 906 opportunities. `strategy.signalCooldownB
 exists for that, defaults to **0 (off)** because suppression loses evidence, and
 counts every signal it removes.
 
+### PHASE 5 — market regime engine
+Scores all six regimes from normalised features and takes the highest, with
+hysteresis (a regime persists until a dwell elapses AND a challenger clears it by
+a margin) because the regime is recorded on every candidate and a label that
+flips per bar would make per-regime statistics measure noise.
+
+**Measured against the generator's published ground truth** (17,328 classified
+bars, three seeds): overall accuracy **40.7 %** vs a 16.7 % chance baseline.
+Recall — RANGE 55 %, LOW_VOLATILITY 54 %, HIGH_VOLATILITY 34 %, TREND 28 %,
+BREAKOUT 19 %, **UNSTABLE 7 %**. The weak classes are asserted at their honest
+values in `tests/regime-test.js`; a test demanding a number the system does not
+achieve would simply be deleted by whoever hit it next.
+
+**Three findings this measurement produced, all recorded rather than papered over:**
+1. **The generator's `UNSTABLE` was a bug.** It multiplied its drift by zero, so
+   it was literally `HIGH_VOLATILITY` with a smaller multiplier — the two classes
+   were indistinguishable because they were the same process. Fixed to reverse
+   its drift every 6 bars. `HIGH_VOLATILITY` was also raised to 2.6× so it is
+   genuinely the loudest regime, which at 2.2× it measurably was not.
+2. **`flipRate` discriminates nothing** (0.49–0.54 for every regime). It is still
+   computed and recorded as evidence, and carries zero weight in the score — a
+   test asserts that changing it changes no score. Shipping it as an input would
+   have been a confident-looking zero.
+3. **The volatility labels are relative, not absolute.** A percentile has no
+   notion of absolute calm: over a series with no regime change, a uniformly
+   violent stretch reads `LOW_VOLATILITY` about a quarter of the time. An
+   expansion gate was considered and rejected with the reason recorded. Written
+   up in COMPLIANCE §3.7 and asserted directly in the tests.
+
+A whipsaw discount on `RANGE` was tried and **removed**: it lifted UNSTABLE
+recall 7 % → 11 % and cost RANGE 55 % → 44 %, dropping overall accuracy to
+37.4 %. The number is kept in the source so the next person to have the idea sees
+it instead of re-running it.
+
 ## IN PROGRESS
 
-PHASE 5 — market regime engine: classify TREND / RANGE / BREAKOUT /
-HIGH_VOLATILITY / LOW_VOLATILITY / UNSTABLE, scored against the synthetic
-generator's published ground truth.
+PHASE 6 — Jev decision gate: structured score/confidence/decision/reason-codes/
+risk-flags per candidate, with the threshold bands mission §6 asks to be studied.
 
 ## BLOCKED
 
@@ -111,7 +144,7 @@ rather than treated as blockers:
 
 ## NEXT TASK
 
-PHASE 5 — regime engine, then PHASE 6 — Jev decision gate.
+PHASE 6 — Jev decision gate, then PHASE 7 — Risk Engine.
 
 ## TEST STATUS
 
@@ -126,7 +159,8 @@ PHASE 5 — regime engine, then PHASE 6 — Jev decision gate.
 | `tests/execution-and-costs-test.js` | 52 | pass |
 | `tests/backtest-engine-test.js` | 31 | pass |
 | `tests/strategy-test.js` | 43 | pass |
-| **Total (`npm test`)** | **278** | **278 pass, 0 fail** |
+| `tests/regime-test.js` | 19 | pass |
+| **Total (`npm test`)** | **297** | **297 pass, 0 fail** |
 
 Run: `cd projects/mythos-trading-agent && npm test`
 
@@ -140,6 +174,9 @@ Run: `cd projects/mythos-trading-agent && npm test`
 3. **Synthetic data cannot demonstrate edge.** No profitability claim is
    possible from this build.
 4. **Overfitting risk grows with the search space** the later phases add.
+5. **Regime labels carry ~59 % classification error** against known ground truth,
+   and `UNSTABLE` is barely detected at all. Any per-regime performance
+   conclusion inherits that error and must state it (COMPLIANCE §3.7).
 
 ## DECISIONS
 

@@ -114,7 +114,34 @@ session-sensitive strategies.
 The forex weekend is modelled as Friday 21:00 UTC → Sunday 21:00 UTC. Public
 holidays, early closes and illiquid rollover periods are **not** modelled.
 
-### 3.7 Overfitting
+### 3.7 The regime labels are relative, and two of the six are weak
+
+The Market Regime Engine's volatility axis is a **percentile within a rolling
+window**, so `HIGH_VOLATILITY` means "loud for this market lately", never "loud
+in absolute terms". Over a series with no regime change the mean percentile is
+0.5 by construction: a uniformly violent stretch reads `LOW_VOLATILITY` about a
+quarter of the time, and a uniformly quiet one reads `HIGH_VOLATILITY` about a
+tenth. The labels are sharp exactly when a regime change occurs, which is what
+they are for, and they must never be read as absolute statements.
+
+Measured against the synthetic generator's published ground truth (17,328
+classified bars, three seeds), recall by class:
+
+| Regime | Recall | Reading |
+|---|---|---|
+| RANGE | 55 % | usable |
+| LOW_VOLATILITY | 54 % | usable |
+| HIGH_VOLATILITY | 34 % | usable |
+| TREND | 28 % | weak — and correctly so; the generator's trends have drift ≈ noise, so a confident trend detector would be reading a market that does not exist |
+| BREAKOUT | 19 % | weak |
+| UNSTABLE | 7 % | **poorly separated.** On bar data it looks like a range or like high volatility. Treat the label as provisional |
+
+Overall accuracy 40.7 % against a 16.7 % chance baseline. **These figures
+describe this generator, not markets.** Any per-regime performance conclusion
+inherits this classification error, and the Research Agent must state it when
+reporting one.
+
+### 3.8 Overfitting
 
 The platform makes it cheap to search many strategies × parameters × Jev
 thresholds × regimes. That is exactly the machinery that manufactures false
@@ -122,7 +149,7 @@ positives. Mitigations built in: out-of-sample and walk-forward segmentation,
 Monte Carlo and perturbation stress, and a champion/challenger gate that refuses
 promotion on a single profitable period. None of these eliminate the risk.
 
-### 3.8 Single-process, single-machine
+### 3.9 Single-process, single-machine
 
 No high availability, no failover, no reconnection logic — appropriate for
 backtest and paper research, and insufficient for live execution.

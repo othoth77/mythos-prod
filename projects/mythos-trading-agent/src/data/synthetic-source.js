@@ -64,9 +64,22 @@ var REGIME_MODELS = {
   TREND:           { volMult: 1.00, driftSigmas: 0.06, meanReversion: 0,    minBars: 60, maxBars: 320 },
   RANGE:           { volMult: 0.80, driftSigmas: 0,    meanReversion: 0.06, minBars: 60, maxBars: 300 },
   BREAKOUT:        { volMult: 1.70, driftSigmas: 0.35, meanReversion: 0,    minBars: 8,  maxBars: 40 },
-  HIGH_VOLATILITY: { volMult: 2.20, driftSigmas: 0,    meanReversion: 0,    minBars: 30, maxBars: 140 },
+  // 2.6 rather than 2.2 so that HIGH_VOLATILITY is genuinely the loudest regime.
+  // At 2.2 it was measurably QUIETER than UNSTABLE (mean ATR percentile 0.74 vs
+  // 0.88), because UNSTABLE's alternating drift adds range on top of its own
+  // multiplier. A label that does not mean what it says makes the ground truth
+  // useless for scoring a classifier.
+  HIGH_VOLATILITY: { volMult: 2.60, driftSigmas: 0,    meanReversion: 0,    minBars: 30, maxBars: 140 },
   LOW_VOLATILITY:  { volMult: 0.45, driftSigmas: 0,    meanReversion: 0.02, minBars: 60, maxBars: 260 },
-  UNSTABLE:        { volMult: 1.80, driftSigmas: 0,    meanReversion: 0,    minBars: 20, maxBars: 120, flip: true }
+  // UNSTABLE = violent legs that keep reversing. The first version of this entry
+  // had driftSigmas: 0 with flip: true, which multiplied the flip by zero and
+  // made UNSTABLE literally HIGH_VOLATILITY with a smaller multiplier. Measuring
+  // the regime engine against this ground truth is what exposed it: the two
+  // classes were indistinguishable in every feature, because they were the same
+  // process. The drift now reverses every `flipEvery` bars with enough magnitude
+  // to build a leg (1.0σ per bar over ~6 bars against √6 ≈ 2.4σ of noise), which
+  // is what "unstable" is supposed to mean and what a classifier can see.
+  UNSTABLE:        { volMult: 1.50, driftSigmas: 1.0,  meanReversion: 0,    minBars: 20, maxBars: 120, flip: true, flipEvery: 6 }
 };
 
 /**
@@ -169,6 +182,7 @@ function generate(spec) {
   var segmentLeft = gen.int(model.minBars, model.maxBars);
   var segmentStart = 0;
   var trendSign = gen.bool() ? 1 : -1;
+  var barsSinceFlip = 0;
   var anchor = Math.log(price);
   var ts = nextTradableTs(startTs, stepMs, inst);
 
@@ -180,11 +194,19 @@ function generate(spec) {
       segmentLeft = gen.int(model.minBars, model.maxBars);
       segmentStart = i;
       trendSign = gen.bool() ? 1 : -1;
+      barsSinceFlip = 0;
       anchor = Math.log(price);
     }
 
+    // A flipping regime reverses its drift every `flipEvery` bars, building a leg
+    // and then reversing it. Flipping every single bar would merely add variance.
+    if (model.flip) {
+      barsSinceFlip++;
+      if (barsSinceFlip >= model.flipEvery) { trendSign = -trendSign; barsSinceFlip = 0; }
+    }
+
     var sigma = baseSigma * model.volMult;
-    var drift = model.driftSigmas * sigma * (model.flip ? (gen.bool() ? 1 : -1) : trendSign);
+    var drift = model.driftSigmas * sigma * trendSign;
     if (model.meanReversion > 0) {
       drift += -model.meanReversion * (Math.log(price) - anchor);
     }
