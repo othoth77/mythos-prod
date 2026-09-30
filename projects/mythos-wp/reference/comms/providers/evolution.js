@@ -116,7 +116,8 @@ function parseInbound(body) {
   var data = body.data;
   if (CONNECTION_EVENTS[body.event]) {
     var state = data && typeof data === 'object' ? String(data.state || data.status || '') : '';
-    var map = { open: 'open', close: 'closed', connecting: 'pairing' };
+    // 'refused' (statusReason 428) = a QR pairing attempt expired / was refused: the session is not connected
+    var map = { open: 'open', close: 'closed', connecting: 'pairing', refused: 'closed' };
     if (!map[state]) return { ok: false, reason: 'CONNECTION_STATE_UNKNOWN', instance: instance };
     return { ok: true, kind: 'connection', event: { provider: ID, instance: instance, status: map[state], provider_state: state } };
   }

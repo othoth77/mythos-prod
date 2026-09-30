@@ -22,6 +22,8 @@
 // 9. A burst of simultaneous first messages from a NEW sender is fully
 //    persisted: one contact, one conversation, every message (the unique-
 //    index race is retried instead of failing the webhook).
+// 10. Evolution's connection state 'refused' (QR attempt expired, 428) is a
+//     known state (closed), not a rejected event.
 // =====================================================
 var http = require('http');
 var fs = require('fs');
@@ -47,6 +49,7 @@ var providerMod = require(path.join(WP, 'reference/comms/providers/evolution'));
 var users = require(path.join(WP, 'reference/users'));
 var integrations = require(path.join(WP, 'reference/integrations'));
 var routing = require(path.join(WP, 'reference/comms/routing'));
+var evolution = require(path.join(WP, 'reference/comms/providers/evolution'));
 var pool = db.wp();
 fs.writeFileSync(process.env.MYTHOS_WP_USERS_FILE, JSON.stringify({ users: [{ username: 'own', role: 'owner', scrypt: auth.hashPassword('owner-password-1') }, { username: 'op', role: 'operator', scrypt: auth.hashPassword('operator-password-1') }, { username: 'member1', role: 'operator', scrypt: auth.hashPassword('member-password-1') }, { username: 'viewer1', role: 'viewer', scrypt: auth.hashPassword('viewer-password-1') }] }), { mode: 0o600 });
 var server = require(path.join(WP, 'reference/server')).createServer();
@@ -180,6 +183,12 @@ migrate.up(pool).then(wipe)
     return q("SELECT (SELECT count(*)::int FROM wp_contacts WHERE project_id = 'svc-a' AND wa_id = '21699100090') AS k, (SELECT count(*)::int FROM wp_conversations c JOIN wp_contacts k ON k.id = c.contact_id WHERE k.wa_id = '21699100090') AS c, (SELECT count(*)::int FROM wp_messages WHERE provider_message_id LIKE 'FC9-%') AS m");
   })
   .then(function (r) { var x = r.rows[0]; ok(x.k === 1 && x.c === 1 && x.m === 6, 'one contact, one conversation, six messages (' + x.k + '/' + x.c + '/' + x.m + ')'); })
+  // ---- 10. Evolution 'refused'
+  .then(function () {
+    var p = evolution.parseInbound({ event: 'connection.update', instance: 'svc-a-2', data: { instance: 'svc-a-2', state: 'refused', statusReason: 428 } });
+    ok(p.ok && p.kind === 'connection' && p.event.status === 'closed' && p.event.provider_state === 'refused', 'Evolution state refused (QR expired) → closed, not CONNECTION_STATE_UNKNOWN');
+    ok(!evolution.parseInbound({ event: 'connection.update', instance: 'svc-a-2', data: { state: 'bogus' } }).ok, 'a truly unknown state is still rejected');
+  })
   // ---- 5. users.remove
   .then(function () { return q("DELETE FROM wp_users WHERE username LIKE 'fc-%'"); })
   .then(function () { return users.upsert(pool, { username: 'fc-temp', role: 'agent', password: 'temporary-password-1' }, 'test'); })
