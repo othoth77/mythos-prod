@@ -2,6 +2,26 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-29/30 — MYTHOS WP FINAL CLOSURE AUDIT: **CODE COMPLETE + VERIFIED ON STAGING — NOT DEPLOYED (production deploy is an owner step)** (Opus 5.5)
+
+**Branch** `mythos/wp-final-closure-20260929` (based on production `0304bfc6` = PR #326 head, so it carries #326): `56c5106a`, `98cd6520`, `180f27ed`, `b8d8d868`. Production still runs `0304bfc6` (rollback point).
+
+**Defects found and fixed (each with a regression test that fails on `0304bfc6`)**
+- Inbox-membership fence missing on AI suggest / suggestions / decide / manual auto-reply, contact edit + tags and Contacts 360: a member of one inbox could run the AI on, read and *send* suggestions of, or edit contacts of another inbox (24 of the new suite's checks fail on the old code).
+- `GET /api/contacts/360/<digits>` answered below admin (phone → name oracle): now admin-only.
+- Manual AI suggest ignored `off` (inbox link, Project → AI, HOLDING inbox, agent): production had 2 manual runs in the admin-only `unassigned` project on 2026-09-29.
+- Audit `client` was always `127.0.0.1` (nginx): now `X-Real-IP` trusted from loopback (`auth.clientKey`).
+- `/api/login` skipped the CSRF check; integration probes could reach link-local / cloud metadata (`169.254.169.254`, also via DNS).
+- **Receiver race**: simultaneous first messages from a NEW sender failed with `INGEST:23505` (production 2026-09-30 11:27, 3 events, saved only by Evolution retries); reproduced 3/3 (2 of 6 messages lost), fixed by retrying the transaction.
+- Evolution state `refused` (QR expired, 428) rejected as unknown → now `closed`.
+- Holding / AI-off conversations were labelled "AI" (dashboard "Waiting for human 0" with 202 unread in `unassigned`) → new ones start `human`; existing rows: optional one-line SQL in `WHATSAPP_SETUP.md`.
+- UI (role × viewport audit, 18 screens × admin/manager/agent/viewer × 1366/390 px, console captured over CDP): lower roles triggered 403/400 boxes on Members / Integrations / Audit / Health; Backup card claimed "not part of the scheduled backup" (false since 09-18). Fixed; all screens console-clean (only the expected 404 when a non-admin opens `unassigned`).
+- Ops: `customer-instance.sh` defaulted the webhook to the unreachable loopback URL (the 09-19 incident); `mythos-wp users remove`; `tools/smoke.js` (read-only production smoke, `--accounts` role/isolation/PII).
+
+**Evidence**: 17 suites **1,369 passed / 0 failed** (baseline on production code 16 suites 1,307/0); `tools/check.sh` GREEN; staging (new build on a restored copy of the production backup, `127.0.0.1:8171`) smoke `--accounts --no-receiver` **43/43**; production public smoke 16/17 (the miss = login CSRF, fixed on the branch, not deployed). Backup: daily off-host `mythos-backup-db-wp` OK 2026-09-29 05:27, remote verify OK, governed `restore-test` OK 2026-09-29 19:27, DB-level drill (`pg_restore` into `mythos_wp_drill_20260929`, 7/7 migrations, counts ≤ live) OK.
+
+**Owner steps**: (1) deploy — `bash projects/mythos-wp/deploy/v2-rollout.sh --ref b8d8d868` as root (agent run was refused by the permission classifier), then `tools/smoke.js` + `--accounts`; (2) merge the PR (agents cannot merge); (3) real outbound check: reply once from Pub → the owner's own second account (…1921) and watch the delivery tick; (4) SsangYong QR pairing (number 1 never paired); (5) optional: the `unassigned` handler SQL.
+
 ## 2026-09-18 — META-ADS-MONITOR-0: Facebook Ads daily monitor on the VPS — READ-ONLY by design (Opus 5)
 
 **Facebook Ads Monitor is READ-ONLY by design.** New `projects/meta-ads-monitor/`
