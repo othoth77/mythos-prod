@@ -73,8 +73,19 @@ function liveConversation(c, inbox, contactId, ev, routeInfo) {
     });
 }
 // ingest(pool, inbox, ev, routeInfo) → { persisted, duplicate, message_id, conversation_id, contact_id, opened }
+// A burst of messages from a NEW sender runs concurrent transactions that each try to create the same contact /
+// live conversation; the losers hit a unique index (23505: wp_contacts_wa_id_uidx, wp_contact_identities,
+// wp_conversations_live_uidx). The winner has committed by then, so the transaction is simply run again: it finds the
+// rows and appends the message (seen in production 2026-09-30 11:27 — three messages saved only by Evolution's retries).
+var INGEST_ATTEMPTS = 3;
+function ingestRetrying(pool, inbox, ev, routeInfo, attempt) {
+  return ingestTx(pool, inbox, ev, routeInfo).catch(function (e) {
+    if (e && e.code === '23505' && attempt < INGEST_ATTEMPTS) return ingestRetrying(pool, inbox, ev, routeInfo, attempt + 1);
+    throw e;
+  });
+}
 function ingest(pool, inbox, ev, routeInfo) {
-  return ingestTx(pool, inbox, ev, routeInfo).then(function (r) {
+  return ingestRetrying(pool, inbox, ev, routeInfo, 1).then(function (r) {
     if (r.persisted) { bus.publish({ type: 'message.in', event: 'message.received', project_id: inbox.project_id, conversation_id: r.conversation_id, message_id: r.message_id, opened: r.opened, message_type: ev.message_type }); if (r.contact_created) bus.publish({ type: 'contact.created', event: 'contact.created', project_id: inbox.project_id, contact_id: r.contact_id }); }
     return r;
   });

@@ -19,6 +19,9 @@
 // 7. /api/login passes the CSRF check like every other mutation.
 // 8. A conversation opened in a HOLDING inbox or on a link whose AI is off
 //    starts with handler 'human' (it waits for a person, it is not "AI").
+// 9. A burst of simultaneous first messages from a NEW sender is fully
+//    persisted: one contact, one conversation, every message (the unique-
+//    index race is retried instead of failing the webhook).
 // =====================================================
 var http = require('http');
 var fs = require('fs');
@@ -168,6 +171,15 @@ migrate.up(pool).then(wipe)
   .then(function (r) { return core.ingest(pool, r.rows[0], inbound('svc-a-1', 'FC8b', 'Salam', '21699100082', 'Holding')); })
   .then(function (r) { return q("SELECT handler FROM wp_conversations WHERE id = $1", [r.conversation_id]); })
   .then(function (r) { ok(r.rows[0].handler === 'human', 'a HOLDING inbox opens conversations with a human handler'); return q("UPDATE wp_inboxes SET settings = settings - 'holding' WHERE id = $1", [ids.i1]); })
+  // ---- 9. first-contact burst
+  .then(function () { return q('SELECT * FROM wp_inboxes WHERE id = $1', [ids.i2]); })
+  .then(function (r) { var row = r.rows[0]; var burst = []; for (var i = 0; i < 6; i++) burst.push(core.ingest(pool, row, inbound('svc-a-2', 'FC9-' + i, 'photo ' + i, '21699100090', 'Burst'))); return Promise.allSettled(burst); })
+  .then(function (res) {
+    var bad = res.filter(function (x) { return x.status !== 'fulfilled' || !x.value.persisted; });
+    ok(bad.length === 0, 'six simultaneous first messages from a new sender are all persisted (' + bad.map(function (x) { return x.reason ? x.reason.code || x.reason.message : 'not persisted'; }).join(',') + ')');
+    return q("SELECT (SELECT count(*)::int FROM wp_contacts WHERE project_id = 'svc-a' AND wa_id = '21699100090') AS k, (SELECT count(*)::int FROM wp_conversations c JOIN wp_contacts k ON k.id = c.contact_id WHERE k.wa_id = '21699100090') AS c, (SELECT count(*)::int FROM wp_messages WHERE provider_message_id LIKE 'FC9-%') AS m");
+  })
+  .then(function (r) { var x = r.rows[0]; ok(x.k === 1 && x.c === 1 && x.m === 6, 'one contact, one conversation, six messages (' + x.k + '/' + x.c + '/' + x.m + ')'); })
   // ---- 5. users.remove
   .then(function () { return q("DELETE FROM wp_users WHERE username LIKE 'fc-%'"); })
   .then(function () { return users.upsert(pool, { username: 'fc-temp', role: 'agent', password: 'temporary-password-1' }, 'test'); })
