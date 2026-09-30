@@ -4,11 +4,11 @@ Format per mission §24. Updated at the end of every phase.
 
 ---
 
-**CURRENT PHASE:** PHASE 3 — backtesting foundation (complete)
+**CURRENT PHASE:** PHASE 4 — strategy engine (complete)
 
-**CURRENT TASK:** PHASE 4 — strategy engine
+**CURRENT TASK:** PHASE 5 — market regime engine
 
-**LAST VERIFIED COMMIT:** `439cea27` (PHASE 2, verified on `origin/mythos/trading-platform`)
+**LAST VERIFIED COMMIT:** `03305973` (PHASE 3, verified on `origin/mythos/trading-platform`)
 
 ---
 
@@ -71,10 +71,34 @@ not the stop. A bar containing both stop and target is ambiguous from OHLC
 alone; the default is `STOP_FIRST` and a test proves `TARGET_FIRST` is the
 flattering branch, so the size of that ambiguity can be measured.
 
+### PHASE 4 — strategy engine
+| Area | Delivered | File(s) |
+|---|---|---|
+| Strategy interface | declares indicators, warmup, parameter search space and preferred regimes; **cannot express a position size**; a signal with inverted levels is refused where it was produced | `src/strategy/base.js` |
+| Shared helpers | `need()` (null-safe indicator reads), ATR and structural stops, crossings | `src/strategy/helpers.js` |
+| Registry | one strategy per mission §4 family, enforced | `src/strategy/registry.js` |
+| Portfolio | indicator deduplication, per-run state bags, regime affects ORDER not whether a strategy is asked, optional signal cooldown | `src/strategy/portfolio.js` |
+| Candidate | every mission §4 field; costs in **pips** (size-independent); `breakevenWinRate` as the honest headline and `winProbabilitySource` recorded | `src/strategy/candidate.js` |
+| 14 families | trend-following, mtf-trend, pullback, breakout, breakout-retest, volatility-expansion, market-structure, support-resistance, liquidity-sweep, momentum, price-action, mean-reversion, range-trading, session-opening-range | `src/strategy/families/` |
+
+**Signal counts over 3000 EURUSD M15 fixture bars** (every strategy fires; a
+silent strategy is dead code, and a test fails if one appears):
+trend-following 22 · mtf-trend 660 · pullback 30 · breakout 181 ·
+breakout-retest 59 · volatility-expansion 248 · market-structure 304 ·
+support-resistance 180 · liquidity-sweep 179 · momentum 594 · price-action 404 ·
+mean-reversion 8 · range-trading 906 · session-opening-range 30.
+
+**Observation for the Research Agent:** the state-based strategies (range-trading,
+mtf-trend) fire on every bar their condition holds, so 906 signals represent
+roughly thirty episodes rather than 906 opportunities. `strategy.signalCooldownBars`
+exists for that, defaults to **0 (off)** because suppression loses evidence, and
+counts every signal it removes.
+
 ## IN PROGRESS
 
-PHASE 4 — strategy engine: the strategy interface, the registry, and the
-fourteen strategy families named in mission §4.
+PHASE 5 — market regime engine: classify TREND / RANGE / BREAKOUT /
+HIGH_VOLATILITY / LOW_VOLATILITY / UNSTABLE, scored against the synthetic
+generator's published ground truth.
 
 ## BLOCKED
 
@@ -87,7 +111,7 @@ rather than treated as blockers:
 
 ## NEXT TASK
 
-PHASE 4 — strategy engine, then PHASE 5 — regime engine.
+PHASE 5 — regime engine, then PHASE 6 — Jev decision gate.
 
 ## TEST STATUS
 
@@ -101,7 +125,8 @@ PHASE 4 — strategy engine, then PHASE 5 — regime engine.
 | `tests/data-layer-test.js` | 38 | pass |
 | `tests/execution-and-costs-test.js` | 52 | pass |
 | `tests/backtest-engine-test.js` | 31 | pass |
-| **Total (`npm test`)** | **235** | **235 pass, 0 fail** |
+| `tests/strategy-test.js` | 43 | pass |
+| **Total (`npm test`)** | **278** | **278 pass, 0 fail** |
 
 Run: `cd projects/mythos-trading-agent && npm test`
 

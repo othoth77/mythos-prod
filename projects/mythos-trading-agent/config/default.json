@@ -31,6 +31,9 @@
     "requireFullRecoveryTp": true,
     "abandonOnRiskBlock": true
   },
+  "strategy": {
+    "signalCooldownBars": 0
+  },
   "jev": {
     "model": "heuristic-v1",
     "scoreThreshold": 70,

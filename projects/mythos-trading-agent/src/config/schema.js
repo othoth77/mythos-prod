@@ -86,6 +86,27 @@ var SCHEMA = {
       }
     },
 
+    strategy: {
+      type: 'object',
+      fields: {
+        /**
+         * Bars a strategy must wait after signalling before it may signal again
+         * on the same instrument.
+         *
+         * Some strategies are state-based rather than event-based: range-trading
+         * fires on every bar price sits in the buy zone, which over 3000 bars
+         * produced 906 signals from roughly thirty distinct episodes. Those are
+         * not 906 opportunities, and letting them all through swamps the
+         * candidate record and the Jev statistics with near-duplicates.
+         *
+         * DEFAULT 0 (OFF), because suppression loses evidence and the honest
+         * default is to record everything. Every suppressed signal is counted, so
+         * turning it on never hides how much it removed.
+         */
+        signalCooldownBars: int(0, 500)
+      }
+    },
+
     jev: {
       type: 'object',
       fields: {
