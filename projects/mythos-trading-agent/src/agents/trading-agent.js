@@ -85,12 +85,29 @@ function create(spec) {
   var schedule = scheduleMod.create({ config: config });
 
   var regimeStates = Object.create(null);   // symbol → hysteresis state
+  /**
+   * The most recent classification per symbol, produced on EVERY bar by onBar.
+   *
+   * The regime is deliberately NOT classified inside decide(): decide is only
+   * reached while the trade slot is free, so driving the regime from there
+   * classified a subset of bars that depended on trading activity. Its hysteresis
+   * dwell then counted wrongly, and the label became a function of whether a
+   * position happened to be open — a coupling between position state and market
+   * reading that would quietly corrupt every per-regime statistic.
+   */
+  var lastRegime = Object.create(null);
   var counts = {};
   var idSeq = 0;
 
   function resetCounts() {
     counts = {
-      barsSeen: 0,
+      // Bars the regime engine classified — every bar of every symbol past warmup.
+      barsClassified: 0,
+      // Bars on which a decision was actually requested, which is only when the
+      // single trade slot is free. Much smaller than barsClassified, and the two
+      // are named differently because conflating them overstates how much of the
+      // market the agent got to act on.
+      decisionsRequested: 0,
       scheduleBlocked: 0,
       regimeUnavailable: 0,
       signalsSeen: 0,
@@ -132,6 +149,7 @@ function create(spec) {
     recovery.attachStore(store);
     portfolio.resetState();
     regimeStates = Object.create(null);
+    lastRegime = Object.create(null);
     resetCounts();
     if (store) persistComposition(store);
     return { boundTo: runCtx.runId, warmupBars: warmupBars() };
@@ -164,7 +182,7 @@ function create(spec) {
 
   /** The decision function the engine calls. Returns an order or a NO_TRADE. */
   function decide(ctx) {
-    counts.barsSeen++;
+    counts.decisionsRequested++;
     var inst = ctx.instrument;
 
     // ---- stage 1: schedule ------------------------------------------
@@ -175,18 +193,12 @@ function create(spec) {
     }
 
     // ---- stage 2: regime -------------------------------------------
-    var classification = regime.classify(ctx.view, regimeStateFor(ctx.symbol));
-    if (!classification) {
+    // Read, not computed: onBar classified this bar for every symbol before any
+    // decision was requested. See the note on `lastRegime`.
+    var classification = lastRegime[ctx.symbol];
+    if (!classification || classification.ts !== ctx.ts) {
       counts.regimeUnavailable++;
       return noTrade(enums.PipelineStage.REGIME, ['REGIME_WARMUP'], null, { record: false });
-    }
-    if (store) {
-      store.table('regimes').insert({
-        ts: ctx.ts, symbol: ctx.symbol, timeframe: ctx.view.timeframe,
-        regime: classification.regime, direction: classification.direction,
-        confidence: classification.confidence, features: classification.features,
-        scores: classification.scores, held: classification.held
-      });
     }
 
     // ---- stage 3: strategies ---------------------------------------
@@ -420,6 +432,26 @@ function create(spec) {
    * every bar, including while a position is open.
    */
   function onBar(barCtx) {
+    // 1. Classify the regime for every symbol that printed a bar, before any
+    //    decision is requested and regardless of whether one will be.
+    (barCtx.views || []).forEach(function (v) {
+      var classification = regime.classify(v.view, regimeStateFor(v.w.symbol));
+      if (!classification) return;
+      classification.ts = barCtx.ts;
+      lastRegime[v.w.symbol] = classification;
+      counts.barsClassified++;
+      if (store) {
+        store.table('regimes').insert({
+          ts: barCtx.ts, symbol: v.w.symbol, timeframe: v.view.timeframe,
+          regime: classification.regime, direction: classification.direction,
+          confidence: classification.confidence, features: classification.features,
+          scores: classification.scores, held: classification.held
+        });
+      }
+    });
+
+    // 2. The Risk Engine's per-bar monitor. Runs before decisions, so a drawdown
+    //    breach blocks the same bar rather than the next one.
     var m = risk.monitor({ account: barCtx.account, ts: barCtx.ts });
     if (m.emergencyStop && !barCtx.emergencyStopped) {
       counts.emergencyStops++;
@@ -466,6 +498,7 @@ function create(spec) {
     reset: function () {
       portfolio.resetState();
       regimeStates = Object.create(null);
+      lastRegime = Object.create(null);
       resetCounts();
     },
     counts: function () {

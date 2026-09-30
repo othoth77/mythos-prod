@@ -225,7 +225,18 @@ function run(spec) {
       var idx = w.tsToIndex[ts];
       if (idx === undefined) continue;
       w.lastClose = w.bars[idx].close;
-      active.push({ w: w, index: idx, bar: w.bars[idx] });
+      var hIdx0 = w.higherAlign[idx];
+      active.push({
+        w: w,
+        index: idx,
+        bar: w.bars[idx],
+        // Views are built once per active symbol per bar and shared by the
+        // per-bar hook and the decision hook. Building them here rather than
+        // inside askDecide() is what lets a per-bar observer (the regime engine)
+        // see EVERY bar — see the note on hook ordering below.
+        view: w.series.viewAt(idx),
+        higherView: (w.higherSeries && hIdx0 >= 0) ? w.higherSeries.viewAt(hIdx0) : null
+      });
     }
     counts.bars += active.length;
 
@@ -235,7 +246,14 @@ function run(spec) {
       var openedOnThisBar = false;
 
       if (pendingEntry && pendingEntry.symbol === a.w.symbol) {
-        if (ts >= pendingEntry.executeAtTs) {
+        if (emergencyStopped) {
+          // Defensive: with the current hook ordering a pending entry cannot
+          // coexist with an emergency stop (the decision hook is gated on it), so
+          // this branch is an invariant guard rather than a live path. It stays
+          // because the ordering is the only thing making it unreachable, and a
+          // future reorder must not turn that into a filled order.
+          cancelPendingEntry('EMERGENCY_STOP', ts);
+        } else if (ts >= pendingEntry.executeAtTs) {
           openedOnThisBar = executePendingEntry(a);
         }
       }
@@ -248,7 +266,26 @@ function run(spec) {
     // 4b. mark to market on every bar, net of committed costs.
     markToMarket(ts);
 
-    // 4c. decisions — only with a free slot and no emergency stop.
+    // 4c. THE PER-BAR HOOK, BEFORE DECISIONS. Two reasons, both learned the hard
+    // way:
+    //   * the Risk Engine's monitor lives here, and running it after decisions
+    //     meant a drawdown breach was detected only once that bar had already been
+    //     allowed to trade;
+    //   * the regime engine lives here too, and it must see EVERY bar. When it was
+    //     driven from decide() — which is only reached while the trade slot is
+    //     free — the regime was classified on a subset of bars that depended on
+    //     trading activity, so its hysteresis dwell counted wrongly and the label
+    //     became a function of whether a position happened to be open.
+    if (spec.onBar) {
+      spec.onBar({
+        ts: ts, active: active, views: active, account: account,
+        openPosition: openPosition, slot: slot, pendingEntry: pendingEntry, store: store,
+        emergencyStopped: emergencyStopped,
+        emergencyStop: function (reason) { return stopEverything(reason); }
+      });
+    }
+
+    // 4d. decisions — only with a free slot and no emergency stop.
     if (!emergencyStopped && slot.isFree()) {
       for (var di = 0; di < active.length; di++) {
         if (!slot.isFree()) { slot.noteBlocked(); counts.slotBlocked++; continue; }
@@ -263,27 +300,10 @@ function run(spec) {
       // number for a single-position account, not a footnote.
       counts.slotBlocked++;
     }
-
-    // onBar runs on EVERY bar, whether or not a decision was requested. That is
-    // where a per-bar Risk Engine check belongs (Phase 7): the decide() hook is
-    // only reached when the slot is free, so a kill switch that lived only there
-    // could not fire while a position was open — exactly when it is needed.
-    if (spec.onBar) {
-      spec.onBar({
-        ts: ts, active: active, account: account, openPosition: openPosition,
-        slot: slot, pendingEntry: pendingEntry, store: store,
-        emergencyStopped: emergencyStopped,
-        emergencyStop: function (reason) { return stopEverything(reason); }
-      });
-    }
   }
 
   // ---- 5. close anything still open ------------------------------------
-  if (pendingEntry) {
-    slot.release('END_OF_DATA_PENDING', lastTs);
-    counts.pendingCancelled++;
-    pendingEntry = null;
-  }
+  if (pendingEntry) cancelPendingEntry('END_OF_DATA_PENDING', lastTs);
   if (openPosition) {
     var lastW = world[openPosition.symbol];
     var lastIdx = lastW.bars.length - 1;
@@ -369,9 +389,8 @@ function run(spec) {
   /** Asks `decide` for this symbol and applies whatever comes back. */
   function askDecide(a, atTs) {
     counts.decisionsRequested++;
-    var view = a.w.series.viewAt(a.index);
-    var hIdx = a.w.higherAlign[a.index];
-    var higherView = (a.w.higherSeries && hIdx >= 0) ? a.w.higherSeries.viewAt(hIdx) : null;
+    var view = a.view;
+    var higherView = a.higherView;
 
     var ctx = {
       ts: atTs,
@@ -419,6 +438,17 @@ function run(spec) {
         message: e.message, symbol: a.w.symbol, errorCode: e.code || null
       });
       throw e;
+    }
+
+    // A decision layer that raises the emergency stop DURING its own evaluation
+    // must not also be allowed to open a position on that evaluation.
+    if (emergencyStopped && result && result.decision === enums.PipelineDecision.ENTER) {
+      store.table('decisions').insert({
+        ts: atTs, symbol: a.w.symbol, decision: enums.PipelineDecision.NO_TRADE,
+        stage: enums.PipelineStage.RISK, candidateId: result.candidateId || null,
+        reasonCodes: ['EMERGENCY_STOP_RAISED_DURING_DECISION']
+      });
+      return { accepted: false };
     }
 
     if (!result || result.decision === enums.PipelineDecision.NO_TRADE) {
@@ -712,6 +742,23 @@ function run(spec) {
     account.markToMarket(atTs, openPnl, openRisk);
   }
 
+  /** Cancels an unfilled entry and hands the slot back. Returns its candidate id. */
+  function cancelPendingEntry(reason, ts) {
+    if (!pendingEntry) return null;
+    var id = pendingEntry.candidateId;
+    store.table('orders').insert({
+      orderId: pendingEntry.orderId, candidateId: id,
+      ts: ts, symbol: pendingEntry.symbol, type: enums.OrderType.MARKET,
+      direction: pendingEntry.direction, lots: pendingEntry.lots,
+      requestedPrice: pendingEntry.stopLoss, status: enums.OrderStatus.CANCELLED,
+      rejectReason: reason
+    });
+    slot.release(reason, ts);
+    counts.pendingCancelled++;
+    pendingEntry = null;
+    return id;
+  }
+
   /** Current ATR ratio for the cost model's volatility widening, when available. */
   function volatilityRatioAt(w, index) {
     if (!w.series.hasIndicator('volRatio')) return undefined;
@@ -739,20 +786,7 @@ function run(spec) {
     if (emergencyStopped) return;
     emergencyStopped = true;
     emergencyReason = reason;
-    var cancelled = null;
-    if (pendingEntry) {
-      cancelled = pendingEntry.candidateId;
-      store.table('orders').insert({
-        orderId: pendingEntry.orderId, candidateId: pendingEntry.candidateId,
-        ts: lastTs, symbol: pendingEntry.symbol, type: enums.OrderType.MARKET,
-        direction: pendingEntry.direction, lots: pendingEntry.lots,
-        requestedPrice: pendingEntry.stopLoss, status: enums.OrderStatus.CANCELLED,
-        rejectReason: 'EMERGENCY_STOP'
-      });
-      slot.release('EMERGENCY_STOP', lastTs);
-      counts.pendingCancelled++;
-      pendingEntry = null;
-    }
+    var cancelled = pendingEntry ? cancelPendingEntry('EMERGENCY_STOP', lastTs) : null;
     store.table('system_events').insert({
       ts: lastTs, kind: 'EMERGENCY_STOP', severity: 'ERROR', message: reason,
       cancelledPendingEntry: cancelled

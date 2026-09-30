@@ -107,10 +107,15 @@ function merge(base, over) {
 test('the full pipeline runs and produces decisions', function () {
   var res = run();
   var c = res.agent.counts();
-  assert.ok(c.barsSeen > 1000, 'only ' + c.barsSeen + ' bars reached the agent');
+  assert.ok(c.barsClassified > 1000, 'only ' + c.barsClassified + ' bars were classified');
   assert.ok(c.signalsSeen > 0, 'no strategy ever fired');
   assert.ok(c.candidatesBuilt > 0, 'no candidate was ever built');
-  assert.ok(res.store.table('regimes').count() > 1000, 'the regime was not recorded per bar');
+  assert.equal(res.store.table('regimes').count(), c.barsClassified,
+    'the regime must be recorded on every bar it was classified on');
+  // Decisions are requested only while the slot is free, so far fewer than bars.
+  assert.ok(c.decisionsRequested > 0);
+  assert.ok(c.decisionsRequested < c.barsClassified,
+    'a single-position account cannot decide on every bar; the two counters must differ');
   assert.ok(res.store.table('decisions').count() > 0);
 });
 
@@ -549,7 +554,8 @@ test('stats() summarises the whole pipeline in one object', function () {
   ['pipeline', 'recovery', 'cooldown', 'emergencyStopped'].forEach(function (k) {
     assert.ok(s[k] !== undefined, 'stats() omits ' + k);
   });
-  assert.ok(s.pipeline.barsSeen > 0);
+  assert.ok(s.pipeline.barsClassified > 0);
+  assert.ok(s.pipeline.decisionsRequested > 0);
   assert.equal(typeof s.emergencyStopped, 'boolean');
   assert.equal(s.cooldown.signalCooldownBars, 0);
 });

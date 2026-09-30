@@ -172,10 +172,16 @@ The first end-to-end pipeline runs over the committed fixtures produced **negati
 net P&L** on every configuration tried. For the record, on 3,000 EURUSD M15
 fixture bars with the default configuration and a Jev threshold of 45:
 
-| Capital | Trades | Net P&L | Max drawdown | Max losing streak |
+| Capital | Trades | Net P&L | Max drawdown | Outcome |
 |---|---|---|---|---|
-| $100 | 99 | −$14.93 | 20.2 % (hit the limit) | 11 |
-| $100,000 | 177 | −$34.52 | 0.05 % | 9 |
+| $100 | 45 | −$18.19 | 20.1 % | emergency-stopped on the drawdown limit |
+| $5,000 | 188 | −$56.49 | 1.35 % | ran to the end |
+| $100,000 | 188 | −$56.49 | 0.07 % | ran to the end |
+
+The $5,000 and $100,000 runs are **identical** because
+`risk.maxPositionSizeLots` (0.1) binds before the risk budget does at either
+size — a useful reminder that the position cap, not the account, is the binding
+constraint above a few thousand dollars.
 
 This is the expected result and it is not a failure of the build. The strategies
 are deliberately untuned (mission §4: "Do not assume any strategy is

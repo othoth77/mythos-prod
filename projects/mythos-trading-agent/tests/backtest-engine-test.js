@@ -497,41 +497,55 @@ test('an emergency stop from the decision context halts every further entry', fu
   assert.ok(res.trades.length > 0, 'the run must have traded before the stop, or it proves nothing');
 });
 
-test('an emergency stop cancels an entry that has been decided but not filled', function () {
-  // The kill switch fires from onBar, which runs on every bar — the place a
-  // per-bar Risk Engine check belongs. It lands while the entry decided on the
-  // previous bar is still pending, and nothing has been transacted, so the order
-  // must be cancelled rather than allowed through.
-  var c = cfg();
-  var res = engine.run({
-    config: c,
-    source: window(['EURUSD']),
-    label: 'cancel-pending',
-    logger: loggerMod.nullLogger(),
-    decide: function (ctx) {
-      if (ctx.barIndex !== 100) return null;
-      var px = ctx.view.close();
-      return {
-        decision: 'ENTER', candidateId: 'c-pending', direction: 'LONG', lots: 0.01,
-        stopLoss: money.round(px * 0.99, 5), takeProfit: money.round(px * 1.01, 5)
-      };
-    },
-    onBar: function (b) {
-      if (b.pendingEntry && b.pendingEntry.candidateId === 'c-pending' && !b.emergencyStopped) {
-        b.emergencyStop('CANCEL_THE_PENDING_ENTRY');
-      }
-    }
+test('a decision layer cannot both raise the kill switch and open a position', function () {
+  // The INVARIANT, tested instead of the defensive branch. With onBar running
+  // before decisions, a pending entry cannot coexist with an emergency stop — the
+  // decision hook is gated on it. So the property worth asserting is the stronger
+  // one: once stopped, nothing is ever filled, including an entry decided in the
+  // very call that raised the stop.
+  var res = runWith({}, function (ctx) {
+    if (ctx.barIndex !== 100) return null;
+    ctx.emergencyStop('RAISED_WHILE_DECIDING');
+    var px = ctx.view.close();
+    return {
+      decision: 'ENTER', candidateId: 'c-greedy', direction: 'LONG', lots: 0.01,
+      stopLoss: money.round(px * 0.99, 5), takeProfit: money.round(px * 1.01, 5)
+    };
   });
   assert.equal(res.emergencyStopped, true);
-  assert.equal(res.counts.pendingCancelled, 1);
-  assert.equal(res.trades.length, 0, 'nothing may be transacted after the kill switch');
-  var cancelled = res.store.table('orders').find(function (o) { return o.status === 'CANCELLED'; });
-  assert.equal(cancelled.length, 1);
-  assert.equal(cancelled[0].rejectReason, 'EMERGENCY_STOP');
-  assert.equal(res.store.table('orders').find(function (o) { return o.status === 'FILLED'; }).length, 0);
-  assert.equal(res.store.table('system_events').by('kind', 'EMERGENCY_STOP')[0].cancelledPendingEntry, 'c-pending');
-  assert.equal(res.slot.isFree(), true, 'the slot must be handed back');
+  assert.equal(res.trades.length, 0, 'the ENTER returned alongside the stop must not be honoured');
+  assert.equal(res.store.table('orders').count(), 0, 'no order may even be placed');
+  var refused = res.store.table('decisions').find(function (d) {
+    return d.reasonCodes.indexOf('EMERGENCY_STOP_RAISED_DURING_DECISION') !== -1;
+  });
+  assert.equal(refused.length, 1);
+  assert.equal(res.slot.isFree(), true);
   assert.equal(res.slot.verifyInvariant().ok, true);
+});
+
+test('after an emergency stop no order is ever filled again', function () {
+  var stoppedAtIndex = null;
+  var res = runWith({}, function (ctx) {
+    if (ctx.barIndex >= 300 && stoppedAtIndex === null) {
+      stoppedAtIndex = ctx.barIndex;
+      ctx.emergencyStop('HALT');
+      return null;
+    }
+    if (ctx.barIndex % 20 !== 0) return null;
+    var px = ctx.view.close();
+    return {
+      decision: 'ENTER', candidateId: ctx.ids.next('cand'), direction: 'LONG', lots: 0.01,
+      stopLoss: money.round(px * 0.998, 5), takeProfit: money.round(px * 1.004, 5)
+    };
+  });
+  assert.ok(stoppedAtIndex !== null);
+  assert.ok(res.trades.length > 0, 'the run must have traded before the stop');
+  var bars = window(['EURUSD']).load('EURUSD', 'M15');
+  var stopTs = bars[stoppedAtIndex].ts;
+  res.store.table('orders').find(function (o) { return o.status === 'FILLED'; }).forEach(function (o) {
+    assert.ok(o.ts <= stopTs, 'an order filled at ' + new Date(o.ts).toISOString() + ', after the stop');
+  });
+  assert.equal(res.counts.pendingCancelled, 0, 'with the decision hook gated, nothing was left pending');
 });
 
 test('onBar runs on every bar, including while a position is open', function () {

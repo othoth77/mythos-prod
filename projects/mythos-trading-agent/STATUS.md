@@ -4,11 +4,11 @@ Format per mission §24. Updated at the end of every phase.
 
 ---
 
-**CURRENT PHASE:** PHASE 9 — Trading Agent (complete)
+**CURRENT PHASE:** PHASE 10 — Analysis Agent (complete)
 
-**CURRENT TASK:** PHASE 10 — Analysis Agent
+**CURRENT TASK:** PHASE 11 — Research Agent
 
-**LAST VERIFIED COMMIT:** `02fab372` (PHASES 7+8, verified on `origin/mythos/trading-platform`)
+**LAST VERIFIED COMMIT:** `a0218a68` (PHASE 9, verified on `origin/mythos/trading-platform`)
 
 ---
 
@@ -219,26 +219,73 @@ no indicators, no `onBar` means no kill switch while a position is open, no
    period (`risk.consecutiveLossCooldownHours`, default 12) that clears the current
    streak but not the historical maximum. COMPLIANCE §3.9.
 
-**Measured funnel** (3,000 EURUSD M15 fixture bars, default config, Jev 45):
+**Measured funnel** (3,000 EURUSD M15 fixture bars, default config, Jev 45, after
+the Phase 10 regime-timing fix below):
 
-| Capital | Candidates | Cost-rejected | Jev-rejected | Risk-blocked | Trades | Net P&L | Max DD |
-|---|---|---|---|---|---|---|---|
-| $100 | 1,579 | 212 | 130 | 1,138 | 99 | −$14.93 | 20.2 % |
-| $100,000 | 747 | 117 | 130 | 323 | 177 | −$34.52 | 0.05 % |
+| Capital | Bars classified | Decisions requested | Candidates | Cost-rej | Jev-rej | Trades | Net P&L | Max DD |
+|---|---|---|---|---|---|---|---|---|
+| $100 | 2,800 | 375 | 494 | 54 | 48 | 45 | −$18.19 | 20.1 % → stopped |
+| $5,000 | 2,800 | 677 | 723 | 97 | 117 | 188 | −$56.49 | 1.35 % |
+| $100,000 | 2,800 | 677 | 723 | 97 | 117 | 188 | −$56.49 | 0.07 % |
 
-On the $100 account **65 % of risk assessments are blocked for size**
-(`SIZE_BELOW_MINIMUM`) — the account-size constraint in COMPLIANCE §3.1, now
-measured rather than predicted.
+Two things worth reading off that table. **Decisions are requested on only 13–24 %
+of bars** — a single-position account spends most of its time unable to act, and
+conflating "bars seen" with "chances taken" would overstate the system's reach
+(the two are separate counters for that reason). And the $5,000 and $100,000 runs
+are **identical**, because `maxPositionSizeLots` binds before the risk budget does
+at either size.
+
+On the $100 account most risk assessments are blocked for size
+(`SIZE_BELOW_MINIMUM`) — the constraint in COMPLIANCE §3.1, now measured rather
+than predicted.
 
 **Both runs lost money, and that is the expected result of this build.** The
 strategies are deliberately untuned, the data is synthetic and contains no real
 edge, and every cost is charged. What the runs demonstrate is that the mechanics
 work. COMPLIANCE §3.10 records the figures; no profitability claim is made.
 
+### PHASE 10 — Analysis Agent (Agent 2)
+Read-only by construction: it takes a store and returns a report, holds no config
+it could mutate and no handle on the Risk Engine or the Jev gate, and a test
+asserts no setter of any kind exists (mission §12 forbids it from changing
+production rules). Analysing a store leaves its digest unchanged.
+
+Sections: decision funnel (by stage, with top reason codes), per strategy /
+symbol / direction / exit reason, regime distribution and the strategy×regime
+cross-tab, Jev score distribution and per-band performance, cost decomposition,
+losing-streak distribution with the worst run's composition, drawdown episodes,
+risk verdicts with the limits that actually bound, and recovery behaviour.
+
+**The discipline that makes it useful rather than decorative:**
+- every group carries its sample size and is marked `sufficient: false` below the
+  threshold — a four-trade win rate is a number, not evidence;
+- **drawdown is not reported per subset.** The "drawdown of the 90-94 Jev band" is
+  not a quantity: those trades were interleaved with others, and extracting them
+  invents an equity curve that never existed. Streaks *are* reported per group,
+  because they preserve order within the subset;
+- `interpretJevBands()` reports the *direction* of the relationship mission §6 asks
+  about and refuses to conclude below two sufficient bands — it never recommends a
+  threshold, which is the Research Agent's proposal and the owner's decision;
+- the caveats are computed from the report, so a small or losing run reads
+  differently from a large or winning one;
+- the Jev section reports which components actually *discriminate* — a component
+  with no spread across a run contributed a constant and decided nothing, which is
+  worth knowing before tuning its weight.
+
+**A third real defect surfaced here.** The regime was being classified inside
+`decide()`, which the engine only calls while the trade slot is free. So the regime
+was computed on a subset of bars that depended on trading activity: its hysteresis
+dwell counted wrongly, and the label became a function of whether a position
+happened to be open — a coupling between position state and market reading that
+would quietly corrupt every per-regime statistic. Classification moved to the
+per-bar hook, which the engine now also runs **before** decisions rather than
+after, so the Risk Engine's kill switch blocks the same bar instead of the next
+one. Regime rows went from ~1,300 (activity-dependent) to 2,800 (every bar).
+
 ## IN PROGRESS
 
-PHASE 10 — Analysis Agent: per-strategy, per-regime, per-Jev-band and
-losing-streak analysis over a run's store, with no authority to change anything.
+PHASE 11 — Research Agent: hypothesis → proposal → backtest → stress → compare,
+with walk-forward segmentation, and no power to change a live rule.
 
 ## BLOCKED
 
@@ -251,7 +298,7 @@ rather than treated as blockers:
 
 ## NEXT TASK
 
-PHASE 10 — Analysis Agent, then PHASE 11 — Research Agent.
+PHASE 11 — Research Agent, then PHASE 12 — stress testing.
 
 ## TEST STATUS
 
@@ -269,8 +316,9 @@ PHASE 10 — Analysis Agent, then PHASE 11 — Research Agent.
 | `tests/regime-test.js` | 19 | pass |
 | `tests/jev-test.js` | 33 | pass |
 | `tests/risk-recovery-test.js` | 42 | pass |
-| `tests/trading-agent-test.js` | 28 | pass |
-| **Total (`npm test`)** | **400** | **400 pass, 0 fail** |
+| `tests/trading-agent-test.js` | 29 | pass |
+| `tests/analysis-agent-test.js` | 28 | pass |
+| **Total (`npm test`)** | **429** | **429 pass, 0 fail** |
 
 Run: `cd projects/mythos-trading-agent && npm test`
 
