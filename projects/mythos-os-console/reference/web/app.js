@@ -830,7 +830,11 @@
         startNowBtn.textContent = 'Starting…';
         postJSON('/api/missions/' + encodeURIComponent(t.task_id) + '/dispatch', {}).then(function (r) {
           var d = r.data || {};
+          // A deferral that is not capacity names its reason: "at capacity"
+          // at 0/5 running sent an operator looking for the wrong problem.
           startNowBtn.textContent = d.dispatched ? 'Started'
+                                  : d.reason === 'resource_pressure' ? 'Queued — host under memory pressure'
+                                  : d.reason ? 'Queued — GPU runtime busy'
                                   : d.queued ? 'Queued — at capacity'
                                   : 'Queued — start not confirmed';
         }).catch(function (e) {

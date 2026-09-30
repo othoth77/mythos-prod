@@ -938,9 +938,7 @@ function handleStartMission(req, res) {
               return accepted('RUNNING');
             }
             if (dispatched && dispatched.queued) {
-              return accepted('QUEUED',
-                'created; at capacity (' + dispatched.running + '/' + dispatched.max_parallel + ')' +
-                  ' — will start automatically when a slot frees');
+              return accepted('QUEUED', deferralNote(dispatched));
             }
             // Unrecognised shape from the executor: fall back to the same
             // honest "queued, will run" note as an outright dispatch failure.
@@ -1118,13 +1116,48 @@ function handleMissionCancel(req, res, taskId) {
 // the upstream object is never passed through verbatim.
 var MISSION_DISPATCH_FIELDS = ['task_id', 'dispatched', 'queued', 'running', 'max_parallel'];
 
+// Why a dispatch was deferred, when it was not capacity. The executor's
+// Resource Guard (and, for local-runtime work, the GPU gate) refuses with
+// one of these fixed codes and leaves the task QUEUED; without them the
+// console could only say "at capacity", which is false at 0/5 running and
+// sent an operator hunting for a slot that was never the problem
+// (t-20260930120308-fjw22c). Closed sets, so the pick stays explicit: an
+// unknown code or level is dropped, never relayed verbatim.
+var DISPATCH_DEFERRAL_REASONS = ['resource_pressure', 'gpu_at_capacity', 'kv_pool_too_small_for_one_task'];
+var RESOURCE_LEVELS = ['NORMAL', 'WARNING', 'CRITICAL'];
+
+function dispatchView(d) {
+  var out = pick(d, MISSION_DISPATCH_FIELDS);
+  if (d && d.dispatched !== true && DISPATCH_DEFERRAL_REASONS.indexOf(d.reason) !== -1) {
+    out.reason = d.reason;
+    if (RESOURCE_LEVELS.indexOf(d.resource_level) !== -1) out.resource_level = d.resource_level;
+  }
+  return out;
+}
+
+function deferralNote(d) {
+  var v = dispatchView(d);
+  if (v.reason === 'resource_pressure') {
+    return 'created; deferred — host under memory pressure (' + (v.resource_level || 'level unknown') + ', ' +
+      v.running + '/' + v.max_parallel + ' running) — will start automatically when the Resource Guard admits it';
+  }
+  if (v.reason) {
+    return 'created; deferred — local GPU runtime has no room (' + v.reason + ') — will start automatically when it frees';
+  }
+  return 'created; at capacity (' + v.running + '/' + v.max_parallel + ')' +
+    ' — will start automatically when a slot frees';
+}
+
 function handleMissionDispatch(req, res, taskId) {
   readBoundedBody(req, 1024).then(function () {
     return upstream.post('/tasks/' + taskId + '/dispatch', {});
   }).then(function (d) {
+    var view = dispatchView(d);
+    var detail = { status: d && d.dispatched ? 'RUNNING' : 'QUEUED' };
+    if (view.reason) detail.reason = view.reason;
     audit.record({ action: 'mission.dispatch', outcome: 'accepted', actor: auth.sessionIdFrom(req),
-                   task_id: taskId, detail: { status: d && d.dispatched ? 'RUNNING' : 'QUEUED' } });
-    ok(res, pick(d, MISSION_DISPATCH_FIELDS));
+                   task_id: taskId, detail: detail });
+    ok(res, view);
   }).catch(function (e) {
     audit.record({ action: 'mission.dispatch', outcome: 'failed', actor: auth.sessionIdFrom(req),
                    task_id: taskId, detail: { reason: (e && e.code) || 'internal_error' } });
