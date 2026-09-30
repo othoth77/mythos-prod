@@ -28,6 +28,7 @@ var RULES = {
   RESOURCE: 'HUMAN',           // host memory/disk exhaustion — an operator action
   STATE_LOST: 'HUMAN',         // Issue or executor record vanished
   WRITE_UNDELIVERED: 'HUMAN',  // commit never reached GitHub — relay/governance
+  MODEL_MISMATCH: 'HUMAN',     // another (or an unmeasured) model answered — never relabelled, never re-planned
   TIMEOUT: 'LOCAL',            // known Fable pattern: more time, smaller steps
   CRASH: 'LOCAL',              // process gone with healthy resources
   BRIDGE: 'LOCAL',             // lost/unreadable report, never claimed
@@ -61,6 +62,7 @@ function classify(task, cfg) {
   if (kind === 'TASK_STATE_LOST') return { cls: 'STATE_LOST', why: 'task state lost' };
   if (kind === 'WRITE_NOT_DELIVERED') return { cls: 'WRITE_UNDELIVERED', why: 'commit never reached GitHub' };
   if (kind === 'WRITE_NOT_VERIFIED') return { cls: 'WRITE_UNVERIFIED', why: 'commit not verifiable on the task branch' };
+  if (kind === 'MODEL_IDENTITY_MISMATCH') return { cls: 'MODEL_MISMATCH', why: 'the model that answered is not the model the task required' };
   if (kind === 'SPEC_REJECTED_BY_BRIDGE') return { cls: 'SPEC_REJECTED', why: 'the bridge rejected the task' };
   if (kind === 'REVIEW_REJECTED') return { cls: 'REVIEW_REJECTED', why: 'verification rejected the result' };
   if ((res && typeof res.mem_available_mib === 'number' && res.mem_available_mib < floor) || /\b(ENOMEM|out of memory|OOM[- ]?kill|oom_kill|No space left on device)\b/i.test(t)) {

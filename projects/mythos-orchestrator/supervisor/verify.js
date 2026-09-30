@@ -19,7 +19,14 @@
 //                                 criterion free text, which is never verified here
 //                                 (it can never auto-pass).
 //   check:mentions:<text>         the summary/tests/files mention <text> (case-insensitive)
-//   check:files_changed:<path>    a changed file starts with <path>
+//   check:files_changed:<path>    a MEASURED changed file starts with <path>: the files
+//                                 GitHub shows between the task's base and its verified
+//                                 branch (write tasks), else the bridge's git-measured
+//                                 list. The worker's own files_changed claim is never
+//                                 evidence (live E2E #542, 2026-09-30).
+//   check:file_contains:<path>::<text>  the file <path>, read from GitHub at the
+//                                 verified head of the task branch, contains <text>
+//                                 (case-sensitive). Measured content, not the report.
 //   check:commit_delivered        GitHub shows the commit on the task branch
 //                                 (the supervisor's own git verification)
 //
@@ -30,7 +37,7 @@
 // =====================================================
 
 var CHECK_RE = /^\s*check:([a-z_]+)(?::(.*))?\s*$/i;
-var KINDS = ['status_completed', 'tests_pass', 'no_problems', 'mentions', 'files_changed', 'commit_delivered', 'tests_pass_for'];
+var KINDS = ['status_completed', 'tests_pass', 'no_problems', 'mentions', 'files_changed', 'commit_delivered', 'tests_pass_for', 'file_contains'];
 
 // check:tests_pass_for target: repo-relative, no leading '/', no '..', no
 // whitespace or quotes (the character class excludes them), 1..200 chars.
@@ -48,7 +55,29 @@ function parse(criterion) {
   var arg = m[2] == null ? null : String(m[2]).trim();
   if ((kind === 'mentions' || kind === 'files_changed') && !arg) return null;
   if (kind === 'tests_pass_for' && !validTarget(arg)) return null;   // malformed → free text, never auto-passed
+  if (kind === 'file_contains') {
+    var fc = parseFileContains(arg);
+    if (!fc) return null;                                              // malformed → free text, never auto-passed
+    return { kind: kind, arg: arg, path: fc.path, text: fc.text };
+  }
   return { kind: kind, arg: arg };
+}
+
+// "<path>::<text>" → { path, text }; the path is validated like a test target.
+function parseFileContains(arg) {
+  var s = String(arg || '');
+  var i = s.indexOf('::');
+  if (i === -1) return null;
+  var p = s.slice(0, i).trim(), t = s.slice(i + 2);
+  if (!validTarget(p) || !t.trim()) return null;
+  return { path: p, text: t.trim() };
+}
+
+// The files the supervisor may treat as changed: measured ones only.
+function measuredFiles(report, delivery) {
+  if (delivery && Array.isArray(delivery.files)) return delivery.files;
+  if (report && Array.isArray(report.files_changed_measured)) return report.files_changed_measured;
+  return null;
 }
 
 function allDeterministic(criteria) {
@@ -116,8 +145,17 @@ function evaluate(criteria, report, delivery) {
     else if (p.kind === 'no_problems') out = { met: !(report.problems || []).length, evidence: (report.problems || []).length + ' problem(s) reported' };
     else if (p.kind === 'mentions') out = { met: hay.indexOf(p.arg.toLowerCase()) !== -1, evidence: (hay.indexOf(p.arg.toLowerCase()) !== -1 ? 'mentions ' : 'does not mention ') + JSON.stringify(p.arg) };
     else if (p.kind === 'files_changed') {
-      var hit = (report.files_changed || []).filter(function (f) { return String(f).indexOf(p.arg) === 0; });
-      out = { met: hit.length > 0, evidence: hit.length ? 'changed ' + hit.slice(0, 3).join(', ') : 'no changed file under ' + p.arg };
+      var measuredList = measuredFiles(report, delivery);
+      var hit = (measuredList || []).filter(function (f) { return String(f).indexOf(p.arg) === 0; });
+      out = measuredList === null
+        ? { met: false, evidence: 'no measured file list (the report\'s own files_changed is a claim, not evidence)' }
+        : { met: hit.length > 0, evidence: hit.length ? 'measured change ' + hit.slice(0, 3).join(', ') : 'no measured changed file under ' + p.arg };
+    } else if (p.kind === 'file_contains') {
+      var contents = delivery && delivery.contents || {};
+      var body = Object.prototype.hasOwnProperty.call(contents, p.path) ? contents[p.path] : undefined;
+      out = typeof body !== 'string'
+        ? { met: false, evidence: p.path + ' was not readable at the verified head of the task branch' }
+        : { met: body.indexOf(p.text) !== -1, evidence: (body.indexOf(p.text) !== -1 ? '' : 'does not contain ') + JSON.stringify(p.text) + ' in ' + p.path + ' at ' + String(delivery.head || '').slice(0, 12) };
     } else if (p.kind === 'commit_delivered') {
       var v = delivery && delivery.verified || [];
       out = { met: v.length > 0, evidence: v.length ? 'git verified ' + v.length + ' commit(s) on the task branch' : 'no git-verified commit' };
@@ -127,4 +165,4 @@ function evaluate(criteria, report, delivery) {
   return { decided: true, passed: results.every(function (r) { return r.met; }), results: results };
 }
 
-module.exports = { parse: parse, allDeterministic: allDeterministic, evaluate: evaluate, KINDS: KINDS, testsPass: testsPass, testsPassFor: testsPassFor, validTarget: validTarget };
+module.exports = { parseFileContains: parseFileContains, measuredFiles: measuredFiles, parse: parse, allDeterministic: allDeterministic, evaluate: evaluate, KINDS: KINDS, testsPass: testsPass, testsPassFor: testsPassFor, validTarget: validTarget };

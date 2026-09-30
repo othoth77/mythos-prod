@@ -1,11 +1,11 @@
 {
-  "_comment": "MYTHOS supervisor settings FOR A SUPERVISOR RUN ON HADDAD against the Haddad bridge (label mythos:haddad). NO SECRETS. Differences from supervisor.json: tasks carry mythos:haddad (never `task`, so the VPS bridge ignores them); reports are read from the Haddad bridge's report comment (report_source=comment) because its control branch mythos/control-haddad never leaves Haddad; the executor daemon probed is mythos-haddad-worker.service; no Qwen consult, no OpenAI call, no automatic recovery \u2014 a failure settles BLOCKED for a person. Used for the 2026-09-29 Obscura closeout E2E: MYTHOS_SUPERVISOR_CONFIG=<this file> MYTHOS_SUPERVISOR_HOME=<private store> MYTHOS_EXECUTOR_HOME=~/mythos-ai-executor-haddad node scripts/mythos-supervise.js submit --action investigate --check \u2026",
+  "_comment": "MYTHOS supervisor settings FOR A SUPERVISOR RUN ON HADDAD against the Haddad bridge (label mythos:haddad). NO SECRETS. Differences from supervisor.json: tasks carry mythos:haddad (never `task`, so the VPS bridge ignores them); reports are read from the Haddad bridge's report comment (report_source=comment) because its control branch mythos/control-haddad never leaves Haddad; the executor daemon probed is mythos-haddad-worker.service; no Qwen consult, no OpenAI call, no automatic recovery \u2014 a failure settles BLOCKED for a person. executor_model is null ON PURPOSE (2026-09-30, live E2E #542): the Haddad worker answers with its local model (Qwen), so its Issues name NO model \u2014 'Model: Fable 5.1' there ran Qwen under a Fable label, and the Haddad bridge now refuses a named Claude model (MODEL_UNAVAILABLE). Fable 5.1 runs on the VPS executor (config/supervisor.json). Used for the 2026-09-29 Obscura closeout E2E: MYTHOS_SUPERVISOR_CONFIG=<this file> MYTHOS_SUPERVISOR_HOME=<private store> MYTHOS_EXECUTOR_HOME=~/mythos-ai-executor-haddad node scripts/mythos-supervise.js submit --action investigate --check \u2026",
   "repository": "othoth77/mythos-prod",
   "task_label": "mythos:haddad",
   "supervised_label": "mythos:supervised",
   "rerun_label": "rerun",
   "control_branch": "mythos/control-haddad",
-  "executor_model": "Fable 5.1",
+  "executor_model": null,
   "allowed_actions": [
     "investigate",
     "review",

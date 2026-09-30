@@ -188,6 +188,14 @@ ok(typeof t1.execution.othmode_task_id === 'string' && /^OTH-/.test(t1.execution
 var oth1 = othTasks.getTask(t1.execution.othmode_task_id);
 ok(oth1 && oth1.status === 'RUNNING' && oth1.source.indexOf('github-bridge') === 0, 'tick1: OTHMODE record RUNNING with github-bridge source');
 ok(actionsOf(r1, 'commit')[0].result.committed === true, 'tick1: claim committed on the control branch');
+// Transport integrity (live E2E #542): what the task file decided reaches the
+// executor task unchanged — nothing is dropped or rewritten in between.
+ok(et1.base_commit === t1.execution.base_commit && /^[0-9a-f]{40}$/.test(et1.base_commit) &&
+  JSON.stringify(et1.required_tests) === JSON.stringify(t1.validation_requirements) &&
+  JSON.stringify(et1.constraints) === JSON.stringify(t1.constraints) && JSON.stringify(et1.scope) === JSON.stringify(t1.scope) &&
+  et1.expected_delivery === t1.execution.expected_delivery && et1.execution_profile === t1.execution.execution_profile &&
+  et1.task_category === t1.requested_action && et1.branch === t1.execution.branch,
+  'tick1: executor task preserves base commit, validation, scope, constraints, delivery, profile, action and branch from the task file');
 var idx1 = readJson(path.join(cfg.controlDir, 'control', 'state.json'));
 ok(idx1.active.indexOf('gh-test-0001') !== -1 && idx1.pending.length === 0, 'tick1: state.json lists the task as active');
 var r1b = bridge.tick(executor);
@@ -227,7 +235,16 @@ function runExecutorTicks(n) {
 }
 
 runExecutorTicks(2).then(function () {
-  ok(state.readStatus(e1[0]).status === 'COMPLETED' && state.readStatus(crashed.task_id).status === 'COMPLETED', 'executor: both bridge tasks COMPLETED by the daemon path');
+  ok(state.readStatus(e1[0]).status === 'COMPLETED', 'executor: the report task COMPLETED by the daemon path');
+  // gh-test-0002 is an implement task whose worker said "completed" with
+  // commit:null and declared no runnable check. Before 2026-09-30 it settled
+  // COMPLETED with "expected a commit" buried in report_problems — the exact
+  // defect live E2E #542 exposed. Measured state now decides (fail closed).
+  var s2 = state.readStatus(crashed.task_id);
+  var er2 = state.readJSON(crashed.task_id, 'report.json');
+  ok(s2.status === 'BLOCKED' && er2.blocker && er2.blocker.code === 'EVIDENCE_CONTRADICTION' &&
+    er2.blocker.contradictions.indexOf('NO_VERIFIED_COMMIT') !== -1 && er2.blocker.contradictions.indexOf('NOT_MECHANICALLY_VERIFIED') !== -1,
+    'executor: a change task claiming completion without a verified commit or a check is BLOCKED (EVIDENCE_CONTRADICTION), never COMPLETED');
   var r3 = bridge.tick(executor);
   ok(actionsOf(r3, 'finish').length === 2, 'tick3: both tasks finished');
   var rep1 = reportOnDisk('gh-test-0001');
@@ -238,7 +255,8 @@ runExecutorTicks(2).then(function () {
   ok(rep2 && rep2.commits.length === 1 && rep2.commits[0].sha === agentCommit && rep2.commits[0].on_origin === true, 'tick3: report 0002 lists the real commit, verified on origin');
   ok(rep2.files_changed.indexOf('SMOKE.md') !== -1, 'tick3: files_changed derived from git');
   ok(rep2.validation.report_problems.some(function (p) { return /expected a commit/.test(p); }), 'tick3: executor verifyGit problems surface in validation');
-  ok(taskOnDisk('gh-test-0001').status === 'COMPLETED' && taskOnDisk('gh-test-0002').status === 'COMPLETED', 'tick3: task files terminal');
+  ok(taskOnDisk('gh-test-0001').status === 'COMPLETED' && taskOnDisk('gh-test-0002').status === 'BLOCKED', 'tick3: task files terminal (0002 BLOCKED on measured evidence)');
+  ok(rep2.status === 'BLOCKED' && rep2.blocker && rep2.blocker.code === 'EVIDENCE_CONTRADICTION', 'tick3: report 0002 carries the EVIDENCE_CONTRADICTION blocker');
   var h = taskOnDisk('gh-test-0001').history.map(function (x) { return x.to; });
   ok(h.join('>') === 'CLAIMED>VALIDATING>COMPLETED', 'tick3: history CLAIMED>VALIDATING>COMPLETED');
   ok(fs.existsSync(path.join(cfg.controlDir, 'control', 'reports', 'gh-test-0001.md')), 'tick3: markdown twin written');
@@ -249,7 +267,7 @@ runExecutorTicks(2).then(function () {
   ok(oth1b.sections.validation.tests[0] === 'mock: pass' && oth1b.sections.outcome.status === 'COMPLETED' && oth1b.sections.outcome.closed_by === 'github-bridge', 'F2: OTHMODE evidence matches the report and names the bridge as closer');
   ok(rep1.execution.othmode_closed_by_bridge === true && rep1.problems.length === 0, 'F2: report records the bridge as the closer');
   var idx3 = readJson(path.join(cfg.controlDir, 'control', 'state.json'));
-  ok(idx3.awaiting_review.length === 2 && idx3.counts.COMPLETED === 2, 'tick3: state.json awaiting_review has both');
+  ok(idx3.awaiting_review.length === 2 && idx3.counts.COMPLETED === 1 && idx3.counts.BLOCKED === 1, 'tick3: state.json awaiting_review has both (1 COMPLETED, 1 BLOCKED)');
   var r3b = bridge.tick(executor);
   ok(actionsOf(r3b, 'finish').length === 0 && actionsOf(r3b, 'commit').length === 0, 'tick3b: terminal tasks are left alone (no re-report, no commit)');
   relay();

@@ -38,6 +38,8 @@ var states = require('./states');
 var store = require('./store');
 var router = require('../router');
 var advisor = require('../advisor');
+var measuredOutcome = require('../../mythos-ai-executor/lib/measured-outcome');
+var modelPolicy = require('../../mythos-ai-executor/lib/model-policy');
 var escalation = require('./escalation');
 var verify = require('./verify');
 var qwen = require('./qwen');
@@ -452,7 +454,10 @@ function create(deps) {
         commits: (report.commits || []).map(function (c) { return { sha: c.sha, branch: c.branch || null, on_origin: c.on_origin === true }; }),
         delivery_branch: report.delivery && report.delivery.branch || null,
         git_verified: !!(report.validation && report.validation.git_verified === true),
-        remote_head: report.validation && report.validation.remote_head || null
+        remote_head: report.validation && report.validation.remote_head || null,
+        // The task branch's base, so the delivered files can be measured on
+        // GitHub (base...branch) instead of taken from the report.
+        base_sha: (report.resolution && report.resolution.base_sha) || (report.execution && report.execution.base_commit) || null
       };
       task.progress_marker = sha([curated.files_changed, (curated.commits || []).map(function (c) { return c.sha; }), curated.tests, curated.status]);
       store.saveTask(task);
@@ -490,26 +495,55 @@ function create(deps) {
         return failTask(task, exec, dv.pending ? 'WRITE_NOT_DELIVERED' : 'WRITE_NOT_VERIFIED', dv.problems.join('; '));
       }
       if (!dv.skipped) { task.delivery_check = { at: nowIso(), verified: dv.verified, branch: dv.branch, head: dv.head }; store.saveTask(task); log(task, 'delivery_verified', { verified: dv.verified, branch: dv.branch }, exec); }
-      // LOCAL first: when every criterion is a machine check, no model is asked.
-      var det = verify.evaluate(task.spec.acceptance_criteria, task.resume_pending ? (task.resume_evidence || {}) : r,
-        task.resume_pending ? task.resume_delivery : task.delivery_check);
-      if (det.decided) {
-        var cs = brain.ensureCosts(task);
-        cs.local += 1;
-        cs.escalations.push({ at: nowIso(), tier: 'LOCAL', purpose: 'review', reason: 'every acceptance criterion is a machine check' });
-        log(task, 'verified_locally', { passed: det.passed, unmet: det.results.filter(function (x) { return !x.met; }).map(function (x) { return x.criterion; }) });
-        if (det.passed) {
-          task.verified = { advice_id: 'local-deterministic', review: { verdict: 'ACCEPT', criteria: det.results, findings: [], human_action: null, confidence: 'high' }, at: nowIso() };
-          keepEvidence(task, r);
+      var measuring = (!dv.skipped && bridge.measureDelivery)
+        ? bridge.measureDelivery(task.last_delivery, dv, task.spec.acceptance_criteria)
+        : Promise.resolve(null);
+      return measuring.then(function (md) {
+        if (md) {
+          task.delivery_check.files = md.files;
+          task.delivery_check.contents = md.contents;
           store.saveTask(task);
-          return complete(task, task.verified.review, task.verified.advice_id);
+          log(task, 'delivery_measured', { files: md.files, read: Object.keys(md.contents) }, exec);
         }
-        var unmetWhy = det.results.filter(function (x) { return !x.met; }).map(function (x) { return 'unmet: ' + x.criterion + ' — ' + x.evidence; }).join('; ');
-        if (task.resume_pending) { task.resume_pending = false; store.saveTask(task); return dispatchResume(task, unmetWhy); }
-        return failTask(task, exec, 'VERIFICATION_FAILED', unmetWhy);
-      }
-      return review(task, r, evidence, writes);
+        // The model that answered must be the model the task required. The
+        // executor measures it (claude -p modelUsage / the local runtime);
+        // an unmeasured or different model is never accepted under the label.
+        var mismatch = task.resume_pending ? null : identityMismatch(r);
+        if (mismatch) return failTask(task, exec, 'MODEL_IDENTITY_MISMATCH', mismatch);
+        // LOCAL first: when every criterion is a machine check, no model is asked.
+        var det = verify.evaluate(task.spec.acceptance_criteria, task.resume_pending ? (task.resume_evidence || {}) : r,
+          task.resume_pending ? task.resume_delivery : task.delivery_check);
+        if (det.decided) {
+          var cs = brain.ensureCosts(task);
+          cs.local += 1;
+          cs.escalations.push({ at: nowIso(), tier: 'LOCAL', purpose: 'review', reason: 'every acceptance criterion is a machine check' });
+          log(task, 'verified_locally', { passed: det.passed, unmet: det.results.filter(function (x) { return !x.met; }).map(function (x) { return x.criterion; }) });
+          if (det.passed) {
+            task.verified = { advice_id: 'local-deterministic', review: { verdict: 'ACCEPT', criteria: det.results, findings: [], human_action: null, confidence: 'high' }, at: nowIso() };
+            keepEvidence(task, r);
+            store.saveTask(task);
+            return complete(task, task.verified.review, task.verified.advice_id);
+          }
+          var unmetWhy = det.results.filter(function (x) { return !x.met; }).map(function (x) { return 'unmet: ' + x.criterion + ' — ' + x.evidence; }).join('; ');
+          if (task.resume_pending) { task.resume_pending = false; store.saveTask(task); return dispatchResume(task, unmetWhy); }
+          return failTask(task, exec, 'VERIFICATION_FAILED', unmetWhy);
+        }
+        return review(task, r, evidence, writes);
+      });
     });
+  }
+
+  // null when the report's measured serving model is the one the supervisor
+  // requires (cfg.executor_model), or when it requires none; else why not.
+  function identityMismatch(r) {
+    if (!cfg.executor_model) return null;
+    var hit = modelPolicy.lookupKey(cfg.executor_model);
+    var required = hit ? hit.model : String(cfg.executor_model);
+    var id = r && r.identity;
+    if (!id || !id.serving_model) return 'the task requires ' + required + ' and the report does not carry a measured serving model';
+    if (id.fallback_used) return 'the task requires ' + required + ' and a fallback model (' + id.serving_model + ') answered';
+    if (!measuredOutcome.sameModel(required, id.serving_model)) return 'the task requires ' + required + ' but ' + id.serving_model + ' answered';
+    return null;
   }
 
   // The evidence a task was actually verified on: its own report, or — when it

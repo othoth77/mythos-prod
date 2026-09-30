@@ -2,6 +2,38 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-09-30 — MEASURED OUTCOME: a worker's "completed" is not success (live E2E #542) (Opus 5.5)
+
+**What happened, live:** Supervisor `SUP-HFU93MTP` → Issue #542 → Haddad bridge → executor
+`t-20260930192209-65k6mb`. The task asked for `Model: Fable 5.1` and a `document` commit. The
+local Qwen 2.5 7B answered, because `haddad-agent` forwarded `task.model` to `llama-server`, which
+ignores the name. The worker created nothing and committed nothing, and its summary said "the task
+cannot be completed". The executor still settled **COMPLETED**: `settleState` read only the
+report's status, and "delivery expected a commit but the report claims none" became a problem
+string. Only the bridge review gate and the Supervisor stopped it.
+
+| Change | Where |
+|---|---|
+| status = MEASURED state → validation → status, for every provider. A "completed" report is BLOCKED (`EVIDENCE_CONTRADICTION`, non-retryable) on any of: no commit on the task branch since its base · no measured change · no runnable check ran / a check failed · a claimed file git does not show · a change outside the declared Scope/project scope · a summary admitting failure | `lib/measured-outcome.js`, `executor.js` `measureOutcome`/`settleState` |
+| a change task must be mechanically verified: the executor re-runs the Validation's `node …`/`npm …` checks after a provider with no validator of its own (claude-code), with an allow-listed environment (no token, key or SSH agent) | `runDeclaredChecks` |
+| model identity is measured: `claude -p` `modelUsage`, or the model the local runtime serves. `model_used` is that, never the label. A named model that did not answer → `MODEL_IDENTITY_MISMATCH`; a fallback the task itself permitted is recorded as such | executor, `providers/haddad-agent.js`, mock |
+| a Haddad (exec-worker) bridge refuses a named Claude model (`MODEL_UNAVAILABLE`, never substituted); `supervisor-haddad.json` names none (`executor_model: null`) | `bridge/github-bridge.js` `preflight`, config |
+| Supervisor: `files_changed` only from MEASURED lists (GitHub base…branch, or the bridge's git diff). New `check:file_contains:<path>::<text>` reads the file from GitHub at the verified head. The report's measured serving model must equal the required model | `supervisor/verify.js`, `bridge.js` `measureDelivery`, `supervisor.js` |
+| `scripts/mythos-assert-file.js`: a deterministic check a Validation line can run | new |
+
+**Behaviour change the owner must know:** an `implement`/`document` Issue whose Validation has
+no runnable `node …`/`npm …` line now ends **BLOCKED** (`NOT_MECHANICALLY_VERIFIED`) instead of
+COMPLETED. Add one check line, e.g. `node scripts/mythos-assert-file.js <file> <token>`.
+
+**Tests:** `tests/mythos-measured-outcome-test.js` (new, cases A–J + identity/scope/env/Haddad
+refusal). It fails on `origin/main` and every rule is mutation-checked. The Supervisor suite has a
+new section 19. The fixtures in the bridge and github-issues suites that had encoded the defect
+(implement tasks "completed" with `commit:null` and no check) now assert BLOCKED, or use a mock
+worker that really commits (`deliver`).
+
+**Live Fable 5.1 E2E:** Fable runs only on the VPS executor, and a Fable task's supervisor must run
+where the executor CLI is. That is an owner step: `ops/live-e2e/README.md`.
+
 ## 2026-09-23 — MYTHOS HADDAD V2.6: unattended operation, proven on the production label (Opus 5)
 
 **Objective:** prove the unattended loop rather than build one. The loop is the existing bridge

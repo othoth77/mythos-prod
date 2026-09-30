@@ -962,7 +962,13 @@ function run(task, prompt, _sessionId, _mode, opts) {
   var apiKey = opts.apiKey || readKey(opts.keyFile);
   if (!apiKey) return Promise.resolve(fail('HADDAD_AGENT_UNCONFIGURED', 'no local runtime key'));
   var baseUrl = opts.baseUrl || DEFAULT_BASE_URL;
-  var model = opts.model || task.model || process.env.HADDAD_AGENT_MODEL;
+  // The model is what THIS runtime serves, never task.model. task.model is a
+  // Claude catalog name ("fable-5.1"); llama-server ignores the name it is
+  // sent and answers with the one GGUF it loaded, so forwarding it made a
+  // Qwen run carry a Fable label end to end (live E2E #542, 2026-09-30).
+  // The bridge now refuses a named Claude model on this instance
+  // (preflight → MODEL_UNAVAILABLE); this is the second lock on that door.
+  var model = opts.model || process.env.HADDAD_AGENT_MODEL;
   if (!model) return Promise.resolve(fail('HADDAD_AGENT_UNCONFIGURED', 'no model configured'));
 
   var deadline = started + (Number(task.timeout_seconds) || DEFAULT_TASK_TIMEOUT_S) * 1000;
@@ -1277,6 +1283,9 @@ function run(task, prompt, _sessionId, _mode, opts) {
     outcome.tool_trace = trace;
     outcome.validations = validations;
     outcome.repair_rounds = repairRound;
+    // Which model answered: the one this runtime serves (see `model` above).
+    // The executor records it as model_used instead of the task's label.
+    outcome.model_used = model;
     return outcome;
   }
 

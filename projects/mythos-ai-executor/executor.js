@@ -42,6 +42,7 @@ var engine = require('./bridge/action-resolution');
 var schema = require('../mythos-orchestrator/lib/schema');
 var redact = require('../mythos-orchestrator/lib/redact');
 var gitlib = require('../mythos-orchestrator/lib/git');
+var measured = require('./lib/measured-outcome');
 
 var TASK_SCHEMA = JSON.parse(fs.readFileSync(path.join(__dirname, 'schemas', 'task.schema.json'), 'utf8'));
 var PROMPT_TEMPLATE = fs.readFileSync(path.join(__dirname, 'templates', 'task-prompt.md'), 'utf8');
@@ -233,6 +234,11 @@ function createTask(input) {
     required_tests: input.required_tests || [],
     constraints: input.constraints || [],
     expected_delivery: input.expected_delivery || 'report',
+    // The commit the task's branch started from (the bridge's worktree base).
+    // lib/measured-outcome.js measures the task's changes as base..HEAD;
+    // anything that is not a full SHA is dropped, never guessed.
+    base_commit: /^[0-9a-f]{40}$/.test(String(input.base_commit || '')) ? String(input.base_commit) : null,
+    scope: Array.isArray(input.scope) ? input.scope.slice(0, 50).map(function (x) { return String(x).slice(0, 300); }) : [],
     report_to_git: input.report_to_git !== false,
     timeout_seconds: input.timeout_seconds || 3600,
     max_retries: input.max_retries === undefined ? 3 : input.max_retries,
@@ -690,6 +696,65 @@ function deliverValidatedWork(task, report, outcome) {
   return { commit: sha, files: files, note: note };
 }
 
+// What reputation learns from: the provider's own verdict, unless the
+// measured state contradicted the completion — then it was not a pass,
+// whatever the provider's validator said.
+function reputationOutcome(outcome, contradictions) {
+  if (!contradictions || !contradictions.length || !outcome || !outcome.validation) return outcome;
+  return Object.assign({}, outcome, { validation: Object.assign({}, outcome.validation, { passed: false }) });
+}
+
+// The model id a task REQUIRED, or null when it required none. Explicit is
+// the executor's own resolution (claude-code/mock record mode 'explicit');
+// a provider that does no resolution carries the bridge's request as raw
+// catalog text ("fable-5.1"), which is resolved here. An auto choice is the
+// executor's, not the task's: recorded, never enforced.
+function requiredModelId(task) {
+  if (!task || !task.model) return null;
+  if (task.model_selection_mode === 'explicit') return task.model;
+  if (task.model_selection_mode) return null;
+  var hit = modelPolicy.lookupKey(task.model);
+  return hit ? hit.model : null;
+}
+
+// Runs the task's declared checks for a provider with no validator of its
+// own (claude-code), only on a change task, and only when the report claims
+// completion — the one case where their verdict decides anything. Async and
+// BEFORE settlement, so the daemon is never blocked; the evidence rides on
+// the outcome (outcome.executor_checks) into measureOutcome.
+function measureChecks(task, outcome, parsed) {
+  if (task.expected_delivery !== 'commit' || !task.working_directory || (outcome.validation && outcome.validation.evidence)) return Promise.resolve();
+  var text = typeof parsed.result === 'string' ? parsed.result : JSON.stringify(parsed.result);
+  var rep = reporting.extractReport(text).report;
+  if (!rep || rep.status !== 'completed') return Promise.resolve();
+  return measured.runDeclaredChecks(task.working_directory, task.required_tests || []).then(function (ev) {
+    outcome.executor_checks = ev;
+    try { state.appendEvent(task.task_id, 'checks_measured', { runner: 'executor', checks: ev.checks_run.map(function (c) { return { check: c.check, passed: c.passed, exit_code: c.exit_code }; }) }); } catch (e) { /* the report carries it */ }
+  }, function () { /* no evidence: the change task stays unverified and is refused */ });
+}
+
+// Measures what the attempt produced and judges the report against it.
+function measureOutcome(task, report, outcome, parsed) {
+  var v = outcome && outcome.validation;
+  var commitTask = task.expected_delivery === 'commit';
+  var evidence = v && v.evidence ? v.evidence : (outcome && outcome.executor_checks) || null;
+  var changed = commitTask ? measured.measureChangedFiles(task.working_directory, task.base_commit) : null;
+  var commitVerified = commitTask ? measured.commitOnTaskBranch(task.working_directory, task.base_commit, report && report.commit) : undefined;
+  var verdict = measured.assess({
+    task: task,
+    report: report,
+    evidence: evidence,
+    validationPassed: v && typeof v.passed === 'boolean' ? v.passed : undefined,
+    commitVerified: commitVerified,
+    scope: task.scope || [],
+    projectScope: projectWriteScope(task.project) || [],
+    changedFiles: changed,
+    requestedModel: requiredModelId(task),
+    servingModel: (outcome && outcome.model_used) || measured.servingModelFromParsed(parsed) || null
+  });
+  return { verdict: verdict, evidence: evidence, changedFiles: changed, commitVerified: commitVerified };
+}
+
 function verifyGit(task, report) {
   var extras = { git_verified: null, remote_head: null };
   if (!task.working_directory || !gitlib.isRepo(task.working_directory)) return extras;
@@ -948,7 +1013,7 @@ function runTaskCore(taskId, opts) {
     var parsed = outcome.parsed;
     var succeeded = parsed && parsed.is_error === false && !outcome.timed_out && outcome.exit_code === 0;
 
-    if (succeeded) return handleSuccess(task, taskId, outcome, parsed);
+    if (succeeded) return measureChecks(task, outcome, parsed).then(function () { return handleSuccess(task, taskId, outcome, parsed); });
     return handleFailure(task, taskId, outcome, mode, opts);
   });
 }
@@ -978,13 +1043,23 @@ function procStartTicks(pid) {
 //                         worktree, close the Issue, and release anything
 //                         that depended on it.
 //   otherwise           — COMPLETED.
-function settleState(report, extractedError, deliveryProblem) {
+//   measured contradiction — the report says "completed" and the measured
+//                         state does not (lib/measured-outcome.js): no
+//                         verified commit, no measured change, no check,
+//                         a claim git does not show, a summary admitting
+//                         the task was not done, another model answering.
+//                         The worker's claim is not success.
+function settleState(report, extractedError, deliveryProblem, contradictions) {
   if (!report) {
     return { state: 'BLOCKED', next_action: 'provider produced no structured report: ' + (extractedError || 'unknown reason') + ' — review stdout.log' };
   }
   if (report.status === 'blocked') return { state: 'BLOCKED', next_action: 'owner decision required: ' + (report.summary || '') };
   if (report.status === 'failed') return { state: 'FAILED', next_action: 'inspect failure report' };
   if (deliveryProblem) return { state: 'BLOCKED', next_action: 'validated work was not delivered — ' + deliveryProblem };
+  if (contradictions && contradictions.length) {
+    return { state: 'BLOCKED', next_action: 'the report says completed but the measured state contradicts it — ' +
+      contradictions.map(function (c) { return c.code + ': ' + c.detail; }).join(' | ').slice(0, 1500) };
+  }
   // Only an explicit "completed" is a completion. A missing or unknown status
   // ("partial", "in_progress", …) used to fall through to COMPLETED — a
   // success nobody claimed. validateReport records it as a problem; here it
@@ -1025,9 +1100,14 @@ function handleSuccess(task, taskId, outcome, parsed) {
 
   var extras = verifyGit(task, report);
   if (extras.problem) problems.push(extras.problem);
+
+  // MEASURED STATE → VALIDATION → STATUS. What the worker claimed is judged
+  // against what was measured here; see lib/measured-outcome.js.
+  var m = measureOutcome(task, report, outcome, parsed);
+  m.verdict.contradictions.forEach(function (c) { problems.push('measured: ' + c.code + ' — ' + c.detail); });
   extras.report_problems = problems.filter(Boolean);
 
-  var settled = settleState(report, extracted.error, deliveryProblem);
+  var settled = settleState(report, extracted.error, deliveryProblem, m.verdict.contradictions);
   var finalState = settled.state;
   var nextAction = settled.next_action;
 
@@ -1044,6 +1124,15 @@ function handleSuccess(task, taskId, outcome, parsed) {
     blocker = engine.blocker('NO_STRUCTURED_REPORT', { reason: 'invalid report status: ' + String(report.status === undefined ? '(missing)' : report.status).slice(0, 40), task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
   } else if (!report) {
     blocker = engine.blocker('NO_STRUCTURED_REPORT', { reason: extracted.error || 'unknown reason', task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
+  } else if (m.verdict.contradictions.length && !deliveryProblem) {
+    var onlyModel = m.verdict.contradictions.every(function (c) { return c.code === 'MODEL_IDENTITY'; });
+    blocker = engine.blocker(onlyModel ? engine.BLOCKER_CODES.MODEL_IDENTITY_MISMATCH : engine.BLOCKER_CODES.EVIDENCE_CONTRADICTION, {
+      reason: m.verdict.contradictions.map(function (c) { return c.code + ': ' + c.detail; }).join(' | ').slice(0, 800),
+      contradictions: m.verdict.contradictions.map(function (c) { return c.code; }),
+      task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null,
+      execution_profile: task.execution_profile || null, model: task.model || null,
+      requested_model: m.verdict.identity.requested_model, serving_model: m.verdict.identity.serving_model
+    });
   } else if (deliveryProblem) {
     // Retryable by design: a staging or commit failure is an executor-side
     // fault (a lock, a permission, a worktree in a state git refused), not
@@ -1067,7 +1156,10 @@ function handleSuccess(task, taskId, outcome, parsed) {
     // whether a pool fell back before succeeding (the adapter reports it;
     // a single-provider adapter simply has no attempts list).
     provider_used: outcome.provider_used || task.provider,
-    model_used: outcome.model_used || task.model || null,
+    // MEASURED, never the task's label: a provider that cannot say which
+    // model answered records null here, and model_requested keeps the ask.
+    model_used: m.verdict.identity.serving_model,
+    model_requested: task.model || null,
     attempts: Array.isArray(outcome.attempts) ? outcome.attempts : null,
     fallback: Array.isArray(outcome.attempts) && outcome.attempts.length > 1
   });
@@ -1080,10 +1172,21 @@ function handleSuccess(task, taskId, outcome, parsed) {
     // model CLAIMED. A supervising provider (haddad-agent) returns its
     // validator verdicts, tool trace and repair count; other providers
     // return none and the field is null. Bounded, never the raw transcript.
-    evidence: providerEvidence(outcome)
+    evidence: providerEvidence(outcome),
+    // What the EXECUTOR measured after the provider ended, and the verdict
+    // it drew (lib/measured-outcome.js). The status above follows this.
+    measured: {
+      identity: Object.assign({ provider: status.provider_used || task.provider }, m.verdict.identity),
+      changed_files: m.changedFiles,
+      checks: m.evidence,
+      commit: report && report.commit ? report.commit : null,
+      git_verified: extras.git_verified === undefined ? null : extras.git_verified,
+      commit_on_task_branch: m.commitVerified === undefined ? null : m.commitVerified,
+      contradictions: m.verdict.contradictions
+    }
   });
   recordProviderEvents(taskId, outcome);
-  recordAgentOutcome(task, taskId, outcome, status.provider_used || task.provider, null);
+  recordAgentOutcome(task, taskId, reputationOutcome(outcome, m.verdict.contradictions), status.provider_used || task.provider, null);
   var md = reporting.renderMarkdown(task, status, report || structured, extras);
   state.writeText(taskId, 'report.md', md);
   writeCheckpoint(task, status, {
@@ -1919,6 +2022,10 @@ module.exports = {
   verifyGit: verifyGit,
   deliverValidatedWork: deliverValidatedWork,
   settleState: settleState,
+  measureOutcome: measureOutcome,
+  measureChecks: measureChecks,
+  reputationOutcome: reputationOutcome,
+  requiredModelId: requiredModelId,
   commitReportToGit: commitReportToGit,
   sshEnv: sshEnv,
   acquireDaemonLock: acquireDaemonLock,

@@ -185,6 +185,16 @@
         "maxLength": 1000
       }
     },
+    "scope": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 300 },
+      "description": "(at most 50 entries, capped by createTask) The task's declared Scope (Issue '## Scope'). The path-like entries are the only files a change task may change (lib/measured-outcome.js OUT_OF_SCOPE); prose entries are guidance and enforce nothing."
+    },
+    "base_commit": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "The commit the task branch started from (the bridge's worktree base). lib/measured-outcome.js measures the task's changes as base..HEAD; null = nothing to measure against, which fails a change task closed."
+    },
     "expected_delivery": {
       "type": "string",
       "enum": [

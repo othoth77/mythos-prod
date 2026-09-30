@@ -24,6 +24,7 @@
 var issuesParser = require('../../mythos-ai-executor/bridge/github-issues');
 var advisor = require('../advisor');
 var maskHashes = require('./brain').maskHashes;
+var verify = require('./verify');
 
 var MARK_BRIDGE = /<!--\s*mythos-control\s+([^>]*?)\s*-->/;
 var MARK_SUP_PREFIX = '<!-- mythos-supervisor ';
@@ -510,7 +511,32 @@ function create(gh, cfg) {
     });
   }
 
+  // What a VERIFIED write delivered, read from GitHub itself: the files
+  // between the task's base and its branch, and the content of every file a
+  // check:file_contains criterion names, at the verified head. Nothing here
+  // comes from the report. A read that fails leaves the entry absent, and
+  // the criterion that needed it is unmet (verify.js) — never assumed.
+  function measureDelivery(delivery, verified, criteria) {
+    var out = { files: null, contents: {} };
+    var base = delivery && delivery.base_sha;
+    var ref = verified && (verified.head || verified.branch);
+    var first = /^[0-9a-f]{40}$/.test(String(base || '')) && verified && verified.branch
+      ? gh.compare(repo, base, verified.branch).then(function (r) {
+        if (r.ok && r.data && Array.isArray(r.data.files)) out.files = r.data.files.map(function (f) { return f.filename; });
+      })
+      : Promise.resolve();
+    var paths = (criteria || []).map(verify.parse).filter(function (p) { return p && p.kind === 'file_contains'; })
+      .map(function (p) { return p.path; }).filter(function (x, i, a) { return a.indexOf(x) === i; });
+    return paths.reduce(function (p, file) {
+      return p.then(function () {
+        if (!ref) return null;
+        return gh.controlFile(repo, ref, file).then(function (r) { if (r.ok && typeof r.data === 'string') out.contents[file] = r.data; });
+      });
+    }, first).then(function () { return out; });
+  }
+
   return {
+    measureDelivery: measureDelivery,
     submitTask: submitTask,
     rerunTask: rerunTask,
     getStatus: getStatus,

@@ -92,7 +92,7 @@ function World(script, qwenScript) {
   this.offset = 0;
   this.daemonActive = true;
   this.creates = 0;
-  this.remote = { commits: {}, branches: {} };
+  this.remote = { commits: {}, branches: {}, files: {} };
 }
 
 World.prototype.gh = function () {
@@ -138,6 +138,11 @@ World.prototype.gh = function () {
       return Promise.resolve({ ok: true, data: { status: b.indexOf(base) !== -1 ? (b[b.length - 1] === base ? 'identical' : 'ahead') : 'diverged' } });
     },
     controlFile: function (repo, branch, file) {
+      // A file read at a delivered commit (check:file_contains): the fake
+      // remote keeps each pushed commit's files by sha.
+      if (w.remote.files[branch] && Object.prototype.hasOwnProperty.call(w.remote.files[branch], file)) {
+        return Promise.resolve({ ok: true, data: w.remote.files[branch][file] });
+      }
       var text = w.control[file];
       if (text === undefined) return Promise.resolve({ ok: false, error: { code: 'GH_NOT_FOUND', status: 404 } });
       if (w.faults.truncateReports) return Promise.resolve({ ok: true, data: text.slice(0, Math.floor(text.length / 2)) });
@@ -171,7 +176,11 @@ World.prototype.post = function (i, fields, text) { i.comments.push({ body: mark
 World.prototype.writeReport = function (i, tid, status, extra, markerStatus) {
   var report = Object.assign({ protocol: 'mythos-control/1', task_id: tid, status: status, summary: 'executor summary for ' + tid,
     files_changed: [], commits: [], tests: [], validation: { git_verified: true, report_problems: [], required_checks: [] },
-    problems: [], risks: [], next_recommended_action: 'none', execution: { execution_profile: 'repo-read', executor_task_id: 't-' + tid } }, extra || {});
+    problems: [], risks: [], next_recommended_action: 'none', execution: { execution_profile: 'repo-read', executor_task_id: 't-' + tid },
+    // What the updated executor measures and the bridge publishes: which
+    // model ANSWERED. faults.servingModel simulates another (or, null, none).
+    identity: this.faults.servingModel === null ? null : { requested_model: 'claude-fable-5-1', provider: 'claude-code',
+      serving_model: this.faults.servingModel || 'claude-fable-5-1', match: !this.faults.servingModel || this.faults.servingModel === 'claude-fable-5-1', fallback_used: false } }, extra || {});
   if (!this.faults.withholdReports) this.control['control/reports/' + tid + '.json'] = JSON.stringify(report, null, 2);
   this.post(i, { task_id: tid, event: 'report', status: markerStatus || status });
 };
@@ -256,7 +265,9 @@ World.prototype.step = function () {
       if (p.contained === false) { w.remote.commits[sha] = true; w.remote.branches[branch] = [crypto.randomBytes(20).toString('hex')]; }
       else if (p.pushed !== false) { w.remote.commits[sha] = true; (w.remote.branches[branch] = w.remote.branches[branch] || []).push(sha); }
       else w.pending_push = { sha: sha, branch: branch };
-      return finish('COMPLETED', { summary: 'implemented and committed', files_changed: ['projects/x.js'],
+      w.remote.files[sha] = p.files || { 'projects/x.js': 'module.exports = 1;\n' };
+      return finish('COMPLETED', { summary: 'implemented and committed', files_changed: (p.claims || ['projects/x.js']),
+        files_changed_measured: Object.keys(w.remote.files[sha]),
         commits: [{ sha: sha, subject: 'feat: x', branch: branch, on_origin: p.pushed !== false }],
         validation: { git_verified: p.git_verified !== false, report_problems: [], required_checks: [] },
         delivery: { branch: branch, commits_on_origin: p.pushed !== false }, tests: ['node tests/x-test.js: 5 passed, 0 failed'] });
@@ -1384,7 +1395,7 @@ async function main() {
   {
     // End to end: a supervisor configured for the Haddad bridge — tasks labelled mythos:haddad, reports read
     // from the bridge comment (the control branch never leaves Haddad) — settles COMPLETED on the comment alone.
-    var hcfg = { task_label: 'mythos:haddad', control_branch: 'mythos/control-haddad', report_source: 'comment', qwen_enabled: false, max_recoveries_per_root: 0 };
+    var hcfg = { task_label: 'mythos:haddad', control_branch: 'mythos/control-haddad', report_source: 'comment', qwen_enabled: false, max_recoveries_per_root: 0, executor_model: null };  // as config/supervisor-haddad.json: Haddad answers with its local model, no Claude model is named
     var eh = fresh(null, null, hcfg, function () { return 'backend obscura — title Example Domain — This domain is for use in documentation examples.'; });
     eh.w.faults.withholdReports = true;
     var subH = eh.sup.submitObjective({ objective: 'Read the first paragraph of https://example.com/ through the governed browser', action: 'investigate', acceptance: ['check:status_completed', 'check:mentions:documentation'], timeout_seconds: 600 });
@@ -1397,6 +1408,60 @@ async function main() {
     var rf = await runUntil(ef, subF.task_id, 12);
     ok(rf.t.status === 'BLOCKED', '12h the same path with a FAILED report and no recovery budget settles BLOCKED, never COMPLETED (' + rf.t.status + ')');
   }
+
+  section('19. Measured evidence and model identity (live E2E #542, 2026-09-30)');
+  var V19 = require(path.join(ORCH, 'supervisor', 'verify.js'));
+  ok(V19.evaluate(['check:files_changed:projects/x.js'], { files_changed: ['projects/x.js'] }, null).passed === false,
+    '19 files_changed: the worker\'s claim alone is never evidence (no measured list → unmet)');
+  ok(V19.evaluate(['check:files_changed:projects/x.js'], { files_changed: [], files_changed_measured: ['projects/x.js'] }, null).passed === true &&
+    V19.evaluate(['check:files_changed:projects/x.js'], { files_changed: ['projects/x.js'] }, { files: ['projects/y.js'] }).passed === false,
+    '19 files_changed: met only by a measured list (bridge git, or GitHub base...branch), which wins over the claim');
+  ok(V19.parse('check:file_contains:e2e/a.md::marker: X-1').path === 'e2e/a.md' && V19.parse('check:file_contains:e2e/a.md::marker: X-1').text === 'marker: X-1' &&
+    V19.parse('check:file_contains:../etc/passwd::x') === null && V19.parse('check:file_contains:e2e/a.md') === null && V19.parse('check:file_contains:e2e/a.md::  ') === null,
+    '19 file_contains: <path>::<text> parses; a traversal, a missing text or an empty text is free text (never auto-passed)');
+  ok(V19.evaluate(['check:file_contains:e2e/a.md::marker: X-1'], {}, { head: 'abc', contents: { 'e2e/a.md': '# t\nmarker: X-1\n' } }).passed === true &&
+    V19.evaluate(['check:file_contains:e2e/a.md::marker: X-1'], { summary: 'marker: X-1' }, { head: 'abc', contents: { 'e2e/a.md': '# t\n' } }).passed === false &&
+    V19.evaluate(['check:file_contains:e2e/a.md::marker: X-1'], { summary: 'marker: X-1' }, { head: 'abc', contents: {} }).passed === false,
+    '19 file_contains: decided by the content read at the verified head — the summary quoting the marker never satisfies it');
+
+  function markerPlan() { return { schema_version: '1.0.0', role: 'supervise_plan', task: spec({ action: 'document', title: 'E2E marker', objective: 'Create e2e/LIVE.md with the marker line.',
+    acceptance_criteria: ['check:status_completed', 'check:files_changed:e2e/LIVE.md', 'check:file_contains:e2e/LIVE.md::marker: LIVE-19', 'check:commit_delivered'] }),
+    risk_class: 'CODE_IMPLEMENTATION', requires_human_approval: false, human_reason: null, rationale: 'x' }; }
+  var e19 = fresh(function () { return { kind: 'write', files: { 'e2e/LIVE.md': '# Live\nmarker: LIVE-19\n' }, claims: ['e2e/LIVE.md'] }; }, { plan: markerPlan }, { max_recoveries_per_root: 0 });
+  var r19t = e19.sup.submitObjective({ objective: 'Create e2e/LIVE.md with the marker line.', action: 'document',
+    acceptance: ['check:status_completed', 'check:files_changed:e2e/LIVE.md', 'check:file_contains:e2e/LIVE.md::marker: LIVE-19', 'check:commit_delivered'] });
+  var r19 = await runUntil(e19, r19t.task_id, 12);
+  ok(r19.t.status === 'COMPLETED' && r19.t.delivery_check.contents['e2e/LIVE.md'] === '# Live\nmarker: LIVE-19\n' && e19.oa.calls.filter(function (c) { return c.role === 'supervise_review'; }).length === 0,
+    '19 E2E shape: measured file + marker read from GitHub + verified commit + Fable identity → COMPLETED locally (' + r19.t.status + ')');
+  var e19b = fresh(function () { return { kind: 'write', files: { 'e2e/LIVE.md': '# Live\n' }, claims: ['e2e/LIVE.md'] }; }, { plan: markerPlan }, { max_recoveries_per_root: 0 });
+  var r19bt = e19b.sup.submitObjective({ objective: 'Create e2e/LIVE.md with the marker line.', action: 'document',
+    acceptance: ['check:status_completed', 'check:files_changed:e2e/LIVE.md', 'check:file_contains:e2e/LIVE.md::marker: LIVE-19', 'check:commit_delivered'] });
+  var r19b = await runUntil(e19b, r19bt.task_id, 12);
+  ok(r19b.t.status !== 'COMPLETED' && r19b.t.history.some(function (h) { return h.to === 'FAILED' && /VERIFICATION_FAILED/.test(h.reason) && /file_contains/.test(h.reason); }) &&
+    e19b.w.issues[r19b.t.issue_number].state === 'open',
+    '19 marker missing in the delivered file → VERIFICATION_FAILED, Issue left open (' + r19b.t.status + ')');
+  var e19c = fresh(function () { return { kind: 'write', files: { 'e2e/LIVE.md': '# Live\nmarker: LIVE-19\n' }, claims: ['e2e/LIVE.md'] }; }, { plan: markerPlan }, { max_recoveries_per_root: 0 });
+  e19c.w.faults.servingModel = 'claude-sonnet-5';
+  var r19ct = e19c.sup.submitObjective({ objective: 'Create e2e/LIVE.md with the marker line.', action: 'document',
+    acceptance: ['check:status_completed', 'check:file_contains:e2e/LIVE.md::marker: LIVE-19', 'check:commit_delivered'] });
+  var r19c = await runUntil(e19c, r19ct.task_id, 12);
+  ok(r19c.t.status === 'BLOCKED' && r19c.t.history.some(function (h) { return h.to === 'FAILED' && /MODEL_IDENTITY_MISMATCH/.test(h.reason) && /claude-sonnet-5 answered/.test(h.reason); }) &&
+    e19c.w.issues[r19c.t.issue_number].state === 'open',
+    '19 Fable 5.1 required, Sonnet 5 measured → MODEL_IDENTITY_MISMATCH → BLOCKED for a person (never relabelled, never recovered by a model) (' + r19c.t.status + ')');
+  var e19d = fresh(function () { return { kind: 'success' }; }, null, { max_recoveries_per_root: 0 });
+  e19d.w.faults.servingModel = null;
+  var r19dt = e19d.sup.submitObjective({ objective: 'Count the .js files', action: 'investigate', acceptance: ['check:status_completed'] });
+  var r19d = await runUntil(e19d, r19dt.task_id, 12);
+  ok(r19d.t.status === 'BLOCKED' && r19d.t.history.some(function (h) { return /MODEL_IDENTITY_MISMATCH/.test(h.reason) && /does not carry a measured serving model/.test(h.reason); }),
+    '19 a required model with no measured identity in the report → MODEL_IDENTITY_MISMATCH (unmeasured is not Fable) (' + r19d.t.status + ')');
+  var e19e = fresh(function () { return { kind: 'success' }; }, null, { executor_model: null, max_recoveries_per_root: 0 });
+  e19e.w.faults.servingModel = null;
+  var r19et = e19e.sup.submitObjective({ objective: 'Count the .js files', action: 'investigate', acceptance: ['check:status_completed'] });
+  var r19e = await runUntil(e19e, r19et.task_id, 12);
+  ok(r19e.t.status === 'COMPLETED' && !/\nModel: /.test(e19e.w.issues[r19e.t.issue_number].body),
+    '19 executor_model null (the Haddad config): the Issue names no model and no identity is required (' + r19e.t.status + ')');
+  var hadCfg = JSON.parse(fs.readFileSync(path.join(ORCH, 'config', 'supervisor-haddad.json'), 'utf8'));
+  ok(hadCfg.executor_model === null, '19 config/supervisor-haddad.json names no executor model (Haddad answers with Qwen, never "Fable 5.1")');
 
   section('13. Hygiene');
   var everything = JSON.stringify(allTasks()) + fs.readFileSync(path.join(process.env.MYTHOS_SUPERVISOR_HOME, 'journal.jsonl'), 'utf8');
