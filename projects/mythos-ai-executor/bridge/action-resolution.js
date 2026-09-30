@@ -111,17 +111,17 @@ var BLOCKER_CODES = {
   // The worker said "completed" and the measured state says otherwise: no
   // verified commit, no measured change, no check run, a changed-file claim
   // git does not show, or a summary that admits the task was not done
-  // (lib/measured-outcome.js). Never a completion; a person decides.
+  // (lib/measured-outcome.js). Never a completion; a person decides — the
+  // executor raises it with retryable:false at its one call site.
   EVIDENCE_CONTRADICTION: 'EVIDENCE_CONTRADICTION',
   // The task named a model and a different one (or an unmeasured one)
-  // answered. Never relabelled; a person decides.
+  // answered. Never relabelled; a person decides (retryable:false, ditto).
   MODEL_IDENTITY_MISMATCH: 'MODEL_IDENTITY_MISMATCH'
 };
 var NON_RETRYABLE = [
   BLOCKER_CODES.ACTION_PROFILE_MISMATCH, BLOCKER_CODES.MODEL_UNAVAILABLE, BLOCKER_CODES.ATTEMPT_SNAPSHOT_MUTATED,
   BLOCKER_CODES.PERMISSION_DENIED, BLOCKER_CODES.GOVERNANCE_DENIED, BLOCKER_CODES.HUMAN_APPROVAL,
-  BLOCKER_CODES.STALE_WORKER, BLOCKER_CODES.PROVIDER_BLOCKED,
-  BLOCKER_CODES.EVIDENCE_CONTRADICTION, BLOCKER_CODES.MODEL_IDENTITY_MISMATCH
+  BLOCKER_CODES.STALE_WORKER, BLOCKER_CODES.PROVIDER_BLOCKED
 ];
 
 function isRetryable(code) { return NON_RETRYABLE.indexOf(String(code || '')) === -1; }

@@ -1128,6 +1128,9 @@ function handleSuccess(task, taskId, outcome, parsed) {
     var onlyModel = m.verdict.contradictions.every(function (c) { return c.code === 'MODEL_IDENTITY'; });
     blocker = engine.blocker(onlyModel ? engine.BLOCKER_CODES.MODEL_IDENTITY_MISMATCH : engine.BLOCKER_CODES.EVIDENCE_CONTRADICTION, {
       reason: m.verdict.contradictions.map(function (c) { return c.code + ': ' + c.detail; }).join(' | ').slice(0, 800),
+      // A contradiction between claim and evidence is a person's call, never
+      // an automatic rerun (the retry list itself is frozen; see its guard).
+      retryable: false,
       contradictions: m.verdict.contradictions.map(function (c) { return c.code; }),
       task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null,
       execution_profile: task.execution_profile || null, model: task.model || null,
