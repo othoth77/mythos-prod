@@ -88,7 +88,9 @@ t('X4 the console event: outcome_recorded with structured keys only, INFO, rende
 
 t('X5 the executor calls the recorder at BOTH terminal report sites (success and failure)', function () {
   var src = fs.readFileSync(path.join(EXEC, 'executor.js'), 'utf8');
-  assert.strictEqual((src.match(/recordAgentOutcome\(task, taskId, outcome, status\.provider_used/g) || []).length, 2, 'two call sites');
+  // The success site passes the outcome through reputationOutcome (a
+  // completion the measured state contradicted is learned as a fail).
+  assert.strictEqual((src.match(/recordAgentOutcome\(task, taskId, (outcome|reputationOutcome\(outcome, m\.verdict\.contradictions\)), status\.provider_used/g) || []).length, 2, 'two call sites');
   assert.ok(/recordAgentOutcome\(task, taskId, outcome, status\.provider_used \|\| task\.provider, \(blocker && blocker\.category\) \|\| 'unknown'\)/.test(src), 'the failure site passes the failure category');
 });
 

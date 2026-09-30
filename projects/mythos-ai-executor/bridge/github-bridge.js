@@ -1083,8 +1083,30 @@ function preflight(cfg, task, existingExecTask, executor) {
         requested_action: task.requested_action, execution_profile: expected, task_id: task.task_id, attempt_id: attemptId
       });
     }
+    // A catalog model is a CLAUDE model. An execution-worker instance (today
+    // Haddad: MYTHOS_BRIDGE_EXEC_PROVIDER=haddad-agent) runs every task on
+    // its local runtime, which serves one local model whatever it is asked
+    // for — so "Model: Fable 5.1" there used to run Qwen under a Fable label
+    // (live E2E #542, 2026-09-30). The request is refused, never substituted.
+    var worker = localWorkerProvider();
+    if (worker) {
+      return engine.blocker(engine.BLOCKER_CODES.MODEL_UNAVAILABLE, {
+        reason: 'model "' + hit.display_name + '" (' + hit.model + ') was requested explicitly (' + (task.model_source || 'task_file') + ', written "' + (task.model_raw || task.model) + '") but this bridge instance executes on ' + worker + ', which serves only its local model. It was NOT replaced by another model.',
+        requested_model: task.model_raw || task.model, model_key: hit.key, model_id: hit.model, model_source: task.model_source || 'task_file',
+        available_models: [], actual_model: null, provider: worker,
+        requested_action: task.requested_action, execution_profile: expected, task_id: task.task_id, attempt_id: attemptId
+      });
+    }
   }
   return null;
+}
+
+// The execution-worker provider this instance runs tasks on, or null when
+// it runs the Claude execution provider (the VPS default). The suites' mock
+// pin wins exactly as it does in claimTask, so it stays the provider there.
+function localWorkerProvider() {
+  if (process.env.MYTHOS_EXECUTOR_ALLOW_MOCK === '1' && process.env.MYTHOS_BRIDGE_PROVIDER === 'mock') return null;
+  return EXEC_WORKER_PROVIDER;
 }
 
 function claimTask(cfg, executor, entry, tasksById, runtime) {
@@ -1235,11 +1257,14 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
       model: task.model || null,
       working_directory: wt.dir,
       branch: wt.branch,
+      // The executor measures the task's changes as base..HEAD against this.
+      base_commit: wt.base || null,
       task_category: task.requested_action,
       action_source: exec.action_source,
       action_raw: task.action_raw || null,
       attempt_id: attemptId,
       required_tests: task.validation_requirements,
+      scope: task.scope || [],
       constraints: task.constraints,
       expected_delivery: exec.expected_delivery,
       report_to_git: false,
@@ -1372,6 +1397,8 @@ function buildReport(cfg, task, finalStatus, opts) {
     runtime_identity: runtime,
     structured_report: structured,
     files_changed: files.map(String),
+    files_changed_measured: exec.base_commit ? changedFiles(exec).map(String) : null,
+    identity: (erep && erep.measured && erep.measured.identity) || null,
     commits: commits,
     tests: (Array.isArray(r.tests) ? r.tests : []).map(function (t) { return typeof t === 'string' ? t : JSON.stringify(t); }),
     validation: {
@@ -1446,6 +1473,12 @@ function renderReportMarkdown(report) {
   l.push('| Runtime | ' + (report.runtime_identity ? '`' + String(report.runtime_identity.head || '?').slice(0, 12) + '` on `' + (report.runtime_identity.branch || '?') + '`' + (report.runtime_identity.code ? ' **' + report.runtime_identity.code + '**' : '') : 'RUNTIME_IDENTITY_UNVERIFIED') + ' |');
   l.push('| Model | `' + (report.execution.model || '—') + '` (' +
     (report.execution.model_selection_reason || report.execution.model_selection_mode || 'no selection recorded') + ') |');
+  if (report.identity) {
+    // Measured, next to the requested label above: which model ANSWERED.
+    l.push('| Serving model (measured) | `' + (report.identity.serving_model || 'unmeasured') + '` via `' + (report.identity.provider || '—') + '`' +
+      (report.identity.requested_model ? ' — requested `' + report.identity.requested_model + '`, match: ' + String(report.identity.match) : '') +
+      (report.identity.fallback_used ? ' (task-permitted fallback)' : '') + ' |');
+  }
   l.push('| Branch | `' + (report.delivery.branch || '—') + '` |');
   l.push('| Commits on origin | ' + String(report.delivery.commits_on_origin) + ' |');
   l.push('| Git verified | ' + String(report.validation.git_verified) + ' |');

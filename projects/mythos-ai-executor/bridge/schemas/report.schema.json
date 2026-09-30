@@ -26,6 +26,8 @@
     "status": { "type": "string", "enum": ["COMPLETED", "BLOCKED", "FAILED", "CANCELLED"] },
     "summary": { "type": "string", "minLength": 1, "maxLength": 20000 },
     "files_changed": { "type": "array", "items": { "type": "string", "maxLength": 400 } },
+    "files_changed_measured": { "type": ["array", "null"], "items": { "type": "string", "maxLength": 400 }, "description": "ONLY what git shows on the task branch (base..HEAD), measured by the bridge; files_changed also carries the worker's claims. null = no base to measure from." },
+    "identity": { "type": ["object", "null"], "description": "requested_model, provider, serving_model (MEASURED — claude -p modelUsage or the local runtime's model; null when unmeasured), fallback_used, match — lib/measured-outcome.js." },
     "commits": {
       "type": "array",
       "items": {

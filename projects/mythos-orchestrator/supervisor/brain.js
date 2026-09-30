@@ -37,6 +37,15 @@ function curateReport(report) {
     status: report.status,
     summary: cut(report.summary, 3000),
     files_changed: cutList(report.files_changed, 40, 200),
+    // Measured by the bridge (git base..HEAD); files_changed above also
+    // carries the worker's claims. null = not measured.
+    files_changed_measured: Array.isArray(report.files_changed_measured) ? cutList(report.files_changed_measured, 40, 200) : null,
+    // Which model ANSWERED (measured by the executor), next to what was asked.
+    identity: report.identity ? {
+      requested_model: report.identity.requested_model || null, provider: report.identity.provider || null,
+      serving_model: report.identity.serving_model || null, match: report.identity.match === undefined ? null : report.identity.match,
+      fallback_used: report.identity.fallback_used === true
+    } : null,
     commits: (report.commits || []).slice(0, 10).map(function (c) {
       return { sha: c.sha, subject: cut(c.subject, 200), on_origin: !!c.on_origin };
     }),
@@ -105,7 +114,7 @@ function create(cfg, opts) {
 
   function plan(task, reason) {
     return call(task, 'supervise_plan',
-      'Plan ONE executable task for this owner objective. The executor is FABLE (Claude, model ' + cfg.executor_model + ') working in a sandboxed worktree of ' +
+      'Plan ONE executable task for this owner objective. The executor is ' + (cfg.executor_model ? 'FABLE (Claude, model ' + cfg.executor_model + ')' : 'the local worker model') + ' working in a sandboxed worktree of ' +
       cfg.repository + ' through the MYTHOS bridge. Choose the least-privileged action: investigate/review (read-only report), test (run tests, read-only), ' +
       'document (docs commit), implement (code commit to a task branch; never merged automatically). Acceptance criteria must be checkable from the executor\'s report.',
       { objective: task.objective, owner_acceptance: task.owner_acceptance || [], allowed_actions: cfg.allowed_actions,

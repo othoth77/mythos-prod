@@ -157,7 +157,13 @@ function actionsOf(r, kind) { return (r.actions || []).filter(function (a) { ret
 function executorTasksFor(id) { return state.listTasks().filter(function (tid) { var t = state.readJSON(tid, 'task.json'); return t && t.stage === 'github:' + id; }); }
 function runExecutor(script) { mockProvider.reset(); process.env.MYTHOS_MOCK_SCRIPT = JSON.stringify(script); return executor.tick(); }
 function queued() { return state.listTasks().filter(function (tid) { var s = state.readStatus(tid); return s && s.status === 'QUEUED'; }); }
-async function drain() { for (var i = 0; i < 12 && queued().length; i++) await runExecutor([{ kind: 'success', summary: 'drained' }]); return queued().length === 0; }
+// A drained change task is done the way a correct worker does it: a real
+// commit, claimed in the report (mock `deliver`). Since 2026-09-30 a claim
+// without one is BLOCKED by the measured outcome (lib/measured-outcome.js).
+async function drain() { for (var i = 0; i < 12 && queued().length; i++) await runExecutor([{ kind: 'success', summary: 'drained', deliver: true }]); return queued().length === 0; }
+// A runnable acceptance check a change task declares, re-run by the executor
+// after the worker finishes (it proves the file the mock delivered).
+var DELIVERY_CHECK = '- node ' + path.join(BASE, 'scripts', 'mythos-assert-file.js') + ' MOCK_DELIVERY.md mock-delivered';
 
 var client;
 function full(opts) { return issues.issuesTick(executor, opts || {}); }
@@ -231,7 +237,7 @@ async function run() {
 
   // --- 1. Issue → PENDING task → created comment ----------------------------------------
   addIssue(1, { body: EN_BODY, title: 'TASK: read the fixture' });
-  addIssue(2, { body: '## Objective\nAdd a smoke file and commit it on the task branch.\n\nAction: implement\n\n## Validation\n- git status clean after commit', title: 'TASK: implement smoke' });
+  addIssue(2, { body: '## Objective\nAdd a smoke file and commit it on the task branch.\n\nAction: implement\n\n## Validation\n- node ' + path.join(BASE, 'scripts', 'mythos-assert-file.js') + ' SMOKE.md smoke', title: 'TASK: implement smoke' });
   addIssue(3, { body: 'Objective: I am a pull request that must never run as a task.', pull_request: { url: 'x' } });
   addIssue(4, { body: 'Objective: I am closed and must never run.', state: 'closed' });
   addIssue(5, { body: 'Objective: I have no task label and must never run.', labels: [{ name: 'bug' }] });
@@ -321,7 +327,7 @@ async function run() {
   var r4b = await full();
   ok(actionsOf(r4b.phases.notify, 'notify').length === 0 && markedComments(1, 'report').length === 1, 'tick4b: report is posted once');
 
-  await runExecutor([{ kind: 'success', summary: 'smoke committed' }]); // gh-issue-2
+  await runExecutor([{ kind: 'success', report: { mythos_report: true, status: 'completed', summary: 'smoke committed', tests: ['mock: pass'], files_changed: ['SMOKE.md'], commit: agentCommit } }]); // gh-issue-2
   var r4c = await full();
   var rep2 = reportOnDisk('gh-issue-2');
   ok(rep2 && rep2.status === 'COMPLETED' && rep2.commits.length === 1 && rep2.commits[0].sha === agentCommit && rep2.delivery.commits_on_origin === false, 'tick4c: implement task COMPLETED with a real commit not yet on origin');
@@ -519,9 +525,9 @@ async function run() {
   addIssue(20, { title: 'TASK: rerun inheritance', body: [
     '## Objective', 'Land the widget fix and commit it on the task branch.', '',
     'Action: implement', '',
-    '## Scope', '- src/widget.js', '- nothing else', '',
+    '## Scope', '- src/widget.js', '- MOCK_DELIVERY.md', '',
     '## Constraints', '- no network', '- no secrets', '',
-    '## Validation', '- the suite is green', '- git status clean'
+    '## Validation', DELIVERY_CHECK, '- git status clean'
   ].join('\n') });
   await full();
   ok(await drain(), 'rerun/setup: executor queue drained so #20 attempt 1 can finish');
@@ -716,7 +722,7 @@ async function run() {
     'P: a replay on the next tick is idempotent (already_converted, same key)');
 
   // G / I — rerun with a NEW explicit Action beats inheritance; H — rerun without one inherits.
-  addIssue(751, { title: 'TASK: rerun precedence', body: '## Objective\nFirst attempt is executive.\n\nAction: implement\n\n## Scope\n- src/x.js\n' });
+  addIssue(751, { title: 'TASK: rerun precedence', body: '## Objective\nFirst attempt is executive.\n\nAction: implement\n\n## Scope\n- MOCK_DELIVERY.md\n\n## Validation\n' + DELIVERY_CHECK + '\n' });
   await full();
   ok(await drain(), 'precedence: attempt 1 of #751 drained');
   await full();
@@ -754,10 +760,15 @@ async function run() {
   ok(await drain(), 'E2E: executor ran the attempt');
   await full();
   var rep760 = reportOnDisk('gh-issue-760');
-  ok(rep760 && rep760.status === 'COMPLETED' && rep760.resolution.requested_action === 'implement' && rep760.resolution.execution_profile === 'repo-write' && rep760.resolution.model === 'claude-fable-5-1' && rep760.resolution.model_requested === 'Fable 5.1' && rep760.execution.model === 'claude-fable-5-1' && rep760.attempt_id === 'gh-issue-760#1' && rep760.structured_report && rep760.structured_report.mythos_report === true,
+  // The live #118 body declares no runnable check. A change task that cannot
+  // be mechanically verified is not a completion (live E2E #542, 2026-09-30):
+  // the attempt ran exactly as resolved and stops for a person.
+  ok(rep760 && rep760.status === 'BLOCKED' && rep760.blocker && rep760.blocker.code === 'EVIDENCE_CONTRADICTION' && rep760.blocker.contradictions.indexOf('NOT_MECHANICALLY_VERIFIED') !== -1,
+    'E2E: #118 declares no runnable check → the change task is BLOCKED (NOT_MECHANICALLY_VERIFIED), never COMPLETED on its claim');
+  ok(rep760 && rep760.resolution.requested_action === 'implement' && rep760.resolution.execution_profile === 'repo-write' && rep760.resolution.model === 'claude-fable-5-1' && rep760.resolution.model_requested === 'Fable 5.1' && rep760.execution.model === 'claude-fable-5-1' && rep760.attempt_id === 'gh-issue-760#1' && rep760.structured_report && rep760.structured_report.mythos_report === true,
     'E2E: the report proves implement / repo-write / claude-fable-5-1 / attempt_id with a structured mythos_report');
   var rc760 = markedComments(760, 'report')[0];
-  ok(rc760 && /COMPLETED/.test(rc760.body) && /`implement`/.test(rc760.body) && /repo-write/.test(rc760.body) && /claude-fable-5-1/.test(rc760.body), 'E2E: the Issue report comment shows action, profile and model');
+  ok(rc760 && /BLOCKED/.test(rc760.body) && /`implement`/.test(rc760.body) && /repo-write/.test(rc760.body) && /claude-fable-5-1/.test(rc760.body), 'E2E: the Issue report comment shows action, profile and model');
 
   // M — the same Issue while Fable 5.1 is unavailable: BLOCKED MODEL_UNAVAILABLE, no substitute, structured report, Issue told.
   var modelPolicy = require(path.join(EXEC, 'lib', 'model-policy'));

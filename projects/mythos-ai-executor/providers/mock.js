@@ -40,7 +40,35 @@ function scriptEntries(opts) {
   return JSON.parse(raw);
 }
 
-function outcomeFor(entry, sessionId) {
+// Like `claude -p --output-format json`, a mock success records which model
+// answered in modelUsage: the task's model, or entry.serving to simulate a
+// different one (entry.serving === null: no usage record at all).
+function modelUsageFor(entry, task) {
+  var serving = Object.prototype.hasOwnProperty.call(entry, 'serving') ? entry.serving : (task && task.model) || null;
+  if (!serving) return undefined;
+  var u = {};
+  u[serving] = { inputTokens: 10, outputTokens: 10 };
+  return u;
+}
+
+// entry.deliver (tests only): on a commit-delivery task the mock behaves like
+// a worker that did the work — writes the files (default MOCK_DELIVERY.md),
+// commits them on the task's branch and reports that REAL commit — so a
+// fixture that needs a completion produces one lib/measured-outcome.js can
+// measure, instead of a claim it would (rightly) refuse.
+function deliver(entry, task, report) {
+  if (!entry.deliver || !task || task.expected_delivery !== 'commit' || !task.working_directory) return report;
+  var cp = require('child_process');
+  var files = (entry.deliver && typeof entry.deliver === 'object') ? entry.deliver : { 'MOCK_DELIVERY.md': 'mock-delivered\n' };
+  var names = Object.keys(files);
+  names.forEach(function (f) { fs.writeFileSync(path.join(task.working_directory, f), files[f]); });
+  var g = function (args) { return cp.execFileSync('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'user.name=mock', '-c', 'user.email=mock@mock.invalid'].concat(args), { cwd: task.working_directory, encoding: 'utf8' }).trim(); };
+  g(['add', '--'].concat(names));
+  g(['commit', '-q', '--no-verify', '-m', 'mock: deliver ' + names.join(', ')]);
+  return Object.assign({}, report, { commit: g(['rev-parse', 'HEAD']), files_changed: names });
+}
+
+function outcomeFor(entry, sessionId, task) {
   var base = {
     exit_code: 0, signal: null, timed_out: false, duration_ms: 5,
     stdout: '', stderr: '', parsed: null, session_id: sessionId, started_pid: process.pid
@@ -50,8 +78,8 @@ function outcomeFor(entry, sessionId) {
       base.parsed = {
         is_error: false,
         result: (entry.text || 'done') +
-          '\n```json\n{"mythos_report": true, "status": "completed", "summary": "' +
-          (entry.summary || 'mock success') + '", "tests": ["mock: pass"], "commit": null}\n```'
+          '\n```json\n' + JSON.stringify(deliver(entry, task, entry.report || { mythos_report: true, status: 'completed', summary: entry.summary || 'mock success', tests: ['mock: pass'], commit: null })) + '\n```',
+        modelUsage: modelUsageFor(entry, task)
       };
       return base;
     case 'malformed':
@@ -122,7 +150,7 @@ function run(task, prompt, sessionId, mode, opts, onSpawn) {
       }, 25);
     });
   }
-  return Promise.resolve(outcomeFor(entry, sessionId));
+  return Promise.resolve(outcomeFor(entry, sessionId, task));
 }
 
 function isMissingSession(outcome) {
