@@ -4,11 +4,11 @@ Format per mission §24. Updated at the end of every phase.
 
 ---
 
-**CURRENT PHASE:** PHASE 12 — stress testing (complete)
+**CURRENT PHASE:** PHASE 13 — Champion/Challenger + PHASE 14 — paper trading (complete)
 
-**CURRENT TASK:** PHASE 13 — Champion / Challenger
+**CURRENT TASK:** PHASE 15 — full integration testing
 
-**LAST VERIFIED COMMIT:** `5659377a` (PHASE 11, verified on `origin/mythos/trading-platform`)
+**LAST VERIFIED COMMIT:** `e3116435` (PHASE 12, verified on `origin/mythos/trading-platform`)
 
 ---
 
@@ -362,10 +362,73 @@ live trading the scenarios are not alternatives. And a suite that skipped scenar
 reports a `coverageWarning`, so `survived: true` cannot be read as coverage it does
 not have.
 
+### PHASE 13 — Champion / Challenger
+Mission §13's hardest sentence is "Never promote based on one profitable period",
+because an eight-item checklist can be satisfied by eight reports about the *same*
+profitable stretch. Two mechanisms prevent that, and both are tested:
+
+- **Evidence is bound to the challenger's config hash** and refused at the moment
+  it is attached, not silently counted at promotion time. A stress report produced
+  under a different configuration is not evidence about this one.
+- **Evidence must name its data segment**, and `minDistinctSegments` (default 2)
+  refuses a promotion whose entire case comes from one window — however many report
+  types it was sliced into. A re-run of the same kind on the same segment *replaces*
+  rather than accumulates, so it cannot inflate the segment count.
+
+All ten §13 evidence kinds are required. `DEMO_COMPARISON` is **listed as
+unsatisfiable while the platform is in BACKTEST** rather than omitted, and demo
+evidence claimed in BACKTEST mode is rejected as impossible.
+
+**An AGENT may not promote, seed or roll back** — refused before any evidence is
+read. The champion is "the currently approved system", and a gate an autonomous
+agent can satisfy and then act on is a delay, not a gate. An agent may register
+challengers, attach evidence and call `dryRun()` freely.
+
+The first champion is marked `SEEDED`, permanently distinguishable from one that
+passed the gate, and needs a written basis. Promotion carries the evidence with it
+— the evidence *is* the approval record. Rollback to the previous champion needs no
+fresh evidence, because a safety mechanism that needs paperwork to undo a mistake
+gets bypassed exactly when it matters.
+
+### PHASE 14 — paper trading
+A paper session drives the same pipeline from an incremental **feed** rather than an
+array, in PAPER mode. It places no order anywhere.
+
+**It cannot run without owner approval.** `create()` asserts the mode controller is
+in PAPER, and PAPER is only reachable through a single-use owner-approval record
+bound to the running config and commit. The paper adapter re-checks the live mode
+on *every fill*, so a mode downgrade stops it mid-session rather than only blocking
+construction — a test downgrades the mode underneath a live adapter and asserts the
+next fill throws.
+
+**The test this phase exists for:** a replayed paper session produces the **same
+trades, in the same order, at the same prices** as `engine.run()` over the same
+bars. Paper results are only evidence for a promotion if the two agree. Proven for
+a single instrument, for three instruments with a deliberately non-alphabetical
+universe order (where the global trade slot makes ordering decide which candidate
+wins), and with recovery enabled (where sizing is path-dependent).
+
+Two design points recorded in the source:
+- **The feed is deliberately poorer than an array** — no random access, no length,
+  no reading ahead — so code written against it cannot depend on the future, and
+  `assertFeed()` refuses a feed that exposes such a method. A guarded feed refuses a
+  tick that goes backwards in time.
+- **Indicators are recomputed over the full history every tick.** Several are seeded
+  from the start of the series (EMA, Wilder's ATR/RSI/ADX, the ATR percentile), so a
+  trailing-window recomputation would produce different values and break the
+  equivalence above. The O(n²) cost is irrelevant where it matters — a real M15
+  session gets one tick every fifteen minutes.
+
+Every paper record carries `paper: true` and both clocks (the bar's timestamp and
+the wall-clock instant the fill was computed), so paper evidence can never be
+mistaken for a backtest and a session falling behind its feed is visible.
+Two-arm **A/B** sessions feed both arms identical ticks and report deltas without
+calling a winner — that is the Champion/Challenger gate's decision.
+
 ## IN PROGRESS
 
-PHASE 13 — Champion / Challenger: the promotion gate that refuses on a single
-profitable period.
+PHASE 15 — full integration testing, then the architecture document and the
+`docs/AI_HANDOVER.md` entry AGENTS.md §18 requires.
 
 ## BLOCKED
 
@@ -378,7 +441,7 @@ rather than treated as blockers:
 
 ## NEXT TASK
 
-PHASE 13 — Champion / Challenger, then PHASE 14 — paper trading.
+PHASE 15 — full integration testing, then the architecture document and handover entry.
 
 ## TEST STATUS
 
@@ -400,7 +463,9 @@ PHASE 13 — Champion / Challenger, then PHASE 14 — paper trading.
 | `tests/analysis-agent-test.js` | 28 | pass |
 | `tests/research-agent-test.js` | 39 | pass |
 | `tests/stress-test.js` | 29 | pass |
-| **Total (`npm test`)** | **497** | **497 pass, 0 fail** |
+| `tests/champion-test.js` | 37 | pass |
+| `tests/paper-test.js` | 25 | pass |
+| **Total (`npm test`)** | **559** | **559 pass, 0 fail** |
 
 Run: `cd projects/mythos-trading-agent && npm test`
 
