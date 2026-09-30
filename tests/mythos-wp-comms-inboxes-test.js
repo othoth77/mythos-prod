@@ -42,7 +42,7 @@ var PORT = 0;
 function req(method, p, body, cookie) {
   return new Promise(function (resolve, reject) {
     var data = body ? JSON.stringify(body) : null;
-    var h = { 'Content-Type': 'application/json' }; if (data) h['Content-Length'] = Buffer.byteLength(data); if (cookie) h.Cookie = cookie;
+    var h = { 'Content-Type': 'application/json', 'X-Requested-With': 'MythosWP' }; if (data) h['Content-Length'] = Buffer.byteLength(data); if (cookie) h.Cookie = cookie;
     var rq = http.request({ host: '127.0.0.1', port: PORT, path: p, method: method, headers: h, agent: false }, function (res) { var b = ''; res.on('data', function (c) { b += c; }); res.on('end', function () { var j = null; try { j = JSON.parse(b); } catch (e) {} resolve({ status: res.statusCode, body: j, cookie: (res.headers['set-cookie'] || [''])[0].split(';')[0] }); }); });
     rq.on('error', reject); if (data) rq.write(data); rq.end();
   });

@@ -74,6 +74,16 @@ function loadConversation(pool, projectId, convId) {
   return pool.query("SELECT c.id, c.contact_id, c.status, c.handler, c.agent_id, c.inbox_id, c.project_id, i.ai_mode, i.outbound_enabled, i.status AS inbox_status, i.settings AS inbox_settings, EXISTS (SELECT 1 FROM wp_handoffs h WHERE h.conversation_id = c.id AND h.status IN ('NEW','REQUIRES_HUMAN','IN_PROGRESS')) AS handoff_open FROM wp_conversations c JOIN wp_inboxes i ON i.id = c.inbox_id WHERE c.project_id = $1 AND c.id = $2", [projectId, convId]).then(function (r) { return r.rows[0] || null; });
 }
 function inboxOf(c) { return { id: c.inbox_id, ai_mode: c.ai_mode, outbound_enabled: c.outbound_enabled, status: c.inbox_status, settings: c.inbox_settings }; }
+// aiOffReason(c, project, agent) → null | reason. `off` on any level means NO run, manual ones included
+// (docs/AI_AGENTS.md §4): the project (Project → AI), the number link (wp_inboxes.ai_mode), a HOLDING inbox
+// (the admin-only 'unassigned' project never runs AI) and, when an agent answers, its effective mode.
+function aiOffReason(c, project, agent) {
+  if (c.inbox_settings && c.inbox_settings.holding === true) return 'HOLDING_INBOX';
+  if (c.ai_mode === 'off') return 'INBOX_AI_OFF';
+  if (project && project.settings && project.settings.ai_mode === 'off') return 'PROJECT_AI_OFF';
+  if (agent && agents.effectiveMode(agent, inboxOf(c), project) === 'off') return 'MODE_OFF';
+  return null;
+}
 
 // ------------------------------------------------------------------ engines
 // Both engines produce one outcome: { engine, model, prompt_version, decision none|suggest|handoff, confidence, intent,
@@ -133,7 +143,7 @@ function suggest(pool, resolved, convId, actor, opts) {
   var projectId = resolved.project.id;
   var kind = opts.kind === 'auto_reply' ? 'auto_reply' : 'suggest';
   var t0 = Date.now();
-  var agent;
+  var agent, conv;
   return loadConversation(pool, projectId, convId).then(function (c) {
     if (!c) throw fail('not_found', 404, 'no such conversation');
     // Safety gate (enforced here, not only documented): a conversation flagged for a human gets no AI run.
@@ -141,9 +151,15 @@ function suggest(pool, resolved, convId, actor, opts) {
       return pool.query('INSERT INTO wp_conversation_events (project_id, conversation_id, kind, event_name, actor, payload) VALUES ($1,$2,\'ai_refused\',\'ai.refused\',$3,$4)', [projectId, convId, actor, JSON.stringify({ reason: c.status === 'needs_human' ? 'NEEDS_HUMAN' : 'HANDOFF_OPEN', trigger: opts.trigger || 'manual' })])
         .then(function () { throw fail('precondition', 412, 'conversation is flagged for a human; the assistant does not run'); });
     }
+    conv = c;
     return opts.agent !== undefined ? opts.agent : agents.resolveForConversation(pool, convId);
   }).then(function (a) {
     agent = a || null;
+    var off = aiOffReason(conv, resolved.project, agent);
+    if (off) {
+      return pool.query('INSERT INTO wp_conversation_events (project_id, conversation_id, kind, event_name, actor, payload) VALUES ($1,$2,\'ai_refused\',\'ai.refused\',$3,$4)', [projectId, convId, actor, JSON.stringify({ reason: off, trigger: opts.trigger || 'manual' })])
+        .then(function () { throw fail('precondition', 412, 'AI is off for this conversation (' + off + ')'); });
+    }
     return latestInbound(pool, projectId, convId, opts.message_id ? parseInt(opts.message_id, 10) : null);
   }).then(function (m) {
     if (!m) throw fail('precondition', 412, 'no inbound message to answer');

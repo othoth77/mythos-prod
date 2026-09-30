@@ -179,3 +179,19 @@ UI: WhatsApp → **Templates** (project picker, **New template** for manager+, *
 The Numbers table shows **Connected · Action required · Disconnected · Error** (hover for the reason).
 The rule behind them, and why a failed check never marks a number broken, is in
 [TROUBLESHOOTING.md](TROUBLESHOOTING.md#whatsapp-connection-states-what-the-four-words-mean).
+
+## Webhook address (Evolution on a private Docker network)
+
+Evolution cannot reach the host loopback. Point every instance webhook at the public receiver and send the token as a header:
+
+```
+POST /webhook/set/<instance>  {"webhook":{"enabled":true,"url":"https://wp.mythosprod.xyz/hooks/evolution","headers":{"x-mythos-webhook-token":"<token file>"},"byEvents":false,"base64":false,"events":["MESSAGES_UPSERT","MESSAGES_UPDATE","CONNECTION_UPDATE"]}}
+```
+
+and set `MYTHOS_WP_RECEIVER_URL=https://wp.mythosprod.xyz` so the number check expects that address.
+
+## Unassigned messages on a shared number
+
+Create the reserved project `unassigned` (internal) and a shared inbox on the number with `settings.holding = true`, AI off and replies off. Messages that no identity rule claims land there, visible to admin/owner only. Assign a sender by adding an identity rule to the right project.
+
+Since 2026-09-29 a conversation opened there starts with a human handler (it waits for a person; AI never runs in a holding inbox). Conversations opened before that still read "AI"; an admin can hand them to a human from the conversation, or align them once with `UPDATE wp_conversations SET handler = 'human' WHERE project_id = 'unassigned' AND handler = 'ai';` (reversible, touches nothing else).

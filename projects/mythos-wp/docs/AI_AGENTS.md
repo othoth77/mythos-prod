@@ -72,7 +72,7 @@ The engine-173 path remains the fallback generator of every agent.
 
 | Mode | Behaviour |
 |---|---|
-| `off` | no run |
+| `off` | no run — automatic or manual: `POST …/suggest` answers 412 with `INBOX_AI_OFF`, `PROJECT_AI_OFF`, `HOLDING_INBOX` or `MODE_OFF` and journals `ai.refused` |
 | `suggest` | on every persisted inbound of a conversation with `handler = 'ai'`, one `wp_ai_runs` row and, when a text was produced, one `wp_ai_suggestions` row (`proposed`); a human accepts / edits / rejects (`POST …/suggestions/:id/decide`) and sends through the normal outbound route with `ai_run_id` + `suggestion_id` |
 | `auto` | = suggest, and the reply is sent automatically **only when every gate passes** |
 

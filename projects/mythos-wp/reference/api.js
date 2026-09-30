@@ -62,6 +62,8 @@ function q(req) { return url.parse(req.url, true).query || {}; }
 
 var apiUtil = require('./api-util');
 var projectFrom = apiUtil.projectFrom;
+var inScopeOf = apiUtil.inScopeOf;
+var contactInScopeOf = apiUtil.contactInScopeOf;
 
 function resourceOr404(key) {
   var r = resources.get(key);
@@ -79,7 +81,7 @@ function crudCtx(req, r, resolved) {
     get pool() { return db.wp(); }, get auditPool() { return db.wp(); },
     project: resolved ? resolved.project : null,
     session: req.session, actor: req.session.username, hasRole: auth.hasRole,
-    requestId: req.requestId, client: req.socket.remoteAddress
+    requestId: req.requestId, client: auth.clientKey(req)
   };
 }
 
@@ -97,7 +99,8 @@ function parseFilters(query) {
 
 var ROUTES = [
   // --- session ---------------------------------------------------------
-  { method: 'POST', path: /^\/api\/login$/, role: false, csrf: false, handler: function (req, res, ctx) {
+  // login passes the CSRF check like every other mutation (login.js sends the header): no cross-site login
+  { method: 'POST', path: /^\/api\/login$/, role: false, handler: function (req, res, ctx) {
     var body = ctx.body || {};
     if (!auth.loginAllowed(req, body.username)) throw fail('throttled', 429, 'too many failed attempts; try again later');
     var pool = null; try { pool = db.wp(); } catch (e) { pool = null; } // no database env → users file only, never a 500
@@ -105,7 +108,7 @@ var ROUTES = [
       var v = auth.verifyCredentials(body.username, body.password, dbUsers);
       if (!v.ok) {
         auth.recordLoginFailure(req, body.username);
-        if (pool) audit.record(pool, { actor: auth.USERNAME_RE.test(String(body.username || '').toLowerCase()) ? String(body.username).toLowerCase() : 'invalid', action: 'login_failed', resource: 'session', request_id: req.requestId, client: req.socket.remoteAddress, next: { reason: v.reason } }).catch(function () {});
+        if (pool) audit.record(pool, { actor: auth.USERNAME_RE.test(String(body.username || '').toLowerCase()) ? String(body.username).toLowerCase() : 'invalid', action: 'login_failed', resource: 'session', request_id: req.requestId, client: auth.clientKey(req), next: { reason: v.reason } }).catch(function () {});
         if (v.reason === 'invalid' || v.reason === 'disabled') throw fail('unauthorized', 401, 'invalid credentials');
         throw fail('auth_unavailable', 503, 'authentication is not configured');
       }
@@ -115,7 +118,7 @@ var ROUTES = [
         var s = auth.createSession(v.user);
         ctx.setCookie(auth.sessionCookie(s.id));
         if (v.user.source === 'db' && pool) users.touchLogin(pool, v.user.username);
-        if (pool) audit.record(pool, { actor: v.user.username, role: v.user.role, action: 'login', resource: 'session', request_id: req.requestId, client: req.socket.remoteAddress }).catch(function () {});
+        if (pool) audit.record(pool, { actor: v.user.username, role: v.user.role, action: 'login', resource: 'session', request_id: req.requestId, client: auth.clientKey(req) }).catch(function () {});
         return { username: v.user.username, role: v.user.role, projects: access, expires_at: new Date(s.expiresAt).toISOString() };
       });
     });
@@ -124,7 +127,7 @@ var ROUTES = [
     auth.destroySession(req.session.id);
     ctx.setCookie(auth.clearedCookie());
     // signing out never depends on the database: the audit line is best-effort
-    Promise.resolve().then(function () { return audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'logout', resource: 'session', request_id: req.requestId, client: req.socket.remoteAddress }); }).catch(function () {});
+    Promise.resolve().then(function () { return audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'logout', resource: 'session', request_id: req.requestId, client: auth.clientKey(req) }); }).catch(function () {});
     return { signed_out: true };
   } },
   { method: 'GET', path: /^\/api\/session$/, role: 'any', handler: function (req) {
@@ -168,7 +171,7 @@ var ROUTES = [
     var query = q(req);
     return projectFrom(req).then(function (resolved) {
       return crud.list(r, crudCtx(req, r, resolved), { page: query.page, limit: query.limit, sort: query.sort, dir: query.dir, search: query.q, filters: parseFilters(query) }).then(function (page) {
-        if (r.key === 'projects' && req.session.projects !== null) { page.rows = page.rows.filter(function (p) { return auth.canSeeProject(req.session, p.id); }); page.total = page.rows.length; }
+        if (r.key === 'projects') { page.rows = page.rows.filter(function (p) { return auth.canSeeProject(req.session, p.id); }); page.total = page.rows.length; }
         return page;
       });
     });
@@ -179,7 +182,7 @@ var ROUTES = [
     var query = q(req);
     return projectFrom(req).then(function (resolved) {
       return crud.lookup(r, crudCtx(req, r, resolved), { search: query.q, ids: query.ids ? String(query.ids).split(',') : null, display: query.display, by: query.by }).then(function (rows) {
-        return r.key === 'projects' && req.session.projects !== null ? rows.filter(function (x) { return auth.canSeeProject(req.session, x.id); }) : rows;
+        return r.key === 'projects' ? rows.filter(function (x) { return auth.canSeeProject(req.session, x.id); }) : rows;
       });
     });
   } },
@@ -319,21 +322,21 @@ var ROUTES = [
   { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/suggest$/, role: 'operator', handler: function (req, res, ctx) {
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
       var cid = parseInt(ctx.params[2], 10);
-      return assistant.suggest(db.wp(), resolved, cid, req.session.username, { message_id: ctx.body && ctx.body.message_id, trigger: 'manual' }).then(function (out) {
+      return inScopeOf(req, resolved.project.id, cid).then(function () { return assistant.suggest(db.wp(), resolved, cid, req.session.username, { message_id: ctx.body && ctx.body.message_id, trigger: 'manual' }); }).then(function (out) {
         ctx.status(201);
-        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'create', resource: 'ai_runs', record_id: String(out.run_id), project_id: resolved.project.id, next: { conversation_id: cid, decision: out.decision, intent: out.intent, confidence: out.confidence }, request_id: req.requestId, client: req.socket.remoteAddress }).catch(function () {});
+        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'create', resource: 'ai_runs', record_id: String(out.run_id), project_id: resolved.project.id, next: { conversation_id: cid, decision: out.decision, intent: out.intent, confidence: out.confidence }, request_id: req.requestId, client: auth.clientKey(req) }).catch(function () {});
         return out;
       });
     });
   } },
   { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/suggestions$/, role: 'any', handler: function (req, res, ctx) {
-    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return assistant.listSuggestions(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10)); });
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { var cid = parseInt(ctx.params[2], 10); return inScopeOf(req, resolved.project.id, cid).then(function () { return assistant.listSuggestions(db.wp(), resolved.project.id, cid); }); });
   } },
   { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/suggestions\/([0-9]+)\/decide$/, role: 'operator', handler: function (req, res, ctx) {
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
       var cid = parseInt(ctx.params[2], 10), sid = parseInt(ctx.params[3], 10);
-      return assistant.decide(db.wp(), resolved.project.id, cid, sid, req.session.username, ctx.body || {}).then(function (out) {
-        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'update', resource: 'ai_suggestions', record_id: String(sid), project_id: resolved.project.id, next: { action: (ctx.body || {}).action, conversation_id: cid }, request_id: req.requestId, client: req.socket.remoteAddress }).catch(function () {});
+      return inScopeOf(req, resolved.project.id, cid).then(function () { return assistant.decide(db.wp(), resolved.project.id, cid, sid, req.session.username, ctx.body || {}); }).then(function (out) {
+        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'update', resource: 'ai_suggestions', record_id: String(sid), project_id: resolved.project.id, next: { action: (ctx.body || {}).action, conversation_id: cid }, request_id: req.requestId, client: auth.clientKey(req) }).catch(function () {});
         return out;
       });
     });
@@ -344,7 +347,7 @@ var ROUTES = [
       var cid = parseInt(ctx.params[2], 10);
       return inbox.scope(db.wp(), req.session.username).then(function (scope) { return outbound.send(db.wp(), resolved.project.id, cid, req.session.username, ctx.body || {}, scope); }).then(function (r) {
         ctx.status(r.duplicate ? 200 : 201);
-        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'create', resource: 'messages', record_id: String(r.message_id), project_id: resolved.project.id, next: { conversation_id: cid, status: r.status, duplicate: r.duplicate, length: String((ctx.body || {}).text || '').length }, request_id: req.requestId, client: req.socket.remoteAddress }).catch(function () {});
+        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'create', resource: 'messages', record_id: String(r.message_id), project_id: resolved.project.id, next: { conversation_id: cid, status: r.status, duplicate: r.duplicate, length: String((ctx.body || {}).text || '').length }, request_id: req.requestId, client: auth.clientKey(req) }).catch(function () {});
         return r;
       });
     });
@@ -352,7 +355,7 @@ var ROUTES = [
   { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)\/messages\/([0-9]+)\/retry$/, role: 'operator', handler: function (req, res, ctx) {
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
       return inbox.scope(db.wp(), req.session.username).then(function (scope) { return inbox.inScope(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), scope); }).then(function () { return outbound.retry(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username); }).then(function (r) {
-        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'update', resource: 'messages', record_id: String(r.message_id), project_id: resolved.project.id, next: { retry: true, status: r.status }, request_id: req.requestId, client: req.socket.remoteAddress }).catch(function () {});
+        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'update', resource: 'messages', record_id: String(r.message_id), project_id: resolved.project.id, next: { retry: true, status: r.status }, request_id: req.requestId, client: auth.clientKey(req) }).catch(function () {});
         return r;
       });
     });
@@ -363,7 +366,7 @@ var ROUTES = [
   { method: 'PATCH', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/conversations\/([0-9]+)$/, role: 'operator', handler: function (req, res, ctx) {
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
       return inbox.scope(db.wp(), req.session.username).then(function (scope) { return inbox.updateConversation(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), req.session.username, ctx.body || {}, scope); }).then(function (row) {
-        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'update', resource: 'conversations', record_id: String(row.id), project_id: resolved.project.id, next: ctx.body, request_id: req.requestId, client: req.socket.remoteAddress }).catch(function () {});
+        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'update', resource: 'conversations', record_id: String(row.id), project_id: resolved.project.id, next: ctx.body, request_id: req.requestId, client: auth.clientKey(req) }).catch(function () {});
         return row;
       });
     });
@@ -391,17 +394,18 @@ var ROUTES = [
   } },
   { method: 'PATCH', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/contacts\/([0-9]+)$/, role: 'operator', handler: function (req, res, ctx) {
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
-      return inbox.updateContact(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), req.session.username, ctx.body || {}).then(function (row) {
-        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'update', resource: 'contacts', record_id: String(row.id), project_id: resolved.project.id, next: ctx.body, request_id: req.requestId, client: req.socket.remoteAddress }).catch(function () {});
+      var kid = parseInt(ctx.params[2], 10);
+      return contactInScopeOf(req, resolved.project.id, kid).then(function () { return inbox.updateContact(db.wp(), resolved.project.id, kid, req.session.username, ctx.body || {}); }).then(function (row) {
+        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'update', resource: 'contacts', record_id: String(row.id), project_id: resolved.project.id, next: ctx.body, request_id: req.requestId, client: auth.clientKey(req) }).catch(function () {});
         return row;
       });
     });
   } },
   { method: 'POST', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/contacts\/([0-9]+)\/tags\/([0-9]+)$/, role: 'operator', handler: function (req, res, ctx) {
-    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.tagContact(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username, false).then(function (out) { return audited(req, { action: 'update', resource: 'contacts', record_id: ctx.params[2], project_id: resolved.project.id, next: { tag: out.tag, removed: false } }, out); }); });
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return contactInScopeOf(req, resolved.project.id, parseInt(ctx.params[2], 10)).then(function () { return inbox.tagContact(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username, false); }).then(function (out) { return audited(req, { action: 'update', resource: 'contacts', record_id: ctx.params[2], project_id: resolved.project.id, next: { tag: out.tag, removed: false } }, out); }); });
   } },
   { method: 'DELETE', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/contacts\/([0-9]+)\/tags\/([0-9]+)$/, role: 'operator', handler: function (req, res, ctx) {
-    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return inbox.tagContact(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username, true).then(function (out) { return audited(req, { action: 'update', resource: 'contacts', record_id: ctx.params[2], project_id: resolved.project.id, next: { tag: out.tag, removed: true } }, out); }); });
+    return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) { return contactInScopeOf(req, resolved.project.id, parseInt(ctx.params[2], 10)).then(function () { return inbox.tagContact(db.wp(), resolved.project.id, parseInt(ctx.params[2], 10), parseInt(ctx.params[3], 10), req.session.username, true); }).then(function (out) { return audited(req, { action: 'update', resource: 'contacts', record_id: ctx.params[2], project_id: resolved.project.id, next: { tag: out.tag, removed: true } }, out); }); });
   } },
   // SSE: per-project change feed (types + ids only; never message text). Heartbeat every 25 s.
   { method: 'GET', path: /^\/api\/projects\/([a-z0-9-]+)\/comms\/events$/, role: 'any', stream: true, handler: function (req, res, ctx) {
@@ -459,7 +463,7 @@ var ROUTES = [
     if (!text.trim()) throw fail('validation', 400, 'text is required', { errors: { text: 'required' } });
     return projectFrom(req, { project: ctx.params[1] }).then(function (resolved) {
       return autoreply.simulate(resolved, text).then(function (out) {
-        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'simulate', resource: 'autoreply', project_id: resolved.project.id, next: { intent: out.intent, action: out.action, outcome: out.outcome, verified: out.facts.verified, unknown: out.facts.unknown }, request_id: req.requestId, client: req.socket.remoteAddress }).catch(function () {});
+        audit.record(db.wp(), { actor: req.session.username, role: req.session.role, action: 'simulate', resource: 'autoreply', project_id: resolved.project.id, next: { intent: out.intent, action: out.action, outcome: out.outcome, verified: out.facts.verified, unknown: out.facts.unknown }, request_id: req.requestId, client: auth.clientKey(req) }).catch(function () {});
         return out;
       });
     });

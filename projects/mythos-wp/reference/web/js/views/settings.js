@@ -44,6 +44,7 @@ function generalPanel(ctx) {
 export function usersPanel(ctx, opts) {
   const root = h('div', { class: 'stack' });
   const admin = ctx.can('admin'), owner = ctx.can('owner');
+  if (!admin) { root.appendChild(roleNote(ctx, 'admin', opts.project ? 'Seeing and managing the members of a project' : 'Managing users')); return root; }
   const project = opts.project || null;
   const r = ctx.resources().users;
   root.appendChild(h('div', { class: 'toolbar' }, h('p', { class: 'dim' }, project ? 'Members of this project.' : 'Owner and admin see every project; other roles only the projects granted here.'), h('div', { class: 'spacer' }), h('button', { class: 'btn btn-primary', type: 'button', disabled: !owner || undefined, title: owner ? '' : 'Requires the owner role', onClick: () => userDialog(null).then((ok) => { if (ok) load(); }) }, 'New user')));
@@ -113,6 +114,7 @@ const CARDS = [
 ];
 export function integrationsPanel(ctx, opts) {
   const root = h('div', { class: 'stack' });
+  if (!ctx.can('manager')) { root.appendChild(roleNote(ctx, 'manager', 'Reading integrations')); return root; }
   const admin = ctx.can('admin');
   const project = opts.project || null;
   if (!opts.cards) root.appendChild(h('div', { class: 'toolbar' }, h('div', { class: 'spacer' }), h('button', { class: 'btn btn-primary btn-sm', type: 'button', disabled: !admin || undefined, onClick: () => editDialog(null).then((ok) => { if (ok) load(); }) }, 'New integration')));
@@ -303,9 +305,9 @@ function systemPanel(ctx, query) {
   root.appendChild(healthCard(ctx));
   root.appendChild(h('div', { class: 'card', id: 'audit' }, cardHead('Audit'), auditPanel(ctx, { query: qget(query, 'sub') === 'audit' ? query : '', prefKey: 'audit-v2' })));
   root.appendChild(h('div', { class: 'card' }, cardHead('Backup'),
-    h('p', {}, 'The database (customer conversations included) is dumped with pg_dump from the idauto-postgres container into /var/backups/mythos-db. It is not part of the scheduled multi-database backup: the rollout script takes a dump before every migration, and the owner runs one by hand before any risky change.'),
-    codeBlock('docker exec idauto-postgres pg_dump -U idauto -Fc mythos_wp > /var/backups/mythos-db/mythos_wp-$STAMP.dump\nsha256sum /var/backups/mythos-db/mythos_wp-$STAMP.dump > /var/backups/mythos-db/mythos_wp-$STAMP.dump.sha256', 'backup command'),
-    kv([['Last known dump', h('code', {}, 'mythos_wp-v2-pre-20260917T123551Z.dump')], ['Restore', 'pg_restore --clean --if-exists into mythos_wp, unit stopped first (docs/DEPLOYMENT.md)'], ['Not in any dump', '.env, users.json, webhook.token — backed up separately by the owner']])));
+    h('p', {}, 'The database (customer conversations included) is backed up every day off-host by the scheduled backup (mythos-backup-db-wp.timer, 05:20 UTC: dump, checksum, push, remote verify), verified again every afternoon (mythos-backup-db-verify-wp.timer), and restore-tested with mythos-backup-run-db.sh restore-test. The rollout script also takes a local dump into /var/backups/mythos-db before every deployment.'),
+    codeBlock('systemctl list-timers mythos-backup-db-wp.timer mythos-backup-db-verify-wp.timer\ncat /home/deploy/mythos-backups/health/backup-health-db-wp.json', 'backup status'),
+    kv([['Restore', 'pg_restore --clean --if-exists into mythos_wp, unit stopped first (docs/DEPLOYMENT.md)'], ['Not in any dump', '.env, users.json, webhook.token — backed up separately by the owner']])));
   root.appendChild(runsPanel(ctx, { project: ctx.project() }));
   return root;
 }
@@ -334,6 +336,7 @@ function healthCard(ctx) {
       { label: 'Last check', cell: (c) => relTime(c.checked_at), cls: 'dim' }
     ], comps, { compact: true, noScroll: true }));
   }
+  if (!manager) { clear(box); box.appendChild(roleNote(ctx, 'manager', 'Reading the health center')); return card; }
   ctx.api.get('/api/health/center').then(show, (err) => { clear(box); box.appendChild(errorBox(err)); });
   return card;
 }
@@ -341,10 +344,14 @@ function healthCard(ctx) {
 export function auditPanel(ctx, opts) {
   const r = ctx.resources().audit;
   if (!r) return empty('Audit is not available on this server.');
+  if (!ctx.can((r.permissions && r.permissions.read) || 'manager')) return roleNote(ctx, (r.permissions && r.permissions.read) || 'manager', 'Reading the audit log');
   const root = h('div', { class: 'stack sm' });
   const state = stateFromQuery(opts.query || '');
   let project = opts.project || new URLSearchParams(opts.query || '').get('project') || (ctx.isAll() ? '' : ctx.project());
-  const projSel = h('select', { class: 'select', 'aria-label': 'Project filter' }, h('option', { value: '' }, 'Any project'), ctx.projects().map((p) => h('option', { value: p.id, selected: project === p.id || undefined }, p.display_name)));
+  // a project-scoped session reads the audit of one of its projects at a time (the server answers 400 otherwise)
+  const scoped = Array.isArray(ctx.state.meta.user && ctx.state.meta.user.projects);
+  if (scoped && !project && ctx.projects().length) project = ctx.projects()[0].id;
+  const projSel = h('select', { class: 'select', 'aria-label': 'Project filter' }, scoped ? null : h('option', { value: '' }, 'Any project'), ctx.projects().map((p) => h('option', { value: p.id, selected: project === p.id || undefined }, p.display_name)));
   const actorIn = h('input', { class: 'input', placeholder: 'who', 'aria-label': 'Actor filter', value: state.filters.actor || '' });
   const actionIn = h('input', { class: 'input', placeholder: 'action', 'aria-label': 'Action filter', value: state.filters.action || '' });
   const resIn = h('input', { class: 'input', placeholder: 'what', 'aria-label': 'Resource filter', value: state.filters.resource || '' });

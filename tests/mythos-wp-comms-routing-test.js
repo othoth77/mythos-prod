@@ -217,6 +217,30 @@ migrate.up(pool).then(wipe)
   .then(function (x) { ok(x.status === 200 && x.data.items.length === 5 && JSON.stringify(x.data.items).indexOf('2165') === -1, 'drops listing exposes no identities'); })
   .then(function () { return q("SELECT count(*)::int AS n FROM wp_inbound_events WHERE instance = $1 AND status = 'persisted' AND event_name = 'message.received'", [INST]); })
   .then(function (r) { ok(r.rows[0].n >= 5, 'ledger: routed messages are ledgered as usual (' + r.rows[0].n + ')'); })
+  // ---------- REGRESSION 2026-09-19: a real customer message on the shared personal number was lost (no rule → hash-only
+  // drop). With a HOLDING inbox (admin-only 'unassigned' project) an unroutable message is kept as "Needs attention".
+  .then(function () {
+    var ibA = { id: ids.a, project_id: 'svc-a', account_mode: 'shared', account_ref: OWNER };
+    var hold = { id: 999, project_id: 'unassigned', account_mode: 'shared', account_ref: OWNER, settings: { holding: true } };
+    var stranger = { provider: 'evolution', text: 'x', contact: { identities: [{ kind: 'phone', value: '21655000999' }] } };
+    var d = routing.decide([ibA, hold], [], stranger, { personal: true });
+    ok(d.routed === true && d.mode === 'unassigned' && d.inbox.id === 999 && d.unrouted_reason === 'UNROUTED', 'holding: an unroutable sender on a personal shared number is held, not dropped');
+    ok(routing.decide([ibA, hold], [], { provider: 'evolution', contact: { identities: [{ kind: 'phone', value: OWNER }] } }, { personal: true }).reason === 'OWNER_EXCLUDED', 'holding: the owner number is still never held');
+    ok(routing.decide([ibA, hold], [], { provider: 'evolution', contact: { identities: [] } }, { personal: true }).reason === 'IDENTITY_MISSING', 'holding: an event without identity is still dropped');
+    ok(routing.decide([ibA], [], stranger, { personal: true }).reason === 'UNROUTED', 'holding: without a holding inbox the privacy drop is unchanged');
+    var ruled = routing.decide([ibA, hold], [{ id: 5, inbox_id: ids.a, project_id: 'svc-a', kind: 'allowlist', identity_kind: 'phone', identity_value: '21655000999', enabled: true, priority: 1 }], stranger, { personal: true });
+    ok(ruled.routed && ruled.mode === 'rule' && ruled.inbox.id === ids.a, 'holding: an identity rule still wins over the holding inbox');
+    ok(auth.canSeeProject({ role: 'manager', projects: null }, 'unassigned') === false && auth.canSeeProject({ role: 'admin', projects: null }, 'unassigned') === true && auth.canSeeProject({ role: 'agent', projects: ['unassigned'] }, 'unassigned') === false, 'holding: the unassigned project is admin/owner only, even for all-projects accounts');
+    return q("INSERT INTO wp_projects (id, display_name, kind) VALUES ('unassigned', 'Unassigned — needs attention', 'internal')").then(function () { require(path.join(WP, 'reference/projects-store')).invalidate(); });
+  })
+  .then(function () { return routing.createSharedInbox(pool, 'unassigned', { instance: INST, account_ref: OWNER, display_name: 'Unassigned', allow_personal_account: true }, 'own'); })
+  .then(function (row) { return q("UPDATE wp_inboxes SET settings = settings || '{\"holding\": true}'::jsonb, status = 'open', inbound_enabled = true, ai_mode = 'off' WHERE id = $1", [row.id]).then(function () { ids.hold = row.id; }); })
+  .then(function () { return hook(msg('HOLD-1', '21655000999', 'Bonjour, je cherche une piece')); })
+  .then(function (x) { ok(x.status === 200 && x.body.persisted === true, 'holding E2E: the real-shape inbound is persisted (' + JSON.stringify(x.body).slice(0, 120) + ')'); return q("SELECT c.project_id, c.inbox_id, c.routed_by, m.text FROM wp_messages m JOIN wp_conversations c ON c.id = m.conversation_id WHERE m.provider_message_id = 'HOLD-1'"); })
+  .then(function (r) { ok(r.rows[0] && r.rows[0].project_id === 'unassigned' && String(r.rows[0].inbox_id) === String(ids.hold) && r.rows[0].routed_by === 'unassigned' && /piece/.test(r.rows[0].text), 'holding E2E: stored in the Unassigned inbox with its text, routed_by=unassigned'); return req('GET', '/api/projects/unassigned/comms/conversations', undefined, 'own'); })
+  .then(function (x) { ok(x.status === 200 && x.data.items.length >= 1, 'holding E2E: visible in the Inbox API for the owner (' + x.status + ' ' + JSON.stringify(x.body || x.data).slice(0, 160) + ')'); return req('GET', '/api/projects/unassigned/comms/conversations', undefined, 'op'); })
+  .then(function (x) { ok(x.status === 404, 'holding E2E: hidden from a manager (' + x.status + ')'); return hook(msg('HOLD-OWN', OWNER, 'note to self')); })
+  .then(function (x) { ok(x.body.persisted !== true, 'holding E2E: the owner number is never held'); })
   .then(function () { return wipe(); })
   .then(function () { server.close(); return pool.end(); })
   .then(function () { finish(); })

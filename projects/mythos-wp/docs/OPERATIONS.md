@@ -18,6 +18,7 @@ cd /home/deploy/worktrees/mythos-wp-main/projects/mythos-wp
 | `users import` | 0600 users file → `wp_users` (existing names untouched, `all_projects = true`) |
 | `users add <username> <role> [--display "Name"] [--all-projects]` | create/update an account; password from stdin or `MYTHOS_WP_NEW_PASSWORD` (≥ 12 chars) |
 | `users list` | accounts (no hash) |
+| `users remove <username>` | delete a `wp_users` account with its project grants and inbox memberships (audited); refuses the last active owner |
 | `users grant <user> <project>` / `users revoke <user> <project>` | `wp_user_projects` |
 | `set-password <users.json> <username> <role>` · `remove-user` · `list-users` | the bootstrap file (break-glass) |
 | `seed-project <id> <display_name> <domain\|-> <brand_car\|-> [catalog_dsn_env\|-] [catalog_schema\|-]` | upsert a project row by hand (the panel's **New project** form is the normal path; the two catalogue arguments are legacy — leave them `-`) |
@@ -110,6 +111,19 @@ Global search (`GET /api/search?q=&project=`, the Ctrl / ⌘ K menu) returns **p
 ## 11. Retention and erasure (owner-run, not automatic)
 
 Retention windows are business rules (`wp_business_rules` key `comms.retention`); after the window `wp_messages.text` and `raw` are set to NULL and `redacted_at` stamped, attachments purged; rows and counters stay. Right to erasure: contact `status = merged | blocked` plus the same purge over its conversations. The receiver never deletes anything. Routing-drop hashes are personal data: purge `wp_routing_drops` with the same policy.
+
+## 11b. Production smoke — `tools/smoke.js`
+
+Read-only; never writes business data.
+
+```bash
+# public checks only (TLS, headers, 401s, CSRF, webhook token, traversal, assets)
+node projects/mythos-wp/tools/smoke.js
+# + roles / isolation / PII, with temporary accounts smoke-{admin,manager,agent,viewer} (removed at the end)
+sudo -u deploy bash -c 'set -a; . /home/deploy/deployments/mythos-wp/.env; set +a; cd /home/deploy/worktrees/mythos-wp-main && node projects/mythos-wp/tools/smoke.js --accounts'
+```
+
+`--project <id>` picks the project granted to the lower roles (default: the first active automotive/service project); `--json` prints a machine-readable result. Exit 0 = all passed.
 
 ## 12. Routine checklist
 

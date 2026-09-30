@@ -28,11 +28,11 @@ Companion: `ARCHITECTURE.md`, `ENVIRONMENT.md`, `WHATSAPP_SETUP.md` §5–6, `MC
 | numbers, accounts, links, inbox switches, routing rules, integrations, automations, agents config, Meta/MCP config, users' passwords & project grants, projects | admin |
 | delete accounts / numbers / agents / integrations, create an owner, reset an owner password | owner |
 
-Project access: owner/admin, `all_projects` users and file logins see every project; others only `wp_user_projects` (`projects: [ids]` in the session, refreshed by `setSessionProjects`). `api-util.projectFrom()` returns 404 for a project the caller cannot see. Inbox memberships (`wp_inbox_members`) narrow visibility further inside a project. Full phone digits (`phone_ref`, contact `phone`) are returned to admin+ only; everyone else sees `***` + last digits.
+Project access: owner/admin, `all_projects` users and file logins see every project; others only `wp_user_projects` (`projects: [ids]` in the session, refreshed by `setSessionProjects`). `api-util.projectFrom()` returns 404 for a project the caller cannot see. Inbox memberships (`wp_inbox_members`) narrow visibility further inside a project: every conversation and contact route — reads, writes, AI suggest / suggestions / decide / auto-reply, handoffs, contact edit and tags, Contacts 360 — answers 404 outside the caller's inboxes (`api-util.inScopeOf` / `contactInScopeOf`, `contacts360` `inboxes`). Full phone digits (`phone_ref`, contact `phone`) are returned to admin+ only; everyone else sees `***` + last digits, and the digit form of `GET /api/contacts/360/<digits>` is admin-only (no lookup oracle).
 
 ## 4. CSRF and headers
 
-- State-changing requests must carry `X-Requested-With: MythosWP`; when `Origin` / `Sec-Fetch-Site` are present they must be same-origin (`csrf_header_missing`, `csrf_origin_mismatch`, `csrf_cross_site` → 403). Login is exempt from the header only.
+- State-changing requests must carry `X-Requested-With: MythosWP`; when `Origin` / `Sec-Fetch-Site` are present they must be same-origin (`csrf_header_missing`, `csrf_origin_mismatch`, `csrf_cross_site` → 403). Login is no longer exempt (2026-09-29): a cross-site login is refused.
 - JSON bodies ≤ 256 KiB, `Content-Type: application/json` required (415 / 400 / 413).
 - Headers on every response: `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; font-src 'self'; connect-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, COOP / CORP `same-origin`, `Permissions-Policy` (camera, microphone, geolocation off), `Cache-Control: no-store` on the API. No inline script or style anywhere; the check pipeline fails on an inline handler or a literal colour.
 
@@ -48,6 +48,10 @@ Body limit `MYTHOS_WP_RECEIVER_MAX_BODY` (default 512 KiB; 413 closes the connec
 ## 6. Privacy guard on shared and personal numbers
 
 Routing runs before any ledger row; an unrouted message on a shared number leaves only hashes (`wp_routing_drops`: `identity_sha256 = sha256(kind:value:instance)`, `payload_sha256`) — the hash is personal data (enumerable phone space) and is never returned by the API. Personal numbers route by identity only (no keyword, no default, no sticky). Rejected deliveries on an instance that hosts a shared inbox keep **no** payload. Details: `WHATSAPP_SETUP.md` §5.
+
+## 6b. Outbound requests (SSRF)
+
+Integration rows hold a loopback `http` or an `https` location; plain `http` elsewhere is refused. Link-local / cloud-metadata (`169.254.0.0/16`, `fe80::/10`) and unspecified (`0.0.0.0`, `::`) addresses are refused at validation and again on every address DNS returns when a probe connects (`integrations.forbiddenAddress` + `guardedLookup`), so a name cannot rebind onto them. The Evolution and Kitchen base URLs come from the environment, not from admin-editable rows.
 
 ## 7. Secrets
 
@@ -67,7 +71,7 @@ Routing runs before any ledger row; an unrouted message on a shared number leave
 
 ## 9. Audit log
 
-`wp_audit_events`: actor (username or `system:<component>` / `db:wp_inboxes_guard` / `cli:<user>`), role, action (`create update delete login login_failed logout status setting upsert simulate send handoff route run sync test execute check import link unlink`), resource, record id, project, changed fields, previous / next (redacted), request id, client. Readable at Settings → System → Audit (`#/audit` redirects there; per project under Project → Advanced → Audit) and `GET /api/audit/:resource/:id`; a failed audit write never undoes the business mutation and is reported as `audited:false`.
+`wp_audit_events`: actor (username or `system:<component>` / `db:wp_inboxes_guard` / `cli:<user>`), role, action (`create update delete login login_failed logout status setting upsert simulate send handoff route run sync test execute check import link unlink`), resource, record id, project, changed fields, previous / next (redacted), request id, client (the address nginx forwards in `X-Real-IP`, trusted only from a loopback socket — `auth.clientKey`). Readable at Settings → System → Audit (`#/audit` redirects there; per project under Project → Advanced → Audit) and `GET /api/audit/:resource/:id`; a failed audit write never undoes the business mutation and is reported as `audited:false`.
 
 ## 10. Process hardening
 

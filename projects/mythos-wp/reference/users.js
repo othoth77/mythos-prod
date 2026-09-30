@@ -78,4 +78,18 @@ function upsert(pool, u, actor) {
   return pool.query('INSERT INTO wp_users (username, display_name, role, scrypt, status, all_projects, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (username) DO UPDATE SET role = EXCLUDED.role, scrypt = EXCLUDED.scrypt, display_name = COALESCE(EXCLUDED.display_name, wp_users.display_name), status = EXCLUDED.status, all_projects = EXCLUDED.all_projects, updated_at = now() RETURNING username, role, status, all_projects, (xmax = 0) AS created',
     [u.username, u.display_name || null, u.role, auth.hashPassword(u.password), u.status || 'active', u.all_projects === true, actor || 'cli']).then(function (r) { return r.rows[0]; });
 }
-module.exports = { list: list, forLogin: forLogin, projectsOf: projectsOf, accessList: accessList, touchLogin: touchLogin, setPassword: setPassword, setProjects: setProjects, importFile: importFile, upsert: upsert };
+// remove(pool, username, actor) → { removed } — CLI helper (temporary smoke accounts). Project grants go with the
+// row (FK cascade), inbox memberships are deleted explicitly; the last active owner account is never removed.
+function remove(pool, username, actor) {
+  username = String(username || '').toLowerCase();
+  if (!auth.USERNAME_RE.test(username)) throw fail('validation', 400, 'username shape');
+  return pool.query("SELECT role, status, (SELECT count(*)::int FROM wp_users WHERE role = 'owner' AND status = 'active') AS owners FROM wp_users WHERE username = $1", [username]).then(function (r) {
+    var row = r.rows[0];
+    if (!row) return { removed: 0 };
+    if (row.role === 'owner' && row.status === 'active' && row.owners <= 1) throw fail('conflict', 409, 'refusing to remove the last active owner');
+    return pool.query('DELETE FROM wp_inbox_members WHERE username = $1', [username])
+      .then(function () { return pool.query('DELETE FROM wp_users WHERE username = $1', [username]); })
+      .then(function (d) { return require('./audit').record(pool, { actor: actor || 'cli', role: 'owner', action: 'delete', resource: 'users', record_id: username, previous: { role: row.role, status: row.status }, client: 'local' }).then(function () { return { removed: d.rowCount }; }); });
+  });
+}
+module.exports = { remove: remove, list: list, forLogin: forLogin, projectsOf: projectsOf, accessList: accessList, touchLogin: touchLogin, setPassword: setPassword, setProjects: setProjects, importFile: importFile, upsert: upsert };

@@ -100,6 +100,12 @@ function inScope(pool, projectId, convId, scope) {
   return pool.query('SELECT 1 FROM wp_conversations WHERE project_id = $1 AND id = $2 AND inbox_id = ANY($3::bigint[])', [projectId, convId, scope.length ? scope : [-1]])
     .then(function (r) { if (!r.rows[0]) throw fail('not_found', 404, 'no such conversation'); });
 }
+// contactInScope — a member-scoped caller reaches a contact only through a conversation in one of their inboxes
+function contactInScope(pool, projectId, contactId, scope) {
+  if (!scope) return Promise.resolve();
+  return pool.query('SELECT 1 FROM wp_conversations WHERE project_id = $1 AND contact_id = $2 AND inbox_id = ANY($3::bigint[]) LIMIT 1', [projectId, contactId, scope.length ? scope : [-1]])
+    .then(function (r) { if (!r.rows[0]) throw fail('not_found', 404, 'no such contact'); });
+}
 function markRead(pool, projectId, convId, actor, scope) {
   return inScope(pool, projectId, convId, scope).then(function () { return pool.query('UPDATE wp_conversations SET unread_count = 0, updated_at = now() WHERE project_id = $1 AND id = $2 RETURNING id', [projectId, convId]); }).then(function (r) {
     if (!r.rows[0]) throw fail('not_found', 404, 'no such conversation');
@@ -203,4 +209,4 @@ function tagContact(pool, projectId, contactId, tagId, actor, remove) {
     return (remove ? pool.query('DELETE FROM wp_contact_tags WHERE contact_id = $1 AND tag_id = $2', [contactId, tagId]) : pool.query('INSERT INTO wp_contact_tags (contact_id, tag_id, added_by) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [contactId, tagId, actor])).then(function () { return { contact_id: contactId, tag: t.rows[0].name, removed: !!remove }; });
   });
 }
-module.exports = { STATUSES: STATUSES, mask: mask, scope: scope, inScope: inScope, memberships: memberships, listConversations: listConversations, counts: counts, getConversation: getConversation, listMessages: listMessages, markRead: markRead, updateConversation: updateConversation, addNote: addNote, listTags: listTags, createTag: createTag, tagConversation: tagConversation, listContacts: listContacts, getContact: getContact, updateContact: updateContact, tagContact: tagContact, event: event };
+module.exports = { STATUSES: STATUSES, mask: mask, scope: scope, inScope: inScope, contactInScope: contactInScope, memberships: memberships, listConversations: listConversations, counts: counts, getConversation: getConversation, listMessages: listMessages, markRead: markRead, updateConversation: updateConversation, addNote: addNote, listTags: listTags, createTag: createTag, tagConversation: tagConversation, listContacts: listContacts, getContact: getContact, updateContact: updateContact, tagContact: tagContact, event: event };

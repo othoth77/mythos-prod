@@ -126,6 +126,9 @@ node tests/mythos-wp-comms-*-test.js                   # receiver, outbound, rou
 node tests/mythos-wp-v2-whatsapp-test.js               # V2 suites: whatsapp, platform, ai
 node tests/mythos-wp-v2-platform-test.js
 node tests/mythos-wp-v2-ai-test.js
+node tests/mythos-wp-v21-*-test.js                     # WhatsApp status, Kitchen search
+node tests/mythos-wp-final-closure-test.js             # membership fence, AI off, audit client, SSRF, login CSRF
+node projects/mythos-wp/tools/smoke.js [--accounts]    # production smoke (read-only)
 ```
 
 ## Naming

@@ -173,8 +173,12 @@ function refreshUserProjects(username, projects) { Object.keys(sessions).forEach
 // setSessionProjects(id, projects|null) — refresh a live session's access list after an admin change
 function setSessionProjects(id, projects) { if (sessions[id]) sessions[id].projects = projects === null ? null : (projects || []).slice(); }
 // canSeeProject(session, projectId) — owner/admin (projects === null) see everything
+// HOLDING_PROJECT holds unroutable messages of a shared (possibly personal) number: admin/owner only, even for
+// accounts that otherwise see every project.
+var HOLDING_PROJECT = 'unassigned';
 function canSeeProject(session, projectId) {
   if (!session) return false;
+  if (String(projectId) === HOLDING_PROJECT && !hasRole(session, 'admin')) return false;
   if (session.projects === null || session.projects === undefined) return true;
   return session.projects.indexOf(String(projectId)) !== -1;
 }
@@ -296,6 +300,7 @@ module.exports = {
   refreshUserProjects: refreshUserProjects,
   clientKey: clientKey,
   canSeeProject: canSeeProject,
+  HOLDING_PROJECT: HOLDING_PROJECT,
   CSRF_HEADER: CSRF_HEADER,
   CSRF_VALUE: CSRF_VALUE,
   LOGIN_MAX_FAILURES: LOGIN_MAX_FAILURES,

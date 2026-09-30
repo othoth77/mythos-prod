@@ -54,7 +54,7 @@ function resolveContact(c, projectId, ev, provider) {
   });
 }
 // routeInfo (V2): { routed_by: dedicated|rule|sticky|keyword|default|manual, rule_id } stored on the conversation at open time
-var ROUTED_BY = { dedicated: true, rule: true, sticky: true, keyword: true, default: true, manual: true };
+var ROUTED_BY = { dedicated: true, rule: true, sticky: true, keyword: true, default: true, manual: true, unassigned: true };
 function routeOf(routeInfo) {
   var by = routeInfo && ROUTED_BY[routeInfo.routed_by] ? routeInfo.routed_by : null;
   var rule = routeInfo && routeInfo.rule_id ? parseInt(routeInfo.rule_id, 10) || null : null;
@@ -65,13 +65,27 @@ function liveConversation(c, inbox, contactId, ev, routeInfo) {
     .then(function (r) {
       if (r.rows[0]) return { id: r.rows[0].id, status: r.rows[0].status, opened: false };
       var ri = routeOf(routeInfo);
-      return c.query('INSERT INTO wp_conversations (project_id, inbox_id, contact_id, provider_chat_id, status, routed_by, route_rule_id) VALUES ($1,$2,$3,$4,\'open\',$5,$6) RETURNING id', [inbox.project_id, inbox.id, contactId, ev.chat_id, ri.routed_by, ri.rule_id])
+      // who answers from the first message: a HOLDING inbox (the admin-only 'unassigned' project) or a link whose AI is
+      // off never runs the AI, so its conversations start with a human — they count as "waiting for human", not "AI"
+      var handler = (inbox.settings && inbox.settings.holding === true) || inbox.ai_mode === 'off' ? 'human' : 'ai';
+      return c.query('INSERT INTO wp_conversations (project_id, inbox_id, contact_id, provider_chat_id, status, routed_by, route_rule_id, handler) VALUES ($1,$2,$3,$4,\'open\',$5,$6,$7) RETURNING id', [inbox.project_id, inbox.id, contactId, ev.chat_id, ri.routed_by, ri.rule_id, handler])
         .then(function (x) { return { id: x.rows[0].id, status: 'open', opened: true, routed_by: ri.routed_by, rule_id: ri.rule_id }; });
     });
 }
 // ingest(pool, inbox, ev, routeInfo) → { persisted, duplicate, message_id, conversation_id, contact_id, opened }
+// A burst of messages from a NEW sender runs concurrent transactions that each try to create the same contact /
+// live conversation; the losers hit a unique index (23505: wp_contacts_wa_id_uidx, wp_contact_identities,
+// wp_conversations_live_uidx). The winner has committed by then, so the transaction is simply run again: it finds the
+// rows and appends the message (seen in production 2026-09-30 11:27 — three messages saved only by Evolution's retries).
+var INGEST_ATTEMPTS = 3;
+function ingestRetrying(pool, inbox, ev, routeInfo, attempt) {
+  return ingestTx(pool, inbox, ev, routeInfo).catch(function (e) {
+    if (e && e.code === '23505' && attempt < INGEST_ATTEMPTS) return ingestRetrying(pool, inbox, ev, routeInfo, attempt + 1);
+    throw e;
+  });
+}
 function ingest(pool, inbox, ev, routeInfo) {
-  return ingestTx(pool, inbox, ev, routeInfo).then(function (r) {
+  return ingestRetrying(pool, inbox, ev, routeInfo, 1).then(function (r) {
     if (r.persisted) { bus.publish({ type: 'message.in', event: 'message.received', project_id: inbox.project_id, conversation_id: r.conversation_id, message_id: r.message_id, opened: r.opened, message_type: ev.message_type }); if (r.contact_created) bus.publish({ type: 'contact.created', event: 'contact.created', project_id: inbox.project_id, contact_id: r.contact_id }); }
     return r;
   });

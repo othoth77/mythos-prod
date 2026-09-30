@@ -10,7 +10,7 @@
 # Environment (optional):
 #   EVOLUTION_URL       default http://127.0.0.1:8080
 #   EVOLUTION_HDR       file with "apikey: …" (default ~/mythos-ai-executor/secrets/evolution.hdr)
-#   RECEIVER_URL        default http://127.0.0.1:8170/hooks/evolution
+#   RECEIVER_URL        default https://wp.mythosprod.xyz/hooks/evolution (Evolution sits on a private Docker network: a loopback URL is unreachable from it — 2026-09-19 incident)
 #   WEBHOOK_TOKEN_FILE  default /home/deploy/deployments/mythos-wp/webhook.token (0600)
 #
 # Refuses `mythos-bridge` (the notification instance) unconditionally. Never
@@ -24,7 +24,7 @@ INSTANCE=${1:-}; [ -n "$INSTANCE" ] || { echo "usage: customer-instance.sh [--ve
 [[ "$INSTANCE" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] || { echo "refused: bad instance name" >&2; exit 2; }
 URL=${EVOLUTION_URL:-http://127.0.0.1:8080}
 HDR=${EVOLUTION_HDR:-$HOME/mythos-ai-executor/secrets/evolution.hdr}
-RCV=${RECEIVER_URL:-http://127.0.0.1:8170/hooks/evolution}
+RCV=${RECEIVER_URL:-https://wp.mythosprod.xyz/hooks/evolution}
 TOKF=${WEBHOOK_TOKEN_FILE:-/home/deploy/deployments/mythos-wp/webhook.token}
 [ -r "$HDR" ] || { echo "header file not readable: $HDR" >&2; exit 2; }
 api() { curl -sS --max-time 15 -H @"$HDR" "$@"; }

@@ -1,5 +1,26 @@
 # MYTHOS WP — Changelog
 
+## V2.1.6 — 2026-09-29 (final closure audit)
+
+- Security — inbox membership: the AI routes (suggest, suggestions list, decide, manual auto-reply), contact edit and contact tags, and Contacts 360 (list, key and digit forms, conversations / timeline / counters) now honour `wp_inbox_members` like every other conversation route. Before, a member of one inbox could run the AI on, read and send the suggestions of, or edit the contacts of another inbox of the same project.
+- Security — lookup oracle: `GET /api/contacts/360/<digits>` is admin-only (404 below admin, same answer for a known and an unknown number). Non-admins open 360 pages by the opaque `<project>:<contact_id>` key, as the UI already did.
+- AI: `off` now means no run for manual suggestions too (412 + `ai.refused` event): number link `ai_mode off`, Project → AI off, a HOLDING inbox (`unassigned` never runs AI, even for the owner) and an agent whose effective mode is off. Production had two manual runs in `unassigned` before this fix.
+- Audit: `client` is the address nginx forwards (`X-Real-IP`, trusted only from a loopback socket, same rule as the login throttle), not always `127.0.0.1`.
+- CSRF: `POST /api/login` passes the same check as every other mutation (the login page already sent the header); a cross-site login is refused.
+- SSRF: integration URLs and probes refuse link-local / cloud-metadata (`169.254.0.0/16`, `fe80::/10`) and unspecified addresses, literally and after DNS resolution (`guardedLookup`).
+- Receiver: a burst of simultaneous first messages from a NEW sender no longer fails with a unique violation (`wp_contacts_wa_id_uidx` / `wp_conversations_live_uidx`, `INGEST:23505`): the ingest transaction is retried (≤ 3 attempts) and finds the rows the winner committed. Production 2026-09-30 11:27: three such failures, saved only by Evolution's retries; without them the messages would have been lost.
+- Receiver: Evolution's connection state `refused` (a QR pairing attempt expired, statusReason 428) maps to `closed` instead of being rejected as `CONNECTION_STATE_UNKNOWN`.
+- Inbox: a conversation opened in a HOLDING inbox or on a link whose AI is off starts with `handler = 'human'` — before, the 202 unread messages of `unassigned` were labelled "AI" and the dashboard said "Waiting for human 0". Existing rows are unchanged (see `WHATSAPP_SETUP.md`, Unassigned messages).
+- UI: panels no longer call endpoints the role cannot use (Users / Project → Members: admin; Integrations, Audit, Health center: manager) — a role note replaces the "Could not load / insufficient role" box; a project-scoped user's audit list defaults to one of their projects (no 400); the Settings → System Backup card now describes the scheduled off-host backup (it still said "not part of the scheduled backup").
+- Operations: `mythos-wp users remove <username>` (audited; never the last active owner) and `tools/smoke.js` (read-only production smoke; `--accounts` adds the role / isolation / PII checks with temporary accounts it removes).
+- Ops: `ops/whatsapp/evolution/customer-instance.sh` now defaults the webhook to the public receiver `https://wp.mythosprod.xyz/hooks/evolution` (its old loopback default is the URL that lost real inbound on 2026-09-19).
+- Tests: new suite `tests/mythos-wp-final-closure-test.js` (61 checks; 24 of them fail on the previous production code); `mythos-wp-v2-whatsapp` updated for the digit-lookup rule.
+
+## V2.1.5 — 2026-09-19 (real inbound message lost)
+
+- Root cause 1 (delivery): Evolution runs on a private Docker network, so the loopback webhook URL `http://127.0.0.1:8170/hooks/evolution` was unreachable from it (connection refused); the owner number had no webhook at all. Webhooks now go through the public vhost `https://wp.mythosprod.xyz/hooks/evolution` with the token in the `x-mythos-webhook-token` header, and `MYTHOS_WP_RECEIVER_URL` tells the health check to expect that address (configuration, no code).
+- Root cause 2 (routing): the shared personal number had no identity rule, so every inbound message was a hash-only drop. A shared instance may now host a HOLDING inbox (`settings.holding`, reserved project `unassigned`, admin/owner only): an unroutable message is stored there as "Needs attention / Unassigned" instead of being lost. The owner number, events without an identity and malformed events are still dropped. An admin assigns a sender with the existing identity rule.
+
 ## V2.1.4 — 2026-09-19 (fixes from the PR #313 code review)
 
 - Security: the lookup route no longer labels or matches rows by hidden fields (the users password hash was readable by an admin). An admin can no longer create another admin or reset a peer admin's password. Renaming an owner is no longer refused as a "demotion".

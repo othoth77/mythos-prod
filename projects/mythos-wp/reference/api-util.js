@@ -12,12 +12,19 @@
 //   accessibleProjects(req)      → Promise<[rows]> the projects this session may see
 //   fail(code, status, detail)   → error shape used by every handler
 //   auditFor(req)                → { actor, role, request_id, client } for audit.record
+//   inScopeOf(req, projectId, conversationId) → Promise; 404 when a member-scoped caller
+//        (wp_inbox_members rows) does not belong to the conversation's inbox
+//   contactInScopeOf(req, projectId, contactId) → Promise; 404 when a member-scoped caller has
+//        no conversation with that contact in one of their inboxes
+//   inboxScopeOf(req)            → Promise<null | [inbox_id]> (null = not member-scoped)
 // =====================================================
 var url = require('url');
 var auth = require('./auth');
 var store = require('./projects-store');
 var crud = require('./crud');
 var fail = crud.fail;
+var db = require('./db');
+var inbox = require('./comms/inbox');
 
 function q(req) { return url.parse(req.url, true).query || {}; }
 
@@ -35,9 +42,14 @@ function accessibleProjects(req) {
 }
 
 function auditFor(req) {
-  return { actor: req.session ? req.session.username : 'anonymous', role: req.session ? req.session.role : null, request_id: req.requestId, client: req.socket && req.socket.remoteAddress };
+  return { actor: req.session ? req.session.username : 'anonymous', role: req.session ? req.session.role : null, request_id: req.requestId, client: auth.clientKey(req) };
 }
+
+// inbox membership fences every conversation / contact route, reads and writes alike
+function inboxScopeOf(req) { return inbox.scope(db.wp(), req.session.username); }
+function inScopeOf(req, projectId, convId) { return inboxScopeOf(req).then(function (scope) { return inbox.inScope(db.wp(), projectId, convId, scope); }); }
+function contactInScopeOf(req, projectId, contactId) { return inboxScopeOf(req).then(function (scope) { return inbox.contactInScope(db.wp(), projectId, contactId, scope); }); }
 
 function intParam(v, name) { var n = parseInt(v, 10); if (!n || n < 1) throw fail('validation', 400, name + ' must be a positive integer'); return n; }
 
-module.exports = { q: q, projectFrom: projectFrom, accessibleProjects: accessibleProjects, fail: fail, auditFor: auditFor, intParam: intParam };
+module.exports = { q: q, projectFrom: projectFrom, accessibleProjects: accessibleProjects, fail: fail, auditFor: auditFor, intParam: intParam, inboxScopeOf: inboxScopeOf, inScopeOf: inScopeOf, contactInScopeOf: contactInScopeOf };

@@ -11,7 +11,8 @@
 //   mythos-wp users import            Imports the users file into wp_users (existing names untouched)
 //   mythos-wp users add <username> <role> [--display "Name"] [--all-projects]
 //       Creates/updates a wp_users account; password from stdin or MYTHOS_WP_NEW_PASSWORD.
-//   mythos-wp users list | users grant <username> <project_id> | users revoke <username> <project_id>
+//   mythos-wp users list | users remove <username> | users grant <username> <project_id> | users revoke <username> <project_id>
+//       remove: deletes a wp_users account (grants + inbox memberships, audited); never the last active owner.
 //   mythos-wp remove-user <users.json> <username>
 //   mythos-wp list-users <users.json>
 //   mythos-wp seed-project <display_name> [service|auto|internal] [domain]
@@ -90,7 +91,9 @@ if (cmd === 'set-password') {
   } else if (usub === 'grant' || usub === 'revoke') {
     var patch = {}; patch[usub === 'grant' ? 'add' : 'remove'] = [args[3]];
     usersMod.setProjects(upool, String(args[2] || '').toLowerCase(), patch, 'cli').then(done).catch(function (e) { die(e.message); });
-  } else die('usage: users import | add <username> <role> [--display "Name"] [--all-projects] | list | grant <user> <project> | revoke <user> <project>');
+  } else if (usub === 'remove') {
+    usersMod.remove(upool, args[2], 'cli').then(done).catch(function (e) { die(e.detail || e.message); });
+  } else die('usage: users import | add <username> <role> [--display "Name"] [--all-projects] | list | remove <username> | grant <user> <project> | revoke <user> <project>');
 } else if (cmd === 'remove-user') {
   var f2 = args[1], u2 = String(args[2] || '').toLowerCase();
   if (!f2 || !u2) die('usage: remove-user <users.json> <username>');

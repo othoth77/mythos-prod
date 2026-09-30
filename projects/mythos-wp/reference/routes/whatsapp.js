@@ -61,6 +61,7 @@ module.exports = [
     return numbers.listNumbers(db.wp(), { admin: isAdmin(req) }).then(function (rows) {
       // project-scoped sessions see only links to their projects, and only numbers that have such a link
       if (req.session.projects !== null) rows = rows.map(function (n) { n.projects = (n.projects || []).filter(function (l) { return auth.canSeeProject(req.session, l.project_id); }); return n; }).filter(function (n) { return n.projects.length > 0; });
+      else rows.forEach(function (n) { n.projects = (n.projects || []).filter(function (l) { return auth.canSeeProject(req.session, l.project_id); }); }); // hides only the admin-only holding link
       return { items: rows };
     });
   } },
@@ -216,18 +217,25 @@ module.exports = [
     return metaMcp.probe().then(function (r) { return metaMcp.record(db.wp(), r).then(function (recorded) { r.recorded = recorded; return rec(req, { action: 'check', resource: 'integrations', record_id: metaMcp.INTEGRATION_KEY, next: { reachable: r.reachable, http_status: r.http_status } }).then(function () { return r; }); }); });
   } },
 
-  // --- Contacts 360 (cross-project, scoped to accessible projects) --------------------------------
+  // --- Contacts 360 (cross-project, scoped to accessible projects AND, for a member-scoped caller, to their inboxes) ----
   { method: 'GET', path: /^\/api\/contacts$/, role: 'any', handler: function (req) {
     var qq = q(req);
-    if (qq.project && qq.project !== 'all') return projectFrom(req, { project: qq.project }).then(function (resolved) { return contacts360.list(db.wp(), { q: qq.q, projects: [resolved.project.id], limit: qq.limit, admin: isAdmin(req) }); });
-    return contacts360.list(db.wp(), { q: qq.q, projects: scopeOf(req), limit: qq.limit, admin: isAdmin(req) });
+    return apiUtil.inboxScopeOf(req).then(function (inboxes) {
+      if (qq.project && qq.project !== 'all') return projectFrom(req, { project: qq.project }).then(function (resolved) { return contacts360.list(db.wp(), { q: qq.q, projects: [resolved.project.id], inboxes: inboxes, limit: qq.limit, admin: isAdmin(req) }); });
+      return contacts360.list(db.wp(), { q: qq.q, projects: scopeOf(req), inboxes: inboxes, limit: qq.limit, admin: isAdmin(req) });
+    });
   } },
+  // lookup by phone digits is admin-only: below admin digits are never shown, so the digit form would only serve
+  // as an oracle ("is this number a customer, and what is their name?") — those callers use the opaque key below
   { method: 'GET', path: /^\/api\/contacts\/360\/([0-9]{6,32})$/, role: 'any', handler: function (req, res, ctx) {
-    return contacts360.get360(db.wp(), ctx.params[1], { projects: scopeOf(req), admin: isAdmin(req) });
+    if (!isAdmin(req)) throw fail('not_found', 404, 'no contact with this phone');
+    return apiUtil.inboxScopeOf(req).then(function (inboxes) { return contacts360.get360(db.wp(), ctx.params[1], { projects: scopeOf(req), inboxes: inboxes, admin: true }); });
   } },
   // opaque key form '<project>:<contact_id>' — lets non-admin users (who never see digits) open a 360 page
   { method: 'GET', path: /^\/api\/contacts\/360\/([a-z0-9-]+:[0-9]+)$/, role: 'any', handler: function (req, res, ctx) {
-    var o = { projects: scopeOf(req), admin: isAdmin(req) };
-    return contacts360.resolveKey(db.wp(), ctx.params[1], o).then(function (phone) { return contacts360.get360(db.wp(), phone, o); });
+    return apiUtil.inboxScopeOf(req).then(function (inboxes) {
+      var o = { projects: scopeOf(req), inboxes: inboxes, admin: isAdmin(req) };
+      return contacts360.resolveKey(db.wp(), ctx.params[1], o).then(function (phone) { return contacts360.get360(db.wp(), phone, o); });
+    });
   } }
 ];
