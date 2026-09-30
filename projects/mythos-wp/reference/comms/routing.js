@@ -43,7 +43,7 @@ function nowMs() { return Date.now(); }
 
 // inboxesOn(pool, provider, instance) → all inboxes hosted by the instance (0, 1 or n)
 function inboxesOn(pool, provider, instance) {
-  return pool.query('SELECT id, project_id, provider, instance, status, inbound_enabled, outbound_enabled, account_mode, account_ref, settings FROM wp_inboxes WHERE provider = $1 AND instance = $2 ORDER BY id', [provider, instance]).then(function (r) { return r.rows; });
+  return pool.query('SELECT id, project_id, provider, instance, status, inbound_enabled, outbound_enabled, account_mode, account_ref, settings, ai_mode FROM wp_inboxes WHERE provider = $1 AND instance = $2 ORDER BY id', [provider, instance]).then(function (r) { return r.rows; });
 }
 
 // ruleIsSane(rule) — a malformed row (unexpected kind/identity shape) fails closed

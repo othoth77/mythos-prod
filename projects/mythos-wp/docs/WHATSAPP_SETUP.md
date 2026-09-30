@@ -193,3 +193,5 @@ and set `MYTHOS_WP_RECEIVER_URL=https://wp.mythosprod.xyz` so the number check e
 ## Unassigned messages on a shared number
 
 Create the reserved project `unassigned` (internal) and a shared inbox on the number with `settings.holding = true`, AI off and replies off. Messages that no identity rule claims land there, visible to admin/owner only. Assign a sender by adding an identity rule to the right project.
+
+Since 2026-09-29 a conversation opened there starts with a human handler (it waits for a person; AI never runs in a holding inbox). Conversations opened before that still read "AI"; an admin can hand them to a human from the conversation, or align them once with `UPDATE wp_conversations SET handler = 'human' WHERE project_id = 'unassigned' AND handler = 'ai';` (reversible, touches nothing else).

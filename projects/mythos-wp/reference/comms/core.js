@@ -65,7 +65,10 @@ function liveConversation(c, inbox, contactId, ev, routeInfo) {
     .then(function (r) {
       if (r.rows[0]) return { id: r.rows[0].id, status: r.rows[0].status, opened: false };
       var ri = routeOf(routeInfo);
-      return c.query('INSERT INTO wp_conversations (project_id, inbox_id, contact_id, provider_chat_id, status, routed_by, route_rule_id) VALUES ($1,$2,$3,$4,\'open\',$5,$6) RETURNING id', [inbox.project_id, inbox.id, contactId, ev.chat_id, ri.routed_by, ri.rule_id])
+      // who answers from the first message: a HOLDING inbox (the admin-only 'unassigned' project) or a link whose AI is
+      // off never runs the AI, so its conversations start with a human — they count as "waiting for human", not "AI"
+      var handler = (inbox.settings && inbox.settings.holding === true) || inbox.ai_mode === 'off' ? 'human' : 'ai';
+      return c.query('INSERT INTO wp_conversations (project_id, inbox_id, contact_id, provider_chat_id, status, routed_by, route_rule_id, handler) VALUES ($1,$2,$3,$4,\'open\',$5,$6,$7) RETURNING id', [inbox.project_id, inbox.id, contactId, ev.chat_id, ri.routed_by, ri.rule_id, handler])
         .then(function (x) { return { id: x.rows[0].id, status: 'open', opened: true, routed_by: ri.routed_by, rule_id: ri.rule_id }; });
     });
 }

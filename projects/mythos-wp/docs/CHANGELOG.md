@@ -8,9 +8,11 @@
 - Audit: `client` is the address nginx forwards (`X-Real-IP`, trusted only from a loopback socket, same rule as the login throttle), not always `127.0.0.1`.
 - CSRF: `POST /api/login` passes the same check as every other mutation (the login page already sent the header); a cross-site login is refused.
 - SSRF: integration URLs and probes refuse link-local / cloud-metadata (`169.254.0.0/16`, `fe80::/10`) and unspecified addresses, literally and after DNS resolution (`guardedLookup`).
+- Inbox: a conversation opened in a HOLDING inbox or on a link whose AI is off starts with `handler = 'human'` — before, the 202 unread messages of `unassigned` were labelled "AI" and the dashboard said "Waiting for human 0". Existing rows are unchanged (see `WHATSAPP_SETUP.md`, Unassigned messages).
+- UI: panels no longer call endpoints the role cannot use (Users / Project → Members: admin; Integrations, Audit, Health center: manager) — a role note replaces the "Could not load / insufficient role" box; a project-scoped user's audit list defaults to one of their projects (no 400); the Settings → System Backup card now describes the scheduled off-host backup (it still said "not part of the scheduled backup").
 - Operations: `mythos-wp users remove <username>` (audited; never the last active owner) and `tools/smoke.js` (read-only production smoke; `--accounts` adds the role / isolation / PII checks with temporary accounts it removes).
 - Ops: `ops/whatsapp/evolution/customer-instance.sh` now defaults the webhook to the public receiver `https://wp.mythosprod.xyz/hooks/evolution` (its old loopback default is the URL that lost real inbound on 2026-09-19).
-- Tests: new suite `tests/mythos-wp-final-closure-test.js` (53 checks; 24 of them fail on the previous production code); `mythos-wp-v2-whatsapp` updated for the digit-lookup rule.
+- Tests: new suite `tests/mythos-wp-final-closure-test.js` (57 checks; 24 of them fail on the previous production code); `mythos-wp-v2-whatsapp` updated for the digit-lookup rule.
 
 ## V2.1.5 — 2026-09-19 (real inbound message lost)
 

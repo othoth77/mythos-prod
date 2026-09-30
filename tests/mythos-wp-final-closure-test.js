@@ -17,6 +17,8 @@
 // 6. SSRF: integration URLs / probes never reach link-local (cloud metadata),
 //    unspecified addresses, literal or through DNS.
 // 7. /api/login passes the CSRF check like every other mutation.
+// 8. A conversation opened in a HOLDING inbox or on a link whose AI is off
+//    starts with handler 'human' (it waits for a person, it is not "AI").
 // =====================================================
 var http = require('http');
 var fs = require('fs');
@@ -41,6 +43,7 @@ var core = require(path.join(WP, 'reference/comms/core'));
 var providerMod = require(path.join(WP, 'reference/comms/providers/evolution'));
 var users = require(path.join(WP, 'reference/users'));
 var integrations = require(path.join(WP, 'reference/integrations'));
+var routing = require(path.join(WP, 'reference/comms/routing'));
 var pool = db.wp();
 fs.writeFileSync(process.env.MYTHOS_WP_USERS_FILE, JSON.stringify({ users: [{ username: 'own', role: 'owner', scrypt: auth.hashPassword('owner-password-1') }, { username: 'op', role: 'operator', scrypt: auth.hashPassword('operator-password-1') }, { username: 'member1', role: 'operator', scrypt: auth.hashPassword('member-password-1') }, { username: 'viewer1', role: 'viewer', scrypt: auth.hashPassword('viewer-password-1') }] }), { mode: 0o600 });
 var server = require(path.join(WP, 'reference/server')).createServer();
@@ -154,6 +157,17 @@ migrate.up(pool).then(wipe)
   })
   .then(function (r) { ok(r.reached === false && r.reason === 'ADDRESS_FORBIDDEN', 'a probe of the metadata address is refused before any connection (' + r.reason + ')'); return req('POST', '/api/integrations', { key: 'fc-meta', kind: 'api', name: 'meta', base_url: 'https://169.254.169.254' }, 'own'); })
   .then(function (x) { ok(x.status === 400 && x.body.errors && /link-local/.test(x.body.errors.base_url || ''), 'an integration URL on the metadata address is refused (' + x.status + ')'); })
+  // ---- 8. handler at creation
+  .then(function () { return q("SELECT handler FROM wp_conversations WHERE id = $1", [ids.conv1]); })
+  .then(function (r) { ok(r.rows[0].handler === 'ai', 'control: a normal link opens conversations with handler ai'); return q("UPDATE wp_inboxes SET ai_mode = 'off' WHERE id = $1", [ids.i1]); })
+  .then(function () { return routing.resolve(pool, 'evolution', 'svc-a-1', inbound('svc-a-1', 'FC8a', 'Bonjour', '21699100081', 'Off-link')); })
+  .then(function (d) { ok(d && d.routed && d.inbox && d.inbox.ai_mode === 'off', 'the routed inbox row carries ai_mode (receiver / replay path)'); return core.ingest(pool, d.inbox, inbound('svc-a-1', 'FC8a', 'Bonjour', '21699100081', 'Off-link'), { routed_by: d.mode }); })
+  .then(function (r) { return q("SELECT handler FROM wp_conversations WHERE id = $1", [r.conversation_id]); })
+  .then(function (r) { ok(r.rows[0].handler === 'human', 'AI off on the link → the conversation starts with a human'); return q("UPDATE wp_inboxes SET ai_mode = 'inherit', settings = settings || '{\"holding\": true}'::jsonb WHERE id = $1", [ids.i1]); })
+  .then(function () { return q('SELECT * FROM wp_inboxes WHERE id = $1', [ids.i1]); })
+  .then(function (r) { return core.ingest(pool, r.rows[0], inbound('svc-a-1', 'FC8b', 'Salam', '21699100082', 'Holding')); })
+  .then(function (r) { return q("SELECT handler FROM wp_conversations WHERE id = $1", [r.conversation_id]); })
+  .then(function (r) { ok(r.rows[0].handler === 'human', 'a HOLDING inbox opens conversations with a human handler'); return q("UPDATE wp_inboxes SET settings = settings - 'holding' WHERE id = $1", [ids.i1]); })
   // ---- 5. users.remove
   .then(function () { return q("DELETE FROM wp_users WHERE username LIKE 'fc-%'"); })
   .then(function () { return users.upsert(pool, { username: 'fc-temp', role: 'agent', password: 'temporary-password-1' }, 'test'); })

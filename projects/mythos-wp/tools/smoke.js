@@ -2,12 +2,14 @@
 'use strict';
 // =====================================================
 // MYTHOS WP — production smoke (read-only)
-// projects/mythos-wp/tools/smoke.js [--base URL] [--accounts] [--project ID] [--json]
+// projects/mythos-wp/tools/smoke.js [--base URL] [--accounts] [--project ID] [--no-receiver] [--json]
 //
 // Public part (always, no credentials): TLS + HSTS + security headers, login
 // page and asset caching, /healthz, every sampled API answers 401 without a
 // session, CSRF refusal, webhook refuses a missing / wrong token, static
-// path traversal, http→https redirect, robots.
+// path traversal, http→https redirect, robots (nginx: https base only).
+// --no-receiver: a staging instance without MYTHOS_WP_RECEIVER_ENABLED — the
+// webhook route must then answer 404 (disabled), not 401.
 //
 // Role part (--accounts; run as deploy with the service .env loaded, it needs
 // MYTHOS_WP_DB_*): creates smoke-admin / smoke-manager / smoke-agent /
@@ -36,6 +38,7 @@ function arg(name, dflt) { var i = args.indexOf(name); return i !== -1 && args[i
 var BASE = new URL(arg('--base', 'https://wp.mythosprod.xyz'));
 var ACCOUNTS = args.indexOf('--accounts') !== -1;
 var JSON_OUT = args.indexOf('--json') !== -1;
+var NO_RECEIVER = args.indexOf('--no-receiver') !== -1;
 var results = [];
 function check(name, pass, detail) { results.push({ name: name, pass: !!pass, detail: detail === undefined ? null : detail }); if (!JSON_OUT) process.stdout.write((pass ? 'PASS ' : 'FAIL ') + name + (detail !== undefined && !pass ? '  [' + detail + ']' : '') + '\n'); }
 
@@ -91,7 +94,7 @@ function publicChecks() {
   }).then(function (rows) {
     var bad = rows.filter(function (x) { return x[1] !== 401; });
     check('every sampled API answers 401 without a session (' + rows.length + ')', bad.length === 0, JSON.stringify(bad));
-    return request('POST', '/api/login', { body: { username: 'smoke-nobody', password: 'wrong-password-123' } });
+    return request('POST', '/api/login', { body: { username: 'smoke-nobody', password: crypto.randomBytes(12).toString('hex') } });
   }).then(function (r) {
     check('wrong credentials → 401, no stack trace', r.status === 401 && !/at [A-Za-z].*\.js:\d+/.test(r.text), r.status);
     return request('POST', '/api/login', { body: { username: 'x', password: 'y' }, xrw: false });
@@ -99,18 +102,17 @@ function publicChecks() {
     check('POST without the CSRF header refused (403)', r.status === 403, r.status);
     return request('POST', '/hooks/evolution', { body: { event: 'messages.upsert', instance: 'smoke', data: {} } });
   }).then(function (r) {
-    check('webhook without token → 401', r.status === 401, r.status);
+    if (NO_RECEIVER) check('webhook route disabled on this instance (404)', r.status === 404, r.status);
+    else check('webhook without token → 401', r.status === 401, r.status);
     return request('POST', '/hooks/evolution', { body: { event: 'messages.upsert', instance: 'smoke', data: {} }, headers: { 'x-mythos-webhook-token': crypto.randomBytes(24).toString('hex') } });
   }).then(function (r) {
-    check('webhook with a wrong token → 401', r.status === 401, r.status);
+    if (!NO_RECEIVER) check('webhook with a wrong token → 401', r.status === 401, r.status);
     return Promise.all(['/js/..%2f..%2fserver.js', '/..%2f..%2f..%2fetc%2fpasswd', '/brand/..%2f..%2freference%2fserver.js'].map(function (p) { return request('GET', p); }));
   }).then(function (rs) {
     check('static path traversal returns no file', rs.every(function (r) { return r.status !== 200 || (!/require\(|root:x:0/.test(r.text)); }), rs.map(function (r) { return r.status; }).join(','));
-    return request('GET', '/robots.txt');
-  }).then(function (r) {
-    check('robots.txt disallows indexing', r.status === 200 && /Disallow:\s*\//.test(r.text), r.status);
-    if (BASE.protocol !== 'https:') return null;
-    return request('GET', '/', { base: 'http://' + BASE.hostname }).then(function (x) { check('http → https redirect', (x.status === 301 || x.status === 308) && /^https:/.test(x.headers.location || ''), x.status); return certDays(); })
+    if (BASE.protocol !== 'https:') return null; // robots.txt, the http redirect and TLS are nginx's: public URL only
+    return request('GET', '/robots.txt').then(function (r) { check('robots.txt disallows indexing', r.status === 200 && /Disallow:\s*\//.test(r.text), r.status); })
+      .then(function () { return request('GET', '/', { base: 'http://' + BASE.hostname }); }).then(function (x) { check('http → https redirect', (x.status === 301 || x.status === 308) && /^https:/.test(x.headers.location || ''), x.status); return certDays(); })
       .then(function (d) { check('TLS certificate valid ≥ 14 days (' + d + ' d)', d >= 14, d); });
   });
 }
