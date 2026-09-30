@@ -4,11 +4,11 @@ Format per mission §24. Updated at the end of every phase.
 
 ---
 
-**CURRENT PHASE:** PHASE 1 — architecture + interfaces (complete)
+**CURRENT PHASE:** PHASE 2 — data layer (complete)
 
-**CURRENT TASK:** PHASE 2 — data layer
+**CURRENT TASK:** PHASE 3 — backtesting foundation
 
-**LAST VERIFIED COMMIT:** *(pending first push — see Git section below)*
+**LAST VERIFIED COMMIT:** `da0fc1ba` (PHASE 1, verified on `origin/mythos/trading-platform`)
 
 ---
 
@@ -36,10 +36,28 @@ answered by the owner-approval block in this task's envelope. Not repeated.
 | Persistence | append-only JSONL store, 24 tables, digest, sealing | `src/db/schema.js`, `src/db/store.js` |
 | Compliance register | external-review items, known technical risks | `docs/COMPLIANCE_AND_RISK.md` |
 
+### PHASE 2 — data layer
+| Area | Delivered | File(s) |
+|---|---|---|
+| Bar model | strict validation: ordering, duplicates, grid alignment, gap reporting | `src/data/bar.js` |
+| Look-ahead-proof view | strategies get a view pinned to bar *i*, backward offsets only; a negative offset throws `LOOK-AHEAD`, missing history returns `null` | `src/data/series.js` |
+| Indicator library | 17 indicators, all causal; SMA/EMA/stdev/ROC/linreg/Bollinger/TR/ATR/RSI/ADX/Donchian/swings/vol-ratio/efficiency-ratio | `src/indicators/index.js` |
+| Multi-timeframe | `resample()` drops a forming bucket; `alignCompleted()` never returns the higher bar that contains the current one | `src/data/resample.js` |
+| Data-source interface | ADR-0001 adoption seam; `datasetVersion` mandatory; `guarded()` validates and caches | `src/data/source.js` |
+| Synthetic generator | regime-switching GBM, seeded, calendar-aware, publishes its own regime ground truth | `src/data/synthetic-source.js` |
+| Committed fixtures | 4 symbols × 3000 M15 bars, content-hashed so a hand edit is detected | `src/data/fixture-source.js`, `fixtures/`, `bin/make-fixtures.js` |
+
+**The test that matters most in this phase** is the generic causality check: every
+indicator is computed over the full series and over seven prefixes, and the value
+at the cut must be identical. It walks a registry, so an indicator added later is
+covered automatically, and a second test fails if the registry stops covering the
+module's exports.
+
 ## IN PROGRESS
 
-PHASE 2 — data layer: pluggable data-source interface, seeded synthetic OHLCV
-generator, committed fixtures, multi-timeframe resampling, indicator library.
+PHASE 3 — backtesting foundation: cost model, account and one-trade-only
+controller, execution adapters (including the LIVE stub that refuses), the
+bar-replay engine and its metrics.
 
 ## BLOCKED
 
@@ -52,7 +70,7 @@ rather than treated as blockers:
 
 ## NEXT TASK
 
-PHASE 2 — data layer, then PHASE 3 — backtesting foundation.
+PHASE 3 — backtesting foundation, then PHASE 4 — strategy engine.
 
 ## TEST STATUS
 
@@ -62,7 +80,9 @@ PHASE 2 — data layer, then PHASE 3 — backtesting foundation.
 | `tests/config-test.js` | 16 | pass |
 | `tests/mode-controller-test.js` | 26 | pass |
 | `tests/store-test.js` | 17 | pass |
-| **Total (`npm test`)** | **93** | **93 pass, 0 fail** |
+| `tests/indicators-test.js` | 21 | pass |
+| `tests/data-layer-test.js` | 38 | pass |
+| **Total (`npm test`)** | **152** | **152 pass, 0 fail** |
 
 Run: `cd projects/mythos-trading-agent && npm test`
 
