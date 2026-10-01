@@ -20,6 +20,7 @@
     "max_acceptance_items": 8,
     "min_step_timeout_seconds": 30,
     "max_step_timeout_seconds": 1800,
+    "min_work_timeout_seconds": 300,
     "answer_actions": ["analyze", "research", "review", "plan", "summarize"],
     "work_actions": ["investigate", "review", "test", "document", "implement"],
     "write_actions": ["document", "implement"],
@@ -94,6 +95,8 @@
     "supervised_watch_interval_seconds": 30,
     "poll_interval_seconds": 5,
     "enqueue_timeout_seconds": 30,
-    "work_max_retries": 1
+    "work_max_retries": 1,
+    "retry_backoff_seconds": 120,
+    "work_guidance": "Work steps run on the local Qwen 7B worker (8192-token context). Give each step ONE narrow job on small files: it refuses a task that names a file larger than about 3 KB (TASK_TOO_LARGE) and writes at most about 1.6 KB per file. A step usually needs 1 to 5 minutes."
   }
 }

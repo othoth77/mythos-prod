@@ -134,4 +134,10 @@ async function main() {
   return area ? 1 : 0;
 }
 
-main().then(function (code) { process.exit(code || 0); }, function (e) { process.stderr.write(String(e && e.stack || e) + '\n'); process.exit(5); });
+// Exit only after stdout has drained: process.exit() right after a write
+// truncates anything over the pipe buffer (64 KiB) — found live, on a long
+// `ledger show`. An explicit exit is still needed: a model call that lost a
+// timeout race may hold a socket open.
+function leave(code) { process.stdout.write('', function () { process.exit(code); }); }
+
+main().then(function (code) { leave(code || 0); }, function (e) { process.stderr.write(String(e && e.stack || e) + '\n'); leave(5); });

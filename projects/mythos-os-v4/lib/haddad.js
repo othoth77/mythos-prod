@@ -36,6 +36,8 @@ var fs = require('fs');
 var os = require('os');
 var path = require('path');
 
+var store = require('./store');
+
 var REPO_ROOT = path.join(__dirname, '..', '..', '..');
 
 var CAPABILITY_BY_ACTION = { analyze: 'analysis', research: 'research', review: 'review', plan: 'planning', summarize: 'summarization' };
@@ -150,7 +152,15 @@ function create(deps) {
       constraints: (step.acceptance || []).slice(0, policy.plan.max_acceptance_items),
       timeout_seconds: step.timeout_seconds, max_retries: hp.work_max_retries
     };
-    var stepDeadline = Math.min(ctx.deadline_at || Infinity, now() + step.timeout_seconds * 1000 + 60000);
+    // The task's timeout applies PER ATTEMPT and the executor may retry
+    // `work_max_retries` times with a backoff in between. The wait covers
+    // every attempt, every backoff and the pickup latency, so v4 never gives
+    // up on a task the executor is still legitimately running (the same
+    // arithmetic as supervisor/qwen.js consultTimeout). Still bounded: the
+    // goal's own deadline caps it.
+    var attempts = 1 + hp.work_max_retries;
+    var worstMs = (step.timeout_seconds * attempts + hp.retry_backoff_seconds * hp.work_max_retries + 60) * 1000;
+    var stepDeadline = Math.min(ctx.deadline_at || Infinity, now() + worstMs);
     return executorCli(['enqueue', '-'], JSON.stringify(payload), hp.enqueue_timeout_seconds * 1000, env).then(function (res) {
       var taskId = null;
       try { taskId = JSON.parse(res.stdout).task_id; } catch (e) { taskId = null; }
@@ -174,7 +184,9 @@ function create(deps) {
           return {
             ok: status === 'COMPLETED', kind: 'work', transport: 'executor', executor_task_id: taskId, executor_status: status,
             reason: status === 'COMPLETED' ? null : 'EXECUTOR_' + status,
-            detail: status === 'COMPLETED' ? null : String((report && report.blocker && (report.blocker.code || report.blocker.reason)) || (report && report.problems && report.problems[0]) || '').slice(0, 400) || null,
+            // The executor's own words: the blocker code AND its reason (the
+            // code alone — e.g. HUMAN_APPROVAL — does not say what to change).
+            detail: status === 'COMPLETED' ? null : String((report && report.blocker && [report.blocker.code, report.blocker.reason].filter(Boolean).join(': ')) || (report && report.problems && report.problems[0]) || '').slice(0, 400) || null,
             output: summary || null, model: cand.model, tier: cand.tier,
             served_by: (report && report.model_used) || null
           };
@@ -193,7 +205,9 @@ function create(deps) {
     var fileEnv = executorEnv() || {};
     var env = baseEnv({ MYTHOS_SUPERVISOR_CONFIG: cfgPath });
     if (fileEnv.MYTHOS_EXECUTOR_HOME) env.MYTHOS_EXECUTOR_HOME = fileEnv.MYTHOS_EXECUTOR_HOME;
-    if (process.env.MYTHOS_SUPERVISOR_HOME) env.MYTHOS_SUPERVISOR_HOME = process.env.MYTHOS_SUPERVISOR_HOME;
+    // The Supervisor's default store is the VPS's (/home/deploy/…). v4 keeps
+    // its supervised tasks in its own private store unless one is named.
+    env.MYTHOS_SUPERVISOR_HOME = process.env.MYTHOS_SUPERVISOR_HOME || store.ensureDir(store.file('supervisor'));
     var script = path.join(executorRoot, 'scripts', 'mythos-supervise.js');
     var isWrite = policy.plan.write_actions.indexOf(step.action) !== -1;
     var args = [script, 'submit', '--objective', step.instruction, '--action', step.action, '--by', 'mythos-os-v4',

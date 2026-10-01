@@ -37,10 +37,11 @@ function validate(p) {
   });
 
   var pl = p.plan || {};
-  ['max_steps', 'max_instruction_chars', 'max_acceptance_items', 'min_step_timeout_seconds', 'max_step_timeout_seconds'].forEach(function (k) {
+  ['max_steps', 'max_instruction_chars', 'max_acceptance_items', 'min_step_timeout_seconds', 'max_step_timeout_seconds', 'min_work_timeout_seconds'].forEach(function (k) {
     need(isPosInt(pl[k]), 'plan.' + k + ' must be a positive integer');
   });
   need(pl.min_step_timeout_seconds <= pl.max_step_timeout_seconds, 'plan.min_step_timeout_seconds exceeds the maximum');
+  need(pl.min_work_timeout_seconds <= pl.max_step_timeout_seconds, 'plan.min_work_timeout_seconds exceeds the maximum');
   need(isStrList(pl.answer_actions, 1), 'plan.answer_actions must be a non-empty list');
   need(isStrList(pl.work_actions, 1), 'plan.work_actions must be a non-empty list');
   need(isStrList(pl.write_actions, 0), 'plan.write_actions must be a list');
@@ -106,9 +107,10 @@ function validate(p) {
   var h = p.haddad || {};
   need(typeof h.project === 'string' && /^[a-z0-9][a-z0-9-]*$/.test(h.project), 'haddad.project must be a project id');
   need(typeof h.work_provider === 'string' && h.work_provider, 'haddad.work_provider is required');
-  ['poll_interval_seconds', 'enqueue_timeout_seconds', 'supervised_watch_interval_seconds'].forEach(function (k) {
+  ['poll_interval_seconds', 'enqueue_timeout_seconds', 'supervised_watch_interval_seconds', 'retry_backoff_seconds'].forEach(function (k) {
     need(isPosInt(h[k]), 'haddad.' + k + ' must be a positive integer');
   });
+  need(typeof h.work_guidance === 'string' && h.work_guidance.length <= 600, 'haddad.work_guidance must be a string of at most 600 characters');
   need(typeof h.executor_env_file === 'string' && h.executor_env_file, 'haddad.executor_env_file is required');
   need(typeof h.executor_unit === 'string' && /^[A-Za-z0-9@._-]+\.service$/.test(h.executor_unit), 'haddad.executor_unit must be a systemd service name');
   need(typeof h.supervisor_config === 'string' && h.supervisor_config && h.supervisor_config.indexOf('..') === -1 && h.supervisor_config[0] !== '/',

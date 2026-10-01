@@ -40,6 +40,7 @@ function systemPrompt(policy) {
     '  kind "answer" = a model answers a question, with no file or repository access. Actions: ' + p.answer_actions.join(', ') + '.',
     '  kind "work" = the Haddad executor works inside the repository checkout. Actions: ' + p.work_actions.join(', ') + '.',
     '  Of those, ' + p.write_actions.join(' and ') + ' change files and are allowed only when goal.write_approved is true.',
+    '  ' + policy.haddad.work_guidance + ' A work step gets at least ' + p.min_work_timeout_seconds + ' seconds.',
     '  timeout_seconds between ' + p.min_step_timeout_seconds + ' and ' + p.max_step_timeout_seconds + '; instruction at most ' + p.max_instruction_chars + ' characters; step ids unique (s1, s2, ...).',
     '- decision "complete": only when the results in history already satisfy the objective. final_answer is the answer for the owner, written from those results. steps must be [].',
     '- decision "escalate": the goal cannot be met within your authority or limits. escalation_reason says what a person must decide. steps must be [].',

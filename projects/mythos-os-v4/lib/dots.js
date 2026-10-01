@@ -180,7 +180,11 @@ function create(deps) {
         if (s.kind === 'work' && p.write_actions.indexOf(s.action) !== -1 && goal.write_approved !== true) {
           refuse('OWNER_APPROVAL_REQUIRED', where + ': action "' + s.action + '" changes files and the goal has no write approval');
         }
-        var clamped = Math.min(p.max_step_timeout_seconds, Math.max(p.min_step_timeout_seconds, s.timeout_seconds));
+        // A work step is queued, picked up by the executor daemon and run in
+        // several model turns: it gets a higher floor than an answer (live,
+        // 2026-10-01: a 120 s investigate step outlived its own deadline).
+        var floor = s.kind === 'work' ? Math.max(p.min_step_timeout_seconds, p.min_work_timeout_seconds) : p.min_step_timeout_seconds;
+        var clamped = Math.min(p.max_step_timeout_seconds, Math.max(floor, s.timeout_seconds));
         if (clamped !== s.timeout_seconds) { adjusted.push({ step: s.id, timeout_seconds: { from: s.timeout_seconds, to: clamped } }); s.timeout_seconds = clamped; }
       });
     } else {

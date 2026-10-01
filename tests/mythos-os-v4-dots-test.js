@@ -105,7 +105,7 @@ fs.writeFileSync(path.join(execRoot, 'scripts', 'mythos-supervise.js'), [
   "var root = path.join(__dirname, '..');",
   "var ctl = JSON.parse(fs.readFileSync(path.join(root, 'control.json'), 'utf8'));",
   "var args = process.argv.slice(2);",
-  "fs.appendFileSync(path.join(root, 'calls.jsonl'), JSON.stringify({ cmd: 'supervise', args: args, config: process.env.MYTHOS_SUPERVISOR_CONFIG, home: process.env.MYTHOS_EXECUTOR_HOME }) + '\\n');",
+  "fs.appendFileSync(path.join(root, 'calls.jsonl'), JSON.stringify({ cmd: 'supervise', args: args, config: process.env.MYTHOS_SUPERVISOR_CONFIG, home: process.env.MYTHOS_EXECUTOR_HOME, supervisor_home: process.env.MYTHOS_SUPERVISOR_HOME }) + '\\n');",
   "if (args[0] === 'submit') { console.log(JSON.stringify({ task_id: 'SUP-FIXTURE1', status: 'SUBMITTED' }, null, 2)); process.exit(0); }",
   "if (args[0] === 'watch') {",
   "  var st = ctl.supervised || 'COMPLETED';",
@@ -143,7 +143,7 @@ function build(policyOverrides, fableQueue, openaiQueue, opts) {
   };
   var system = index.build({
     policy: policy, now: now, engines: set, executorRoot: execRoot, executorEnvFile: envFile,
-    sleep: function () { return Promise.resolve(); },
+    sleep: opts.sleep || function () { return Promise.resolve(); },
     adapters: {
       'free-llm-pool': adaptersLib.freeLlmPool(free),
       'haddad-qwen': adaptersLib.haddadQwen({ baseUrl: servers.qwen.url + '/v1', apiKey: 'fixture-runtime-key', probeTimeoutMs: 800 }),
@@ -248,7 +248,7 @@ Promise.all([
   t.ok(/ACTION_PROFILE_MISMATCH/.test(mismatch), 'CONTRACT: the real executor refuses a write action under the read profile — the direct path cannot be turned into a write');
 
   reset();
-  control({ statuses: ['RUNNING', 'BLOCKED'], blocker: { code: 'NOT_MECHANICALLY_VERIFIED' } });
+  control({ statuses: ['RUNNING', 'BLOCKED'], blocker: { code: 'HUMAN_APPROVAL', reason: 'TASK_TOO_LARGE for the local runner' } });
   sys = build(null, [d('execute', { steps: [step('w1', 'work', 'investigate', 'Read it.')] }), function (req) {
     var hst = JSON.parse(req.input).history[0];
     return d('escalate', { escalation_reason: 'step failed: ' + hst.reason + ' / ' + hst.detail });
@@ -256,8 +256,8 @@ Promise.all([
   goal = submit(sys);
   return sys.dots.runGoal(goal.goal_id);
 }).then(function (g) {
-  t.ok(g.status === 'ESCALATED' && esc(sys, g).code === 'EXECUTIVE_ESCALATION' && /EXECUTOR_BLOCKED \/ NOT_MECHANICALLY_VERIFIED/.test(esc(sys, g).reason),
-    'an executor task that ends BLOCKED is a FAILED step: the executive sees the executor\'s own reason and escalates');
+  t.ok(g.status === 'ESCALATED' && esc(sys, g).code === 'EXECUTIVE_ESCALATION' && /EXECUTOR_BLOCKED \/ HUMAN_APPROVAL: TASK_TOO_LARGE for the local runner/.test(esc(sys, g).reason),
+    'an executor task that ends BLOCKED is a FAILED step: the executive sees the executor\'s blocker code AND reason, and escalates');
   t.ok(g.history[0].ok === false && sys.jev.status().models['qwen-local'].state === 'closed', 'a task the executor judged is not held against the model\'s health');
 
   reset();
@@ -280,6 +280,16 @@ Promise.all([
     t.ok(g.history[0].reason === 'WORK_TIMEOUT' && g.history[0].ok === false, 'an executor task that never reaches a terminal status is cut at the step deadline (WORK_TIMEOUT)');
   });
 }).then(function () {
+  // The executor retries: a task may legitimately take longer than ONE
+  // timeout. v4 waits for every attempt and backoff before giving up.
+  reset();
+  control({ statuses: ['RUNNING', 'RUNNING', 'RUNNING', 'RUNNING', 'COMPLETED'], summary: 'second attempt answered' });
+  sys = build(null, [d('execute', { steps: [step('w1', 'work', 'investigate', 'Read it.', { timeout_seconds: 300 })] }), DONE], null, { sleep: function () { now.advance(100); return Promise.resolve(); } });
+  goal = submit(sys);
+  return sys.dots.runGoal(goal.goal_id);
+}).then(function (g) {
+  t.ok(g.status === 'COMPLETED' && g.history[0].ok === true && g.result.final_answer === 'Final: second attempt answered',
+    'a task that needs its retry (400 s for a 300 s per-attempt timeout) is still awaited: the wait covers every attempt and backoff');
   reset();
   qwenCtl.unhealthy = true;
   sys = build(null, [d('execute', { steps: [step('w1', 'work', 'investigate', 'Read it.')] }), d('escalate', { escalation_reason: 'no executor model' })]);
@@ -392,6 +402,9 @@ Promise.all([
   refusedWith(d('escalate', {}), 'MALFORMED', '"escalate" with no reason');
   var clamp = sys.dots.authorize(G, d('execute', { steps: [step('s1', 'answer', 'analyze', 'Q', { timeout_seconds: 999999 }), step('s2', 'answer', 'review', 'Q2', { timeout_seconds: 1 })] }), S0);
   t.ok(clamp.ok && clamp.directive.steps[0].timeout_seconds === 1800 && clamp.directive.steps[1].timeout_seconds === 30 && clamp.adjusted.length === 2, 'timeouts outside the policy range are clamped into it, and the adjustment is recorded');
+  var workClamp = sys.dots.authorize(G, d('execute', { steps: [step('w1', 'work', 'investigate', 'Read it.', { timeout_seconds: 120 }), step('a1', 'answer', 'analyze', 'Q', { timeout_seconds: 120 })] }), S0);
+  t.ok(workClamp.ok && workClamp.directive.steps[0].timeout_seconds === 300 && workClamp.directive.steps[1].timeout_seconds === 120 && workClamp.adjusted.length === 1,
+    'a WORK step is raised to plan.min_work_timeout_seconds (300); an answer step with the same timeout is left alone');
 
   section('L — no infinite loops');
   reset();
@@ -555,6 +568,19 @@ Promise.all([
     'the Supervisor was given the action and the checks: status_completed and commit_delivered');
   t.ok(submitArgs[submitArgs.indexOf('--validation') + 1] === 'node scripts/mythos-assert-file.js docs/CACHE.md eviction' && sup[1].args[0] === 'watch' && sup[1].args[1] === 'SUP-FIXTURE1', 'the acceptance travels as a Validation line, then the task is watched');
   t.ok(/supervisor-haddad\.json$/.test(sup[0].config) && sup[0].home === execHome && calls('enqueue').length === 0, 'the Haddad supervisor config is used, and a write NEVER takes the direct enqueue path');
+  t.ok(sup[0].supervisor_home === path.join(dirs.osHome, 'supervisor') && fs.existsSync(sup[0].supervisor_home), 'supervised tasks are kept in v4\'s own private store, not the VPS default');
+
+  // CONTRACT: the REAL Supervisor CLI accepts exactly these submit arguments
+  // (`submit` only records the objective locally — no GitHub call is made).
+  var supHome = path.join(dirs.root, 'real-supervisor-home');
+  var real = require('child_process').spawnSync(process.execPath, [path.join(h.BASE, 'scripts', 'mythos-supervise.js')].concat(submitArgs.slice(0)), {
+    encoding: 'utf8', timeout: 60000,
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, MYTHOS_SUPERVISOR_HOME: supHome, MYTHOS_SUPERVISOR_CONFIG: path.join(h.BASE, 'projects', 'mythos-orchestrator', 'config', 'supervisor-haddad.json') }
+  });
+  var planned = null;
+  try { planned = JSON.parse(real.stdout); } catch (e) { planned = null; }
+  t.ok(real.status === 0 && planned && /^SUP-/.test(planned.task_id) && planned.action === 'document' && planned.status === 'PLANNED' && planned.issue === null,
+    'CONTRACT: the real mythos-supervise.js accepts v4\'s submit arguments and plans the task locally (action document, no Issue yet)');
   t.ok(types(g).indexOf('PLAN_REVIEW') !== -1 && types(g).indexOf('WORK_SUPERVISED') !== -1, 'the watchdog review and the supervised hand-over are on the ledger');
   var review = JSON.parse(sys.openai.calls[0].input);
   t.ok(review.plan.steps[0].action === 'document' && review.goal.write_approved === true, 'the reviewer (OpenAI) saw the plan FABLE wrote');

@@ -182,6 +182,16 @@ h.startServer(h.qwenBehaviour(qwenCtl)).then(function (s) {
   return cli(['ledger', 'verify']);
 }).then(function (r) {
   t.ok(r.code === 0 && r.json.ok === true && r.json.records >= 11, 'ledger verify: chain intact');
+  // A long listing must arrive whole (found live: output over the 64 KiB
+  // pipe buffer was cut when the process exited before stdout drained).
+  var ledger = require(path.join(h.V4, 'lib', 'ledger'));
+  for (var i = 0; i < 300; i++) ledger.append({ actor: 'health', type: 'BULK', detail: { filler: new Array(400).join('x'), i: i } });
+  return cli(['ledger', 'show', '--type', 'BULK', '--last', '1000']);
+}).then(function (r) {
+  t.ok(r.code === 0 && r.out.length > 150000 && r.json !== null && r.json.length === 300 && r.json[299].detail.i === 299, 'a ' + Math.round(r.out.length / 1024) + ' KiB listing is printed completely before the process exits');
+  return cli(['ledger', 'verify']);
+}).then(function (r) {
+  t.ok(r.code === 0 && r.json.ok === true, 'records appended by a library caller and by the CLI share one intact chain');
   return cli(['goal', 'run', goalId]);
 }).then(function (r) {
   t.ok(r.code === 2 && /GOAL_NOT_RUNNABLE: COMPLETED/.test(r.err), 'running a completed goal again is refused (exit 2)');
