@@ -1159,7 +1159,7 @@ test('the engine pages say NO DATA with a reason when there is no source', async
   await page.fill('#password', h.PASSWORDS.viewer);
   await page.click('#login-submit');
   await page.waitFor('location.pathname === "/dashboard" && document.documentElement.getAttribute("data-ready") === "true"', 15000, 'the second server');
-  for (var pathname of ['/jev', '/risk', '/recovery', '/strategies', '/trades', '/candidates', '/decisions', '/analysis']) {
+  for (var pathname of ['/jev', '/risk', '/recovery', '/strategies', '/trades', '/candidates', '/decisions', '/analysis', '/research']) {
     await page.goto(b2 + pathname);
     await page.waitFor('/NO DATA/.test(document.getElementById("view").textContent)', 15000, 'NO DATA on ' + pathname);
     var text = await page.text('#view');
@@ -1258,4 +1258,187 @@ test('a run below the sample threshold is headed INSUFFICIENT DATA, and no sourc
   await page.waitFor('/could not be loaded|NO DATA/i.test(document.getElementById("view").textContent)', 15000, 'the not-found state');
   assert.equal(await page.exists('#analysis-report'), false);
   page.errors.length = 0;       // the browser logs the 404; it is the expected one
+});
+
+// ---------------------------------------------------------------------------
+// PHASE 11 — Research and Champion / Challenger
+// ---------------------------------------------------------------------------
+
+/** Signs in on another server (a fresh state directory) in the same tab. */
+async function signInAt(origin, user) {
+  await page.goto(origin + '/login');
+  await page.waitFor('!!document.getElementById("login-form")', 10000, 'the login form');
+  await page.fill('#user', user);
+  await page.fill('#password', h.PASSWORDS[user]);
+  await page.click('#login-submit');
+  await page.waitFor('location.pathname === "/dashboard" && document.documentElement.getAttribute("data-ready") === "true"', 15000, 'the dashboard of ' + origin);
+}
+
+var R = null;       // { app, origin, owner, run, report }
+
+async function researchReady() {
+  await page.waitFor('location.pathname === "/research" && !!document.getElementById("research-history") && !document.querySelector("#view [aria-busy=true]")', 20000, 'the research page');
+}
+
+test('the Research page lays out observation → hypothesis → proposal, each hypothesis with its falsification', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var A = await h.startApp();
+  var owner = await A.login('owner');
+  var cfg = await owner.patch('/api/config', { changes: { universe: ['EURUSD'], account: { initialCapital: 5000 }, jev: { scoreThreshold: 45, minConfidence: 0.15 },
+    cost: { slippageModel: 'fixed', fixedSlippagePips: 0.3 } }, reason: 'research browser test setup', confirm: 'CONFIRM' });
+  assert.equal(cfg.status, 200, JSON.stringify(cfg.body));
+  var run = await h.runBacktest(owner, { data: { kind: 'FIXTURE', bars: 3000 }, verifyReproducible: false });
+  assert.equal(run.status, 'COMPLETED', JSON.stringify(run.error));
+  R = { app: A, origin: 'http://localhost:' + A.port, owner: owner, run: run,
+    report: (await owner.get('/api/research?run=' + run.runId)).body.result.report,
+    fingerprint: (await owner.get('/api/status')).body.result.configFingerprint };
+  await signInAt(R.origin, 'owner');
+  await page.goto(R.origin + '/research?run=' + run.runId);
+  await researchReady();
+  var text = await page.text('#view');
+  assert.match(text, /Research proposes only\. Nothing on this page changes a trading rule, a limit, a size or the mode/);
+  assert.match(text, /NO CHAMPION/);
+  assert.equal((await cardRows('#research-report', 'Observations')).length, R.report.observations.length);
+  assert.deepEqual(await cardHeads('#research-report', 'Observations'), ['Observation', 'Subject', 'Sample', 'Actionable', 'Measurement']);
+  assert.equal(await page.count('#research-hypotheses [data-hypothesis]'), R.report.hypotheses.length);
+  R.report.hypotheses.forEach(function (hyp) {
+    assert.ok(text.indexOf(hyp.statement) !== -1, 'the statement of ' + hyp.hypothesisId + ' is shown');
+    assert.ok(text.indexOf(hyp.falsification) !== -1, 'the falsification criterion of ' + hyp.hypothesisId + ' is shown');
+  });
+  assert.match(text, /PROPOSAL ONLY/);
+  assert.match(text, /No experiment has been run/);
+  assert.match(text, /No challenger is registered/);
+  assert.match(text, /cannot be typed in/);
+  assertNoPageErrors('/research');
+});
+
+test('the first champion is seeded through a dialog that requires a basis, and is shown as SEEDED', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  await page.clickText('#research-champion button', 'Seed champion');
+  await modalOpen();
+  await page.fill('#seed-basis', 'too short');
+  await page.clickText('.modal-foot button', 'Seed champion');
+  await page.waitFor('/at least 20 characters is required/.test(document.querySelector(".modal").textContent)', 5000, 'the basis message');
+  assert.equal((await R.owner.get('/api/research')).body.result.registry.champion, null);
+  await page.fill('#seed-basis', 'The running configuration, as the reference to compare against.');
+  await page.fill('#seed-run', R.run.runId);
+  await page.clickText('.modal-foot button', 'Seed champion');
+  await modalClosed();
+  await waitToast('/Champion seeded/', 'the seed receipt');
+  await page.waitFor('/IS THE RUNNING CONFIGURATION/.test(document.getElementById("research-champion").textContent)', 15000, 'the champion card');
+  var card = await page.text('#research-champion');
+  assert.match(card, /CHAMPION/);
+  assert.match(card, /SEEDED/);
+  assert.match(card, /it was seeded, not promoted/);
+  assert.match(card, new RegExp('trades ' + R.run.summary.headline.trades));
+  assert.equal(await page.eval('!!Array.prototype.filter.call(document.querySelectorAll("#research-champion button"), function (b) { return /Roll back/.test(b.textContent); }).length'), false,
+    'a seeded champion offers no rollback');
+  await clearToasts();
+  assertNoPageErrors('/research after seeding');
+});
+
+test('an experiment started from a proposal shows a multi-metric comparison and the agent\'s verdict', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var first = R.report.hypotheses[0].hypothesisId;
+  await page.clickText('[data-hypothesis="' + first + '"] button', 'Run experiment');
+  await waitToast('/Experiment ex-[0-9a-f-]+ started/', 'the experiment receipt');
+  await page.waitFor('!!document.getElementById("experiment-detail") && /Comparison — never return alone/.test(document.getElementById("experiment-detail").textContent)', 120000, 'the finished experiment');
+  var view = (await R.owner.get('/api/research')).body.result;
+  var item = view.experiments[0];
+  R.experiment = item;
+  assert.equal(item.run.status, 'COMPLETED');
+  var detail = await page.text('#experiment-detail');
+  assert.ok(detail.indexOf(item.result.comparison.verdict.replace(/_/g, ' ')) !== -1, 'the verdict is shown');
+  assert.ok(detail.indexOf(item.result.comparison.note) !== -1);
+  assert.match(detail, /SYNTHETIC/);
+  assert.ok(detail.indexOf(item.result.proposal.hypothesis.falsification) !== -1, 'the falsification criterion is restated beside the result');
+  var rows = await page.eval('Array.prototype.map.call(document.querySelectorAll("#experiment-detail table")[0].querySelectorAll("tbody tr"), function (tr) {' +
+    ' return Array.prototype.map.call(tr.children, function (td) { return td.textContent; }); })');
+  assert.deepEqual(rows.map(function (r) { return r[0]; }), ['Expectancy', 'Max drawdown', 'Max losing streak', 'Profit factor', 'Win rate', 'Trade count', 'Costs', 'Net P&L', 'Recovery — highest level']);
+  var res = item.result;
+  assert.equal(Number(rows[2][3]), res.baseline.outOfSample.maxConsecutiveLosses);
+  assert.equal(Number(rows[2][4]), res.variant.outOfSample.maxConsecutiveLosses);
+  assert.equal(Number(rows[5][1]), res.baseline.inSample.tradeCount);
+  assert.equal(Number(rows[5][4]), res.variant.outOfSample.tradeCount);
+  assert.equal(rows[4][4], (res.variant.outOfSample.winRate * 100).toFixed(1) + '%');
+  // the blockers are the Research Agent's, in its order
+  if (res.comparison.blockers.length) {
+    var blockers = await page.eval('Array.prototype.map.call(document.querySelectorAll("#experiment-detail table")[1].querySelectorAll("tbody tr"), function (tr) { return tr.children[0].textContent; })');
+    assert.deepEqual(blockers, res.comparison.blockers.map(function (b) { return b.code; }));
+  }
+  assert.match(detail, /Walk-forward/);
+  assert.match(detail, /Stress suite — run against the variant/);
+  assert.equal((await cardRows('#research-experiments', 'Experiments')).length, 1);
+  await clearToasts();
+  assertNoPageErrors('/research after an experiment');
+});
+
+test('a challenger is registered, takes its evidence from the experiment, and the gate\'s refusal is shown and enforced', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var first = R.report.hypotheses[0].hypothesisId;
+  await page.clickText('[data-hypothesis="' + first + '"] button', 'Register as challenger');
+  await waitToast('/Challenger chal-\\d+ registered/', 'the registration receipt');
+  await page.waitFor('!!document.querySelector("#research-challengers [data-challenger]")', 15000, 'the challenger card');
+  var reg = (await R.owner.get('/api/research')).body.result.registry;
+  var c = reg.challengers[0];
+  var sel = '[data-challenger="' + c.recordId + '"]';
+  var card = await page.text(sel);
+  assert.match(card, /NOT PROMOTABLE/);
+  var evidence = await page.eval('Array.prototype.map.call(document.querySelectorAll(' + JSON.stringify(sel + ' table') + ')[0].querySelectorAll("tbody tr"), function (tr) { return [tr.children[0].textContent, tr.children[1].textContent]; })');
+  assert.deepEqual(evidence.map(function (e) { return e[0]; }), reg.requiredEvidence.map(function (k) { return k.replace(/_/g, ' '); }));
+  evidence.forEach(function (e) { assert.equal(e[1], 'MISSING', e[0]); });
+  assert.match(await page.text('[data-hypothesis="' + first + '"]'), new RegExp('Registered as challenger ' + c.recordId));
+  await clearToasts();
+
+  await page.clickText(sel + ' button', 'Attach experiment evidence');
+  await waitToast('/9 evidence item\\(s\\) attached/', 'the evidence receipt');
+  await page.waitFor('!/MISSING/.test(document.querySelectorAll(' + JSON.stringify(sel + ' table') + ')[0].querySelector("tbody tr").textContent)', 15000, 'the evidence table');
+  c = (await R.owner.get('/api/research')).body.result.registry.challengers[0];
+  evidence = await page.eval('Array.prototype.map.call(document.querySelectorAll(' + JSON.stringify(sel + ' table') + ')[0].querySelectorAll("tbody tr"), function (tr) { return [tr.children[0].textContent, tr.children[1].textContent]; })');
+  var byKind = {};
+  c.evidence.forEach(function (e) { byKind[e.kind.replace(/_/g, ' ')] = e; });
+  evidence.forEach(function (e) {
+    if (e[0] === 'DEMO COMPARISON') assert.equal(e[1], 'MISSING');
+    else assert.equal(e[1], byKind[e[0]].passed ? 'PASSED' : 'NOT PASSED', e[0]);
+  });
+  var gate = await page.eval('Array.prototype.map.call(document.querySelectorAll(' + JSON.stringify(sel + ' table') + ')[1].querySelectorAll("tbody tr"), function (tr) { return tr.children[0].textContent; })');
+  assert.deepEqual(gate, c.gate.blockers.map(function (b) { return b.code; }), 'the gate\'s blockers are shown as the registry reports them');
+  assert.match(await page.text(sel), /DEMO COMPARISON cannot be produced while the platform is in BACKTEST/);
+  await clearToasts();
+
+  // the owner tries anyway: the dialog asks for a basis and the word, and the gate still refuses
+  await page.clickText(sel + ' button', 'Promote');
+  await modalOpen();
+  assert.match(await page.text('.modal'), /The running configuration does not change/);
+  await page.fill('#confirm-reason', 'The owner would like this challenger promoted regardless.');
+  await page.fill('#confirm-typed', 'PROMOTE');
+  await page.clickText('.modal-foot button', 'Promote');
+  await modalClosed();
+  await waitToast('/Refused/', 'the refusal');
+  page.errors.length = 0;       // the browser logs the 403; it is the expected one
+  var after = (await R.owner.get('/api/research')).body.result.registry;
+  assert.equal(after.champion.origin, 'SEEDED', 'the champion is unchanged');
+  assert.equal(after.challengers[0].state, 'CHALLENGER');
+  assert.equal((await R.owner.get('/api/status')).body.result.configFingerprint, R.fingerprint, 'nothing on the research page changed the running configuration');
+  assert.match(await page.text('#research-history'), /CHALLENGER REGISTERED/);
+  assert.match(await page.text('#research-history'), /CHAMPION SEEDED/);
+  await clearToasts();
+});
+
+test('a viewer reads the research record and can change none of it', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  await page.click('#sign-out');
+  await page.waitFor('location.pathname === "/login"', 10000, 'the sign-out');
+  await signInAt(R.origin, 'viewer');
+  await page.goto(R.origin + '/research?run=' + R.run.runId);
+  await researchReady();
+  var buttons = await page.eval('Array.prototype.map.call(document.querySelectorAll("#research-body button"), function (b) { return [b.textContent, b.disabled]; })');
+  var acting = buttons.filter(function (b) { return /Run experiment|Register as challenger|Attach|Promote|Reject|Seed|Roll back/.test(b[0]); });
+  assert.ok(acting.length >= 5, 'the controls are shown: ' + JSON.stringify(buttons));
+  acting.forEach(function (b) { assert.equal(b[1], true, 'a viewer can press "' + b[0] + '"'); });
+  assert.match(await page.text('#research-body'), /Requires the OPERATOR role|requires the OWNER role/i);
+  assertNoPageErrors('/research as a viewer');
+  await R.app.close();
+  R = null;
+  await signIn('owner');
 });

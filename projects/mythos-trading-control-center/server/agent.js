@@ -30,6 +30,13 @@ var SYNTHETIC_TIMEFRAMES = ['M5', 'M15', 'M30', 'H1'];
 var MAX_SYNTHETIC_BARS = 6000;
 var MIN_RUN_BARS_OVER_WARMUP = 50;
 
+function refusal(code, message) {
+  var e = new Error(message);
+  e.code = code;
+  e.refusal = true;
+  return e;
+}
+
 function load(agentRoot) {
   var root = agentRoot || DEFAULT_AGENT_ROOT;
   var SRC = path.join(root, 'src');
@@ -103,6 +110,43 @@ function load(agentRoot) {
     if (first.backtest.warmupBars >= need) return first;
     over = m.config.deepMerge(over, { backtest: { warmupBars: need } });
     return m.config.load(over);
+  }
+
+  /**
+   * Turns a Research Agent proposal override into what a run can be built
+   * from: { overrides, enabled }.
+   *
+   * The Research Agent expresses "stop using this strategy" as
+   * { strategy: { disable: [id] } }. That is not a configuration key — in the
+   * agent, WHICH strategies run is a wiring argument, not a limit — so the
+   * override cannot be merged into a config as it stands. Here it is applied
+   * to the enabled set instead, which the Control Center already carries
+   * inside the config fingerprint. Everything else in the override is merged
+   * and validated by the agent's own loader, unchanged.
+   *
+   * A proposal can only REMOVE strategies. There is no key by which one could
+   * add a strategy, a size or a mode.
+   */
+  function applyProposal(overrides, enabledStrategies, proposalOverride) {
+    var po = JSON.parse(JSON.stringify(proposalOverride || {}));
+    // Order is preserved: the variant must differ from its baseline by the
+    // proposal and by nothing else.
+    var enabled = (enabledStrategies || strategyIds()).slice();
+    if (po.strategy !== undefined) {
+      var keys = Object.keys(po.strategy || {});
+      var disable = po.strategy && po.strategy.disable;
+      if (keys.length !== 1 || !Array.isArray(disable)) {
+        throw refusal('PROPOSAL_NOT_APPLICABLE', 'the only strategy change a proposal may carry is strategy.disable: [ids]');
+      }
+      var known = strategyIds();
+      disable.forEach(function (id) {
+        if (known.indexOf(id) === -1) throw refusal('PROPOSAL_NOT_APPLICABLE', 'the proposal disables an unknown strategy: ' + String(id).slice(0, 60));
+      });
+      enabled = enabled.filter(function (id) { return disable.indexOf(id) === -1; });
+      if (enabled.length === 0) throw refusal('PROPOSAL_NOT_APPLICABLE', 'the proposal would leave no strategy enabled');
+      delete po.strategy;
+    }
+    return { overrides: m.config.deepMerge(overrides || {}, po), enabled: enabled };
   }
 
   /** Wires an agent with the engine hooks, restricted to the enabled strategies. */
@@ -256,6 +300,7 @@ function load(agentRoot) {
   m.MAX_SYNTHETIC_BARS = MAX_SYNTHETIC_BARS;
   m.strategyIds = strategyIds;
   m.buildConfig = buildConfig;
+  m.applyProposal = applyProposal;
   m.wire = wire;
   m.dataCatalog = dataCatalog;
   m.loadDataset = loadDataset;

@@ -272,13 +272,11 @@ function create(spec) {
     if (req.demo && req.demo.challengerRecordId) {
       if (!research) throw refusal('DEMO_UNAVAILABLE', 'no champion/challenger registry is available for a demo session');
       var challenger = research.challengerOverride(req.demo.challengerRecordId);
-      var chalConfig = agent.buildConfig(
-        agent.config.deepMerge(control.overrides(), challenger.override),
-        enabled,
-        { mode: agent.enums.Mode.PAPER, universe: dataSpec.symbols }
-      );
+      var applied = agent.applyProposal(control.overrides(), enabled, challenger.override);
+      var chalConfig = agent.buildConfig(applied.overrides, applied.enabled,
+        { mode: agent.enums.Mode.PAPER, universe: dataSpec.symbols });
       armSpecs[0].label = 'champion';
-      armSpecs.push(buildArm('challenger', chalConfig, enabled, path.join(alloc.dir, 'store-challenger'), sessionId));
+      armSpecs.push(buildArm('challenger', chalConfig, applied.enabled, path.join(alloc.dir, 'store-challenger'), sessionId));
       demo = { challengerRecordId: challenger.recordId, challengerConfigHash: challenger.configHash };
     }
 

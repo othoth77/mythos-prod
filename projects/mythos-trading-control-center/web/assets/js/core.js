@@ -300,6 +300,7 @@
   /**
    * confirm({ title, message, details: Node, confirmLabel, danger,
    *           reason: true,           // ask for a written reason (returned)
+   *           reasonMin, reasonLabel, // its minimum length (5) and its label
    *           typed: 'ENABLE' })      // require the operator to type a word
    * Resolves to { reason } or null when cancelled.
    */
@@ -308,15 +309,16 @@
       var done = false;
       var reasonInput = null;
       var typedInput = null;
+      var reasonMin = opts.reasonMin || 5;
       var msg = el('p', { class: 'msg', text: '' });
       var body = [el('p', { text: opts.message })];
       if (opts.details) body.push(opts.details);
       if (opts.reason) {
         reasonInput = el('textarea', { class: 'textarea', id: 'confirm-reason', attrs: { rows: '2', maxlength: '500' } });
         body.push(el('div', { class: 'field' }, [
-          el('label', { text: 'Reason — recorded in the audit log', attrs: { for: 'confirm-reason' } }),
+          el('label', { text: (opts.reasonLabel || 'Reason') + ' — recorded in the audit log', attrs: { for: 'confirm-reason' } }),
           reasonInput,
-          el('span', { class: 'hint', text: 'At least 5 characters.' })
+          el('span', { class: 'hint', text: 'At least ' + reasonMin + ' characters.' })
         ]));
       }
       if (opts.typed) {
@@ -341,7 +343,7 @@
           { label: 'Cancel', kind: 'btn-secondary', onClick: function (b, h) { finish(null, h); } },
           { label: opts.confirmLabel || 'Confirm', kind: opts.danger ? 'btn-danger' : 'btn-primary', onClick: function (b, h) {
             var reason = reasonInput ? reasonInput.value.trim() : null;
-            if (reasonInput && reason.length < 5) { msg.textContent = 'A reason of at least 5 characters is required.'; reasonInput.focus(); return; }
+            if (reasonInput && reason.length < reasonMin) { msg.textContent = 'A reason of at least ' + reasonMin + ' characters is required.'; reasonInput.focus(); return; }
             if (typedInput && typedInput.value.trim() !== opts.typed) { msg.textContent = 'Type ' + opts.typed + ' exactly to confirm.'; typedInput.focus(); return; }
             finish({ reason: reason }, h);
           } }

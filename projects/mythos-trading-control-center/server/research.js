@@ -82,9 +82,14 @@ function create(spec) {
 
   /** Runs an operation and journals it only if the registry accepted it. */
   function apply(op, args) {
-    var at = now();
-    var res = OPS[op](args);          // throws the registry's own typed refusal
-    state.appendLine(JOURNAL, { at: at, mode: control.mode(), op: op, args: args });
+    // The registry reads the clock and the mode through the same pinned pair
+    // that is journalled, so a replay reproduces every timestamp exactly.
+    var pinned = { at: now(), mode: control.mode() };
+    var res;
+    replay = pinned;
+    try { res = OPS[op](args); }      // throws the registry's own typed refusal
+    finally { replay = null; }
+    state.appendLine(JOURNAL, { at: pinned.at, mode: pinned.mode, op: op, args: args });
     return res;
   }
 
@@ -136,8 +141,8 @@ function create(spec) {
 
   /** The config a proposal's override would produce, validated by the agent. */
   function variantFor(override) {
-    var merged = agent.config.deepMerge(control.overrides(), override);
-    return agent.buildConfig(merged, control.enabledStrategies());
+    var applied = agent.applyProposal(control.overrides(), control.enabledStrategies(), override);
+    return agent.buildConfig(applied.overrides, applied.enabled);
   }
 
   function registerChallenger(q, actor) {

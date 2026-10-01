@@ -170,8 +170,10 @@ function strip(cfgSerialised) {
 function experiment(agent, job) {
   var spec = job.spec;
   var baseline = agent.buildConfig(spec.overrides, spec.enabledStrategies);
-  var variantOverrides = agent.config.deepMerge(spec.overrides, spec.proposal.override);
-  var variant = agent.buildConfig(variantOverrides, spec.enabledStrategies);
+  var applied = agent.applyProposal(spec.overrides, spec.enabledStrategies, spec.proposal.override);
+  var variantOverrides = applied.overrides;
+  var variantEnabled = applied.enabled;
+  var variant = agent.buildConfig(variantOverrides, variantEnabled);
   if (variant.fingerprint.hash === baseline.fingerprint.hash) {
     throw new Error('the proposal does not change the configuration; there is nothing to compare');
   }
@@ -180,11 +182,11 @@ function experiment(agent, job) {
   var series = dataset.raw[symbol][dataset.timeframe];
   var split = agent.walkForward.split(series, { inSampleRatio: 0.7, warmupBars: baseline.backtest.warmupBars });
 
-  function side(config, tag) {
+  function side(config, tag, enabledSet) {
     send({ type: 'progress', stage: 'RUNNING', detail: tag + ' in-sample' });
-    var ins = runOne(agent, config, spec.enabledStrategies, dataset, tag + '-in', { range: split.inSample.range });
+    var ins = runOne(agent, config, enabledSet, dataset, tag + '-in', { range: split.inSample.range });
     send({ type: 'progress', stage: 'RUNNING', detail: tag + ' out-of-sample' });
-    var oos = runOne(agent, config, spec.enabledStrategies, dataset, tag + '-oos', { range: split.outOfSample.range });
+    var oos = runOne(agent, config, enabledSet, dataset, tag + '-oos', { range: split.outOfSample.range });
     send({ type: 'progress', stage: 'RUNNING', detail: tag + ' walk-forward' });
     var wf = null, wfError = null;
     try {
@@ -195,7 +197,7 @@ function experiment(agent, job) {
       wf = agent.walkForward.evaluate({
         folds: folds,
         runSegment: function (segment) {
-          return { metrics: runOne(agent, config, spec.enabledStrategies, dataset, tag + '-' + segment.label, { range: segment.range }).metrics };
+          return { metrics: runOne(agent, config, enabledSet, dataset, tag + '-' + segment.label, { range: segment.range }).metrics };
         }
       });
     } catch (e) { wfError = e.message; }
@@ -203,11 +205,11 @@ function experiment(agent, job) {
       walkForward: wf, walkForwardError: wfError, full: null };
   }
 
-  var base = side(baseline, 'baseline');
-  var vari = side(variant, 'variant');
+  var base = side(baseline, 'baseline', spec.enabledStrategies);
+  var vari = side(variant, 'variant', variantEnabled);
 
   send({ type: 'progress', stage: 'RUNNING', detail: 'stress' });
-  var variantFull = runOne(agent, variant, spec.enabledStrategies, dataset, 'variant-stress-baseline');
+  var variantFull = runOne(agent, variant, variantEnabled, dataset, 'variant-stress-baseline');
   var suite = agent.stressSuite.create({
     config: variant,
     logger: agent.logger.nullLogger(),
@@ -227,7 +229,7 @@ function experiment(agent, job) {
           raw: thinned, timeframe: dataset.timeframe, symbols: dataset.symbols
         };
       }
-      var r = runOne(agent, cfg, spec.enabledStrategies, ds, label);
+      var r = runOne(agent, cfg, variantEnabled, ds, label);
       return { metrics: r.metrics, trades: r.trades, timeline: r.timeline };
     }
   });
@@ -241,7 +243,6 @@ function experiment(agent, job) {
     stress: stress
   });
 
-  function headline(m) { return agent.metrics.headline(m); }
   function full(m) {
     return {
       expectancy: m.expectancy, maxDrawdownPct: m.maxDrawdownPct, maxConsecutiveLosses: m.maxConsecutiveLosses,
@@ -258,6 +259,8 @@ function experiment(agent, job) {
     baselineConfigHash: baseline.fingerprint.hash,
     variantConfigHash: variant.fingerprint.hash,
     variantOverrides: variantOverrides,
+    baselineEnabledStrategies: spec.enabledStrategies,
+    variantEnabledStrategies: variantEnabled,
     data: {
       kind: dataset.provenance.kind, label: dataset.provenance.label, datasetVersion: dataset.datasetVersion,
       timeframe: dataset.timeframe, symbols: dataset.symbols, window: dataset.window
@@ -277,7 +280,8 @@ function experiment(agent, job) {
       coverageWarning: stress.coverageWarning,
       scenarios: stress.scenarios.map(function (s) {
         return { scenario: s.scenario, passed: s.passed, skipped: !!s.skipped,
-          metrics: s.metrics ? headline(s.metrics) : null, failures: s.failures };
+          // The suite already reduces each scenario to its own summary.
+          metrics: s.metrics || null, failures: s.failures };
       })
     },
     comparison: comparison,

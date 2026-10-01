@@ -686,7 +686,8 @@ function create(opts) {
     var overrides = agent.config.deepMerge(control.overrides(), { universe: dataSpec.symbols || control.config().universe });
     var enabled = control.enabledStrategies();
     var baseline = agent.buildConfig(overrides, enabled);
-    agent.buildConfig(agent.config.deepMerge(overrides, found.proposal.override), enabled);   // validates the variant
+    var applied = agent.applyProposal(overrides, enabled, found.proposal.override);
+    agent.buildConfig(applied.overrides, applied.enabled);   // validates the variant
     agent.loadDataset(baseline, dataSpec);
     return runs.start({
       kind: 'EXPERIMENT',
