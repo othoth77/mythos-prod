@@ -765,3 +765,96 @@ test('the event stream resumes after the connection is cut, with nothing lost or
   await page.waitFor('/IDLE/.test(document.querySelector(".page-actions").textContent)', 12000, 'IDLE after the reset');
   page.errors.length = 0;      // the cut connection is logged by the browser; it is the expected one
 });
+
+// ---------------------------------------------------------------------------
+// PHASE 6 — Backtest Center
+// ---------------------------------------------------------------------------
+
+test('the Backtest Center offers every input the mission names and marks HISTORICAL unavailable', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  await clearToasts();
+  await open('/backtest');
+  await page.waitFor('!!document.getElementById("backtest-form")', 15000, 'the backtest form');
+  var formText = await page.text('#backtest-form');
+  for (var label of ['Data source', 'Timeframe', 'From (UTC)', 'To (UTC)', 'Assets', 'Strategies', 'Initial capital', 'Score threshold',
+    'Minimum confidence', 'Risk per trade (%)', 'Maximum drawdown (%)', 'Daily loss (%)', 'Consecutive losses', 'Maximum position size (lots)',
+    'Recovery', 'Maximum recovery level', 'Spread', 'Slippage', 'Commission', 'Swap']) {
+    assert.ok(formText.indexOf(label) !== -1, 'the form has no "' + label + '" input');
+  }
+  assert.match(formText, /SYNTHETIC/);
+  assert.equal(await page.count('#backtest-form fieldset .check input'), 4 + 14, 'four fixture assets and fourteen strategies');
+  var hist = await page.eval('(function () { var o = document.querySelectorAll("#backtest-form select option"); for (var i = 0; i < o.length; i++) {' +
+    ' if (/HISTORICAL/.test(o[i].textContent)) return { disabled: o[i].disabled, text: o[i].textContent }; } return null; })()');
+  assert.ok(hist, 'HISTORICAL must be listed, not omitted');
+  assert.equal(hist.disabled, true);
+  assert.match(hist.text, /not available/);
+  assert.match(formText, /no market-data access/);
+  assertNoPageErrors('/backtest');
+});
+
+test('a backtest is configured, run and read in the browser, with its label and its figures', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  await page.fill(await idFor('Bars'), '1200');
+  await page.fill(await idFor('Initial capital'), '5000');
+  await page.fill(await idFor('Score threshold'), '45');
+  await page.fill(await idFor('Minimum confidence'), '0.15');
+  await page.fill(await idFor('Slippage'), 'fixed');
+  await page.fill(await idFor('Run label'), 'browser-run');
+  await page.clickText('#backtest-form button', 'Run backtest');
+  await waitToast('/Run bt-\\d{14}-[0-9a-f]{6}/', 'the started toast');
+  await page.waitFor('!!document.getElementById("backtest-detail") && /COMPLETED/.test(document.getElementById("backtest-detail").textContent)', 90000, 'the run to complete');
+  var runId = await page.eval('new URLSearchParams(location.search).get("run")');
+  assert.match(runId, /^bt-\d{14}-[0-9a-f]{6}$/);
+
+  var api = await S.login('viewer');
+  var d = (await api.get('/api/backtest/' + runId)).body.result;
+  assert.equal(d.run.label, 'browser-run');
+  assert.equal(d.result.config.account.initialCapital, 5000);
+  assert.equal(d.result.config.jev.scoreThreshold, 45);
+  assert.equal(d.result.config.cost.slippageModel, 'fixed');
+  assert.equal(d.result.data.window.bars, 1200);
+
+  var detail = await page.text('#backtest-detail');
+  assert.ok(detail.indexOf(runId) !== -1);
+  assert.match(detail, /SYNTHETIC/);
+  assert.match(detail, /validate mechanics only/);
+  assert.match(detail, d.result.metrics.netPnl > 0 ? /NOT evidence of edge or profitability/ : /No statement about edge or profitability/);
+  for (var block of ['Net P&L', 'Return', 'Max drawdown', 'Win rate', 'Profit factor', 'Expectancy', 'Trades', 'Average win', 'Average loss',
+    'Max losing streak', 'Recovery failures', 'Largest position', 'Costs', 'Equity', 'Drawdown', 'Trade distribution', 'Strategy contribution',
+    'Jev bands', 'Regime distribution', 'Run identity', 'Commit', 'Configuration', 'Data source', 'Dataset version', 'Caveats']) {
+    assert.ok(detail.indexOf(block) !== -1, 'the run detail has no "' + block + '"');
+  }
+  async function tileIn(label) {
+    return page.eval('(function () { var ks = document.querySelectorAll("#backtest-detail .kpi"); for (var i = 0; i < ks.length; i++) {' +
+      ' if (ks[i].querySelector(".kpi-label").textContent === ' + JSON.stringify(label) + ') return ks[i].querySelector(".kpi-value").textContent; } return null; })()');
+  }
+  assert.equal(await tileIn('Trades'), String(d.result.metrics.tradeCount));
+  assert.equal(await tileIn('Max drawdown'), d.result.metrics.maxDrawdownPct.toFixed(2) + '%');
+  assert.equal(await tileIn('Win rate'), (d.result.metrics.winRate * 100).toFixed(1) + '%');
+  assert.equal(await tileIn('Max losing streak'), String(d.result.metrics.maxConsecutiveLosses));
+  assert.equal(await page.count('#backtest-detail figure.chart svg'), 3, 'equity, drawdown and trade distribution are drawn');
+  assert.ok(await page.count('#backtest-detail .bars .bar-row') >= 8, 'the bar lists are drawn');
+  assert.match(detail, /YES — a second run produced the same store digest/);
+  // the charts have a text description
+  var aria = await page.eval('Array.prototype.map.call(document.querySelectorAll("#backtest-detail figure.chart svg"), function (s) { return s.getAttribute("aria-label"); })');
+  aria.forEach(function (a) { assert.ok(a && a.length > 20, 'a chart has no text description'); });
+  assertNoPageErrors('a backtest run');
+});
+
+test('a run opens from the list, and a request the agent rejects is refused in the form', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var rows = await page.count('#view table tbody tr.is-clickable');
+  assert.ok(rows >= 2, 'the list shows the earlier runs');
+  await page.eval('document.querySelectorAll("#view table tbody tr.is-clickable")[' + (rows - 1) + '].click()');
+  await page.waitFor('(function () { var q = new URLSearchParams(location.search).get("run"); var d = document.getElementById("backtest-detail"); return !!q && !!d && d.textContent.indexOf(q) !== -1; })()',
+    20000, 'the selected run');
+  // An out-of-range value: refused before any process starts.
+  await page.fill(await idFor('Maximum drawdown (%)'), '0.6');
+  await page.fill(await idFor('Daily loss (%)'), '40');
+  await page.clickText('#backtest-form button', 'Run backtest');
+  await page.waitFor('/Refused/.test(document.getElementById("backtest-form").textContent)', 12000, 'the refusal');
+  assert.match(await page.text('#backtest-form'), /maxDailyLossPct/);
+  var api = await S.login('viewer');
+  assert.equal((await api.get('/api/backtest')).body.result.active, null, 'no run was started');
+  page.errors.length = 0;       // the browser logs the 400; it is the expected one
+});
