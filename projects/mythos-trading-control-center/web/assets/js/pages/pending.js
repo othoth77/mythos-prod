@@ -15,7 +15,6 @@
   var ui = TCC.ui;
 
   var PENDING = [
-    ['/decisions', 'Decisions', 8],
     ['/strategies', 'Strategies', 9],
     ['/jev', 'Jev', 9],
     ['/risk', 'Risk', 9],

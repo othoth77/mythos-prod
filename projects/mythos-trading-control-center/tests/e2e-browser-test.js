@@ -950,3 +950,90 @@ test('the Candidate Explorer shows rejected candidates with the recorded reason 
   assert.match(summary, new RegExp(data.rejected + ' rejected'));
   assertNoPageErrors('/candidates');
 });
+
+// ---------------------------------------------------------------------------
+// PHASE 8 — Decision Explorer
+// ---------------------------------------------------------------------------
+
+var CHAIN = ['MARKET', 'REGIME', 'STRATEGY', 'CANDIDATE', 'JEV', 'COST', 'RISK_ENGINE', 'RECOVERY', 'EXECUTION', 'RESULT', 'ANALYSIS'];
+
+async function chainOnPage() {
+  return page.eval('Array.prototype.map.call(document.querySelectorAll("#chain .chain-stage"), function (n) {' +
+    ' return { stage: n.getAttribute("data-stage"), status: n.getAttribute("data-status"), text: n.textContent }; })');
+}
+
+test('a candidate row opens the complete eleven-stage chain, in order, with stored values', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var api = await S.login('viewer');
+  var trade = (await api.get('/api/trades?run=' + explorerRun.runId + '&limit=1')).body.result.data.items[0];
+  await page.goto(base + '/candidates?run=' + explorerRun.runId + '&decision=ENTER');
+  await ready('/candidates');
+  await page.waitFor('document.querySelectorAll("#candidates-body tbody tr").length > 0', 15000, 'candidate rows');
+  await page.click('#candidates-body tbody tr');
+  await page.waitFor('location.pathname === "/decisions" && !!document.getElementById("chain")', 15000, 'the chain');
+  var candidateId = await page.eval('new URLSearchParams(location.search).get("candidate")');
+  var expected = (await api.get('/api/decisions/' + encodeURIComponent(candidateId) + '?run=' + explorerRun.runId)).body.result.chain;
+  var shown = await chainOnPage();
+  assert.deepEqual(shown.map(function (s) { return s.stage; }), CHAIN);
+  assert.deepEqual(shown.map(function (s) { return s.status; }), expected.stages.map(function (s) { return s.status; }));
+  var by = {};
+  shown.forEach(function (s) { by[s.stage] = s.text; });
+  var rec = {};
+  expected.stages.forEach(function (s) { rec[s.stage] = s.record; });
+  assert.ok(by.RISK_ENGINE.indexOf(rec.RISK_ENGINE.requestedLots.toFixed(2) + ' lots') !== -1, 'the requested size is shown');
+  assert.ok(by.RISK_ENGINE.indexOf(rec.RISK_ENGINE.approvedLots.toFixed(2) + ' lots') !== -1, 'the approved size is shown');
+  assert.ok(by.RISK_ENGINE.indexOf(rec.RISK_ENGINE.verdict) !== -1);
+  assert.ok(by.JEV.indexOf('ALLOW') !== -1 && by.JEV.indexOf('stored as ENTER') !== -1, 'Jev shows the label and the stored value');
+  assert.ok(by.JEV.indexOf(String(rec.JEV.threshold)) !== -1);
+  assert.ok(by.CANDIDATE.indexOf(String(rec.CANDIDATE.entry)) !== -1);
+  assert.ok(by.MARKET.indexOf(rec.MARKET.datasetVersion) !== -1);
+  assert.ok(by.COST.indexOf('The agent applies the cost filter before the Jev gate') !== -1);
+  // every recorded stage offers its raw stored row
+  assert.equal(await page.count('#chain .chain-stage.is-recorded details'), expected.integrity.recorded);
+  var header = await page.text('#chain');
+  assert.match(header, new RegExp(expected.integrity.recorded + ' of 11 stages recorded'));
+  void trade;
+  assertNoPageErrors('a decision chain');
+});
+
+test('a rejected candidate\'s chain stops where the pipeline stopped and invents nothing after it', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var api = await S.login('viewer');
+  var rejected = (await api.get('/api/candidates?run=' + explorerRun.runId + '&decision=NO_TRADE&stage=JEV&limit=1')).body.result.data.items[0];
+  assert.ok(rejected, 'the run has a candidate rejected by Jev');
+  await page.goto(base + '/decisions?candidate=' + encodeURIComponent(rejected.candidateId) + '&run=' + explorerRun.runId);
+  await page.waitFor('!!document.getElementById("chain")', 15000, 'the chain');
+  var shown = await chainOnPage();
+  var by = {};
+  shown.forEach(function (s) { by[s.stage] = s; });
+  assert.equal(by.JEV.status, 'RECORDED');
+  assert.ok(by.JEV.text.indexOf('BLOCK') !== -1 && by.JEV.text.indexOf('stored as REJECT') !== -1);
+  ['RISK_ENGINE', 'RECOVERY', 'EXECUTION', 'RESULT', 'ANALYSIS'].forEach(function (s) {
+    assert.equal(by[s].status, 'NOT_REACHED', s);
+    assert.match(by[s].text, /the pipeline stopped at JEV/);
+    assert.ok(!/\d+\.\d\d lots/.test(by[s].text), s + ' shows a size although it was never reached');
+  });
+  var head = await page.text('#chain');
+  assert.match(head, /NO TRADE/);
+  assert.match(head, /stopped at JEV/);
+  rejected.reasonCodes.forEach(function (code) { assert.ok(head.indexOf(code) !== -1, 'the recorded reason ' + code + ' is not shown'); });
+  assert.equal(await page.count('#chain .chain-stage.is-not-reached details'), 0, 'a stage that was not reached has no record to open');
+  assertNoPageErrors('a rejected chain');
+});
+
+test('the decision list is the stored verdicts, and an unknown candidate is an error, not an empty chain', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var api = await S.login('viewer');
+  await page.goto(base + '/decisions?run=' + explorerRun.runId);
+  await ready('/decisions');
+  await page.waitFor('document.querySelectorAll("#decisions-body tbody tr").length > 0', 15000, 'decision rows');
+  var data = (await api.get('/api/decisions?run=' + explorerRun.runId + '&limit=50')).body.result.data;
+  assert.equal(await rowCount('#decisions-body'), Math.min(50, data.total));
+  var summary = await page.text('#view');
+  assert.match(summary, new RegExp(data.total + ' decisions'));
+  assert.match(summary, /Chain order: Market → Regime → Strategy → Candidate → Jev → Cost → Risk Engine → Recovery → Execution → Result → Analysis/);
+  await page.goto(base + '/decisions?candidate=cand-does-not-exist&run=' + explorerRun.runId);
+  await page.waitFor('/could not be loaded|not found/i.test(document.getElementById("view").textContent)', 15000, 'the not-found state');
+  assert.equal(await page.exists('#chain'), false);
+  page.errors.length = 0;       // the browser logs the 404; it is the expected one
+});
