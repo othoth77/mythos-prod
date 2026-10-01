@@ -116,7 +116,7 @@
 .stream-row:last-child { border-bottom: 0; }
 .stream-type { font-weight: var(--mythos-weight-semibold); letter-spacing: 0.08em; text-transform: uppercase; font-size: 11px; }
 .stream-row.is-result .stream-type, .stream-row.is-tp .stream-type { color: var(--tcc-ok); }
-.stream-row.is-sl .stream-type, .stream-row.is-error .stream-type { color: var(--tcc-danger); }
+.stream-row.is-sl .stream-type, .stream-row.is-error .stream-type, .stream-row.is-result.is-loss .stream-type { color: var(--tcc-danger); }
 .stream-row.is-risk .stream-type, .stream-row.is-recovery .stream-type { color: var(--tcc-warn); }
 .stream-row.is-jev .stream-type, .stream-row.is-regime .stream-type { color: var(--tcc-info); }
 

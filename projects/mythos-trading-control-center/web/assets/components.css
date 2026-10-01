@@ -154,6 +154,9 @@ legend { padding: 0; margin-bottom: var(--mythos-space-4); }
 .kpi { background: var(--mythos-surface-card); border-radius: var(--mythos-radius-card); padding: var(--mythos-space-5) var(--mythos-space-6); min-width: 0; }
 .kpi .kpi-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--mythos-text-secondary); margin-bottom: var(--mythos-space-2); }
 .kpi .kpi-value { font-family: var(--mythos-font-mono); font-size: 26px; line-height: 1.15; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+/* six tiles across leave less room; the figure steps down rather than wrapping */
+.grid-6 .kpi { padding-inline: var(--mythos-space-5); }
+.grid-6 .kpi .kpi-value { font-size: 21px; }
 .kpi .kpi-value.is-text { font-family: var(--mythos-font-text); font-size: 18px; font-weight: var(--mythos-weight-semibold); }
 .kpi .kpi-sub { font-size: 12px; color: var(--mythos-text-secondary); margin-top: var(--mythos-space-2); }
 .kpi .kpi-value.is-accent { color: var(--mythos-accent); }

@@ -104,7 +104,10 @@ function client(port) {
       if (headers.Cookie === null) delete headers.Cookie;
       if (csrf && method !== 'GET' && method !== 'HEAD' && headers['X-TCC-CSRF'] === undefined) headers['X-TCC-CSRF'] = csrf;
       if (headers['X-TCC-CSRF'] === null) delete headers['X-TCC-CSRF'];
-      var req = http.request({ host: '127.0.0.1', port: port, method: method, path: pathName, headers: headers }, function (res) {
+      // agent: false — one connection per request. A pooled keep-alive socket can
+      // be closed by the server (keepAliveTimeout) while a test blocks the event
+      // loop driving a session, and reusing it then fails with ECONNRESET.
+      var req = http.request({ host: '127.0.0.1', port: port, method: method, path: pathName, headers: headers, agent: false }, function (res) {
         var chunks = [];
         res.on('data', function (c) { chunks.push(c); });
         res.on('end', function () {

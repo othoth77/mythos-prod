@@ -636,3 +636,132 @@ test('a viewer sees the configuration but every control is disabled', async func
   page.errors.length = 0;
   await signIn('owner');
 });
+
+// ---------------------------------------------------------------------------
+// PHASE 5 — Paper / Demo control room
+// ---------------------------------------------------------------------------
+
+async function paperState() {
+  var api = await S.login('viewer');
+  return (await api.get('/api/paper')).body.result;
+}
+
+test('outside PAPER mode the control room explains why it cannot start, instead of offering Start', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  await clearToasts();
+  await open('/paper');
+  await page.waitFor('/The platform is in BACKTEST/.test(document.getElementById("paper-state").textContent)', 15000, 'the explanation');
+  assert.match(await page.text('#paper-state'), /owner-approval record/);
+  var startButtons = await page.eval('Array.prototype.filter.call(document.querySelectorAll("#view button"), function (b) { return /^Start/.test(b.textContent); }).length');
+  assert.equal(startButtons, 0);
+  assertNoPageErrors('/paper in BACKTEST');
+});
+
+test('a paper session is started, streams its events, pauses, resumes, stops and resets from the browser', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var owner = await S.login('owner');
+  var setup = await owner.patch('/api/config', {
+    changes: { account: { initialCapital: 5000 }, jev: { scoreThreshold: 45, minConfidence: 0.15 }, universe: ['EURUSD', 'GBPUSD', 'XAUUSD'] },
+    reason: 'browser paper test setup', confirm: 'CONFIRM'
+  });
+  assert.equal(setup.status, 200, JSON.stringify(setup.body));
+  await h.enterPaper(owner, 'browser paper test');
+  await page.waitFor('/Mode\\s*PAPER/.test(document.getElementById("status").textContent)', 12000, 'PAPER in the status bar');
+  await page.waitFor('!!Array.prototype.filter.call(document.querySelectorAll("#view button"), function (b) { return /^Start/.test(b.textContent); }).length', 12000, 'the Start button');
+
+  // START
+  await page.clickText('#view button', 'Start');
+  await modalOpen();
+  assert.match(await page.text('.modal'), /No order is sent anywhere/);
+  var bars = await idFor('Bars');
+  await page.fill(bars, '2400');
+  var speed = await idFor('Speed');
+  await page.fill(speed, '100');
+  await page.clickText('.modal-foot button', 'Start session');
+  await modalClosed();
+  await page.waitFor('/RUNNING/.test(document.querySelector(".page-actions").textContent)', 12000, 'the RUNNING state');
+  var body = await page.text('#paper-state');
+  assert.match(body, /PAPER/);
+  assert.match(body, /no order is sent anywhere/i);
+  for (var label of ['Balance', 'Equity', 'Net P&L', 'Drawdown', 'Trades', 'Open position', 'Candidates, Jev, Risk, Recovery', 'Latest trades']) {
+    assert.ok(body.indexOf(label) !== -1, 'the control room has no "' + label + '"');
+  }
+
+  // the stream is live
+  await page.waitFor('document.getElementById("paper-stream-status").textContent === "stream: connected"', 12000, 'the event stream');
+  await page.waitFor('document.querySelectorAll("#paper-stream .stream-row").length > 20', 30000, 'events in the stream');
+  await page.waitFor('(function () { var t = {}; Array.prototype.forEach.call(document.querySelectorAll("#paper-stream .stream-type"), function (n) { t[n.textContent] = 1; });' +
+    ' return t.candidate && t.jev && t.risk && t.execution && t.result; })()', 60000, 'candidate, jev, risk, execution and result events');
+  var seqs = await page.eval('Array.prototype.map.call(document.querySelectorAll("#paper-stream .stream-row"), function (r) { return Number(r.getAttribute("data-seq")); })');
+  for (var i = 1; i < seqs.length; i++) assert.ok(seqs[i] < seqs[i - 1], 'the stream is newest-first with no duplicate: ' + seqs[i - 1] + ', ' + seqs[i]);
+
+  // PAUSE holds the feed still
+  await page.clickText('#view button', 'Pause');
+  await page.waitFor('/PAUSED/.test(document.querySelector(".page-actions").textContent)', 12000, 'the PAUSED state');
+  var t1 = (await paperState()).session.ticks;
+  await browser.sleep(1200);
+  var t2 = (await paperState()).session.ticks;
+  assert.equal(t2, t1, 'a paused session must not advance');
+
+  // RESUME
+  await page.clickText('#view button', 'Resume');
+  await page.waitFor('/RUNNING/.test(document.querySelector(".page-actions").textContent)', 12000, 'RUNNING again');
+  await h.waitFor(async function () { return (await paperState()).session.ticks > t2; }, 15000, 200);
+
+  // the page shows what the API reports
+  await page.eval('void 0');
+  var st = await paperState();
+  await page.waitFor('document.getElementById("paper-state").textContent.indexOf(' + JSON.stringify(st.session.sessionId) + ') !== -1', 8000, 'the session id on the page');
+
+  // STOP
+  await page.clickText('#view button', 'Stop');
+  await page.waitFor('/STOPPED/.test(document.querySelector(".page-actions").textContent)', 15000, 'the STOPPED state');
+  var stopped = await paperState();
+  assert.equal(stopped.state, 'STOPPED');
+  assert.equal(stopped.session.stopReason, 'STOPPED_BY_OPERATOR');
+  await page.waitFor('/Archived as a run/.test(document.getElementById("paper-state").textContent)', 10000, 'the archive note');
+  await page.waitFor('(function () { var ks = document.querySelectorAll("#paper-state .kpi"); for (var i = 0; i < ks.length; i++) {' +
+    ' if (ks[i].querySelector(".kpi-label").textContent === "Trades") return ks[i].querySelector(".kpi-value").textContent === ' + JSON.stringify(String(stopped.session.arms[0].trades)) + '; } return false; })()',
+  10000, 'the trade count to match the API');
+
+  // RESET needs the typed word
+  await page.clickText('#view button', 'Reset');
+  await modalOpen();
+  assert.match(await page.text('.modal'), /nothing it recorded is deleted/);
+  await page.clickText('.modal-foot button', 'Reset');
+  assert.match(await page.text('.modal'), /Type RESET exactly/);
+  assert.equal((await paperState()).state, 'STOPPED');
+  await page.fill('#confirm-typed', 'RESET');
+  await page.clickText('.modal-foot button', 'Reset');
+  await modalClosed();
+  await page.waitFor('/IDLE/.test(document.querySelector(".page-actions").textContent)', 12000, 'the IDLE state');
+  var idle = await paperState();
+  assert.equal(idle.state, 'IDLE');
+  assert.equal(idle.lastArchived.sessionId, stopped.session.sessionId);
+  assert.match(await page.text('#paper-state'), /was archived/);
+  assertNoPageErrors('the paper control room');
+});
+
+test('the event stream resumes after the connection is cut, with nothing lost or repeated', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var operator = await S.login('operator');
+  var start = await operator.post('/api/paper/start', { data: { kind: 'FIXTURE', symbols: ['EURUSD'], bars: 2400 }, ticksPerSecond: 60 });
+  assert.equal(start.status, 200, JSON.stringify(start.body));
+  await page.waitFor('document.querySelectorAll("#paper-stream .stream-row").length > 5', 30000, 'events before the cut');
+  // Cut every open stream on the server side; the browser must reconnect by itself.
+  var paper = S.app.platform.paper;
+  var before = paper.lastEventSeq();
+  S.app.server.closeAllConnections();
+  await h.waitFor(async function () { return paper.lastEventSeq() > before + 30; }, 30000, 200);
+  await page.waitFor('document.getElementById("paper-stream-status").textContent === "stream: connected"', 20000, 'the stream to reconnect');
+  var target = paper.lastEventSeq();
+  await page.waitFor('Number(document.querySelector("#paper-stream .stream-row").getAttribute("data-seq")) >= ' + target, 20000, 'the stream to catch up');
+  var seqs = await page.eval('Array.prototype.map.call(document.querySelectorAll("#paper-stream .stream-row"), function (r) { return Number(r.getAttribute("data-seq")); })');
+  for (var i = 1; i < seqs.length; i++) {
+    assert.equal(seqs[i], seqs[i - 1] - 1, 'a hole or duplicate across the reconnect between ' + seqs[i - 1] + ' and ' + seqs[i]);
+  }
+  await operator.post('/api/paper/stop');
+  await (await S.login('owner')).post('/api/paper/reset', { confirm: 'RESET' });
+  await page.waitFor('/IDLE/.test(document.querySelector(".page-actions").textContent)', 12000, 'IDLE after the reset');
+  page.errors.length = 0;      // the cut connection is logged by the browser; it is the expected one
+});

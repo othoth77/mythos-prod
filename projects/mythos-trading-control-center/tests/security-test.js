@@ -59,7 +59,7 @@ function concrete(route) {
 
 function raw(method, p, headers, body) {
   return new Promise(function (resolve, reject) {
-    var req = http.request({ host: '127.0.0.1', port: S.port, method: method, path: p, headers: headers || {} }, function (res) {
+    var req = http.request({ host: '127.0.0.1', port: S.port, method: method, path: p, headers: headers || {}, agent: false }, function (res) {
       var chunks = [];
       res.on('data', function (c) { chunks.push(c); });
       res.on('end', function () { resolve({ status: res.statusCode, headers: res.headers, text: Buffer.concat(chunks).toString('utf8') }); });
