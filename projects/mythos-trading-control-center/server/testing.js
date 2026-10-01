@@ -94,7 +94,7 @@ var CATEGORIES = Object.freeze({
   e2e: {
     label: 'E2E',
     description: 'End-to-end flows through the HTTP API and, when a headless browser is available, through the real interface.',
-    files: ['cc:e2e-test.js', 'cc:e2e-browser-test.js']
+    files: ['cc:e2e-test.js', 'cc:deploy-test.js', 'cc:e2e-browser-test.js']
   },
   security: {
     label: 'Security',

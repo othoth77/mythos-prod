@@ -1,0 +1,86 @@
+# MYTHOS TRADING CONTROL CENTER — user-level systemd unit
+#
+# Install at ~deploy/.config/systemd/user/mythos-trading-control-center.service
+# and run by the `deploy` user's own systemd manager (linger is already
+# enabled for `deploy` on this host).
+#
+# User scope, and the absence of several standard hardening directives, follow
+# the sibling unit projects/mythos-os-console/deploy/mythos-os-console.user.service,
+# where the reasons are recorded once: an unprivileged user manager cannot drop
+# bounding-set capabilities (status=218/CAPABILITIES), and
+# MemoryDenyWriteExecute is incompatible with V8's JIT. A directive that stops
+# the service from starting protects nothing.
+#
+# WHAT THIS SERVICE IS: a control and observation surface over the Trading
+# Agent in BACKTEST and PAPER modes. It has no venue connection, no broker
+# client and no LIVE execution path; it opens no outbound connection at all.
+
+[Unit]
+Description=MYTHOS Trading Control Center — trading.mythosprod.xyz (BACKTEST and PAPER only)
+Documentation=https://github.com/othoth77/mythos-prod
+After=network-online.target
+
+[Service]
+Type=simple
+
+# `current` is a symlink to releases/<commit>, switched by deploy/release.sh.
+# A release is an export of ONE commit: the Trading Agent and this project,
+# with the interface built and the commit written to a COMMIT file. It is not
+# a git checkout and nothing in it is edited in place.
+WorkingDirectory=/home/deploy/deployments/mythos-trading-control-center/current/projects/mythos-trading-control-center
+ExecStart=/usr/bin/node /home/deploy/deployments/mythos-trading-control-center/current/projects/mythos-trading-control-center/server/server.js
+
+Environment=NODE_ENV=production
+Environment=TZ=UTC
+# Loopback only. nginx is the only thing that reaches this port.
+Environment=TCC_BIND=127.0.0.1
+Environment=TCC_PORT=8210
+# Behind nginx on loopback: take the client address from X-Real-IP (for the
+# sign-in throttle and the audit log) and accept state-changing requests from
+# this exact origin only.
+Environment=TCC_TRUST_PROXY=1
+Environment=TCC_PUBLIC_ORIGIN=https://trading.mythosprod.xyz
+# State (configuration, audit chain, runs, journals) and the users file live
+# OUTSIDE the release, so a release switch or a rollback never touches them.
+# The users file holds scrypt records only, mode 0600; the server refuses it
+# if any group or other permission bit is set.
+Environment=TCC_STATE_DIR=/home/deploy/deployments/mythos-trading-control-center/state
+Environment=TCC_USERS_FILE=/home/deploy/deployments/mythos-trading-control-center/users.json
+# Optional: lets the Testing Center run the browser end-to-end suite. Without
+# it that suite is reported as SKIPPED — never as passed.
+Environment=TCC_CHROME=/home/deploy/wpv2-ui-test/headless-shell/chrome-headless-shell
+
+Restart=on-failure
+RestartSec=5s
+
+# --- Resources --------------------------------------------------------------
+# This host is memory-constrained. The server itself is small; backtests run
+# as forked jobs (capped at 512 MB of V8 heap each, one at a time) and the
+# Testing Center runs one suite file at a time. If a child is killed for
+# memory the service keeps running and the run is recorded as failed.
+MemoryHigh=900M
+MemoryMax=1200M
+OOMPolicy=continue
+TasksMax=256
+
+# --- Hardening --------------------------------------------------------------
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectControlGroups=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# The only writable place outside the private /tmp.
+ReadWritePaths=/home/deploy/deployments/mythos-trading-control-center/state
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mythos-trading-control-center
+
+[Install]
+WantedBy=default.target
