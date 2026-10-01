@@ -374,6 +374,14 @@ async function waitToast(re, what) {
 }
 async function clearToasts() { await page.eval('(function () { var h = document.getElementById("toasts"); while (h.firstChild) h.removeChild(h.firstChild); })()'); }
 async function apiAs(role) { return S.login(role); }
+/** Waits until the Control Center is showing the configuration the server currently has. */
+async function controlSettled() {
+  var api = await S.login('viewer');
+  var cfg = (await api.get('/api/config')).body.result;
+  await page.waitFor('(function () { var b = document.getElementById("control-body"); return !!b && b.getAttribute("data-fingerprint") === ' +
+    JSON.stringify(cfg.fingerprint) + ' && b.getAttribute("data-mode") === ' + JSON.stringify(cfg.mode) + '; })()', 15000, 'the control center to show the current configuration');
+  await browser.sleep(120);
+}
 
 test('the Control Center shows every control the mission names, and no LIVE control', async function (t) {
   if (skipIfNoBrowser(t)) return;
@@ -400,6 +408,7 @@ test('the Control Center shows every control the mission names, and no LIVE cont
 
 test('a risk limit change is previewed, confirmed with a reason, applied and receipted', async function (t) {
   if (skipIfNoBrowser(t)) return;
+  await controlSettled();
   var dd = await idFor('Maximum drawdown (%)');
   assert.equal(await page.eval('document.querySelector(' + JSON.stringify(dd) + ').value'), '20');
   await page.fill(dd, '15');
@@ -430,6 +439,7 @@ test('a risk limit change is previewed, confirmed with a reason, applied and rec
 test('loosening a protection demands the typed confirmation', async function (t) {
   if (skipIfNoBrowser(t)) return;
   await clearToasts();
+  await controlSettled();
   var dd = await idFor('Maximum drawdown (%)');
   await page.fill(dd, '25');
   await page.clickText('button', 'Save risk');
@@ -452,6 +462,7 @@ test('loosening a protection demands the typed confirmation', async function (t)
 test('a value the Trading Agent rejects is refused in words and nothing changes', async function (t) {
   if (skipIfNoBrowser(t)) return;
   await clearToasts();
+  await controlSettled();
   var dd = await idFor('Maximum drawdown (%)');
   await page.fill(dd, '500');
   await page.clickText('button', 'Save risk');
@@ -466,6 +477,7 @@ test('trading is disabled with a reason and re-enabled only by typing ENABLE', a
   if (skipIfNoBrowser(t)) return;
   await clearToasts();
   await open('/control');
+  await controlSettled();
   await page.clickText('button', 'Disable trading');
   await modalOpen();
   await page.fill('#confirm-reason', 'disable trading from the browser');
@@ -474,7 +486,7 @@ test('trading is disabled with a reason and re-enabled only by typing ENABLE', a
   await page.waitFor('/Trading\\s*DISABLED/.test(document.getElementById("status").textContent)', 12000, 'DISABLED in the status bar');
   var api = await apiAs('viewer');
   assert.equal((await api.get('/api/config')).body.result.config.risk.emergencyStop, true);
-  await page.waitFor('!!Array.prototype.filter.call(document.querySelectorAll("button"), function (b) { return /Enable trading/.test(b.textContent); }).length', 10000, 'the enable button');
+  await controlSettled();
   await page.clickText('button', 'Enable trading');
   await modalOpen();
   await page.fill('#confirm-reason', 'enable trading from the browser');
@@ -492,6 +504,7 @@ test('strategies, assets and sessions are saved through the same audited path', 
   if (skipIfNoBrowser(t)) return;
   await clearToasts();
   await open('/control');
+  await controlSettled();
   var api = await apiAs('viewer');
   // strategies: switch off the last family
   await page.eval('(function () { var s = document.querySelectorAll("#control-body .switch input"); var last = s[s.length - 1]; last.click(); })()');
@@ -505,6 +518,7 @@ test('strategies, assets and sessions are saved through the same audited path', 
   // assets: drop USDCHF from the universe
   await clearToasts();
   await open('/control');
+  await controlSettled();
   await page.eval('(function () { var ls = document.querySelectorAll("label.check"); for (var i = 0; i < ls.length; i++) { if (ls[i].textContent.trim() === "USDCHF") ls[i].querySelector("input").click(); } })()');
   await page.clickText('button', 'Save assets');
   await modalOpen();
@@ -516,6 +530,7 @@ test('strategies, assets and sessions are saved through the same audited path', 
   // sessions: a window for EURUSD
   await clearToasts();
   await open('/control');
+  await controlSettled();
   await page.fill('select[aria-label="EURUSD session start (UTC)"]', '7');
   await page.fill('select[aria-label="EURUSD session end (UTC)"]', '16');
   await page.clickText('button', 'Save sessions');
@@ -537,6 +552,7 @@ test('the owner approval dialog refuses an incomplete record and reaches PAPER w
   if (skipIfNoBrowser(t)) return;
   await clearToasts();
   await open('/control');
+  await controlSettled();
   await page.clickText('button', 'Approve PAPER');
   await modalOpen();
   var dialog = await page.text('.modal');
@@ -567,7 +583,7 @@ test('the owner approval dialog refuses an incomplete record and reaches PAPER w
   assert.equal(ev.principalId, 'owner:owner');
   assert.equal(ev.gatesPassed.length, 10);
   // And back down, which needs no approval.
-  await page.waitFor('!!Array.prototype.filter.call(document.querySelectorAll("button"), function (b) { return /Return to BACKTEST/.test(b.textContent); }).length', 10000, 'the downgrade button');
+  await controlSettled();
   await page.clickText('button', 'Return to BACKTEST');
   await modalOpen();
   await page.fill('#confirm-reason', 'back to backtest from the browser');
@@ -575,6 +591,31 @@ test('the owner approval dialog refuses an incomplete record and reaches PAPER w
   await modalClosed();
   await page.waitFor('/Mode\\s*BACKTEST/.test(document.getElementById("status").textContent)', 12000, 'BACKTEST in the status bar');
   assertNoPageErrors('the approval dialog');
+});
+
+test('a change made elsewhere does not discard what the operator is typing', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  await clearToasts();
+  await open('/control');
+  await controlSettled();
+  var th = await idFor('Score threshold');
+  await page.fill(th, '77');
+  var other = await apiAs('owner');
+  var res = await other.patch('/api/config', { changes: { risk: { maxDailyLossPct: 4 } }, reason: 'a second owner changes the config' });
+  assert.equal(res.status, 200);
+  await page.waitFor('/Changed elsewhere/.test(document.getElementById("view").textContent)', 12000, 'the changed-elsewhere notice');
+  assert.equal(await page.eval('document.querySelector(' + JSON.stringify(th) + ').value'), '77', 'the unsaved edit must survive');
+  // Saving the stale form is refused by the server, not silently merged.
+  await page.clickText('button', 'Save jev');
+  await modalOpen();
+  await page.fill('#confirm-reason', 'save a stale form');
+  await page.clickText('.modal-foot button', 'Apply change');
+  await waitToast('/changed since it was loaded/', 'the stale refusal');
+  page.errors.length = 0;       // the browser logs the 409; it is the expected one
+  await page.eval('(function () { var m = document.querySelector(".modal"); if (m) { var b = m.querySelector(".modal-head button"); b.click(); } })()');
+  await page.clickText('#view button', 'Reload');
+  await controlSettled();
+  assert.equal((await other.get('/api/config')).body.result.config.jev.scoreThreshold, 70, 'the stale edit was not applied');
 });
 
 test('a viewer sees the configuration but every control is disabled', async function (t) {

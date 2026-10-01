@@ -486,7 +486,7 @@
     var c = cfg.config;
     var ladder = [];
     for (var i = 0; i <= c.recovery.maxRecoveryLevel; i++) ladder.push((c.recovery.baseLots * Math.pow(c.recovery.multiplier, i)).toFixed(2));
-    return el('div', { class: 'stack-lg', id: 'control-body' }, [
+    return el('div', { class: 'stack-lg', id: 'control-body', attrs: { 'data-fingerprint': cfg.fingerprint, 'data-mode': cfg.mode } }, [
       cfg.startupProblem ? ui.banner('danger', 'Configuration', cfg.startupProblem) : null,
       el('div', { class: 'source-line' }, [el('span', { text: 'Configuration' }), ui.hash(cfg.fingerprint, 16),
         el('span', { text: 'revision ' + cfg.revision }), el('span', { text: 'commit' }), ui.hash(cfg.commit)]),
@@ -535,22 +535,39 @@
     title: 'Control Center',
     render: function (ctx) {
       var host = el('div');
+      var notice = el('div');
+      var loaded = null;       // fingerprint|mode of the configuration this page is showing
+      var dirty = false;       // the operator has edited a control since the last load
       ctx.root.appendChild(ui.pageHead('Control Center',
         'Mode, trading switch, assets, strategies, Jev, risk, recovery and sessions. Every change is validated, authorized, persisted and audited.'));
+      ctx.root.appendChild(notice);
       ctx.root.appendChild(host);
+      host.addEventListener('input', function () { dirty = true; });
+      host.addEventListener('change', function () { dirty = true; });
       function load(silent) {
         return ui.load(host, function () {
           return Promise.all([api.get('/api/config'), api.get('/api/config/mode'), api.get('/api/config/history', { limit: 25 })]);
-        }, function (r) { return view(r[0], r[1], r[2], function () { load(true); }); }, { silent: silent, alive: ctx.alive });
+        }, function (r) {
+          loaded = r[0].fingerprint + '|' + r[0].mode;
+          dirty = false;
+          TCC.clear(notice);
+          return view(r[0], r[1], r[2], function () { load(true); });
+        }, { silent: silent, alive: ctx.alive });
       }
       load(false);
       // Somebody else changing the configuration must not leave this page
       // showing — and offering to edit — a configuration that no longer exists.
-      var seen = TCC.status() ? TCC.status().configFingerprint + '|' + TCC.status().mode : null;
+      // With nothing edited the page simply reloads. With unsaved edits it says
+      // so and waits: discarding what an operator is typing is not acceptable,
+      // and their Save would be refused as stale anyway.
       ctx.onCleanup(TCC.onStatus(function (s) {
-        var now = s.configFingerprint + '|' + s.mode;
-        if (seen !== null && now !== seen && !document.querySelector('.scrim')) load(true);
-        seen = now;
+        if (loaded === null || s.configFingerprint + '|' + s.mode === loaded) return;
+        if (document.querySelector('.scrim')) return;
+        if (!dirty) { load(true); return; }
+        TCC.replace(notice, ui.banner('warn', 'Changed elsewhere', [
+          'The configuration or mode changed since this page loaded. Your unsaved edits are still here, but saving them will be refused as stale. ',
+          ui.button('Reload', 'btn-secondary', function () { load(true); }, { compact: true })
+        ]));
       }));
     }
   });
