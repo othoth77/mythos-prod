@@ -254,6 +254,35 @@ function create(deps) {
     });
   }
 
+  // settleSupervised() -> Promise<{ ran, open, code? }>
+  // A supervised task is driven by `watch`, a child of the goal's runner. If
+  // the runner dies, nothing ticks that task again and its Issue stays open
+  // (found live, Issue #546). The watchdog tick calls this: when v4's own
+  // Supervisor store holds a task that is not terminal, ONE `tick` is run —
+  // the Supervisor's normal pass, which verifies and closes what finished.
+  function settleSupervised() {
+    var home = process.env.MYTHOS_SUPERVISOR_HOME || store.file('supervisor');
+    var dir = path.join(home, 'tasks');
+    var open = 0;
+    try {
+      fs.readdirSync(dir).forEach(function (f) {
+        if (!/^SUP-[A-Z0-9]{4,20}\.json$/.test(f)) return;
+        var rec = null;
+        try { rec = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); } catch (e) { rec = null; }
+        if (rec && ['COMPLETED', 'BLOCKED', 'CANCELLED', 'FAILED'].indexOf(rec.status) === -1) open += 1;
+      });
+    } catch (e2) { return Promise.resolve({ ran: false, open: 0 }); }
+    var cfgPath = path.join(executorRoot, hp.supervisor_config);
+    if (!open || !fs.existsSync(cfgPath)) return Promise.resolve({ ran: false, open: open });
+    var fileEnv = executorEnv() || {};
+    var env = baseEnv({ MYTHOS_SUPERVISOR_CONFIG: cfgPath, MYTHOS_SUPERVISOR_HOME: home });
+    if (fileEnv.MYTHOS_EXECUTOR_HOME) env.MYTHOS_EXECUTOR_HOME = fileEnv.MYTHOS_EXECUTOR_HOME;
+    return run(process.execPath, [path.join(executorRoot, 'scripts', 'mythos-supervise.js'), 'tick'], { env: env, timeoutMs: 300000, cwd: executorRoot }, spawn).then(function (r) {
+      ledger.append({ actor: 'haddad', type: 'SUPERVISED_TICK', detail: { open_tasks: open, exit_code: r.code, timed_out: r.timed_out } });
+      return { ran: true, open: open, code: r.code };
+    });
+  }
+
   function work(step, ctx) {
     // No static fallback here: without JEV's decision nothing is known to
     // hold execution authority, and repository work fails closed.
@@ -299,7 +328,7 @@ function create(deps) {
     });
   }
 
-  return { execute: execute, executorEnv: executorEnv, executorRoot: executorRoot };
+  return { execute: execute, settleSupervised: settleSupervised, executorEnv: executorEnv, executorRoot: executorRoot };
 }
 
 module.exports = { create: create, readEnvFile: readEnvFile, CAPABILITY_BY_ACTION: CAPABILITY_BY_ACTION, POOL_BY_ACTION: POOL_BY_ACTION };

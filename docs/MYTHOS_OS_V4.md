@@ -160,3 +160,70 @@ execution authority.
   and host access changes are refused at the directive, whoever asks.
 * **Untrusted text is data.** Goal text, history and model output are passed as JSON data with an explicit
   instruction not to follow instructions inside it — and DOTS's checks do not depend on the model obeying that.
+
+## 9. Acceptance evidence (2026-10-01, host `haddad`)
+
+Reproduce: the five suites in `projects/mythos-os-v4/README.md`; `mythos-os health --live`; `mythos-os trace <goal-id>`
+and `mythos-os ledger verify` against `~/.local/state/mythos-os-v4` on Haddad.
+
+### 9.1 Offline suites — 393 assertions, 0 failed
+
+| suite | assertions | what runs for real |
+|---|---|---|
+| `tests/mythos-os-v4-core-test.js` | 60 | the ledger on disk; a spawned `claude` stand-in through `lib/claude-cli.js`; the real OpenAI provider (socket replaced) |
+| `tests/mythos-os-v4-jev-gateway-test.js` | 75 | the real free-llm selector, haddad-runtime and Claude CLI adapters against loopback HTTP servers |
+| `tests/mythos-os-v4-executive-test.js` | 63 | FABLE as a spawned process, OpenAI through the real provider |
+| `tests/mythos-os-v4-dots-test.js` | 136 | the production wiring (`lib/index.js`); the REAL `executor.createTask` and the REAL `mythos-supervise.js submit` accept v4's payloads |
+| `tests/mythos-os-v4-runtime-test.js` | 59 | the real CLI as a child process on a fixture host (HOME, `claude`, `systemctl`, runtime URL) |
+
+Mutation check: 57 rules were broken one at a time; 56 made a suite fail. The survivor is one of three redundant
+goal-deadline checks (removing any single one is masked by the other two).
+
+Existing suites that cover what v4 reuses, re-run on the branch: `mythos-haddad-fable-worker` 15/0 (scope guard),
+`mythos-haddad-runtime` 48/0, `free-llm-selector` 10/0, `free-llm-registry` 36/0, `free-llm-pool-provider` 17/0,
+`mythos-orchestrator-openai` 176/0, `model-selection-policy` 81/0, `mythos-haddad-advisory-profile` 14/0. The branch
+modifies no existing file, so the full 243-suite sweep was not re-run.
+
+### 9.2 Live on Haddad — real FABLE 5.1, real Qwen runtime, real executor daemon
+
+| # | what | result | evidence |
+|---|---|---|---|
+| 1 | `health --live` | PASS_WITH_WARNINGS, 0 FAIL | FABLE probe "served by claude-fable-5-1"; answer route "qwen-local [local]" |
+| 2 | answer goal: DOTS → FABLE → JEV → Haddad | COMPLETED | `goal-20261001232504-6edo1z`, ledger seq 8–18: FABLE planned, JEV routed `qwen-local → claude-sonnet`, Qwen answered, FABLE concluded |
+| 3 | read-only repository goal through the executor daemon | COMPLETED, answer `30min` = the file's content | `goal-20261001232803-g4dn8v`; executor task `t-20261001233129-rd0fj7` (haddad-agent, repo-read, `report_to_git:false`); live checkout untouched |
+| 4 | the same with a 13 KB file | ESCALATED, correctly | `goal-20261001232544-cuy2uq`: the executor refused three times (`TASK_TOO_LARGE`), FABLE escalated with that reason |
+| 5 | `test` goal through the Supervisor | step VERIFIED | Issue #545: v4 → `mythos-supervise submit/watch` → Haddad bridge → Qwen → Supervisor "VERIFIED, task complete" → closed. After the fixes the retried goal COMPLETED through Issue #547 (`goal-20261001234231-pk7110`, run 2, ledger seq 130–139): final answer "2 of 3 tests passed, 1 failed (`totalCents`)" — identical to an independent run of that test (exit 1, `2 passed, 1 failed`). Issues #545–#547 were all closed by the Supervisor |
+| 6 | FABLE unavailable (CLI missing) | goal COMPLETED, `degraded: true`, by the last resort | ledger seq 71 `OPENAI_TAKEOVER`; next goal: seq 80 `FABLE_RECOVERED` |
+| 7 | Qwen runtime unreachable | paid Claude answered, served by `claude-sonnet-5` (measured) | then Qwen answered again on the next call |
+| 8 | 1-second attempt budget (real timeouts) | `ALL_MODELS_FAILED` after exactly 4 bounded attempts; both models cooled down; `NO_ROUTE` during the cooldown; half-open afterwards | ledger seq 94–95 `MODEL_COOLDOWN`, seq 100 `MODEL_RECOVERED qwen-local`, seq 122 `MODEL_RECOVERED claude-sonnet` |
+| 9 | runner killed mid-goal | health WARN "1 stalled" → `watchdog tick` → escalation `STALLED` → owner `retry` | ledger seq 128–130 |
+| 10 | security | gitleaks: 0 findings on the branch; store 0600/0700; no secret-shaped string and no runtime key in the live store | — |
+
+Nine defects appeared only when the chain ran live — none in the offline suites — and each is fixed with a
+regression test: a work step outliving its deadline (the executor's timeout is per attempt, and it retries); a blocker
+code passed on without its reason; the executive not knowing the local worker's unit of work; CLI output cut at 64 KiB;
+the Supervisor's default store being the VPS path; a supervised step returning "the task ended" instead of the report;
+a cancel overwritten by the runner's in-memory copy; health failing after a cooldown had already ended; a supervised
+task left unticked when its runner died.
+
+### 9.3 Acceptance status — NOT 100 %
+
+| criterion | status | basis |
+|---|---|---|
+| DOTS operational | ✅ live | rows 2–5, 9 |
+| FABLE operational | ✅ live | identity measured on every call |
+| OpenAI watchdog operational | ⚠️ partly | takeover / recovery state machine live (row 6). The OpenAI engine itself cannot be called on Haddad: no `~/.config/mythos-orchestrator/openai.env`. FABLE → OpenAI takeover is proven offline only (real provider code, socket replaced) |
+| JEV operational | ✅ live | rows 2–8 |
+| Free LLM routing operational | ❌ not live | no free-provider key file on Haddad (`~/.config/mythos-ai-executor/free-llm/`). Proven offline through the real selector over loopback HTTP |
+| Qwen routing operational | ✅ live | rows 1–3, 7–8 |
+| Paid fallback operational | ✅ live (Claude) | row 7. Paid OpenAI: offline only (same missing key) |
+| Haddad execution operational | ✅ live | answer (2), executor daemon (3), Supervisor/bridge (5) |
+| Integration tests | ✅ | §9.1 |
+| Failure / recovery tests | ✅ | §9.1 and rows 6–9 |
+| Security checks | ✅ | row 10, §8 |
+| Runtime health | ✅ no FAIL, 2 WARN | the two WARNs are the two missing key files above |
+| Deployment | ❌ not done | the timers are not installed: the installer refuses a branch checkout, and merging to `main` is the owner's decision |
+| Documentation synchronised | ✅ | this file, the README, `docs/AI_HANDOVER.md` |
+| Committed and pushed, local HEAD = remote HEAD | ✅ on `mythos/os-v4` | not on `main` |
+
+What turns the three open rows green is in the handover entry ("Owner steps").

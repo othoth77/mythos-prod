@@ -106,6 +106,7 @@ fs.writeFileSync(path.join(execRoot, 'scripts', 'mythos-supervise.js'), [
   "var ctl = JSON.parse(fs.readFileSync(path.join(root, 'control.json'), 'utf8'));",
   "var args = process.argv.slice(2);",
   "fs.appendFileSync(path.join(root, 'calls.jsonl'), JSON.stringify({ cmd: 'supervise', args: args, config: process.env.MYTHOS_SUPERVISOR_CONFIG, home: process.env.MYTHOS_EXECUTOR_HOME, supervisor_home: process.env.MYTHOS_SUPERVISOR_HOME }) + '\\n');",
+  "if (args[0] === 'tick') { console.log(JSON.stringify({ ran: true })); process.exit(0); }",
   "if (args[0] === 'submit') { console.log(JSON.stringify({ task_id: 'SUP-FIXTURE1', status: 'SUBMITTED' }, null, 2)); process.exit(0); }",
   "if (args[0] === 'watch') {",
   "  var st = ctl.supervised || 'COMPLETED';",
@@ -690,6 +691,27 @@ Promise.all([
   now.advance(3600 + sys.policy.watchdog.stall_grace_seconds + 5);
   t.eq(sys.dots.tick(), [live.goal_id], 'a goal past its deadline plus grace is escalated even if a process still holds it');
 
-  t.ok(ledger.verify().ok, 'the ledger chain is intact after every scenario (' + ledger.verify().records + ' records)');
-  return Promise.all([servers.free.close(), servers.qwen.close()]);
+  // An orphaned supervised task (its runner died) is settled by the tick.
+  reset();
+  var supDir = path.join(dirs.osHome, 'supervisor', 'tasks');
+  fs.rmSync(supDir, { recursive: true, force: true });
+  return sys.haddad.settleSupervised().then(function (none) {
+    t.eq(none, { ran: false, open: 0 }, 'no Supervisor store: the tick does nothing');
+    fs.mkdirSync(supDir, { recursive: true });
+    fs.writeFileSync(path.join(supDir, 'SUP-DONE0001.json'), JSON.stringify({ status: 'COMPLETED' }));
+    fs.writeFileSync(path.join(supDir, 'SUP-BLOCK001.json'), JSON.stringify({ status: 'BLOCKED' }));
+    fs.writeFileSync(path.join(supDir, 'notes.json'), JSON.stringify({ status: 'RUNNING' }));
+    return sys.haddad.settleSupervised();
+  }).then(function (idle) {
+    t.ok(idle.ran === false && idle.open === 0 && calls('supervise').length === 0, 'only terminal tasks: the Supervisor is not run');
+    fs.writeFileSync(path.join(supDir, 'SUP-ORPHAN01.json'), JSON.stringify({ status: 'VERIFYING' }));
+    return sys.haddad.settleSupervised();
+  }).then(function (ran) {
+    var c = calls('supervise');
+    t.ok(ran.ran === true && ran.open === 1 && ran.code === 0 && c.length === 1 && c[0].args[0] === 'tick' && c[0].supervisor_home === path.join(dirs.osHome, 'supervisor'),
+      'a non-terminal supervised task whose runner is gone gets ONE Supervisor tick, in v4\'s own store');
+    t.ok(ledger.query({ type: 'SUPERVISED_TICK' }).pop().detail.open_tasks === 1, 'the tick is on the ledger');
+    t.ok(ledger.verify().ok, 'the ledger chain is intact after every scenario (' + ledger.verify().records + ' records)');
+    return Promise.all([servers.free.close(), servers.qwen.close()]);
+  });
 }).then(function () { t.finish(dirs); }, t.crash(dirs));

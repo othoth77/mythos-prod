@@ -99,7 +99,12 @@ async function main() {
 
   if (area === 'watchdog') {
     if (cmd === 'status') { print(system.watchdog.status()); return 0; }
-    if (cmd === 'tick') { print({ escalated_stalled_goals: dots.tick(), watchdog: system.watchdog.status() }); return 0; }
+    if (cmd === 'tick') {
+      var stalled = dots.tick();
+      var settled = await system.haddad.settleSupervised();
+      print({ escalated_stalled_goals: stalled, supervised: settled, watchdog: system.watchdog.status() });
+      return 0;
+    }
     if (cmd === 'reset') { system.watchdog.reset(); system.ledger.append({ actor: 'owner', type: 'WATCHDOG_RESET', detail: {} }); print(system.watchdog.status()); return 0; }
   }
 

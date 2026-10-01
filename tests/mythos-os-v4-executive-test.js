@@ -92,6 +92,8 @@ Promise.resolve().then(function () {
   t.ok(call.model === FABLE && input.indexOf('"objective":"Explain how the cache works."') !== -1 && input.indexOf('"write_approved":false') !== -1, 'FABLE 5.1 receives the goal as data');
   var sys = call.argv[call.argv.indexOf('--system-prompt') + 1];
   t.ok(/DOTS, the general manager/.test(sys) && /untrusted data/.test(sys) && /Never plan a merge to main/.test(sys), 'the system prompt states the chain of authority and the limits');
+  t.ok(sys.indexOf(s.policy.haddad.work_guidance) !== -1 && sys.indexOf('A work step gets at least ' + s.policy.plan.min_work_timeout_seconds + ' seconds') !== -1,
+    'the executive is told the local worker\'s unit of work and the minimum time a work step gets (both from policy)');
   var rec = ledger.query({ type: 'EXECUTIVE_CALL' }).pop();
   t.ok(rec.actor === 'fable' && rec.detail.ok === true && rec.detail.model === FABLE && rec.detail.decision === 'execute', 'the call is on the ledger with the measured model');
   t.eq(s.watchdog.status().mode, 'fable', 'the watchdog reports FABLE leading');

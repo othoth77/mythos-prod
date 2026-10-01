@@ -82,7 +82,7 @@ $MYTHOS_OS_HOME/
 ## Scheduling
 
 `systemd/mythos-os-watchdog.{service,timer}` run `mythos-os watchdog tick` every 5 minutes (a RUNNING goal whose runner
-died is escalated) and `systemd/mythos-os-health.{service,timer}` write a health report every 30 minutes. Install with
+died is escalated, and a supervised task that runner left behind gets one Supervisor tick) and `systemd/mythos-os-health.{service,timer}` write a health report every 30 minutes. Install with
 `bin/mythos-os-install.sh` **from the live checkout, after the branch is merged** — a unit must not point at a worktree.
 
 ## Tests
