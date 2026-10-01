@@ -43,3 +43,30 @@ The pressure itself: on 2026-09-01, eighteen root agent sessions held ~3.5 GB
 in one session scope with swap at 100 %. See
 `/root/mythos-oom-remediation-20260901/README.md` and the memory telemetry at
 `/opt/mythos-memwatch/memwatch.log`.
+
+## Memory ceilings — `ops/oom/memory/` (2026-09-18)
+
+`oom.conf` decides **who** the kernel kills. The `memory.conf` drop-ins in
+`ops/oom/memory/<unit>.service.d/` bound **how much** each deploy Node unit
+may take, so a leak ends as a cgroup-local OOM (plus `Restart=on-failure`)
+instead of host-wide pressure. They sit beside `oom.conf` in
+`~deploy/.config/systemd/user/<unit>.service.d/` and are INSTALLED + LIVE
+since 2026-09-18.
+
+| unit | MemoryHigh | MemoryMax | Node old-space |
+|---|---|---|---|
+| idauto-api, mythos-command-center, mythos-os-console, ssangyong-storefront | 192M | 256M | 128 MB |
+| oth-knowledge-http | 256M | 384M | 256 MB |
+| mythos-ai-executor | 1536M | 2G | — (inherited by its `claude -p` children) |
+| erp-api / mythos-wp / piece-autos | (unit file) | 384M / 256M / 300M (unit file) | 256 / 128 / 160 MB |
+
+Old-space is sized so V8's total heap (old-space + ~48 MB young generation,
+measured: 128 → 176 MB, 160 → 208 MB, 256 → 304 MB) plus native memory stays
+under `MemoryMax`, so V8 aborts with a clean heap-OOM before the cgroup
+SIGKILLs. New Node units must ship both `oom.conf` and `memory.conf`.
+
+Install (as deploy): copy the directory, `systemctl --user daemon-reload`
+(applies the cgroup caps live), then restart the unit (applies NODE_OPTIONS).
+Rollback: remove the file, daemon-reload, restart.
+
+Full record: `docs/audits/VPS_MEMORY_PROTECTION_2026-09-18.md`.

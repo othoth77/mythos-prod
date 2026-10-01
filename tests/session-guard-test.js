@@ -927,8 +927,21 @@ function planAfterIdle(root, idleForMs, cfgExtra, t0) {
 
   var slice = fs.readFileSync(path.join(OPS, 'user-0.slice.d', 'memory.conf'), 'utf8');
   ok(/^MemoryHigh=/m.test(slice), 'the slice drop-in sets a soft memory ceiling');
-  ok(!/^MemoryMax=/m.test(slice),
-    'the slice drop-in sets NO hard cap: a hard cap on the root login slice would OOM-kill, which is what this issue forbids');
+  // REVISED 2026-09-18: the original "no hard cap" rule was reversed after
+  // that day's global OOM storm — a soft cap alone let the slice fill host
+  // swap, and the global OOM that followed killed ~130 processes host-wide.
+  // A hard cap must now be present, sit ABOVE the soft cap, and come with a
+  // swap bound (MemoryHigh does not bound swap). See
+  // docs/audits/VPS_MEMORY_PROTECTION_2026-09-18.md.
+  function sliceBytes(key) {
+    var m = new RegExp('^' + key + '=(\\d+)([KMG]?)$', 'm').exec(slice);
+    if (!m) return null;
+    return parseInt(m[1], 10) * ({ '': 1, K: 1024, M: 1048576, G: 1073741824 })[m[2]];
+  }
+  var sHigh = sliceBytes('MemoryHigh'), sMax = sliceBytes('MemoryMax'), sSwap = sliceBytes('MemorySwapMax');
+  ok(sMax !== null, 'the slice drop-in sets a hard cap, so a runaway is killed inside the slice, not by a global OOM');
+  ok(sHigh !== null && sMax !== null && sHigh < sMax, 'the hard cap sits above the soft cap: throttling starts before any kill');
+  ok(sSwap !== null && sSwap > 0, 'the slice drop-in bounds swap: MemoryHigh alone lets the slice fill host swap');
 
   // End-to-end, in the INSTALLED layout, over a fixture /proc. Observe
   // mode: it must complete, write state, and signal nothing.
