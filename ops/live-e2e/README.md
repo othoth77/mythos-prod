@@ -25,7 +25,7 @@ label (live E2E #542). The Haddad bridge now refuses a named Claude model
 2. **VPS checkout**: fast-forward `/home/deploy/projects/mythos-prod` to
    `origin/main`. The bridge timer picks the new code up on its next tick.
 3. **VPS executor**: restart `mythos-ai-executor.service` through your
-   governed path. It is a HostOps-protected unit, and until it restarts it
+   governed path (`sudo -u deploy XDG_RUNTIME_DIR=/run/user/<deploy uid> systemctl --user restart mythos-ai-executor.service`). It is a HostOps-protected unit, and until it restarts it
    settles tasks with the OLD rules. The script refuses to run if the daemon
    started before the checkout moved.
 4. **Run**:
@@ -33,6 +33,17 @@ label (live E2E #542). The Haddad bridge now refuses a named Claude model
    ```bash
    ssh deploy@51.68.226.211 "FIX_COMMIT=<merge sha> bash -s" < ops/live-e2e/live-e2e-fable.sh
    ```
+
+   or, already on the VPS as **root**, the file itself (it re-runs as `deploy`):
+
+   ```bash
+   FIX_COMMIT=<merge sha> bash /home/deploy/projects/mythos-prod/ops/live-e2e/live-e2e-fable.sh
+   ```
+
+   `mythos-ai-executor.service` is a `deploy` **user** unit. From root, the script reaches it
+   through `sudo -u deploy XDG_RUNTIME_DIR=/run/user/<deploy uid> systemctl --user`
+   (`run_deploy_user_systemctl`). It then runs everything else as `deploy` too: the supervisor,
+   its monitor, `gh` and git. Run from root over stdin, it refuses and prints the file command.
 
    It prints preconditions, T1 submit, the watch log (about 5–40 min: Fable
    run + relay push every 5 min), the trace, and an evidence JSON. The exit
