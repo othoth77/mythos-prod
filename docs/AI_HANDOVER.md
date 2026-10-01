@@ -2,6 +2,109 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-10-01 — MYTHOS TRADING CONTROL CENTER: fifteen phases on a branch; deployment prepared and rehearsed, NOT executed (Fable 5.1)
+
+**Objective:** the owner's order for a control center over the Mythos Trading
+Agent at `trading.mythosprod.xyz` — REST API + security, sixteen-page
+interface, integration and LIVE audit, production deployment. Worked directly
+in the dedicated worktree `/home/deploy/worktrees/trading-control-center` on
+the owner's authorization, after three executor missions had failed (below).
+
+| Item | State |
+|---|---|
+| Branch | `mythos/trading-control-center`, based on `mythos/trading-platform@82b1ce0c`. Implementation complete at **`3471dc69`**; the tip adds only this record |
+| Scope | **everything new is under `projects/mythos-trading-control-center/`**; outside it only `docs/TRADING_CONTROL_CENTER_FINAL.md`, this entry and `docs/CHANGELOG.md` |
+| Trading Agent | **unmodified** — byte-identical to `82b1ce0c` (14 pinned hashes + `git diff`, checked on every test run) |
+| Pushed | **YES** — every phase committed and pushed; local = remote |
+| Merged | **NO.** Nothing is merged to `main` or to `mythos/trading-platform` |
+| Deployed | **NO.** No unit installed, no vhost, no certificate. `https://trading.mythosprod.xyz` does not serve this |
+| Tests | Control Center **388 pass, 0 fail, 0 skipped** (`cd projects/mythos-trading-control-center && npm test`, ~5 min, includes 58 in headless Chrome); Trading Agent **572 pass, 0 fail**, re-run at Phase 14 |
+| Dependencies added | **none** |
+| Full record | `docs/TRADING_CONTROL_CENTER_FINAL.md`; API in `projects/mythos-trading-control-center/docs/API.md`; runbook in `…/deploy/README.md` |
+
+**Why the earlier missions failed.** All three had `execution_profile:
+"repo-read"` (the MOS console's default), on the production `main` checkout,
+with Haiku. Instruction text cannot change the profile, so every write was
+refused however the instruction was worded. No Mythos OS policy or setting
+was changed to work around it; the work was done in the dedicated worktree
+under operator control instead. One thing stayed unverified: reading the
+running console's process environment was denied, correctly, and not retried.
+
+**Phases and commits:** 1 `41b477eb` API + security · 2 `ef1376ea` frontend
+foundation · 3 `19bce18b` dashboard · 4 `7b70480d` + `16aabca4` control center ·
+5 `6d00a222` paper/demo · 6 `3d5c77b4` backtest · 7 `c2221813` trades +
+candidates · 8 `e91469be` decisions · 9 `0e312a4c` strategies/Jev/risk/recovery ·
+10 `1c436c9d` analysis · 11 `35fa95c9` research + champion/challenger ·
+12 `b09c7fd5` testing center · 13 `aaf54886` activity/audit/system ·
+14 `9150942f` integration + LIVE audit · 15 `9c1ce48f` + `3471dc69` deployment
+artifacts.
+
+**LIVE safety.** BACKTEST and PAPER only. No route places, sizes or cancels an
+order; no route or value selects LIVE (refused by name, `403
+LIVE_NOT_AVAILABLE`, for every role); no field carries a position size; the
+server contains no outbound network client. The Risk Engine remains the last
+writer of size; PAPER needs the owner's approval record bound to the running
+fingerprint and commit, single-use; a restart is always BACKTEST. The
+whole-surface audit (`tests/integration-test.js`) checks every trade in every
+store the platform produced — backtest, paper, both DEMO arms — against Jev,
+the Risk Engine, the recovery cap and the one-trade rule. **No LIVE protection
+was changed.**
+
+**Defects found by running it, each fixed in the phase that found it:**
+the Control Center redrew over unsaved edits (found by an intermittent browser
+test; `16aabca4`); the Research Agent's `strategy.disable` proposals were not
+runnable as experiments (now applied to the enabled set, remove-only);
+experiment stress scenarios lost their metrics; registry timestamps drifted on
+journal replay; a cancelled test run replaced a category's last finished
+result; what a failing test file printed was dropped; store events were listed
+by table rather than by bar time; candidates were offered as an activity type
+but never emitted; `POST /api/config/preview` had no direct test; and **a
+release failed its own gate** — 6 tests failed from an exported release that
+pass in the repository (rehearsal, fixed in `3471dc69`).
+
+**Deployment: prepared, tested and rehearsed; not executed.** `deploy/` holds
+the user unit, the nginx vhost, `release.sh` (exports one pushed commit,
+refuses an agent that differs from the audited base, runs both suites from the
+export before switching, rolls back on a failed smoke test) and `smoke.sh`
+(read-only). Rehearsed into a scratch directory at `3471dc69`: agent 572/572,
+Control Center 387 + 1 skipped (the `git diff` check, not applicable outside a
+checkout), started with the unit's exact environment on loopback, smoke 67
+PASS / 0 FAIL, then stopped and removed. Host facts, read-only: the name
+resolves to this VPS; no vhost or certificate exists for it; port 8210 is
+free; `deploy` has linger; certbot is installed.
+**The host steps were not taken**: the authorization covered the worktree, its
+tests, commits and pushes; installing a service and changing the shared nginx
+of a production host is beyond that and waits for the owner's explicit
+confirmation (AGENTS.md: deployment is a separate task, done only when
+explicitly requested).
+
+**Known risks / deferred:** all data is synthetic or fixture — no statement
+about edge or profitability; the paper feed is a replay, not a market
+connection; sessions are in memory (a restart signs everyone out); no
+experiment on fixture data earns a promotion, so the accepted promote/rollback
+path is exercised by one test that inserts passing evidence itself and says
+so; the agent's `node bin/mtx.js stress` fails on a pre-existing defect that
+is out of scope and not fixed (the agent is untouched); the unit has not run
+under systemd; HTTPS and the public smoke test are unverified. Two commit
+messages are inaccurate and are corrected on the record rather than rewritten:
+`7b70480d` said all tests passed when one was intermittently failing (fixed in
+`16aabca4`), and `b09c7fd5` said 351 tests where there were 350.
+
+**Worktree state:** clean, on `mythos/trading-control-center`, local = remote.
+An unrelated stash from another session (`On main: R1-v32-closeout…`) exists
+in the repository and was not touched.
+
+**Exact next stage:** with the owner's confirmation, follow
+`projects/mythos-trading-control-center/deploy/README.md` — as `deploy`:
+`release.sh <tip>`, create the owner user (`bin/tcc-user.js … --generate`),
+install and start the unit, `smoke.sh http://127.0.0.1:8210`; as `root`:
+install the vhost, `certbot --nginx -d trading.mythosprod.xyz`; then
+`smoke.sh https://trading.mythosprod.xyz <commit>`. A PR to merge the branch is
+the operator's to open.
+
+**Deployment and migration status:** not deployed; no migration exists (state
+is created on first start, outside the release).
+
 ## 2026-09-30 — MYTHOS TRADING AGENT: all fifteen phases, on a branch, nothing merged (Opus 5)
 
 **Objective:** build the owner-commissioned quant trading research platform —

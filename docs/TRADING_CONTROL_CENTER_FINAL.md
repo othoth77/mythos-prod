@@ -93,7 +93,7 @@ Decisions that shape everything else:
 | 12 | Testing Center | `b09c7fd5` | eleven categories, run all / category / one test, failures never hidden |
 | 13 | Activity + Audit + System | `aaf54886` | two-clock timeline, audit chain view and verification, components, health, deployment |
 | 14 | Integration + security + LIVE audit | `9150942f` | whole-surface integration and the critical LIVE audit |
-| 15 | Production deployment | `9c1ce48f` | unit, vhost, release script, smoke test, runbook — see §11 and §13 for what was executed |
+| 15 | Production deployment | `9c1ce48f` + `3471dc69` | unit, vhost, release script, smoke test, runbook; rehearsed — see §11 and §13 for what was and was not executed |
 
 Each phase was tested, committed and pushed before the next began.
 
@@ -196,7 +196,7 @@ areas, reduced-motion respected. No visual identity was invented.
 | **Control Center** | **388** | `cd projects/mythos-trading-control-center && npm test` |
 | **Trading Agent** | **572** | `cd projects/mythos-trading-agent && npm test` — unchanged, re-run at Phase 14 |
 
-Result at `9c1ce48f`: **Control Center 388 pass, 0 fail, 0 skipped. Trading
+Result at `3471dc69`: **Control Center 388 pass, 0 fail, 0 skipped. Trading
 Agent 572 pass, 0 fail.** Nothing is mocked: every suite starts the real
 server against the real agent with a throwaway state directory.
 
@@ -245,6 +245,34 @@ Host facts verified read-only on 2026-10-01: `trading.mythosprod.xyz` resolves
 to this VPS (51.68.226.211); no vhost and no certificate exist for it yet (the
 name currently falls through to the default server); port 8210 is free;
 `deploy` has linger enabled; certbot is installed.
+
+**Rehearsal (2026-10-01).** The release procedure was run for real into a
+scratch directory, with nothing installed on the host:
+
+1. `release.sh 9c1ce48f` — **the gate refused to switch**: 6 of 388 tests
+   failed when run from the exported release although all pass in the
+   repository (the export lacked the brand sources the interface tests compare
+   against, and two tests assumed unbuilt sources are served). Fixed in
+   `3471dc69`.
+2. `release.sh 3471dc69` — export, build (33 files, 31 fingerprinted), then
+   from the release itself: Trading Agent **572 pass, 0 fail**; Control Center
+   **387 pass, 0 fail, 1 skipped** (the `git diff` comparison of the agent,
+   which does not apply outside a checkout and is reported as a skip; the
+   hash pins of the same files ran and passed). `current` was switched.
+3. The release was started with the unit's exact environment on
+   `127.0.0.1:8210`. Its start-up line reported the commit, `mode: BACKTEST`,
+   `web: dist`, `persistence: PERSISTENT`, `authProvisioned: true`,
+   `liveExecution: NOT AVAILABLE`.
+4. `smoke.sh http://127.0.0.1:8210 <commit>` with the signed-in checks:
+   **67 PASS, 0 FAIL**; the TLS checks were skipped, as they must be over
+   loopback.
+5. The instance was stopped and the scratch directory, its users file and its
+   generated password were deleted.
+
+What the rehearsal does **not** cover: the unit under systemd, nginx, the
+certificate, and the public name. The sibling console's unit runs with the
+same sandbox directives in the same user manager, which is evidence they work
+here, not proof for this unit.
 
 **Deployment status: see §13.**
 
