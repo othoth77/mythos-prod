@@ -1159,7 +1159,7 @@ test('the engine pages say NO DATA with a reason when there is no source', async
   await page.fill('#password', h.PASSWORDS.viewer);
   await page.click('#login-submit');
   await page.waitFor('location.pathname === "/dashboard" && document.documentElement.getAttribute("data-ready") === "true"', 15000, 'the second server');
-  for (var pathname of ['/jev', '/risk', '/recovery', '/strategies', '/trades', '/candidates', '/decisions']) {
+  for (var pathname of ['/jev', '/risk', '/recovery', '/strategies', '/trades', '/candidates', '/decisions', '/analysis']) {
     await page.goto(b2 + pathname);
     await page.waitFor('/NO DATA/.test(document.getElementById("view").textContent)', 15000, 'NO DATA on ' + pathname);
     var text = await page.text('#view');
@@ -1172,4 +1172,90 @@ test('the engine pages say NO DATA with a reason when there is no source', async
   assertNoPageErrors('the pages with no source');
   await A.close();
   await signIn('owner');
+});
+
+// ---------------------------------------------------------------------------
+// PHASE 10 — Analysis
+// ---------------------------------------------------------------------------
+
+/** The rows of the card titled `title` on the current page, as arrays of cell text. */
+async function cardRows(scope, title) {
+  return page.eval('(function () { var cards = document.querySelectorAll(' + JSON.stringify(scope + ' section.card') + '); for (var i = 0; i < cards.length; i++) {' +
+    ' var h = cards[i].querySelector("h2"); if (h && h.textContent === ' + JSON.stringify(title) + ') return Array.prototype.map.call(cards[i].querySelectorAll("tbody tr"), function (tr) {' +
+    ' return Array.prototype.map.call(tr.children, function (td) { return td.textContent; }); }); } return null; })()');
+}
+async function cardHeads(scope, title) {
+  return page.eval('(function () { var cards = document.querySelectorAll(' + JSON.stringify(scope + ' section.card') + '); for (var i = 0; i < cards.length; i++) {' +
+    ' var h = cards[i].querySelector("h2"); if (h && h.textContent === ' + JSON.stringify(title) + ') return Array.prototype.map.call(cards[i].querySelectorAll("thead th"), function (th) { return th.textContent; });' +
+    ' } return null; })()');
+}
+
+test('the Analysis page is the Analysis Agent\'s report: every group with its sample size, thin groups marked', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var api = await S.login('viewer');
+  var text = await openEngine('/analysis', 'analysis-body');
+  var a = (await api.get('/api/analysis?run=' + explorerRun.runId)).body.result.analysis;
+  for (var block of ['Caveats', 'Decision funnel', 'Strategy statistics', 'Symbol statistics', 'Direction statistics', 'Regime statistics',
+    'Regime distribution', 'Jev bands', 'Costs', 'Losing streak', 'Drawdown', 'Risk verdicts', 'Recovery']) {
+    assert.ok(text.indexOf(block) !== -1, 'the analysis page has no "' + block + '"');
+  }
+  // the caveats are the agent's own, all of them, and synthetic data is always one
+  a.caveats.forEach(function (c) { assert.ok(text.indexOf(c) !== -1, 'a caveat is missing: ' + c); });
+  assert.match(text, /SYNTHETIC_DATA: mechanics only/);
+
+  for (var pair of [['Strategy statistics', a.byStrategy], ['Symbol statistics', a.bySymbol], ['Direction statistics', a.byDirection],
+    ['Regime statistics', a.regimes.performanceByRegime], ['Jev bands', a.jev.bandPerformance]]) {
+    var rows = await cardRows('#analysis-body', pair[0]);
+    var keys = Object.keys(pair[1]);
+    assert.equal(rows.length, keys.length, pair[0]);
+    rows.forEach(function (cells, i) {
+      var g = pair[1][keys[i]];
+      assert.equal(cells[0], keys[i].replace(/_/g, ' '));
+      assert.ok(cells[1].indexOf('n=' + g.sampleSize) === 0, pair[0] + ': the sample size is shown: ' + cells[1]);
+      assert.match(cells[1], g.sufficient ? /sufficient$/ : /INSUFFICIENT DATA$/);
+      assert.equal(cells[2], (g.winRate * 100).toFixed(1) + '%');
+      assert.equal(Number(cells[8]), g.maxConsecutiveLosses);
+    });
+    // drawdown is never reported per group
+    assert.equal((await cardHeads('#analysis-body', pair[0])).filter(function (h) { return /drawdown/i.test(h); }).length, 0, pair[0] + ' has a drawdown column');
+  }
+  assert.ok(Object.keys(a.byStrategy).some(function (k) { return !a.byStrategy[k].sufficient; }), 'this run has thin groups to mark');
+  assert.match(text, /for the run, never per group/);
+
+  // the funnel is the stored funnel
+  var funnel = await cardRows('#analysis-body', 'Decision funnel');
+  var stages = Object.keys(a.funnel.rejectedByStage);
+  assert.deepEqual(funnel.map(function (r) { return r[0]; }), stages);
+  funnel.forEach(function (r, i) { assert.equal(Number(r[1].replace(/,/g, '')), a.funnel.rejectedByStage[stages[i]].rejected); });
+  assert.match(text, new RegExp(String(a.funnel.candidatesBuilt).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' candidates built'));
+
+  // the Jev reading is the agent's sentence, not a recommendation of this page
+  assert.ok(text.indexOf(a.jev.interpretation.detail) !== -1, 'the agent\'s interpretation is shown verbatim');
+  assert.ok(text.indexOf(a.jev.interpretation.conclusion.replace(/_/g, ' ')) !== -1);
+  assert.match(text, /never recommends a threshold/);
+  assert.ok(text.indexOf(a.losingStreaks.note) !== -1, 'the streak note (not win-rate^k) is shown');
+  assert.ok(text.indexOf(a.generatedFrom.digest.slice(0, 12)) !== -1, 'the report names the store it was computed from');
+  assertNoPageErrors('/analysis');
+});
+
+test('a run below the sample threshold is headed INSUFFICIENT DATA, and no source is NO DATA', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var owner = await S.login('owner');
+  var thin = await h.runBacktest(owner, { symbols: ['EURUSD'], initialCapital: 5000, data: { kind: 'FIXTURE', bars: 420 }, verifyReproducible: false });
+  assert.equal(thin.status, 'COMPLETED', JSON.stringify(thin.error));
+  var a = (await owner.get('/api/analysis?run=' + thin.runId)).body.result.analysis;
+  assert.ok(a.overview.trades < a.minSample, 'the thin run must be thin: ' + a.overview.trades + ' trades');
+  await page.goto(base + '/analysis?run=' + thin.runId);
+  await ready('/analysis');
+  await page.waitFor('!!document.getElementById("analysis-report")', 15000, 'the report');
+  var text = await page.text('#view');
+  assert.match(text, /Insufficient data/);
+  assert.match(text, new RegExp('This source has ' + a.overview.trades + ' trade\\(s\\); the agent\'s threshold is ' + a.minSample));
+  assert.match(text, /a number, not evidence/);
+  if (a.overview.trades === 0) assert.match(text, /NO_TRADES/);
+  // an unknown run is an error state, never an empty report
+  await page.goto(base + '/analysis?run=run-does-not-exist');
+  await page.waitFor('/could not be loaded|NO DATA/i.test(document.getElementById("view").textContent)', 15000, 'the not-found state');
+  assert.equal(await page.exists('#analysis-report'), false);
+  page.errors.length = 0;       // the browser logs the 404; it is the expected one
 });
