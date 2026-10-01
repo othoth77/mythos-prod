@@ -858,3 +858,95 @@ test('a run opens from the list, and a request the agent rejects is refused in t
   assert.equal((await api.get('/api/backtest')).body.result.active, null, 'no run was started');
   page.errors.length = 0;       // the browser logs the 400; it is the expected one
 });
+
+// ---------------------------------------------------------------------------
+// PHASE 7 — Trade and Candidate explorers
+// ---------------------------------------------------------------------------
+
+var explorerRun = null;
+
+async function tableHeaders(scope) {
+  return page.eval('Array.prototype.map.call(document.querySelectorAll(' + JSON.stringify(scope + ' thead th') + '), function (th) { return th.textContent; })');
+}
+async function rowCount(scope) { return page.count(scope + ' tbody tr'); }
+
+test('the Trade Explorer shows every column the mission names, from a run with clamped sizes', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var api = await S.login('owner');
+  explorerRun = await h.runBacktest(api, { symbols: ['EURUSD', 'XAUUSD'], initialCapital: 5000, data: { kind: 'FIXTURE', bars: 1500 },
+    jev: { scoreThreshold: 50, minConfidence: 0.2 }, recovery: { enabled: true, maxRecoveryLevel: 3 }, cost: { slippageModel: 'fixed', fixedSlippagePips: 0.3 } });
+  assert.equal(explorerRun.status, 'COMPLETED', JSON.stringify(explorerRun.error));
+  await page.goto(base + '/trades?run=' + explorerRun.runId);
+  await ready('/trades');
+  await page.waitFor('document.querySelectorAll("#trades-body tbody tr").length > 0', 15000, 'trade rows');
+  assert.deepEqual(await tableHeaders('#trades-body'), ['Exit', 'Asset', 'Strategy', 'Dir', 'Entry', 'SL', 'TP', 'Requested', 'Approved',
+    'Jev', 'Conf', 'Risk', 'Rec', 'Costs', 'Exit', 'P&L', 'R']);
+  var trades = (await api.get('/api/trades?run=' + explorerRun.runId + '&limit=50')).body.result.data;
+  assert.equal(await rowCount('#trades-body'), Math.min(50, trades.total));
+  var view = await page.text('#view');
+  assert.ok(view.indexOf(explorerRun.runId) !== -1, 'the page names its source run');
+  assert.match(view, /SYNTHETIC/);
+  // first row equals the API's first row
+  var cells = await page.eval('Array.prototype.map.call(document.querySelector("#trades-body tbody tr").children, function (td) { return td.textContent; })');
+  var first = trades.items[0];
+  assert.equal(cells[1], first.symbol);
+  assert.equal(cells[2], first.strategyId);
+  assert.equal(cells[7], first.requestedLots.toFixed(2));
+  assert.equal(cells[8], first.approvedLots.toFixed(2));
+  assert.equal(cells[11], first.riskVerdict);
+  assert.equal(cells[12], String(first.recoveryLevel));
+  // a clamped trade is visibly requested > approved
+  var clampedRows = await page.eval('Array.prototype.filter.call(document.querySelectorAll("#trades-body tbody tr"), function (tr) {' +
+    ' return Number(tr.children[7].textContent) > Number(tr.children[8].textContent); }).length');
+  var clampedApi = trades.items.filter(function (x) { return x.requestedLots > x.approvedLots; }).length;
+  assert.equal(clampedRows, clampedApi);
+  assert.ok(clampedApi > 0, 'this run should contain clamped trades');
+  assertNoPageErrors('/trades');
+});
+
+test('a trade opens its detail, and filters narrow the list to what the API has', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var api = await S.login('viewer');
+  await page.click('#trades-body tbody tr');
+  await modalOpen();
+  var dialog = await page.text('.modal');
+  for (var label of ['Requested size', 'Approved size', 'Executed size', 'Risk verdict', 'Jev', 'Recovery level', 'Costs', 'Net P&L', 'Stop loss', 'Take profit', 'R']) {
+    assert.ok(dialog.indexOf(label) !== -1, 'the trade detail has no "' + label + '"');
+  }
+  await page.clickText('.modal-foot button', 'Close');
+  await modalClosed();
+  await page.fill(await idFor('Asset'), 'XAUUSD');
+  var expected = (await api.get('/api/trades?run=' + explorerRun.runId + '&symbol=XAUUSD&limit=50')).body.result.data;
+  await page.waitFor('(function () { var r = document.querySelectorAll("#trades-body tbody tr"); if (!r.length) return ' + (expected.total === 0) + ';' +
+    ' return Array.prototype.every.call(r, function (tr) { return tr.children[1].textContent === "XAUUSD"; }) && r.length === ' + Math.min(50, expected.total) + '; })()',
+  15000, 'the filtered rows');
+  assert.match(await page.eval('location.search'), /symbol=XAUUSD/, 'the filter is in the URL, so the view can be shared and reloaded');
+  await page.fill(await idFor('Outcome'), 'LOSS');
+  var losses = (await api.get('/api/trades?run=' + explorerRun.runId + '&symbol=XAUUSD&outcome=LOSS&limit=50')).body.result.data;
+  await page.waitFor('document.querySelector("#trades-body .pager").textContent.indexOf("of ' + losses.total + '") !== -1', 15000, 'the loss filter');
+  assertNoPageErrors('trade filters');
+});
+
+test('the Candidate Explorer shows rejected candidates with the recorded reason codes', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var api = await S.login('viewer');
+  await page.goto(base + '/candidates?run=' + explorerRun.runId + '&decision=NO_TRADE');
+  await ready('/candidates');
+  await page.waitFor('document.querySelectorAll("#candidates-body tbody tr").length > 0', 15000, 'candidate rows');
+  assert.deepEqual(await tableHeaders('#candidates-body'), ['Bar', 'Asset', 'Strategy', 'Signal', 'Dir', 'Regime', 'Jev (score / conf)',
+    'Risk (req → appr)', 'Decision', 'Reason codes (recorded)']);
+  var data = (await api.get('/api/candidates?run=' + explorerRun.runId + '&decision=NO_TRADE&limit=50')).body.result.data;
+  var rows = await page.eval('Array.prototype.map.call(document.querySelectorAll("#candidates-body tbody tr"), function (tr) {' +
+    ' return { decision: tr.children[8].textContent, reasons: Array.prototype.map.call(tr.children[9].querySelectorAll(".chip"), function (c) { return c.textContent; }) }; })');
+  assert.equal(rows.length, Math.min(50, data.total));
+  rows.forEach(function (r, i) {
+    assert.match(r.decision, /NO TRADE/);
+    assert.match(r.decision, new RegExp('at ' + data.items[i].stage));
+    assert.deepEqual(r.reasons, data.items[i].reasonCodes, 'row ' + i + ' shows reasons the store does not have');
+    assert.ok(r.reasons.length > 0, 'a rejected candidate must show its recorded reason');
+  });
+  var summary = await page.text('#view');
+  assert.match(summary, new RegExp(data.total + ' candidates'));
+  assert.match(summary, new RegExp(data.rejected + ' rejected'));
+  assertNoPageErrors('/candidates');
+});
