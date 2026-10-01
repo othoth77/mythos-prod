@@ -462,3 +462,38 @@ test('a persisted configuration the agent rejects is not applied, and trading co
   await A.app.close();
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test('a preview states the difference, what it loosens and what it resets — and changes nothing', async function () {
+  var A = await h.startApp();
+  try {
+    var o = await A.login('owner');
+    var op = await A.login('operator');
+    var v = await A.login('viewer');
+    var before = (await v.get('/api/config')).body.result;
+    assert.equal((await v.post('/api/config/preview', { changes: { risk: { maxDrawdownPct: 25 } } })).status, 403, 'a preview reveals validation detail; it needs OPERATOR');
+    var res = await op.post('/api/config/preview', { changes: { risk: { maxDrawdownPct: 25, maxConsecutiveLosses: 4 }, jev: { scoreThreshold: 75 } } });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    var p = res.body.result;
+    assert.deepEqual(p.diff.map(function (d) { return [d.path, d.oldValue, d.newValue]; }).sort(),
+      [['jev.scoreThreshold', 70, 75], ['risk.maxConsecutiveLosses', 5, 4], ['risk.maxDrawdownPct', 20, 25]]);
+    assert.deepEqual(p.loosened.map(function (l) { return l.path; }), ['risk.maxDrawdownPct'], 'only the limit that got weaker is a loosening');
+    assert.notEqual(p.fingerprintAfter, before.fingerprint);
+    assert.equal(p.fingerprintBefore, before.fingerprint);
+    // unchanged values are not a difference
+    assert.deepEqual((await op.post('/api/config/preview', { changes: { risk: { maxDrawdownPct: 20 } } })).body.result.diff, []);
+    // what the agent would reject is refused in the preview, with the agent's reason
+    var bad = await op.post('/api/config/preview', { changes: { risk: { maxDrawdownPct: 9999 } } });
+    assert.equal(bad.status, 400);
+    var locked = await op.post('/api/config/preview', { changes: { mode: 'LIVE' } });
+    assert.equal(locked.status, 400);
+    assert.equal(locked.body.error.code, 'CONFIG_CHANGE_NOT_ALLOWED');
+    assert.equal((await op.post('/api/config/preview', { changes: { risk: { maxDrawdownPct: 25 } }, apply: true })).status, 400);
+    // nothing was applied, nothing was added to the history, and an accepted preview is not an audit entry
+    var after = (await v.get('/api/config')).body.result;
+    assert.equal(after.fingerprint, before.fingerprint);
+    assert.equal(after.revision, before.revision);
+    var audit = (await o.get('/api/audit?action=config.preview')).body.result.items;
+    assert.ok(audit.length >= 2, 'the refused previews are audited');
+    audit.forEach(function (e) { assert.notEqual(e.outcome, 'ACCEPTED', 'a read-only preview does not fill the log'); });
+  } finally { await A.close(); }
+});

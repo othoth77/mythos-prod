@@ -124,8 +124,37 @@ record is verified by the Trading Agent's own mode controller, is single-use
 (also across restarts), and stops being valid the moment the configuration
 changes.
 
+### Research proposals
+
+A Research Agent proposal is an inert override. Every key in it is merged and
+validated by the Trading Agent's own configuration loader, with one exception:
+`strategy.disable: [ids]` is not a configuration key (which strategies run is
+a wiring argument), so it is applied to the enabled set instead. A proposal
+can only **remove** strategies; an unknown id, any other `strategy.*` key or a
+set left empty is refused with `PROPOSAL_NOT_APPLICABLE` (409). The same rule
+builds an experiment's variant, a challenger's configuration hash and a DEMO
+session's challenger arm, so the three always agree.
+
+### The testing center
+
+`POST /api/testing/run` takes `{scope:"all"}`, `{scope:"category", category}`
+or `{scope:"test", file:"agent:<name>-test.js"|"cc:<name>-test.js", name}`.
+Nothing else is accepted: no path, no argument, no command. One run at a time
+(`TEST_RUN_IN_PROGRESS`, 409). A run's record carries, per file, `passed`,
+`failed`, `skipped`, `durationMs`, `problem` (crashed, timed out, missing) and
+`output` (what the file printed, kept only beside a failure). A cancelled run
+never replaces a category's last finished result.
+
+### Activity
+
+`GET /api/activity` merges the audit chain, this process's events and one
+run's store. Items carry `clock: "WALL"` (with `at`) or `clock: "BAR"` (with
+`ts`); wall-clock items are always listed first and the two are never
+interleaved. `fromTs`/`toTs` are applied to each item on its own clock.
+
 ## What does not exist
 
 There is no route that places, sizes, modifies or cancels an order; no route
-that selects LIVE; no field anywhere that carries a position size. `tests/security-test.js`
-and `tests/live-lock-test.js` walk the route table to keep it that way.
+that selects LIVE; no field anywhere that carries a position size. `tests/security-test.js`,
+`tests/live-lock-test.js` and `tests/integration-test.js` walk the route table
+— and every store the platform produces — to keep it that way.
