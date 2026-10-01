@@ -4,12 +4,55 @@ Canonical record of which VPS project directories have independent off-host
 protection, and which do not. Maintained outside the individual project
 repositories, in `mythos-prod`, so it survives the loss of any single project.
 
-**Last updated:** 2026-08-13 · migration Phase 1 · **COMPLETE**
+**Last updated:** 2026-09-06 · re-verified by the MASTER AUDIT (was 2026-08-13, migration Phase 1)
 **Owner account:** `othoth77` · **Security scan:** PASS across all entries, no secrets recorded here
 
 ---
 
+## Re-verification, 2026-09-06 — two entries had silently become false
+
+Every `Commit = verified remote HEAD` cell below was re-checked against the GitHub
+API on 2026-09-06. **Twelve of the fourteen held. Two did not:**
+
+| Entry | What this file claimed | What was true on 2026-09-06 | Now |
+|---|---|---|---|
+| `chatrange` | `othoth77/chatrange` VERIFIED @ `f949d48…` | **repository returned 404** — `git ls-remote` → *"Repository not found"*. The only copy was `projects/chatrange` on the VPS (6.8 MB). | **restored** — repository re-created private and pushed; remote `main` re-read and equal to local `HEAD` `f949d48e…`, the same hash this file already recorded |
+| `karhmana` | `othoth77/karhmana` VERIFIED @ `cf0aea8…` | **repository returned 404**. The only copy was `projects/karhmana` on the VPS (952 KB). | **restored** — re-created private and pushed; remote `main` = `cf0aea87c…`, matching the recorded hash |
+
+Why this matters more than the two rows: a protection registry that is not
+re-verified degrades **silently**. Both entries kept reading `VERIFIED` for the
+entire window in which the repositories did not exist, and two other registries
+(the Status Center repository list and `projects/status-center/data/repo-snapshot.json`)
+repeated the claim. Whether the two repositories were deleted deliberately is
+**UNKNOWN** and is an open owner question — the restore preserves the data either way.
+
+One further correction, harmless but worth stating: **`othoth77/classepro` was renamed
+to `othoth77/mouain`.** GitHub redirects the old name, so the data was never at risk,
+but three registries still name `classepro`. The row below keeps the original name and
+records the current one.
+
+### Newly protected on 2026-09-06 — Mythos Studio
+
+`/var/www/mythos-studio` was **not in this registry at all**, and was neither a git
+repository nor covered by any backup unit — while running as a **live**, authenticated
+service on `studio.mythosprod.xyz`. The running copy was the only copy.
+
+| Project | VPS path | GitHub repository | Vis. | Commit = verified remote HEAD | Files | Sec | Status |
+|---|---|---|---|---|---|---|---|
+| mythos-studio | `/var/www/mythos-studio` | `othoth77/mythos-studio` | private | `463fd84c4567cb77995b80e3f056253f8ac70f9e` | 25 | PASS | **VERIFIED** |
+
+Tracked: the Python server and the browser tool modules. Ignored via `.gitignore`:
+`media/` job artefacts, `logs/`, Python bytecode. No credentials are in the tree —
+HTTP Basic auth lives in `/etc/nginx/.htpasswd-studio`. The service was **not**
+restarted and stayed `active` throughout.
+
+---
+
 ## PROTECTED — 14 of 14 non-Git projects, all private, all remote-verified
+
+> **As recorded on 2026-08-13.** Read the two `chatrange` / `karhmana` rows together
+> with the re-verification above: they were false between some point after 2026-08-13
+> and their restore on 2026-09-06.
 
 Every repository is **private**. Every remote `main` was read back from the
 GitHub API (`repos/othoth77/<repo>/git/ref/heads/main`) and confirmed equal to
@@ -23,15 +66,15 @@ Each project carries a tailored `.gitignore` (included in the file counts).
 | ssangyong | `projects/ssangyong` | `othoth77/ssangyong` | private | `e347e765e524e0452104cab29addf2967bd9a8bf` | 196 | 11,431,685 | PASS | none runnable | **VERIFIED** |
 | mythos-prod-unversioned snapshot | `projects/_snapshots` | `othoth77/mythos-prod-unversioned-snapshot` | private | `e147657693c587615d85b344b5d92dbd59bd0cae` | 127 | 1,136,364 | PASS | n/a | **VERIFIED** |
 | darhijama-site | `projects/darhijama-site` | `othoth77/darhijama-site` | private | `9b2e810f9f4f9cfda871c0f275173d466b51d3a5` | 22 | 493,191 | PASS | n/a | **VERIFIED** |
-| karhmana | `projects/karhmana` | `othoth77/karhmana` | private | `cf0aea87c072d0695dd79cd27f4618798e614564` | 16 | 525,892 | PASS | n/a | **VERIFIED** |
+| karhmana | `projects/karhmana` | `othoth77/karhmana` | private | `cf0aea87c072d0695dd79cd27f4618798e614564` | 16 | 525,892 | PASS | n/a | **RESTORED 2026-09-06** — was 404, re-created and re-verified at the same hash |
 | fixpert | `projects/fixpert` | `othoth77/fixpert` | private | `a2ccf8348cbcf5e626cf22d8d16b3a0a02020bc4` | 13 | 97,216 | PASS | n/a | **VERIFIED** |
 | nettoyage-photo-vps | `projects/nettoyage-photo-vps` | `othoth77/nettoyage-photo-vps` | private | `5a1fcd09a40ad9858e95f81bbab1ae54bdb22829` | 11 | 93,683 | PASS | n/a | **VERIFIED** |
 | mythos-app | `projects/mythos-app` | `othoth77/mythos-app` | private | `ecf563f809ff0081c7064a61da391a45f10dda8c` | 8 | 110,028 | PASS | none runnable | **VERIFIED** |
 | agribee | `projects/agribee` | `othoth77/agribee` | private | `144355874c801046bdad71a3fe5160c85e20c58c` | 7 | 1,225,790 | PASS | n/a | **VERIFIED** |
-| chatrange | `projects/chatrange` | `othoth77/chatrange` | private | `f949d48e476a3312881e754b2a3b1ec04fedbff8` | 4 | 6,460,074 | PASS | n/a | **VERIFIED** |
+| chatrange | `projects/chatrange` | `othoth77/chatrange` | private | `f949d48e476a3312881e754b2a3b1ec04fedbff8` | 4 | 6,460,074 | PASS | n/a | **RESTORED 2026-09-06** — was 404, re-created and re-verified at the same hash |
 | festival | `projects/festival` | `othoth77/festival` | private | `853c4e568934282bfcbb1e8b85828c071aa19489` | 4 | 79,320 | PASS | n/a | **VERIFIED** |
 | oudhna-service | `projects/oudhna-service` | `othoth77/oudhna-service` | private | `d043c9f33d872d541a1a1c8b883c65b3f25a46b6` | 3 | 66,269 | PASS | n/a | **VERIFIED** |
-| classepro | `projects/classepro` | `othoth77/classepro` | private | `a76e4efaea5f857c6ea084c94fdf776a596e32b7` | 2 | 470,300 | PASS | n/a | **VERIFIED** |
+| classepro | `projects/classepro` | `othoth77/classepro` → **renamed `othoth77/mouain`** | private | `a76e4efaea5f857c6ea084c94fdf776a596e32b7` | 2 | 470,300 | PASS | n/a | **VERIFIED** (via GitHub's rename redirect) |
 | **Total** | | **14 repositories** | **all private** | | **1,387** | **129,179,836** | | | |
 
 1,387 tracked files = **1,373 project files + 14 generated `.gitignore` files**.
