@@ -173,7 +173,7 @@ function suggestions(report) {
     out.push('Disk: review the reported growth sources. Cleanup on this host is owner-gated and every candidate needs a verified copy first — no broad prune.');
   }
   if (has('restart_loop')) {
-    out.push('Services: a restart loop was observed. Read the unit journal before restarting it again; repeated restarts can mask the real fault.');
+    out.push('Services: a restart loop was observed. Read the unit journal (or `docker logs` for a container) before restarting it again; repeated restarts can mask the real fault.');
   }
   if (has('backup_failed') || has('backup_warning')) {
     out.push('Backup: a health record is stale or failed. Verify against the remote copy before any corrective run; never delete an existing backup.');

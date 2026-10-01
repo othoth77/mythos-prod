@@ -285,13 +285,28 @@ function services(src, cfg, prev, ctx) {
     else if (obs.status !== 'running') status = 'INACTIVE';
     else if (obs.health === 'unhealthy') status = 'UNHEALTHY';
     else status = 'OK';
-    table[c.id] = { status: status, class: c.class, restart_count: obs && obs.restart_count };
-    if (status !== 'OK') {
-      var lvl = status === 'UNKNOWN' ? 'WARNING' : CLASS_LEVEL[c.class];
+    // Restart-loop window, same rule as units. A crash-looping container is
+    // 'running' for most of each cycle, so status alone reads it as OK
+    // (2026-09-18: dar-hijama queue looped 168x after the hard reboot unseen).
+    // Keyed 'container:<id>' so it can never collide with a unit id.
+    var key = 'container:' + c.id;
+    var counter = obs && obs.observed !== false && typeof obs.restart_count === 'number' && !isNaN(obs.restart_count) ? obs.restart_count : null;
+    var hist = ((p.restarts && p.restarts[key]) || []).filter(function (h) { return ctx.nowMs - h.at <= loopCfg.window_minutes * 60000; });
+    if (counter !== null) hist.push({ at: ctx.nowMs, n: counter });
+    restarts[key] = hist.slice(-40);
+    // Docker resets RestartCount when a container is recreated; a drop is a new container, not negative restarts.
+    var delta = hist.length ? Math.max(0, hist[hist.length - 1].n - hist[0].n) : 0;
+    var looping = delta >= loopCfg.restarts;
+    table[c.id] = { status: looping ? 'LOOP' : status, class: c.class, restart_count: obs && obs.restart_count, restarts_in_window: delta };
+    if (status !== 'OK' || looping) {
+      var lvl = status === 'UNKNOWN' ? 'WARNING' : (status === 'OK' ? null : CLASS_LEVEL[c.class]);
+      if (looping) lvl = max(lvl || 'NORMAL', c.class === 'support' ? 'WARNING' : 'HIGH');
       raw = max(raw, lvl);
       if (c.class === 'critical' && status !== 'UNKNOWN') immediate = true;
       if (status === 'UNKNOWN') degraded = true;
-      findings.push(finding(lvl, 'container_' + status.toLowerCase(), c.id + ' (' + c.class + ') ' + status, obs, { affected: c.id }));
+      findings.push(finding(lvl, looping ? 'restart_loop' : 'container_' + status.toLowerCase(),
+        c.id + ' (' + c.class + ') ' + (looping ? 'restarted ' + delta + 'x in ' + loopCfg.window_minutes + ' min' : status),
+        obs, { affected: c.id, degraded: looping }));
     }
   });
 

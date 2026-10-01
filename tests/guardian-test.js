@@ -170,7 +170,8 @@ function healthyHost(cfg) {
   installShowRouter(cfg);
   SPAWN['systemctl --user show'] = function () { return { status: 0, stdout: unitBlocks(cfg, 'deploy', SPAWN._unitOverrides || {}), stderr: '', error: null }; };
   SPAWN['docker inspect --format'] = function () {
-    return { status: 0, stderr: '', error: null, stdout: cfg.services.containers.map(function (c) { return '/' + c.container + '|running||0'; }).join('\n') + '\n' };
+    var ov = SPAWN._containerOverrides || {};
+    return { status: 0, stderr: '', error: null, stdout: cfg.services.containers.map(function (c) { return '/' + c.container + '|' + (ov[c.id] || 'running||0'); }).join('\n') + '\n' };
   };
   SPAWN['docker system df'] = function () { return { status: 0, stderr: '', error: null, stdout: 'Images|12GB|2GB\nLocal Volumes|3GB|0B\nBuild Cache|1GB|1GB\n' }; };
 }
@@ -598,6 +599,26 @@ section('5. classify: domain verdicts');
   ok(loop.findings.some(function (f) { return f.kind === 'restart_loop'; }), 'the restart loop is named');
   eq(svc({ mariadb: { NRestarts: '3' } }, { restarts: { mariadb: [{ at: NOW - 10 * 60000, n: 1 }] } }).raw, 'NORMAL', '2 restarts in the window is not a loop');
   eq(svc({ mariadb: { NRestarts: '40' } }, { restarts: { mariadb: [{ at: NOW - 24 * 3600000, n: 1 }] } }).raw, 'NORMAL', 'restarts outside the window are forgotten');
+
+  // Containers: a crash-looping container is 'running' between restarts, so
+  // only its RestartCount shows the loop (dar-hijama queue, 2026-09-18).
+  function ctr(line, prev) {
+    SPAWN._containerOverrides = { 'darhijama-queue': line };
+    var v = svc({}, prev);
+    SPAWN._containerOverrides = {};
+    return v;
+  }
+  var qPrev = function (n) { return { restarts: { 'container:darhijama-queue': [{ at: NOW - 10 * 60000, n: n }] } }; };
+  var cloop = ctr('running||168', qPrev(150));
+  eq(cloop.raw, 'HIGH', 'a crash-looping production container that samples as running is HIGH');
+  ok(cloop.findings.some(function (f) { return f.kind === 'restart_loop' && f.affected === 'darhijama-queue'; }), 'the container restart loop is named');
+  eq(cloop.summary.table['darhijama-queue'].status, 'LOOP', 'and its table row says LOOP');
+  ok(Array.isArray(cloop.stateOut.restarts['container:darhijama-queue']), 'container history is kept under its own key');
+  eq(cloop.stateOut.restarts['darhijama-queue'], undefined, 'and never under a bare id a unit could share');
+  eq(ctr('running||3', qPrev(1)).raw, 'NORMAL', '2 container restarts in the window is not a loop');
+  eq(ctr('running||0', qPrev(168)).raw, 'NORMAL', 'a recreated container (counter reset) is not a loop');
+  eq(ctr('running||168', {}).raw, 'NORMAL', 'a high lifetime counter with no history is not a loop on first sight');
+  eq(ctr('restarting||168', {}).raw, 'HIGH', 'a container caught mid-restart is still reported (INACTIVE)');
 
   fixture('live-status.json', { generated_at: iso(60), summary: { up: 10, down: 2 }, checks: [{ id: 'erp-https', state: 'DOWN' }, { id: 'ok-one', state: 'UP' }] });
   var down = svc();

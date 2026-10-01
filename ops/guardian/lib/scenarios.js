@@ -184,6 +184,12 @@ var SCENARIOS = {
     why: 'a critical container reports unhealthy', expect: { services: 'CRITICAL' },
     apply: function (r) { r.services.containers['idauto-postgres'] = { observed: true, status: 'running', health: 'unhealthy', restart_count: 0 }; return r; }
   },
+  'container-restart-loop': {
+    why: 'a production container crash-looping — "running" between restarts, so only the counter shows it',
+    expect: { services: 'HIGH' },
+    apply: function (r) { r.services.containers['darhijama-queue'] = { observed: true, status: 'running', health: null, restart_count: 40 }; return r; },
+    prevState: { services: { restarts: { 'container:darhijama-queue': [{ at: -1, n: 30 }] } } }
+  },
   'status-center-down': {
     why: 'the Status Center reports a public endpoint DOWN — Guardian reports it, it does not re-probe',
     expect: { services: 'HIGH' },
