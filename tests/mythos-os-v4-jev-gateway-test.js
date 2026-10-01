@@ -248,8 +248,13 @@ Promise.all([h.startServer(freeBehaviour('alpha')), h.startServer(freeBehaviour(
     var d = sys.jev.route({ pool: 'execution', capability: 'analysis', kind: 'answer', prompt_chars: 10 });
     t.ok(d.rejected.some(function (x) { return x.model === 'qwen-local' && /^COOLDOWN_UNTIL/.test(x.reason); }), 'the rejection names the cooldown');
 
+    var cooling = sys.jev.status().models['qwen-local'];
+    t.ok(cooling.effective_state === 'open' && cooling.selectable === false, 'status: a cooling model is reported open and not selectable');
+
     // Cooldown over, Qwen still broken: the probe fails and the cooldown doubles.
     now.advance(61);
+    var halfOpen = sys.jev.status().models['qwen-local'];
+    t.ok(halfOpen.state === 'open' && halfOpen.effective_state === 'half_open' && halfOpen.selectable === true, 'status: once the cooldown has passed the same model is half-open and selectable again (what route() would do)');
     return ask(sys);
   }).then(function () {
     var q2 = sys.jev.status().models['qwen-local'];

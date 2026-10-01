@@ -218,7 +218,8 @@ function create(deps) {
     return run(process.execPath, args, { env: env, timeoutMs: 120000, cwd: executorRoot }, spawn).then(function (res) {
       var taskId = null;
       try { taskId = JSON.parse(res.stdout).task_id; } catch (e) { taskId = null; }
-      if (res.code !== 0 || !taskId) {
+      // The id becomes a file name below: only the Supervisor's own shape.
+      if (res.code !== 0 || !/^SUP-[A-Z0-9]{4,20}$/.test(String(taskId))) {
         return { ok: false, kind: 'work', transport: 'supervised', reason: 'SUBMIT_REFUSED', detail: String(res.stderr || res.stdout).slice(0, 400), output: null };
       }
       ledger.append({ actor: 'haddad', type: 'WORK_SUPERVISED', goal_id: ctx.goal_id, trace_id: ctx.trace_id, detail: { step_id: step.id, supervisor_task_id: taskId, action: step.action, model: cand.model } });
@@ -231,12 +232,22 @@ function create(deps) {
         var brace = tail.lastIndexOf('\n{');
         if (brace !== -1) { try { summary = JSON.parse(tail.slice(brace + 1)); } catch (e) { summary = null; } }
         var status = summary && summary.status;
+        // The step's RESULT is what the worker reported and the Supervisor
+        // verified — read from the Supervisor's own record. Without it the
+        // executive only learns that a task ended, not what it found (live,
+        // 2026-10-01: FABLE re-planned a test whose counts it never saw).
+        var record = null;
+        try { record = JSON.parse(fs.readFileSync(path.join(env.MYTHOS_SUPERVISOR_HOME, 'tasks', taskId + '.json'), 'utf8')); } catch (e2) { record = null; }
+        var last = (record && record.last_result) || {};
+        var reported = typeof last.summary === 'string' && last.summary.trim()
+          ? [last.summary.trim()].concat((Array.isArray(last.tests) ? last.tests : []).slice(0, 10).map(function (x) { return 'test: ' + String(x).slice(0, 300); })).join('\n')
+          : null;
         return {
           ok: w.code === 0 && status === 'COMPLETED', kind: 'work', transport: 'supervised', supervisor_task_id: taskId,
           issue: summary ? summary.issue : null, executor_status: status || null,
           reason: w.code === 0 && status === 'COMPLETED' ? null : (w.timed_out || w.code === 1 ? 'WORK_TIMEOUT' : 'SUPERVISOR_' + (status || 'UNKNOWN')),
           detail: summary && summary.blocked ? String(summary.blocked.reason || summary.blocked.code || '').slice(0, 400) : (summary ? String(summary.last_error || '').slice(0, 400) || null : null),
-          output: summary ? 'Supervised task ' + taskId + ' on Issue #' + summary.issue + ' ended ' + status + '. Last action: ' + String(summary.last_action || '').slice(0, 600) : null,
+          output: reported || (summary ? 'Supervised task ' + taskId + ' on Issue #' + summary.issue + ' ended ' + status + ' (no report summary was recorded). Last action: ' + String(summary.last_action || '').slice(0, 600) : null),
           model: cand.model, tier: cand.tier, served_by: null
         };
       });

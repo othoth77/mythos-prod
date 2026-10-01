@@ -294,7 +294,16 @@ function create(deps) {
     Object.keys(registry.models).sort().forEach(function (name) {
       var m = registry.models[name];
       var avail = availability(name, m);
-      out[name] = Object.assign({ tier: m.tier, enabled: m.enabled, available: avail.ok, availability_detail: avail.detail || null }, healthOf(all, name));
+      var h = healthOf(all, name);
+      // What route() would do with it NOW: an open circuit whose cooldown has
+      // passed is half-open (one probe allowed), not unusable.
+      var cooling = h.state === 'open' && h.cooldown_until && now() < Date.parse(h.cooldown_until);
+      var waiting = !!(h.quota_until && now() < Date.parse(h.quota_until));
+      out[name] = Object.assign({
+        tier: m.tier, enabled: m.enabled, available: avail.ok, availability_detail: avail.detail || null,
+        effective_state: h.state === 'open' ? (cooling ? 'open' : 'half_open') : h.state,
+        selectable: m.enabled && avail.ok && !cooling && !waiting
+      }, h);
     });
     return { models: out, spend: readSpend(), paid: policy.models.paid };
   }

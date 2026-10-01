@@ -80,10 +80,16 @@ function run(system, opts) {
       var byTier = { free: [], local: [], paid: [] };
       Object.keys(st.models).forEach(function (name) {
         var m = st.models[name];
-        if (m.enabled) byTier[m.tier].push({ name: name, available: m.available, state: m.state, detail: m.availability_detail });
+        if (m.enabled) byTier[m.tier].push({ name: name, available: m.available, state: m.effective_state, selectable: m.selectable, waiting: m.quota_until, detail: m.availability_detail });
       });
-      function usable(list) { return list.filter(function (m) { return m.available && m.state !== 'open'; }); }
-      function describe(list) { return list.map(function (m) { return m.name + '=' + (m.available ? m.state : 'unavailable (' + m.detail + ')'); }).join(', '); }
+      // "Usable" is exactly what JEV would select now: a model cooling down or
+      // waiting for quota is not, one whose cooldown has passed (half-open) is.
+      function usable(list) { return list.filter(function (m) { return m.selectable; }); }
+      function describe(list) {
+        return list.map(function (m) {
+          return m.name + '=' + (!m.available ? 'unavailable (' + m.detail + ')' : (m.selectable ? m.state : (m.state === 'open' ? 'cooling down' : 'waiting for quota')));
+        }).join(', ');
+      }
       add('free_llm_tier', usable(byTier.free).length ? 'PASS' : 'WARN', describe(byTier.free) || 'no free model registered');
       add('qwen_tier', usable(byTier.local).length ? 'PASS' : 'FAIL', describe(byTier.local) || 'no local model registered');
       add('paid_tier', !policy.models.paid.allowed ? 'WARN' : (usable(byTier.paid).length ? 'PASS' : 'WARN'),

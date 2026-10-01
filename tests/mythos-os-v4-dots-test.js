@@ -110,6 +110,10 @@ fs.writeFileSync(path.join(execRoot, 'scripts', 'mythos-supervise.js'), [
   "if (args[0] === 'watch') {",
   "  var st = ctl.supervised || 'COMPLETED';",
   "  console.log('2026-01-01T00:00:00.000Z ' + args[1] + ' RUNNING dispatched');",
+  "  if (ctl.supervised_summary) {",
+  "    fs.mkdirSync(path.join(process.env.MYTHOS_SUPERVISOR_HOME, 'tasks'), { recursive: true });",
+  "    fs.writeFileSync(path.join(process.env.MYTHOS_SUPERVISOR_HOME, 'tasks', args[1] + '.json'), JSON.stringify({ task_id: args[1], status: st, last_result: { summary: ctl.supervised_summary, tests: ctl.supervised_tests || [] } }));",
+  "  }",
   "  console.log(JSON.stringify({ task_id: args[1], status: st, issue: 999, last_action: 'verified delivery', blocked: st === 'BLOCKED' ? { code: 'HUMAN_APPROVAL', reason: 'review gate' } : null }, null, 2));",
   "  process.exit(st === 'COMPLETED' ? 0 : 2);",
   "}",
@@ -476,6 +480,38 @@ Promise.all([
   var c = sys.dots.resolveEscalation(g.escalation_id, 'cancel', 'owner');
   t.ok(c.goal.status === 'CANCELLED' && c.escalation.status === 'RESOLVED', 'cancelling stays possible');
 
+  // Cancel while a step is running: the runner must not write RUNNING back
+  // over the owner's CANCELLED (found live: a cancel was overwritten).
+  reset();
+  sys = build(null, [ANSWER_PLAN, DONE]);
+  goal = submit(sys);
+  freeCtl.onCall = function () { sys.dots.cancelGoal(goal.goal_id, 'owner'); };
+  return sys.dots.runGoal(goal.goal_id);
+}).then(function (g) {
+  var onDisk = sys.dots.getGoal(g.goal_id);
+  t.ok(g.status === 'CANCELLED' && onDisk.status === 'CANCELLED' && onDisk.runner_pid === null && sys.fable.calls.length === 1,
+    'a goal cancelled while its step runs STAYS cancelled: no further executive call, the runner releases it');
+  t.ok(onDisk.steps_executed === 1 && onDisk.history.length === 1 && onDisk.history[0].ok === true && onDisk.result === null, 'the cancelled record keeps the progress made (the finished step), and no completion');
+  // Cancel while the executive is planning.
+  reset();
+  sys = build(null, [function () { sys.dots.cancelGoal(goal.goal_id, 'owner'); return ANSWER_PLAN; }, DONE]);
+  goal = submit(sys);
+  var modelCallsBefore = servers.free.calls.length;
+  return sys.dots.runGoal(goal.goal_id).then(function (g) { g.model_calls = servers.free.calls.length - modelCallsBefore; return g; });
+}).then(function (g) {
+  t.ok(g.status === 'CANCELLED' && g.steps_executed === 0 && g.model_calls === 0, 'a goal cancelled while the executive plans: the plan is dropped, nothing reaches Haddad');
+  t.ok(sys.dots.listEscalations({ status: 'OPEN' }).every(function (e) { return e.goal_id !== g.goal_id; }), 'and a cancelled goal is never escalated afterwards');
+  // Cancel while the watchdog reviews a write plan, and the review then fails:
+  // the run would escalate (WRITE_PLAN_UNREVIEWED) — the cancel still wins.
+  reset();
+  sys = build(null, [WRITE], [function () { sys.dots.cancelGoal(goal.goal_id, 'owner'); return { fail: 'TRANSIENT' }; }], { openaiUp: true });
+  goal = submit(sys, { allow_write: true });
+  return sys.dots.runGoal(goal.goal_id);
+}).then(function (g) {
+  t.ok(g.status === 'CANCELLED' && sys.dots.getGoal(g.goal_id).status === 'CANCELLED' && sys.dots.getGoal(g.goal_id).escalation_id === null &&
+    sys.dots.listEscalations().every(function (e) { return e.goal_id !== g.goal_id; }) && types(g).indexOf('ESCALATED') === -1,
+  'a goal cancelled while its plan is under review is not turned into an escalation when the review fails');
+
   section('G — goals, priorities, escalations');
   reset();
   sys = build(null, [ANSWER_PLAN, DONE]);
@@ -547,7 +583,7 @@ Promise.all([
 
   // Write flow: approval → review → supervised path.
   reset();
-  control({ supervised: 'COMPLETED' });
+  control({ supervised: 'COMPLETED', supervised_summary: 'Added the eviction section to docs/CACHE.md.', supervised_tests: ['assert-file: 1 passed, 0 failed'] });
   sys = build(null, [WRITE, WRITE, DONE], [d('execute', {})], { openaiUp: true });
   sys.openai.queue = [{ verdict: 'approve', reasons: ['in scope'] }];
   goal = submit(sys, { title: 'Document the cache', objective: 'Document cache eviction in docs/CACHE.md.' });
@@ -562,6 +598,7 @@ Promise.all([
   return sys.dots.runGoal(g.goal_id);
 }).then(function (g) {
   t.ok(g.status === 'COMPLETED' && g.history[0].transport === 'supervised' && g.history[0].ok === true, 'approved and reviewed, the write runs through the SUPERVISED path and the goal completes');
+  t.ok(g.result.final_answer === 'Final: Added the eviction section to docs/CACHE.md.\ntest: assert-file: 1 passed, 0 failed', 'the executive receives what the worker REPORTED (summary and tests from the Supervisor\'s record), not just "the task ended"');
   var sup = calls('supervise');
   var submitArgs = sup[0].args;
   t.ok(sup.length === 2 && submitArgs[0] === 'submit' && submitArgs[submitArgs.indexOf('--action') + 1] === 'document' && submitArgs.indexOf('commit_delivered') !== -1 && submitArgs.indexOf('status_completed') !== -1,

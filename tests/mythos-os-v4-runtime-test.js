@@ -215,6 +215,18 @@ h.startServer(h.qwenBehaviour(qwenCtl)).then(function (s) {
 }).then(function (r) {
   t.ok(r.code === 2 && r.json.reason === 'NO_ROUTE' && /^COOLDOWN_UNTIL/.test(r.json.rejected.filter(function (x) { return x.model === 'qwen-local'; })[0].reason),
     'after Qwen failed twice, a later command finds it in cooldown: no work route (health survives the process)');
+  return cli(['health', '--json']);
+}).then(function (r) {
+  t.ok(check(r.json, 'qwen_tier').status === 'FAIL' && /cooling down/.test(check(r.json, 'qwen_tier').detail), 'health while Qwen cools down: qwen_tier FAIL, "cooling down"');
+  // An expired cooldown is NOT a failure: the model is half-open and JEV
+  // would select it (found live: health kept failing after a cooldown ended).
+  var hf = path.join(dirs.osHome, 'jev', 'health.json');
+  var hv = JSON.parse(fs.readFileSync(hf, 'utf8'));
+  hv['qwen-local'].cooldown_until = new Date(Date.now() - 1000).toISOString();
+  fs.writeFileSync(hf, JSON.stringify(hv));
+  return cli(['health', '--json']);
+}).then(function (r) {
+  t.ok(check(r.json, 'qwen_tier').status === 'PASS' && /qwen-local=half_open/.test(check(r.json, 'qwen_tier').detail) && check(r.json, 'model_no_spof').status === 'PASS', 'health after the cooldown passed: the model is half_open and counts as usable');
   return cli(['jev', 'reset']);
 }).then(function (r) {
   t.ok(r.code === 0 && r.json.models['qwen-local'].state === 'closed' && r.json.models['qwen-local'].cooldown_until === null, 'jev reset: the owner clears the cooldown after a repair');

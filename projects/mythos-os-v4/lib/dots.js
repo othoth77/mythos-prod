@@ -216,6 +216,9 @@ function create(deps) {
 
   // ---- ESCALATIONS --------------------------------------------------------
   function escalate(goal, code, reason, extra) {
+    // The owner's cancel wins over anything the run concludes afterwards.
+    var current = loadGoal(goal.goal_id);
+    if (current && current.status === 'CANCELLED') return current;
     var esc = {
       escalation_id: store.newId('esc', now()), goal_id: goal.goal_id, trace_id: goal.trace_id, code: code,
       reason: cut(reason, 1500), at: iso(), status: 'OPEN', resolution: null, detail: extra || null
@@ -299,16 +302,34 @@ function create(deps) {
 
     function state() { return { cycle: goal.cycles, steps_executed: goal.steps_executed, history: goal.history, refusals: goal.refusals }; }
 
-    function cycle() {
-      // A cancel from another process wins over the loop.
+    // A cancel from another process wins over the loop. The runner holds the
+    // goal in memory, so every write it makes would otherwise put RUNNING
+    // back over the owner's CANCELLED: the cancelled record keeps the
+    // progress made so far and the run stops.
+    function cancelled() {
       var fresh = loadGoal(goal.goal_id);
-      if (fresh && fresh.status === 'CANCELLED') { goal = fresh; return goal; }
+      if (!fresh || fresh.status !== 'CANCELLED') return null;
+      fresh.cycles = goal.cycles;
+      fresh.steps_executed = goal.steps_executed;
+      fresh.history = goal.history;
+      fresh.refusals = goal.refusals;
+      fresh.last_engine = goal.last_engine;
+      fresh.runner_pid = null;
+      goal = saveGoal(fresh);
+      return goal;
+    }
+
+    function cycle() {
+      var stop = cancelled();
+      if (stop) return stop;
       if (now() >= ctx.deadline_at) return escalate(goal, 'GOAL_DEADLINE', 'The goal did not finish within ' + policy.loop.goal_deadline_seconds + ' s.');
       if (goal.cycles >= policy.loop.max_cycles) return escalate(goal, 'CYCLE_LIMIT', 'The executive used all ' + policy.loop.max_cycles + ' plan cycles without completing the goal.');
       goal.cycles += 1;
       saveGoal(goal);
 
       return executive.plan(goalView(goal), state(), ctx).then(function (planned) {
+        var stopped = cancelled();
+        if (stopped) return stopped;
         if (!planned.ok) {
           if (planned.reason === 'DEADLINE') return escalate(goal, 'GOAL_DEADLINE', 'The deadline passed while waiting for an executive.');
           if (policy.executive.on_no_executive === 'escalate') {
@@ -402,6 +423,8 @@ function create(deps) {
           model: r.model || null, tier: r.tier || null, transport: r.transport || null, fallback_used: !!r.fallback_used,
           output: r.output ? cut(r.output, policy.loop.history_output_chars) : null
         });
+        var stop = cancelled();
+        if (stop) return stop;
         saveGoal(goal);
         return runSteps(steps);
       });
