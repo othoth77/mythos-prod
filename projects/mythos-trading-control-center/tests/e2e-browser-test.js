@@ -1037,3 +1037,139 @@ test('the decision list is the stored verdicts, and an unknown candidate is an e
   assert.equal(await page.exists('#chain'), false);
   page.errors.length = 0;       // the browser logs the 404; it is the expected one
 });
+
+// ---------------------------------------------------------------------------
+// PHASE 9 — Strategies, Jev, Risk, Recovery
+// ---------------------------------------------------------------------------
+
+async function openEngine(pathname, bodyId) {
+  await page.goto(base + pathname + '?run=' + explorerRun.runId);
+  await ready(pathname);
+  await page.waitFor('!!document.getElementById(' + JSON.stringify(bodyId) + ') && document.getElementById(' + JSON.stringify(bodyId) + ').textContent.indexOf(' +
+    JSON.stringify(explorerRun.runId) + ') !== -1', 15000, pathname + ' to show its source run');
+  return page.text('#view');
+}
+
+test('the Strategies page shows all fourteen families with sample sizes beside the statistics', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var api = await S.login('viewer');
+  var text = await openEngine('/strategies', 'strategies-body');
+  assert.match(text, /cannot express a position size/);
+  var data = (await api.get('/api/strategies?run=' + explorerRun.runId)).body.result;
+  var rows = await page.eval('Array.prototype.map.call(document.querySelectorAll("#strategies-body table")[0].querySelectorAll("tbody tr"), function (tr) {' +
+    ' return Array.prototype.map.call(tr.children, function (td) { return td.textContent; }); })');
+  assert.equal(rows.length, 14);
+  rows.forEach(function (cells, i) {
+    var s = data.strategies[i];
+    assert.ok(cells[0].indexOf(s.strategyId) === 0, cells[0]);
+    assert.equal(cells[2], String(s.candidates).replace(/\B(?=(\d{3})+(?!\d))/g, ','));
+    assert.ok(cells[5].indexOf('n=' + s.trades.sampleSize) === 0, 'the sample size is shown: ' + cells[5]);
+    if (s.trades.sampleSize > 0) assert.match(cells[5], s.trades.sufficient ? /sufficient/ : /INSUFFICIENT DATA/);
+    if (s.trades.sampleSize === 0) assert.equal(cells[6], 'n/a', 'a strategy with no trades shows no win rate');
+  });
+  assert.ok(data.strategies.some(function (s) { return s.trades.sampleSize > 0 && !s.trades.sufficient; }), 'this run has thin samples to mark');
+  assertNoPageErrors('/strategies');
+});
+
+test('the Jev page shows score, confidence, ALLOW / BLOCK and the four score bands', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var api = await S.login('viewer');
+  var text = await openEngine('/jev', 'jev-body');
+  assert.match(text, /carries no size and cannot overrule the Risk Engine/);
+  assert.match(text, /Stored decisions are ENTER and REJECT; they are shown here as ALLOW and BLOCK/);
+  var d = (await api.get('/api/jev?run=' + explorerRun.runId)).body.result.data;
+  var bands = await page.eval('Array.prototype.map.call(document.querySelectorAll("#jev-body table")[0].querySelectorAll("tbody tr"), function (tr) {' +
+    ' return Array.prototype.map.call(tr.children, function (td) { return td.textContent; }); })');
+  assert.deepEqual(bands.map(function (b) { return b[0]; }), ['70–79', '80–89', '90–94', '95–100', 'below 70']);
+  bands.forEach(function (cells, i) {
+    assert.equal(Number(cells[1].replace(/,/g, '')), d.bands[i].considered);
+    assert.equal(Number(cells[2].replace(/,/g, '')), d.bands[i].allowed);
+    assert.equal(Number(cells[3].replace(/,/g, '')), d.bands[i].blocked);
+    assert.ok(cells[4].indexOf('n=' + d.bands[i].trades.sampleSize) === 0);
+  });
+  assert.match(text, /INSUFFICIENT DATA/, 'thin bands are marked as such');
+  var verdictHeads = await page.eval('Array.prototype.map.call(document.querySelectorAll("#jev-body table")[1].querySelectorAll("thead th"), function (th) { return th.textContent; })');
+  assert.deepEqual(verdictHeads, ['Bar', 'Asset', 'Strategy', 'Score', 'Confidence', 'Band', 'Verdict', 'Reason codes']);
+  var verdicts = await page.eval('Array.prototype.map.call(document.querySelectorAll("#jev-body table")[1].querySelectorAll("tbody tr"), function (tr) { return tr.children[6].textContent; })');
+  verdicts.forEach(function (v) { assert.ok(v === 'ALLOW' || v === 'BLOCK', v); });
+  assertNoPageErrors('/jev');
+});
+
+test('the Risk page shows limits, verdicts, clamps as clamps, and blocks — with the Risk Engine named as final', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var api = await S.login('viewer');
+  var text = await openEngine('/risk', 'risk-body');
+  assert.match(text, /The Risk Engine is the final authority/);
+  assert.match(text, /nothing in this console sets a size/);
+  for (var block of ['Risk per trade', 'Max drawdown', 'Daily loss', 'Consecutive losses', 'Max position', 'Limits as last observed',
+    'Exposure', 'Clamps', 'Blocks', 'Risk events', 'Risk budget', 'Drawdown headroom', 'Daily loss headroom', 'Position size']) {
+    assert.ok(text.indexOf(block) !== -1, 'the risk page has no "' + block + '"');
+  }
+  var d = (await api.get('/api/risk?run=' + explorerRun.runId)).body.result.data;
+  async function tile(label) {
+    return page.eval('(function () { var ks = document.querySelectorAll("#risk-body .kpi"); for (var i = 0; i < ks.length; i++) {' +
+      ' if (ks[i].querySelector(".kpi-label").textContent === ' + JSON.stringify(label) + ') return ks[i].querySelector(".kpi-value").textContent; } return null; })()');
+  }
+  assert.equal(Number((await tile('CLAMP')).replace(/,/g, '')), d.byVerdict.CLAMP);
+  assert.equal(Number((await tile('BLOCK')).replace(/,/g, '')), d.byVerdict.BLOCK);
+  assert.equal(Number((await tile('ALLOW')).replace(/,/g, '')), d.byVerdict.ALLOW);
+  // every row of the Clamps table has requested > approved
+  var clamps = await page.eval('(function () { var cards = document.querySelectorAll("#risk-body section.card"); for (var i = 0; i < cards.length; i++) {' +
+    ' var h = cards[i].querySelector("h2"); if (h && h.textContent === "Clamps") return Array.prototype.map.call(cards[i].querySelectorAll("tbody tr"), function (tr) {' +
+    ' return [Number(tr.children[3].textContent), Number(tr.children[4].textContent)]; }); } return null; })()');
+  assert.ok(clamps && clamps.length > 0, 'this run has clamps to show');
+  clamps.forEach(function (c) { assert.ok(c[0] > c[1], 'a clamp row with requested ' + c[0] + ' and approved ' + c[1]); });
+  assertNoPageErrors('/risk');
+});
+
+test('the Recovery page shows the state per asset with requested and approved size, and the ladder against the cap', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var api = await S.login('viewer');
+  var text = await openEngine('/recovery', 'recovery-body');
+  assert.match(text, /only REQUESTS a size/);
+  assert.match(text, /remains authoritative/);
+  assert.match(text, /clamped to/, 'rungs above the position cap are shown as clamped');
+  var d = (await api.get('/api/recovery?run=' + explorerRun.runId)).body.result.data;
+  var heads = await page.eval('Array.prototype.map.call(document.querySelectorAll("#recovery-body table")[0].querySelectorAll("thead th"), function (th) { return th.textContent; })');
+  assert.deepEqual(heads, ['Asset', 'Level', 'Cumulative loss', 'Requested size', 'Approved size', 'Risk verdict', 'Last transition', 'Max level', 'Reset', 'Abandoned']);
+  var rows = await page.eval('Array.prototype.map.call(document.querySelectorAll("#recovery-body table")[0].querySelectorAll("tbody tr"), function (tr) {' +
+    ' return Array.prototype.map.call(tr.children, function (td) { return td.textContent; }); })');
+  assert.equal(rows.length, d.perAsset.length);
+  assert.deepEqual(rows.map(function (r) { return r[0]; }), ['EURUSD', 'XAUUSD'], 'the assets are the run\'s own, not the platform\'s current universe');
+  rows.forEach(function (cells, i) {
+    var a = d.perAsset[i];
+    if (!a.recorded) return;
+    assert.equal(cells[1], String(a.level));
+    assert.equal(cells[3], a.requestedLots.toFixed(2));
+    assert.equal(cells[4], a.approvedLots.toFixed(2));
+    assert.equal(cells[7], String(a.maxLevel));
+    assert.equal(Number(cells[8].replace(/,/g, '')), a.resets);
+  });
+  assert.match(text, new RegExp(d.transitions + ' recorded'));
+  assertNoPageErrors('/recovery');
+});
+
+test('the engine pages say NO DATA with a reason when there is no source', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var A = await h.startApp();
+  var b2 = 'http://localhost:' + A.port;
+  await page.goto(b2 + '/login');
+  await page.waitFor('!!document.getElementById("login-form")', 10000, 'the login form');
+  await page.fill('#user', 'viewer');
+  await page.fill('#password', h.PASSWORDS.viewer);
+  await page.click('#login-submit');
+  await page.waitFor('location.pathname === "/dashboard" && document.documentElement.getAttribute("data-ready") === "true"', 15000, 'the second server');
+  for (var pathname of ['/jev', '/risk', '/recovery', '/strategies', '/trades', '/candidates', '/decisions']) {
+    await page.goto(b2 + pathname);
+    await page.waitFor('/NO DATA/.test(document.getElementById("view").textContent)', 15000, 'NO DATA on ' + pathname);
+    var text = await page.text('#view');
+    assert.match(text, /no backtest has completed/, pathname);
+    assert.equal(await page.count('#view table tbody tr.is-clickable'), 0, pathname + ' shows rows with no source');
+  }
+  // What is configured is still shown on the engine pages — it is real.
+  await page.goto(b2 + '/risk');
+  await page.waitFor('/Risk per trade/.test(document.getElementById("view").textContent)', 15000, 'configured limits');
+  assertNoPageErrors('the pages with no source');
+  await A.close();
+  await signIn('owner');
+});

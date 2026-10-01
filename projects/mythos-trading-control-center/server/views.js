@@ -614,12 +614,22 @@ function riskSummary(t) {
     };
   }
   var last = rows.length ? rows[rows.length - 1] : null;
+  // The most recent recorded measurement of EACH limit. One assessment does not
+  // check every limit — an account-level block stops before sizing — so the
+  // latest row alone would leave the budget blank exactly when the account is
+  // in trouble. Each value keeps the bar time it was measured at.
   var observed = null;
   if (last) {
     observed = {};
-    (last.limitsChecked || []).forEach(function (l) {
-      observed[l.limit] = { observed: l.observed, limit: l.limitValue, binding: l.binding };
-    });
+    for (var oi = rows.length - 1; oi >= 0 && oi >= rows.length - 400; oi--) {
+      var checked = rows[oi].limitsChecked || [];
+      for (var oj = 0; oj < checked.length; oj++) {
+        var lim = checked[oj];
+        if (observed[lim.limit] === undefined) {
+          observed[lim.limit] = { observed: lim.observed, limit: lim.limitValue, binding: lim.binding, ts: rows[oi].ts };
+        }
+      }
+    }
   }
   var curve = t.rows('equity_curve');
   var lastEquity = curve.length ? curve[curve.length - 1] : null;
@@ -656,7 +666,11 @@ function recoverySummary(t, symbols) {
   var ix = indexes(t);
   var bySymbol = groupBy(rows, 'symbol');
   var riskRows = t.rows('risk_assessments');
-  var perAsset = (symbols || Object.keys(bySymbol)).map(function (sym) {
+  // The assets THIS source traded, from its own data provenance — not the
+  // platform's current universe, which may have changed since the run.
+  var sourceSymbols = t.rows('market_data_meta').map(function (m) { return m.symbol; });
+  var listed = symbols || (sourceSymbols.length ? sourceSymbols : Object.keys(bySymbol));
+  var perAsset = listed.filter(function (sym, i) { return listed.indexOf(sym) === i; }).map(function (sym) {
     var list = bySymbol[sym] || [];
     var last = list.length ? list[list.length - 1] : null;
     // The latest Risk Engine verdict for this asset: what the ladder asked for

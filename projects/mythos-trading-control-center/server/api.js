@@ -333,7 +333,7 @@ function routes(deps) {
       method: 'GET', path: '/api/recovery', role: 'VIEWER', bucket: 'read', query: q(),
       handler: function (ctx) {
         var cfg = control.config();
-        var out = platform.withContext(ctx.query, function (c) { return views.recoverySummary(c.tables, cfg.universe.slice()); });
+        var out = platform.withContext(ctx.query, function (c) { return views.recoverySummary(c.tables, null); });
         var ladder = [];
         for (var i = 0; i <= cfg.recovery.maxRecoveryLevel; i++) {
           ladder.push(Math.round(cfg.recovery.baseLots * Math.pow(cfg.recovery.multiplier, i) * 1e6) / 1e6);
