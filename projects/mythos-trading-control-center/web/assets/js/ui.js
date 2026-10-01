@@ -177,7 +177,7 @@
     if (context.available === false) return null;
     var names = { PAPER_SESSION: 'live paper session', BACKTEST_RUN: 'backtest run', PAPER_RUN: 'paper session (archived)' };
     return el('div', { class: 'source-line' }, [
-      'Source:',
+      el('span', { text: 'Source' }),
       ui.dataLabel(context.label),
       el('span', { text: names[context.source] || context.source }),
       ui.chip(context.runId),

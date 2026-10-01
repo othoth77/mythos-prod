@@ -354,3 +354,244 @@ test('a change made elsewhere reaches the status bar and the dashboard by itself
   await page.waitFor('/Trading\\s*ENABLED/.test(document.getElementById("status").textContent)', 12000, 'the status bar to show ENABLED');
   assertNoPageErrors('the live status');
 });
+
+// ---------------------------------------------------------------------------
+// PHASE 4 — Control Center
+// ---------------------------------------------------------------------------
+
+/** The id of the control a visible label points at. */
+async function idFor(labelText) {
+  var id = await page.eval('(function () { var ls = document.querySelectorAll("label"); for (var i = 0; i < ls.length; i++) {' +
+    ' if (ls[i].textContent.trim() === ' + JSON.stringify(labelText) + ' && ls[i].getAttribute("for")) return ls[i].getAttribute("for"); } return null; })()');
+  assert.ok(id, 'no labelled control "' + labelText + '"');
+  return '#' + id;
+}
+async function modalOpen() { await page.waitFor('!!document.querySelector(".modal")', 8000, 'a dialog'); }
+async function modalClosed() { await page.waitFor('!document.querySelector(".modal")', 15000, 'the dialog to close'); }
+async function lastToast() { return page.eval('(function () { var t = document.querySelectorAll(".toast"); return t.length ? t[t.length - 1].textContent : ""; })()'); }
+async function waitToast(re, what) {
+  await page.waitFor('(function () { var t = document.querySelectorAll(".toast"); for (var i = 0; i < t.length; i++) { if (' + re + '.test(t[i].textContent)) return true; } return false; })()', 15000, what || 'a toast matching ' + re);
+}
+async function clearToasts() { await page.eval('(function () { var h = document.getElementById("toasts"); while (h.firstChild) h.removeChild(h.firstChild); })()'); }
+async function apiAs(role) { return S.login(role); }
+
+test('the Control Center shows every control the mission names, and no LIVE control', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  await open('/control');
+  await page.waitFor('!!document.getElementById("control-body")', 15000, 'the control center');
+  var body = await page.text('#control-body');
+  for (var block of ['Mode', 'Trading', 'Risk', 'Jev', 'Recovery', 'Strategies', 'Assets', 'Sessions', 'Change history', 'Mode events']) {
+    assert.ok(body.indexOf(block) !== -1, 'no "' + block + '" section');
+  }
+  for (var label of ['Maximum account risk per trade (%)', 'Maximum drawdown (%)', 'Daily loss limit (%)', 'Maximum consecutive losses',
+    'Maximum position size (lots)', 'Score threshold', 'Minimum confidence', 'Maximum recovery level']) {
+    await idFor(label);
+  }
+  assert.match(body, /BACKTEST[\s\S]*PAPER[\s\S]*DEMO/);
+  assert.equal(await page.count('#control-body .switch input'), 15, '14 strategy switches and the recovery switch');
+  assert.equal(await page.eval('document.querySelectorAll("#control-body table")[0] ? 1 : 0'), 1);
+  // LIVE appears as a statement, never as something to press or pick.
+  assert.match(body, /LIVE execution is not available in this build/);
+  var liveControls = await page.eval('Array.prototype.filter.call(document.querySelectorAll("button, option, input, select, label, a"), ' +
+    'function (n) { return /\\bLIVE\\b/.test(n.textContent || n.value || ""); }).length');
+  assert.equal(liveControls, 0, 'a control mentions LIVE');
+  assertNoPageErrors('/control');
+});
+
+test('a risk limit change is previewed, confirmed with a reason, applied and receipted', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var dd = await idFor('Maximum drawdown (%)');
+  assert.equal(await page.eval('document.querySelector(' + JSON.stringify(dd) + ').value'), '20');
+  await page.fill(dd, '15');
+  await page.clickText('button', 'Save risk');
+  await modalOpen();
+  var dialog = await page.text('.modal');
+  assert.match(dialog, /risk\.maxDrawdownPct/);
+  assert.match(dialog, /20[\s\S]*15/);
+  assert.ok(!/Type CONFIRM/.test(dialog), 'tightening must not ask for the typed confirmation');
+  // No reason, no change.
+  await page.clickText('.modal-foot button', 'Apply change');
+  assert.match(await page.text('.modal'), /reason of at least 5 characters/);
+  await page.fill('#confirm-reason', 'tighten the drawdown cap from the browser');
+  await page.clickText('.modal-foot button', 'Apply change');
+  await modalClosed();
+  await waitToast('/Audit entry #\\d+/', 'the receipt');
+  var api = await apiAs('viewer');
+  var cfg = (await api.get('/api/config')).body.result;
+  assert.equal(cfg.config.risk.maxDrawdownPct, 15);
+  var audit = (await api.get('/api/audit?action=config.update&limit=1')).body.result.items[0];
+  assert.equal(audit.reason, 'tighten the drawdown cap from the browser');
+  assert.deepEqual(audit.oldValue, { 'risk.maxDrawdownPct': 20 });
+  assert.deepEqual(audit.newValue, { 'risk.maxDrawdownPct': 15 });
+  await page.waitFor('/tighten the drawdown cap from the browser/.test(document.getElementById("control-body").textContent)', 10000, 'the history row');
+  assertNoPageErrors('a config change');
+});
+
+test('loosening a protection demands the typed confirmation', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  await clearToasts();
+  var dd = await idFor('Maximum drawdown (%)');
+  await page.fill(dd, '25');
+  await page.clickText('button', 'Save risk');
+  await modalOpen();
+  var dialog = await page.text('.modal');
+  assert.match(dialog, /loosens 1 protection/);
+  assert.match(dialog, /Type CONFIRM to confirm/);
+  await page.fill('#confirm-reason', 'loosen the drawdown cap from the browser');
+  await page.clickText('.modal-foot button', 'Apply change');
+  assert.match(await page.text('.modal'), /Type CONFIRM exactly/);
+  var api = await apiAs('viewer');
+  assert.equal((await api.get('/api/config')).body.result.config.risk.maxDrawdownPct, 15, 'nothing applied without the typed word');
+  await page.fill('#confirm-typed', 'CONFIRM');
+  await page.clickText('.modal-foot button', 'Apply change');
+  await modalClosed();
+  await waitToast('/Audit entry #\\d+/');
+  assert.equal((await api.get('/api/config')).body.result.config.risk.maxDrawdownPct, 25);
+});
+
+test('a value the Trading Agent rejects is refused in words and nothing changes', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  await clearToasts();
+  var dd = await idFor('Maximum drawdown (%)');
+  await page.fill(dd, '500');
+  await page.clickText('button', 'Save risk');
+  await waitToast('/maxDrawdownPct[\\s\\S]*<= 90/', 'the validation message');
+  assert.equal(await page.exists('.modal'), false, 'an invalid change must not reach the confirmation step');
+  var api = await apiAs('viewer');
+  assert.equal((await api.get('/api/config')).body.result.config.risk.maxDrawdownPct, 25);
+  page.errors.length = 0;       // the browser logs the 400; it is the expected one
+});
+
+test('trading is disabled with a reason and re-enabled only by typing ENABLE', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  await clearToasts();
+  await open('/control');
+  await page.clickText('button', 'Disable trading');
+  await modalOpen();
+  await page.fill('#confirm-reason', 'disable trading from the browser');
+  await page.clickText('.modal-foot button', 'Disable trading');
+  await modalClosed();
+  await page.waitFor('/Trading\\s*DISABLED/.test(document.getElementById("status").textContent)', 12000, 'DISABLED in the status bar');
+  var api = await apiAs('viewer');
+  assert.equal((await api.get('/api/config')).body.result.config.risk.emergencyStop, true);
+  await page.waitFor('!!Array.prototype.filter.call(document.querySelectorAll("button"), function (b) { return /Enable trading/.test(b.textContent); }).length', 10000, 'the enable button');
+  await page.clickText('button', 'Enable trading');
+  await modalOpen();
+  await page.fill('#confirm-reason', 'enable trading from the browser');
+  await page.clickText('.modal-foot button', 'Enable trading');
+  assert.match(await page.text('.modal'), /Type ENABLE exactly/);
+  assert.equal((await api.get('/api/status')).body.result.tradingEnabled, false);
+  await page.fill('#confirm-typed', 'ENABLE');
+  await page.clickText('.modal-foot button', 'Enable trading');
+  await modalClosed();
+  await page.waitFor('/Trading\\s*ENABLED/.test(document.getElementById("status").textContent)', 12000, 'ENABLED in the status bar');
+  assertNoPageErrors('the trading switch');
+});
+
+test('strategies, assets and sessions are saved through the same audited path', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  await clearToasts();
+  await open('/control');
+  var api = await apiAs('viewer');
+  // strategies: switch off the last family
+  await page.eval('(function () { var s = document.querySelectorAll("#control-body .switch input"); var last = s[s.length - 1]; last.click(); })()');
+  await page.clickText('button', 'Save strategies');
+  await modalOpen();
+  await page.fill('#confirm-reason', 'disable one family from the browser');
+  await page.clickText('.modal-foot button', 'Apply change');
+  await modalClosed();
+  await page.waitFor('true', 100);
+  await h.waitFor(async function () { return (await api.get('/api/config')).body.result.strategies.filter(function (s) { return s.enabled; }).length === 13; }, 10000);
+  // assets: drop USDCHF from the universe
+  await clearToasts();
+  await open('/control');
+  await page.eval('(function () { var ls = document.querySelectorAll("label.check"); for (var i = 0; i < ls.length; i++) { if (ls[i].textContent.trim() === "USDCHF") ls[i].querySelector("input").click(); } })()');
+  await page.clickText('button', 'Save assets');
+  await modalOpen();
+  assert.match(await page.text('.modal'), /universe/);
+  await page.fill('#confirm-reason', 'drop one asset from the browser');
+  await page.clickText('.modal-foot button', 'Apply change');
+  await modalClosed();
+  await h.waitFor(async function () { return (await api.get('/api/config')).body.result.config.universe.indexOf('USDCHF') === -1; }, 10000);
+  // sessions: a window for EURUSD
+  await clearToasts();
+  await open('/control');
+  await page.fill('select[aria-label="EURUSD session start (UTC)"]', '7');
+  await page.fill('select[aria-label="EURUSD session end (UTC)"]', '16');
+  await page.clickText('button', 'Save sessions');
+  await modalOpen();
+  await page.fill('#confirm-reason', 'set a session window from the browser');
+  await page.clickText('.modal-foot button', 'Apply change');
+  await modalClosed();
+  await h.waitFor(async function () {
+    var pa = (await api.get('/api/config')).body.result.config.schedule.perAsset;
+    return pa.EURUSD && pa.EURUSD.startHourUtc === 7 && pa.EURUSD.endHourUtc === 16;
+  }, 10000);
+  var history = (await api.get('/api/config/history')).body.result;
+  assert.ok(history.total >= 5);
+  assert.equal((await api.get('/api/audit/verify')).body.result.ok, true);
+  assertNoPageErrors('strategies, assets and sessions');
+});
+
+test('the owner approval dialog refuses an incomplete record and reaches PAPER with a complete one', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  await clearToasts();
+  await open('/control');
+  await page.clickText('button', 'Approve PAPER');
+  await modalOpen();
+  var dialog = await page.text('.modal');
+  assert.match(dialog, /I approve the Mythos Trading Agent transition BACKTEST -> PAPER/);
+  assert.equal(await page.count('.modal fieldset textarea'), 10, 'ten gates, each with an evidence field');
+  // An empty record is refused by the agent, in its own words.
+  await page.fill('.modal .field input.input', 'I approve the Mythos Trading Agent transition BACKTEST -> PAPER');
+  await page.clickText('.modal-foot button', 'Check record');
+  await page.waitFor('/Would be refused/.test(document.querySelector(".modal").textContent)', 10000, 'the refusal');
+  assert.match(await page.text('.modal'), /gates not satisfied/);
+  assert.match(await page.text('.modal'), /ownerApproval/);
+  // Complete it.
+  await page.eval('(function () { var m = document.querySelector(".modal");' +
+    'Array.prototype.forEach.call(m.querySelectorAll("fieldset input[type=checkbox]"), function (c) { if (!c.checked) c.click(); });' +
+    'Array.prototype.forEach.call(m.querySelectorAll("fieldset textarea"), function (ta, i) {' +
+    '  Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(ta, "evidence " + i + ": see docs/VALIDATION_GATES.md"); ta.dispatchEvent(new Event("input", { bubbles: true })); });' +
+    'var boxes = m.querySelectorAll("label.check input"); boxes[boxes.length - 1].click(); })()');
+  await page.clickText('.modal-foot button', 'Check record');
+  await page.waitFor('/Would be accepted/.test(document.querySelector(".modal").textContent)', 10000, 'the acceptance');
+  var reasonId = await idFor('Reason — recorded in the audit log');
+  await page.fill(reasonId, 'owner approves paper from the browser');
+  await page.clickText('.modal-foot button', 'Approve PAPER');
+  await modalClosed();
+  await page.waitFor('/Mode\\s*PAPER/.test(document.getElementById("status").textContent)', 12000, 'PAPER in the status bar');
+  var api = await apiAs('viewer');
+  var ev = (await api.get('/api/config/mode')).body.result.events[0];
+  assert.equal(ev.toMode, 'PAPER');
+  assert.equal(ev.principalId, 'owner:owner');
+  assert.equal(ev.gatesPassed.length, 10);
+  // And back down, which needs no approval.
+  await page.waitFor('!!Array.prototype.filter.call(document.querySelectorAll("button"), function (b) { return /Return to BACKTEST/.test(b.textContent); }).length', 10000, 'the downgrade button');
+  await page.clickText('button', 'Return to BACKTEST');
+  await modalOpen();
+  await page.fill('#confirm-reason', 'back to backtest from the browser');
+  await page.clickText('.modal-foot button', 'Return to BACKTEST');
+  await modalClosed();
+  await page.waitFor('/Mode\\s*BACKTEST/.test(document.getElementById("status").textContent)', 12000, 'BACKTEST in the status bar');
+  assertNoPageErrors('the approval dialog');
+});
+
+test('a viewer sees the configuration but every control is disabled', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  await page.click('#sign-out');
+  await page.waitFor('location.pathname === "/login"', 10000, 'sign-out');
+  page.errors.length = 0;
+  await signIn('viewer');
+  await open('/control');
+  await page.waitFor('!!document.getElementById("control-body")', 15000, 'the control center');
+  var enabled = await page.eval('Array.prototype.filter.call(document.querySelectorAll("#control-body input, #control-body select, #control-body button"), ' +
+    'function (n) { return !n.disabled; }).length');
+  assert.equal(enabled, 0, 'a viewer has ' + enabled + ' enabled control(s)');
+  assert.match(await page.text('#control-body'), /Requires the OWNER role/);
+  assert.match(await page.text('#who'), /viewer\s*VIEWER/);
+  await page.click('#sign-out');
+  await page.waitFor('location.pathname === "/login"', 10000, 'sign-out');
+  page.errors.length = 0;
+  await signIn('owner');
+});
