@@ -103,7 +103,7 @@ var DEFAULT_PORT = parseInt(process.env.MYTHOS_EXECUTOR_PORT || '8130', 10);
 var DEFAULT_BINDS = (process.env.MYTHOS_EXECUTOR_BIND || '127.0.0.1,172.18.0.1').split(',');
 var TOKEN_FILE = process.env.MYTHOS_EXECUTOR_TOKEN_FILE ||
   path.join(process.env.HOME || '/home/ubuntu', '.config', 'mythos-ai-executor', 'executor.env');
-var MAX_BODY = 256 * 1024;
+var MAX_BODY = 1024 * 1024 * 1024; // 1 GiB (raised from 256 KiB, 2026-10-01)
 
 function loadToken() {
   if (process.env.MYTHOS_EXECUTOR_TOKEN) return process.env.MYTHOS_EXECUTOR_TOKEN;
@@ -143,7 +143,10 @@ function readBody(req) {
       if (size > MAX_BODY) { reject(new Error('BODY_TOO_LARGE')); req.destroy(); return; }
       chunks.push(d);
     });
-    req.on('end', function () { resolve(Buffer.concat(chunks).toString('utf8')); });
+    req.on('end', function () {
+      try { resolve(Buffer.concat(chunks).toString('utf8')); }
+      catch (e) { reject(new Error('BODY_TOO_LARGE')); }
+    });
     req.on('error', reject);
   });
 }

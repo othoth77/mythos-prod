@@ -28,7 +28,7 @@ var url = require('url');
 
 var DEFAULT_TARGET = process.env.MOS_EXECUTOR_URL || 'http://127.0.0.1:8130';
 var TIMEOUT_MS = parseInt(process.env.MOS_UPSTREAM_TIMEOUT_MS || '8000', 10);
-var MAX_BODY = 4 * 1024 * 1024;
+var MAX_BODY = 1024 * 1024 * 1024; // 1 GiB (raised from 4 MiB, 2026-10-01)
 
 // Config lives with the executor. The console does not keep a copy —
 // a second copy is a second truth, and the audit found four of those
@@ -86,7 +86,7 @@ function get(pathname, opts) {
       var chunks = [];
       res.on('data', function (d) {
         size += d.length;
-        if (size > MAX_BODY) { req.destroy(); reject(fail('upstream_too_large', 'Response exceeded 4 MB.')); return; }
+        if (size > MAX_BODY) { req.destroy(); reject(fail('upstream_too_large', 'Response exceeded 1 GB.')); return; }
         chunks.push(d);
       });
       res.on('end', function () {
@@ -159,7 +159,7 @@ function post(pathname, payload) {
       var chunks = [];
       res.on('data', function (d) {
         size += d.length;
-        if (size > MAX_BODY) { req.destroy(); reject(fail('upstream_too_large', 'Response exceeded 4 MB.')); return; }
+        if (size > MAX_BODY) { req.destroy(); reject(fail('upstream_too_large', 'Response exceeded 1 GB.')); return; }
         chunks.push(d);
       });
       res.on('end', function () {

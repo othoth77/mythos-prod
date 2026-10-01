@@ -573,7 +573,10 @@ var TASK_REPORT_RE = new RegExp('^/api/missions/(' + TASK_ID_RE + ')/report$');
 
 // --- MOS-2: the one write relay --------------------------------------
 
-var START_MISSION_MAX_BODY = 32 * 1024;
+// 1 GiB (raised from 32 KiB, 2026-10-01): large missions were refused with
+// HTTP 413. Field validation below (instruction <= 20000 chars, fixed field
+// set) is what bounds the payload actually relayed to the executor.
+var START_MISSION_MAX_BODY = 1024 * 1024 * 1024;
 var REAL_PROVIDERS = ['claude-code', 'openai-compat', 'free-llm-pool']; // the real, currently
   // runnable enum -- excludes 'mock' (test-only, unreachable in production)
   // and excludes 'gemini' (registered in the agent registry but genuinely
@@ -659,7 +662,10 @@ function readBoundedBody(req, maxBytes) {
       if (size > maxBytes) { reject(new Error('BODY_TOO_LARGE')); req.destroy(); return; }
       chunks.push(d);
     });
-    req.on('end', function () { resolve(Buffer.concat(chunks).toString('utf8')); });
+    req.on('end', function () {
+      try { resolve(Buffer.concat(chunks).toString('utf8')); }
+      catch (e) { reject(new Error('BODY_TOO_LARGE')); }
+    });
     req.on('error', reject);
   });
 }
@@ -1164,7 +1170,7 @@ function handleMissionDispatch(req, res, taskId) {
        it only makes running possible.
    ===================================================================== */
 
-var GOAL_MAX_BODY = 8 * 1024;
+var GOAL_MAX_BODY = 1024 * 1024 * 1024; // 1 GiB (raised from 8 KiB, 2026-10-01)
 // MOS-v2 M-10 adds `decompose`: a boolean asking that the PROPOSED PLAN be
 // written by a planner model rather than taken from the roadmap template.
 // It is the only planning field a browser may send, it is validated as a
