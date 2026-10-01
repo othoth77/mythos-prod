@@ -271,3 +271,86 @@ test('signing out ends the session and returns to the sign-in page', async funct
   await signIn('owner');
   assertNoPageErrors('sign-in after sign-out');
 });
+
+// ---------------------------------------------------------------------------
+// PHASE 3 — Dashboard
+// ---------------------------------------------------------------------------
+
+/** The same formatting the interface uses, restated here so a test compares text to text. */
+function money(v) { return (v < 0 ? '\u2212' : '') + '$' + Math.abs(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function kpiText(label) {
+  return page.eval('(function () { var ks = document.querySelectorAll(".kpi"); for (var i = 0; i < ks.length; i++) {' +
+    ' if (ks[i].querySelector(".kpi-label").textContent === ' + JSON.stringify(label) + ') return ks[i].querySelector(".kpi-value").textContent; } return null; })()');
+}
+function kpiIsNoData(label) {
+  return page.eval('(function () { var ks = document.querySelectorAll(".kpi"); for (var i = 0; i < ks.length; i++) {' +
+    ' if (ks[i].querySelector(".kpi-label").textContent === ' + JSON.stringify(label) + ') return ks[i].classList.contains("is-nodata") ? ks[i].querySelector(".kpi-sub").textContent : false; } return null; })()');
+}
+
+var ACCOUNT_AND_PERFORMANCE = ['Balance', 'Equity', 'Net P&L', 'Drawdown', 'Trades', 'Win rate', 'Profit factor',
+  'Expectancy', 'Losing streak', 'Max losing streak'];
+
+test('with no run, the dashboard shows NO DATA with a reason and not a single fabricated figure', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  await open('/dashboard');
+  for (var label of ACCOUNT_AND_PERFORMANCE) {
+    var reason = await kpiIsNoData(label);
+    assert.ok(typeof reason === 'string' && reason.length > 10, label + ' must say NO DATA with a reason, got ' + JSON.stringify(reason));
+    assert.equal(await kpiText(label), 'NO DATA', label);
+  }
+  var body = await page.text('#dashboard-body');
+  assert.ok(!/\$\d/.test(body), 'a money figure is shown although no run exists');
+  assert.match(body, /No data yet/);
+  assert.match(body, /no backtest has completed/);
+  // What IS known is shown: state, mode, trading, the configured limits.
+  assert.match(await kpiText('Mode'), /BACKTEST/);
+  assert.match(await kpiText('Trading status'), /ENABLED/);
+  assert.match(await kpiText('Health'), /UNKNOWN|WARN/);
+  assert.match(body, /14 of 14 families enabled/);
+  assert.match(body, /Score threshold\s*70/);
+  for (var card of ['Open position', 'Current regime', 'Jev status', 'Risk status', 'Recovery status', 'Recent activity', 'Errors', 'Health']) {
+    assert.ok(body.indexOf(card) !== -1, 'the dashboard has no "' + card + '" block');
+  }
+  assertNoPageErrors('the empty dashboard');
+});
+
+test('after a backtest the dashboard shows the run\'s real values, labelled SYNTHETIC', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var apiClient = await S.login('owner');
+  var run = await h.runBacktest(apiClient, h.FAST_BACKTEST);
+  assert.equal(run.status, 'COMPLETED', JSON.stringify(run.error));
+  var d = (await apiClient.get('/api/dashboard')).body.result;
+  // The page refreshes itself; no reload is needed.
+  await page.waitFor('(function () { var ks = document.querySelectorAll(".kpi"); for (var i = 0; i < ks.length; i++) {' +
+    ' if (ks[i].querySelector(".kpi-label").textContent === "Trades") return !ks[i].classList.contains("is-nodata"); } return false; })()',
+  15000, 'the dashboard to pick up the run');
+  assert.equal(await kpiText('Trades'), String(d.performance.trades));
+  assert.equal(await kpiText('Balance'), money(d.account.balance));
+  assert.equal(await kpiText('Equity'), money(d.account.equity));
+  assert.equal(await kpiText('Win rate'), (d.performance.winRate * 100).toFixed(1) + '%');
+  assert.equal(await kpiText('Profit factor'), d.performance.profitFactor.toFixed(3));
+  assert.equal(await kpiText('Max losing streak'), String(d.performance.maxLosingStreak));
+  assert.equal(await kpiText('Drawdown'), d.account.drawdownPct.toFixed(2) + '%');
+  var body = await page.text('#dashboard-body');
+  assert.ok(body.indexOf(run.runId) !== -1, 'the source line names the run');
+  assert.match(body, /SYNTHETIC/);
+  assert.match(body, /mechanics only/);
+  assert.match(body, /not a live account/);
+  assert.match(body, /no session is running; a completed run holds no open position/);
+  assert.match(body, /requested \d\.\d\d → approved \d\.\d\d/, 'risk shows requested and approved size side by side');
+  assertNoPageErrors('the populated dashboard');
+});
+
+test('a change made elsewhere reaches the status bar and the dashboard by itself', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var apiClient = await S.login('operator');
+  var res = await apiClient.post('/api/config/trading', { enabled: false, reason: 'browser test: disable trading' });
+  assert.equal(res.status, 200);
+  await page.waitFor('/Trading\\s*DISABLED/.test(document.getElementById("status").textContent)', 12000, 'the status bar to show DISABLED');
+  await page.waitFor('/Trading statusDISABLED/.test(document.getElementById("dashboard-body").textContent)', 12000, 'the dashboard to show trading DISABLED');
+  assert.match(await page.text('#dashboard-body'), /EMERGENCY STOP IS SET/);
+  var owner = await S.login('owner');
+  await owner.post('/api/config/trading', { enabled: true, reason: 'browser test: enable trading again', confirm: 'ENABLE' });
+  await page.waitFor('/Trading\\s*ENABLED/.test(document.getElementById("status").textContent)', 12000, 'the status bar to show ENABLED');
+  assertNoPageErrors('the live status');
+});

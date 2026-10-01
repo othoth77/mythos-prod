@@ -147,10 +147,12 @@ code, kbd, .mono {
 .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .grid-auto { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.grid-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .span-2 { grid-column: span 2; }
 
 /* lg and below: the 12-column workstation collapses to 8, then to 4 (GRID) */
 @media (max-width: 1239px) {
+  .grid-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -159,6 +161,7 @@ code, kbd, .mono {
   .span-2 { grid-column: auto; }
 }
 @media (max-width: 599px) {
+  .grid-6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grid-4 { grid-template-columns: minmax(0, 1fr); }
   .grid-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
