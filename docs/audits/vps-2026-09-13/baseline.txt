@@ -1,0 +1,32 @@
+== PHASE 0 BASELINE ==
+Mon Sep 14 00:17:22 UTC 2026
+vps-4722f0a9
+ 00:17:22 up 22 days, 10:29,  7 users,  load average: 0.65, 1.34, 1.58
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda1        72G   47G   25G  66% /
+Filesystem     Inodes IUsed IFree IUse% Mounted on
+/dev/sda1        8.9M  1.1M  7.8M   13% /
+Mem:            7746        4598         439         332        3338        3147
+Swap:           4095        4090           5
+some avg10=0.00 avg60=0.00 avg300=0.00 total=62306517125
+oom_kill 6812
+== ERP ==
+public=200 "ok":true "db":"ready" "head":"de8c9964d693362b4dbdf04653c3ac985e147953
+checkout=3e427b551abd8ddaec5b4d0832e70ab0f8a23238
+15 migrations
+ActiveState=active MainPID=4069289 NRestarts=0 ExecMainStartTimestamp=Sun 2026-09-13 23:04:23 UTC
+pg=running/healthy restarts=0 started=2026-08-22T13:47:47.631788915Z
+214348	/var/lib/docker/volumes/idauto-postgres-data
+b4372777594172d637d98618405db8d78b82e309bbf7a5e5c22404cf61e6cd82  -
+7d03434e143ab74bf82eca2ccdb731346b19c7a682fa567608cc2c2c723cbb2a  -
+== RUNNER ==
+ActiveState=active MainPID=3956454 NRestarts=0 KillMode=control-group
+listeners=1 workers=0
+mythos-vps-runner status=online busy=false
+647
+== CONTEXTFORGE ==
+status=running health=healthy restarts=0
+GUNICORN_MAX_REQUESTS_JITTER=200 GUNICORN_MAX_REQUESTS=2000
+mem=335MB swap=137MB oom 0 oom_kill 0
+== DAR HIJAMA ==
+status=running health=healthy restarts=0 err=""
