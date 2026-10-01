@@ -7,8 +7,9 @@
 #
 # Run as the `deploy` user, from a checkout that has <commit>.
 #
-# A release is an EXPORT of one commit — the Trading Agent and this project —
-# into   <root>/releases/<commit>/ , with the interface built and the commit
+# A release is an EXPORT of one commit — the Trading Agent, this project and
+# the brand sources its tests compare against — into
+# <root>/releases/<commit>/ , with the interface built and the commit
 # written to a COMMIT file. Nothing is edited in place and the checkout it was
 # exported from is never what runs.
 #
@@ -63,7 +64,12 @@ else
   TMP="$ROOT/releases/.tmp-$FULL-$$"
   rm -rf "$TMP"; mkdir -p "$TMP"
   trap 'rm -rf "$TMP"' EXIT
-  git -C "$REPO" archive "$FULL" projects/mythos-trading-agent projects/mythos-trading-control-center | tar -x -C "$TMP"
+  # The agent, this project, and the canonical brand sources: the interface
+  # tests compare the served tokens, fonts and mark against them byte for
+  # byte, and that comparison must keep working from a release — at the gate
+  # below and later from the Testing Center.
+  git -C "$REPO" archive "$FULL" projects/mythos-trading-agent projects/mythos-trading-control-center \
+    assets/brand/tokens assets/brand/fonts assets/brand/master | tar -x -C "$TMP"
   APP="$TMP/projects/mythos-trading-control-center"
   printf '%s\n' "$FULL" > "$APP/COMMIT"
   ( cd "$APP" && node bin/build.js --commit "$FULL" )
@@ -79,7 +85,7 @@ else
   grep -E '^# (tests|pass|fail|skipped)' "$TMP/cc-tests.log"
 
   # The release is read-only from here on.
-  chmod -R a-w "$TMP/projects"
+  chmod -R a-w "$TMP/projects" "$TMP/assets"
   mv "$TMP" "$REL"
   trap - EXIT
   say "release built: $REL"

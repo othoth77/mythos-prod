@@ -6,6 +6,16 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Added — MYTHOS TRADING CONTROL CENTER: control and observation surface for the Trading Agent (`projects/mythos-trading-control-center/`, branch `mythos/trading-control-center`, 2026-10-01)
+
+- **Why:** the owner commissioned a control center for the Mythos Trading Agent at `trading.mythosprod.xyz`. A new sibling project; the Trading Agent is **not modified** (byte-identical to `82b1ce0c`, checked by hash and by `git diff` on every test run) and no other production project is touched.
+- **What it is:** a zero-dependency Node server and a framework-free interface on the approved Mythos design tokens — sixteen pages: Dashboard, Control Center, Paper/Demo, Backtest, Trades, Candidates, Decisions, Strategies, Jev, Risk, Recovery, Analysis, Research, Testing, Activity, System.
+- **Operating modes: BACKTEST and PAPER only.** There is no LIVE route, no order route, no field that carries a position size, no broker client and no outbound connection. The Risk Engine remains the last writer of size; the mode is raised only by the agent's own controller on the owner's approval record (bound to configuration fingerprint and commit, single-use). A restart is always BACKTEST.
+- **Security:** scrypt users file (0600), three roles, HttpOnly/Secure/SameSite=Strict session cookie, per-session CSRF token, exact-origin check, no CORS, closed-key validation, rate limits, strict CSP with no inline script or style, and an append-only hash-chained audit log of every accepted and refused action.
+- **Honesty rules built in:** a view with no source shows *NO DATA* with the reason, never a zero; every result carries SYNTHETIC / HISTORICAL / PAPER; thin samples are marked INSUFFICIENT DATA; the Testing Center never hides a failure and never counts a skip as a pass; research can only propose.
+- **Deployment artifacts** (`deploy/`): user systemd unit, nginx vhost, a release script that runs both suites from the exported release before switching, a read-only smoke test, and a runbook. **Not deployed** — installing the service and the vhost on the host awaits the owner's confirmation.
+- Tests: **388 pass, 0 fail** (`cd projects/mythos-trading-control-center && npm test`), including 58 in a real headless browser; Trading Agent **572 pass, 0 fail**, unchanged. Full record: `docs/TRADING_CONTROL_CENTER_FINAL.md`.
+
 ### Added — MYTHOS TRADING AGENT: research, backtesting and paper-trading platform (`projects/mythos-trading-agent/`, branch `mythos/trading-platform`, 2026-09-30)
 
 - **Why:** the owner commissioned an autonomous quant trading research platform (backtest → paper → controlled live, progressively, with live execution explicitly disabled until defined gates pass). A new, self-contained project; no existing Mythos production service is touched.

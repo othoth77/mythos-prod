@@ -12,6 +12,7 @@ execution path, and it opens no outbound connection.
 ```
 /home/deploy/deployments/mythos-trading-control-center/
   releases/<commit>/        an export of one commit, read-only, interface built
+                            (agent + this project + assets/brand sources)
   current -> releases/<commit>
   state/                    0700 — configuration, audit chain, runs, journals
   users.json                0600 — scrypt records only

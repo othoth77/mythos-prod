@@ -105,6 +105,14 @@ test('the release script gates on both suites and the audited agent, and cannot 
   var move = r.indexOf('ln -sfn "releases/$FULL"');
   assert.ok(gate !== -1 && move > gate, 'the symlink must move only after the suites');
   assert.match(r, /SMOKE TEST FAILED — rolling back/);
+  // the export carries every canonical source the interface tests read from the repository root
+  var webTest = fs.readFileSync(path.join(__dirname, 'web-test.js'), 'utf8');
+  var brandDirs = {};
+  (webTest.match(/'assets', 'brand', '[a-z]+'/g) || []).forEach(function (m) { brandDirs[/'([a-z]+)'$/.exec(m)[1]] = true; });
+  assert.ok(Object.keys(brandDirs).length >= 3);
+  Object.keys(brandDirs).forEach(function (d) {
+    assert.ok(r.indexOf('assets/brand/' + d) !== -1, 'the release does not export assets/brand/' + d + ', which tests/web-test.js reads');
+  });
   assert.doesNotMatch(r, /\bsudo\b|\bnginx\b|\bcertbot\b|\/etc\/|systemctl (?!--user)/, 'the release script must not touch root-owned configuration');
   assert.doesNotMatch(r, /users\.json|rm -rf "\$ROOT\/state"|rm -rf \$ROOT/, 'the release script must not touch users or state');
   assert.doesNotMatch(r, /git (push|reset|checkout|merge|commit)/, 'the release script must not change the repository');
@@ -182,7 +190,9 @@ test('SMOKE: fails against an instance serving unbuilt sources, against the wron
   if (!have('curl') || !have('bash')) { t.skip('curl and bash are needed to run the smoke test'); return; }
   var pw = path.join(h.tempDir('tcc-deploy-pw-'), 'pw');
   fs.writeFileSync(pw, h.PASSWORDS.owner + '\n', { mode: 0o600 });
-  var A = await h.startApp();       // the unbuilt web/ directory, as in development
+  // The unbuilt web/ directory, as in development — named explicitly, because
+  // inside a release a built dist/ exists and would be served by default.
+  var A = await h.startApp({ webDir: path.join(h.ROOT, 'web') });
   try {
     var dev = await runSmoke(A.base);
     assert.equal(dev.status, 1, dev.out);

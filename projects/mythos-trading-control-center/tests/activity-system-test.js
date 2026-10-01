@@ -227,7 +227,10 @@ test('the system page reports version, commit, environment, uptime, deployment a
   assert.equal(s.deployment.service, 'mythos-trading-control-center');
   assert.equal(s.deployment.bind.port, S.port);
   assert.equal(s.deployment.releaseCommit, s.commit);
-  assert.equal(s.deployment.webBuild.built, false, 'the tests serve the unbuilt sources, and the page says so');
+  // In the repository the unbuilt sources are served; inside a release a
+  // built dist/ exists. Either way the page must say which one it is.
+  var built = fs.existsSync(path.join(h.ROOT, 'dist', 'build.json'));
+  assert.equal(s.deployment.webBuild.built !== false, built, 'the system page misreports whether the interface is built');
   assert.deepEqual(s.liveExecution, { available: false, adapter: 'live-refusing-stub', refusalVerified: true });
   assert.equal(s.persistence.persistence, 'PERSISTENT');
   assert.deepEqual([s.auth.provisioned, s.auth.users, s.auth.hasOwner], [true, 3, true]);
