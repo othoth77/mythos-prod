@@ -42,16 +42,17 @@ var CATEGORY_ORDER = ['unit', 'integration', 'property', 'backtest', 'paper', 'r
 var CATEGORIES = Object.freeze({
   unit: {
     label: 'Unit',
-    description: 'Primitives, configuration, store, indicators, data layer, strategies, regime, mode controller, costs; and this project\'s own modules.',
+    description: 'Primitives, configuration, store, indicators, data layer, strategies, regime, mode controller, costs; this project\'s own modules and the static rules of its interface.',
     files: ['agent:core-primitives-test.js', 'agent:config-test.js', 'agent:store-test.js', 'agent:indicators-test.js',
       'agent:data-layer-test.js', 'agent:strategy-test.js', 'agent:regime-test.js', 'agent:mode-controller-test.js',
-      'agent:execution-and-costs-test.js', 'cc:unit-test.js']
+      'agent:execution-and-costs-test.js', 'cc:unit-test.js', 'cc:web-test.js']
   },
   integration: {
     label: 'Integration',
-    description: 'The whole agent in mission order; the three agents and the champion gate; the Control Center API against the real agent.',
+    description: 'The whole agent in mission order; the three agents and the champion gate; the Control Center API, decisions, research, this testing center and the activity and system views against the real agent.',
     files: ['agent:integration-test.js', 'agent:trading-agent-test.js', 'agent:analysis-agent-test.js',
-      'agent:research-agent-test.js', 'agent:champion-test.js', 'cc:api-test.js', 'cc:control-test.js']
+      'agent:research-agent-test.js', 'agent:champion-test.js', 'cc:api-test.js', 'cc:control-test.js',
+      'cc:decision-test.js', 'cc:research-test.js', 'cc:testing-test.js']
   },
   property: {
     label: 'Property',
@@ -118,6 +119,11 @@ function parseTap(text) {
   var current = null;
   var inYaml = false;
   var summary = {};
+  // What the file printed (and the stack of a file that crashed on load)
+  // arrives as TAP comments. The runner does not tie that output to a test, so
+  // it is kept per FILE — and shown with the file's failures, where it is
+  // usually the diagnosis.
+  var printed = [];
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i];
     var m = /^(not ok|ok) (\d+) - (.*?)(?: # (SKIP|TODO)\b ?(.*))?$/.exec(line);
@@ -133,6 +139,7 @@ function parseTap(text) {
       inYaml = false;
       continue;
     }
+    if (/^# Subtest: /.test(line)) continue;
     if (/^  ---\s*$/.test(line)) { inYaml = true; continue; }
     if (/^  \.\.\.\s*$/.test(line)) { inYaml = false; continue; }
     if (inYaml && current) {
@@ -144,10 +151,11 @@ function parseTap(text) {
       }
       continue;
     }
-    var s = /^# (tests|pass|fail|cancelled|skipped|todo|duration_ms) ([0-9.]+)/.exec(line);
-    if (s) summary[s[1]] = parseFloat(s[2]);
+    var s = /^# (tests|suites|pass|fail|cancelled|skipped|todo|duration_ms) ([0-9.]+)/.exec(line);
+    if (s) { summary[s[1]] = parseFloat(s[2]); continue; }
+    if (/^# /.test(line) && printed.length < 60) printed.push(line.slice(2));
   }
-  return { tests: tests, summary: summary };
+  return { tests: tests, summary: summary, output: printed.join('\n').slice(0, 4000) };
 }
 
 /** Static discovery of test names, for the "run one test" picker. */
@@ -173,8 +181,16 @@ function discoverTests(file) {
 function create(spec) {
   var state = spec.state;
   var now = typeof spec.now === 'function' ? spec.now : function () { return Date.now(); };
+  // `spec.roots` points the runner at other test directories. The suite that
+  // tests this module uses it to run small fixture files — a passing one, a
+  // failing one, a crashing one — instead of running the real suites inside
+  // themselves.
   var roots = { agent: path.join(spec.agentRoot, 'tests'), cc: path.join(spec.projectRoot, 'tests') };
   var projectDirs = { agent: spec.agentRoot, cc: spec.projectRoot };
+  if (spec.roots) {
+    ['agent', 'cc'].forEach(function (k) { if (spec.roots[k]) { roots[k] = spec.roots[k]; projectDirs[k] = spec.roots[k]; } });
+  }
+  var fileTimeoutMs = spec.fileTimeoutMs || FILE_TIMEOUT_MS;
   var extraEnv = spec.env || {};
 
   var active = null;       // the running run
@@ -354,7 +370,7 @@ function create(spec) {
     child.stdout.on('data', function (d) { if (out.length < 8 * 1024 * 1024) out += String(d); });
     child.stderr.on('data', function (d) { if (err.length < 16000) err += String(d); });
     var timedOut = false;
-    var timer = setTimeout(function () { timedOut = true; try { child.kill('SIGKILL'); } catch (e) { /* gone */ } }, FILE_TIMEOUT_MS);
+    var timer = setTimeout(function () { timedOut = true; try { child.kill('SIGKILL'); } catch (e) { /* gone */ } }, fileTimeoutMs);
     child.on('error', function (e) {
       clearTimeout(timer);
       record.status = 'FAILED';
@@ -374,7 +390,7 @@ function create(spec) {
       record.durationMs = Date.now() - started;
       record.exitCode = code;
       if (timedOut) {
-        record.problem = 'the file exceeded ' + (FILE_TIMEOUT_MS / 1000) + ' s and was stopped';
+        record.problem = 'the file exceeded ' + (fileTimeoutMs / 1000) + ' s and was stopped';
         record.failed += 1; record.total += 1;
       } else if (code !== 0 && record.failed === 0) {
         // Non-zero exit with no failing test line: something failed outside a
@@ -386,6 +402,8 @@ function create(spec) {
         record.problem = step.pattern ? 'no test in this file matched the pattern' : 'the file reported no tests';
       }
       record.status = record.failed > 0 ? 'FAILED' : 'PASSED';
+      // Kept only where it helps: beside a failure.
+      if (record.failed > 0 && parsed.output) record.output = parsed.output;
       fileDone(record);
     });
   }
@@ -443,7 +461,9 @@ function create(spec) {
       var pattern = CATEGORIES[id].pattern || null;
       for (var i = 0; i < runsIndex.length; i++) {
         var s = runsIndex[i];
-        if (s.status === Status.RUNNING) continue;
+        // A cancelled run is a partial result: it never replaces the last
+        // finished one.
+        if (s.status === Status.RUNNING || s.status === Status.CANCELLED) continue;
         var covers = (s.scope === 'category' && s.category === id) || s.scope === 'all';
         if (!covers) continue;
         var run = get(s.runId);

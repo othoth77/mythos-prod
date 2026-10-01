@@ -1442,3 +1442,156 @@ test('a viewer reads the research record and can change none of it', async funct
   R = null;
   await signIn('owner');
 });
+
+// ---------------------------------------------------------------------------
+// PHASE 12 — Testing Center
+// ---------------------------------------------------------------------------
+
+/** The value of the KPI tile labelled `label` inside `scope`. */
+function kpiTextIn(scope, label) {
+  return page.eval('(function () { var ks = document.querySelectorAll(' + JSON.stringify(scope + ' .kpi') + '); for (var i = 0; i < ks.length; i++) {' +
+    ' if (ks[i].querySelector(".kpi-label").textContent === ' + JSON.stringify(label) + ') return ks[i].querySelector(".kpi-value").textContent; } return null; })()');
+}
+
+async function categoryRows() {
+  return page.eval('Array.prototype.map.call(document.querySelectorAll("#testing-categories tbody tr"), function (tr) {' +
+    ' return Array.prototype.map.call(tr.children, function (td, i) { return i === 0 ? td.firstChild.firstChild.textContent : td.textContent; }); })');
+}
+async function testingReady() {
+  await page.waitFor('location.pathname === "/testing" && !!document.getElementById("testing-categories") && !document.querySelector("#view [aria-busy=true]")', 20000, 'the testing center');
+}
+async function runFinished(what) {
+  await page.waitFor('(function () { var r = document.getElementById("testing-run"); return !!r && r.getAttribute("data-status") !== "RUNNING" && !document.getElementById("testing-active"); })()', 240000, what);
+}
+
+test('the Testing Center lists the eleven categories and shows NEVER RUN — not zeros — before any run', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  await page.goto(base + '/testing');
+  await testingReady();
+  assert.deepEqual(await tableHeaders('#testing-categories'), ['Category', 'Tests', 'Status', 'Passed', 'Failed', 'Skipped', 'Duration', 'Finished', 'Commit', 'Run']);
+  var rows = await categoryRows();
+  assert.deepEqual(rows.map(function (r) { return r[0]; }), ['Unit', 'Integration', 'Property', 'Backtest', 'Paper', 'Risk', 'Recovery', 'Jev', 'Regression', 'E2E', 'Security']);
+  rows.forEach(function (r) {
+    assert.equal(r[2], 'NEVER RUN', r[0]);
+    assert.deepEqual([r[3], r[4], r[5]], ['n/a', 'n/a', 'n/a'], r[0] + ' shows a count for a run that never happened');
+    assert.ok(Number(r[1].replace(/,/g, '')) > 0, r[0] + ' lists no tests');
+  });
+  var text = await page.text('#view');
+  assert.doesNotMatch(text, /MISSING FILE/);
+  assert.match(text, /Commit under test/);
+  assert.match(text, /No test run has been started from this console/);
+  var api = await S.login('viewer');
+  var v = (await api.get('/api/testing')).body.result;
+  assert.equal(Number(rows[8][1].replace(/,/g, '')), v.categories[8].testCount);
+  assertNoPageErrors('/testing');
+});
+
+test('RUN CATEGORY runs the real Unit suites and reports passed, failed, skipped, duration, time and commit', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  await page.eval('document.querySelectorAll("#testing-categories tbody tr")[0].querySelector("button").click()');
+  await waitToast('/Test run tr-[0-9a-f-]+ started/', 'the start receipt');
+  await page.waitFor('!!document.getElementById("testing-active") || (document.getElementById("testing-run") && document.getElementById("testing-run").getAttribute("data-status") !== "RUNNING")', 15000, 'the running banner');
+  await runFinished('the Unit category to finish');
+  var api = await S.login('viewer');
+  var v = (await api.get('/api/testing')).body.result;
+  var run = (await api.get('/api/testing/runs/' + v.runs[0].runId)).body.result;
+  assert.equal(run.status, 'PASSED', JSON.stringify(run.files.filter(function (f) { return f.status !== 'PASSED'; })));
+  assert.equal(await page.eval('document.getElementById("testing-run").getAttribute("data-status")'), 'PASSED');
+  assert.equal(Number((await kpiTextIn('#testing-run', 'Passed')).replace(/,/g, '')), run.totals.passed);
+  assert.equal(Number(await kpiTextIn('#testing-run', 'Failed')), 0);
+  assert.equal(Number(await kpiTextIn('#testing-run', 'Skipped')), run.totals.skipped);
+  assert.match(await page.text('#testing-failures'), /No test and no file failed in this run/);
+  var detail = await page.text('#testing-run');
+  assert.ok(detail.indexOf(String(run.commit).slice(0, 12)) !== -1, 'the commit the run was made against is shown');
+  assert.match(detail, /started \d{4}-\d\d-\d\d \d\d:\d\d:\d\d UTC · finished \d{4}-\d\d-\d\d/);
+  var files = await page.eval('Array.prototype.map.call(document.querySelectorAll("#testing-run table:last-of-type tbody tr"), function (tr) { return [tr.children[0].textContent, tr.children[2].textContent, tr.children[3].textContent]; })');
+  assert.equal(files.length, run.files.length);
+  files.forEach(function (f, i) { assert.deepEqual(f, [run.files[i].id, 'PASSED', String(run.files[i].passed)]); });
+  var rows = await categoryRows();
+  assert.equal(rows[0][2], 'PASSED');
+  assert.equal(Number(rows[0][3].replace(/,/g, '')), v.latest.unit.passed);
+  assert.equal(rows[0][4], '0');
+  assert.equal(rows[1][2], 'NEVER RUN', 'a category that was not run still shows no result');
+  assert.equal(await rowCount('#testing-history'), 1);
+  await clearToasts();
+  assertNoPageErrors('/testing after a run');
+});
+
+test('RUN TEST runs one named test, and REFRESH and the history keep every run', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  await page.fill('#testing-test-file', 'agent:jev-test.js');
+  var name = await page.eval('document.getElementById("testing-test-name").value');
+  assert.ok(name && name.length > 3);
+  await page.clickText('#testing-body button', 'Run test');
+  await waitToast('/Test run tr-[0-9a-f-]+ started/', 'the start receipt');
+  await page.waitFor('document.querySelectorAll("#testing-history tbody tr").length === 2', 20000, 'the second run in the history');
+  await runFinished('the single test to finish');
+  var api = await S.login('viewer');
+  var run = (await api.get('/api/testing/runs/' + (await api.get('/api/testing')).body.result.runs[0].runId)).body.result;
+  assert.deepEqual([run.scope, run.target.file, run.target.name, run.status, run.totals.total], ['test', 'agent:jev-test.js', name, 'PASSED', 1]);
+  assert.equal(await kpiTextIn('#testing-run', 'Total'), '1');
+  assert.equal(await page.eval('document.getElementById("testing-test-file").value'), 'agent:jev-test.js', 'the picker keeps the operator\'s choice across refreshes');
+  // the earlier run can be opened again from the history
+  await page.eval('document.querySelectorAll("#testing-history tbody tr")[1].click()');
+  await page.waitFor('/category: unit/.test(document.getElementById("testing-run").parentNode.textContent)', 15000, 'the Unit run opened from the history');
+  await page.clickText('.page-actions button', 'Refresh');
+  await testingReady();
+  assert.equal(await rowCount('#testing-history'), 2);
+  await clearToasts();
+  assertNoPageErrors('/testing after a single test');
+});
+
+test('a failing suite is shown failing: the failure first with its output, skipped apart, a missing file named', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var fs = require('fs');
+  var path = require('path');
+  var dir = h.tempDir('tcc-browser-fixtures-');
+  var head = "var test = require('node:test');\nvar assert = require('node:assert/strict');\n";
+  fs.mkdirSync(path.join(dir, 'agent'));
+  fs.mkdirSync(path.join(dir, 'cc'));
+  fs.writeFileSync(path.join(dir, 'agent', 'jev-test.js'), head +
+    "test('a band is chosen', function () { assert.ok(true); });\n" +
+    "test('the threshold is respected', function () { console.log('score 41 was allowed'); assert.equal(41 >= 70, true, 'a score below the threshold was allowed'); });\n" +
+    "test('needs a venue', { skip: 'no venue exists in this build' }, function () {});\n");
+  var A = await h.startApp({ testRoots: { agent: path.join(dir, 'agent'), cc: path.join(dir, 'cc') } });
+  var origin = 'http://localhost:' + A.port;
+  await signInAt(origin, 'operator');
+  await page.goto(origin + '/testing');
+  await testingReady();
+  assert.match(await page.text('#testing-categories'), /MISSING FILE/, 'a category whose file is absent says so');
+  await page.eval('document.querySelectorAll("#testing-categories tbody tr")[7].querySelector("button").click()');
+  await runFinished('the failing Jev category');
+  assert.equal(await page.eval('document.getElementById("testing-run").getAttribute("data-status")'), 'FAILED');
+  var failures = await page.text('#testing-failures');
+  assert.match(failures, /Failures — 2/);
+  assert.match(failures, /the threshold is respected/);
+  assert.match(failures, /a score below the threshold was allowed/);
+  assert.match(failures, /score 41 was allowed/, 'what the file printed is shown beside the failure');
+  assert.match(failures, /test file does not exist/);
+  var skipped = await page.text('#testing-skipped');
+  assert.match(skipped, /Skipped — 1 \(not counted as passed\)/);
+  assert.match(skipped, /no venue exists in this build/);
+  assert.equal(await kpiTextIn('#testing-run', 'Passed'), '1');
+  assert.equal(await kpiTextIn('#testing-run', 'Failed'), '2');
+  assert.equal(await kpiTextIn('#testing-run', 'Skipped'), '1');
+  // the failures come before the totals of the files: order in the document
+  assert.ok(await page.eval('(function () { var f = document.getElementById("testing-failures"); var tables = document.querySelectorAll("#testing-run table"); return !!(f.compareDocumentPosition(tables[tables.length - 1]) & Node.DOCUMENT_POSITION_FOLLOWING); })()'));
+  var rows = await categoryRows();
+  assert.deepEqual([rows[7][2], rows[7][3], rows[7][4], rows[7][5]], ['FAILED', '1', '2', '1']);
+  page.errors.length = 0;
+  // a viewer sees the same failure and can start nothing
+  await page.click('#sign-out');
+  await page.waitFor('location.pathname === "/login"', 10000, 'the sign-out');
+  await signInAt(origin, 'viewer');
+  await page.goto(origin + '/testing');
+  await testingReady();
+  await page.waitFor('!!document.getElementById("testing-failures")', 15000, 'the last run, shown to the viewer');
+  assert.match(await page.text('#testing-failures'), /a score below the threshold was allowed/);
+  var buttons = await page.eval('Array.prototype.map.call(document.querySelectorAll("#view button"), function (b) { return [b.textContent, b.disabled]; })');
+  buttons.filter(function (b) { return /^Run /.test(b[0]); }).forEach(function (b) { assert.equal(b[1], true, 'a viewer can press "' + b[0] + '"'); });
+  assert.ok(buttons.filter(function (b) { return /^Run /.test(b[0]); }).length >= 12);
+  assertNoPageErrors('/testing as a viewer');
+  await A.close();
+  fs.rmSync(dir, { recursive: true, force: true });
+  await signIn('owner');
+});

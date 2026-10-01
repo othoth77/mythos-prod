@@ -148,7 +148,8 @@ function create(opts) {
 
   var platform = o.platform || platformMod.create({
     stateDir: o.stateDir, agentRoot: o.agentRoot, commit: o.commit, now: o.now,
-    paperAutoTick: o.paperAutoTick, maxRuns: o.maxRuns, testEnv: o.testEnv, jobTimeoutMs: o.jobTimeoutMs
+    paperAutoTick: o.paperAutoTick, maxRuns: o.maxRuns, testEnv: o.testEnv, jobTimeoutMs: o.jobTimeoutMs,
+    testRoots: o.testRoots, testFileTimeoutMs: o.testFileTimeoutMs
   });
   var audit = auditMod.create({ state: platform.state, now: o.now, sink: o.auditSink === undefined ? (log || null) : o.auditSink });
   platform.attachAudit(audit);

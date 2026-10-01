@@ -539,6 +539,7 @@ test('downsampling keeps the last sample exactly', function () {
 test('the TAP parser counts passed, failed and skipped tests separately', function () {
   var tap = [
     'TAP version 13',
+    '# printed by the file',
     '# Subtest: a passes',
     'ok 1 - a passes',
     '  ---',
@@ -568,6 +569,7 @@ test('the TAP parser counts passed, failed and skipped tests separately', functi
   assert.equal(p.tests[2].status, 'skipped');
   assert.equal(p.tests[2].skipReason, 'no browser');
   assert.equal(p.summary.fail, 1);
+  assert.equal(p.output, 'printed by the file', 'what the file printed is kept; headers and totals are not output');
 });
 
 test('test discovery finds quoted test names, including escaped quotes', function () {

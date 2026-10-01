@@ -128,6 +128,7 @@ function create(opts) {
   });
   var testing = testingMod.create({
     state: state, agentRoot: agentRoot, projectRoot: PROJECT_ROOT, commit: commit, now: now, env: o.testEnv,
+    roots: o.testRoots, fileTimeoutMs: o.testFileTimeoutMs,
     onFinished: function (run) {
       if (run.status === 'FAILED') {
         systemEvent({ kind: 'TEST_RUN_FAILED', severity: 'ERROR', message: run.runId + ': ' + run.totals.failed + ' failed of ' + run.totals.total });
@@ -808,6 +809,7 @@ function create(opts) {
     paper: paper,
     research: research,
     testing: testing,
+    agentRoot: agentRoot,
     commit: function () { return commit; },
     attachAudit: attachAudit,
     systemEvent: systemEvent,
