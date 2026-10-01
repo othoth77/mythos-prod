@@ -681,6 +681,23 @@ function startStub() {
           res.end(JSON.stringify({ task_id: 'tk-stub-q-0001', dispatched: false, queued: true, running: 5, max_parallel: 5 }));
           return;
         }
+        // t-20260930120308-fjw22c: a deferral that is NOT capacity. The
+        // executor's Resource Guard refused at 0/5 running; the console used
+        // to relay only the capacity fields, so the operator read "at
+        // capacity" for a host-memory refusal.
+        if (req.method === 'POST' && u === '/tasks/tk-stub-rp-0001/dispatch') {
+          res.writeHead(202, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ task_id: 'tk-stub-rp-0001', dispatched: false, queued: true, reason: 'resource_pressure',
+            resource_level: 'CRITICAL', signals: { mem_available_mib: 512, psi_some_avg60: 41 }, running: 0, max_parallel: 5 }));
+          return;
+        }
+        // An unknown reason/level is dropped, never relayed verbatim.
+        if (req.method === 'POST' && u === '/tasks/tk-stub-rx-0001/dispatch') {
+          res.writeHead(202, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ task_id: 'tk-stub-rx-0001', dispatched: false, queued: true, reason: SECRET_TOKEN,
+            resource_level: SECRET_TOKEN, running: 0, max_parallel: 5 }));
+          return;
+        }
 
         // MOS-2.1: detail, report, cancel -- standing in for the real
         // executor's own GET /tasks/<id>, GET /tasks/<id>/report and
@@ -958,7 +975,9 @@ startStub().then(function (stub) {
       req(port, '/login.css'), req(port, '/login.js'),
       req(port, '/api/dispatcher', 'GET'),
       req(port, '/api/missions/tk-stub-q-0001/dispatch', 'POST', {}),
-      req(port, '/api/missions/tk-stub-q-0001/dispatch', 'GET')
+      req(port, '/api/missions/tk-stub-q-0001/dispatch', 'GET'),
+      req(port, '/api/missions/tk-stub-rp-0001/dispatch', 'POST', {}),
+      req(port, '/api/missions/tk-stub-rx-0001/dispatch', 'POST', {})
     ]).then(function (r) {
       var shell = r[0], css = r[1], ccss = r[2], ajs = r[3], mjs = r[4];
       var health = r[5], missions = r[6], campaigns = r[7];
@@ -967,6 +986,7 @@ startStub().then(function (stub) {
       var passwd = r[17], traverse = r[18], deep = r[19];
       var loginCssRes = r[20], loginJsRes = r[21];
       var dispatcherStatus = r[22], dispatchQueued = r[23], dispatchGet = r[24];
+      var dispatchPressure = r[25], dispatchUnknown = r[26];
 
       eq(shell.status, 200, 'shell is served');
       ok(/MYTHOS OS/.test(shell.text), 'shell carries the Mythos OS title');
@@ -1094,6 +1114,25 @@ startStub().then(function (stub) {
       ok(stubHits.some(function (h) { return h.indexOf('/tasks/tk-stub-q-0001/dispatch') !== -1; }), 'MOS-3C C2: dispatch call reached the stub');
 
       eq(dispatchGet.status, 404, 'MOS-3C C3: GET on /api/missions/.../dispatch returns 404 (no read route exists)');
+
+      // t-20260930120308-fjw22c: "Start now" under resource pressure must
+      // say so. The capacity-only pick answered "at capacity" at 0/5.
+      eq(dispatchPressure.status, 200, 'QUEUED-DIAG D1: a resource-pressure deferral is a 200, not an error');
+      var dpData = dispatchPressure.json.data || {};
+      eq(Object.keys(dpData).sort().join(','),
+         ['dispatched', 'max_parallel', 'queued', 'reason', 'resource_level', 'running', 'task_id'].sort().join(','),
+         'QUEUED-DIAG D1: a deferral relays exactly the capacity fields plus reason/resource_level');
+      eq(dpData.reason, 'resource_pressure', 'QUEUED-DIAG D1: the deferral reason reaches the browser');
+      eq(dpData.resource_level, 'CRITICAL', 'QUEUED-DIAG D1: the guard level reaches the browser');
+      ok(!('signals' in dpData), 'QUEUED-DIAG D1: raw host signals are not relayed');
+      eq(dispatchUnknown.status, 200, 'QUEUED-DIAG D2: an unknown deferral code is still a 200');
+      ok(!('reason' in (dispatchUnknown.json.data || {})) && !('resource_level' in (dispatchUnknown.json.data || {})),
+         'QUEUED-DIAG D2: an unknown reason/level is dropped, not relayed verbatim');
+      ok(dispatchUnknown.text.indexOf(SECRET_TOKEN) === -1, 'QUEUED-DIAG D2: an upstream reason string cannot leak through the relay');
+      ok(/d\.reason === 'resource_pressure' \? 'Queued — host under memory pressure'/.test(ajs.text),
+         'QUEUED-DIAG D3: the Start now button names memory pressure instead of claiming capacity');
+      ok(ajs.text.indexOf("d.reason ? 'Queued — GPU runtime busy'") < ajs.text.indexOf("d.queued ? 'Queued — at capacity'"),
+         'QUEUED-DIAG D3: a named reason is checked before the capacity fallback');
 
       eq(passwd.status, 404, 'an arbitrary path is 404, not a file');
       eq(traverse.status, 404, 'a traversal attempt is 404');
