@@ -1,0 +1,10 @@
+# Installed by bin/mythos-os-install.sh into ~/.config/systemd/user/ (@MYTHOS_OS_DIR@ is replaced).
+[Unit]
+Description=MYTHOS OS v4 — watchdog tick (escalate goals whose runner died)
+Documentation=file:@MYTHOS_OS_DIR@/README.md
+
+[Service]
+Type=oneshot
+Environment=PATH=%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/bin/env node @MYTHOS_OS_DIR@/bin/mythos-os watchdog tick
+NoNewPrivileges=true
