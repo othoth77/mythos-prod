@@ -40,8 +40,19 @@ test.before(async function () {
   page = await B.newPage({ width: 1440, height: 900 });
 });
 
+// Servers started by individual tests. They are closed here as well as by the
+// test that started them, so a failing test cannot leave a listener open and
+// hang the whole run.
+var extraApps = [];
+async function startExtra(opts) {
+  var A = await h.startApp(opts);
+  extraApps.push(A);
+  return A;
+}
+
 test.after(async function () {
   if (B) await B.close();
+  for (var i = 0; i < extraApps.length; i++) { try { await extraApps[i].close(); } catch (e) { /* already closed by its test */ } }
   if (S) await S.close();
 });
 
@@ -1151,7 +1162,7 @@ test('the Recovery page shows the state per asset with requested and approved si
 
 test('the engine pages say NO DATA with a reason when there is no source', async function (t) {
   if (skipIfNoBrowser(t)) return;
-  var A = await h.startApp();
+  var A = await startExtra();
   var b2 = 'http://localhost:' + A.port;
   await page.goto(b2 + '/login');
   await page.waitFor('!!document.getElementById("login-form")', 10000, 'the login form');
@@ -1282,7 +1293,7 @@ async function researchReady() {
 
 test('the Research page lays out observation → hypothesis → proposal, each hypothesis with its falsification', async function (t) {
   if (skipIfNoBrowser(t)) return;
-  var A = await h.startApp();
+  var A = await startExtra();
   var owner = await A.login('owner');
   var cfg = await owner.patch('/api/config', { changes: { universe: ['EURUSD'], account: { initialCapital: 5000 }, jev: { scoreThreshold: 45, minConfidence: 0.15 },
     cost: { slippageModel: 'fixed', fixedSlippagePips: 0.3 } }, reason: 'research browser test setup', confirm: 'CONFIRM' });
@@ -1553,7 +1564,7 @@ test('a failing suite is shown failing: the failure first with its output, skipp
     "test('a band is chosen', function () { assert.ok(true); });\n" +
     "test('the threshold is respected', function () { console.log('score 41 was allowed'); assert.equal(41 >= 70, true, 'a score below the threshold was allowed'); });\n" +
     "test('needs a venue', { skip: 'no venue exists in this build' }, function () {});\n");
-  var A = await h.startApp({ testRoots: { agent: path.join(dir, 'agent'), cc: path.join(dir, 'cc') } });
+  var A = await startExtra({ testRoots: { agent: path.join(dir, 'agent'), cc: path.join(dir, 'cc') } });
   var origin = 'http://localhost:' + A.port;
   await signInAt(origin, 'operator');
   await page.goto(origin + '/testing');
@@ -1594,4 +1605,202 @@ test('a failing suite is shown failing: the failure first with its output, skipp
   await A.close();
   fs.rmSync(dir, { recursive: true, force: true });
   await signIn('owner');
+});
+
+// ---------------------------------------------------------------------------
+// PHASE 13 — Activity, Audit, System
+// ---------------------------------------------------------------------------
+
+async function activityRows() {
+  return page.eval('Array.prototype.map.call(document.querySelectorAll("#activity-body tbody tr"), function (tr) {' +
+    ' return Array.prototype.map.call(tr.children, function (td) { return td.textContent; }); })');
+}
+async function activityShows(total) {
+  await page.waitFor('(function () { var h = document.querySelector("#activity-body section.card h2"); return !!h && h.textContent === ' +
+    JSON.stringify(String(total).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' event(s)') + '; })()', 15000, total + ' events');
+}
+
+test('the Activity page lists operator actions first and store events after, each on its own clock', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var api = await S.login('viewer');
+  await page.goto(base + '/activity?run=' + explorerRun.runId);
+  await ready('/activity');
+  var d = (await api.get('/api/activity?run=' + explorerRun.runId + '&limit=100')).body.result;
+  await activityShows(d.total);
+  await page.waitFor('!!document.getElementById("activity-type")', 10000, 'the filter bar');
+  assert.deepEqual(await tableHeaders('#activity-body'), ['When', 'Clock', 'Type', 'Severity', 'Asset', 'Strategy', 'Event', 'Record']);
+  var rows = await activityRows();
+  assert.equal(rows.length, 100);
+  rows.forEach(function (r, i) {
+    assert.equal(r[1], d.items[i].clock, 'row ' + i + ' is on the wrong clock');
+    assert.equal(r[2], d.items[i].type);
+    assert.equal(r[3], d.items[i].severity);
+  });
+  assert.equal(rows[0][1], 'WALL', 'operator actions come first');
+  assert.match(rows[0][0], /^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d UTC$/);
+  var text = await page.text('#view');
+  assert.match(text, /Two clocks, never mixed/);
+  assert.ok(text.indexOf(explorerRun.runId) !== -1 && /SYNTHETIC/.test(text), 'the store source is named and labelled');
+  var types = await page.eval('Array.prototype.map.call(document.getElementById("activity-type").options, function (o) { return o.value; })');
+  assert.deepEqual(types, ['', 'configuration', 'agent', 'candidate', 'decision', 'trade', 'risk', 'jev', 'recovery', 'test', 'backtest', 'paper', 'error', 'warning', 'system']);
+  assertNoPageErrors('/activity');
+});
+
+test('the Activity filters — type, severity, asset, strategy and date — narrow the list to what the API has', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var api = await S.login('viewer');
+  var q = '/api/activity?run=' + explorerRun.runId + '&limit=100';
+  await page.fill('#activity-type', 'trade');
+  var trades = (await api.get(q + '&type=trade')).body.result;
+  await activityShows(trades.total);
+  (await activityRows()).forEach(function (r) {
+    assert.equal(r[2], 'trade');
+    assert.equal(r[1], 'BAR');
+    assert.match(r[0], /^2023-\d\d-\d\d \d\d:\d\d$/, 'a store event shows the bar\'s time, not today\'s');
+  });
+  assert.match(await page.eval('location.search'), /type=trade/);
+  await page.fill('#activity-severity', 'WARN');
+  var losses = (await api.get(q + '&type=trade&severity=WARN')).body.result;
+  await activityShows(losses.total);
+  await page.fill('#activity-asset', 'XAUUSD');
+  var xau = (await api.get(q + '&type=trade&severity=WARN&asset=XAUUSD')).body.result;
+  await activityShows(xau.total);
+  (await activityRows()).forEach(function (r) { assert.deepEqual([r[2], r[3], r[4]], ['trade', 'WARN', 'XAUUSD']); });
+  var strategy = xau.items[0].strategy;
+  await page.fill('#activity-strategy', strategy);
+  await activityShows((await api.get(q + '&type=trade&severity=WARN&asset=XAUUSD&strategy=' + strategy)).body.result.total);
+  (await activityRows()).forEach(function (r) { assert.equal(r[5], strategy); });
+  // a filter that matches nothing says so, and does not look like "nothing happened"
+  await page.fill('#activity-type', 'test');
+  await page.waitFor('/No event matches these filters/.test(document.getElementById("activity-body").textContent)', 15000, 'the empty state');
+  // clear, then a date range that only the fixture's bars fall in
+  await page.clickText('#activity-filters button', 'Clear filters');
+  var all = (await api.get(q)).body.result;
+  await activityShows(all.total);
+  assert.equal(await page.eval('document.getElementById("activity-type").value'), '');
+  await page.fill('#activity-to', '2023-12-31');
+  var past = (await api.get(q + '&toTs=' + (Date.parse('2023-12-31T23:59:59Z') + 999))).body.result;
+  await activityShows(past.total);
+  assert.ok(past.total > 0 && past.total < all.total);
+  (await activityRows()).forEach(function (r) { assert.equal(r[1], 'BAR', 'an operator action from today matched a 2023 date filter'); });
+  await page.clickText('#activity-filters button', 'Clear filters');
+  await activityShows(all.total);
+  assertNoPageErrors('/activity with filters');
+});
+
+test('an audit-derived event opens the audit entry it came from, with both hashes', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var api = await S.login('viewer');
+  await page.fill('#activity-type', 'configuration');
+  var d = (await api.get('/api/activity?type=configuration&run=' + explorerRun.runId)).body.result;
+  await activityShows(d.total);
+  var seq = d.items[0].ref.auditSeq;
+  var entry = (await api.get('/api/audit?limit=500')).body.result.items.filter(function (e) { return e.seq === seq; })[0];
+  await page.clickText('#activity-body a', 'audit #' + seq);
+  await ready('/system');
+  await modalOpen();
+  await page.waitFor('!!document.getElementById("audit-entry")', 10000, 'the audit entry');
+  var text = await page.text('.modal');
+  assert.match(text, new RegExp('Audit entry #' + seq));
+  assert.ok(text.indexOf(entry.hash) !== -1 && text.indexOf(entry.prevHash) !== -1, 'the entry shows its hash and the previous one');
+  assert.ok(text.indexOf(entry.action) !== -1 && text.indexOf(entry.actor.id) !== -1);
+  await page.clickText('.modal-foot button', 'Close');
+  await modalClosed();
+});
+
+test('the System page shows components, version, commit, environment, uptime, the thirteen health checks and the deployment', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var api = await S.login('viewer');
+  var s = (await api.get('/api/system')).body.result;
+  await page.waitFor('!!document.getElementById("system-audit") && document.querySelectorAll("#audit-list tbody tr").length > 0', 15000, 'the system page');
+  assert.equal(await kpiTextIn('#system-overview', 'Version'), s.version);
+  assert.equal(await kpiTextIn('#system-overview', 'Commit'), s.commit.slice(0, 12));
+  assert.equal(await kpiTextIn('#system-overview', 'Environment'), s.environment);
+  assert.match(await kpiTextIn('#system-overview', 'Uptime'), /\d+(\.\d)? s|\d+ m \d+ s/);
+  assert.equal(await kpiTextIn('#system-overview', 'Health'), s.health.status);
+  assert.notEqual(s.health.status, 'OK', 'synthetic data never reads as healthy provenance');
+  var comps = await page.eval('Array.prototype.map.call(document.querySelectorAll("#system-components tbody tr"), function (tr) { return [tr.children[0].textContent, tr.children[1].textContent]; })');
+  assert.deepEqual(comps.map(function (c) { return c[0]; }), ['Trading Agent', 'API', 'Store', 'Worker', 'Paper', 'Backtest', 'Analysis', 'Research', 'Jev', 'Risk']);
+  comps.forEach(function (c, i) { assert.equal(c[1], s.components[i].status.replace(/_/g, ' ')); });
+  var checks = await page.eval('Array.prototype.map.call(document.querySelectorAll("#system-health tbody tr"), function (tr) { return [tr.children[0].textContent, tr.children[1].textContent, tr.children[3].textContent]; })');
+  assert.equal(checks.length, 13);
+  assert.deepEqual(checks.slice(0, 4).map(function (c) { return c[2]; }), ['evaluated now', 'evaluated now', 'evaluated now', 'evaluated now']);
+  var prov = checks.filter(function (c) { return c[0] === 'DATA PROVENANCE'; })[0];
+  assert.equal(prov[1], 'WARN');
+  assert.equal(checks.filter(function (c) { return c[0] === 'LIVE EXECUTION REFUSED'; })[0][1], 'OK');
+  var deploy = await page.text('#system-deployment');
+  assert.match(deploy, /mythos-trading-control-center/);
+  assert.match(deploy, /NOT AVAILABLE/);
+  assert.match(deploy, /live-refusing-stub — refusal verified by a health check/);
+  assert.match(deploy, new RegExp('127\\.0\\.0\\.1:' + S.port));
+  assert.match(deploy, /PERSISTENT|EPHEMERAL/);
+  assertNoPageErrors('/system');
+});
+
+test('the audit chain is verified from the page, filtered, and each entry can be read in full', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var api = await S.login('viewer');
+  await page.clickText('#system-audit button, .card-head button', 'Verify chain');
+  await page.waitFor('/Chain intact/.test(document.getElementById("audit-verify").textContent)', 15000, 'the verification result');
+  var v = (await api.get('/api/audit/verify')).body.result;
+  assert.ok(v.ok);
+  assert.match(await page.text('#audit-verify'), /entries verified from the first/);
+  assert.deepEqual(await tableHeaders('#audit-list'), ['#', 'When', 'Actor', 'Action', 'Target', 'Outcome', 'Reason', 'Hash']);
+  await page.fill('#audit-outcome', 'REFUSED');
+  var refused = (await api.get('/api/audit?outcome=REFUSED&limit=50')).body.result;
+  assert.ok(refused.total > 0, 'this session has refused requests to show');
+  await page.waitFor('document.querySelectorAll("#audit-list tbody tr").length === ' + Math.min(50, refused.total) +
+    ' && /REFUSED/.test(document.querySelector("#audit-list tbody tr").textContent)', 15000, 'the refused entries');
+  var rows = await page.eval('Array.prototype.map.call(document.querySelectorAll("#audit-list tbody tr"), function (tr) { return [tr.children[0].textContent, tr.children[5].textContent]; })');
+  rows.forEach(function (r, i) { assert.equal(Number(r[0]), refused.items[i].seq); assert.match(r[1], /^REFUSED/); });
+  await page.fill('#audit-action', 'config.');
+  var cfg = (await api.get('/api/audit?outcome=REFUSED&action=config.&limit=50')).body.result;
+  await page.waitFor('(function () { var r = document.querySelectorAll("#audit-list tbody tr"); if (' + cfg.total + ' === 0) return /No audit entry matches/.test(document.getElementById("audit-list").textContent);' +
+    ' return r.length === ' + Math.min(50, cfg.total) + ' && Array.prototype.every.call(r, function (tr) { return tr.children[3].textContent.indexOf("config.") === 0; }); })()', 15000, 'the config entries');
+  if (cfg.total > 0) {
+    await page.click('#audit-list tbody tr');
+    await modalOpen();
+    assert.ok((await page.text('.modal')).indexOf(cfg.items[0].hash) !== -1);
+    await page.clickText('.modal-foot button', 'Close');
+    await modalClosed();
+  }
+  assertNoPageErrors('/system audit');
+});
+
+test('with no run the System page says UNKNOWN is not a pass, and Activity says the store has no events', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var A = await startExtra();
+  var origin = 'http://localhost:' + A.port;
+  await signInAt(origin, 'viewer');
+  await page.goto(origin + '/system');
+  await page.waitFor('!!document.getElementById("system-health")', 15000, 'the system page of the empty server');
+  var health = await page.text('#system-health');
+  assert.match(health, /9 check\(s\) had nothing to evaluate and are UNKNOWN\. An UNKNOWN is not a pass\./);
+  assert.match(health, /NO DATA/);
+  assert.equal(await page.count('#system-health tbody tr'), 4, 'only the four checks that could be evaluated are listed as evaluated');
+  assert.equal(await kpiTextIn('#system-overview', 'Health'), 'UNKNOWN');
+  assert.match(await page.text('#system-deployment'), /PERSISTENT/);
+  assert.match(await page.text('#system-deployment'), /0 of 20/, 'no run is kept, and the page says none');
+  await page.goto(origin + '/activity');
+  await page.waitFor('/Store events/.test(document.getElementById("view").textContent) && /event\\(s\\)/.test(document.getElementById("view").textContent)', 15000, 'the activity page of the empty server');
+  var text = await page.text('#view');
+  assert.match(text, /NO DATA/);
+  assert.match(text, /no backtest has completed/);
+  (await activityRows()).forEach(function (r) { assert.equal(r[1], 'WALL'); });
+  assertNoPageErrors('the empty server');
+  await A.close();
+  await signIn('owner');
+});
+
+test('no route is left unbuilt', async function (t) {
+  if (skipIfNoBrowser(t)) return;
+  var routes = await page.eval('Array.prototype.map.call(document.querySelectorAll(".nav-link"), function (a) { return a.getAttribute("data-path"); })');
+  assert.equal(routes.length, 16);
+  for (var i = 0; i < routes.length; i++) {
+    await open(routes[i]);
+    var text = await page.text('#view');
+    assert.doesNotMatch(text, /NOT BUILT YET|is delivered in phase/, routes[i]);
+  }
+  assert.equal(await page.count('.nav-mark'), 0);
+  assertNoPageErrors('the sixteen routes');
 });

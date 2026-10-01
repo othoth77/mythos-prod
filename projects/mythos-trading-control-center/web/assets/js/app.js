@@ -84,8 +84,7 @@
         el('ul', null, group.items.map(function (path) {
           var def = defs[path];
           return el('li', null, el('a', { class: 'nav-link', attrs: { href: path, 'data-link': '', 'data-path': path } }, [
-            el('span', { text: def ? def.nav || def.title : path }),
-            def && def.pending ? el('span', { class: 'nav-mark', text: 'P' + def.pending, title: 'Delivered in phase ' + def.pending }) : null
+            el('span', { text: def ? def.nav || def.title : path })
           ]));
         }))
       ]);

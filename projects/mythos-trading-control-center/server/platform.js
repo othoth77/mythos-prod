@@ -526,8 +526,10 @@ function create(opts) {
       return true;
     }
     var wall = items.filter(keep).sort(function (a, b) { return a.at < b.at ? 1 : (a.at > b.at ? -1 : 0); });
+    // Newest bar first. The sort is stable, so rows that share a bar keep the
+    // order the pipeline wrote them in.
     var bar = storeItems.filter(keep);
-    bar.reverse();
+    bar.sort(function (a, b) { return b.ts - a.ts; });
     // Wall-clock events first (they are what the operator did), then the
     // store's events in reverse bar order. Two clocks are never interleaved.
     var all = wall.concat(bar);

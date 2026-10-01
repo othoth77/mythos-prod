@@ -791,6 +791,11 @@ function storeEvents(t, sourceLabel) {
     push(tr.exitTs, 'trade', tr.outcome === 'LOSS' ? 'WARN' : 'INFO', tr.symbol, tr.strategyId,
       tr.direction + ' ' + tr.lots + ' closed ' + tr.exitReason + ' net ' + tr.netPnl, { tradeId: tr.tradeId, candidateId: tr.candidateId });
   });
+  t.rows('candidates').forEach(function (c) {
+    push(c.ts, 'candidate', 'INFO', c.symbol, c.strategyId,
+      c.direction + ' proposed by ' + c.strategyId + ' in ' + c.regime + ': entry ' + c.entry + ', stop ' + c.stopLoss + ', target ' + c.takeProfit,
+      { candidateId: c.candidateId });
+  });
   t.rows('decisions').forEach(function (d) {
     var c = d.candidateId ? ix.candidates[d.candidateId] : null;
     push(d.ts, 'decision', 'INFO', d.symbol, c ? c.strategyId : null,

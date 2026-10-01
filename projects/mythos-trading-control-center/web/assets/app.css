@@ -51,7 +51,6 @@
 }
 .nav-link:hover { color: var(--mythos-text-primary); background: var(--mythos-surface-card); text-decoration: none; }
 .nav-link[aria-current="page"] { color: var(--mythos-accent); background: var(--mythos-accent-dim); box-shadow: inset 3px 0 0 var(--mythos-accent); }
-.nav-link .nav-mark { margin-inline-start: auto; font-size: 11px; font-family: var(--mythos-font-mono); color: var(--mythos-text-secondary); }
 
 .sidebar-foot { padding: var(--mythos-space-4) var(--mythos-space-5) var(--mythos-space-5); border-top: 1px solid var(--mythos-border-hairline); font-size: 12px; color: var(--mythos-text-secondary); }
 .sidebar-foot .lock { display: flex; gap: var(--mythos-space-3); align-items: flex-start; }

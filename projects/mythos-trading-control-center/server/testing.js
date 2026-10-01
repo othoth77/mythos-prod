@@ -52,7 +52,7 @@ var CATEGORIES = Object.freeze({
     description: 'The whole agent in mission order; the three agents and the champion gate; the Control Center API, decisions, research, this testing center and the activity and system views against the real agent.',
     files: ['agent:integration-test.js', 'agent:trading-agent-test.js', 'agent:analysis-agent-test.js',
       'agent:research-agent-test.js', 'agent:champion-test.js', 'cc:api-test.js', 'cc:control-test.js',
-      'cc:decision-test.js', 'cc:research-test.js', 'cc:testing-test.js']
+      'cc:decision-test.js', 'cc:research-test.js', 'cc:testing-test.js', 'cc:activity-system-test.js']
   },
   property: {
     label: 'Property',
