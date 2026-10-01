@@ -48,12 +48,12 @@ npm test                                   # every suite except the browser run
 node bin/tcc-user.js set /path/to/users.json othman OWNER --generate
 
 TCC_USERS_FILE=/path/to/users.json TCC_STATE_DIR=/path/to/state node server/server.js
-# → http://127.0.0.1:8150
+# → http://127.0.0.1:8210
 ```
 
 | Variable | Meaning |
 |---|---|
-| `TCC_PORT`, `TCC_BIND` | listen address (default `127.0.0.1:8150`) |
+| `TCC_PORT`, `TCC_BIND` | listen address (default `127.0.0.1:8210`) |
 | `TCC_USERS_FILE` | users file with scrypt hashes; refused unless mode `0600` |
 | `TCC_STATE_DIR` | persistent state; without it state is in-memory and lost on stop |
 | `TCC_PUBLIC_ORIGIN` | the only `Origin` accepted for state-changing requests |

@@ -1,0 +1,19 @@
+/* =============================================================================
+   MYTHOS TRADING CONTROL CENTER — sign-in page
+   projects/mythos-trading-control-center/web/assets/login.css
+
+   One card on the ground, the Mythos mark above it. The sign-in button is the
+   page's one gold element.
+   ============================================================================= */
+
+.login { min-height: 100dvh; display: grid; place-items: center; padding: var(--mythos-space-6); }
+.login-card { width: min(400px, 100%); }
+.login-brand { display: flex; align-items: center; gap: var(--mythos-space-4); margin-bottom: var(--mythos-space-7); }
+.login-brand svg { width: 40px; height: 29px; color: var(--mythos-text-primary); }
+.login-brand .login-title { font-size: 18px; font-weight: var(--mythos-weight-semibold); line-height: 1.2; }
+.login-brand small { display: block; font-size: 12px; font-weight: var(--mythos-weight-regular); color: var(--mythos-text-secondary); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 2px; }
+.login-form { display: flex; flex-direction: column; gap: var(--mythos-space-5); }
+.login-form .btn { width: 100%; }
+.login-error { min-height: 20px; font-size: 13px; color: var(--tcc-danger); }
+.login-note { margin-top: var(--mythos-space-6); padding-top: var(--mythos-space-5); border-top: 1px solid var(--mythos-border-hairline); font-size: 12px; color: var(--mythos-text-secondary); }
+.login-note strong { color: var(--mythos-text-primary); font-weight: var(--mythos-weight-semibold); }

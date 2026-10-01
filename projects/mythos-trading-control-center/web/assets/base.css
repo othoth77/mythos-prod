@@ -1,0 +1,173 @@
+/* =============================================================================
+   MYTHOS TRADING CONTROL CENTER — base layer
+   projects/mythos-trading-control-center/web/assets/base.css
+
+   NOT A NEW VISUAL IDENTITY. Every value comes from the canonical token file
+   (tokens.css — a byte-identical copy of assets/brand/tokens/tokens.css) and
+   every form from the approved prototypes in docs/design/prototypes/:
+
+     3-mythos-os.html           the shell — 240px sidebar, hairline borders,
+                                 KPI cards on surface-card, mono numerals
+     7-component-showcase.html  buttons, inputs, cards, badges, switch, skeleton
+
+   Rules carried from docs/design/MYTHOS_DESIGN_SYSTEM.md and applied here:
+     · radius: control 2px, card 6px, overlay 12px; a pill only for status dots
+       and badges (SHAPE-1)
+     · elevation by surface step; a shadow only for what genuinely floats (SURF-1)
+     · focus is never removed; status is form plus colour, never colour alone
+     · hit area ≥ 44×44 even where the visual box is 40 or 36 (A-022), by a
+       transparent hit region and never by added margin
+     · loading is a static skeleton or determinate progress — no spinner (MOTION-1)
+     · links are text-primary and underlined, never gold (LINK-1)
+     · reduced motion resolves durations to motion-micro, transforms to opacity
+
+   This layer adds NO colour, spacing or radius value of its own. The only
+   literals below are type sizes taken from the prototypes and layout widths.
+   ============================================================================= */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* The one value this console derives rather than takes: the scrim behind an
+   overlay. It is ink-900 — the same rgb the canonical shadow tokens are built
+   from — at an opacity that keeps the page legible but clearly inert. The
+   token file defines no scrim, so it is named here, once. */
+:root { --tcc-scrim: rgba(11, 11, 10, 0.62); }
+
+/* Semantic hues as TEXT and BORDER. The token file ships each hue in a dark-
+   ground and a light-ground value (A-015) but, unlike its other semantic
+   roles, does not remap them by theme. These four aliases do exactly that
+   remap — the same two selectors tokens.css uses — so a status word keeps its
+   contrast on paper as well as on ink. No new colour is introduced. */
+:root {
+  --tcc-ok: var(--mythos-success);
+  --tcc-warn: var(--mythos-warning);
+  --tcc-danger: var(--mythos-danger);
+  --tcc-info: var(--mythos-info);
+}
+:root[data-theme="light"] {
+  --tcc-ok: var(--mythos-success-light);
+  --tcc-warn: var(--mythos-warning-light);
+  --tcc-danger: var(--mythos-danger-light);
+  --tcc-info: var(--mythos-info-light);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]):not([data-theme="light"]) {
+    --tcc-ok: var(--mythos-success-light);
+    --tcc-warn: var(--mythos-warning-light);
+    --tcc-danger: var(--mythos-danger-light);
+    --tcc-info: var(--mythos-info-light);
+  }
+}
+
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--mythos-ground);
+  color: var(--mythos-text-primary);
+  font-family: var(--mythos-font-text);
+  font-size: 14px;                    /* prototype 3 — dashboard density */
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, p, ul, ol, dl, dd, figure { margin: 0; }
+ul, ol { padding: 0; list-style: none; }
+button, input, select, textarea { font: inherit; color: inherit; }
+table { border-collapse: collapse; }
+svg { display: block; }
+
+::selection { background: var(--mythos-accent-dim); color: var(--mythos-text-primary); }
+
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--mythos-focus-ring); outline-offset: 2px; }
+/* A heading or the main region is focused by the router so a screen reader
+   announces the new page; it is not an interactive target and takes no ring. */
+h1[tabindex="-1"]:focus-visible, main[tabindex="-1"]:focus-visible { outline: none; }
+
+a { color: var(--mythos-link); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+
+code, kbd, .mono {
+  font-family: var(--mythos-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------
+   type roles
+   --------------------------------------------------------------------------- */
+
+.t-display {
+  font-family: var(--mythos-font-display);
+  font-weight: var(--mythos-weight-semibold);
+  font-stretch: 125%;
+  letter-spacing: -0.01em;
+}
+.t-h1 { font-size: 25px; font-weight: var(--mythos-weight-semibold); line-height: 1.2; }
+.t-h2 { font-size: 18px; font-weight: var(--mythos-weight-semibold); line-height: 1.3; }
+.t-h3 { font-size: 15px; font-weight: var(--mythos-weight-semibold); line-height: 1.35; }
+.t-label {
+  font-size: 12px;
+  font-weight: var(--mythos-weight-medium);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mythos-text-secondary);
+}
+.t-small { font-size: 12px; }
+.t-secondary { color: var(--mythos-text-secondary); }
+.t-num { font-family: var(--mythos-font-mono); font-variant-numeric: tabular-nums; }
+.t-right { text-align: end; }
+.t-wrap { overflow-wrap: anywhere; }
+.t-pos { color: var(--tcc-ok); }
+.t-neg { color: var(--tcc-danger); }
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+
+[hidden] { display: none !important; }
+
+/* ---------------------------------------------------------------------------
+   layout primitives
+   --------------------------------------------------------------------------- */
+
+.stack { display: flex; flex-direction: column; gap: var(--mythos-space-5); }
+.stack-sm { display: flex; flex-direction: column; gap: var(--mythos-space-3); }
+.stack-lg { display: flex; flex-direction: column; gap: var(--mythos-space-7); }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--mythos-space-4); }
+.row-tight { display: flex; flex-wrap: wrap; align-items: center; gap: var(--mythos-space-3); }
+.row-between { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--mythos-space-4); }
+.grow { flex: 1 1 auto; min-width: 0; }
+
+.grid { display: grid; gap: var(--mythos-space-5); }
+.grid-kpi { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.grid-auto { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.span-2 { grid-column: span 2; }
+
+/* lg and below: the 12-column workstation collapses to 8, then to 4 (GRID) */
+@media (max-width: 1239px) {
+  .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 903px) {
+  .grid-2, .grid-3 { grid-template-columns: minmax(0, 1fr); }
+  .span-2 { grid-column: auto; }
+}
+@media (max-width: 599px) {
+  .grid-4 { grid-template-columns: minmax(0, 1fr); }
+  .grid-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: var(--mythos-motion-micro) !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: var(--mythos-motion-micro) !important;
+    scroll-behavior: auto !important;
+  }
+}

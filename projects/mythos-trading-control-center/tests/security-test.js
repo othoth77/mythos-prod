@@ -23,11 +23,11 @@ var S, owner, operator, viewer, webDir;
 /** A stand-in web directory, so static-file rules are tested without the real UI. */
 function makeWebDir() {
   var dir = h.tempDir('tcc-web-');
-  fs.mkdirSync(path.join(dir, 'assets'));
+  fs.mkdirSync(path.join(dir, 'assets', 'js'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'index.html'), '<!doctype html><title>app</title>');
   fs.writeFileSync(path.join(dir, 'login.html'), '<!doctype html><title>login</title>');
-  fs.writeFileSync(path.join(dir, 'assets', 'app.js'), 'var app = 1;');
-  fs.writeFileSync(path.join(dir, 'assets', 'login.js'), 'var login = 1;');
+  fs.writeFileSync(path.join(dir, 'assets', 'js', 'app.js'), 'var app = 1;');
+  fs.writeFileSync(path.join(dir, 'assets', 'js', 'login.js'), 'var login = 1;');
   fs.writeFileSync(path.join(dir, 'assets', 'tokens.css'), ':root{}');
   fs.writeFileSync(path.join(dir, 'assets', 'secret.env'), 'PASSWORD=x');
   fs.writeFileSync(path.join(dir, '.hidden.js'), 'var hidden = 1;');
@@ -378,7 +378,7 @@ test('prototype-pollution-shaped input changes nothing', async function () {
 
 test('malformed paths, traversal and oversized URLs are refused', async function () {
   for (var p of ['/../server/server.js', '/assets/../../server/auth.js', '/assets/%2e%2e/%2e%2e/server/auth.js',
-    '//etc/passwd', '/assets/..%2fserver%2fauth.js', '/assets\\app.js', '/api/trades/%00']) {
+    '//etc/passwd', '/assets/..%2fserver%2fauth.js', '/assets\\js\\app.js', '/api/trades/%00']) {
     var r = await raw('GET', p, { Cookie: owner.cookie() });
     assert.ok(r.status === 400 || r.status === 404, p + ' → ' + r.status);
     assert.ok(r.text.indexOf('require(') === -1, p + ' returned source code');
@@ -389,7 +389,7 @@ test('malformed paths, traversal and oversized URLs are refused', async function
 
 test('static files come from a whitelist: no dotfiles, no unknown types, nothing outside it', async function () {
   var cookie = { Cookie: owner.cookie() };
-  assert.equal((await raw('GET', '/assets/app.js', cookie)).status, 200);
+  assert.equal((await raw('GET', '/assets/js/app.js', cookie)).status, 200);
   assert.equal((await raw('GET', '/assets/secret.env', cookie)).status, 404, 'an unlisted file type must not be served');
   assert.equal((await raw('GET', '/.hidden.js', cookie)).status, 404, 'dotfiles must not be served');
   assert.equal((await raw('GET', '/index.html', cookie)).status, 404, 'the shell is served only through an application route');
@@ -399,9 +399,9 @@ test('static files come from a whitelist: no dotfiles, no unknown types, nothing
 
 test('an unauthenticated browser gets the login page and its assets, and nothing else', async function () {
   assert.equal((await raw('GET', '/login')).status, 200);
-  assert.equal((await raw('GET', '/assets/login.js')).status, 200);
+  assert.equal((await raw('GET', '/assets/js/login.js')).status, 200);
   assert.equal((await raw('GET', '/assets/tokens.css')).status, 200);
-  assert.equal((await raw('GET', '/assets/app.js')).status, 401, 'the application bundle is not public');
+  assert.equal((await raw('GET', '/assets/js/app.js')).status, 401, 'the application bundle is not public');
   for (var route of serverMod.APP_ROUTES) {
     var r = await raw('GET', route);
     assert.equal(r.status, 302, route);

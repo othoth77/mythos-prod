@@ -90,7 +90,12 @@ var APP_ROUTES = ['/', '/dashboard', '/control', '/paper', '/backtest', '/trades
   '/strategies', '/jev', '/risk', '/recovery', '/analysis', '/research', '/testing', '/activity', '/system'];
 
 /** Files an unauthenticated browser may fetch: the login page and what it needs. */
-var PUBLIC_FILE_RE = /^\/(login\.html|assets\/(login|tokens|base)(\.[0-9a-f]{8,16})?\.(css|js)|assets\/mythos-mark\.svg|favicon\.svg|robots\.txt)$/;
+var PUBLIC_FILE_RE = new RegExp('^/assets/(?:' + [
+  '(?:tokens|fonts|base|components|login)(?:\\.[0-9a-f]{8,16})?\\.css',
+  'js/(?:theme|login)(?:\\.[0-9a-f]{8,16})?\\.js',
+  'fonts/[a-z0-9-]+(?:\\.[0-9a-f]{8,16})?\\.woff2',
+  'favicon(?:\\.[0-9a-f]{8,16})?\\.svg'
+].join('|') + ')$');
 
 function httpError(status, code, message, extra) {
   var e = new Error(message);
@@ -781,7 +786,7 @@ function create(opts) {
 
 function main() {
   var env = process.env;
-  var port = parseInt(env.TCC_PORT || '8150', 10);
+  var port = parseInt(env.TCC_PORT || '8210', 10);
   var bind = env.TCC_BIND || '127.0.0.1';
   var app = create({
     stateDir: env.TCC_STATE_DIR || null,

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="dark light">
+<title>Sign in — Mythos Trading Control Center</title>
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<script src="/assets/js/theme.js"></script>
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fonts.css">
+<link rel="stylesheet" href="/assets/base.css">
+<link rel="stylesheet" href="/assets/components.css">
+<link rel="stylesheet" href="/assets/login.css">
+</head>
+<body>
+<main class="login">
+  <div class="login-card">
+    <div class="login-brand">
+      <svg viewBox="0 0 1380 1000" aria-hidden="true" focusable="false"><path fill="currentColor" d="M0 1000 L700 0 L960 0 L960 230 L1120 0 L1380 0 L1380 1000 L1120 1000 L1120 414 L710 1000 L710 429 L310 1000 Z"/></svg>
+      <h1 class="login-title">Mythos Trading<small>Control Center</small></h1>
+    </div>
+    <form class="login-form" id="login-form" novalidate>
+      <div class="field">
+        <label for="user">User</label>
+        <input class="input" id="user" name="user" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <p class="login-error" id="login-error" role="alert"></p>
+      <button class="btn btn-primary" id="login-submit" type="submit">Sign in</button>
+    </form>
+    <p class="login-note"><strong>BACKTEST and PAPER only.</strong> This console drives a research and paper-trading platform. It places no order and has no connection to any venue.</p>
+  </div>
+</main>
+<noscript><p>This console needs JavaScript.</p></noscript>
+<script src="/assets/js/login.js" defer></script>
+</body>
+</html>

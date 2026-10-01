@@ -1,0 +1,352 @@
+/* =============================================================================
+   MYTHOS TRADING CONTROL CENTER — components
+   projects/mythos-trading-control-center/web/assets/components.css
+
+   Forms taken from docs/design/prototypes/7-component-showcase.html and
+   3-mythos-os.html. Each component carries its six states — default, hover,
+   active, focus-visible, disabled, loading — or says why one does not apply.
+   ============================================================================= */
+
+/* ---------------------------------------------------------------------------
+   buttons — 40 comfortable / 36 compact, radius-control, hit area ≥ 44 (A-022)
+   --------------------------------------------------------------------------- */
+
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mythos-space-3);
+  height: var(--mythos-size-control-comfortable);
+  padding: 0 var(--mythos-space-5);
+  border: 1px solid transparent;
+  border-radius: var(--mythos-radius-control);
+  background: transparent;
+  color: var(--mythos-text-primary);
+  font-size: 14px;
+  font-weight: var(--mythos-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--mythos-motion-micro) var(--mythos-ease-move),
+              border-color var(--mythos-motion-micro) var(--mythos-ease-move),
+              color var(--mythos-motion-micro) var(--mythos-ease-move);
+}
+/* The hit region: transparent, never margin. 40 → 44, 36 → 44. */
+.btn::after { content: ''; position: absolute; inset: -2px 0; }
+.btn-compact { height: var(--mythos-size-control-compact); padding: 0 var(--mythos-space-4); font-size: 13px; }
+.btn-compact::after { inset: -4px 0; }
+
+.btn-primary { background: var(--mythos-accent); color: var(--mythos-text-on-accent); }
+.btn-primary:hover { background: var(--mythos-accent-hover); }
+.btn-primary:active { background: var(--mythos-accent-active); }
+
+.btn-secondary { border-color: var(--mythos-border-control); }
+.btn-secondary:hover { background: var(--mythos-surface-card); border-color: var(--mythos-text-secondary); }
+.btn-secondary:active { background: var(--mythos-surface); }
+
+.btn-ghost:hover { background: var(--mythos-surface-card); }
+.btn-ghost:active { background: var(--mythos-surface); }
+
+/* Danger is a secondary button whose border and text carry the hue; the word
+   on it says what it does, so the colour is never the only signal. */
+.btn-danger { border-color: var(--tcc-danger); color: var(--tcc-danger); }
+.btn-danger:hover { background: var(--mythos-danger-dim); }
+.btn-danger:active { background: var(--mythos-danger-dim); border-style: dashed; }
+
+.btn[disabled], .btn[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
+.btn[disabled]:hover { background: transparent; }
+.btn-primary[disabled]:hover { background: var(--mythos-accent); }
+.btn.is-loading { cursor: progress; }
+
+@media (forced-colors: active) {
+  .btn-primary { border: 2px solid ButtonText; }
+  .btn-secondary, .btn-danger { border: 2px dashed ButtonText; }
+}
+
+/* ---------------------------------------------------------------------------
+   fields — label always visible, never a placeholder-only label
+   --------------------------------------------------------------------------- */
+
+.field { display: flex; flex-direction: column; gap: var(--mythos-space-2); min-width: 0; }
+.field > label, .field > .field-label { font-size: 13px; font-weight: var(--mythos-weight-medium); }
+.field .hint { font-size: 12px; color: var(--mythos-text-secondary); }
+.field .msg { font-size: 12px; color: var(--tcc-danger); }
+
+.input, .select, .textarea {
+  width: 100%;
+  min-width: 0;
+  height: var(--mythos-size-control-comfortable);
+  padding: 0 var(--mythos-space-4);
+  border: 1px solid var(--mythos-border-control);
+  border-radius: var(--mythos-radius-control);
+  background: var(--mythos-surface);
+  color: var(--mythos-text-primary);
+  font-size: 16px;                      /* never below 16: no zoom-on-focus on touch */
+  transition: border-color var(--mythos-motion-micro) var(--mythos-ease-move);
+}
+.textarea { height: auto; min-height: 88px; padding: var(--mythos-space-3) var(--mythos-space-4); resize: vertical; line-height: 1.45; }
+.input:hover, .select:hover, .textarea:hover { border-color: var(--mythos-text-secondary); }
+.input:focus-visible, .select:focus-visible, .textarea:focus-visible { outline: 2px solid var(--mythos-focus-ring); outline-offset: 2px; border-color: transparent; }
+.input[disabled], .select[disabled], .textarea[disabled] { color: var(--mythos-text-disabled); cursor: not-allowed; opacity: 0.6; }
+.input.t-num { font-family: var(--mythos-font-mono); }
+.field.is-error .input, .field.is-error .select, .field.is-error .textarea { border-color: var(--tcc-danger); }
+.input-compact, .select-compact { height: var(--mythos-size-control-compact); font-size: 14px; }
+
+/* the chevron takes text-secondary, never gold (GOLD-3) */
+.select {
+  appearance: none;
+  padding-inline-end: var(--mythos-space-7);
+  background-image: linear-gradient(45deg, transparent 50%, var(--mythos-text-secondary) 50%),
+                    linear-gradient(135deg, var(--mythos-text-secondary) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* switch — rectangular, radius-control, never a pill (SHAPE-1) */
+.switch { position: relative; display: inline-flex; align-items: center; gap: var(--mythos-space-4); cursor: pointer; min-height: var(--mythos-size-touch-min); }
+.switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.switch .track {
+  position: relative; flex: none; width: 40px; height: 20px;
+  background: var(--mythos-border-control); border-radius: var(--mythos-radius-control);
+  transition: background var(--mythos-motion-micro) var(--mythos-ease-move);
+}
+.switch .track::after {
+  content: ''; position: absolute; top: 2px; inset-inline-start: 2px; width: 16px; height: 16px;
+  background: var(--mythos-text-primary); border-radius: var(--mythos-radius-control);
+  transition: transform var(--mythos-motion-micro) var(--mythos-ease-move);
+}
+.switch input:checked ~ .track { background: var(--mythos-accent); }
+.switch input:checked ~ .track::after { transform: translateX(20px); background: var(--mythos-text-on-accent); }
+.switch input:focus-visible ~ .track { outline: 2px solid var(--mythos-focus-ring); outline-offset: 2px; }
+.switch input[disabled] ~ .track, .switch input[disabled] ~ .switch-text { opacity: 0.4; }
+.switch input[disabled] { cursor: not-allowed; }
+/* the state is written out, so on/off never rests on the track colour */
+.switch .switch-text { font-size: 14px; }
+
+.check { display: inline-flex; align-items: center; gap: var(--mythos-space-3); min-height: var(--mythos-size-touch-min); cursor: pointer; }
+.check input { width: 18px; height: 18px; margin: 0; accent-color: var(--mythos-accent); cursor: pointer; }
+
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: var(--mythos-space-5); align-items: start; }
+.form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--mythos-space-4); }
+fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+legend { padding: 0; margin-bottom: var(--mythos-space-4); }
+
+/* ---------------------------------------------------------------------------
+   surfaces — one step up, no shadow (SURF-1)
+   --------------------------------------------------------------------------- */
+
+.card {
+  background: var(--mythos-surface);
+  border: 1px solid var(--mythos-border-hairline);
+  border-radius: var(--mythos-radius-card);
+  padding: var(--mythos-space-6);
+  min-width: 0;
+}
+.card-flush { padding: 0; overflow: hidden; }
+.card-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--mythos-space-4); margin-bottom: var(--mythos-space-5); }
+.card-head .card-sub { font-size: 13px; color: var(--mythos-text-secondary); margin-top: var(--mythos-space-2); }
+.card-flush > .card-head { padding: var(--mythos-space-5) var(--mythos-space-6) 0; }
+.card-foot { margin-top: var(--mythos-space-5); padding-top: var(--mythos-space-4); border-top: 1px solid var(--mythos-border-hairline); font-size: 12px; color: var(--mythos-text-secondary); }
+.card-flush > .card-foot { margin: 0; padding: var(--mythos-space-4) var(--mythos-space-6); }
+
+/* KPI — prototype 3 */
+.kpi { background: var(--mythos-surface-card); border-radius: var(--mythos-radius-card); padding: var(--mythos-space-5) var(--mythos-space-6); min-width: 0; }
+.kpi .kpi-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--mythos-text-secondary); margin-bottom: var(--mythos-space-2); }
+.kpi .kpi-value { font-family: var(--mythos-font-mono); font-size: 26px; line-height: 1.15; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.kpi .kpi-value.is-text { font-family: var(--mythos-font-text); font-size: 18px; font-weight: var(--mythos-weight-semibold); }
+.kpi .kpi-sub { font-size: 12px; color: var(--mythos-text-secondary); margin-top: var(--mythos-space-2); }
+.kpi .kpi-value.is-accent { color: var(--mythos-accent); }
+/* NO DATA is typeset as words, at a size that cannot be read as a number */
+.kpi.is-nodata .kpi-value { font-family: var(--mythos-font-text); font-size: 13px; font-weight: var(--mythos-weight-semibold); letter-spacing: 0.1em; color: var(--mythos-text-secondary); }
+.kpi.is-nodata { border: 1px dashed var(--mythos-border-strong); background: transparent; }
+
+/* ---------------------------------------------------------------------------
+   tables
+   --------------------------------------------------------------------------- */
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--mythos-border-hairline); border-radius: var(--mythos-radius-card); background: var(--mythos-surface); }
+.card-flush .table-wrap { border: 0; border-radius: 0; }
+.table { width: 100%; }
+.table th, .table td { text-align: start; padding: var(--mythos-space-4) var(--mythos-space-5); border-bottom: 1px solid var(--mythos-border-hairline); font-size: 13px; vertical-align: top; }
+.table th { color: var(--mythos-text-secondary); font-weight: var(--mythos-weight-medium); text-transform: uppercase; font-size: 11px; letter-spacing: 0.08em; white-space: nowrap; background: var(--mythos-surface); position: sticky; top: 0; }
+.table tbody tr:last-child td { border-bottom: 0; }
+.table td.num, .table th.num { text-align: end; font-family: var(--mythos-font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.table th.num { font-family: var(--mythos-font-text); }
+.table tbody tr.is-clickable { cursor: pointer; }
+.table tbody tr.is-clickable:hover td { background: var(--mythos-surface-card); }
+.table tbody tr.is-clickable:focus-visible { outline: 2px solid var(--mythos-focus-ring); outline-offset: -2px; }
+.table tbody tr.is-selected td { background: var(--mythos-accent-dim); }
+.table-dense th, .table-dense td { padding: var(--mythos-space-3) var(--mythos-space-4); }
+.table .cell-sub { display: block; font-size: 12px; color: var(--mythos-text-secondary); }
+
+.pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--mythos-space-4); padding: var(--mythos-space-4) var(--mythos-space-5); font-size: 13px; color: var(--mythos-text-secondary); border-top: 1px solid var(--mythos-border-hairline); }
+
+.filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--mythos-space-4); }
+.filters .field { flex: 0 1 180px; }
+
+/* key / value */
+.kv { display: grid; grid-template-columns: minmax(120px, max-content) minmax(0, 1fr); gap: var(--mythos-space-2) var(--mythos-space-5); font-size: 13px; }
+.kv dt { color: var(--mythos-text-secondary); }
+.kv dd { overflow-wrap: anywhere; }
+@media (max-width: 599px) { .kv { grid-template-columns: minmax(0, 1fr); } .kv dd { margin-bottom: var(--mythos-space-3); } }
+
+/* ---------------------------------------------------------------------------
+   badges — a dot AND a word; the word is the meaning
+   --------------------------------------------------------------------------- */
+
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 10px; border-radius: var(--mythos-radius-pill);
+  font-size: 12px; line-height: 1.5; white-space: nowrap;
+  background: var(--mythos-surface-card); color: var(--mythos-text-secondary);
+}
+.badge::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge.is-ok { background: var(--mythos-success-dim); color: var(--tcc-ok); }
+.badge.is-warn { background: var(--mythos-warning-dim); color: var(--tcc-warn); }
+.badge.is-danger { background: var(--mythos-danger-dim); color: var(--tcc-danger); }
+.badge.is-info { background: var(--mythos-info-dim); color: var(--tcc-info); }
+/* gold = the owner is being waited on (D-013) */
+.badge.is-attention { background: var(--mythos-accent-dim); color: var(--mythos-accent); }
+.badge.is-neutral { background: var(--mythos-surface-card); color: var(--mythos-text-secondary); }
+/* a second, non-colour channel for the two states that matter most */
+.badge.is-danger::before { border-radius: 0; }
+.badge.is-warn::before { border-radius: 0; transform: rotate(45deg); }
+.badge.is-hollow::before { background: transparent; border: 1px solid currentColor; }
+
+
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 1px 8px; border: 1px solid var(--mythos-border-hairline); border-radius: var(--mythos-radius-control); font-family: var(--mythos-font-mono); font-size: 12px; color: var(--mythos-text-secondary); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.chips { display: flex; flex-wrap: wrap; gap: var(--mythos-space-2); }
+
+/* ---------------------------------------------------------------------------
+   whole-surface states. Empty, unavailable, failed and forbidden are four
+   different messages, and none of them may be rendered as a zero.
+   --------------------------------------------------------------------------- */
+
+.state {
+  border: 1px dashed var(--mythos-border-strong);
+  border-radius: var(--mythos-radius-card);
+  padding: var(--mythos-space-7) var(--mythos-space-6);
+  text-align: center;
+  color: var(--mythos-text-secondary);
+}
+.state .state-tag { display: inline-block; font-size: 12px; font-weight: var(--mythos-weight-semibold); letter-spacing: 0.14em; text-transform: uppercase; color: var(--mythos-text-primary); margin-bottom: var(--mythos-space-3); }
+.state .state-title { font-size: 15px; font-weight: var(--mythos-weight-semibold); color: var(--mythos-text-primary); margin-bottom: var(--mythos-space-2); }
+.state .state-body { font-size: 13px; max-width: 62ch; margin: 0 auto; }
+.state .state-actions { margin-top: var(--mythos-space-5); display: flex; justify-content: center; gap: var(--mythos-space-4); flex-wrap: wrap; }
+.state.is-error { border-color: var(--tcc-danger); border-style: solid; }
+.state.is-error .state-tag { color: var(--tcc-danger); }
+.state.is-compact { padding: var(--mythos-space-5); text-align: start; }
+.state.is-compact .state-body { margin: 0; }
+
+/* inline NO DATA, for a single cell or value */
+.nodata { display: inline-flex; align-items: baseline; gap: var(--mythos-space-3); font-size: 12px; font-weight: var(--mythos-weight-semibold); letter-spacing: 0.1em; color: var(--mythos-text-secondary); }
+.nodata .nodata-reason { font-weight: var(--mythos-weight-regular); letter-spacing: 0; }
+
+/* static skeleton — no shimmer, no loop (MOTION-1) */
+.skeleton { height: 14px; border-radius: var(--mythos-radius-control); background: var(--mythos-surface-card); }
+.skeleton + .skeleton { margin-top: var(--mythos-space-3); }
+.skeleton.w-40 { width: 40%; } .skeleton.w-70 { width: 70%; } .skeleton.w-100 { width: 100%; }
+.skeleton.h-kpi { height: 84px; } .skeleton.h-chart { height: 220px; }
+
+/* determinate progress */
+.progress { height: 6px; background: var(--mythos-surface-card); border-radius: var(--mythos-radius-control); overflow: hidden; }
+.progress > span { display: block; height: 100%; background: var(--mythos-text-secondary); transition: width var(--mythos-motion-base) var(--mythos-ease-move); }
+.progress.is-ok > span { background: var(--tcc-ok); }
+.progress.is-danger > span { background: var(--tcc-danger); }
+.progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--mythos-text-secondary); margin-bottom: var(--mythos-space-2); }
+
+/* banners */
+.banner { display: flex; gap: var(--mythos-space-4); align-items: flex-start; padding: var(--mythos-space-4) var(--mythos-space-5); border: 1px solid var(--mythos-border-hairline); border-inline-start-width: 3px; border-radius: var(--mythos-radius-control); background: var(--mythos-surface); font-size: 13px; }
+.banner .banner-tag { flex: none; font-size: 11px; font-weight: var(--mythos-weight-semibold); letter-spacing: 0.12em; text-transform: uppercase; padding-top: 1px; }
+.banner.is-warn { border-color: var(--tcc-warn); background: var(--mythos-warning-dim); }
+.banner.is-danger { border-color: var(--tcc-danger); background: var(--mythos-danger-dim); }
+.banner.is-info { border-color: var(--tcc-info); background: var(--mythos-info-dim); }
+.banner.is-ok { border-color: var(--tcc-ok); background: var(--mythos-success-dim); }
+
+/* ---------------------------------------------------------------------------
+   tabs
+   --------------------------------------------------------------------------- */
+
+.tabs { display: flex; gap: var(--mythos-space-2); border-bottom: 1px solid var(--mythos-border-hairline); overflow-x: auto; }
+.tab { position: relative; height: var(--mythos-size-touch-min); padding: 0 var(--mythos-space-5); border: 0; background: none; color: var(--mythos-text-secondary); font-size: 14px; font-weight: var(--mythos-weight-medium); white-space: nowrap; cursor: pointer; }
+.tab:hover { color: var(--mythos-text-primary); }
+.tab[aria-selected="true"] { color: var(--mythos-text-primary); }
+.tab[aria-selected="true"]::after { content: ''; position: absolute; inset-inline: 0; bottom: -1px; height: 2px; background: var(--mythos-text-primary); }
+
+/* ---------------------------------------------------------------------------
+   overlay — radius-overlay, the one place a shadow is correct (it floats)
+   --------------------------------------------------------------------------- */
+
+.scrim { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: var(--mythos-space-6); background: var(--tcc-scrim); }
+.modal { width: min(640px, 100%); max-height: calc(100dvh - 48px); display: flex; flex-direction: column; background: var(--mythos-surface); border: 1px solid var(--mythos-border-strong); border-radius: var(--mythos-radius-overlay); box-shadow: var(--mythos-shadow-overlay); }
+.modal.is-wide { width: min(920px, 100%); }
+.modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--mythos-space-5); padding: var(--mythos-space-6) var(--mythos-space-6) var(--mythos-space-4); }
+.modal-body { padding: 0 var(--mythos-space-6) var(--mythos-space-6); overflow-y: auto; }
+.modal-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--mythos-space-4); padding: var(--mythos-space-5) var(--mythos-space-6); border-top: 1px solid var(--mythos-border-hairline); }
+@media (max-width: 599px) {
+  .scrim { padding: 0; align-items: stretch; }
+  .modal, .modal.is-wide { width: 100%; max-height: none; height: 100dvh; border-radius: 0; border: 0; }
+}
+
+/* toast — enters along the 35° vector; this is the view's one gesture (MOTION-3) */
+.toasts { position: fixed; z-index: 90; inset-inline-end: var(--mythos-space-6); bottom: var(--mythos-space-6); display: flex; flex-direction: column; gap: var(--mythos-space-3); width: min(420px, calc(100vw - 32px)); }
+.toast { display: flex; gap: var(--mythos-space-4); align-items: flex-start; padding: var(--mythos-space-4) var(--mythos-space-5); background: var(--mythos-surface-card); border: 1px solid var(--mythos-border-strong); border-inline-start: 3px solid var(--mythos-text-secondary); border-radius: var(--mythos-radius-control); box-shadow: var(--mythos-shadow-floating); font-size: 13px; animation: toast-in var(--mythos-motion-enter) var(--mythos-ease-enter); }
+.toast.is-ok { border-inline-start-color: var(--tcc-ok); }
+.toast.is-danger { border-inline-start-color: var(--tcc-danger); }
+.toast.is-warn { border-inline-start-color: var(--tcc-warn); }
+.toast .toast-tag { flex: none; font-size: 11px; font-weight: var(--mythos-weight-semibold); letter-spacing: 0.12em; text-transform: uppercase; padding-top: 1px; }
+.toast .toast-close { margin-inline-start: auto; }
+@keyframes toast-in { from { opacity: 0; transform: translate(14px, 10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { @keyframes toast-in { from { opacity: 0; } to { opacity: 1; } } }
+
+/* ---------------------------------------------------------------------------
+   charts — inline SVG, series colours from the data-viz tokens
+   --------------------------------------------------------------------------- */
+
+.chart { width: 100%; }
+.chart svg { width: 100%; height: auto; overflow: visible; }
+.chart .axis line, .chart .axis path { stroke: var(--mythos-border-hairline); fill: none; }
+.chart .grid-line { stroke: var(--mythos-border-hairline); stroke-dasharray: 2 4; }
+.chart .zero-line { stroke: var(--mythos-border-control); }
+.chart text { fill: var(--mythos-text-secondary); font-family: var(--mythos-font-mono); font-size: 10px; }
+.chart .line { fill: none; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+.chart .area { opacity: 0.14; stroke: none; }
+.chart .s1 { stroke: var(--mythos-chart-1); } .chart .f1 { fill: var(--mythos-chart-1); }
+.chart .s2 { stroke: var(--mythos-chart-2); } .chart .f2 { fill: var(--mythos-chart-2); }
+.chart .s3 { stroke: var(--mythos-chart-3); } .chart .f3 { fill: var(--mythos-chart-3); }
+.chart .s4 { stroke: var(--mythos-chart-4); } .chart .f4 { fill: var(--mythos-chart-4); }
+.chart .s5 { stroke: var(--mythos-chart-5); } .chart .f5 { fill: var(--mythos-chart-5); }
+.chart .s6 { stroke: var(--mythos-chart-6); } .chart .f6 { fill: var(--mythos-chart-6); }
+.chart .s7 { stroke: var(--mythos-chart-7); } .chart .f7 { fill: var(--mythos-chart-7); }
+.chart .s8 { stroke: var(--mythos-chart-8); } .chart .f8 { fill: var(--mythos-chart-8); }
+.chart .f-pos { fill: var(--mythos-div-2); }
+.chart .f-neg { fill: var(--mythos-div-6); }
+.chart .f-neutral { fill: var(--mythos-div-4); }
+.chart .s-danger { stroke: var(--tcc-danger); } .chart .f-danger { fill: var(--tcc-danger); }
+.chart-legend { display: flex; flex-wrap: wrap; gap: var(--mythos-space-4); margin-top: var(--mythos-space-3); font-size: 12px; color: var(--mythos-text-secondary); }
+.chart-legend .swatch { display: inline-block; width: 10px; height: 10px; margin-inline-end: 6px; border-radius: var(--mythos-radius-control); vertical-align: -1px; }
+.swatch.f1 { background: var(--mythos-chart-1); } .swatch.f2 { background: var(--mythos-chart-2); }
+.swatch.f3 { background: var(--mythos-chart-3); } .swatch.f4 { background: var(--mythos-chart-4); }
+.swatch.f5 { background: var(--mythos-chart-5); } .swatch.f6 { background: var(--mythos-chart-6); }
+.swatch.f7 { background: var(--mythos-chart-7); } .swatch.f8 { background: var(--mythos-chart-8); }
+.swatch.f-pos { background: var(--mythos-div-2); } .swatch.f-neg { background: var(--mythos-div-6); }
+.swatch.f-danger { background: var(--tcc-danger); }
+
+/* horizontal bar list — a chart that is also a table */
+.bars { display: grid; gap: var(--mythos-space-3); }
+.bar-row { display: grid; grid-template-columns: minmax(96px, 30%) minmax(0, 1fr) max-content; gap: var(--mythos-space-4); align-items: center; font-size: 12px; }
+.bar-row .bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-row .bar-track { height: 10px; background: var(--mythos-surface-card); border-radius: var(--mythos-radius-control); overflow: hidden; }
+.bar-row .bar-fill { display: block; height: 100%; background: var(--mythos-chart-2); }
+.bar-row .bar-fill.is-neg { background: var(--mythos-div-6); }
+.bar-row .bar-fill.is-pos { background: var(--mythos-div-2); }
+.bar-row .bar-fill.is-gold { background: var(--mythos-chart-1); }
+.bar-row .bar-value { font-family: var(--mythos-font-mono); color: var(--mythos-text-secondary); }
+
+/* timeline */
+.timeline { display: grid; }
+.tl-item { display: grid; grid-template-columns: 132px 96px minmax(0, 1fr); gap: var(--mythos-space-4); padding: var(--mythos-space-3) 0; border-bottom: 1px solid var(--mythos-border-hairline); font-size: 13px; align-items: baseline; }
+.tl-item:last-child { border-bottom: 0; }
+.tl-time { font-family: var(--mythos-font-mono); font-size: 12px; color: var(--mythos-text-secondary); }
+@media (max-width: 599px) { .tl-item { grid-template-columns: minmax(0, 1fr); gap: var(--mythos-space-2); } }

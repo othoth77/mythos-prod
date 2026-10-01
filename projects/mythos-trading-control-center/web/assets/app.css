@@ -1,0 +1,179 @@
+/* =============================================================================
+   MYTHOS TRADING CONTROL CENTER — application shell
+   projects/mythos-trading-control-center/web/assets/app.css
+
+   The shell of docs/design/prototypes/3-mythos-os.html: a 240px sidebar on
+   `surface` with a hairline edge, navigation rows at control height whose
+   active state is accent text on accent-dim with an inset accent bar, and a
+   main column padded at space-8.
+
+   DESKTOP-FIRST. From 1240px up it is a workstation: sidebar, a status bar
+   that never scrolls away, dense tables. Below 904px the sidebar becomes a
+   full-height overlay (prototype 6) and every grid collapses; the tablet
+   layout is also the desktop-at-200%-zoom layout, so it is complete, not
+   degraded.
+
+   The active navigation item is the view's one gold element (scarcity rule).
+   The only other gold on a page is a primary action or a state that waits on
+   the owner.
+   ============================================================================= */
+
+.shell { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: 100dvh; }
+
+/* ---------------------------------------------------------------------------
+   sidebar
+   --------------------------------------------------------------------------- */
+
+.sidebar {
+  position: sticky; top: 0; height: 100dvh;
+  display: flex; flex-direction: column;
+  background: var(--mythos-surface);
+  border-inline-end: 1px solid var(--mythos-border-hairline);
+  overflow: hidden;
+}
+.brand { display: flex; align-items: center; gap: var(--mythos-space-4); padding: var(--mythos-space-6) var(--mythos-space-5) var(--mythos-space-5); }
+.brand svg { width: 26px; height: 19px; flex: none; color: var(--mythos-text-primary); }
+.brand-name { font-size: 13px; font-weight: var(--mythos-weight-semibold); line-height: 1.25; }
+.brand-name small { display: block; font-size: 11px; font-weight: var(--mythos-weight-regular); color: var(--mythos-text-secondary); letter-spacing: 0.06em; text-transform: uppercase; }
+
+.nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 var(--mythos-space-4) var(--mythos-space-5); }
+.nav-group { margin-top: var(--mythos-space-5); }
+.nav-group:first-child { margin-top: 0; }
+.nav-title { padding: 0 var(--mythos-space-4) var(--mythos-space-2); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mythos-text-secondary); }
+.nav-link {
+  display: flex; align-items: center; gap: var(--mythos-space-3);
+  height: var(--mythos-size-control-comfortable);
+  padding: 0 var(--mythos-space-4);
+  border-radius: var(--mythos-radius-control);
+  color: var(--mythos-text-secondary);
+  text-decoration: none; font-size: 14px;
+  transition: background var(--mythos-motion-micro) var(--mythos-ease-move), color var(--mythos-motion-micro) var(--mythos-ease-move);
+}
+.nav-link:hover { color: var(--mythos-text-primary); background: var(--mythos-surface-card); text-decoration: none; }
+.nav-link[aria-current="page"] { color: var(--mythos-accent); background: var(--mythos-accent-dim); box-shadow: inset 3px 0 0 var(--mythos-accent); }
+.nav-link .nav-mark { margin-inline-start: auto; font-size: 11px; font-family: var(--mythos-font-mono); color: var(--mythos-text-secondary); }
+
+.sidebar-foot { padding: var(--mythos-space-4) var(--mythos-space-5) var(--mythos-space-5); border-top: 1px solid var(--mythos-border-hairline); font-size: 12px; color: var(--mythos-text-secondary); }
+.sidebar-foot .lock { display: flex; gap: var(--mythos-space-3); align-items: flex-start; }
+.sidebar-foot .lock svg { flex: none; width: 14px; height: 14px; margin-top: 2px; }
+.sidebar-foot strong { color: var(--mythos-text-primary); font-weight: var(--mythos-weight-semibold); }
+
+/* ---------------------------------------------------------------------------
+   main column
+   --------------------------------------------------------------------------- */
+
+.main { min-width: 0; display: flex; flex-direction: column; }
+
+/* The status bar. Mode, trading switch and data source are visible on every
+   page: an operator must never have to navigate to learn what state the
+   platform is in. */
+.topbar {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; gap: var(--mythos-space-4);
+  min-height: 56px;
+  padding: var(--mythos-space-3) var(--mythos-space-8);
+  background: var(--mythos-ground);
+  border-bottom: 1px solid var(--mythos-border-hairline);
+}
+.topbar .status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--mythos-space-3); min-width: 0; }
+.topbar .spacer { flex: 1 1 auto; }
+.topbar .who { display: flex; align-items: center; gap: var(--mythos-space-3); font-size: 13px; color: var(--mythos-text-secondary); white-space: nowrap; }
+.topbar .who strong { color: var(--mythos-text-primary); font-weight: var(--mythos-weight-semibold); }
+.nav-toggle { display: none; }
+
+.view { flex: 1 1 auto; padding: var(--mythos-space-7) var(--mythos-space-8) var(--mythos-space-9); min-width: 0; }
+.view > * + * { margin-top: var(--mythos-space-6); }
+
+.page-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: var(--mythos-space-5); }
+.page-head p { color: var(--mythos-text-secondary); font-size: 14px; margin-top: var(--mythos-space-2); max-width: 78ch; }
+.page-head .page-actions { display: flex; flex-wrap: wrap; gap: var(--mythos-space-4); align-items: center; }
+
+.section-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--mythos-space-4); margin-bottom: var(--mythos-space-4); }
+
+/* The data source a page is showing — which run, which label. */
+.source-line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--mythos-space-3); font-size: 12px; color: var(--mythos-text-secondary); }
+
+/* ---------------------------------------------------------------------------
+   page-specific composition
+   --------------------------------------------------------------------------- */
+
+/* decision chain */
+.chain { display: grid; gap: 0; }
+.chain-stage { position: relative; display: grid; grid-template-columns: 152px minmax(0, 1fr); gap: var(--mythos-space-5); padding: var(--mythos-space-4) 0 var(--mythos-space-5) var(--mythos-space-6); border-inline-start: 2px solid var(--mythos-border-strong); }
+.chain-stage::before { content: ''; position: absolute; inset-inline-start: -6px; top: 20px; width: 10px; height: 10px; border-radius: 50%; background: var(--mythos-ground); border: 2px solid var(--mythos-text-secondary); }
+.chain-stage.is-recorded::before { background: var(--mythos-text-primary); border-color: var(--mythos-text-primary); }
+.chain-stage.is-not-reached { border-inline-start-style: dashed; }
+.chain-stage.is-not-reached::before { border-style: dashed; }
+.chain-stage.is-not-recorded::before { border-radius: 0; border-color: var(--tcc-warn); }
+.chain-stage:last-child { border-inline-start-color: transparent; }
+.chain-name { font-size: 12px; font-weight: var(--mythos-weight-semibold); letter-spacing: 0.1em; text-transform: uppercase; padding-top: 2px; }
+.chain-arrow { font-size: 12px; color: var(--mythos-text-secondary); }
+@media (max-width: 903px) { .chain-stage { grid-template-columns: minmax(0, 1fr); gap: var(--mythos-space-3); } }
+
+/* live event stream */
+.stream { max-height: 520px; overflow-y: auto; font-size: 12px; }
+.stream-row { display: grid; grid-template-columns: 70px 88px minmax(0, 1fr); gap: var(--mythos-space-4); padding: 6px var(--mythos-space-5); border-bottom: 1px solid var(--mythos-border-hairline); align-items: baseline; }
+.stream-row:last-child { border-bottom: 0; }
+.stream-type { font-weight: var(--mythos-weight-semibold); letter-spacing: 0.08em; text-transform: uppercase; font-size: 11px; }
+.stream-row.is-result .stream-type, .stream-row.is-tp .stream-type { color: var(--tcc-ok); }
+.stream-row.is-sl .stream-type, .stream-row.is-error .stream-type { color: var(--tcc-danger); }
+.stream-row.is-risk .stream-type, .stream-row.is-recovery .stream-type { color: var(--tcc-warn); }
+.stream-row.is-jev .stream-type, .stream-row.is-regime .stream-type { color: var(--tcc-info); }
+
+/* control bar for run / session controls */
+.controls { display: flex; flex-wrap: wrap; gap: var(--mythos-space-4); align-items: center; }
+
+/* test results */
+.test-row { display: grid; grid-template-columns: 76px minmax(0, 1fr) 72px; gap: var(--mythos-space-4); padding: 6px 0; border-bottom: 1px solid var(--mythos-border-hairline); font-size: 13px; align-items: baseline; }
+.test-row:last-child { border-bottom: 0; }
+.test-fail { margin: var(--mythos-space-2) 0 var(--mythos-space-3); padding: var(--mythos-space-3) var(--mythos-space-4); background: var(--mythos-danger-dim); border-inline-start: 2px solid var(--tcc-danger); font-family: var(--mythos-font-mono); font-size: 12px; white-space: pre-wrap; overflow-x: auto; }
+
+.pre { font-family: var(--mythos-font-mono); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--mythos-ground-deep); border: 1px solid var(--mythos-border-hairline); border-radius: var(--mythos-radius-control); padding: var(--mythos-space-4); max-height: 320px; overflow: auto; }
+
+.split { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: var(--mythos-space-5); align-items: start; }
+@media (max-width: 1239px) { .split { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------------------------------------------------------------------------
+   responsive
+   --------------------------------------------------------------------------- */
+
+@media (max-width: 1239px) {
+  .topbar { padding-inline: var(--mythos-space-7); }
+  .view { padding-inline: var(--mythos-space-7); }
+}
+
+@media (max-width: 903px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .sidebar {
+    position: fixed; z-index: 70; inset-block: 0; inset-inline-start: 0; width: min(300px, 86vw);
+    transform: translateX(-100%);
+    transition: transform var(--mythos-motion-enter) var(--mythos-ease-enter);
+    box-shadow: var(--mythos-shadow-overlay);
+  }
+  .shell.nav-open .sidebar { transform: none; }
+  .nav-scrim { display: none; position: fixed; inset: 0; z-index: 60; background: var(--tcc-scrim); border: 0; padding: 0; }
+  .shell.nav-open .nav-scrim { display: block; }
+  .nav-toggle { display: inline-flex; }
+  /* navigation rows grow to the touch minimum when they are the primary target */
+  .nav-link { height: var(--mythos-size-touch-min); }
+  .topbar { padding-inline: var(--mythos-space-5); }
+  .view { padding: var(--mythos-space-6) var(--mythos-space-5) var(--mythos-space-8); }
+}
+@media (min-width: 904px) { .nav-scrim { display: none; } }
+
+@media (max-width: 599px) {
+  .topbar .who .who-name { display: none; }
+  .view { padding-inline: var(--mythos-space-5); }
+  .t-h1 { font-size: 22px; }
+  .stream-row { grid-template-columns: 56px minmax(0, 1fr); }
+  .stream-row .stream-type { grid-column: 2; }
+  .stream-row .stream-text { grid-column: 1 / -1; }
+}
+
+@media (prefers-reduced-motion: reduce) { .sidebar { transition: none; } }
+
+@media print {
+  .sidebar, .topbar, .toasts, .page-actions { display: none !important; }
+  .shell { display: block; }
+  .view { padding: 0; }
+}

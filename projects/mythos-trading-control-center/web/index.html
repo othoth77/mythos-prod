@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="dark light">
+<title>Mythos Trading Control Center</title>
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<script src="/assets/js/theme.js"></script>
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/fonts.css">
+<link rel="stylesheet" href="/assets/base.css">
+<link rel="stylesheet" href="/assets/components.css">
+<link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<a class="visually-hidden" href="#view">Skip to content</a>
+<div class="shell" id="shell">
+  <aside class="sidebar" id="sidebar" aria-label="Primary">
+    <div class="brand">
+      <svg viewBox="0 0 1380 1000" aria-hidden="true" focusable="false"><path fill="currentColor" d="M0 1000 L700 0 L960 0 L960 230 L1120 0 L1380 0 L1380 1000 L1120 1000 L1120 414 L710 1000 L710 429 L310 1000 Z"/></svg>
+      <div class="brand-name">Mythos Trading<small>Control Center</small></div>
+    </div>
+    <nav class="nav" id="nav" aria-label="Sections"></nav>
+    <div class="sidebar-foot">
+      <div class="lock">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M4 7V5a4 4 0 0 1 8 0v2h1v8H3V7h1zm2 0h4V5a2 2 0 0 0-4 0v2z"/></svg>
+        <div><strong>LIVE execution: not available.</strong> This build has no venue connection. Modes are BACKTEST and PAPER only.</div>
+      </div>
+    </div>
+  </aside>
+  <button class="nav-scrim" id="nav-scrim" type="button" aria-label="Close navigation" tabindex="-1"></button>
+  <div class="main">
+    <header class="topbar">
+      <button class="btn btn-secondary btn-compact nav-toggle" id="nav-toggle" type="button" aria-controls="sidebar" aria-expanded="false">Menu</button>
+      <div class="status" id="status" aria-live="polite" aria-label="Platform status"></div>
+      <div class="spacer"></div>
+      <div class="who" id="who"></div>
+      <button class="btn btn-ghost btn-compact" id="theme-toggle" type="button">Theme</button>
+      <button class="btn btn-secondary btn-compact" id="sign-out" type="button">Sign out</button>
+    </header>
+    <main class="view" id="view" tabindex="-1">
+      <div aria-busy="true" aria-label="Loading">
+        <div class="skeleton w-40"></div><div class="skeleton w-100"></div><div class="skeleton w-70"></div>
+      </div>
+    </main>
+  </div>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<noscript><p>This console needs JavaScript.</p></noscript>
+<script src="/assets/js/core.js" defer></script>
+<script src="/assets/js/ui.js" defer></script>
+<script src="/assets/js/charts.js" defer></script>
+<script src="/assets/js/pages/pending.js" defer></script>
+<script src="/assets/js/app.js" defer></script>
+</body>
+</html>
