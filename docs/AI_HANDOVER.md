@@ -2,6 +2,113 @@
 
 > **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
 
+## 2026-10-01 — MYTHOS OS v4: DOTS → FABLE 5.1 → JEV → Haddad, OpenAI as watchdog (Fable 5.1)
+
+**Status: implemented, pushed on `mythos/os-v4`, verified live on Haddad — NOT 100 %, NOT merged, NOT deployed.**
+Three acceptance rows are open and each is an owner step (below). Architecture of record:
+`docs/MYTHOS_OS_V4.md`; operation: `projects/mythos-os-v4/README.md`.
+
+**Objective (owner order, 2026-10-01):** make the v4 chain of authority real code, wired to what
+already runs — not a document.
+
+```
+DOTS       General Manager     goals · priorities · policy · escalations     deterministic code
+FABLE 5.1  Executive Manager   one goal → a bounded plan                     claude-fable-5-1, tools off
+OPENAI     watchdog/failover   monitors FABLE, takes over, hands back        never general manager
+JEV        Model Selection     free LLM APIs → local Qwen → paid             decides, never executes
+HADDAD     Execution Layer     answers on the host; repo work via executor / Supervisor
+```
+
+**Audit result (what existed before this stage).** Real code: the free-LLM pool
+(`mythos-ai-executor/free-llm/`), the Qwen runtime client (`mythos-haddad/lib/haddad-runtime.js`),
+the OpenAI provider and its config (`mythos-orchestrator/providers/openai.js`), the executor daemon
+and the Supervisor, `lib/quota.js`, `lib/redact.js`, `lib/schema.js`. Documentation only: DOTS (no
+occurrence in code), JEV (`MASTER_STATUS_AND_ROADMAP.md` §2–§3, "future decision layer"),
+`docs/MODEL_ROUTING_ARCHITECTURE.md` ("no provider adapter is implemented"). Nothing connected a
+goal to a model tier, and nothing replaced FABLE when it failed.
+
+| Added (all under `projects/mythos-os-v4/`) | What it is |
+|---|---|
+| `lib/dots.js`, `config/dots-policy.json`, `lib/policy.js` | DOTS: goals, priority scheduling, directive authorisation, escalations and their resolution; a policy that fails closed |
+| `lib/executive.js`, `lib/engines.js`, `lib/claude-cli.js`, `schemas/directive.schema.json` | the executive: FABLE 5.1 through the Claude CLI (tools off, identity measured), OpenAI through the existing provider; one strict directive schema |
+| `lib/watchdog.js`, `schemas/review.schema.json` | failover state machine (window, threshold, sticky takeover, probe, recovery, capped backoff), plan review by the engine that did not write the plan, stalled-goal detection |
+| `lib/jev.js`, `config/jev-models.json` | JEV: tier order, pools, capability / size / authority filters, per-model circuit breaker, quota as a wait, DOTS's paid budget |
+| `lib/gateway.js`, `lib/adapters.js`, `schemas/answer.schema.json` | attempt timeout, bounded retry, deadline, attempt cap, fail-closed output, tier fallback — over the four existing clients, unmodified |
+| `lib/haddad.js` | answer steps; read-only work via `mythos-ai-executor enqueue`; test/document/implement via `mythos-supervise.js` |
+| `lib/ledger.js`, `lib/store.js` | hash-chained, redacted decision ledger; private atomic store |
+| `lib/health.js`, `bin/mythos-os`, `lib/index.js` | health report, CLI, production wiring |
+| `systemd/*`, `bin/mythos-os-install.sh` | watchdog and health timers (not installed — see Owner steps) |
+| `tests/mythos-os-v4-{core,jev-gateway,executive,dots,runtime}-test.js`, `tests/support/mythos-os-v4-harness.js` | five offline suites |
+| `docs/MYTHOS_OS_V4.md` | architecture of record + acceptance evidence |
+
+No existing file was modified except this handover.
+
+**Commits on `mythos/os-v4`** (base `origin/main@31633088`): `b260b278` control plane · `e182024c`
+first live run fixes · `1298bf59` supervised run and drill fixes · the commit that carries this entry
+(branch head; `git rev-parse origin/mythos/os-v4`). Local HEAD = remote HEAD on the branch.
+
+**Tests.** 393 assertions in five suites, 0 failed. 57 mutations, 56 caught (the survivor is one of
+three redundant goal-deadline checks). Two contract checks run the REAL `executor.createTask` and the
+REAL `mythos-supervise.js submit` on the payloads v4 builds. Eight existing suites covering the reused
+components were re-run on the branch, all green (`mythos-haddad-fable-worker` 15/0 — the scope guard —
+`mythos-haddad-runtime` 48/0, `free-llm-selector` 10/0, `free-llm-registry` 36/0,
+`free-llm-pool-provider` 17/0, `mythos-orchestrator-openai` 176/0, `model-selection-policy` 81/0,
+`mythos-haddad-advisory-profile` 14/0). Full 243-suite sweep NOT re-run: no existing file changed.
+
+**Live on Haddad** (store `~/.local/state/mythos-os-v4`, ledger chain verified; full table in
+`docs/MYTHOS_OS_V4.md` §9.2):
+
+| Proven live | Evidence |
+|---|---|
+| DOTS → FABLE 5.1 → JEV → Haddad, answer | `goal-20261001232504-6edo1z` COMPLETED; FABLE measured `claude-fable-5-1`; Qwen served |
+| the same chain into the executor daemon | `goal-20261001232803-g4dn8v` COMPLETED, answer `30min` matches the file; task `t-20261001233129-rd0fj7`; live checkout untouched |
+| the same chain into the Supervisor / bridge | Issue #545: submitted by v4, run by Qwen on Haddad, "VERIFIED, task complete", closed. The retried goal then COMPLETED through Issue #547 with the answer "2 of 3 passed, 1 failed (`totalCents`)" — identical to an independent run of that test |
+| FABLE down → goal still completes (degraded), then FABLE recovers | ledger seq 71 `OPENAI_TAKEOVER`, seq 80 `FABLE_RECOVERED` |
+| Qwen unreachable → paid Claude (`claude-sonnet-5`, measured) → Qwen again | `mythos-os ask` |
+| real timeouts → bounded failure → cooldown → half-open → recovery | seq 94–95, 100, 122 |
+| runner killed → stalled goal found, escalated, retried | seq 128–130 |
+| executor refusal handled | `goal-20261001232544-cuy2uq`: `TASK_TOO_LARGE` ×3 → escalated with the executor's reason |
+
+**Nine defects appeared only when the chain ran live**, none in the offline suites; each is fixed
+with a regression test: a work step outliving its deadline (the executor's timeout is per attempt and
+it retries) · a blocker code passed without its reason · the executive not knowing the local worker's
+unit of work · CLI output cut at 64 KiB · the Supervisor's default store path being the VPS's · a
+supervised step returning "the task ended" instead of the report · a cancel overwritten by the
+runner's in-memory copy · health failing after a cooldown had already ended · a supervised task left
+unticked when its runner died (Issue #546; `watchdog tick` now runs one Supervisor tick).
+
+**Acceptance — what is NOT green, and why it is not a code gap:**
+
+| Open row | Blocker | Owner step |
+|---|---|---|
+| Free LLM routing, live | no free-provider key file exists on Haddad (`~/.config/mythos-ai-executor/free-llm/` is absent). An agent cannot create a credential. Offline it runs through the real selector over loopback HTTP | create e.g. `groq.env` there (0600, `MYTHOS_FREE_LLM_GROQ_API_KEY=…`, `docs/MYTHOS_FREE_LLM_RESOURCES.md` §12), then `mythos-os health --live`: `free_llm_tier` turns PASS and the answer route starts with `free-llm-pool` |
+| OpenAI watchdog and paid OpenAI, live | no `~/.config/mythos-orchestrator/openai.env` on Haddad. The watchdog's state machine ran live; the OpenAI engine could only run offline (real provider code, socket replaced) | place the key file (0600, `OPENAI_API_KEY=…`), then `mythos-os health --live` (`live_openai`) and one drill: `MYTHOS_CLAUDE_BIN=/nonexistent mythos-os goal run <id>` must end `completed_by: openai` |
+| Merge and deployment | merging to `main` is the owner's decision; the timer installer refuses a branch checkout on purpose | merge the PR · `git -C ~/projects/mythos-prod pull --ff-only` · `bash projects/mythos-os-v4/bin/mythos-os-install.sh` |
+
+**Known limits (stated, not hidden):**
+- v4 has run on Haddad only. On the VPS the work provider would be `claude-code`; no such entry is
+  registered in `config/jev-models.json`, and `haddad.executor_env_file` names Haddad's worker env.
+- The write path (`document` / `implement`) is wired, contract-tested against the real Supervisor
+  CLI and gated (owner approval per goal + review by the other engine), but no write goal was run
+  live — the live supervised run used `test`.
+- The Haddad live checkout is behind `origin/main` (it was at `6425ac4c`, before #543). The
+  executor daemon therefore still reports `model_used: null` for a completed haddad-agent task, so
+  v4 records `served_by: null` for work steps. Not changed here ("never switch branches in the live
+  checkout"); it needs the owner's fast-forward and worker restart.
+- With no OpenAI key, the watchdog's "takeover" on Haddad has no OpenAI to hand to: the last
+  resort answers read-only goals and a write-approved goal is held `WAITING`.
+- A `WORK_TIMEOUT` leaves the executor task to its own timeout; v4 does not cancel it.
+- Live drills left three records in the production store on purpose (evidence): goals submitted
+  `--by live-e2e*`, Issues #545–#547 (closed by the Supervisor), paid calls counted in
+  `jev/spend.json` for 2026-10-01.
+
+**Worktree:** `~/projects/worktrees/os-v4`, branch `mythos/os-v4`, clean, tracking
+`origin/mythos/os-v4`. **Deployment:** none. **Migration:** none.
+
+**Next stage:** the three owner steps above, then re-run `mythos-os health --live` and the two
+drills they name; after that, the VPS registration (a `claude-code` work provider in JEV, a
+VPS-side `executor_env_file`) is the first new work.
+
 ## 2026-09-30 — MEASURED OUTCOME: a worker's "completed" is not success (live E2E #542) (Opus 5.5)
 
 **What happened, live:** Supervisor `SUP-HFU93MTP` → Issue #542 → Haddad bridge → executor

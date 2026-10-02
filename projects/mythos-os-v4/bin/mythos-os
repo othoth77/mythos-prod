@@ -1,0 +1,150 @@
+#!/usr/bin/env node
+'use strict';
+// =====================================================
+// MYTHOS OS v4 — CLI
+// projects/mythos-os-v4/bin/mythos-os
+//
+//   mythos-os goal submit --title T --objective O [--priority P] [--allow-write] [--by WHO]
+//                         [--force-model M | --prefer-model M]      (a registered model; JEV still filters)
+//   mythos-os goal run <goal-id>            run one goal to a terminal / waiting state
+//   mythos-os goal run-next                 run the highest-priority runnable goal
+//   mythos-os goal status <goal-id> | list | cancel <goal-id>
+//   mythos-os escalation list [--all]
+//   mythos-os escalation resolve <escalation-id> <approve_write|retry|cancel> [--by WHO]
+//   mythos-os jev status | reset
+//   mythos-os jev route --capability C [--pool P] [--kind answer|work] [--chars N] [--force-model M] [--prefer-model M]
+//   mythos-os ask --prompt TEXT [--capability C] [--pool P] [--timeout S] [--force-model M] [--prefer-model M]
+//                                           one answer through JEV + gateway
+//   mythos-os watchdog status | tick | reset
+//   mythos-os ledger verify | show [--goal ID] [--type T] [--last N]
+//   mythos-os trace <goal-id>               every decision and result of one goal, in order
+//   mythos-os health [--live] [--json]
+//
+// stdout is JSON (health prints a table unless --json). Exit codes:
+//   0 ok · 1 usage / not found · 2 refused by DOTS · 3 goal not COMPLETED · 4 health FAIL · 5 internal
+// =====================================================
+
+var path = require('path');
+
+var LIB = path.join(__dirname, '..', 'lib');
+
+function flag(args, name) { var i = args.indexOf(name); return i !== -1 ? args[i + 1] : undefined; }
+function has(args, name) { return args.indexOf(name) !== -1; }
+function print(o) { process.stdout.write(JSON.stringify(o, null, 2) + '\n'); }
+function fail(msg, code) { process.stderr.write(String(msg) + '\n'); return code; }
+
+function goalSummary(g) {
+  return {
+    goal_id: g.goal_id, trace_id: g.trace_id, title: g.title, priority: g.priority, status: g.status, runs: g.runs, cycles: g.cycles, model: g.model || null,
+    steps_executed: g.steps_executed, write_approved: g.write_approved, last_engine: g.last_engine, escalation_id: g.escalation_id,
+    history: (g.history || []).map(function (h) { return { cycle: h.cycle, step_id: h.step_id, kind: h.kind, action: h.action, ok: h.ok, reason: h.reason, model: h.model, tier: h.tier, transport: h.transport, fallback_used: h.fallback_used }; }),
+    refusals: g.refusals, result: g.result, updated_at: g.updated_at
+  };
+}
+
+async function main() {
+  var args = process.argv.slice(2);
+  var area = args[0];
+  var cmd = args[1];
+  var system;
+  try { system = require(path.join(LIB, 'index.js')).build(); } catch (e) { return fail(e && e.message, 5); }
+  var dots = system.dots;
+
+  if (area === 'goal') {
+    if (cmd === 'submit') {
+      try {
+        var g = dots.submitGoal({ title: flag(args, '--title'), objective: flag(args, '--objective'), priority: flag(args, '--priority'), requested_by: flag(args, '--by'), allow_write: has(args, '--allow-write') ? true : undefined, force_model: flag(args, '--force-model'), prefer_model: flag(args, '--prefer-model') });
+        print(goalSummary(g));
+        return 0;
+      } catch (e1) { return fail(e1.message, 2); }
+    }
+    if (cmd === 'run' || cmd === 'run-next') {
+      var done;
+      try { done = cmd === 'run' ? await dots.runGoal(args[2]) : await dots.runNext(); } catch (e2) { return fail(e2.message, /^NO_SUCH/.test(e2.message) ? 1 : 2); }
+      if (!done) { print({ ran: false, reason: 'no runnable goal' }); return 0; }
+      print(goalSummary(done));
+      return done.status === 'COMPLETED' ? 0 : 3;
+    }
+    if (cmd === 'status') { var one = dots.getGoal(args[2]); if (!one) return fail('no such goal', 1); print(goalSummary(one)); return 0; }
+    if (cmd === 'list') { print(dots.listGoals().map(function (x) { return { goal_id: x.goal_id, status: x.status, priority: x.priority, title: x.title, runs: x.runs, updated_at: x.updated_at }; })); return 0; }
+    if (cmd === 'cancel') { try { print(goalSummary(dots.cancelGoal(args[2], flag(args, '--by')))); return 0; } catch (e3) { return fail(e3.message, 2); } }
+  }
+
+  if (area === 'escalation') {
+    if (cmd === 'list') { print(dots.listEscalations(has(args, '--all') ? null : { status: 'OPEN' })); return 0; }
+    if (cmd === 'resolve') {
+      try { var r = dots.resolveEscalation(args[2], args[3], flag(args, '--by')); print({ escalation: r.escalation, goal: goalSummary(r.goal) }); return 0; } catch (e4) { return fail(e4.message, 2); }
+    }
+  }
+
+  if (area === 'jev') {
+    if (!system.jev) return fail('JEV did not load: ' + system.jevError, 5);
+    await system.jev.refresh();
+    if (cmd === 'status') { print(system.jev.status()); return 0; }
+    // The owner's override after repairing a provider: forget cooldowns and
+    // quota waits now instead of waiting them out. Recorded, like any decision.
+    if (cmd === 'reset') { system.jev.resetHealth(); system.ledger.append({ actor: 'owner', type: 'JEV_HEALTH_RESET', detail: {} }); await system.jev.refresh(); print(system.jev.status()); return 0; }
+    if (cmd === 'route') {
+      var d = system.jev.route({ pool: flag(args, '--pool') || 'execution', capability: flag(args, '--capability'), kind: flag(args, '--kind') || 'answer', prompt_chars: parseInt(flag(args, '--chars') || '500', 10), forced_model: flag(args, '--force-model') || null, preferred_model: flag(args, '--prefer-model') || null });
+      print(d);
+      return d.ok ? 0 : 2;
+    }
+  }
+
+  if (area === 'ask') {
+    var prompt = flag(args, '--prompt');
+    if (!prompt) return fail('ask needs --prompt', 1);
+    var a = await system.gateway.complete({ pool: flag(args, '--pool') || 'execution', capability: flag(args, '--capability') || 'analysis', prompt: prompt, timeout_seconds: parseInt(flag(args, '--timeout') || '300', 10), step_id: 'ask', forced_model: flag(args, '--force-model') || null, preferred_model: flag(args, '--prefer-model') || null });
+    print(a);
+    return a.ok ? 0 : 3;
+  }
+
+  if (area === 'watchdog') {
+    if (cmd === 'status') { print(system.watchdog.status()); return 0; }
+    if (cmd === 'tick') {
+      var stalled = dots.tick();
+      var settled = await system.haddad.settleSupervised();
+      print({ escalated_stalled_goals: stalled, supervised: settled, watchdog: system.watchdog.status() });
+      return 0;
+    }
+    if (cmd === 'reset') { system.watchdog.reset(); system.ledger.append({ actor: 'owner', type: 'WATCHDOG_RESET', detail: {} }); print(system.watchdog.status()); return 0; }
+  }
+
+  if (area === 'ledger') {
+    if (cmd === 'verify') { var v = system.ledger.verify(); print(v); return v.ok ? 0 : 4; }
+    if (cmd === 'show') {
+      var rows = system.ledger.query({ goal_id: flag(args, '--goal'), type: flag(args, '--type') });
+      var last = parseInt(flag(args, '--last') || '50', 10);
+      print(rows.slice(-last));
+      return 0;
+    }
+  }
+
+  if (area === 'trace') {
+    var tg = dots.getGoal(cmd);
+    if (!tg) return fail('no such goal', 1);
+    print(system.ledger.query({ goal_id: tg.goal_id }).map(function (x) { return { seq: x.seq, at: x.at, actor: x.actor, type: x.type, detail: x.detail }; }));
+    return 0;
+  }
+
+  if (area === 'health') {
+    var report = await require(path.join(LIB, 'health.js')).run(system, { live: has(args, '--live') });
+    if (has(args, '--json')) print(report);
+    else {
+      report.checks.forEach(function (c) { process.stdout.write((c.status + '    ').slice(0, 5) + ' ' + (c.id + '                       ').slice(0, 22) + ' ' + c.detail + '\n'); });
+      process.stdout.write('\nRESULT: ' + report.result + ' (' + report.counts.pass + ' pass, ' + report.counts.warn + ' warn, ' + report.counts.fail + ' fail) on ' + report.host + (report.live ? ', live probes included' : '') + '\n');
+    }
+    return report.result === 'FAIL' ? 4 : 0;
+  }
+
+  process.stdout.write('usage: mythos-os goal|escalation|jev|ask|watchdog|ledger|trace|health … (see the header of this file)\n');
+  return area ? 1 : 0;
+}
+
+// Exit only after stdout has drained: process.exit() right after a write
+// truncates anything over the pipe buffer (64 KiB) — found live, on a long
+// `ledger show`. An explicit exit is still needed: a model call that lost a
+// timeout race may hold a socket open.
+function leave(code) { process.stdout.write('', function () { process.exit(code); }); }
+
+main().then(function (code) { leave(code || 0); }, function (e) { process.stderr.write(String(e && e.stack || e) + '\n'); leave(5); });

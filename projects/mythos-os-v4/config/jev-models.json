@@ -1,0 +1,65 @@
+{
+  "_comment": "JEV model registry — the ONLY models JEV may select (MASTER_STATUS_AND_ROADMAP.md §15: hard restriction to configured pools). NO SECRETS and no model id that is owned elsewhere: a paid Claude entry names a KEY of projects/mythos-ai-executor/config/model-policy.json, a paid OpenAI entry names a ROLE of projects/mythos-orchestrator/config/openai.json, the free pool resolves its models from free-llm/catalog.json, and the local model is whatever the Haddad runtime serves. Tier decides order (DOTS policy models.tier_order: free → local → paid); inside a tier `order` does (paid: Claude, then OpenAI); a paid model is offered only while DOTS permits and budgets it. A model with a work_provider serves repository work only on the hosts in work_hosts. Adding a model = one entry here plus its pools — never a change to FABLE, DOTS or JEV.",
+  "version": "4.0.0",
+  "pools": ["research", "assessment", "execution"],
+  "models": {
+    "free-llm-pool": {
+      "tier": "free",
+      "adapter": "free-llm-pool",
+      "pools": ["research", "assessment", "execution"],
+      "capabilities": ["analysis", "research", "review", "planning", "summarization"],
+      "execution_authority": false,
+      "max_prompt_chars": 24000,
+      "enabled": true,
+      "note": "Meta-model over projects/mythos-ai-executor/free-llm (26 catalogued free-tier services, 9 wired). Its own A→B→C loop tries every keyed free provider before this entry reports failure, so one free provider's outage never reaches JEV."
+    },
+    "qwen-local": {
+      "tier": "local",
+      "adapter": "haddad-qwen",
+      "pools": ["research", "assessment", "execution"],
+      "capabilities": ["analysis", "research", "review", "planning", "summarization", "coding", "repo_work"],
+      "execution_authority": true,
+      "work_provider": "haddad-agent",
+      "work_hosts": ["haddad"],
+      "max_prompt_chars": 6000,
+      "enabled": true,
+      "note": "Qwen 2.5 7B on the Haddad GPU (llama-server, 8192-token context). The only model with execution authority on Haddad: repository work runs through the executor daemon's haddad-agent provider (sandboxed tools, measured outcome)."
+    },
+    "claude-sonnet": {
+      "tier": "paid",
+      "adapter": "claude-cli",
+      "claude_policy_key": "sonnet",
+      "order": 1,
+      "pools": ["research", "assessment", "execution"],
+      "capabilities": ["analysis", "research", "review", "planning", "summarization", "coding"],
+      "execution_authority": false,
+      "max_prompt_chars": 60000,
+      "enabled": true,
+      "note": "Paid fallback, first choice: the Claude CLI with tools disabled (answers only). Model id comes from the executor's model-policy catalog."
+    },
+    "claude-code-executor": {
+      "tier": "paid",
+      "adapter": "claude-code-executor",
+      "pools": ["execution"],
+      "capabilities": ["repo_work"],
+      "execution_authority": true,
+      "work_provider": "claude-code",
+      "work_hosts": ["vps"],
+      "max_prompt_chars": 60000,
+      "enabled": true,
+      "note": "Repository work on the VPS: the executor daemon's claude-code provider (profile-bounded, measured outcome). It only serves work steps on the host named in work_hosts — never an answer, and never on Haddad. The Claude model that runs is chosen by the executor's own model policy, not here."
+    },
+    "openai-advisor": {
+      "tier": "paid",
+      "adapter": "openai-responses",
+      "openai_role": "plan",
+      "order": 2,
+      "pools": ["research", "assessment", "execution"],
+      "capabilities": ["analysis", "research", "review", "planning", "summarization"],
+      "execution_authority": false,
+      "max_prompt_chars": 36000,
+      "enabled": true,
+      "note": "Paid fallback, second choice: the OpenAI Responses API through mythos-orchestrator/providers/openai.js. Unavailable on a host with no key file — never invented."
+    }
+  }
+}

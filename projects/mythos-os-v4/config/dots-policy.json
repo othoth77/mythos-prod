@@ -1,0 +1,117 @@
+{
+  "_comment": "DOTS policy — the General Manager's rule book for MYTHOS OS v4. NO SECRETS. DOTS is deterministic code (lib/dots.js): it owns goals, priorities, policy and escalations, and every plan an executive produces (FABLE 5.1, or OpenAI during a takeover) is authorised against THIS file before a single step reaches JEV or Haddad. An executive can never change this file, a goal, or its own authority. A policy that does not validate stops the control plane (POLICY_INVALID) — it is never replaced by defaults.",
+  "version": "4.0.0",
+  "authority": {
+    "general_manager": "dots",
+    "executive_primary": "fable",
+    "executive_failover": "openai",
+    "executive_last_resort": "direct"
+  },
+  "goal": {
+    "priorities": ["critical", "high", "normal", "low"],
+    "max_title_chars": 200,
+    "max_objective_chars": 4000,
+    "max_open_goals": 50,
+    "max_runs_per_goal": 3
+  },
+  "plan": {
+    "max_steps": 4,
+    "max_instruction_chars": 4000,
+    "max_acceptance_items": 8,
+    "min_step_timeout_seconds": 30,
+    "max_step_timeout_seconds": 1800,
+    "min_work_timeout_seconds": 300,
+    "answer_actions": ["analyze", "research", "review", "plan", "summarize"],
+    "work_actions": ["investigate", "review", "test", "document", "implement"],
+    "write_actions": ["document", "implement"],
+    "forbidden_terms": [
+      "merge to main", "merge into main", "push to main", "force-push", "force push", "git push --force",
+      "deploy to production", "production deploy", "rotate secret", "rotate the secret", "rotate credentials",
+      "drop table", "drop database", "delete backup", "delete the backup", "rm -rf /",
+      "disable the firewall", "change dns", "docker group", "sudoers", "authorized_keys"
+    ]
+  },
+  "loop": {
+    "max_cycles": 4,
+    "max_total_steps": 8,
+    "max_refusals": 2,
+    "goal_deadline_seconds": 3600,
+    "history_output_chars": 2500
+  },
+  "executive": {
+    "timeout_seconds": 240,
+    "attempts_per_engine": 1,
+    "fable_model": "claude-fable-5-1",
+    "openai_role": "supervise_plan",
+    "direct_actions": ["analyze", "research", "review", "summarize", "plan"],
+    "on_no_executive": "hold"
+  },
+  "failover": {
+    "failure_threshold": 2,
+    "window_seconds": 900,
+    "cooldown_seconds": 300,
+    "cooldown_max_seconds": 3600,
+    "cooldown_factor": 2
+  },
+  "watchdog": {
+    "review_write_plans": true,
+    "on_review_unavailable": "escalate",
+    "openai_review_role": "supervise_review",
+    "stall_grace_seconds": 300
+  },
+  "models": {
+    "tier_order": ["free", "local", "paid"],
+    "paid": {
+      "allowed": true,
+      "max_calls_per_goal": 4,
+      "max_calls_per_day": 40
+    },
+    "preferred": {},
+    "static_fallback_model": "qwen-local"
+  },
+  "gateway": {
+    "attempt_timeout_seconds": 120,
+    "max_retries_per_model": 1,
+    "retry_base_ms": 1500,
+    "retry_max_ms": 15000,
+    "max_attempts_total": 8,
+    "max_output_chars": 60000
+  },
+  "jev": {
+    "failure_threshold": 2,
+    "cooldown_seconds": 120,
+    "cooldown_max_seconds": 1800,
+    "cooldown_factor": 2,
+    "quota_default_cooldown_seconds": 900,
+    "blocked_cooldown_seconds": 3600,
+    "availability_ttl_seconds": 60
+  },
+  "haddad": {
+    "direct_actions": ["investigate", "review"],
+    "supervised_watch_interval_seconds": 30,
+    "poll_interval_seconds": 5,
+    "enqueue_timeout_seconds": 30,
+    "work_max_retries": 1,
+    "retry_backoff_seconds": 120,
+    "hosts": {
+      "haddad": {
+        "hostnames": ["haddad"],
+        "project": "mythos-haddad",
+        "executor_unit": "mythos-haddad-worker.service",
+        "executor_env_file": "~/.config/mythos-haddad/worker.env",
+        "executor_home": null,
+        "supervisor_config": "projects/mythos-orchestrator/config/supervisor-haddad.json",
+        "work_guidance": "Work steps run on the local Qwen 7B worker (8192-token context). Give each step ONE narrow job on small files: it refuses a task that names a file larger than about 3 KB (TASK_TOO_LARGE) and writes at most about 1.6 KB per file. A step usually needs 1 to 5 minutes."
+      },
+      "vps": {
+        "hostnames": [],
+        "project": "mythos-prod",
+        "executor_unit": "mythos-ai-executor.service",
+        "executor_env_file": "~/.config/mythos-ai-executor/executor.env",
+        "executor_home": "~/mythos-ai-executor",
+        "supervisor_config": "projects/mythos-orchestrator/config/supervisor.json",
+        "work_guidance": "Work steps run through Claude Code on the VPS executor, inside an isolated worktree of the repository. Give each step one coherent job with a checkable result. A step usually needs 2 to 15 minutes."
+      }
+    }
+  }
+}

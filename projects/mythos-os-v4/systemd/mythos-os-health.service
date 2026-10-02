@@ -1,0 +1,13 @@
+# Installed by bin/mythos-os-install.sh into ~/.config/systemd/user/ (@MYTHOS_OS_DIR@ is replaced).
+[Unit]
+Description=MYTHOS OS v4 — health report (DOTS, FABLE, OpenAI watchdog, JEV, tiers, Haddad)
+Documentation=file:@MYTHOS_OS_DIR@/README.md
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=PATH=%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/bin/env node @MYTHOS_OS_DIR@/bin/mythos-os health
+# A FAIL result exits 4: the unit shows as failed and the report is in the journal.
+# No --live here: a scheduled probe must never spend a paid call.
+NoNewPrivileges=true

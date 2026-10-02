@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MYTHOS OS v4 watchdog review",
+  "description": "The watchdog's verdict on a plan FABLE produced. Data only: an approval never widens what DOTS policy permits, and a rejection sends the plan back to the executive.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "reasons"],
+  "properties": {
+    "verdict": { "type": "string", "enum": ["approve", "reject"] },
+    "reasons": { "type": "array", "items": { "type": "string" } }
+  }
+}
