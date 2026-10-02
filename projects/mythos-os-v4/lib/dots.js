@@ -101,6 +101,17 @@ function create(deps) {
     if (objective.length > g.max_objective_chars) problems.push('objective exceeds ' + g.max_objective_chars + ' characters');
     if (g.priorities.indexOf(priority) === -1) problems.push('priority must be one of ' + g.priorities.join(', '));
     if (input.allow_write !== undefined && typeof input.allow_write !== 'boolean') problems.push('allow_write must be a boolean');
+    // The owner may pin (force) or favour (prefer) a model for the goal's
+    // steps. It selects a registered model and grants nothing: JEV still
+    // applies every filter. An unknown name is refused, never replaced.
+    var model = { forced: null, preferred: null };
+    [['force_model', 'forced'], ['prefer_model', 'preferred']].forEach(function (pair) {
+      var v = input[pair[0]];
+      if (v === undefined || v === null) return;
+      if (typeof v !== 'string' || !/^[a-z0-9][a-z0-9-]{1,60}$/.test(v)) { problems.push(pair[0] + ' is not a model name'); return; }
+      if (!deps.modelExists || !deps.modelExists(v)) { problems.push('MODEL_NOT_ALLOWED: "' + v + '" is not a registered model — a named model is never replaced by another one'); return; }
+      model[pair[1]] = v;
+    });
     var kinds = redact.findSecretKinds(title + '\n' + objective);
     if (kinds.length) problems.push('GOAL_CARRIES_SECRET: ' + kinds.join(', ') + ' — credentials never travel in a goal');
     if (problems.length) throw new Error('GOAL_REFUSED: ' + problems.join('; '));
@@ -111,12 +122,12 @@ function create(deps) {
       var id = store.newId('goal', now());
       var goal = {
         goal_id: id, trace_id: store.newId('trace', now()), title: title, objective: objective, priority: priority,
-        requested_by: cut(input.requested_by || 'owner', 64), write_approved: input.allow_write === true,
+        requested_by: cut(input.requested_by || 'owner', 64), write_approved: input.allow_write === true, model: model,
         status: 'QUEUED', created_at: iso(), updated_at: iso(), runs: 0, cycles: 0, steps_executed: 0,
         runner_pid: null, deadline_at: null, history: [], refusals: [], result: null, escalation_id: null, last_engine: null
       };
       saveGoal(goal);
-      ledger.append({ actor: 'dots', type: 'GOAL_SUBMITTED', goal_id: id, trace_id: goal.trace_id, detail: { title: title, priority: priority, requested_by: goal.requested_by, write_approved: goal.write_approved, objective_chars: objective.length } });
+      ledger.append({ actor: 'dots', type: 'GOAL_SUBMITTED', goal_id: id, trace_id: goal.trace_id, detail: { title: title, priority: priority, requested_by: goal.requested_by, write_approved: goal.write_approved, model: model, objective_chars: objective.length } });
       return goal;
     });
   }
@@ -297,7 +308,7 @@ function create(deps) {
   function runGoal(goalId) {
     var goal;
     try { goal = claim(goalId); } catch (e) { return Promise.reject(e); }
-    var ctx = { goal_id: goal.goal_id, trace_id: goal.trace_id, deadline_at: Date.parse(goal.deadline_at) };
+    var ctx = { goal_id: goal.goal_id, trace_id: goal.trace_id, deadline_at: Date.parse(goal.deadline_at), model: goal.model || null };
     var seenPlans = {};
 
     function state() { return { cycle: goal.cycles, steps_executed: goal.steps_executed, history: goal.history, refusals: goal.refusals }; }

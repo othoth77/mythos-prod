@@ -18,6 +18,10 @@
 //      with a payload the REAL executor accepts; a write goes supervised
 //   O  FABLE fails mid-goal → OpenAI takes over and the goal completes
 //   V  Free → Qwen → Paid inside a goal
+//   H  hosts: on the VPS profile work goes to Claude Code (payload accepted by
+//      the real executor), on an unknown machine it fails closed
+//   M  the owner pins (force) or favours (prefer) a model for a goal
+//   D  no duplicate execution across a FABLE → OpenAI takeover
 //   A  DOTS authorisation: every way a directive can be refused
 //   L  no infinite loops: cycles, steps, refusals, repeated plan, deadline,
 //      re-runs
@@ -147,13 +151,14 @@ function build(policyOverrides, fableQueue, openaiQueue, opts) {
     openai: h.scriptedEngine('openai', openaiQueue || [{ fail: 'TRANSIENT' }], { up: opts.openaiUp === true })
   };
   var system = index.build({
-    policy: policy, now: now, engines: set, executorRoot: execRoot, executorEnvFile: envFile,
+    policy: policy, now: now, engines: set, executorRoot: execRoot, executorEnvFile: opts.envFile || envFile, host: opts.host === undefined ? 'haddad' : opts.host,
     sleep: opts.sleep || function () { return Promise.resolve(); },
     adapters: {
       'free-llm-pool': adaptersLib.freeLlmPool(free),
       'haddad-qwen': adaptersLib.haddadQwen({ baseUrl: servers.qwen.url + '/v1', apiKey: 'fixture-runtime-key', probeTimeoutMs: 800 }),
       'claude-cli': adaptersLib.claudeCliAdapter({ bin: claude.bin }),
-      'openai-responses': { available: function () { return { ok: false, detail: 'not configured in this suite' }; } }
+      'openai-responses': { available: function () { return { ok: false, detail: 'not configured in this suite' }; } },
+      'claude-code-executor': adaptersLib.claudeCodeExecutor({ bin: claude.bin })
     }
   });
   system.jev.resetHealth();
@@ -185,7 +190,12 @@ var DONE = function (req) {
 
 var WRITE = d('execute', { steps: [step('w1', 'work', 'document', 'Add a section to docs/CACHE.md describing eviction.', { acceptance: ['node scripts/mythos-assert-file.js docs/CACHE.md eviction'], timeout_seconds: 600 })] });
 
+var vpsEnv = path.join(dirs.root, 'vps-executor.env');
+fs.writeFileSync(vpsEnv, 'MYTHOS_EXECUTOR_TOKEN=fixture-daemon-token-value\nMYTHOS_EXECUTOR_BIND=127.0.0.1\n');
+function vpsHosts() { var hs = JSON.parse(JSON.stringify(h.policy().haddad.hosts)); hs.vps.executor_home = execHome; return hs; }
+
 var sys, goal;
+var callsBefore = 0;
 Promise.all([
   h.startServer(function (req) {
     if (req.url !== '/v1/chat/completions') return null;
@@ -366,6 +376,127 @@ Promise.all([
   return sys.dots.runGoal(goal.goal_id);
 }).then(function (g) {
   t.ok(g.status === 'ESCALATED' && /ALL_MODELS_FAILED/.test(esc(sys, g).reason) && g.result === null, 'every model down: the step fails, the executive is told why, the goal is ESCALATED — never completed on nothing');
+
+  section('H — hosts: the VPS executor, and a machine no profile names');
+  // The VPS profile: Claude Code is the work provider, the project is
+  // mythos-prod, the store is the profile's executor_home, and the daemon's
+  // env file carries a token that must NOT travel.
+  reset();
+  control({ statuses: ['RUNNING', 'COMPLETED'], summary: 'the VPS executor report' });
+  sys = build({ haddad: { hosts: vpsHosts() } },
+    [d('execute', { steps: [step('w1', 'work', 'investigate', 'Read docs/ROADMAP.md and report the current stage.')] }), DONE], null, { host: 'vps', envFile: vpsEnv });
+  goal = submit(sys);
+  return sys.dots.runGoal(goal.goal_id);
+}).then(function (g) {
+  var enq = calls('enqueue')[0];
+  t.ok(g.status === 'COMPLETED' && g.history[0].model === 'claude-code-executor' && g.history[0].tier === 'paid' && g.history[0].transport === 'executor', 'on the VPS a read-only work step runs through the executor with Claude Code as the work model');
+  t.ok(enq.payload.provider === 'claude-code' && enq.payload.project === 'mythos-prod' && enq.payload.execution_profile === 'repo-read' && enq.payload.report_to_git === false,
+    'the VPS task: provider claude-code, project mythos-prod, read-only profile, never committed');
+  t.ok(enq.home === execHome, 'the store is the profile\'s executor_home when the daemon\'s env file names none');
+  t.ok(enq.env_keys.indexOf('MYTHOS_EXECUTOR_TOKEN') === -1 && enq.env_keys.indexOf('MYTHOS_EXECUTOR_BIND') !== -1 && fs.readFileSync(logFile, 'utf8').indexOf('fixture-daemon-token-value') === -1,
+    'the daemon\'s API token in that env file is NOT read into the child\'s environment (non-secret settings are)');
+  t.ok(sys.jev.status().spend.calls === 1 && sys.jev.status().spend.by_goal[g.goal_id] === 1, 'a paid executor is charged to DOTS\'s paid budget before the task is handed over');
+  var executor = require(path.join(h.BASE, 'projects', 'mythos-ai-executor', 'executor'));
+  var created = executor.createTask(enq.payload);
+  t.ok(created.provider === 'claude-code' && created.project === 'mythos-prod' && created.execution_profile === 'repo-read' && created.report_to_git === false && typeof created.model === 'string' && created.model_selection_mode === 'auto',
+    'CONTRACT: the real executor accepts the VPS payload and picks the Claude model by its own policy (v4 names none)');
+
+  // A write on the VPS goes supervised with the VPS supervisor config.
+  reset();
+  fs.writeFileSync(path.join(execRoot, 'projects', 'mythos-orchestrator', 'config', 'supervisor.json'), '{}');
+  control({ supervised: 'COMPLETED', supervised_summary: 'ran the suite: 3 passed, 0 failed' });
+  sys = build({ watchdog: { review_write_plans: false }, haddad: { hosts: vpsHosts() } },
+    [d('execute', { steps: [step('w1', 'work', 'test', 'Run the cache tests.')] }), DONE], null, { host: 'vps', envFile: vpsEnv });
+  goal = submit(sys);
+  return sys.dots.runGoal(goal.goal_id);
+}).then(function (g) {
+  var sup = calls('supervise');
+  t.ok(g.status === 'COMPLETED' && /supervisor\.json$/.test(sup[0].config) && !/supervisor-haddad/.test(sup[0].config) && g.history[0].transport === 'supervised', 'on the VPS the supervised path uses the VPS supervisor config (supervisor.json)');
+  var realVps = require('child_process').spawnSync(process.execPath, [path.join(h.BASE, 'scripts', 'mythos-supervise.js')].concat(sup[0].args), {
+    encoding: 'utf8', timeout: 60000,
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, MYTHOS_SUPERVISOR_HOME: path.join(dirs.root, 'real-supervisor-home-vps'), MYTHOS_SUPERVISOR_CONFIG: path.join(h.BASE, 'projects', 'mythos-orchestrator', 'config', 'supervisor.json') }
+  });
+  var plannedVps = null;
+  try { plannedVps = JSON.parse(realVps.stdout); } catch (e) { plannedVps = null; }
+  t.ok(realVps.status === 0 && plannedVps && plannedVps.action === 'test' && plannedVps.status === 'PLANNED', 'CONTRACT: the real Supervisor CLI accepts v4\'s submit under the VPS config too');
+
+  // A budget of zero paid calls: the VPS executor is not used.
+  reset();
+  control({ statuses: ['COMPLETED'] });
+  sys = build({ models: { tier_order: ['free', 'local', 'paid'], paid: { allowed: false, max_calls_per_goal: 4, max_calls_per_day: 40 }, preferred: {}, static_fallback_model: 'qwen-local' } },
+    [d('execute', { steps: [step('w1', 'work', 'investigate', 'Read it.')] }), d('escalate', { escalation_reason: 'no executor' })], null, { host: 'vps', envFile: vpsEnv });
+  goal = submit(sys);
+  return sys.dots.runGoal(goal.goal_id);
+}).then(function (g) {
+  t.ok(g.history[0].reason === 'NO_EXECUTION_MODEL' && /PAID_NOT_PERMITTED/.test(g.history[0].detail) && calls('enqueue').length === 0, 'with paid models switched off by DOTS, the VPS executor is not used: nothing is enqueued');
+
+  // A machine no profile names.
+  reset();
+  sys = build(null, [d('execute', { steps: [step('a1', 'answer', 'analyze', 'Explain X.'), step('w1', 'work', 'investigate', 'Read it.')] }), function (req) {
+    var hist = JSON.parse(req.input).history;
+    return d('escalate', { escalation_reason: hist.map(function (x) { return x.step_id + ':' + (x.ok ? 'ok' : x.reason); }).join(',') });
+  }], null, { host: 'nowhere' });
+  goal = submit(sys);
+  return sys.dots.runGoal(goal.goal_id);
+}).then(function (g) {
+  t.ok(g.history[0].ok === true && g.history[1].ok === false && g.history[1].reason === 'HOST_UNKNOWN' && calls('enqueue').length === 0 && calls('supervise').length === 0,
+    'on a machine no profile names, an answer step still runs but repository work fails closed (HOST_UNKNOWN) — no executor is guessed');
+
+  section('M — the owner pins or favours a model for a goal');
+  reset();
+  sys = build(null, [ANSWER_PLAN, DONE]);
+  var refused = '';
+  try { submit(sys, { force_model: 'gpt-anything' }); } catch (e) { refused = e.message; }
+  t.ok(/GOAL_REFUSED: MODEL_NOT_ALLOWED/.test(refused), 'a goal that forces a model outside the registry is refused at the door');
+  refused = '';
+  try { submit(sys, { prefer_model: '../../etc' }); } catch (e2) { refused = e2.message; }
+  t.ok(/prefer_model is not a model name/.test(refused), 'a preferred model that is not even a name is refused');
+  goal = submit(sys, { force_model: 'qwen-local' });
+  t.eq(goal.model, { forced: 'qwen-local', preferred: null }, 'the pin is stored on the goal');
+  return sys.dots.runGoal(goal.goal_id);
+}).then(function (g) {
+  t.ok(g.status === 'COMPLETED' && g.history[0].model === 'qwen-local' && g.history[0].fallback_used === false, 'FORCED on the goal: Qwen answers the step although the free tier is healthy');
+  var route = ledger.query({ goal_id: g.goal_id, type: 'ROUTE_DECISION' })[0];
+  t.ok(route.detail.request.forced_model === 'qwen-local' && route.detail.candidates.length === 1, 'the JEV decision on the ledger records the forced model and offers nothing else');
+  t.ok(JSON.parse(sys.fable.calls[0].input).goal.model === undefined && JSON.stringify(JSON.parse(sys.fable.calls[0].input).goal).indexOf('qwen') === -1, 'the executive is not told (and cannot change) which model serves the goal');
+  reset();
+  qwenCtl.status = 500;
+  sys = build(null, [ANSWER_PLAN, function (req) { return d('escalate', { escalation_reason: 'step failed: ' + JSON.parse(req.input).history[0].reason }); }]);
+  goal = submit(sys, { force_model: 'qwen-local' });
+  var freeBefore = servers.free.calls.length;
+  return sys.dots.runGoal(goal.goal_id).then(function (g) { g.free_calls = servers.free.calls.length - freeBefore; return g; });
+}).then(function (g) {
+  t.ok(g.status === 'ESCALATED' && g.history[0].ok === false && g.free_calls === 0 && claude.calls().length === 0, 'FORCED and failing: the step FAILS — no other model is substituted');
+  reset();
+  sys = build(null, [ANSWER_PLAN, DONE]);
+  goal = submit(sys, { prefer_model: 'qwen-local' });
+  return sys.dots.runGoal(goal.goal_id);
+}).then(function (g) {
+  t.ok(g.status === 'COMPLETED' && g.history[0].model === 'qwen-local', 'PREFERRED on the goal: Qwen leads');
+
+  section('D — no duplicate execution across a takeover');
+  // FABLE plans and its step runs; FABLE then fails; OpenAI takes over and
+  // answers with the SAME plan. The step must not run a second time.
+  reset();
+  sys = build(null, [ANSWER_PLAN, { fail: 'TIMEOUT' }], [ANSWER_PLAN], { openaiUp: true });
+  goal = submit(sys);
+  callsBefore = servers.free.calls.length;
+  return sys.dots.runGoal(goal.goal_id).then(function (g) { g.model_calls = servers.free.calls.length - callsBefore; return g; });
+}).then(function (g) {
+  t.ok(g.status === 'ESCALATED' && esc(sys, g).code === 'REPEATED_PLAN' && g.steps_executed === 1 && g.model_calls === 1,
+    'OpenAI taking over with the plan FABLE already ran does NOT execute it again: one execution, then REPEATED_PLAN');
+  t.ok(esc(sys, g).detail.engine === 'openai' && JSON.parse(sys.openai.calls[0].input).history.length === 1, 'OpenAI had been shown the executed step in the history it took over');
+  // And when OpenAI concludes instead, the step count stays one.
+  reset();
+  sys = build(null, [ANSWER_PLAN, { fail: 'TIMEOUT' }], [DONE], { openaiUp: true });
+  goal = submit(sys);
+  callsBefore = servers.free.calls.length;
+  return sys.dots.runGoal(goal.goal_id).then(function (g) { g.model_calls = servers.free.calls.length - callsBefore; return g; });
+}).then(function (g) {
+  var started = ledger.query({ goal_id: g.goal_id, type: 'STEP_STARTED' });
+  t.ok(g.status === 'COMPLETED' && g.result.completed_by === 'openai' && g.steps_executed === 1 && g.model_calls === 1 && started.length === 1, 'a takeover that concludes: exactly one STEP_STARTED on the ledger, one model call, one execution');
+  t.eq(ledger.query({ goal_id: g.goal_id }).filter(function (r) { return /TAKEOVER|FAILOVER|EXECUTIVE_CALL/.test(r.type); }).map(function (r) { return r.actor + ':' + r.type + ':' + (r.detail.ok === undefined ? '' : r.detail.ok); }),
+    ['fable:EXECUTIVE_CALL:true', 'fable:EXECUTIVE_CALL:false', 'openai:EXECUTIVE_CALL:true', 'watchdog:EXECUTIVE_FAILOVER:'], 'every transition of that takeover is on the ledger, in order');
 
   section('A — DOTS authorisation');
   reset();

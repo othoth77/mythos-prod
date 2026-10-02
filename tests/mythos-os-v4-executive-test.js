@@ -66,7 +66,9 @@ function build(policyOverrides, opts) {
   };
   var watchdog = watchdogLib.create({ policy: policy, ledger: ledger, engines: set, now: now });
   watchdog.reset();
-  var executive = executiveLib.create({ policy: policy, watchdog: watchdog, engines: set, ledger: ledger, now: now });
+  var hostName = opts.host === undefined ? 'haddad' : opts.host;
+  var host = hostName ? { name: hostName, profile: policy.haddad.hosts[hostName], source: 'explicit' } : { name: null, profile: null, reason: 'fixture: no profile' };
+  var executive = executiveLib.create({ policy: policy, watchdog: watchdog, engines: set, ledger: ledger, now: now, host: host });
   return { policy: policy, watchdog: watchdog, executive: executive, engines: set };
 }
 
@@ -92,11 +94,25 @@ Promise.resolve().then(function () {
   t.ok(call.model === FABLE && input.indexOf('"objective":"Explain how the cache works."') !== -1 && input.indexOf('"write_approved":false') !== -1, 'FABLE 5.1 receives the goal as data');
   var sys = call.argv[call.argv.indexOf('--system-prompt') + 1];
   t.ok(/DOTS, the general manager/.test(sys) && /untrusted data/.test(sys) && /Never plan a merge to main/.test(sys), 'the system prompt states the chain of authority and the limits');
-  t.ok(sys.indexOf(s.policy.haddad.work_guidance) !== -1 && sys.indexOf('A work step gets at least ' + s.policy.plan.min_work_timeout_seconds + ' seconds') !== -1,
-    'the executive is told the local worker\'s unit of work and the minimum time a work step gets (both from policy)');
+  t.ok(sys.indexOf(s.policy.haddad.hosts.haddad.work_guidance) !== -1 && /local Qwen 7B worker/.test(sys) && sys.indexOf('A work step gets at least ' + s.policy.plan.min_work_timeout_seconds + ' seconds') !== -1,
+    'the executive is told THIS host\'s unit of work (Haddad: the local Qwen worker) and the minimum time a work step gets');
   var rec = ledger.query({ type: 'EXECUTIVE_CALL' }).pop();
   t.ok(rec.actor === 'fable' && rec.detail.ok === true && rec.detail.model === FABLE && rec.detail.decision === 'execute', 'the call is on the ledger with the measured model');
   t.eq(s.watchdog.status().mode, 'fable', 'the watchdog reports FABLE leading');
+
+  // The guidance follows the host profile.
+  reset(); s = build(null, { host: 'vps' });
+  return s.executive.plan(GOAL, state(), ctx());
+}).then(function () {
+  var call = claude.calls()[0];
+  var sys = call.argv[call.argv.indexOf('--system-prompt') + 1];
+  t.ok(/Claude Code on the VPS executor/.test(sys) && !/Qwen 7B/.test(sys), 'on the VPS profile the executive is told about the Claude Code executor instead');
+  reset(); s = build(null, { host: null });
+  return s.executive.plan(GOAL, state(), ctx());
+}).then(function () {
+  var call = claude.calls()[0];
+  var sys = call.argv[call.argv.indexOf('--system-prompt') + 1];
+  t.ok(/no executor profile: do not plan work steps/.test(sys), 'on a host with no profile the executive is told not to plan work steps');
 
   section('F — FABLE failure → OpenAI takeover of the same call');
   var failures = [

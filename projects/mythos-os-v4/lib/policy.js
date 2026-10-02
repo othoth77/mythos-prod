@@ -91,6 +91,10 @@ function validate(p) {
   need(Number.isInteger(paid.max_calls_per_goal) && paid.max_calls_per_goal >= 0, 'models.paid.max_calls_per_goal must be an integer >= 0');
   need(Number.isInteger(paid.max_calls_per_day) && paid.max_calls_per_day >= 0, 'models.paid.max_calls_per_day must be an integer >= 0');
   need(typeof m.static_fallback_model === 'string' && m.static_fallback_model, 'models.static_fallback_model is required');
+  // capability -> the model the owner prefers for it (JEV checks the names).
+  need(m.preferred && typeof m.preferred === 'object' && !Array.isArray(m.preferred) &&
+    Object.keys(m.preferred).every(function (k) { return typeof m.preferred[k] === 'string' && m.preferred[k]; }),
+  'models.preferred must be an object mapping a capability to a model name');
 
   var gw = p.gateway || {};
   ['attempt_timeout_seconds', 'retry_base_ms', 'retry_max_ms', 'max_attempts_total', 'max_output_chars'].forEach(function (k) {
@@ -105,16 +109,10 @@ function validate(p) {
   need(typeof j.cooldown_factor === 'number' && j.cooldown_factor >= 1, 'jev.cooldown_factor must be >= 1');
 
   var h = p.haddad || {};
-  need(typeof h.project === 'string' && /^[a-z0-9][a-z0-9-]*$/.test(h.project), 'haddad.project must be a project id');
-  need(typeof h.work_provider === 'string' && h.work_provider, 'haddad.work_provider is required');
   ['poll_interval_seconds', 'enqueue_timeout_seconds', 'supervised_watch_interval_seconds', 'retry_backoff_seconds'].forEach(function (k) {
     need(isPosInt(h[k]), 'haddad.' + k + ' must be a positive integer');
   });
-  need(typeof h.work_guidance === 'string' && h.work_guidance.length <= 600, 'haddad.work_guidance must be a string of at most 600 characters');
-  need(typeof h.executor_env_file === 'string' && h.executor_env_file, 'haddad.executor_env_file is required');
-  need(typeof h.executor_unit === 'string' && /^[A-Za-z0-9@._-]+\.service$/.test(h.executor_unit), 'haddad.executor_unit must be a systemd service name');
-  need(typeof h.supervisor_config === 'string' && h.supervisor_config && h.supervisor_config.indexOf('..') === -1 && h.supervisor_config[0] !== '/',
-    'haddad.supervisor_config must be a repository-relative path');
+  need(Number.isInteger(h.work_max_retries) && h.work_max_retries >= 0 && h.work_max_retries <= 3, 'haddad.work_max_retries must be 0..3');
   need(isStrList(h.direct_actions, 0), 'haddad.direct_actions must be a list');
   if (isStrList(h.direct_actions, 0) && isStrList(pl.work_actions, 1) && isStrList(pl.write_actions, 0)) {
     h.direct_actions.forEach(function (d) {
@@ -123,7 +121,28 @@ function validate(p) {
       need(pl.write_actions.indexOf(d) === -1, 'haddad.direct_actions names the write action "' + d + '" — a write only runs through the supervised bridge path');
     });
   }
-  need(Number.isInteger(h.work_max_retries) && h.work_max_retries >= 0 && h.work_max_retries <= 3, 'haddad.work_max_retries must be 0..3');
+
+  // Host profiles: which executor this machine hands repository work to.
+  var hosts = h.hosts;
+  need(hosts && typeof hosts === 'object' && !Array.isArray(hosts) && Object.keys(hosts).length > 0, 'haddad.hosts must name at least one host profile');
+  var seenHostnames = {};
+  Object.keys(hosts && typeof hosts === 'object' ? hosts : {}).forEach(function (name) {
+    var hp = hosts[name] || {};
+    var where = 'haddad.hosts.' + name;
+    need(/^[a-z][a-z0-9-]{0,30}$/.test(name), where + ': invalid profile name');
+    need(Array.isArray(hp.hostnames) && hp.hostnames.every(function (x) { return typeof x === 'string' && x; }), where + '.hostnames must be a list of strings');
+    (Array.isArray(hp.hostnames) ? hp.hostnames : []).forEach(function (hn) {
+      need(!seenHostnames[hn], where + ': hostname "' + hn + '" is already claimed by profile ' + seenHostnames[hn]);
+      seenHostnames[hn] = name;
+    });
+    need(typeof hp.project === 'string' && /^[a-z0-9][a-z0-9-]*$/.test(hp.project), where + '.project must be a project id');
+    need(typeof hp.executor_unit === 'string' && /^[A-Za-z0-9@._-]+\.service$/.test(hp.executor_unit), where + '.executor_unit must be a systemd service name');
+    need(typeof hp.executor_env_file === 'string' && hp.executor_env_file, where + '.executor_env_file is required');
+    need(hp.executor_home === null || (typeof hp.executor_home === 'string' && hp.executor_home), where + '.executor_home must be a path or null (null = MYTHOS_EXECUTOR_HOME from the env file)');
+    need(typeof hp.supervisor_config === 'string' && hp.supervisor_config && hp.supervisor_config.indexOf('..') === -1 && hp.supervisor_config[0] !== '/',
+      where + '.supervisor_config must be a repository-relative path');
+    need(typeof hp.work_guidance === 'string' && hp.work_guidance.length <= 600, where + '.work_guidance must be a string of at most 600 characters');
+  });
 
   return errors;
 }

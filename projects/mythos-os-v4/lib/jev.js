@@ -61,6 +61,10 @@ function validateRegistry(reg) {
     if (!Number.isInteger(m.max_prompt_chars) || m.max_prompt_chars <= 0) errors.push(name + ': max_prompt_chars must be a positive integer');
     if (typeof m.enabled !== 'boolean') errors.push(name + ': enabled must be a boolean');
     if (m.work_provider !== undefined && !m.execution_authority) errors.push(name + ': a work_provider requires execution_authority');
+    if (m.work_provider !== undefined && !(Array.isArray(m.work_hosts) && m.work_hosts.length && m.work_hosts.every(function (x) { return typeof x === 'string' && x; }))) {
+      errors.push(name + ': a work_provider must name the hosts it runs on (work_hosts)');
+    }
+    if (m.order !== undefined && !(Number.isInteger(m.order) && m.order >= 0)) errors.push(name + ': order must be a non-negative integer');
   });
   return errors;
 }
@@ -96,7 +100,15 @@ function create(deps) {
   var ledger = deps.ledger;
   var now = deps.now || Date.now;
   var cfg = policy.jev;
+  var host = deps.host || null;   // the resolved host profile name, or null
   var availCache = {};
+
+  // The owner's standing preferences name models that must exist.
+  Object.keys(policy.models.preferred).forEach(function (cap) {
+    if (!registry.models[policy.models.preferred[cap]]) {
+      throw new Error('JEV_REGISTRY_INVALID: models.preferred.' + cap + ' names "' + policy.models.preferred[cap] + '", which is not a registered model');
+    }
+  });
 
   function readHealth() { return store.readJSON(healthFile(), {}) || {}; }
   function healthOf(all, name) { return Object.assign(freshHealth(), all[name] || {}); }
@@ -174,6 +186,13 @@ function create(deps) {
     if (request.kind !== 'answer' && request.kind !== 'work') problems.push('kind must be answer or work');
     var promptChars = Number.isInteger(request.prompt_chars) && request.prompt_chars >= 0 ? request.prompt_chars : null;
     if (promptChars === null) problems.push('prompt_chars must be a non-negative integer');
+    // A forced or preferred model selects an entry of the registry and
+    // nothing else: a name that is not registered is refused outright,
+    // never mapped to something similar.
+    var forced = request.forced_model || null;
+    var preferred = request.preferred_model || policy.models.preferred[request.capability] || null;
+    if (forced && !registry.models[forced]) problems.push('forced model "' + String(forced).slice(0, 60) + '" is not a registered model');
+    if (request.preferred_model && !registry.models[request.preferred_model]) problems.push('preferred model "' + String(request.preferred_model).slice(0, 60) + '" is not a registered model');
     var decisionId = store.newId('jev', now());
     if (problems.length) {
       var bad = { decision_id: decisionId, ok: false, reason: 'BAD_REQUEST', problems: problems, candidates: [], rejected: [], confidence: 'none' };
@@ -191,6 +210,12 @@ function create(deps) {
       if (m.pools.indexOf(request.pool) === -1) return reject('NOT_IN_POOL');
       if (m.capabilities.indexOf(request.capability) === -1) return reject('CAPABILITY_MISSING');
       if (request.kind === 'work' && !(m.execution_authority && m.work_provider)) return reject('NO_EXECUTION_AUTHORITY');
+      // Authority is bound to a machine: Qwen executes on Haddad, Claude
+      // Code on the VPS. On an unknown host nothing may execute.
+      if (request.kind === 'work' && (!host || m.work_hosts.indexOf(host) === -1)) return reject(host ? 'NOT_ON_THIS_HOST' : 'HOST_UNKNOWN');
+      // FORCED: exactly that model or nothing. Every filter below still
+      // applies to it — forcing selects, it never authorises.
+      if (forced && name !== forced) return reject('NOT_FORCED');
       if (promptChars > m.max_prompt_chars) return reject('PROMPT_TOO_LARGE');
       if (m.tier === 'paid') {
         var refusal = paidGate(request.goal_id);
@@ -208,15 +233,21 @@ function create(deps) {
       candidates.push({
         model: name, tier: m.tier, adapter: m.adapter, work_provider: m.work_provider || null,
         execution_authority: m.execution_authority, probing: probing,
+        order: Number.isInteger(m.order) ? m.order : 0, preferred: name === preferred,
         health: probing ? 'half_open' : h.state, recent_failures: h.consecutive_failures, latency_ms: h.latency_ms
       });
     });
 
     var order = policy.models.tier_order;
     candidates.sort(function (a, b) {
+      // PREFERRED leads when it is selectable at all — the owner's stated
+      // preference outranks the tier order, but nothing else: it passed the
+      // same filters (pool, capability, budget, health) as every candidate.
+      if (a.preferred !== b.preferred) return a.preferred ? -1 : 1;
       var t = order.indexOf(a.tier) - order.indexOf(b.tier);
       if (t !== 0) return t;
       if (a.probing !== b.probing) return a.probing ? 1 : -1;
+      if (a.order !== b.order) return a.order - b.order;
       if (a.recent_failures !== b.recent_failures) return a.recent_failures - b.recent_failures;
       if (a.latency_ms !== null && b.latency_ms !== null && a.latency_ms !== b.latency_ms) return a.latency_ms - b.latency_ms;
       return a.model < b.model ? -1 : 1;
@@ -225,12 +256,16 @@ function create(deps) {
     var decision = {
       decision_id: decisionId,
       ok: candidates.length > 0,
-      reason: candidates.length ? null : 'NO_ROUTE',
-      request: { pool: request.pool, capability: request.capability, kind: request.kind, prompt_chars: promptChars },
+      reason: candidates.length ? null : (forced ? 'FORCED_MODEL_UNAVAILABLE' : 'NO_ROUTE'),
+      request: { pool: request.pool, capability: request.capability, kind: request.kind, prompt_chars: promptChars, host: host, forced_model: forced, preferred_model: preferred },
+      // Why a preferred model does not lead, when it does not.
+      preferred_unavailable: preferred && !candidates.some(function (c) { return c.model === preferred; })
+        ? ((rejected.filter(function (r) { return r.model === preferred; })[0] || {}).reason || 'not a candidate') : null,
       candidates: candidates,
       rejected: rejected,
       // How much room the decision leaves: a single candidate, or only a
       // probing one, is a route with no fallback behind it.
+      // (a forced route has, by construction, nothing behind it).
       confidence: !candidates.length ? 'none' : (candidates.length === 1 || candidates[0].probing ? 'low' : 'high')
     };
     if (ledger) ledger.append({ actor: 'jev', type: 'ROUTE_DECISION', goal_id: request.goal_id, trace_id: request.trace_id, detail: decision });
@@ -301,6 +336,7 @@ function create(deps) {
       var waiting = !!(h.quota_until && now() < Date.parse(h.quota_until));
       out[name] = Object.assign({
         tier: m.tier, enabled: m.enabled, available: avail.ok, availability_detail: avail.detail || null,
+        work_only: m.capabilities.length === 1 && m.capabilities[0] === 'repo_work', work_hosts: m.work_hosts || null,
         effective_state: h.state === 'open' ? (cooling ? 'open' : 'half_open') : h.state,
         selectable: m.enabled && avail.ok && !cooling && !waiting
       }, h);
@@ -311,7 +347,9 @@ function create(deps) {
   function model(name) { return registry.models[name] || null; }
   function resetHealth() { store.writeJSON(healthFile(), {}); availCache = {}; }
 
-  return { route: route, report: report, refresh: refresh, status: status, model: model, chargePaid: chargePaid, paidGate: paidGate, resetHealth: resetHealth, registry: registry };
+  function has(name) { return Object.prototype.hasOwnProperty.call(registry.models, name); }
+
+  return { route: route, report: report, refresh: refresh, has: has, host: host, status: status, model: model, chargePaid: chargePaid, paidGate: paidGate, resetHealth: resetHealth, registry: registry };
 }
 
 module.exports = { create: create, loadRegistry: loadRegistry, validateRegistry: validateRegistry, REGISTRY_PATH: REGISTRY_PATH };

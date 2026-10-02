@@ -83,7 +83,8 @@ function create(deps) {
   }
 
   // complete(request) -> Promise<result>
-  //   request { pool, capability, prompt, system?, timeout_seconds?, deadline_at?, validate?, goal_id, trace_id, step_id }
+  //   request { pool, capability, prompt, system?, timeout_seconds?, deadline_at?, validate?,
+  //             forced_model?, preferred_model?, goal_id, trace_id, step_id }
   //   result  { ok, text, model, tier, served_by, fallback_used, attempts[], decision_id, reason? }
   function complete(request) {
     var ctx = { goal_id: request.goal_id, trace_id: request.trace_id };
@@ -109,9 +110,18 @@ function create(deps) {
       var registryModel;
       try {
         if (!jev) throw new Error('JEV_UNAVAILABLE');
-        decision = jev.route({ pool: request.pool, capability: request.capability, kind: 'answer', prompt_chars: request.prompt.length, goal_id: ctx.goal_id, trace_id: ctx.trace_id });
+        decision = jev.route({
+          pool: request.pool, capability: request.capability, kind: 'answer', prompt_chars: request.prompt.length,
+          forced_model: request.forced_model || null, preferred_model: request.preferred_model || null,
+          goal_id: ctx.goal_id, trace_id: ctx.trace_id
+        });
         registryModel = function (name) { return jev.model(name); };
       } catch (e) {
+        // A FORCED model is a promise about who answers. Without JEV that
+        // promise cannot be checked, so the static fallback is not offered.
+        if (request.forced_model) {
+          return finish({ ok: false, reason: 'FORCED_MODEL_UNAVAILABLE', text: null, attempts: attempts, decision_id: null });
+        }
         decision = staticRoute(String(e && e.message).slice(0, 120));
         registryModel = deps.staticModel || function () { return null; };
         ledger.append({ actor: 'gateway', type: 'JEV_UNAVAILABLE_STATIC_FALLBACK', goal_id: ctx.goal_id, trace_id: ctx.trace_id, detail: { model: policy.models.static_fallback_model, error: decision.static_fallback } });

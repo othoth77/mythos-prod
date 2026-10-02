@@ -33,7 +33,6 @@
 
 var cp = require('child_process');
 var fs = require('fs');
-var os = require('os');
 var path = require('path');
 
 var store = require('./store');
@@ -48,20 +47,22 @@ var READ_PROFILE = 'repo-read';
 var TERMINAL = ['COMPLETED', 'FAILED', 'BLOCKED', 'CANCELLED'];
 var ENV_ALLOW = ['HOME', 'PATH', 'LANG', 'LC_ALL', 'USER', 'LOGNAME', 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS', 'GH_CONFIG_DIR', 'XDG_CONFIG_HOME'];
 
-function expandHome(p) {
-  if (typeof p !== 'string') return p;
-  if (p === '~') return os.homedir();
-  return p.indexOf('~/') === 0 ? path.join(os.homedir(), p.slice(2)) : p;
-}
+var expandHome = require('./host').expandHome;
 
-// KEY=VALUE lines of a NON-SECRET env file (the worker's isolation config).
+// A name that carries a credential. Haddad's worker.env holds none, but the
+// VPS's executor.env carries the daemon's API token: v4 only needs the
+// isolation settings, so anything secret-shaped is never read into a child's
+// environment.
+var SECRET_NAME = /(TOKEN|SECRET|PASSWORD|PASSWD|API_KEY|PRIVATE_KEY)$/;
+
+// KEY=VALUE lines of the executor's env file, minus anything secret.
 function readEnvFile(file) {
   var out = {};
   var text;
   try { text = fs.readFileSync(expandHome(file), 'utf8'); } catch (e) { return null; }
   text.split('\n').forEach(function (line) {
     var m = /^\s*([A-Z][A-Z0-9_]*)=(.*)$/.exec(line);
-    if (m) out[m[1]] = m[2].trim().replace(/^"(.*)"$/, '$1');
+    if (m && !SECRET_NAME.test(m[1])) out[m[1]] = m[2].trim().replace(/^"(.*)"$/, '$1');
   });
   return out;
 }
@@ -108,11 +109,21 @@ function create(deps) {
   var sleep = deps.sleep || function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
   var spawn = deps.spawn;
   var hp = policy.haddad;
+  // The host profile: which executor this machine stands next to. null on a
+  // machine no profile names — repository work then fails closed.
+  var host = deps.host || { name: null, profile: null, reason: 'no host profile resolved' };
+  var profile = host.profile;
   var executorRoot = deps.executorRoot || process.env.MYTHOS_OS_EXECUTOR_ROOT || REPO_ROOT;
 
+  // The executor CLI's environment: PATH/HOME plus the daemon's own isolation
+  // settings. The store is the env file's MYTHOS_EXECUTOR_HOME, or the
+  // profile's executor_home where the daemon runs on its default (the VPS).
   function executorEnv() {
-    var fileEnv = readEnvFile(deps.executorEnvFile || process.env.MYTHOS_OS_EXECUTOR_ENV_FILE || hp.executor_env_file);
-    return fileEnv ? baseEnv(fileEnv) : null;
+    if (!profile) return null;
+    var fileEnv = readEnvFile(deps.executorEnvFile || process.env.MYTHOS_OS_EXECUTOR_ENV_FILE || profile.executor_env_file);
+    if (!fileEnv) return null;
+    if (!fileEnv.MYTHOS_EXECUTOR_HOME && profile.executor_home) fileEnv.MYTHOS_EXECUTOR_HOME = expandHome(profile.executor_home);
+    return baseEnv(fileEnv);
   }
 
   // ---- answer ------------------------------------------------------------
@@ -124,6 +135,7 @@ function create(deps) {
     return gateway.complete({
       pool: POOL_BY_ACTION[step.action] || 'execution', capability: CAPABILITY_BY_ACTION[step.action],
       prompt: prompt, deadline_at: Math.min(ctx.deadline_at || Infinity, now() + step.timeout_seconds * 1000),
+      forced_model: (ctx.model && ctx.model.forced) || null, preferred_model: (ctx.model && ctx.model.preferred) || null,
       goal_id: ctx.goal_id, trace_id: ctx.trace_id, step_id: step.id
     }).then(function (r) {
       return {
@@ -146,7 +158,7 @@ function create(deps) {
       return Promise.resolve({ ok: false, kind: 'work', transport: 'executor', reason: 'EXECUTOR_UNCONFIGURED', detail: 'no executor env file with MYTHOS_EXECUTOR_HOME on this host', output: null });
     }
     var payload = {
-      project: hp.project, stage: 'mythos-os-v4:' + ctx.goal_id + ':' + step.id, instruction: step.instruction,
+      project: profile.project, stage: 'mythos-os-v4:' + ctx.goal_id + ':' + step.id, instruction: step.instruction,
       priority: 'normal', requested_by: 'mythos-os-v4', mode: 'autonomous', provider: cand.work_provider,
       task_category: step.action, execution_profile: READ_PROFILE, expected_delivery: 'report', report_to_git: false,
       constraints: (step.acceptance || []).slice(0, policy.plan.max_acceptance_items),
@@ -198,9 +210,9 @@ function create(deps) {
 
   // ---- work: supervised (GitHub Issue → Haddad bridge) -------------------
   function workSupervised(step, cand, ctx) {
-    var cfgPath = path.join(executorRoot, hp.supervisor_config);
+    var cfgPath = path.join(executorRoot, profile.supervisor_config);
     if (!fs.existsSync(cfgPath)) {
-      return Promise.resolve({ ok: false, kind: 'work', transport: 'supervised', reason: 'SUPERVISOR_UNCONFIGURED', detail: 'missing ' + hp.supervisor_config, output: null });
+      return Promise.resolve({ ok: false, kind: 'work', transport: 'supervised', reason: 'SUPERVISOR_UNCONFIGURED', detail: 'missing ' + profile.supervisor_config, output: null });
     }
     var fileEnv = executorEnv() || {};
     var env = baseEnv({ MYTHOS_SUPERVISOR_CONFIG: cfgPath });
@@ -272,8 +284,9 @@ function create(deps) {
         if (rec && ['COMPLETED', 'BLOCKED', 'CANCELLED', 'FAILED'].indexOf(rec.status) === -1) open += 1;
       });
     } catch (e2) { return Promise.resolve({ ran: false, open: 0 }); }
-    var cfgPath = path.join(executorRoot, hp.supervisor_config);
-    if (!open || !fs.existsSync(cfgPath)) return Promise.resolve({ ran: false, open: open });
+    if (!open || !profile) return Promise.resolve({ ran: false, open: open });
+    var cfgPath = path.join(executorRoot, profile.supervisor_config);
+    if (!fs.existsSync(cfgPath)) return Promise.resolve({ ran: false, open: open });
     var fileEnv = executorEnv() || {};
     var env = baseEnv({ MYTHOS_SUPERVISOR_CONFIG: cfgPath, MYTHOS_SUPERVISOR_HOME: home });
     if (fileEnv.MYTHOS_EXECUTOR_HOME) env.MYTHOS_EXECUTOR_HOME = fileEnv.MYTHOS_EXECUTOR_HOME;
@@ -287,12 +300,24 @@ function create(deps) {
     // No static fallback here: without JEV's decision nothing is known to
     // hold execution authority, and repository work fails closed.
     if (!jev) return Promise.resolve({ ok: false, kind: 'work', reason: 'NO_EXECUTION_MODEL', detail: 'JEV is unavailable', output: null });
+    // Which executor? Only a host profile says. Without one, nothing runs.
+    if (!profile) return Promise.resolve({ ok: false, kind: 'work', reason: 'HOST_UNKNOWN', detail: host.reason || 'no host profile', output: null });
     return Promise.resolve().then(function () { return jev.refresh(); }).catch(function () { return null; }).then(function () {
-      var decision = jev.route({ pool: 'execution', capability: 'repo_work', kind: 'work', prompt_chars: step.instruction.length, goal_id: ctx.goal_id, trace_id: ctx.trace_id });
+      var decision = jev.route({
+        pool: 'execution', capability: 'repo_work', kind: 'work', prompt_chars: step.instruction.length,
+        forced_model: (ctx.model && ctx.model.forced) || null, preferred_model: (ctx.model && ctx.model.preferred) || null,
+        goal_id: ctx.goal_id, trace_id: ctx.trace_id
+      });
       if (!decision.ok) {
-        return { ok: false, kind: 'work', reason: 'NO_EXECUTION_MODEL', detail: decision.rejected.map(function (r) { return r.model + ': ' + r.reason; }).join('; ').slice(0, 400), output: null, decision_id: decision.decision_id };
+        return { ok: false, kind: 'work', reason: decision.reason === 'FORCED_MODEL_UNAVAILABLE' ? 'FORCED_MODEL_UNAVAILABLE' : 'NO_EXECUTION_MODEL', detail: (decision.problems || []).concat(decision.rejected.map(function (r) { return r.model + ': ' + r.reason; })).join('; ').slice(0, 400), output: null, decision_id: decision.decision_id };
       }
       var cand = decision.candidates[0];
+      // A paid executor (Claude Code on the VPS) spends from DOTS's budget
+      // like any paid call: charged before the task is handed over.
+      if (cand.tier === 'paid') {
+        var refusal = jev.chargePaid(ctx.goal_id);
+        if (refusal) return { ok: false, kind: 'work', reason: 'NO_EXECUTION_MODEL', detail: cand.model + ': ' + refusal, output: null, decision_id: decision.decision_id };
+      }
       var direct = hp.direct_actions.indexOf(step.action) !== -1;
       var started = now();
       return (direct ? workDirect(step, cand, ctx) : workSupervised(step, cand, ctx)).then(function (r) {
@@ -328,7 +353,7 @@ function create(deps) {
     });
   }
 
-  return { execute: execute, settleSupervised: settleSupervised, executorEnv: executorEnv, executorRoot: executorRoot };
+  return { execute: execute, settleSupervised: settleSupervised, executorEnv: executorEnv, executorRoot: executorRoot, host: host };
 }
 
 module.exports = { create: create, readEnvFile: readEnvFile, CAPABILITY_BY_ACTION: CAPABILITY_BY_ACTION, POOL_BY_ACTION: POOL_BY_ACTION };

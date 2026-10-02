@@ -66,6 +66,7 @@
       "max_calls_per_goal": 4,
       "max_calls_per_day": 40
     },
+    "preferred": {},
     "static_fallback_model": "qwen-local"
   },
   "gateway": {
@@ -86,17 +87,31 @@
     "availability_ttl_seconds": 60
   },
   "haddad": {
-    "project": "mythos-haddad",
-    "work_provider": "haddad-agent",
-    "executor_unit": "mythos-haddad-worker.service",
     "direct_actions": ["investigate", "review"],
-    "executor_env_file": "~/.config/mythos-haddad/worker.env",
-    "supervisor_config": "projects/mythos-orchestrator/config/supervisor-haddad.json",
     "supervised_watch_interval_seconds": 30,
     "poll_interval_seconds": 5,
     "enqueue_timeout_seconds": 30,
     "work_max_retries": 1,
     "retry_backoff_seconds": 120,
-    "work_guidance": "Work steps run on the local Qwen 7B worker (8192-token context). Give each step ONE narrow job on small files: it refuses a task that names a file larger than about 3 KB (TASK_TOO_LARGE) and writes at most about 1.6 KB per file. A step usually needs 1 to 5 minutes."
+    "hosts": {
+      "haddad": {
+        "hostnames": ["haddad"],
+        "project": "mythos-haddad",
+        "executor_unit": "mythos-haddad-worker.service",
+        "executor_env_file": "~/.config/mythos-haddad/worker.env",
+        "executor_home": null,
+        "supervisor_config": "projects/mythos-orchestrator/config/supervisor-haddad.json",
+        "work_guidance": "Work steps run on the local Qwen 7B worker (8192-token context). Give each step ONE narrow job on small files: it refuses a task that names a file larger than about 3 KB (TASK_TOO_LARGE) and writes at most about 1.6 KB per file. A step usually needs 1 to 5 minutes."
+      },
+      "vps": {
+        "hostnames": [],
+        "project": "mythos-prod",
+        "executor_unit": "mythos-ai-executor.service",
+        "executor_env_file": "~/.config/mythos-ai-executor/executor.env",
+        "executor_home": "~/mythos-ai-executor",
+        "supervisor_config": "projects/mythos-orchestrator/config/supervisor.json",
+        "work_guidance": "Work steps run through Claude Code on the VPS executor, inside an isolated worktree of the repository. Give each step one coherent job with a checkable result. A step usually needs 2 to 15 minutes."
+      }
+    }
   }
 }

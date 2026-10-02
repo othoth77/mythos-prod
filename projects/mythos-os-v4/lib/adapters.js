@@ -210,6 +210,24 @@ function openaiResponses(opts) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// paid tier — Claude Code as the VPS executor's work provider.
+// Not an answer model: it only ever serves repository work, which the Haddad
+// layer hands to the executor daemon. Availability = the Claude CLI the
+// daemon's claude-code provider launches is installed on this host.
+function claudeCodeExecutor(opts) {
+  opts = opts || {};
+  return {
+    available: function () {
+      var present = opts.available ? opts.available() : claudeCli.available(opts.bin);
+      return present ? { ok: true, detail: 'claude CLI present for the executor' } : { ok: false, detail: 'claude CLI not found' };
+    },
+    call: function () {
+      return Promise.resolve(fail('fatal', 'NOT_AN_ANSWER_MODEL', 'claude-code-executor serves repository work through the executor daemon only'));
+    }
+  };
+}
+
 // The production set, keyed by the registry's `adapter` names.
 function defaults(opts) {
   opts = opts || {};
@@ -217,6 +235,7 @@ function defaults(opts) {
     'free-llm-pool': freeLlmPool(opts.freeLlm),
     'haddad-qwen': haddadQwen(opts.qwen),
     'claude-cli': claudeCliAdapter(opts.claude),
+    'claude-code-executor': claudeCodeExecutor(opts.claude),
     'openai-responses': openaiResponses(opts.openai)
   };
 }
@@ -226,6 +245,7 @@ module.exports = {
   freeLlmPool: freeLlmPool,
   haddadQwen: haddadQwen,
   claudeCliAdapter: claudeCliAdapter,
+  claudeCodeExecutor: claudeCodeExecutor,
   openaiResponses: openaiResponses,
   claudeModelId: claudeModelId,
   servedBy: servedBy,

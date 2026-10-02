@@ -17,6 +17,7 @@ var enginesLib = require('./engines');
 var executiveLib = require('./executive');
 var gatewayLib = require('./gateway');
 var haddadLib = require('./haddad');
+var hostLib = require('./host');
 var jevLib = require('./jev');
 var ledgerLib = require('./ledger');
 var policyLib = require('./policy');
@@ -35,11 +36,12 @@ function build(opts) {
   var ledger = opts.ledger || ledgerLib;
   var now = opts.now || Date.now;
   var adapters = opts.adapters || adaptersLib.defaults(opts.adapterOpts);
+  var host = hostLib.resolve(policy, opts.host);
 
   var jev = null;
   var jevError = null;
   try {
-    jev = jevLib.create({ policy: policy, adapters: adapters, ledger: ledger, now: now, registry: opts.registry, registryPath: opts.registryPath });
+    jev = jevLib.create({ policy: policy, adapters: adapters, ledger: ledger, now: now, registry: opts.registry, registryPath: opts.registryPath, host: host.name });
   } catch (e) {
     jevError = String(e && e.message);
   }
@@ -54,15 +56,19 @@ function build(opts) {
     openai: enginesLib.createOpenAI()
   };
   var watchdog = watchdogLib.create({ policy: policy, ledger: ledger, engines: engines, now: now });
-  var executive = executiveLib.create({ policy: policy, watchdog: watchdog, engines: engines, ledger: ledger, now: now });
+  var executive = executiveLib.create({ policy: policy, watchdog: watchdog, engines: engines, ledger: ledger, now: now, host: host });
   var haddad = haddadLib.create({
     policy: policy, jev: jev, gateway: gateway, ledger: ledger, now: now, sleep: opts.sleep, spawn: opts.spawn,
-    executorRoot: opts.executorRoot, executorEnvFile: opts.executorEnvFile
+    executorRoot: opts.executorRoot, executorEnvFile: opts.executorEnvFile, host: host
   });
-  var dots = dotsLib.create({ policy: policy, ledger: ledger, executive: executive, haddad: haddad, watchdog: watchdog, now: now });
+  var dots = dotsLib.create({
+    policy: policy, ledger: ledger, executive: executive, haddad: haddad, watchdog: watchdog, now: now,
+    // DOTS checks a goal's forced / preferred model against JEV's registry.
+    modelExists: function (name) { return jev ? jev.has(name) : false; }
+  });
 
   return {
-    policy: policy, ledger: ledger, store: store, adapters: adapters, engines: engines,
+    policy: policy, ledger: ledger, store: store, adapters: adapters, engines: engines, host: host,
     jev: jev, jevError: jevError, gateway: gateway, watchdog: watchdog, executive: executive, haddad: haddad, dots: dots
   };
 }

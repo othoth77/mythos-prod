@@ -5,14 +5,16 @@
 // projects/mythos-os-v4/bin/mythos-os
 //
 //   mythos-os goal submit --title T --objective O [--priority P] [--allow-write] [--by WHO]
+//                         [--force-model M | --prefer-model M]      (a registered model; JEV still filters)
 //   mythos-os goal run <goal-id>            run one goal to a terminal / waiting state
 //   mythos-os goal run-next                 run the highest-priority runnable goal
 //   mythos-os goal status <goal-id> | list | cancel <goal-id>
 //   mythos-os escalation list [--all]
 //   mythos-os escalation resolve <escalation-id> <approve_write|retry|cancel> [--by WHO]
 //   mythos-os jev status | reset
-//   mythos-os jev route --capability C [--pool P] [--kind answer|work] [--chars N]
-//   mythos-os ask --prompt TEXT [--capability C] [--pool P] [--timeout S]   one answer through JEV + gateway
+//   mythos-os jev route --capability C [--pool P] [--kind answer|work] [--chars N] [--force-model M] [--prefer-model M]
+//   mythos-os ask --prompt TEXT [--capability C] [--pool P] [--timeout S] [--force-model M] [--prefer-model M]
+//                                           one answer through JEV + gateway
 //   mythos-os watchdog status | tick | reset
 //   mythos-os ledger verify | show [--goal ID] [--type T] [--last N]
 //   mythos-os trace <goal-id>               every decision and result of one goal, in order
@@ -33,7 +35,7 @@ function fail(msg, code) { process.stderr.write(String(msg) + '\n'); return code
 
 function goalSummary(g) {
   return {
-    goal_id: g.goal_id, trace_id: g.trace_id, title: g.title, priority: g.priority, status: g.status, runs: g.runs, cycles: g.cycles,
+    goal_id: g.goal_id, trace_id: g.trace_id, title: g.title, priority: g.priority, status: g.status, runs: g.runs, cycles: g.cycles, model: g.model || null,
     steps_executed: g.steps_executed, write_approved: g.write_approved, last_engine: g.last_engine, escalation_id: g.escalation_id,
     history: (g.history || []).map(function (h) { return { cycle: h.cycle, step_id: h.step_id, kind: h.kind, action: h.action, ok: h.ok, reason: h.reason, model: h.model, tier: h.tier, transport: h.transport, fallback_used: h.fallback_used }; }),
     refusals: g.refusals, result: g.result, updated_at: g.updated_at
@@ -51,7 +53,7 @@ async function main() {
   if (area === 'goal') {
     if (cmd === 'submit') {
       try {
-        var g = dots.submitGoal({ title: flag(args, '--title'), objective: flag(args, '--objective'), priority: flag(args, '--priority'), requested_by: flag(args, '--by'), allow_write: has(args, '--allow-write') ? true : undefined });
+        var g = dots.submitGoal({ title: flag(args, '--title'), objective: flag(args, '--objective'), priority: flag(args, '--priority'), requested_by: flag(args, '--by'), allow_write: has(args, '--allow-write') ? true : undefined, force_model: flag(args, '--force-model'), prefer_model: flag(args, '--prefer-model') });
         print(goalSummary(g));
         return 0;
       } catch (e1) { return fail(e1.message, 2); }
@@ -83,7 +85,7 @@ async function main() {
     // quota waits now instead of waiting them out. Recorded, like any decision.
     if (cmd === 'reset') { system.jev.resetHealth(); system.ledger.append({ actor: 'owner', type: 'JEV_HEALTH_RESET', detail: {} }); await system.jev.refresh(); print(system.jev.status()); return 0; }
     if (cmd === 'route') {
-      var d = system.jev.route({ pool: flag(args, '--pool') || 'execution', capability: flag(args, '--capability'), kind: flag(args, '--kind') || 'answer', prompt_chars: parseInt(flag(args, '--chars') || '500', 10) });
+      var d = system.jev.route({ pool: flag(args, '--pool') || 'execution', capability: flag(args, '--capability'), kind: flag(args, '--kind') || 'answer', prompt_chars: parseInt(flag(args, '--chars') || '500', 10), forced_model: flag(args, '--force-model') || null, preferred_model: flag(args, '--prefer-model') || null });
       print(d);
       return d.ok ? 0 : 2;
     }
@@ -92,7 +94,7 @@ async function main() {
   if (area === 'ask') {
     var prompt = flag(args, '--prompt');
     if (!prompt) return fail('ask needs --prompt', 1);
-    var a = await system.gateway.complete({ pool: flag(args, '--pool') || 'execution', capability: flag(args, '--capability') || 'analysis', prompt: prompt, timeout_seconds: parseInt(flag(args, '--timeout') || '300', 10), step_id: 'ask' });
+    var a = await system.gateway.complete({ pool: flag(args, '--pool') || 'execution', capability: flag(args, '--capability') || 'analysis', prompt: prompt, timeout_seconds: parseInt(flag(args, '--timeout') || '300', 10), step_id: 'ask', forced_model: flag(args, '--force-model') || null, preferred_model: flag(args, '--prefer-model') || null });
     print(a);
     return a.ok ? 0 : 3;
   }

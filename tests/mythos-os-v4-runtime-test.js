@@ -61,6 +61,7 @@ function env(extra) {
     HOME: home,
     PATH: dirs.bin + ':' + path.dirname(process.execPath) + ':/usr/bin:/bin',
     MYTHOS_OS_HOME: dirs.osHome,
+    MYTHOS_OS_HOST: 'haddad',
     MYTHOS_EXECUTOR_HOME: dirs.executorHome,
     MYTHOS_FREE_LLM_KEY_DIR: dirs.freeKeys,
     MYTHOS_OS_EXECUTOR_ENV_FILE: workerEnv,
@@ -100,14 +101,16 @@ h.startServer(h.qwenBehaviour(qwenCtl)).then(function (s) {
   t.ok(policy.version === '4.0.0' && registry.version === '4.0.0', 'the shipped policy and model registry load and validate');
   var tiers = Object.keys(registry.models).map(function (n) { return registry.models[n].tier; });
   t.ok(['free', 'local', 'paid'].every(function (x) { return tiers.indexOf(x) !== -1; }), 'the shipped registry has a model in every tier: free, local, paid');
-  t.ok(Object.keys(registry.models).filter(function (n) { return registry.models[n].work_provider; }).join() === 'qwen-local', 'exactly one registered model can execute repository work: Qwen through haddad-agent');
+  t.eq(Object.keys(registry.models).filter(function (n) { return registry.models[n].work_provider; }).map(function (n) { return n + ':' + registry.models[n].work_provider + '@' + registry.models[n].work_hosts.join('+'); }),
+    ['qwen-local:haddad-agent@haddad', 'claude-code-executor:claude-code@vps'], 'two models can execute repository work, each bound to ONE host: Qwen (haddad-agent) on Haddad, Claude Code on the VPS');
+  t.ok(Object.keys(policy.haddad.hosts).sort().join() === 'haddad,vps' && policy.haddad.hosts.vps.project === 'mythos-prod' && policy.haddad.hosts.haddad.project === 'mythos-haddad', 'the policy carries a host profile for Haddad and for the VPS');
   var orchestratorRoles = require(path.join(h.BASE, 'projects', 'mythos-orchestrator', 'config', 'openai.json')).roles;
   t.ok(orchestratorRoles[policy.executive.openai_role] && orchestratorRoles[policy.watchdog.openai_review_role] && orchestratorRoles[registry.models['openai-advisor'].openai_role] && orchestratorRoles.smoke,
     'every OpenAI role v4 names exists in the orchestrator\'s config (one model list, not two)');
   var claudeCatalog = require(path.join(h.BASE, 'projects', 'mythos-ai-executor', 'config', 'model-policy.json')).catalog;
   t.ok(claudeCatalog[registry.models['claude-sonnet'].claude_policy_key].enabled === true && Object.keys(claudeCatalog).some(function (k) { return claudeCatalog[k].model === policy.executive.fable_model; }),
     'the paid Claude key and the FABLE model both resolve in the executor\'s model catalog');
-  t.ok(fs.existsSync(path.join(h.BASE, policy.haddad.supervisor_config)) && fs.existsSync(path.join(h.BASE, 'scripts', 'mythos-supervise.js')) && fs.existsSync(path.join(h.BASE, 'projects', 'mythos-ai-executor', 'bin', 'mythos-ai-executor')),
+  t.ok(Object.keys(policy.haddad.hosts).every(function (n) { return fs.existsSync(path.join(h.BASE, policy.haddad.hosts[n].supervisor_config)); }) && fs.existsSync(path.join(h.BASE, 'scripts', 'mythos-supervise.js')) && fs.existsSync(path.join(h.BASE, 'projects', 'mythos-ai-executor', 'bin', 'mythos-ai-executor')),
     'the Haddad supervisor config, the Supervisor CLI and the executor CLI that v4 calls all exist in this repository');
   var all = [fs.readFileSync(path.join(h.V4, 'config', 'dots-policy.json'), 'utf8'), fs.readFileSync(path.join(h.V4, 'config', 'jev-models.json'), 'utf8')].join('\n');
   t.ok(require(path.join(h.BASE, 'projects', 'mythos-orchestrator', 'lib', 'redact')).findSecretKinds(all).length === 0 && !/api[_-]?key"\s*:/i.test(all), 'the committed configuration carries no credential');
@@ -134,7 +137,7 @@ h.startServer(h.qwenBehaviour(qwenCtl)).then(function (s) {
   t.ok(check(rep, 'free_llm_tier').status === 'WARN' && check(rep, 'qwen_tier').status === 'PASS' && check(rep, 'paid_tier').status === 'PASS', 'tiers: free WARN (no key), Qwen PASS, paid PASS');
   t.ok(check(rep, 'model_no_spof').status === 'PASS' && /qwen-local\[local\] → claude-sonnet\[paid\]/.test(check(rep, 'jev').detail), 'JEV: the answer route is Qwen → paid Claude');
   t.ok(check(rep, 'jev_work_route').status === 'PASS' && /qwen-local via haddad-agent/.test(check(rep, 'jev_work_route').detail), 'JEV: the work route is Qwen through haddad-agent');
-  t.ok(check(rep, 'haddad_executor').status === 'PASS', 'Haddad executor: unit active, store and CLI present');
+  t.ok(check(rep, 'haddad_executor').status === 'PASS' && check(rep, 'host_profile').status === 'PASS' && /host profile "haddad" \(explicit\), project mythos-haddad/.test(check(rep, 'host_profile').detail), 'Haddad executor: host profile resolved, unit active, store and CLI present');
   t.ok(claude.calls().length === 0 && qwen.calls.every(function (c) { return c.url === '/health'; }), 'the default health run costs nothing: no model was called, only the runtime\'s /health');
   return cli(['health']);
 }).then(function (r) {
@@ -156,6 +159,20 @@ h.startServer(h.qwenBehaviour(qwenCtl)).then(function (s) {
   return cli(['health', '--json'], { PATH: path.dirname(process.execPath) + ':/usr/bin:/bin:' + path.join(dirs.root, 'nowhere'), MYTHOS_CLAUDE_BIN: path.join(dirs.root, 'no-claude') });
 }).then(function (r) {
   t.ok(check(r.json, 'fable_executive').status === 'FAIL' && check(r.json, 'executive_no_spof').status === 'FAIL', 'no Claude CLI: FABLE FAIL, and with OpenAI also absent the executive has one path left → executive_no_spof FAIL');
+
+  return cli(['health', '--json'], { MYTHOS_OS_HOST: 'nowhere' });
+}).then(function (r) {
+  t.ok(r.code === 4 && check(r.json, 'host_profile').status === 'FAIL' && /no host profile named "nowhere"/.test(check(r.json, 'host_profile').detail) && check(r.json, 'jev_work_route').status === 'FAIL',
+    'a machine with no host profile: host_profile FAIL and no work route (exit 4) — while the answer route still passes: ' + check(r.json, 'jev').status);
+  return cli(['jev', 'route', '--capability', 'analysis', '--force-model', 'claude-sonnet']);
+}).then(function (r) {
+  t.ok(r.code === 0 && r.json.candidates.length === 1 && r.json.candidates[0].model === 'claude-sonnet' && r.json.request.forced_model === 'claude-sonnet', 'jev route --force-model: that model only');
+  return cli(['jev', 'route', '--capability', 'analysis', '--force-model', 'not-a-model']);
+}).then(function (r) {
+  t.ok(r.code === 2 && r.json.reason === 'BAD_REQUEST', 'jev route --force-model with an unregistered name: refused (exit 2)');
+  return cli(['goal', 'submit', '--title', 'x', '--objective', 'y', '--force-model', 'not-a-model']);
+}).then(function (r) {
+  t.ok(r.code === 2 && /MODEL_NOT_ALLOWED/.test(r.err), 'goal submit --force-model with an unregistered name: refused (exit 2)');
 
   section('E — end to end through the CLI');
   var plan = d('execute', { steps: [h.step('s1', 'answer', 'analyze', 'Explain how the cache works.')] });

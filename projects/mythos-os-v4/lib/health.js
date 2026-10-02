@@ -80,7 +80,9 @@ function run(system, opts) {
       var byTier = { free: [], local: [], paid: [] };
       Object.keys(st.models).forEach(function (name) {
         var m = st.models[name];
-        if (m.enabled) byTier[m.tier].push({ name: name, available: m.available, state: m.effective_state, selectable: m.selectable, waiting: m.quota_until, detail: m.availability_detail });
+        // Tier health is about ANSWER models; a work-only executor entry
+        // (repo_work, bound to one host) is covered by the work route below.
+        if (m.enabled && !m.work_only) byTier[m.tier].push({ name: name, available: m.available, state: m.effective_state, selectable: m.selectable, waiting: m.quota_until, detail: m.availability_detail });
       });
       // "Usable" is exactly what JEV would select now: a model cooling down or
       // waiting for quota is not, one whose cooldown has passed (half-open) is.
@@ -112,14 +114,21 @@ function run(system, opts) {
 
   // 4. HADDAD: the executor that runs repository work
   live = live.then(function () {
+    var host = system.host;
+    if (!host.profile) {
+      add('host_profile', 'FAIL', 'this machine has no host profile, so repository work cannot run: ' + host.reason);
+      add('haddad_executor', 'FAIL', 'no host profile');
+      return;
+    }
+    add('host_profile', 'PASS', 'host profile "' + host.name + '" (' + host.source + '), project ' + host.profile.project);
     var env = system.haddad.executorEnv();
     var root = system.haddad.executorRoot;
     var bin = path.join(root, 'projects', 'mythos-ai-executor', 'bin', 'mythos-ai-executor');
     var problems = [];
-    if (!env || !env.MYTHOS_EXECUTOR_HOME) problems.push('no executor env file (' + policy.haddad.executor_env_file + ')');
+    if (!env || !env.MYTHOS_EXECUTOR_HOME) problems.push('no executor env file (' + host.profile.executor_env_file + ')');
     else if (!fs.existsSync(env.MYTHOS_EXECUTOR_HOME)) problems.push('executor store missing');
     if (!fs.existsSync(bin)) problems.push('executor CLI missing under ' + root);
-    var unit = policy.haddad.executor_unit;
+    var unit = host.profile.executor_unit;
     var active = opts.unitActive ? opts.unitActive(unit) : (function () {
       var r = cp.spawnSync('systemctl', ['--user', 'is-active', unit], { encoding: 'utf8', timeout: 10000 });
       if (r.error) return null;

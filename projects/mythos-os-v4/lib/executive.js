@@ -31,8 +31,11 @@ var DIRECTIVE_SCHEMA = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'sc
 // Codes a second attempt on the SAME engine cannot fix.
 var NO_RETRY = ['UNAVAILABLE', 'QUOTA', 'BLOCKED', 'IDENTITY_MISMATCH', 'MISCONFIGURED'];
 
-function systemPrompt(policy) {
+function systemPrompt(policy, host) {
   var p = policy.plan;
+  // What this host's executor can take, in the owner's words (host profile).
+  var guidance = host && host.profile ? host.profile.work_guidance
+    : 'This host has no executor profile: do not plan work steps here, only answer steps.';
   return [
     'You are the executive manager of MYTHOS OS. DOTS, the general manager, gives you ONE goal; you decide how it is executed.',
     'You have no tools and you execute nothing yourself. You answer with exactly one JSON directive:',
@@ -40,7 +43,7 @@ function systemPrompt(policy) {
     '  kind "answer" = a model answers a question, with no file or repository access. Actions: ' + p.answer_actions.join(', ') + '.',
     '  kind "work" = the Haddad executor works inside the repository checkout. Actions: ' + p.work_actions.join(', ') + '.',
     '  Of those, ' + p.write_actions.join(' and ') + ' change files and are allowed only when goal.write_approved is true.',
-    '  ' + policy.haddad.work_guidance + ' A work step gets at least ' + p.min_work_timeout_seconds + ' seconds.',
+    '  ' + guidance + ' A work step gets at least ' + p.min_work_timeout_seconds + ' seconds.',
     '  timeout_seconds between ' + p.min_step_timeout_seconds + ' and ' + p.max_step_timeout_seconds + '; instruction at most ' + p.max_instruction_chars + ' characters; step ids unique (s1, s2, ...).',
     '- decision "complete": only when the results in history already satisfy the objective. final_answer is the answer for the owner, written from those results. steps must be [].',
     '- decision "escalate": the goal cannot be met within your authority or limits. escalation_reason says what a person must decide. steps must be [].',
@@ -81,7 +84,7 @@ function create(deps) {
       if (remaining <= 1000) return Promise.resolve({ ok: false, error: { code: 'DEADLINE', detail: null } });
       var timeoutMs = Math.min(ex.timeout_seconds * 1000, remaining);
       return engine.call({
-        system: systemPrompt(policy), input: buildInput(goalView, state), schema: DIRECTIVE_SCHEMA,
+        system: systemPrompt(policy, deps.host), input: buildInput(goalView, state), schema: DIRECTIVE_SCHEMA,
         role: roleFor(engineId), timeoutMs: timeoutMs
       }).then(function (out) {
         if (out.ok) {

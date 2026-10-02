@@ -96,6 +96,24 @@ Promise.resolve().then(function () {
   refused(function (p) { p.executive.direct_actions = ['implement']; }, /last resort never writes/, 'the deterministic last resort can never be given a write action');
   refused(function (p) { p.executive.fable_model = 'gpt-x'; }, /fable_model/, 'the executive model must be a fable model');
   refused(function (p) { p.plan.forbidden_terms = []; }, /forbidden_terms/, 'an empty forbidden-operations list is refused');
+  refused(function (p) { p.haddad.hosts = {}; }, /at least one host profile/, 'a policy with no host profile is refused');
+  refused(function (p) { p.haddad.hosts.vps.hostnames = ['haddad']; }, /already claimed by profile haddad/, 'one hostname cannot be claimed by two host profiles');
+  refused(function (p) { p.haddad.hosts.vps.supervisor_config = '/etc/passwd'; }, /repository-relative path/, 'a host profile cannot point the Supervisor config outside the repository');
+  refused(function (p) { delete p.haddad.hosts.haddad.project; }, /hosts\.haddad\.project/, 'a host profile without a project is refused');
+  refused(function (p) { p.models.preferred = ['qwen-local']; }, /models\.preferred/, 'models.preferred must map a capability to a model');
+  var hostLib = require(path.join(h.V4, 'lib', 'host'));
+  t.eq(hostLib.resolve(shipped, 'vps').name, 'vps', 'an explicit host name selects that profile');
+  t.ok(hostLib.resolve(shipped, 'mars').profile === null && /no host profile named/.test(hostLib.resolve(shipped, 'mars').reason), 'an explicit host that has no profile resolves to none (never to a default)');
+  var prevHost = process.env.MYTHOS_OS_HOST;
+  delete process.env.MYTHOS_OS_HOST;
+  var twoHosts = h.policy(); twoHosts.haddad.hosts.haddad.hostnames = [require('os').hostname()]; twoHosts.haddad.hosts.vps.hostnames = [];
+  t.eq(hostLib.resolve(twoHosts).name, 'haddad', 'with no explicit name the machine\'s hostname selects the profile that lists it');
+  twoHosts.haddad.hosts.haddad.hostnames = ['some-other-machine'];
+  t.ok(hostLib.resolve(twoHosts).profile === null && /matches no host profile/.test(hostLib.resolve(twoHosts).reason), 'a hostname no profile lists resolves to none');
+  if (prevHost !== undefined) process.env.MYTHOS_OS_HOST = prevHost;
+  var envFixture = path.join(dirs.root, 'daemon.env');
+  fs.writeFileSync(envFixture, '# comment\nMYTHOS_EXECUTOR_HOME=/srv/x\nMYTHOS_EXECUTOR_TOKEN=tok-value\nMYTHOS_ADVISORY_API_KEY=key-value\nDB_PASSWORD=pw\nMYTHOS_MAX_PARALLEL="2"\n');
+  t.eq(require(path.join(h.V4, 'lib', 'haddad')).readEnvFile(envFixture), { MYTHOS_EXECUTOR_HOME: '/srv/x', MYTHOS_MAX_PARALLEL: '2' }, 'an executor env file is read WITHOUT its secret-named entries (token, API key, password)');
   var badPath = '';
   try { policyLib.load({ path: path.join(dirs.root, 'nope.json') }); } catch (e) { badPath = e.message; }
   t.ok(/^POLICY_INVALID: cannot read/.test(badPath), 'an unreadable policy file stops the load');

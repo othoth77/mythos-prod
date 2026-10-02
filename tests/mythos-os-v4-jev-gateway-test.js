@@ -11,6 +11,10 @@
 //   J  JEV: free → local → paid; hard pool restriction; capability, size
 //      and authority filters; every rejection has a reason; a decision
 //      layer only (it exposes nothing that executes)
+//   O  Free → Qwen → Claude → OpenAI is the registry's order; a FORCED model
+//      is that model or nothing; a PREFERRED model leads when selectable;
+//      execution authority is bound to a host (Qwen on Haddad, Claude Code on
+//      the VPS, nothing on an unknown host)
 //   F  Free → Qwen → Paid fallback, tier by tier, with the cause recorded
 //   H  provider failure handling: quota is a wait, not a failure; repeated
 //      failures open a cooldown; the cooldown ends in a probe; success
@@ -65,6 +69,8 @@ var openaiCtl = { reply: null, calls: 0 };
 
 var servers = {};
 var sys = {};
+var freeCallsAtForce = 0;
+var qwenChatBefore = 0;
 
 function build(policyOverrides, opts) {
   opts = opts || {};
@@ -84,12 +90,13 @@ function build(policyOverrides, opts) {
     'free-llm-pool': adaptersLib.freeLlmPool(free),
     'haddad-qwen': adaptersLib.haddadQwen({ baseUrl: servers.qwen.url + '/v1', apiKey: 'fixture-runtime-key', probeTimeoutMs: 800 }),
     'claude-cli': adaptersLib.claudeCliAdapter({ bin: claude.bin }),
-    'openai-responses': adaptersLib.openaiResponses({ engine: openaiEngine })
+    'openai-responses': adaptersLib.openaiResponses({ engine: openaiEngine }),
+    'claude-code-executor': adaptersLib.claudeCodeExecutor({ bin: claude.bin })
   };
   var policy = h.policy(Object.assign({ gateway: { attempt_timeout_seconds: 2, retry_base_ms: 20, retry_max_ms: 40 }, jev: { availability_ttl_seconds: 1 } }, policyOverrides || {}));
   if (policyOverrides && policyOverrides.gateway) policy.gateway = Object.assign({}, h.policy().gateway, { attempt_timeout_seconds: 2, retry_base_ms: 20, retry_max_ms: 40 }, policyOverrides.gateway);
   if (policyOverrides && policyOverrides.jev) policy.jev = Object.assign({}, h.policy().jev, { availability_ttl_seconds: 1 }, policyOverrides.jev);
-  var jev = jevLib.create({ policy: policy, adapters: adapters, ledger: ledger, now: now, registry: opts.registry });
+  var jev = jevLib.create({ policy: policy, adapters: adapters, ledger: ledger, now: now, registry: opts.registry, host: opts.host === undefined ? 'haddad' : opts.host });
   jev.resetHealth();
   try { fs.unlinkSync(path.join(dirs.osHome, 'jev', 'spend.json')); } catch (e) { /* none */ }
   try { fs.unlinkSync(free.healthPath); } catch (e) { /* none */ }
@@ -124,7 +131,7 @@ Promise.all([h.startServer(freeBehaviour('alpha')), h.startServer(freeBehaviour(
   t.ok(d.ok && d.confidence === 'high' && /^jev-/.test(d.decision_id), 'a decision carries an id and its confidence');
   t.ok(ledger.query({ type: 'ROUTE_DECISION' }).some(function (r) { return r.detail.decision_id === d.decision_id; }), 'every decision is written to the ledger');
 
-  t.ok(Object.keys(sys.jev).every(function (k) { return ['route', 'report', 'refresh', 'status', 'model', 'chargePaid', 'paidGate', 'resetHealth', 'registry'].indexOf(k) !== -1; }),
+  t.ok(Object.keys(sys.jev).every(function (k) { return ['route', 'report', 'refresh', 'has', 'host', 'status', 'model', 'chargePaid', 'paidGate', 'resetHealth', 'registry'].indexOf(k) !== -1; }),
     'JEV exposes decisions and bookkeeping only — nothing that calls a model or runs a command');
 
   var bad = sys.jev.route({ pool: 'secret-pool', capability: 'analysis', kind: 'answer', prompt_chars: 1 });
@@ -175,13 +182,95 @@ Promise.all([h.startServer(freeBehaviour('alpha')), h.startServer(freeBehaviour(
   try { jevLib.loadRegistry({ registry: regAuth }); } catch (e2) { threw = e2.message; }
   t.ok(/work_provider requires execution_authority/.test(threw), 'a registry cannot give an advisory model a work provider');
 
+  section('O — order inside the paid tier, forced and preferred models, hosts');
+  // Paid: Claude, then OpenAI — because the registry says so, not because of their names.
+  var regOrder = h.registry();
+  regOrder.models['claude-sonnet'].order = 2;
+  regOrder.models['openai-advisor'].order = 1;
+  var so = build(null, { registry: regOrder });
+  t.eq(so.jev.route({ pool: 'execution', capability: 'analysis', kind: 'answer', prompt_chars: 10 }).candidates.map(function (c) { return c.model; }),
+    ['free-llm-pool', 'qwen-local', 'openai-advisor', 'claude-sonnet'], 'the order INSIDE the paid tier is the registry\'s `order` (swapping it swaps the route)');
+  t.eq(sys.jev.route({ pool: 'execution', capability: 'analysis', kind: 'answer', prompt_chars: 10 }).candidates.map(function (c) { return c.model; }),
+    ['free-llm-pool', 'qwen-local', 'claude-sonnet', 'openai-advisor'], 'shipped order: Free → Qwen → Claude → OpenAI');
+
+  // FORCED: that model or nothing.
+  var f1 = sys.jev.route({ pool: 'execution', capability: 'analysis', kind: 'answer', prompt_chars: 10, forced_model: 'qwen-local' });
+  t.ok(f1.ok && f1.candidates.length === 1 && f1.candidates[0].model === 'qwen-local' && f1.confidence === 'low' && f1.request.forced_model === 'qwen-local' &&
+    f1.rejected.length === 4 && f1.rejected.filter(function (r) { return r.model !== 'claude-code-executor'; }).every(function (r) { return r.reason === 'NOT_FORCED'; }),
+  'a forced model is the ONLY candidate; every other model that could have served is rejected NOT_FORCED');
+  var f2 = sys.jev.route({ pool: 'execution', capability: 'analysis', kind: 'answer', prompt_chars: 10, forced_model: 'gpt-secret-9' });
+  t.ok(!f2.ok && f2.reason === 'BAD_REQUEST' && f2.candidates.length === 0 && /not a registered model/.test(f2.problems.join(' ')), 'forcing a model that is not registered is refused — never mapped to another model');
+  var f3 = sys.jev.route({ pool: 'execution', capability: 'coding', kind: 'answer', prompt_chars: 10, forced_model: 'free-llm-pool' });
+  t.ok(!f3.ok && f3.reason === 'FORCED_MODEL_UNAVAILABLE' && f3.rejected.some(function (r) { return r.model === 'free-llm-pool' && r.reason === 'CAPABILITY_MISSING'; }),
+    'forcing does not authorise: a forced model lacking the capability gives FORCED_MODEL_UNAVAILABLE, with the reason');
+  var f4 = sys.jev.route({ pool: 'execution', capability: 'analysis', kind: 'answer', prompt_chars: 20000, forced_model: 'qwen-local' });
+  t.ok(!f4.ok && f4.reason === 'FORCED_MODEL_UNAVAILABLE' && f4.candidates.length === 0, 'a forced model that cannot hold the prompt is not replaced by one that can');
+  var sOff = build({ models: { tier_order: ['free', 'local', 'paid'], paid: { allowed: false, max_calls_per_goal: 4, max_calls_per_day: 40 }, preferred: {}, static_fallback_model: 'qwen-local' } });
+  var f5 = sOff.jev.route({ pool: 'execution', capability: 'analysis', kind: 'answer', prompt_chars: 10, forced_model: 'claude-sonnet' });
+  t.ok(!f5.ok && f5.rejected.some(function (r) { return r.model === 'claude-sonnet' && r.reason === 'PAID_NOT_PERMITTED'; }), 'forcing a paid model does not get past DOTS\'s paid switch');
+
+  // PREFERRED: leads when selectable, otherwise the normal order.
+  var p1 = sys.jev.route({ pool: 'execution', capability: 'analysis', kind: 'answer', prompt_chars: 10, preferred_model: 'claude-sonnet' });
+  t.eq(p1.candidates.map(function (c) { return c.model; }), ['claude-sonnet', 'free-llm-pool', 'qwen-local', 'openai-advisor'], 'a preferred model leads the route; the rest keep the tier order behind it');
+  t.ok(p1.candidates[0].preferred === true && p1.preferred_unavailable === null && p1.request.preferred_model === 'claude-sonnet', 'the decision records the preference');
+  var p2 = sys.jev.route({ pool: 'execution', capability: 'analysis', kind: 'answer', prompt_chars: 20000, preferred_model: 'qwen-local' });
+  t.ok(p2.ok && p2.candidates[0].model === 'free-llm-pool' && p2.preferred_unavailable === 'PROMPT_TOO_LARGE', 'a preferred model that is not selectable does not block the route — and the decision says why it does not lead');
+  var p3 = sys.jev.route({ pool: 'execution', capability: 'analysis', kind: 'answer', prompt_chars: 10, preferred_model: 'nope' });
+  t.ok(!p3.ok && p3.reason === 'BAD_REQUEST', 'a preferred model that is not registered is refused');
+  var sPref = build({ models: { tier_order: ['free', 'local', 'paid'], paid: { allowed: true, max_calls_per_goal: 4, max_calls_per_day: 40 }, preferred: { review: 'qwen-local' }, static_fallback_model: 'qwen-local' } });
+  t.eq(sPref.jev.route({ pool: 'assessment', capability: 'review', kind: 'answer', prompt_chars: 10 }).candidates[0].model, 'qwen-local', 'policy models.preferred: the owner\'s standing preference for a capability leads');
+  t.eq(sPref.jev.route({ pool: 'execution', capability: 'analysis', kind: 'answer', prompt_chars: 10 }).candidates[0].model, 'free-llm-pool', 'and it applies to that capability only');
+  t.eq(sPref.jev.route({ pool: 'assessment', capability: 'review', kind: 'answer', prompt_chars: 10, preferred_model: 'claude-sonnet' }).candidates[0].model, 'claude-sonnet', 'a preference stated on the request outranks the standing one');
+  var badPref = '';
+  try { build({ models: { tier_order: ['free', 'local', 'paid'], paid: { allowed: true, max_calls_per_goal: 4, max_calls_per_day: 40 }, preferred: { review: 'ghost-model' }, static_fallback_model: 'qwen-local' } }); } catch (e3) { badPref = e3.message; }
+  t.ok(/^JEV_REGISTRY_INVALID: models\.preferred\.review/.test(badPref), 'a standing preference for a model that is not registered stops JEV');
+
+  // HOSTS: execution authority is bound to a machine.
+  var onVps = build(null, { host: 'vps' });
+  var wv = onVps.jev.route({ pool: 'execution', capability: 'repo_work', kind: 'work', prompt_chars: 10 });
+  t.ok(wv.ok && wv.candidates.length === 1 && wv.candidates[0].model === 'claude-code-executor' && wv.candidates[0].work_provider === 'claude-code' && wv.request.host === 'vps' &&
+    wv.rejected.some(function (r) { return r.model === 'qwen-local' && r.reason === 'NOT_ON_THIS_HOST'; }), 'on the VPS repository work routes to Claude Code (claude-code provider); Qwen is NOT_ON_THIS_HOST');
+  var wh = sys.jev.route({ pool: 'execution', capability: 'repo_work', kind: 'work', prompt_chars: 10 });
+  t.ok(wh.candidates[0].model === 'qwen-local' && wh.rejected.some(function (r) { return r.model === 'claude-code-executor' && r.reason === 'NOT_ON_THIS_HOST'; }), 'on Haddad it routes to Qwen; the VPS executor is NOT_ON_THIS_HOST');
+  var nowhere = build(null, { host: null });
+  var wn = nowhere.jev.route({ pool: 'execution', capability: 'repo_work', kind: 'work', prompt_chars: 10 });
+  t.ok(!wn.ok && wn.rejected.filter(function (r) { return r.reason === 'HOST_UNKNOWN'; }).length === 2, 'on a host no profile names, NO model may execute repository work (HOST_UNKNOWN)');
+  t.ok(nowhere.jev.route({ pool: 'execution', capability: 'analysis', kind: 'answer', prompt_chars: 10 }).ok, 'while answers still route there');
+  t.ok(onVps.jev.route({ pool: 'execution', capability: 'analysis', kind: 'answer', prompt_chars: 10 }).candidates.every(function (c) { return c.model !== 'claude-code-executor'; }), 'the VPS executor entry is never an ANSWER candidate');
+  var regHosts = h.registry();
+  delete regHosts.models['qwen-local'].work_hosts;
+  var noHosts = '';
+  try { jevLib.loadRegistry({ registry: regHosts }); } catch (e4) { noHosts = e4.message; }
+  t.ok(/must name the hosts it runs on/.test(noHosts), 'a work provider with no work_hosts does not load');
+  return adaptersLib.claudeCodeExecutor({ bin: claude.bin }).call({}, { prompt: 'x' });
+}).then(function (notAnswer) {
+  t.ok(notAnswer.ok === false && notAnswer.error.code === 'NOT_AN_ANSWER_MODEL', 'the VPS executor adapter refuses to answer a prompt (it is work-only)');
+
+  // The gateway honours a forced model: no fallback behind it.
+  reset(); sys = build({ gateway: { max_retries_per_model: 0 } });
+  qwenCtl.status = 500;
+  freeCallsAtForce = servers.alpha.calls.length + servers.beta.calls.length;
+  return ask(sys, { forced_model: 'qwen-local' });
+}).then(function (r) {
+  t.ok(!r.ok && r.reason === 'ALL_MODELS_FAILED' && r.attempts.length === 1 && r.attempts[0].model === 'qwen-local' && claude.calls().length === 0 && servers.alpha.calls.length + servers.beta.calls.length === freeCallsAtForce,
+    'FORCED through the gateway: when the forced model fails the task fails — healthy free and paid models are NOT used instead');
+  reset(); sys = build();
+  return ask(sys, { preferred_model: 'qwen-local' });
+}).then(function (r) {
+  t.ok(r.ok && r.model === 'qwen-local' && r.fallback_used === false, 'PREFERRED through the gateway: Qwen answers although the free tier is healthy');
+  qwenCtl.status = 500;
+  return ask(sys, { preferred_model: 'qwen-local' });
+}).then(function (r) {
+  t.ok(r.ok && r.tier === 'free' && r.fallback_used === true && r.attempts[0].model === 'qwen-local', 'a preferred model that fails still falls back to the normal order');
+
   section('F — Free → Qwen → Paid');
   reset(); sys = build();
+  qwenChatBefore = servers.qwen.calls.filter(function (c) { return c.url === '/v1/chat/completions'; }).length;
   return ask(sys);
 }).then(function (r) {
   t.ok(r.ok && r.tier === 'free' && r.model === 'free-llm-pool' && r.fallback_used === false && /^(alpha|beta)\//.test(r.served_by), 'healthy system: a FREE provider serves, no fallback');
   t.ok(servers.alpha.calls.concat(servers.beta.calls).some(function (c) { return c.auth === 'Bearer fixture-alpha' || c.auth === 'Bearer fixture-beta'; }), 'the free call really went over HTTP with that provider\'s own key');
-  t.ok(servers.qwen.calls.filter(function (c) { return c.url === '/v1/chat/completions'; }).length === 0 && claude.calls().length === 0, 'neither Qwen nor a paid model was called');
+  t.ok(servers.qwen.calls.filter(function (c) { return c.url === '/v1/chat/completions'; }).length === qwenChatBefore && claude.calls().length === 0, 'neither Qwen nor a paid model was called');
 
   reset(); sys = build();
   freeCtl.alpha.mode = 'down';
@@ -413,7 +502,7 @@ Promise.all([h.startServer(freeBehaviour('alpha')), h.startServer(freeBehaviour(
   var broken = h.registry();
   delete broken.models['qwen-local'].tier;
   var system = index.build({
-    policy: h.policy({ gateway: { attempt_timeout_seconds: 2, max_retries_per_model: 0 } }), registry: broken, now: now,
+    policy: h.policy({ gateway: { attempt_timeout_seconds: 2, max_retries_per_model: 0 } }), registry: broken, now: now, host: 'haddad',
     adapters: { 'haddad-qwen': adaptersLib.haddadQwen({ baseUrl: servers.qwen.url + '/v1', apiKey: 'fixture-runtime-key' }) },
     engines: { fable: h.scriptedEngine('fable', [{ fail: 'CLI_ERROR' }]), openai: h.scriptedEngine('openai', [{ fail: 'CLI_ERROR' }]) }
   });
@@ -421,6 +510,9 @@ Promise.all([h.startServer(freeBehaviour('alpha')), h.startServer(freeBehaviour(
   return system.gateway.complete({ pool: 'execution', capability: 'analysis', prompt: 'ping', timeout_seconds: 20 }).then(function (r) {
     t.ok(r.ok && r.model === 'qwen-local' && r.text === 'qwen says hello', 'JEV down: the gateway still answers through the policy\'s static fallback (Qwen)');
     t.ok(ledger.query({ type: 'JEV_UNAVAILABLE_STATIC_FALLBACK' }).length === 1, 'the static fallback is recorded as such — never mistaken for a JEV decision');
+    return system.gateway.complete({ pool: 'execution', capability: 'analysis', prompt: 'ping', timeout_seconds: 20, forced_model: 'claude-sonnet' });
+  }).then(function (forcedDown) {
+    t.ok(!forcedDown.ok && forcedDown.reason === 'FORCED_MODEL_UNAVAILABLE' && forcedDown.attempts.length === 0, 'JEV down and a model is FORCED: the static fallback is NOT offered in its place');
     return system.haddad.execute({ id: 'w1', kind: 'work', action: 'investigate', instruction: 'look', acceptance: [], timeout_seconds: 60 }, { goal_id: 'g', trace_id: 't' });
   }).then(function (w) {
     t.ok(!w.ok && w.reason === 'NO_EXECUTION_MODEL', 'JEV down: repository work fails closed (no static fallback grants execution authority)');
